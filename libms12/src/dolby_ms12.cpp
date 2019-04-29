@@ -384,3 +384,15 @@ extern "C" int dolby_ms12_get_input_atmos_info()
         return -1;
     }
 }
+
+
+extern "C" unsigned long long dolby_ms12_get_n_bytes_pcmout_of_udc()
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12GetNBytesPcmOutOfUDC();
+    } else {
+        return -1;
+    }
+}

@@ -633,7 +633,7 @@ struct aml_stream_out {
     int dropped_size;
     unsigned long long mute_bytes;
     bool is_get_mute_bytes;
-    size_t frame_deficiency;
+    int frame_deficiency;
     bool normal_pcm_mixing_config;
     uint32_t latency_frames;
     enum MIXER_INPUT_PORT port_index;
@@ -654,6 +654,9 @@ struct aml_stream_out {
     aml_audio_resample_t *resample_handle;
     int need_drop_size;
     bool bypass_submix;
+    int ddp_frame_nblks;
+    uint64_t total_ddp_frame_nblks;
+    int framevalid_flag;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

@@ -546,6 +546,13 @@ write:
         aml_audio_dump_audio_bitstreams("/data/audio/pcm_write.raw",
             buffer, bytes);
     }
+    {
+        struct snd_pcm_status status;
+        pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+        if (status.state == PCM_STATE_XRUN) {
+            ALOGD("alsa underrun");
+        }
+    }
     if (SUPPORT_EARC_OUT_HW && adev->bHDMIConnected && aml_out->earc_pcm && adev->bHDMIARCon) {
         ret = pcm_write(aml_out->earc_pcm, buffer, bytes);
         if (ret < 0) {

@@ -2046,7 +2046,7 @@ static int out_flush_new (struct audio_stream_out *stream)
         //normal pcm(mixer thread) do not flush dolby ms12 input buffer
         if (continous_mode(adev) && (out->flags & AUDIO_OUTPUT_FLAG_DIRECT)) {
             pthread_mutex_lock(&ms12->lock);
-            dolby_ms12_flush_main_input_buffer();
+            dolby_ms12_main_flush(stream);
             pthread_mutex_unlock(&ms12->lock);
             out->continuous_audio_offset = 0;
         }
@@ -6825,7 +6825,7 @@ int do_output_standby_l(struct audio_stream *stream)
                     if (adev->ms12_main1_dolby_dummy == false
                         && !audio_is_linear_pcm(aml_out->hal_internal_format)) {
                         dolby_ms12_set_main_dummy(0, true);
-                        dolby_ms12_flush_main_input_buffer();
+                        dolby_ms12_main_flush((void *)stream);
                         dolby_ms12_set_pause_flag(false);
                         //int iMS12DB = 0;//restore to full volume
                         //set_dolby_ms12_primary_input_db_gain(&(adev->ms12), iMS12DB , 10);
@@ -6839,10 +6839,10 @@ int do_output_standby_l(struct audio_stream *stream)
                                && (aml_out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)) {
 #if 0
                         dolby_ms12_set_ott_sound_input_enable(true);
-                        dolby_ms12_flush_main_input_buffer();
+                        dolby_ms12_main_flush(stream);
                         adev->ms12_ott_enable = true;
 #else
-                        dolby_ms12_flush_main_input_buffer();
+                        dolby_ms12_main_flush((void *)stream);
                         dolby_ms12_set_pause_flag(false);
                         aml_ms12_update_runtime_params(&(adev->ms12));
                         adev->ms12.is_continuous_paused = false;
@@ -7903,15 +7903,13 @@ ssize_t hw_write (struct audio_stream_out *stream
     } else {
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             if (!audio_is_linear_pcm(aml_out->hal_internal_format)) {
-                //unsigned long long output_size = 0;
-                //dolby_ms12_get_pcm_output_size(&output_size,NULL);
-                //total_frame = total_frame/aml_out->ddp_frame_size*32*48;
-                //total_frame = output_size/4;
-                total_frame = dolby_ms12_get_consumed_payload() + aml_out->continuous_audio_offset;
-                total_frame = total_frame / aml_out->ddp_frame_size * 32 * 48;
+                /*use the pcm which is gennerated by udc, to get the total frame by nbytes/nbtyes_per_sample
+                 *Please be careful about the aml_out->continuous_audio_offset;*/
+                total_frame = dolby_ms12_get_n_bytes_pcmout_of_udc() / adev->ms12.nbytes_of_dmx_output_pcm_frame;
+                write_frames =  aml_out->total_ddp_frame_nblks * 256;/*256samples in one block*/
                 if (adev->debug_flag) {
-                    ALOGI("%s,ms12 dolby offset %llu,time %"PRIu64" ms", __func__,
-                          dolby_ms12_get_consumed_payload(), total_frame / 48);
+                    ALOGI("%s,total_frame %llu write_frames %"PRIu64" total frame block nums %"PRIu64"",
+                        __func__, total_frame, write_frames, aml_out->total_ddp_frame_nblks);
                 }
             }
             /*case 3*/
@@ -9539,7 +9537,9 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     write_func  write_func_p = NULL;
     size_t frame_size = audio_stream_out_frame_size(stream);
     size_t in_frames = bytes / frame_size;
-    ALOGV("%s: out_stream(%p) position(%zu)", __func__, stream, bytes);
+    if (adev->debug_flag > 1) {
+        ALOGI("+<IN>%s: out_stream(%p) position(%zu)", __func__, stream, bytes);
+    }
 
     /**
      * deal with the device output changes
@@ -9580,8 +9580,9 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         aml_out->total_write_size += ret;
     }
     if (adev->debug_flag > 1) {
-        ALOGI("-%s() ret %zd,%p %"PRIu64"\n", __func__, ret, stream, aml_out->total_write_size);
+        ALOGI("-<OUT>%s() ret %zd,%p %"PRIu64"\n", __func__, ret, stream, aml_out->total_write_size);
     }
+
     return ret;
 }
 

@@ -244,6 +244,10 @@ int DolbyMS12::GetLibHandle(void)
         ALOGE("%s, dlsym get_audio_info fail\n", __FUNCTION__);
         goto ERROR;
     }
+    FuncDolbyMS12GetNBytesPcmOutOfUDC = (unsigned long long (*)())  dlsym(mDolbyMS12LibHanle, "get_n_bytes_pcmout_of_udc");
+    if (!FuncDolbyMS12GetNBytesPcmOutOfUDC) {
+        ALOGE("%s, dlsym get_system_buffer_avail fail\n", __FUNCTION__);
+    }
 
     ALOGD("-%s() line %d get libdolbyms12 success!", __FUNCTION__, __LINE__);
     return 0;
@@ -283,6 +287,7 @@ void DolbyMS12::ReleaseLibHandle(void)
     FuncDolbyMS12SetMainDummy = NULL;
     FuncDolbyMS12Config = NULL;
     FuncDolbyMS12GetAudioInfo = NULL;
+    FuncDolbyMS12GetNBytesPcmOutOfUDC = NULL;
 
     if (mDolbyMS12LibHanle != NULL) {
         dlclose(mDolbyMS12LibHanle);
@@ -692,6 +697,20 @@ int DolbyMS12::DolbyMS12GetInputISDolbyAtmos()
     ret = (*FuncDolbyMS12GetAudioInfo)(&p_aml_audio_info);
     ALOGV("-%s() ret %d", __FUNCTION__, ret);
     return p_aml_audio_info.is_dolby_atmos;
+}
+
+unsigned long long DolbyMS12::DolbyMS12GetNBytesPcmOutOfUDC()
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12GetNBytesPcmOutOfUDC) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12GetNBytesPcmOutOfUDC)();
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
 }
 
 /*--------------------------------------------------------------------------*/

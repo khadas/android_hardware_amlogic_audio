@@ -35,7 +35,9 @@
 #include "aml_audio_stream.h"
 #include "dolby_lib_api.h"
 #include "aml_audio_timer.h"
+#include "aml_audio_ac3parser.h"
 #include "audio_virtual_buf.h"
+#include "ac3_parser_utils.h"
 
 //#define DOLBY_MS12_OUTPUT_FORMAT_TEST
 
@@ -62,6 +64,7 @@
 #define MS12_INPUT_SYS_PCM_FILE "/data/audio_out/ms12_input_sys.pcm"
 #define MS12_INPUT_SYS_MAIN_FILE "/data/audio_out/ms12_input_main.raw"
 
+static int nbytes_of_dolby_ms12_downmix_output_pcm_frame();
 
 /*
  *@brief dump ms12 output data
@@ -261,7 +264,10 @@ int get_the_dolby_ms12_prepared(
             }
             ALOGI("%s() thread is builded, get dolby_ms12_threadID %ld\n", __FUNCTION__, ms12->dolby_ms12_threadID);
         }
+        //n bytes of dowmix output pcm frame, 16bits_per_sample / stereo, it value is 4btes.
+        ms12->nbytes_of_dmx_output_pcm_frame = nbytes_of_dolby_ms12_downmix_output_pcm_frame();
     }
+    aml_ac3_parser_open(&ms12->ac3_parser_handle);
     ALOGI("--%s(), locked", __FUNCTION__);
     pthread_mutex_unlock(&ms12->lock);
     ALOGI("-%s()\n\n", __FUNCTION__);
@@ -293,6 +299,72 @@ static bool is_iec61937_format(struct audio_stream_out *stream)
     */
     return (aml_out->hal_format == AUDIO_FORMAT_IEC61937);
 }
+
+static int scan_dolby_frame_info(const unsigned char *frame_buf,
+        int length,
+        int *frame_offset,
+        int *frame_size,
+        int *frame_numblocks,
+        int *framevalid_flag)
+{
+    int scan_frame_offset;
+    int scan_frame_size;
+    int scan_channel_num;
+    int scan_numblks;
+    int scan_timeslice_61937;
+    // int scan_framevalid_flag;
+    int ret = 0;
+    int total_channel_num  = 0;
+
+    if (!frame_buf || (length <= 0) || !frame_offset || !frame_size || !frame_numblocks || !framevalid_flag) {
+        ret = -1;
+    } else {
+        ret = parse_dolby_frame_header(frame_buf, length, &scan_frame_offset, &scan_frame_size
+                                       , &scan_channel_num, &scan_numblks,
+                                       &scan_timeslice_61937, framevalid_flag);
+
+        if (ret == 0) {
+            *frame_offset = scan_frame_offset;
+            *frame_size = scan_frame_size;
+            *frame_numblocks = scan_numblks;
+            //this scan is useful, return 0
+            return 0;
+        }
+    }
+    //this scan is useless, return -1
+    return -1;
+}
+
+/*dtv single decoder, if input data is less than one iec61937 size, and do not contain one complete frame
+ *after adding the frame_deficiency, got a complete frame without scan the frame
+ *keyword: frame_deficiency
+ */
+bool is_frame_lack_of_data_in_dtv(struct audio_stream_out *stream)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+
+    return (!adev->dual_decoder_support
+        && (is_iec61937_format(stream) || aml_out->hal_format == AUDIO_FORMAT_IEC61937)
+        && (aml_out->frame_deficiency > 0));
+}
+
+/*
+ *in continuous mode, the dolby frame will be splited into several part
+ *because of out_get_buffer_size is an stable size, but the dolby frame size is variable.
+ */
+bool is_frame_lack_of_data_in_continuous(struct audio_stream_out *stream)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+
+    bool is_lack = (adev->continuous_audio_mode == 1) \
+                    && ((aml_out->hal_format == AUDIO_FORMAT_AC3) || (aml_out->hal_format == AUDIO_FORMAT_E_AC3)) \
+                    && (aml_out->frame_deficiency > 0);
+
+    return is_lack;
+}
+
 /*
  *@brief dolby ms12 main process
  *
@@ -327,10 +399,18 @@ int dolby_ms12_main_process(
     void *associate_frame_buffer = NULL;
     int associate_frame_size = 0;
     size_t main_frame_deficiency = 0;
+    int32_t parser_used_size = 0;
 
     if (adev->debug_flag >= 2) {
         ALOGI("\n%s() in continuous %d input ms12 bytes %d input bytes %zu\n",
               __FUNCTION__, adev->continuous_audio_mode, dolby_ms12_input_bytes, input_bytes);
+    }
+
+    /*this status is only updated in hw_write, continuous mode also need it*/
+    if (adev->continuous_audio_mode) {
+        if (aml_out->status != STREAM_HW_WRITING) {
+            aml_out->status = STREAM_HW_WRITING;
+        }
     }
 
     /*I can't find where to init this, so I put it here*/
@@ -339,14 +419,9 @@ int dolby_ms12_main_process(
         audio_virtual_buf_open(&ms12->main_virtual_buf_handle, "ms12 main input", MS12_MAIN_INPUT_BUF_NS, MS12_MAIN_INPUT_BUF_NS, MS12_MAIN_BUF_INCREASE_TIME_MS);
     }
 
-    //dtv single decoder, if input data is less than one iec61937 size, and do not contain one complete frame
-    //after adding the frame_deficiency, got a complete frame without scan the frame
-    //keyword: frame_deficiency
-    if (!adev->dual_decoder_support
-        && (is_iec61937_format(stream) || aml_out->hal_format == AUDIO_FORMAT_IEC61937)
-        && (aml_out->frame_deficiency > 0)) {
-        //ALOGI("\n%s() frame_deficiency = %d , input bytes = %d\n",__FUNCTION__, aml_out->frame_deficiency , input_bytes);
-        if (aml_out->frame_deficiency <= input_bytes) {
+    if (is_frame_lack_of_data_in_dtv(stream)) {
+        ALOGV("\n%s() frame_deficiency = %d , input bytes = %d\n",__FUNCTION__, aml_out->frame_deficiency , input_bytes);
+        if (aml_out->frame_deficiency <= (int)input_bytes) {
             main_frame_size = aml_out->frame_deficiency;
             single_decoder_used_bytes = aml_out->frame_deficiency;
             aml_out->frame_deficiency = 0;
@@ -354,6 +429,20 @@ int dolby_ms12_main_process(
             main_frame_size = input_bytes;
             single_decoder_used_bytes = input_bytes;
             aml_out->frame_deficiency -= input_bytes;
+        }
+        goto MAIN_INPUT;
+    }
+
+    if (is_frame_lack_of_data_in_continuous(stream)) {
+        ALOGV("\n%s() frame_deficiency = %d , input bytes = %d\n",__FUNCTION__, aml_out->frame_deficiency , input_bytes);
+        if (aml_out->frame_deficiency <= (int)input_bytes) {
+            main_frame_size = aml_out->frame_deficiency;
+            single_decoder_used_bytes = aml_out->frame_deficiency;
+            // aml_out->frame_deficiency = 0;
+        } else {
+            main_frame_size = input_bytes;
+            single_decoder_used_bytes = input_bytes;
+            // aml_out->frame_deficiency -= input_bytes;
         }
         goto MAIN_INPUT;
     }
@@ -398,6 +487,54 @@ int dolby_ms12_main_process(
             }
             aml_out->frame_deficiency = main_frame_deficiency;
         }
+        /*
+         *continuous output with dolby atmos input, the ddp frame size is variable.
+         */
+        else if (adev->continuous_audio_mode == 1) {
+            if ((aml_out->hal_format == AUDIO_FORMAT_AC3) || (aml_out->hal_format == AUDIO_FORMAT_E_AC3)) {
+                const unsigned char *frame_buf = (const unsigned char *)main_frame_buffer;
+                // int main_frame_size = input_bytes;
+                int frame_offset = 0;
+                int frame_size = 0;
+                int frame_numblocks = 0;
+                if (adev->debug_flag) {
+                    ALOGI("%s line %d ###### frame size %d deficiency %d #####",
+                        __func__, __LINE__, aml_out->ddp_frame_size, aml_out->frame_deficiency);
+                }
+#if 0
+                if (0 == scan_dolby_frame_info(frame_buf, main_frame_size, &frame_offset, &frame_size, &frame_numblocks, &aml_out->framevalid_flag)) {
+                    aml_out->ddp_frame_size = (frame_size > 0) ? frame_size : aml_out->ddp_frame_size;
+                    aml_out->frame_deficiency = aml_out->ddp_frame_size;
+                    aml_out->ddp_frame_nblks = frame_numblocks;
+                    aml_out->total_ddp_frame_nblks += aml_out->ddp_frame_nblks;
+                    //continuous out stream, the total frame num blocks is same as aml_out
+                    adev->ms12_out->total_ddp_frame_nblks = aml_out->total_ddp_frame_nblks;
+                    if (adev->debug_flag) {
+                        ALOGI("%s line %d frame size %d frame_numblocks %d",
+                            __func__, __LINE__, frame_size, frame_numblocks);
+                    }
+
+                    main_frame_buffer = (void *)(frame_buf + frame_offset);
+                    if ((main_frame_size - frame_offset) >= aml_out->ddp_frame_size)
+                        main_frame_size = aml_out->ddp_frame_size;
+                    else
+                        main_frame_size = main_frame_size - frame_offset;
+                }
+#else
+                struct ac3_parser_info ac3_info = { 0 };
+                aml_ac3_parser_process(ms12->ac3_parser_handle, input_buffer, bytes, &parser_used_size, &main_frame_buffer, &main_frame_size, &ac3_info);
+                aml_out->ddp_frame_size = main_frame_size;
+                aml_out->frame_deficiency = aml_out->ddp_frame_size;
+                aml_out->ddp_frame_nblks = ac3_info.numblks;
+                aml_out->total_ddp_frame_nblks += aml_out->ddp_frame_nblks;
+                if (ac3_info.frame_size == 0) {
+                    *use_size = parser_used_size;
+                    goto exit;
+
+                }
+#endif
+            }
+        }
 
         if (adev->dual_decoder_support == true) {
             /*if there is associate frame, send it to dolby ms12.*/
@@ -435,6 +572,29 @@ MAIN_INPUT:
                 main_channel_num = 2;
                 main_sample_rate = 48000;
             }
+            /*we check whether there is enough space*/
+            if ((adev->continuous_audio_mode == 1) &&
+                ((aml_out->hal_format == AUDIO_FORMAT_AC3) || (aml_out->hal_format == AUDIO_FORMAT_E_AC3))) {
+                int max_size = 0;
+                int main_avail = 0;
+                int wait_retry = 0;
+                do {
+                    main_avail = dolby_ms12_get_main_buffer_avail(&max_size);
+                    if ((max_size - main_avail) >= main_frame_size) {
+                        break;
+                    }
+                    aml_audio_sleep(5*1000);
+                    wait_retry++;
+                    /*it cost 5s*/
+                    if (wait_retry >= 1000) {
+                        *use_size = parser_used_size;
+                        ALOGE("write dolby main time out, discard data=%d", parser_used_size);
+                        goto exit;
+                    }
+
+                } while (aml_out->status != STREAM_STANDBY);
+            }
+
             dolby_ms12_input_bytes =
                 dolby_ms12_input_main(
                     ms12->dolby_ms12_ptr
@@ -443,32 +603,13 @@ MAIN_INPUT:
                     , main_format
                     , main_channel_num
                     , main_sample_rate);
+            if (adev->debug_flag >= 2)
+                ALOGI("%s line %d main_frame_size %d ret dolby_ms12 input_bytes %d", __func__, __LINE__, main_frame_size, dolby_ms12_input_bytes);
 
             if (adev->continuous_audio_mode == 0) {
                 dolby_ms12_scheduler_run(ms12->dolby_ms12_ptr);
             }
 
-#ifdef REPLACE_OUTPUT_BUFFER_WITH_CALLBACK
-
-#else
-            //ms12 output
-            ms12_output_size =
-                dolby_ms12_output(
-                    ms12->dolby_ms12_ptr
-                    , ms12->dolby_ms12_out_data
-                    , ms12->dolby_ms12_out_max_size);
-            if (ms12_output_size > 0) {
-                audio_format_t output_format = get_output_format(stream);
-                if (0 == audio_hal_data_processing(stream
-                                                   , ms12->dolby_ms12_out_data
-                                                   , ms12_output_size
-                                                   , &output_buffer
-                                                   , &output_buffer_bytes
-                                                   , output_format)) {
-                    hw_write(stream, output_buffer, output_buffer_bytes, output_format);
-                }
-            }
-#endif
             if (dolby_ms12_input_bytes > 0) {
                 if (adev->dual_decoder_support == true) {
                     *use_size = dual_decoder_used_bytes;
@@ -478,42 +619,45 @@ MAIN_INPUT:
                               __FUNCTION__, adev->continuous_audio_mode, dolby_ms12_input_bytes, input_bytes, ms12->config_sample_rate, main_frame_size, single_decoder_used_bytes);
                     }
                     if (adev->continuous_audio_mode == 1) {
+                        if (aml_out->frame_deficiency >= dolby_ms12_input_bytes)
+                            aml_out->frame_deficiency -= dolby_ms12_input_bytes;
+                        else {
+                            //FIXME: if aml_out->frame_deficiency is less than dolby_ms12_input_bytes
+                            //mostly occur the ac3 parser scan as a failure
+                            //need storage the data in an temp buffer.
+                            //TODO.
+                            aml_out->frame_deficiency = aml_out->ddp_frame_size - dolby_ms12_input_bytes;
+                        }
+                        if (adev->debug_flag) {
+                            ALOGI("%s line %d frame_deficiency %d ret dolby_ms12 input_bytes %d",
+                                    __func__, __LINE__, aml_out->frame_deficiency, dolby_ms12_input_bytes);
+                        }
+
                         //FIXME, if ddp input, the size suppose as CONTINUOUS_OUTPUT_FRAME_SIZE
                         //if pcm input, suppose 2ch/16bits/48kHz
-                        int need_sleep_us = 0;
                         uint64_t input_ns = 0;
                         if ((aml_out->hal_format == AUDIO_FORMAT_AC3) || \
                             (aml_out->hal_format == AUDIO_FORMAT_E_AC3)) {
-                            /*
-                             hwsync mode,normally we write a frame payload one time.the duration is 32 ms.
-                             as we write the data into the ringbuf,we need sleep for a while to avoid
-                             audioflinger write too often and cost high cpu loading.
-                             */
-                            if (aml_out->hw_sync_mode) {
-                                need_sleep_us = 32 * 1000 / 2;
-                            } else {
-                                need_sleep_us = ((input_bytes * 32 * 1000) / aml_out->ddp_frame_size);
-                            }
-                            need_sleep_us = need_sleep_us / 2;
-                            if (need_sleep_us > 0) {
-                                usleep(need_sleep_us);
-                                if (adev->debug_flag >= 2) {
-                                    ALOGI("%s format=%d sleep %d ms dolby_ms12_input_bytes=%d\n", __FUNCTION__, aml_out->hal_format, need_sleep_us / 1000,dolby_ms12_input_bytes);
-                                }
-                            }
+                            int sample_nums = aml_out->ddp_frame_nblks * SAMPLE_NUMS_IN_ONE_BLOCK;
+                            int frame_duration = DDP_FRAME_DURATION(sample_nums*1000, DDP_OUTPUT_SAMPLE_RATE);
+                            input_ns = (uint64_t)dolby_ms12_input_bytes * frame_duration * 1000000 / aml_out->ddp_frame_size;
                         } else {
                             /*
                             for LPCM audio,we support it is 2 ch 48K audio.
                             */
                             input_ns = (uint64_t)dolby_ms12_input_bytes * 1000000000LL / 4 / ms12->config_sample_rate;
-                            audio_virtual_buf_process(ms12->main_virtual_buf_handle, input_ns);
                         }
+                        audio_virtual_buf_process(ms12->main_virtual_buf_handle, input_ns);
                     }
 
                     if (is_iec61937_format(stream)) {
                         *use_size = single_decoder_used_bytes;
                     } else {
                         *use_size = dolby_ms12_input_bytes;
+                        if ((adev->continuous_audio_mode == 1) &&
+                            ((aml_out->hal_format == AUDIO_FORMAT_AC3) || (aml_out->hal_format == AUDIO_FORMAT_E_AC3))) {
+                            *use_size = parser_used_size;
+                        }
                     }
 
                 }
@@ -632,8 +776,11 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12)
     ms12->is_dolby_atmos = false;
     ms12->input_total_ms = 0;
     ms12->bitsteam_cnt = 0;
+    ms12->nbytes_of_dmx_output_pcm_frame = 0;
     audio_virtual_buf_close(&ms12->main_virtual_buf_handle);
     audio_virtual_buf_close(&ms12->system_virtual_buf_handle);
+    aml_ac3_parser_close(ms12->ac3_parser_handle);
+    ms12->ac3_parser_handle = NULL;
     ALOGI("--%s(), locked", __FUNCTION__);
     pthread_mutex_unlock(&ms12->main_lock);
     pthread_mutex_unlock(&ms12->lock);
@@ -836,5 +983,24 @@ int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_stat
     }
 
     return 1;
+}
+
+static int nbytes_of_dolby_ms12_downmix_output_pcm_frame()
+{
+    int pcm_out_chanenls = 2;
+    int bytes_per_sample = 2;
+
+    return pcm_out_chanenls*bytes_per_sample;
+}
+
+int dolby_ms12_main_flush(struct audio_stream_out *stream) {
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    dolby_ms12_flush_main_input_buffer();
+    if (ms12->ac3_parser_handle) {
+        aml_ac3_parser_reset(ms12->ac3_parser_handle);
+    }
+    return 0;
 }
 

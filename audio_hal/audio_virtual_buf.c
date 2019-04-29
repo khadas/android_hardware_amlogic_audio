@@ -192,7 +192,7 @@ int audio_virtual_buf_process(void *phandle, uint64_t frame_ns)
         } else {
             sleep_ns = delay_ns - buf_ns;
         }
-        //ALOGD("%s buffered ns =%lld buf_size_ns=%lld gap=%lld read=%lld write=%lld sleep=%lld",
+        // ALOGD("%s buffered ns =%lld buf_size_ns=%lld gap=%lld read=%lld write=%lld sleep=%lld",
         //  virtual_handle->buf_name,delay_ns, buf_ns, process_gap, read_ns, write_ns, sleep_ns);
 
     } else {

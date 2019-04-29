@@ -132,6 +132,8 @@ public:
     virtual int     DolbyMS12SetMainVolume(float volume);
     virtual int     DolbyMS12GetInputISDolbyAtmos();
 
+    virtual unsigned long long DolbyMS12GetNBytesPcmOutOfUDC();
+
     // protected:
 
 

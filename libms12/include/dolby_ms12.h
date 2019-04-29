@@ -231,6 +231,11 @@ int dolby_ms12_set_main_volume(float volume);
 */
 int dolby_ms12_get_input_atmos_info();
 
+/*@@
+    @brief get pcm out n bytes in udc node
+*/
+unsigned long long dolby_ms12_get_n_bytes_pcmout_of_udc();
+
 #ifdef __cplusplus
 }
 #endif

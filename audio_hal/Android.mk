@@ -94,6 +94,7 @@ include $(BUILD_PREBUILT)
         aml_audio_timer.c \
         audio_virtual_buf.c \
         aml_audio_ease.c \
+        aml_audio_ac3parser.c \
         ../amlogic_AQ_tools/audio_eq_drc_compensation.c \
         ../amlogic_AQ_tools/audio_eq_drc_parser.c \
         ../amlogic_AQ_tools/ini/dictionary.c \

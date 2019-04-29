@@ -82,6 +82,8 @@ struct dolby_ms12_desc {
     int bitsteam_cnt;
     void * main_virtual_buf_handle;
     void * system_virtual_buf_handle;
+    int nbytes_of_dmx_output_pcm_frame;
+    void * ac3_parser_handle;
 };
 
 /*

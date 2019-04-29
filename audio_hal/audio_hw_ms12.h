@@ -24,6 +24,10 @@
 
 #include "audio_hw.h"
 
+#define DDP_OUTPUT_SAMPLE_RATE (48000)
+#define SAMPLE_NUMS_IN_ONE_BLOCK (256)
+#define DDP_FRAME_DURATION(sample_nums, sample_rate) ((sample_nums) / (sample_rate))
+
 /*
  *@brief get dolby ms12 prepared
  */
@@ -99,4 +103,8 @@ int bitstream_output(void *buffer, void *priv_data, size_t size);
  */
 int dolby_ms12_register_callback(struct aml_stream_out *aml_out);
 
+/*
+ *@brief dolby ms12 flush the main related buffer
+ */
+int dolby_ms12_main_flush(struct audio_stream_out *stream);
 #endif //end of _AUDIO_HW_MS12_H_
