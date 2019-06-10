@@ -4436,6 +4436,28 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     if (out->hw_sync_mode) {
         //aml_audio_hwsync_init(out->hwsync, out);
     }
+
+    /*if tunnel mode pcm is not 48Khz, resample to 48K*/
+    if (flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
+        ALOGD("%s format=%d rate=%d", __func__, out->hal_internal_format, out->config.rate);
+        if (audio_is_linear_pcm(out->hal_internal_format) && out->config.rate != 48000) {
+            if (out->resample_handle == NULL)
+            {
+                audio_resample_config_t resample_config;
+                ALOGI("init resampler from %d to 48000!\n", out->config.rate);
+                resample_config.aformat   = out->hal_internal_format;
+                resample_config.channels  = 2;
+                resample_config.input_sr  = out->config.rate;
+                resample_config.output_sr = 48000;
+                ret = aml_audio_resample_init((aml_audio_resample_t **)&out->resample_handle, AML_AUDIO_SIMPLE_RESAMPLE, &resample_config);
+                if (ret < 0) {
+                    ALOGE("resample init error\n");
+                    return -1;
+                }
+            }
+
+        }
+    }
     out->ddp_frame_size = aml_audio_get_ddp_frame_size();
     *stream_out = &out->stream;
     ALOGD("%s: exit", __func__);
@@ -4488,6 +4510,11 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         // release hwsync resource ..zzz
         aml_audio_hwsync_release(out->hwsync);
         free(out->hwsync);
+    }
+
+    if (out->resample_handle) {
+        aml_audio_resample_close(out->resample_handle);
+        out->resample_handle = NULL;
     }
     pthread_mutex_unlock(&out->lock);
     free(stream);

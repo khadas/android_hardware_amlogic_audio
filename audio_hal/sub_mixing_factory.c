@@ -206,6 +206,9 @@ static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
     uint64_t us_since_last_write = 0;
     int64_t throttle_timeus = 0;
     int frame_size = 4;
+    void * out_buf = (void*)buffer;
+    size_t out_size = bytes;
+    int bResample = 0;
 
     ALOGV("++%s(), bytes = %d", __func__, bytes);
     if (out->pause_status) {
@@ -214,10 +217,29 @@ static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
 
     clock_gettime(CLOCK_MONOTONIC, &tval);
     apply_volume(out->volume_l, in_buf_16, sizeof(uint16_t), bytes);
-    written = aml_out_write_to_mixer(stream, buffer, bytes);
+    if (out->hw_sync_mode && out->resample_handle != NULL) {
+        int ret;
+        ret = aml_audio_resample_process(out->resample_handle, in_buf_16, bytes);
+        if (ret < 0) {
+            ALOGE("resample process error\n");
+            written = -1;
+            goto exit;
+        }
+        out_buf = out->resample_handle->resample_buffer;
+        out_size = out->resample_handle->resample_size;
+        bResample = 1;
+    }
+    written = aml_out_write_to_mixer(stream, out_buf, out_size);
     if (written < 0) {
         ALOGE("%s(), written failed, %d", __func__, written);
         goto exit;
+    }
+
+    /*here may be a problem, after resample, the size write to mixer is changed,
+      to avoid some problem, we assume it is totally wirtten.
+    */
+    if (bResample) {
+        written = bytes;
     }
 
     clock_gettime(CLOCK_MONOTONIC, &new_tval);

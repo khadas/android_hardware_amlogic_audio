@@ -593,6 +593,7 @@ struct aml_stream_out {
     bool need_convert;
     size_t last_playload_used;
     void * alsa_vir_buf_handle;
+    aml_audio_resample_t *resample_handle;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
