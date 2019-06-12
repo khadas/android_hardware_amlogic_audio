@@ -113,6 +113,10 @@
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
 #endif
 
+#if defined(ENABLE_HBG_PATCH)
+#include "../hbg_bt_voice/hbg_blehid_mic.h"
+#endif
+
 #include "sub_mixing_factory.h"
 #define CARD_AMLOGIC_BOARD 0
 
@@ -6004,8 +6008,30 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     in = (struct aml_stream_in *)calloc(1, sizeof(struct aml_stream_in));
     if (!in)
         return -ENOMEM;
-
+#if defined(ENABLE_HBG_PATCH)
+    if (is_hbg_hidraw()) {
+        in->stream.common.get_sample_rate = in_hbg_get_sample_rate;
+        in->stream.common.set_sample_rate = in_hbg_set_sample_rate;
+        in->stream.common.get_buffer_size = in_hbg_get_buffer_size;
+        in->stream.common.get_channels = in_hbg_get_channels;
+        in->stream.common.get_format = in_hbg_get_format;
+        in->stream.common.set_format = in_hbg_set_format;
+        in->stream.common.standby = in_hbg_standby;
+        in->stream.common.dump = in_hbg_dump;
+        in->stream.common.set_parameters = in_hbg_set_parameters;
+        in->stream.common.get_parameters = in_hbg_get_parameters;
+        in->stream.common.add_audio_effect = in_hbg_add_audio_effect;
+        in->stream.common.remove_audio_effect = in_hbg_remove_audio_effect;
+        in->stream.set_gain = in_hbg_set_gain;
+        in->stream.read = in_hbg_read;
+        in->stream.get_input_frames_lost = in_hbg_get_input_frames_lost;
+        in->stream.get_capture_position =  in_hbg_get_hbg_capture_position;
+        in->hbg_channel = regist_callBack_stream();
+        in->stream.get_active_microphones = in_get_active_microphones;
+        }else if (remoteDeviceOnline() && (devices & AUDIO_DEVICE_IN_BUILTIN_MIC) && (config->channel_mask != BUILT_IN_MIC)) {
+#else
     if (remoteDeviceOnline() && (devices & AUDIO_DEVICE_IN_BUILTIN_MIC) && (config->channel_mask != BUILT_IN_MIC)) {
+#endif
         in->stream.common.set_sample_rate = kehwin_in_set_sample_rate;
         in->stream.common.get_sample_rate = kehwin_in_get_sample_rate;
         in->stream.common.get_buffer_size = kehwin_in_get_buffer_size;
@@ -6186,6 +6212,10 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
     if (in->ref_buf) {
         free(in->ref_buf);
     }
+
+#if defined(ENABLE_HBG_PATCH)
+    unregist_callBack_stream(in->hbg_channel);
+#endif
 
     free(stream);
     ALOGD("%s: exit", __func__);
@@ -10441,6 +10471,11 @@ static int adev_close(hw_device_t *device)
     struct aml_audio_device *adev = (struct aml_audio_device *)device;
 
     ALOGD("%s: enter", __func__);
+
+#if defined(ENABLE_HBG_PATCH)
+    stopReceiveAudioData();
+#endif
+
     unload_ddp_decoder_lib();
     if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
         aml_ms12_lib_release();
@@ -10968,6 +11003,11 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     nano_init();
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
 #endif
+
+#if defined(ENABLE_HBG_PATCH)
+    startReceiveAudioData();
+#endif
+
 
 #if defined(TV_AUDIO_OUTPUT)
     adev->is_TV = true;

@@ -29,6 +29,21 @@ LOCAL_MODULE_TARGET_ARCH:= arm arm64
 LOCAL_MULTILIB := both
 include $(BUILD_PREBUILT)
 
+#voice record of SEI BT remote control
+BOARD_ENABLE_HBG := true
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := libhbgdecode
+LOCAL_SRC_FILES_arm := ../bt_voice/hbg/lib/libhbgdecode.so
+LOCAL_SRC_FILES_arm64 := ../bt_voice/hbg/lib64/libhbgdecode.so
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_SUFFIX := .so
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_PROPRIETARY_MODULE := true
+LOCAL_MODULE_TARGET_ARCH:= arm arm64
+LOCAL_MULTILIB := both
+include $(BUILD_PREBUILT)
+
 # The default audio HAL module, which is a stub, that is loaded if no other
 # device specific modules are present. The exact load order can be seen in
 # libhardware/hardware.c
@@ -125,6 +140,10 @@ else
     LOCAL_SHARED_LIBRARIES += libam_adp
 endif
 
+ifeq ($(BOARD_ENABLE_HBG), true)
+LOCAL_SHARED_LIBRARIES += libhbg
+endif
+
 ifeq ($(BOARD_ENABLE_NANO), true)
     LOCAL_SHARED_LIBRARIES += libnano
 endif
@@ -137,6 +156,10 @@ ifneq ($(TARGET_BUILD_VARIANT),user)
 endif
 ifeq ($(BOARD_ENABLE_NANO), true)
 	LOCAL_CFLAGS += -DENABLE_NANO_PATCH=1
+endif
+
+ifeq ($(BOARD_ENABLE_HBG), true)
+LOCAL_CFLAGS += -DENABLE_HBG_PATCH
 endif
 
 ifeq ($(strip $(TARGET_WITH_TV_AUDIO_MODE)),true)
