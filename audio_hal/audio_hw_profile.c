@@ -160,8 +160,8 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
                     size += sprintf(aud_cap + size, "|%s", "192000");
                 }
             } else {
-              if((mystrstr(infobuf, "Dobly_Digital+") || mystrstr(infobuf, "DTS-HD") ||
-                  mystrstr(infobuf, "MAT")) && format == AUDIO_FORMAT_IEC61937) {
+              if (/*(mystrstr(infobuf, "Dobly_Digital+") || mystrstr(infobuf, "DTS-HD") ||
+                  mystrstr(infobuf, "MAT")) && */format == AUDIO_FORMAT_IEC61937) {
                   size += sprintf(aud_cap + size, "|%s", "128000|176400|192000");
               }
             }
