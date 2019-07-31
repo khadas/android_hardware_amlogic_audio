@@ -426,22 +426,39 @@ static void _add_cmd_to_tail(struct cmd_list *node)
 int dtv_patch_add_cmd(int cmd)
 {
     struct cmd_list *list = NULL;
-
+    struct cmd_list *cmd_list = NULL;
+    int index = 0;
     if (dtv_cmd_list.initd == 0) {
         return 0;
     }
-
-    list = cmd_array_get();
-    if (list == NULL) {
+    pthread_mutex_lock(&dtv_cmd_mutex);
+    for (index = 0; index < 16; index++) {
+        if (cmd_array[index].used == 0) {
+            break;
+        }
+    }
+    if (index == 16) {
+        pthread_mutex_unlock(&dtv_cmd_mutex);
+        ALOGI("list is full, add by live \n");
+        return -1;
+    }
+    cmd_list = &cmd_array[index];
+    if (cmd_list == NULL) {
+        pthread_mutex_unlock(&dtv_cmd_mutex);
         ALOGI("can't get cmd list, add by live \n");
         return -1;
     }
+    cmd_list->cmd = cmd;
+    cmd_list->next = NULL;
+    cmd_list->used = 1;
+    list = &dtv_cmd_list;
+    while (list->next != NULL) {
+        list = list->next;
+    }
+    list->next = cmd_list;
+    dtv_cmd_list.cmd_num++;
+    pthread_mutex_unlock(&dtv_cmd_mutex);
     ALOGI("add by live dtv_patch_add_cmd the cmd is %d \n", cmd);
-    list->cmd = cmd;
-    list->next = NULL;
-    list->used = 1;
-
-    _add_cmd_to_tail(list);
     return 0;
 }
 
@@ -461,8 +478,8 @@ int dtv_patch_get_cmd(void)
         pthread_mutex_unlock(&dtv_cmd_mutex);
         return cmd;
     }
+    list->used = 0;
     pthread_mutex_unlock(&dtv_cmd_mutex);
-    cmd_array_put(list);
     ALOGI("leave dtv_patch_get_cmd the cmd is %d \n", cmd);
     return cmd;
 }
