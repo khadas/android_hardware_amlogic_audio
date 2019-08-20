@@ -352,8 +352,11 @@ void* audio_type_parse_threadloop(void *data)
             cur_samplerate = get_spdifin_samplerate(audio_type_status->mixer_handle);
         }
 
+        if (cur_samplerate == -1)
+            cur_samplerate = HW_RESAMPLE_48K;
+
         /*check hdmiin audio input sr and reset hw resample*/
-        if (cur_samplerate != -1 && cur_samplerate != HW_RESAMPLE_DISABLE &&
+        if (cur_samplerate != HW_RESAMPLE_DISABLE &&
                 cur_samplerate != last_cur_samplerate &&
                 audio_type_status->audio_type == LPCM) {
             enable_HW_resample(audio_type_status->mixer_handle, cur_samplerate);
