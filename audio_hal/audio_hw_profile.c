@@ -109,6 +109,9 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3");
                 p_hdmi_descs->ddp_fmt.is_support = 1;
             }
+            if (mystrstr(infobuf, "ATMOS")) {
+                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3_JOC");
+            }
             if (mystrstr(infobuf, "AC-3")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC3");
                 p_hdmi_descs->dd_fmt.is_support = 1;
