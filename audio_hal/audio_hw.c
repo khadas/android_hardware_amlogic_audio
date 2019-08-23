@@ -5992,7 +5992,7 @@ static int choose_stream_pcm_config(struct aml_stream_in *in)
         in->config.channels = desc->config.channels;
         in->config.rate = desc->config.rate;
         in->config.format = desc->config.format;
-    } else
+    } else if (in->config.channels != 8)
         in->config.channels = channel_count;
 
     switch (in->hal_format) {
@@ -9275,8 +9275,7 @@ void *audio_patch_input_threadloop(void *data)
                         ALOGD("HDMI Format Switch from 0x%x to 0x%x last_type=%d cur_type=%d\n",
                             last_aformat, cur_aformat, last_audio_packet, cur_audio_packet);
 
-                        if (cur_audio_packet == AUDIO_PACKET_HBR ||
-                            (patch->aformat == AUDIO_FORMAT_DTS_HD)) {
+                        if (cur_audio_packet == AUDIO_PACKET_HBR) {
                             // if it is high bitrate bitstream, use PAO and increase the buffer size
                             bSpdifin_PAO = true;
                             period_size = DEFAULT_CAPTURE_PERIOD_SIZE * 4;
