@@ -6961,6 +6961,14 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             if (source_gain != 1.0)
                 apply_volume(source_gain, effect_tmp_buf, sizeof(int16_t), bytes);
 
+            if (adev->patch_src == SRC_DTV && adev->audio_patch != NULL) {
+                aml_audio_switch_output_mode((int16_t *)effect_tmp_buf, bytes, adev->audio_patch->mode);
+            } else if ( adev->audio_patch == NULL) {
+               if (adev->sound_track_mode == 3)
+                  adev->sound_track_mode = AM_AOUT_OUTPUT_LRMIX;
+               aml_audio_switch_output_mode((int16_t *)effect_tmp_buf, bytes, adev->sound_track_mode);
+            }
+
             /*aduio effect process for speaker*/
             if (adev->native_postprocess.num_postprocessors == adev->native_postprocess.total_postprocessors) {
                 for (j = 0; j < adev->native_postprocess.num_postprocessors; j++) {
@@ -6988,14 +6996,6 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     ALOGV("%s buffer %p size %zu\n", __FUNCTION__, effect_tmp_buf, bytes);
                     fclose(fp1);
                 }
-            }
-
-            if (adev->patch_src == SRC_DTV && adev->audio_patch != NULL) {
-                aml_audio_switch_output_mode((int16_t *)effect_tmp_buf, bytes, adev->audio_patch->mode);
-            } else if ( adev->audio_patch == NULL) {
-               if (adev->sound_track_mode == 3)
-                  adev->sound_track_mode = AM_AOUT_OUTPUT_LRMIX;
-               aml_audio_switch_output_mode((int16_t *)effect_tmp_buf, bytes, adev->sound_track_mode);
             }
 
             /* apply volume for spk/hp, SPDIF/HDMI keep the max volume */
