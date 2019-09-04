@@ -2668,7 +2668,6 @@ static int insert_output_bytes (struct aml_stream_out *out, size_t size)
     size_t output_buffer_bytes = 0;
     audio_format_t output_format = get_output_format(stream);
     char *insert_buf = (char*) malloc (8192);
-
     if (insert_buf == NULL) {
         ALOGE ("malloc size failed \n");
         return -ENOMEM;
@@ -4230,6 +4229,34 @@ static int adev_get_microphones (const struct audio_hw_device *dev __unused,
     return 0;
 }
 
+/****************ch_num's value ******************************
+   virtual:x  0 : mean 2.0 ch   1 : mean 5.1 ch  param: 47
+   TruvolumeHD 0 : mean 2.0 ch   4 : mean 5.1 ch  param: 70
+*************************************************************/
+#define VIRTUALXINMODE 47
+#define TRUVOLUMEINMODE 70
+#define VXCONUTER 74
+
+void virtualx_setparameter(struct aml_audio_device *adev,int param,int ch_num)
+{
+    effect_descriptor_t tmpdesc;
+    int32_t replyData;
+    uint32_t replySize = sizeof(int32_t);
+    uint32_t cmdSize = (int)(sizeof(effect_param_t) + sizeof(uint32_t) + sizeof(uint32_t));
+    uint32_t buf32[sizeof(effect_param_t) / sizeof(uint32_t) + 2];
+    effect_param_t *p = (effect_param_t *)buf32;
+    p->psize = sizeof(uint32_t);
+    p->vsize = sizeof(uint32_t);
+    *(int32_t *)p->data = param;
+    *((int32_t *)p->data + 1) = ch_num;
+    if (adev->native_postprocess.postprocessors[0] != NULL) {
+        (*(adev->native_postprocess.postprocessors[0]))->get_descriptor(adev->native_postprocess.postprocessors[0], &tmpdesc);
+        if (0 == strcmp(tmpdesc.name,"VirtualX")) {
+            (*adev->native_postprocess.postprocessors[0])->command(adev->native_postprocess.postprocessors[0],5,cmdSize,(void *)p,&replySize,&replyData);
+        }
+    }
+}
+
 // open corresponding stream by flags, formats and others params
 static int adev_open_output_stream(struct audio_hw_device *dev,
                                 audio_io_handle_t handle __unused,
@@ -4250,7 +4277,9 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out = (struct aml_stream_out *)calloc(1, sizeof(struct aml_stream_out));
     if (!out)
         return -ENOMEM;
-
+    virtualx_setparameter(adev,VIRTUALXINMODE,0);
+    virtualx_setparameter(adev,TRUVOLUMEINMODE,0);
+    adev->effect_in_ch = 2;
     if (flags == AUDIO_OUTPUT_FLAG_NONE)
         flags = AUDIO_OUTPUT_FLAG_PRIMARY;
     if (config->channel_mask == AUDIO_CHANNEL_NONE)
@@ -4519,7 +4548,9 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
 
     ALOGD("%s: enter: dev(%p) stream(%p)", __func__, dev, stream);
-
+    virtualx_setparameter(adev,VIRTUALXINMODE,0);
+    virtualx_setparameter(adev,TRUVOLUMEINMODE,0);
+    adev->effect_in_ch = 2;
     if (adev->useSubMix) {
         if (out->usecase == STREAM_PCM_NORMAL || out->usecase == STREAM_PCM_HWSYNC)
             out_standby_subMixingPCM(&stream->common);
@@ -6821,6 +6852,7 @@ static void output_mute(struct audio_stream_out *stream, size_t *output_buffer_b
     aml_audio_ease_process(adev->audio_ease, aml_out->tmp_buffer_8ch, target_len);
     return;
 }
+
 #define EQ_GAIN_DEFAULT (0.16)
 ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                                 const void *buffer,
@@ -6909,10 +6941,10 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
     } else {
         /*atom project supports 32bit hal only*/
         /*TODO: Direct PCM case, I think still needs EQ and AEC */
+
         if (aml_out->is_tv_platform == 1) {
             int16_t *tmp_buffer = (int16_t *)buffer;
             size_t out_frames = bytes / (2 * 2);
-
             int16_t *effect_tmp_buf;
             effect_descriptor_t tmpdesc;
             int32_t *spk_tmp_buf;
@@ -6972,18 +7004,29 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             /*aduio effect process for speaker*/
             if (adev->native_postprocess.num_postprocessors == adev->native_postprocess.total_postprocessors) {
                 for (j = 0; j < adev->native_postprocess.num_postprocessors; j++) {
-                    audio_post_process(adev->native_postprocess.postprocessors[j], effect_tmp_buf, out_frames);
+                    if (adev->effect_in_ch == 6) {
+                        if (adev->native_postprocess.postprocessors[j] != NULL) {
+                            (*(adev->native_postprocess.postprocessors[j]))->get_descriptor(adev->native_postprocess.postprocessors[j], &tmpdesc);
+                            if (0 != strcmp(tmpdesc.name,"VirtualX")) {
+                                audio_post_process(adev->native_postprocess.postprocessors[j], effect_tmp_buf, out_frames);
+                            }
+                        }
+                    } else {
+                        virtualx_setparameter(adev,VXCONUTER,0);
+                        audio_post_process(adev->native_postprocess.postprocessors[j], effect_tmp_buf, out_frames);
+                    }
                 }
                 /*
                 according to dts profile2 block diagram: Trusurround:X->Truvolume->TBHDX->customer modules->MC Dynamics
                 virtualx will be called twice,first implementation for process Trusurround:X->Truvolume->TBHDX
                 final implementation for process MC Dynamics
                 */
+                virtualx_setparameter(adev,VXCONUTER,1);
                 if (adev->native_postprocess.postprocessors[0] != NULL) {
-                    (*(adev->native_postprocess.postprocessors[0]))->get_descriptor(adev->native_postprocess.postprocessors[0], &tmpdesc);
-                    if (0 == strcmp(tmpdesc.name,"VirtualX")) {
-                        audio_post_process(adev->native_postprocess.postprocessors[0], effect_tmp_buf, out_frames);
-                    }
+                   (*(adev->native_postprocess.postprocessors[0]))->get_descriptor(adev->native_postprocess.postprocessors[0], &tmpdesc);
+                   if (0 == strcmp(tmpdesc.name,"VirtualX")) {
+                       audio_post_process(adev->native_postprocess.postprocessors[0], effect_tmp_buf, out_frames);
+                   }
                 }
             } else {
                 gain_speaker *= EQ_GAIN_DEFAULT;
@@ -7432,6 +7475,9 @@ static void config_output(struct audio_stream_out *stream)
     ALOGI("%s() adev->dolby_lib_type = %d", __FUNCTION__, adev->dolby_lib_type);
     if (aml_out->hal_internal_format != AUDIO_FORMAT_DTS
             && aml_out->hal_internal_format != AUDIO_FORMAT_DTS_HD) {
+            virtualx_setparameter(adev,VIRTUALXINMODE,0);
+            virtualx_setparameter(adev,TRUVOLUMEINMODE,0);
+            adev->effect_in_ch = 2;
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             pthread_mutex_lock(&adev->lock);
             get_dolby_ms12_cleanup(&adev->ms12);
@@ -7678,6 +7724,15 @@ static void config_output(struct audio_stream_out *stream)
             if (dts_dec->status != 1 && (aml_out->hal_internal_format == AUDIO_FORMAT_DTS
                                          || aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
                 int status = dca_decoder_init_patch(dts_dec);
+                if (adev->virtualx_mulch) {
+                    virtualx_setparameter(adev,VIRTUALXINMODE,1);
+                    virtualx_setparameter(adev,TRUVOLUMEINMODE,4);
+                    adev->effect_in_ch = 6;
+                } else {
+                    virtualx_setparameter(adev,VIRTUALXINMODE,0);
+                    virtualx_setparameter(adev,TRUVOLUMEINMODE,0);
+                    adev->effect_in_ch = 2;
+                }
                 if ((patch && audio_parse_get_audio_type_direct(patch->audio_parse_para) == DTSCD) || dtscd_flag) {
                     dts_dec->is_dtscd = 1;
                     ALOGI("dts cd stream,dtscd_flag %d,type %d",dtscd_flag,audio_parse_get_audio_type_direct(patch->audio_parse_para));
@@ -7686,6 +7741,9 @@ static void config_output(struct audio_stream_out *stream)
             } else if (dts_dec->status == 1 && (aml_out->hal_internal_format == AUDIO_FORMAT_DTS
                                                 || aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
                 dca_decoder_release_patch(dts_dec);
+                virtualx_setparameter(adev,VIRTUALXINMODE,0);
+                virtualx_setparameter(adev,TRUVOLUMEINMODE,0);
+                adev->effect_in_ch = 2;
                 if (dts_dec->digital_raw > 0) {
                     struct pcm *pcm = adev->pcm_handle[DIGITAL_DEVICE];
                     if (pcm && is_dual_output_stream(stream)) {
@@ -7746,6 +7804,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
     size_t used_size = 0;
     int write_retry = 0;
     static int pre_hdmi_out_format = 0;
+    effect_descriptor_t tmpdesc;
     audio_hwsync_t *hw_sync = aml_out->hwsync;
     if (adev->debug_flag) {
         ALOGI("%s:%d out:%p write in %zu,format:0x%x,ms12_ott:%d,conti:%d,hw_sync:%d", __FUNCTION__, __LINE__,
@@ -7818,6 +7877,32 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
     if (case_cnt > 2) {
         ALOGE ("%s usemask %x,we do not support two direct stream output at the same time.TO CHECK CODE FLOW!!!!!!",__func__,adev->usecase_masks);
         return return_bytes;
+    }
+    char val[PROPERTY_VALUE_MAX];
+    if (property_get("media.libplayer.dtsMulChPcm", val, NULL) > 0) {
+        if (strcmp(val, "true" /*enble 5.1 ch*/) == 0) {
+            if (adev->virtualx_mulch != true) {
+                adev->virtualx_mulch = true;
+                virtualx_setparameter(adev,VIRTUALXINMODE,1);
+                virtualx_setparameter(adev,TRUVOLUMEINMODE,4);
+                adev->effect_in_ch = 6;
+                /*reconfig dts  decoder interface*/
+                if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS) {
+                    need_reconfig_output = true;
+                }
+            }
+        } else if (strcmp(val, "false"/*disable 5.1 ch*/) == 0) {
+            if (adev->virtualx_mulch != false) {
+                adev->virtualx_mulch = false;
+                virtualx_setparameter(adev,VIRTUALXINMODE,0);
+                virtualx_setparameter(adev,TRUVOLUMEINMODE,0);
+                adev->effect_in_ch = 2;
+                /*reconfig dts  decoder interface*/
+                if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS) {
+                    need_reconfig_output = true;
+                }
+            }
+        }
     }
 
     /* here to check if the audio HDMI ARC format updated. */
@@ -8103,6 +8188,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
     if ((patch && patch->aformat == AUDIO_FORMAT_DTS) || (aml_out->hal_internal_format == AUDIO_FORMAT_DTS)
         || (patch && patch->aformat == AUDIO_FORMAT_DTS_HD)) {
         audio_format_t output_format;
+        int16_t *tmp_buffer;
         if (adev->dtslib_bypass_enable) {
             if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
                 output_format = aml_out->hal_internal_format;
@@ -8184,63 +8270,43 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
             aml_out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
         }
         //write pcm data
-        int read_bytes =  PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE ;
+        int read_bytes =  PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE * (dts_dec->pcm_out_info.channel_num / 2);
         bytes  = read_bytes;
-
+        int tmp_bytes = bytes;
         while (get_buffer_read_space(&dts_dec->output_ring_buf) > (int)bytes) {
-            ring_buffer_read(&dts_dec->output_ring_buf, dts_dec->outbuf, bytes);
-
-#if defined(IS_ATOM_PROJECT)
-            audio_format_t output_format = AUDIO_FORMAT_PCM_32_BIT;
-            if (!adev->output_tmp_buf || adev->output_tmp_buf_size < 2 * bytes) {
-                adev->output_tmp_buf = realloc(adev->output_tmp_buf, 2 * bytes);
-                adev->output_tmp_buf_size = 2 * bytes;
-            }
-            uint16_t *p = (uint16_t *)dts_dec->outbuf;
-            int32_t *p1 = (int32_t *)adev->output_tmp_buf;
-            void *tmp_buffer = (void *)adev->output_tmp_buf;
-            for (unsigned i = 0; i < bytes / 2; i++) {
-                p1[i] = ((int32_t)p[i]) << 16;
-            }
-
-            bytes *= 2;
-            double lfe;
-            if (dts_dec->pcm_out_info.channel_num == 6) {
-                int samplenum = bytes / (dts_dec->pcm_out_info.channel_num * 4);
-                //ALOGI("dts_dec->pcm_out_info.channel_num:%d samplenum:%d bytes:%d",dts_dec->pcm_out_info.channel_num,samplenum,bytes);
-                //Lt = L + (C *  -3 dB)  - (Ls * -1.2 dB)  -  (Rs * -6.2 dB)
-                //Rt = R + (C * -3 dB) + (Ls * -6.2 dB) + (Rs *  -1.2 dB)
-                for (int i = 0; i < samplenum; i++ ) {
-                    lfe = (double)p1[6 * i + 3]*(1.678804f / 4);
-                    p1[6 * i] = p1[6 * i] + p1[6 * i + 2] * 0.707945 - p1[6 * i + 4] * 0.870963 - p1[6 * i + 5] * 0.489778;
-                    p1[6 * i + 1] = p1[6 * i + 1] + p1[6 * i + 2] * 0.707945 + p1[6 * i + 4] * 0.489778 + p1[6 * i + 5] * 0.870963;
-                    p1[2 * i ] = (p1[6 * i] >> 2) + (int32_t)lfe;
-                    p1[2 * i  + 1] = (p1[6 * i + 1] >> 2) + (int32_t)lfe;
-                }
-                bytes /= 3;
-             }
-#if 0
-if (getprop_bool("media.audio_hal.dts.outdump")) {
-FILE *fp1 = fopen("/data/tmp/dd_mix.raw", "a+");
-if (fp1) {
-    int flen = fwrite((char *)tmp_buffer, 1, bytes, fp1);
-    fclose(fp1);
-} else {
-    ALOGD("could not open files!");
-}
-}
-#endif
-
-#else
-            void *tmp_buffer = (void *) dts_dec->outbuf;
             audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
-#endif
-            aml_hw_mixer_mixing(&adev->hw_mixer, tmp_buffer, bytes, output_format);
-            if (audio_hal_data_processing(stream, tmp_buffer, bytes, &output_buffer, &output_buffer_bytes, output_format) == 0) {
+            ring_buffer_read(&dts_dec->output_ring_buf, dts_dec->outbuf, bytes);
+            if (dts_dec->pcm_out_info.channel_num == 6) {
+                int16_t *dts_buffer = (int16_t *) dts_dec->outbuf;
+                if (adev->effect_buf_size < bytes) {
+                    adev->effect_buf = realloc(adev->effect_buf, bytes);
+                    if (!adev->effect_buf) {
+                        ALOGE ("realloc effect buf failed size %zu format = %#x", bytes, output_format);
+                        return -ENOMEM;
+                     } else {
+                        ALOGI("realloc effect_buf size from %zu to %zu format = %#x", adev->effect_buf_size, bytes, output_format);
+                     }
+                     adev->effect_buf_size = bytes;
+                }
+                tmp_buffer = (int16_t *)adev->effect_buf;
+                memcpy(tmp_buffer, dts_buffer, bytes);
+                virtualx_setparameter(adev,VXCONUTER,0);
+                if (adev->native_postprocess.postprocessors[0] != NULL) {
+                    (*(adev->native_postprocess.postprocessors[0]))->get_descriptor(adev->native_postprocess.postprocessors[0], &tmpdesc);
+                    if (0 == strcmp(tmpdesc.name,"VirtualX")) {
+                        audio_post_process(adev->native_postprocess.postprocessors[0], tmp_buffer, bytes/(6 * 2));
+                    }
+                }
+                tmp_bytes /= 3;
+            } else {
+                tmp_buffer = (int16_t *) dts_dec->outbuf;
+                tmp_bytes = bytes;
+            }
+            aml_hw_mixer_mixing(&adev->hw_mixer, (void*)tmp_buffer, tmp_bytes, output_format);
+            if (audio_hal_data_processing(stream, (void*)tmp_buffer, tmp_bytes, &output_buffer, &output_buffer_bytes, output_format) == 0) {
                 hw_write(stream, output_buffer, output_buffer_bytes, output_format);
             }
         }
-
         aml_out->frame_write_sum = (aml_out->input_bytes_size  - dts_dec->remain_size )  / audio_stream_out_frame_size(stream);
         aml_out->last_frames_postion = aml_out->frame_write_sum - out_get_latency_frames (stream);
         return return_bytes;
@@ -8309,7 +8375,6 @@ re_write:
                     if (audio_hal_data_processing(stream, (void *)buffer, bytes, &output_buffer, &output_buffer_bytes, output_format) == 0) {
                         hw_write(stream, output_buffer, output_buffer_bytes, output_format);
                     }
-
                     return return_bytes;
                 }
             }
@@ -8414,7 +8479,6 @@ re_write:
                     if (adev->debug_flag) {
                         ALOGD("%s:%d mixing hw_sync mode, output_format:0x%x, hw_sync_frame_size:%d", __func__, __LINE__, output_format, hw_sync->hw_sync_frame_size);
                     }
-
                     aml_hw_mixer_mixing(&adev->hw_mixer, tmp_buffer, hw_sync->hw_sync_frame_size, output_format);
                     if (audio_hal_data_processing(stream, tmp_buffer, hw_sync->hw_sync_frame_size, &output_buffer, &output_buffer_bytes, output_format) == 0) {
                         hw_write(stream, output_buffer, output_buffer_bytes, output_format);
@@ -8647,7 +8711,6 @@ ssize_t process_buffer_write(struct audio_stream_out *stream,
     if (adev->debug_flag) {
         ALOGD("%s:%d size:%d, hal_internal_format:0x%x", __func__, __LINE__, bytes, aml_out->hal_internal_format);
     }
-
     if (audio_hal_data_processing(stream, buffer, bytes, &output_buffer, &output_buffer_bytes, aml_out->hal_internal_format) == 0) {
         hw_write(stream, output_buffer, output_buffer_bytes, aml_out->hal_internal_format);
     }
@@ -10826,7 +10889,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->hw_device.get_audio_port = adev_get_audio_port;
     adev->hw_device.dump = adev_dump;
     adev->active_outport = -1;
-
+    adev->virtualx_mulch = false;
     card = alsa_device_get_card_index();
     if ((card < 0) || (card > 7)) {
         ALOGE("error to get audio card");
