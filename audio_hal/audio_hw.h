@@ -432,6 +432,7 @@ struct aml_audio_device {
      * buffer size equal to efect_buf_size
      */
     void *spk_output_buf;
+    void *spdif_output_buf;
     void *effect_buf;
     size_t effect_buf_size;
     size_t spk_tuning_lvl;
@@ -485,9 +486,6 @@ struct aml_audio_device {
     int tsync_fd;
     bool rawtopcm_flag;
     int dtv_aformat;
-#ifdef ADD_AUDIO_DELAY_INTERFACE
-    aml_audio_delay_st *delay_handle;
-#endif
     unsigned int dtv_i2s_clock;
     unsigned int dtv_spidif_clock;
     unsigned int dtv_droppcm_size;

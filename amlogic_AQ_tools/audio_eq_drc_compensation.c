@@ -370,6 +370,7 @@ int eq_drc_init(struct eq_drc_data *pdata)
     pdata->s_gain.dtv = 1.0;
     pdata->s_gain.hdmi= 1.0;
     pdata->s_gain.av = 1.0;
+    pdata->s_gain.media = 1.0;
     pdata->p_gain.speaker= 1.0;
     pdata->p_gain.spdif_arc = 1.0;
     pdata->p_gain.headphone = 1.0;
@@ -391,6 +392,7 @@ int eq_drc_init(struct eq_drc_data *pdata)
                 pdata->s_gain.dtv = DbToAmpl(pdata->s_gain.dtv);
                 pdata->s_gain.hdmi = DbToAmpl(pdata->s_gain.hdmi);
                 pdata->s_gain.av = DbToAmpl(pdata->s_gain.av);
+                pdata->s_gain.media = DbToAmpl(pdata->s_gain.media);
             }
             if (pdata->p_gain.enable) {
                 pdata->p_gain.speaker = DbToAmpl(pdata->p_gain.speaker);

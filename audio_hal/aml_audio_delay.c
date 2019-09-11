@@ -25,92 +25,135 @@
 
 #define ALIGN(size, align) ((size + align - 1) & (~(align - 1)))
 
-int aml_audio_delay_init(aml_audio_delay_st **ppstAudioOutputDelayHandle)
+
+static aml_audio_delay_st g_stAudioOutputDelay[AML_DELAY_OUTPORT_BUTT];
+static const int g_u32OutDelayMaxDefault[AML_DELAY_OUTPORT_BUTT] = {1000, 1000, 1000};
+static bool g_bAudioDelayInit = false;
+
+int aml_audio_delay_init()
 {
-    int s32BfferSize = 0;
-    if (*ppstAudioOutputDelayHandle) {
-        ALOGW("aml_audio_delay_st is already allocated");
-        return 0;
+    memset(&g_stAudioOutputDelay, 0, sizeof(aml_audio_delay_st)*AML_DELAY_OUTPORT_BUTT);
+    for (unsigned int i=0; i<AML_DELAY_OUTPORT_BUTT; i++) {
+        int s32BfferSize = 0;
+        unsigned int u32ChannelCnt = 2;
+        if (AML_DELAY_OUTPORT_ALL == i) {
+            /*calculate the max size for 8ch */
+            u32ChannelCnt = 8;
+        }
+        s32BfferSize = 192 * u32ChannelCnt * 4 * g_u32OutDelayMaxDefault[i];
+        ring_buffer_init(&g_stAudioOutputDelay[i].stDelayRbuffer, s32BfferSize);
     }
-    *ppstAudioOutputDelayHandle = (aml_audio_delay_st *)calloc(1, sizeof(aml_audio_delay_st));
-
-    if (*ppstAudioOutputDelayHandle == NULL) {
-        ALOGW("aml_audio_delay_st calloc memory fail");
-        return -1;
-    }
-    (*ppstAudioOutputDelayHandle)->delay_max              = OUTPUT_DELAY_MAX_MS;
-    (*ppstAudioOutputDelayHandle)->delay_time             = 0;
-
-    /*calculate the max size for 192K 8ch 32 bit, ONE_FRAME_MAX_MS is used for one frame buffer*/
-    s32BfferSize = 192 * 8 * 4 * ((*ppstAudioOutputDelayHandle)->delay_max + ONE_FRAME_MAX_MS);
-    ring_buffer_init(&(*ppstAudioOutputDelayHandle)->stDelayRbuffer, s32BfferSize);
+    g_bAudioDelayInit = true;
     return 0;
 }
-int aml_audio_delay_close(aml_audio_delay_st **ppstAudioOutputDelayHandle)
+int aml_audio_delay_deinit()
 {
-    if (*ppstAudioOutputDelayHandle) {
-        ring_buffer_release(&(*ppstAudioOutputDelayHandle)->stDelayRbuffer);
-        free(*ppstAudioOutputDelayHandle);
+    if (!g_bAudioDelayInit) {
+        ALOGW("[%s:%d] audio delay not initialized", __func__, __LINE__);
+        return -1;
     }
-
-    *ppstAudioOutputDelayHandle = NULL;
+    for (unsigned int i=0; i<AML_DELAY_OUTPORT_BUTT; i++) {
+        ring_buffer_release(&g_stAudioOutputDelay[i].stDelayRbuffer);
+    }
+    g_bAudioDelayInit = false;
     return 0;
 }
 
 /*
 * s32DelayTimeMs: In milliseconds
 */
-int aml_audio_delay_set_time(aml_audio_delay_st **ppstAudioOutputDelayHandle, int s32DelayTimeMs)
+int aml_audio_delay_set_time(aml_audio_delay_type_e enAudioDelayType, int s32DelayTimeMs)
 {
-    if (s32DelayTimeMs < OUTPUT_DELAY_MIN_MS || s32DelayTimeMs > OUTPUT_DELAY_MAX_MS) {
-        ALOGW("[%s:%d] unsupport delay time:%dms, min:%dms, max:%dms, set audio delay failed!",
-            __func__, __LINE__, s32DelayTimeMs, OUTPUT_DELAY_MIN_MS, OUTPUT_DELAY_MAX_MS);
+    if (!g_bAudioDelayInit) {
+        ALOGW("[%s:%d] audio delay not initialized", __func__, __LINE__);
         return -1;
     }
-    (*ppstAudioOutputDelayHandle)->delay_time = s32DelayTimeMs;
-    ALOGI("set audio delay time: %dms", s32DelayTimeMs);
+    if (enAudioDelayType < AML_DELAY_OUTPORT_SPEAKER || enAudioDelayType >= AML_DELAY_OUTPORT_BUTT) {
+        ALOGW("[%s:%d] delay type:%d invalid, min:%d, max:%d",
+            __func__, __LINE__, enAudioDelayType, AML_DELAY_OUTPORT_SPEAKER, AML_DELAY_OUTPORT_BUTT-1);
+        return -1;
+    }
+    if (s32DelayTimeMs < 0 || s32DelayTimeMs > g_u32OutDelayMaxDefault[enAudioDelayType]) {
+        ALOGW("[%s:%d] unsupport delay time:%dms, min:%dms, max:%dms",
+            __func__, __LINE__, s32DelayTimeMs, 0, g_u32OutDelayMaxDefault[enAudioDelayType]);
+        return -1;
+    }
+    g_stAudioOutputDelay[enAudioDelayType].delay_time = s32DelayTimeMs;
+    ALOGI("set audio output type:%d delay time: %dms", enAudioDelayType, s32DelayTimeMs);
     return 0;
 }
 
-int aml_audio_delay_process(aml_audio_delay_st *pstAudioDelayHandle, void * in_data, int size, audio_format_t enFormat)
+int aml_audio_delay_clear(aml_audio_delay_type_e enAudioDelayType)
 {
+    if (!g_bAudioDelayInit) {
+        ALOGW("[%s:%d] audio delay not initialized", __func__, __LINE__);
+        return -1;
+    }
+    if (enAudioDelayType < AML_DELAY_OUTPORT_SPEAKER || enAudioDelayType >= AML_DELAY_OUTPORT_BUTT) {
+        ALOGW("[%s:%d] delay type:%d invalid, min:%d, max:%d",
+            __func__, __LINE__, enAudioDelayType, AML_DELAY_OUTPORT_SPEAKER, AML_DELAY_OUTPORT_BUTT-1);
+        return -1;
+    }
+
+    ring_buffer_reset(&g_stAudioOutputDelay[enAudioDelayType].stDelayRbuffer);
+    return 0;
+}
+
+int aml_audio_delay_process(aml_audio_delay_type_e enAudioDelayType, void *pData, int s32Size, audio_format_t enFormat)
+{
+    if (!g_bAudioDelayInit) {
+        ALOGW("[%s:%d] audio delay not initialized", __func__, __LINE__);
+        return -1;
+    }
+    if (enAudioDelayType < AML_DELAY_OUTPORT_SPEAKER || enAudioDelayType >= AML_DELAY_OUTPORT_BUTT) {
+        ALOGW("[%s:%d] delay type:%d invalid, min:%d, max:%d",
+            __func__, __LINE__, enAudioDelayType, AML_DELAY_OUTPORT_SPEAKER, AML_DELAY_OUTPORT_BUTT-1);
+        return -1;
+    }
+
     unsigned int    u32OneMsSize = 0;
     int             s32CurNeedDelaySize = 0;
     int             s32AvailDataSize = 0;
 
-    if (pstAudioDelayHandle == NULL) {
-        return -1;
-    }
-
-    if (enFormat == AUDIO_FORMAT_E_AC3) {
-        u32OneMsSize = 192 * 4;// * abs(adev->delay_ms);
-    } else if (enFormat == AUDIO_FORMAT_AC3) {
-        u32OneMsSize = 48 * 4;// * abs(adev->delay_ms);
-    } else {
-        u32OneMsSize = 48 * 32;// * abs(adev->delay_ms);
+    if (AML_DELAY_OUTPORT_ALL == enAudioDelayType) {
+        if (enFormat == AUDIO_FORMAT_E_AC3) {
+            u32OneMsSize = 192 * 4;// * abs(adev->delay_ms);
+        } else if (enFormat == AUDIO_FORMAT_AC3) {
+            u32OneMsSize = 48 * 4;// * abs(adev->delay_ms);
+        } else {
+            u32OneMsSize = 48 * 8 * 4; // 48k * 8ch * 4Byte
+        }
+    } else if (AML_DELAY_OUTPORT_SPEAKER == enAudioDelayType){
+        u32OneMsSize = 48 * 2 * 2;  // 48k * 2ch * 2Byte
+    } else if (AML_DELAY_OUTPORT_SPDIF == enAudioDelayType){
+        if (AUDIO_FORMAT_IEC61937 == enFormat) {
+            u32OneMsSize = 48 * 2 * 2;  // 48k * 2ch * 2Byte
+        } else {
+            u32OneMsSize = 48 * 2 * 4;  // 48k * 2ch * 4Byte [Notes: alsa only support 32bit(4Byte)]
+        }
     }
 
     // calculate need delay total size
-    s32CurNeedDelaySize = ALIGN(pstAudioDelayHandle->delay_time * u32OneMsSize, 16);
+    s32CurNeedDelaySize = ALIGN(g_stAudioOutputDelay[enAudioDelayType].delay_time * u32OneMsSize, 16);
     // get current ring buffer delay data size
-    s32AvailDataSize = ALIGN((get_buffer_read_space(&pstAudioDelayHandle->stDelayRbuffer) / u32OneMsSize) * u32OneMsSize, 16);
+    s32AvailDataSize = ALIGN((get_buffer_read_space(&g_stAudioOutputDelay[enAudioDelayType].stDelayRbuffer) / u32OneMsSize) * u32OneMsSize, 16);
 
-    ring_buffer_write(&pstAudioDelayHandle->stDelayRbuffer, (unsigned char *)in_data, size, UNCOVER_WRITE);
-    ALOGV("%s:%d AvailDataSize:%d", __func__, __LINE__, s32AvailDataSize);
+    ring_buffer_write(&g_stAudioOutputDelay[enAudioDelayType].stDelayRbuffer, (unsigned char *)pData, s32Size, UNCOVER_WRITE);
+    ALOGV("%s:%d AvailDataSize:%d, enFormat:%#x, u32OneMsSize:%d", __func__, __LINE__, s32AvailDataSize, enFormat, u32OneMsSize);
 
     // accumulate this delay data
     if (s32CurNeedDelaySize > s32AvailDataSize) {
         int s32NeedAddDelaySize = s32CurNeedDelaySize - s32AvailDataSize;
-        if (s32NeedAddDelaySize >= size) {
-            memset(in_data, 0, size);
-            ALOGD("%s:%d accumulate all in_data, CurNeedDelaySize:%d, AddDelaySize:%d, size:%d", __func__, __LINE__,
-                s32CurNeedDelaySize, s32NeedAddDelaySize, size);
+        if (s32NeedAddDelaySize >= s32Size) {
+            memset(pData, 0, s32Size);
+            ALOGD("%s:%d type:%d,accumulate Data, CurNeedDelaySize:%d, need more DelaySize:%d, size:%d", __func__, __LINE__,
+                enAudioDelayType, s32CurNeedDelaySize, s32NeedAddDelaySize, s32Size);
         } else {
-            // splicing this in_data data
-            memset(in_data, 0, s32NeedAddDelaySize);
-            ring_buffer_read(&pstAudioDelayHandle->stDelayRbuffer, (unsigned char *)in_data+s32NeedAddDelaySize, size-s32NeedAddDelaySize);
-            ALOGD("%s:%d accumulate part in_data CurNeedDelaySize:%d, AddDelaySize:%d, size:%d", __func__, __LINE__,
-                s32CurNeedDelaySize, s32NeedAddDelaySize, size);
+            // splicing this pData data
+            memset(pData, 0, s32NeedAddDelaySize);
+            ring_buffer_read(&g_stAudioOutputDelay[enAudioDelayType].stDelayRbuffer, (unsigned char *)pData+s32NeedAddDelaySize, s32Size-s32NeedAddDelaySize);
+            ALOGD("%s:%d type:%d accumulate part pData CurNeedDelaySize:%d, need more DelaySize:%d, size:%d", __func__, __LINE__,
+                enAudioDelayType, s32CurNeedDelaySize, s32NeedAddDelaySize, s32Size);
         }
     // decrease this delay data
     } else if (s32CurNeedDelaySize < s32AvailDataSize) {
@@ -119,20 +162,20 @@ int aml_audio_delay_process(aml_audio_delay_st *pstAudioDelayHandle, void * in_d
         unsigned int    u32ClearedSize = 0;
         for (;u32ClearedSize < u32NeedDecreaseDelaySize; ) {
             unsigned int u32ResidualClearSize = u32NeedDecreaseDelaySize - u32ClearedSize;
-            if (u32ResidualClearSize > (unsigned int)size) {
-                ring_buffer_read(&pstAudioDelayHandle->stDelayRbuffer, (unsigned char *)in_data, size);
-                u32ClearedSize += size;
+            if (u32ResidualClearSize > (unsigned int)s32Size) {
+                ring_buffer_read(&g_stAudioOutputDelay[enAudioDelayType].stDelayRbuffer, (unsigned char *)pData, s32Size);
+                u32ClearedSize += s32Size;
             } else {
-                ring_buffer_read(&pstAudioDelayHandle->stDelayRbuffer, (unsigned char *)in_data, u32ResidualClearSize);
+                ring_buffer_read(&g_stAudioOutputDelay[enAudioDelayType].stDelayRbuffer, (unsigned char *)pData, u32ResidualClearSize);
                 break;
             }
         }
-        ring_buffer_read(&pstAudioDelayHandle->stDelayRbuffer, (unsigned char *)in_data, size);
-        ALOGD("%s:%d drop delay data, CurNeedDelaySize:%d, NeedDecreaseDelaySize:%d, size:%d", __func__, __LINE__,
-            s32CurNeedDelaySize, u32NeedDecreaseDelaySize, size);
+        ring_buffer_read(&g_stAudioOutputDelay[enAudioDelayType].stDelayRbuffer, (unsigned char *)pData, s32Size);
+        ALOGD("%s:%d type:%d drop delay data, CurNeedDelaySize:%d, NeedDecreaseDelaySize:%d, size:%d", __func__, __LINE__,
+            enAudioDelayType, s32CurNeedDelaySize, u32NeedDecreaseDelaySize, s32Size);
     } else {
-        ring_buffer_read(&pstAudioDelayHandle->stDelayRbuffer, (unsigned char *)in_data, size);
-        ALOGV("%s:%d do nothing, CurNeedDelaySize:%d, size:%d", __func__, __LINE__, s32CurNeedDelaySize, size);
+        ring_buffer_read(&g_stAudioOutputDelay[enAudioDelayType].stDelayRbuffer, (unsigned char *)pData, s32Size);
+        ALOGV("%s:%d do nothing, CurNeedDelaySize:%d, size:%d", __func__, __LINE__, s32CurNeedDelaySize, s32Size);
     }
 
     return 0;

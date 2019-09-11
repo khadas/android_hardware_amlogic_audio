@@ -21,21 +21,26 @@
 #include <aml_ringbuffer.h>
 
 
-#define OUTPUT_DELAY_MAX_MS     (1000)
-#define OUTPUT_DELAY_MIN_MS     (0)
-#define ONE_FRAME_MAX_MS        (100)
-
 typedef struct AML_AUDIO_DELAY {
-    int delay_time;
-    int delay_max;
-    struct ring_buffer stDelayRbuffer;
+    int                 delay_time;
+    struct ring_buffer  stDelayRbuffer;
 } aml_audio_delay_st;
 
 
-int aml_audio_delay_init(aml_audio_delay_st **ppstAudioOutputDelayHandle);
-int aml_audio_delay_close(aml_audio_delay_st **ppstAudioOutputDelayHandle);
-int aml_audio_delay_set_time(aml_audio_delay_st **ppstAudioOutputDelayHandle, int s32DelayTimeMs);
-int aml_audio_delay_process(aml_audio_delay_st *pstAudioDelayHandle, void * in_data, int size, audio_format_t format);
+typedef enum AML_AUDIO_DELAY_TYPE{
+    AML_DELAY_OUTPORT_SPEAKER           = 0,
+    AML_DELAY_OUTPORT_SPDIF             = 1,
+    AML_DELAY_OUTPORT_ALL               = 2,
+
+    AML_DELAY_OUTPORT_BUTT              = 3,
+} aml_audio_delay_type_e;
+
+int aml_audio_delay_init();
+int aml_audio_delay_deinit();
+int aml_audio_delay_set_time(aml_audio_delay_type_e enAudioDelayType, int s32DelayTimeMs);
+int aml_audio_delay_clear(aml_audio_delay_type_e enAudioDelayType);
+int aml_audio_delay_process(aml_audio_delay_type_e enAudioDelayType, void *pData, int s32Size, audio_format_t enFormat);
+
 
 
 #endif

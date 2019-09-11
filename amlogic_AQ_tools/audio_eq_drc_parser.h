@@ -35,6 +35,7 @@ struct audio_source_gain_s {
     float dtv;
     float hdmi;
     float av;
+    float media;
 };
 
 /*software post gain in audio hal*/
