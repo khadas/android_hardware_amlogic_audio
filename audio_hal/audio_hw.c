@@ -6827,9 +6827,9 @@ static void output_mute(struct audio_stream_out *stream, size_t *output_buffer_b
         }
     } else if (adev->patch_src == SRC_DTV || adev->patch_src == SRC_ATV) {
         /*dtv start patching, mute 200ms, then start fade in.*/
-        if (adev->audio_patch != NULL && (!adev->patch_start)) {
+        if (adev->audio_patch != NULL && (!adev->patch_start) && (adev->audio_patch->output_thread_exit == 0)) {
             clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
-            adev->patch_start = 1;
+            adev->patch_start = true;
             adev->mute_start = true;
             timer_in_ms = 200;
             ALOGI ("%s() detect tv source start mute 200ms", __func__);
