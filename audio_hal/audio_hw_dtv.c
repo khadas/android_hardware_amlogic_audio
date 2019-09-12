@@ -1592,6 +1592,10 @@ static int dtv_patch_pcm_wirte(unsigned char *pcm_data, int size,
             }
             write_size = write_size * 2;
             write_buf = (unsigned char *)tmpbuf;
+            if (write_size > left || write_size > (OUTPUT_BUFFER_SIZE * 2)) {
+                ALOGI("resample, channel, write_size %d, left %d", write_size, left);
+                write_size = ((left) < (OUTPUT_BUFFER_SIZE * 2)) ? (left) : (OUTPUT_BUFFER_SIZE * 2);
+            }
         }
         if (need_resample == 1) {
             if (patch->dtv_resample.input_sr != (unsigned int)patch->sample_rate) {
@@ -1615,6 +1619,10 @@ static int dtv_patch_pcm_wirte(unsigned char *pcm_data, int size,
                                          (int16_t *)patch->resample_outbuf);
             write_size = out_frame << 2;
             write_buf = patch->resample_outbuf;
+            if (write_size > left || write_size > (OUTPUT_BUFFER_SIZE * 3)) {
+                ALOGI("resample, process, write_size %d, left %d", write_size, left);
+                write_size = ((left) < (OUTPUT_BUFFER_SIZE * 3)) ? (left) : (OUTPUT_BUFFER_SIZE * 3);
+            }
         }
     }
 
@@ -1783,8 +1791,6 @@ void *audio_dtv_patch_output_threadloop(void *data)
         ret = -ENOMEM;
         goto exit_outbuf;
     }
-    memset(&patch->dtv_resample, 0, sizeof(struct resample_para));
-    patch->resample_outbuf = NULL;
     patch->dtv_audio_mode = get_dtv_audio_mode();
     patch->dtv_audio_tune = AUDIO_FREE;
     patch->first_apts_lookup_over = 0;
@@ -2370,6 +2376,10 @@ static void *audio_dtv_patch_process_threadloop(void *data)
 
             if (cmd == AUDIO_DTV_PATCH_CMD_START) {
                 patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_RUNING;
+                memset(&patch->dtv_resample, 0, sizeof(struct resample_para));
+                if (patch->resample_outbuf) {
+                    memset(patch->resample_outbuf, 0, OUTPUT_BUFFER_SIZE * 3);
+                }
                 dtv_patch_input_start(adec_handle, patch->dtv_aformat,
                                       patch->dtv_has_video);
                 create_dtv_output_stream_thread(patch);
@@ -2637,10 +2647,6 @@ static int release_dtv_output_stream_thread(struct aml_audio_patch *patch)
 {
     int ret = 0;
     ALOGI("++%s   ---- %d\n", __FUNCTION__, patch->ouput_thread_created);
-    if (patch->resample_outbuf) {
-        free(patch->resample_outbuf);
-        patch->resample_outbuf = NULL;
-    }
     if (patch->ouput_thread_created == 1) {
         patch->output_thread_exit = 1;
         pthread_join(patch->audio_output_threadID, NULL);
@@ -2774,6 +2780,10 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
     pthread_join(patch->audio_input_threadID, NULL);
 
     pthread_mutex_destroy(&patch->dtv_input_mutex);
+    if (patch->resample_outbuf) {
+        free(patch->resample_outbuf);
+        patch->resample_outbuf = NULL;
+    }
     release_dtv_output_stream_thread(patch);
     release_dtvin_buffer(patch);
     dtv_assoc_deinit();
