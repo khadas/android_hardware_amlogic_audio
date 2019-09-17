@@ -2228,12 +2228,8 @@ void *audio_dtv_patch_output_threadloop(void *data)
             struct aml_stream_out *out;
             out = (struct aml_stream_out *)stream_out;
             int avail = get_buffer_read_space(ringbuffer);
-            if (avail > 0) {
-                if (avail > (int)patch->out_buf_size) {
-                    write_len = (int)patch->out_buf_size;
-                } else {
-                    write_len = avail;
-                }
+            if (avail >= (int)patch->out_buf_size) {
+                write_len = (int)patch->out_buf_size;
                 if (!patch->first_apts_lookup_over) {
                     apts_diff = dtv_set_audio_latency(0);
                     if (!dtv_firstapts_lookup_over(patch, aml_dev, false) || avail < 48 * 4 * 50) {
