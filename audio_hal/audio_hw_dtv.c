@@ -1400,11 +1400,21 @@ void process_pts_sync(unsigned int pcm_lancty, struct aml_audio_patch *patch,
     int bytewidth = 2;
     int sysmbol = 48;
     char tempbuf[128];
+    char value[128];
     unsigned int pcrpts, apts;
     unsigned int calc_len = 0;
     unsigned long pts = 0, lookpts;
+    unsigned long pts_add = 0;
     unsigned long cache_pts = 0;
     unsigned long cur_out_pts = 0;
+    unsigned long cur_out_pts_add = 0;
+    static unsigned int pts_diff_count = 0;
+    unsigned long last_pts = patch->last_out_pts;
+
+    unsigned long pts_threshold = 100*90;
+    if (property_get("media.libplayer.pts_threshold", value, NULL) > 0) {
+        pts_threshold = atoi(value);
+    }
 
     pts = lookpts = dtv_patch_get_pts();
     if (pts == patch->last_valid_pts) {
@@ -1419,12 +1429,21 @@ void process_pts_sync(unsigned int pcm_lancty, struct aml_audio_patch *patch,
         ALOGI("dtv set tsync -> %s", tempbuf);
         if (sysfs_set_sysfs_str(TSYNC_EVENT, tempbuf) == -1) {
             ALOGE("set AUDIO_START failed \n");
+            pts_diff_count = 0;
         }
         patch->dtv_pcm_readed = 0;
         patch->dtv_first_apts_flag = 1;
         patch->last_valid_pts = pts;
+        patch->last_out_pts = pts;
     } else {
         unsigned int pts_diff;
+        pts_add = patch->last_out_pts;
+        calc_len = patch->dtv_pcm_readed;
+        cache_pts = (calc_len * 90) / (sysmbol * channel_count * bytewidth);
+        cur_out_pts_add = pts_add + cache_pts;
+        if (aml_getprop_bool("media.audiohal.debug"))
+        ALOGI("======patch->last_out_pts = %lx cache_pts = %lx calc_len = %d, cur_out_pts_add = %lx", patch->last_out_pts, cache_pts, calc_len, cur_out_pts_add);
+
         if (pts != (unsigned long) - 1) {
             calc_len = (unsigned int)rbuf_level;
             cache_pts = (calc_len * 90) / (sysmbol * channel_count * bytewidth);
@@ -1440,19 +1459,62 @@ void process_pts_sync(unsigned int pcm_lancty, struct aml_audio_patch *patch,
             }
             patch->last_valid_pts = cur_out_pts;
             patch->dtv_pcm_readed = 0;
+            patch->last_out_pts = cur_out_pts_add;
         } else {
             pts = patch->last_valid_pts;
             calc_len = patch->dtv_pcm_readed;
             cache_pts = (calc_len * 90) / (sysmbol * channel_count * bytewidth);
             cur_out_pts = pts + cache_pts;
+            if (aml_getprop_bool("media.audiohal.debug"))
+            ALOGI("======patch->last_valid_pts = %lx cache_pts = %lx calc_len = %d, cur_out_pts = %lx", patch->last_valid_pts, cache_pts, calc_len, cur_out_pts);
             return;
         }
         if (!patch || !patch->dev || !stream_out) {
             return;
         }
         get_sysfs_uint(TSYNC_PCRSCR, &pcrpts);
+
+        if (pcrpts > cur_out_pts) {
+            pts_diff = pcrpts - cur_out_pts;
+        } else {
+            pts_diff = cur_out_pts - pcrpts;
+        }
+
+        {
+            get_sysfs_uint(TSYNC_APTS, &apts);
+            if (lookpts != (unsigned long) - 1 && abs((int)(cur_out_pts - pcrpts)) > AUDIO_PTS_DISCONTINUE_THRESHOLD) {
+                ALOGI("AUDIO_TSTAMP_DISCONTINUITY,not set sync event, the apts %x, apts %lx pcrpts %x pts_diff %d \n",
+                      apts, cur_out_pts, pcrpts, pts_diff);
+                sprintf(tempbuf, "AUDIO_TSTAMP_DISCONTINUITY:0x%lx",
+                       (unsigned long)cur_out_pts);
+                if (sysfs_set_sysfs_str(TSYNC_EVENT, tempbuf) == -1) {
+                    ALOGI("unable to open file %s,err: %s", TSYNC_EVENT, strerror(errno));
+                }
+                return;
+            }
+        }
+
+        if (aml_getprop_bool("media.audiohal.debug"))
+            ALOGI("cur_out_pts and cur_out_pts_add!!! %lx/%lx, diff=%d", cur_out_pts, cur_out_pts_add, abs((int)(cur_out_pts - cur_out_pts_add)));
+        if (abs((int)(cur_out_pts - cur_out_pts_add)) > (int)pts_threshold) {
+            pts_diff_count ++;
+            if (pts_diff_count > 10) {
+                ALOGI("need use cur_out_pts to reset apts!!! %lx/%lx, diff=%d", cur_out_pts, cur_out_pts_add, abs((int)(cur_out_pts - cur_out_pts_add)));
+                patch->last_out_pts = cur_out_pts_add = cur_out_pts;
+                pts_diff_count = 0;
+            }
+        } else {
+            pts_diff_count = 0;
+        }
+        if (last_pts != cur_out_pts_add) {
+            sprintf(tempbuf, "%u", (unsigned int)cur_out_pts_add);
+            sysfs_set_sysfs_str(TSYNC_APTS, tempbuf);
+            if (aml_getprop_bool("media.audiohal.debug"))
+                ALOGI("reset the apts to %lx pcrpts %x pts_diff %d \n", cur_out_pts_add, pcrpts, abs((int)(cur_out_pts_add - pcrpts)));
+        }
+
         //pcrpts -= DTV_PTS_CORRECTION_THRESHOLD;
-        do_pll1_by_pts(pcrpts, patch, cur_out_pts, stream_out);
+        do_pll1_by_pts(pcrpts, patch, cur_out_pts_add, stream_out);
     }
 }
 
@@ -2385,6 +2447,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 patch->dtv_first_apts_flag = 0;
                 patch->outlen_after_last_validpts = 0;
                 patch->last_valid_pts = 0;
+                patch->last_out_pts = 0;
                 patch->first_apts_lookup_over = 0;
                 if (patch->dtv_aformat == ACODEC_FMT_AC3) {
                     patch->aformat = AUDIO_FORMAT_AC3;
