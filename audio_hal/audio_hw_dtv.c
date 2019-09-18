@@ -2399,6 +2399,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 } else if (patch->dtv_aformat == ACODEC_FMT_DTS) {
                     patch->aformat = AUDIO_FORMAT_DTS;
                     dca_decoder_init_patch(dts_dec);
+                    dts_dec->is_dtv = true;
                     patch->decoder_offset = 0;
                     patch->first_apts_lookup_over = 0;
                 } else {
@@ -2443,6 +2444,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 dtv_do_ease_out(aml_dev);
                 dtv_patch_input_stop(adec_handle);
                 dtv_assoc_audio_stop(1);
+                dts_dec->is_dtv = false;
                 patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_INIT;
             } else {
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
