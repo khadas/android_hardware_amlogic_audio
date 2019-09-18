@@ -503,6 +503,8 @@ struct aml_audio_device {
 
     /* MIC_IN<->PDM/TDM and default configs */
     struct mic_in_desc *mic_desc;
+    bool virtualx_mulch;
+    int effect_in_ch;
 };
 
 struct meta_data {
