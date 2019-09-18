@@ -692,6 +692,22 @@ static int deleteSubMixingInputPcm(struct aml_stream_out *out)
     ALOGI("%s(), cnt_stream_using_mixer %d",
             __func__, sm->cnt_stream_using_mixer);
     //delete_mixer_input_port(audio_mixer, out->port_index);
+
+    struct meta_data_list *mdata_list;
+    struct listnode *item;
+
+    if (out->hw_sync_mode) {
+        pthread_mutex_lock(&out->mdata_lock);
+        while (!list_empty(&out->mdata_list)) {
+            item = list_head(&out->mdata_list);
+            mdata_list = node_to_item(item, struct meta_data_list, list);
+            list_remove(item);
+            //ALOGI("free medata list=%p", mdata_list);
+            free(mdata_list);
+        }
+        pthread_mutex_unlock(&out->mdata_lock);
+    }
+
     if (hwsync_lpcm) {
         ALOGI("%s(), lpcm case", __func__);
         mixer_set_continuous_output(sm->mixerData, false);
