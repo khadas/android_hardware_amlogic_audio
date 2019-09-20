@@ -7512,9 +7512,25 @@ static void config_output(struct audio_stream_out *stream)
     ALOGI("%s() adev->dolby_lib_type = %d", __FUNCTION__, adev->dolby_lib_type);
     if (aml_out->hal_internal_format != AUDIO_FORMAT_DTS
             && aml_out->hal_internal_format != AUDIO_FORMAT_DTS_HD) {
-            virtualx_setparameter(adev,VIRTUALXINMODE,0);
-            virtualx_setparameter(adev,TRUVOLUMEINMODE,0);
-            adev->effect_in_ch = 2;
+         virtualx_setparameter(adev,VIRTUALXINMODE,0);
+         virtualx_setparameter(adev,TRUVOLUMEINMODE,0);
+         adev->effect_in_ch = 2;
+         struct dca_dts_dec *dts_dec = & (adev->dts_hd);
+         if (dts_dec->status == 1) {
+            dca_decoder_release_patch(dts_dec);
+            if (dts_dec->digital_raw > 0) {
+                struct pcm *pcm = adev->pcm_handle[DIGITAL_DEVICE];
+                if (pcm && is_dual_output_stream(stream)) {
+                    ALOGI("%s close dual output pcm handle %p", __func__, pcm);
+                    pcm_close(pcm);
+                    adev->pcm_handle[DIGITAL_DEVICE] = NULL;
+                    set_stream_dual_output(stream, false);
+                    aml_tinymix_set_spdif_format(AUDIO_FORMAT_PCM_16_BIT,aml_out);
+                }
+            }
+            ALOGI("dca_decoder_release_patch release");
+        }
+
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             pthread_mutex_lock(&adev->lock);
             get_dolby_ms12_cleanup(&adev->ms12);
