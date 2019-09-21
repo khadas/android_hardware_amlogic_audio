@@ -514,6 +514,7 @@ int alsa_depop(int card)
     return 0;
 }
 
+#define WAIT_COUNT_MAX 30
 size_t aml_alsa_input_read(struct audio_stream_in *stream,
                         const void *buffer,
                         size_t bytes)
@@ -524,6 +525,7 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
     char  *read_buf = (char *)buffer;
     int ret = 0;
     size_t  read_bytes = 0;
+    int nodata_count = 0;
     struct pcm *pcm_handle = in->pcm;
     size_t frame_size = in->config.channels * pcm_format_to_bits(in->config.format) / 8;
     while (read_bytes < bytes) {
@@ -536,6 +538,7 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
             return 0;
         }
         if (ret >= 0) {
+            nodata_count = 0;
             ALOGV("ret:%d read_bytes:%d, bytes:%d ",ret,read_bytes,bytes);
         } else if (ret != -EAGAIN ) {
             ALOGE("%s:%d, pcm_read fail, ret:%#x, error info:%s", __func__, __LINE__, ret, strerror(errno));
@@ -543,6 +546,13 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
         } else {
              usleep( (bytes - read_bytes) * 1000000 / audio_stream_in_frame_size(stream) /
                 in->requested_rate / 2);
+             nodata_count++;
+             if (in->nodata_count >= WAIT_COUNT_MAX) {
+                 in->nodata_count = 0;
+                 ALOGV("aml_alsa_input_read immediate return");
+                 memset((void*)buffer,0,bytes);
+                 return 0;
+             }
         }
     }
     return 0;
