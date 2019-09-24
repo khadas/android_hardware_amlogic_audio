@@ -2970,6 +2970,15 @@ rewrite:
                     config_output(stream);
                 }
                 if (ddp_dec->outlen_raw > 0) {
+                    /*to avoid ca noise in Sony TV*/
+                    struct snd_pcm_status status;
+                    pcm_ioctl(out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+                    if (status.state == PCM_STATE_SETUP ||
+                        status.state == PCM_STATE_PREPARED ||
+                        status.state == PCM_STATE_XRUN) {
+                        ALOGI("mute the first raw data");
+                        memset(ddp_dec->outbuf_raw, 0, ddp_dec->outlen_raw);
+                    }
                     ret = pcm_write (out->pcm, ddp_dec->outbuf_raw, ddp_dec->outlen_raw);
                 }
                 if (ret == 0) {
