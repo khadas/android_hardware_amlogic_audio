@@ -547,8 +547,8 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
              usleep( (bytes - read_bytes) * 1000000 / audio_stream_in_frame_size(stream) /
                 in->requested_rate / 2);
              nodata_count++;
-             if (in->nodata_count >= WAIT_COUNT_MAX) {
-                 in->nodata_count = 0;
+             if (nodata_count >= WAIT_COUNT_MAX) {
+                 nodata_count = 0;
                  ALOGV("aml_alsa_input_read immediate return");
                  memset((void*)buffer,0,bytes);
                  return 0;
