@@ -5845,6 +5845,11 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
        }
         return strdup(temp_buf);
     }
+    else if (strstr(keys, "HDMI Switch")) {
+        sprintf(temp_buf, "HDMI Switch=%d", (OUTPORT_HDMI == adev->active_outport));
+        ALOGD("temp_buf %s", temp_buf);
+        return strdup(temp_buf);
+    }
     return strdup("");
 }
 
