@@ -505,6 +505,13 @@ struct aml_audio_device {
     struct mic_in_desc *mic_desc;
     bool virtualx_mulch;
     int effect_in_ch;
+    /*
+    for karaoke use case, the apk will acess
+    the sound card device directly.the apk will
+    send the direct mode flag to audio hal. the audio
+    hal need by-pass hw acess until the apk release flag
+    */
+    unsigned int direct_mode;
 };
 
 struct meta_data {

@@ -5604,65 +5604,72 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
 
     ret = str_parms_get_str(parms, "hfp_set_sampling_rate", value, sizeof(value));
     if (ret >= 0) {
-        ALOGE ("Amlogic_HAL - %s: hfp_set_sampling_rate. Abort function and return 0.", __FUNCTION__);
-        return 0;
+        ALOGI ("Amlogic_HAL - %s: hfp_set_sampling_rate. Abort function and return 0.", __FUNCTION__);
+        goto exit;
     }
 
     ret = str_parms_get_str(parms, "hfp_volume", value, sizeof(value));
     if (ret >= 0) {
-        ALOGE ("Amlogic_HAL - %s: hfp_volume. Abort function and return 0.", __FUNCTION__);
-        return 0;
+        ALOGI ("Amlogic_HAL - %s: hfp_volume. Abort function and return 0.", __FUNCTION__);
+        goto exit;
     }
 
     ret = str_parms_get_str(parms, "bt_headset_name", value, sizeof(value));
     if (ret >= 0) {
         ALOGE ("Amlogic_HAL - %s: bt_headset_name. Abort function and return 0.", __FUNCTION__);
-        return 0;
+        goto exit;
     }
 
     ret = str_parms_get_str(parms, "rotation", value, sizeof(value));
     if (ret >= 0) {
-        ALOGE ("Amlogic_HAL - %s: rotation. Abort function and return 0.", __FUNCTION__);
-        return 0;
+        ALOGI ("Amlogic_HAL - %s: rotation. Abort function and return 0.", __FUNCTION__);
+        goto exit;
     }
 
     ret = str_parms_get_str(parms, "bt_headset_nrec", value, sizeof(value));
     if (ret >= 0) {
-        ALOGE ("Amlogic_HAL - %s: bt_headset_nrec. Abort function and return 0.", __FUNCTION__);
-        return 0;
+        ALOGI ("Amlogic_HAL - %s: bt_headset_nrec. Abort function and return 0.", __FUNCTION__);
+        goto exit;
     }
 
     ret = str_parms_get_str(parms, "bt_wbs", value, sizeof(value));
     if (ret >= 0) {
-        ALOGE ("Amlogic_HAL - %s: bt_wbs. Abort function and return 0.", __FUNCTION__);
-        return 0;
+        ALOGI ("Amlogic_HAL - %s: bt_wbs. Abort function and return 0.", __FUNCTION__);
+        goto exit;
     }
 
     ret = str_parms_get_str(parms, "hfp_enable", value, sizeof(value));
     if (ret >= 0) {
-        ALOGE ("Amlogic_HAL - %s: hfp_enable. Abort function and return 0.", __FUNCTION__);
-        return 0;
+        ALOGI ("Amlogic_HAL - %s: hfp_enable. Abort function and return 0.", __FUNCTION__);
+        goto exit;
     }
 
     ret = str_parms_get_str(parms, "HACSetting", value, sizeof(value));
     if (ret >= 0) {
-        ALOGE ("Amlogic_HAL - %s: HACSetting. Abort function and return 0.", __FUNCTION__);
-        return 0;
+        ALOGI ("Amlogic_HAL - %s: HACSetting. Abort function and return 0.", __FUNCTION__);
+        goto exit;
     }
 
     ret = str_parms_get_str(parms, "tty_mode", value, sizeof(value));
     if (ret >= 0) {
-        ALOGE ("Amlogic_HAL - %s: tty_mode. Abort function and return 0.", __FUNCTION__);
-        return 0;
+        ALOGI ("Amlogic_HAL - %s: tty_mode. Abort function and return 0.", __FUNCTION__);
+        goto exit;
     }
 
     ret = str_parms_get_str(parms, "TV-Mute", value, sizeof(value));
     if (ret >= 0) {
-		unsigned int tv_mute = (unsigned int)atoi(value);
-        ALOGE ("Amlogic_HAL - %s: TV-Mute:%d.", __FUNCTION__,tv_mute);
-		adev->need_reset_ringbuffer = tv_mute;
-		adev->tv_mute = tv_mute;
-        return 0;
+        unsigned int tv_mute = (unsigned int)atoi(value);
+        ALOGI ("Amlogic_HAL - %s: TV-Mute:%d.", __FUNCTION__,tv_mute);
+        adev->need_reset_ringbuffer = tv_mute;
+        adev->tv_mute = tv_mute;
+        goto exit;
+    }
+    ret = str_parms_get_str(parms, "direct-mode", value, sizeof(value));
+    if (ret >= 0) {
+        unsigned int direct_mode = (unsigned int)atoi(value);
+        ALOGI ("Amlogic_HAL - %s: direct-mode:%d.", __FUNCTION__,direct_mode);
+        adev->direct_mode = direct_mode;
+        goto exit;
     }
 exit:
     str_parms_destroy (parms);
@@ -8896,7 +8903,8 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     struct aml_audio_device *adev = aml_out->dev;
     ssize_t ret = 0;
     write_func  write_func_p = NULL;
-
+    size_t frame_size = audio_stream_out_frame_size(stream);
+    size_t in_frames = bytes / frame_size;
     ALOGV("%s: out_stream(%p) position(%zu)", __func__, stream, bytes);
 
     /**
@@ -8906,6 +8914,14 @@ ssize_t out_write_new(struct audio_stream_out *stream,
      * pthread_mutex_unlock(&aml_out->lock);
      */
     pthread_mutex_lock(&adev->lock);
+    if (adev->direct_mode) {
+        ALOGI("%s,direct mode write,skip bytes %zu\n",__func__,bytes);
+        /*TODO accurate delay time */
+        usleep(in_frames*1000/48);
+        aml_out->frame_write_sum += in_frames;
+        pthread_mutex_unlock(&adev->lock);
+        return bytes;
+    }
     ret = usecase_change_validate_l(aml_out, false);
     if (ret < 0) {
         ALOGE("%s() failed", __func__);
