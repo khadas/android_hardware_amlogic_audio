@@ -351,6 +351,8 @@ void* audio_type_parse_threadloop(void *data)
             cur_samplerate = get_hdmiin_samplerate(audio_type_status->mixer_handle);
         } else if (audio_type_status->input_src == AUDIO_DEVICE_IN_SPDIF) {
             cur_samplerate = get_spdifin_samplerate(audio_type_status->mixer_handle);
+        } else if (audio_type_status->input_src == AUDIO_DEVICE_IN_HDMI_ARC) {
+            cur_samplerate = -1;//temp code
         }
 
         if (cur_samplerate == -1)

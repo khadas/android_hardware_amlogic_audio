@@ -354,6 +354,9 @@ int set_audio_source(struct aml_mixer_handle *mixer_handle,
         case HDMIIN:
             src = FRHDMIRX;
             break;
+        case ARCIN:
+            src = EARCRX_DMAC;
+            break;
         case SPDIFIN:
             src = SPDIFIN_AUGE;
             break;
@@ -453,7 +456,9 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
         *mute_time = 500;
         return false;
     }
-    if ((in_device & AUDIO_DEVICE_IN_SPDIF) &&
+    if (((in_device & AUDIO_DEVICE_IN_SPDIF) ||
+            ((in_device & AUDIO_DEVICE_IN_HDMI_ARC) &&
+                    (access(SYS_NODE_EARC_RX, F_OK) == -1))) &&
             !is_spdif_in_stable_hw(stream)) {
         *mute_time = 1000;
         return false;
@@ -486,6 +491,9 @@ unsigned int inport_to_device(enum IN_PORT inport)
         break;
     case INPORT_HDMIIN:
         device = AUDIO_DEVICE_IN_AUX_DIGITAL;
+        break;
+    case INPORT_ARCIN:
+        device = AUDIO_DEVICE_IN_HDMI_ARC;
         break;
     case INPORT_SPDIF:
         device = AUDIO_DEVICE_IN_SPDIF;

@@ -34,6 +34,7 @@ enum input_source {
     ATV     = 1,
     HDMIIN  = 2,
     SPDIFIN = 3,
+    ARCIN   = 4,
 };
 
 /* sync with tinymix after auge */

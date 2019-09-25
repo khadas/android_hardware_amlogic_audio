@@ -629,11 +629,22 @@ static int start_output_stream (struct aml_stream_out *out)
     //TODO need reopen the tinyalsa card when sr/ch changed,
     if (adev->pcm == NULL) {
         ALOGD("%s(), pcm_open card %u port %u\n", __func__, card, port);
-        out->pcm = pcm_open (card, port, PCM_OUT /*| PCM_MMAP | PCM_NOIRQ*/, & (out->config) );
-        if (!pcm_is_ready (out->pcm) ) {
-            ALOGE ("cannot open pcm_out driver: %s", pcm_get_error (out->pcm) );
+        out->pcm = pcm_open (card, port, PCM_OUT /*| PCM_MMAP | PCM_NOIRQ*/, &out->config);
+        if (!pcm_is_ready (out->pcm)) {
+            ALOGE ("cannot open pcm_out driver: %s", pcm_get_error (out->pcm));
             pcm_close (out->pcm);
             return -ENOMEM;
+        }
+        if (IS_HDMI_ARC_OUT_HW(adev->out_device)) {
+            int earc_port = alsa_device_update_pcm_index(PORT_EARC, PLAYBACK);
+            struct pcm_config earc_config = update_earc_out_config(&out->config);
+            out->earc_pcm = pcm_open (card, earc_port, PCM_OUT /*| PCM_MMAP | PCM_NOIRQ*/, &earc_config);
+            if (!pcm_is_ready (out->earc_pcm) ) {
+                ALOGE ("cannot open pcm_out driver: %s", pcm_get_error (out->earc_pcm) );
+                pcm_close (out->earc_pcm);
+                out->earc_pcm = NULL;
+                return -EINVAL;
+            }
         }
         if (out->config.rate != out_get_sample_rate (&out->stream.common) ) {
             ALOGD ("%s(out->config.rate=%d, out->config.channels=%d)",
@@ -664,6 +675,13 @@ static int start_output_stream (struct aml_stream_out *out)
         // add to fix start output when pcm in pause state
         if (adev->pcm_paused && pcm_is_ready (out->pcm) ) {
             ret = pcm_ioctl (out->pcm, SNDRV_PCM_IOCTL_PAUSE, 0);
+            if (ret < 0) {
+                ALOGE ("%s(), cannot resume channel\n", __func__);
+            }
+        }
+        if (IS_HDMI_ARC_OUT_HW(adev->out_device) &&
+                adev->pcm_paused && pcm_is_ready (out->earc_pcm)) {
+            ret = pcm_ioctl (out->earc_pcm, SNDRV_PCM_IOCTL_PAUSE, 0);
             if (ret < 0) {
                 ALOGE ("%s(), cannot resume channel\n", __func__);
             }
@@ -809,6 +827,17 @@ static int start_output_stream_direct (struct aml_stream_out *out)
             out->pcm = NULL;
             return -EINVAL;
         }
+        if (IS_HDMI_ARC_OUT_HW(adev->out_device)) {
+            int earc_port = alsa_device_update_pcm_index(PORT_EARC, PLAYBACK);
+            struct pcm_config earc_config = update_earc_out_config(&out->config);
+            out->earc_pcm = pcm_open (card, earc_port, PCM_OUT, &earc_config);
+            if (!pcm_is_ready (out->earc_pcm) ) {
+                ALOGE ("cannot open pcm_out driver: %s", pcm_get_error (out->earc_pcm) );
+                pcm_close (out->earc_pcm);
+                out->earc_pcm = NULL;
+                return -EINVAL;
+            }
+        }
     } else {
         ALOGE ("stream %p share the pcm %p\n", out, out->pcm);
     }
@@ -882,7 +911,8 @@ static int check_input_parameters(uint32_t sample_rate, audio_format_t format, i
     if ((devices & AUDIO_DEVICE_IN_LINE) ||
         (devices & AUDIO_DEVICE_IN_SPDIF) ||
         (devices & AUDIO_DEVICE_IN_TV_TUNER) ||
-        (devices & AUDIO_DEVICE_IN_HDMI)) {
+        (devices & AUDIO_DEVICE_IN_HDMI) ||
+        (devices & AUDIO_DEVICE_IN_HDMI_ARC)) {
         if (format == AUDIO_FORMAT_PCM_16_BIT &&
             channel_count == 2 &&
             sample_rate == 48000) {
@@ -1181,6 +1211,13 @@ static int do_output_standby_direct (struct aml_stream_out *out)
             pcm_close(out->pcm);
         }
         out->pcm = NULL;
+        if (IS_HDMI_ARC_OUT_HW(adev->out_device)) {
+            if (out->pause_status == true && out->earc_pcm) {
+                pcm_stop(out->earc_pcm);
+            }
+            pcm_close (out->earc_pcm);
+            out->earc_pcm = NULL;
+        }
     }
     out->pause_status = false;
     set_codec_type (TYPE_PCM);
@@ -1231,6 +1268,13 @@ static int out_standby_direct (struct audio_stream *stream)
         }
         pcm_close (out->pcm);
         out->pcm = NULL;
+        if (IS_HDMI_ARC_OUT_HW(adev->out_device)) {
+            if (out->pause_status == true) {
+                pcm_stop(out->earc_pcm);
+            }
+            pcm_close (out->earc_pcm);
+            out->earc_pcm = NULL;
+        }
     }
     out->pause_status = false;
     set_codec_type (TYPE_PCM);
@@ -1282,6 +1326,14 @@ static int out_flush (struct audio_stream_out *stream)
     if (out->pause_status == true && out->pcm) {
         // when pause status, set status prepare to avoid static pop sound
         ret = pcm_ioctl (out->pcm, SNDRV_PCM_IOCTL_PREPARE);
+        if (ret < 0) {
+            ALOGE ("cannot prepare pcm!");
+            goto exit;
+        }
+    }
+    if (IS_HDMI_ARC_OUT_HW(adev->out_device) &&
+            out->pause_status == true && out->earc_pcm) {
+        ret = pcm_ioctl (out->earc_pcm, SNDRV_PCM_IOCTL_PREPARE);
         if (ret < 0) {
             ALOGE ("cannot prepare pcm!");
             goto exit;
@@ -1724,6 +1776,20 @@ static int out_pause (struct audio_stream_out *stream)
                 ALOGE ("out->pcm and adev->pcm are assumed same handle");
         }
     }
+    if (IS_HDMI_ARC_OUT_HW(adev->out_device) &&
+            out->earc_pcm && pcm_is_ready (out->earc_pcm)) {
+        r = pcm_ioctl (out->earc_pcm, SNDRV_PCM_IOCTL_PAUSE, 1);
+        if (r < 0) {
+            ALOGE ("cannot pause channel\n");
+        } else {
+            r = 0;
+            // set the pcm pause state
+            if (out->earc_pcm == adev->pcm)
+                adev->pcm_paused = true;
+            else
+                ALOGE ("out->earc_pcm and adev->pcm are assumed same handle");
+        }
+    }
 
 exit1:
     out->pause_status = true;
@@ -1763,8 +1829,16 @@ static int out_resume (struct audio_stream_out *stream)
         if (out->flags & AUDIO_OUTPUT_FLAG_DIRECT &&
             !hwsync_lpcm && alsa_device_is_auge()) {
             r = pcm_ioctl (out->pcm, SNDRV_PCM_IOCTL_PREPARE);
+            if (IS_HDMI_ARC_OUT_HW(adev->out_device) &&
+                    out->earc_pcm && pcm_is_ready (out->earc_pcm)) {
+                r = pcm_ioctl (out->earc_pcm, SNDRV_PCM_IOCTL_PREPARE);
+            }
         } else {
             r = pcm_ioctl (out->pcm, SNDRV_PCM_IOCTL_PAUSE, 0);
+            if (IS_HDMI_ARC_OUT_HW(adev->out_device) &&
+                    out->earc_pcm && pcm_is_ready (out->earc_pcm)) {
+                r = pcm_ioctl (out->earc_pcm, SNDRV_PCM_IOCTL_PAUSE, 0);
+            }
         }
         if (r < 0) {
             ALOGE ("%s(), cannot resume channel\n", __func__);
@@ -2148,12 +2222,18 @@ static ssize_t out_write_legacy (struct audio_stream_out *stream, const void* bu
             ALOGI ("to enable same source,need reset alsa,type %d,same source flag %d \n", codec_type, samesource_flag);
             if (out->pcm)
                 pcm_stop (out->pcm);
+            if (IS_HDMI_ARC_OUT_HW(adev->out_device) && out->earc_pcm) {
+                pcm_stop (out->earc_pcm);
+            }
         }
         out->last_codec_type = codec_type;
     }
 #endif
     if (out->is_tv_platform == 1) {
         int16_t *tmp_buffer = (int16_t *) out->audioeffect_tmp_buffer;
+        if (IS_HDMI_ARC_OUT_HW(adev->out_device) && out->earc_pcm && adev->bHDMIARCon) {
+            ret = pcm_write (out->earc_pcm, tmp_buffer, out_frames * frame_size * 2);
+        } else {
         memcpy ( (void *) tmp_buffer, (void *) in_buffer, out_frames * 4);
         ALOGV ("Amlogic - disable audio_data_process(), and replace tmp_buffer data with in_buffer data.\n");
         // audio_effect_process() is deprecated
@@ -2172,6 +2252,7 @@ static ssize_t out_write_legacy (struct audio_stream_out *stream, const void* bu
             memset(out->tmp_buffer_8ch, 0, out_frames * frame_size * 8);
         }*/
         ret = pcm_write (out->pcm, out->tmp_buffer_8ch, out_frames * frame_size * 8);
+        }
         out->frame_write_sum += out_frames;
     } else {
         if (out->hw_sync_mode) {
@@ -2621,6 +2702,9 @@ static ssize_t out_write (struct audio_stream_out *stream, const void* buffer,
             ALOGI ("to enable same source,need reset alsa,type %d,same source flag %d \n",
                    codec_type, samesource_flag);
             pcm_stop (out->pcm);
+            if (IS_HDMI_ARC_OUT_HW(adev->out_device)) {
+                pcm_stop (out->earc_pcm);
+            }
         }
     }
 #endif
@@ -2630,15 +2714,28 @@ static ssize_t out_write (struct audio_stream_out *stream, const void* buffer,
     if (aml_hal_mixer_get_content (mixer) > 0) {
         pthread_mutex_lock (&mixer->lock);
         if (mixer->wp > mixer->rp) {
-            pcm_write (out->pcm, mixer->start_buf + mixer->rp, mixer->wp - mixer->rp);
+            if (IS_HDMI_ARC_OUT_HW(adev->out_device) && out->earc_pcm && adev->bHDMIARCon) {
+                pcm_write (out->earc_pcm, mixer->start_buf + mixer->rp, mixer->wp - mixer->rp);
+            } else {
+                pcm_write (out->pcm, mixer->start_buf + mixer->rp, mixer->wp - mixer->rp);
+            }
         } else {
-            pcm_write (out->pcm, mixer->start_buf + mixer->wp, mixer->buf_size - mixer->rp);
-            pcm_write (out->pcm, mixer->start_buf, mixer->wp);
+            if (IS_HDMI_ARC_OUT_HW(adev->out_device) && out->earc_pcm && adev->bHDMIARCon) {
+                pcm_write (out->earc_pcm, mixer->start_buf + mixer->wp, mixer->buf_size - mixer->rp);
+                pcm_write (out->earc_pcm, mixer->start_buf, mixer->wp);
+            } else {
+                pcm_write (out->pcm, mixer->start_buf + mixer->wp, mixer->buf_size - mixer->rp);
+                pcm_write (out->pcm, mixer->start_buf, mixer->wp);
+            }
         }
         mixer->rp = mixer->wp = 0;
         pthread_mutex_unlock (&mixer->lock);
     }
-    ret = pcm_write (out->pcm, in_buffer, out_frames * frame_size);
+    if (IS_HDMI_ARC_OUT_HW(adev->out_device) && out->earc_pcm && adev->bHDMIARCon) {
+        ret = pcm_write (out->earc_pcm, in_buffer, out_frames * frame_size);
+    } else {
+        ret = pcm_write (out->pcm, in_buffer, out_frames * frame_size);
+    }
     pthread_mutex_unlock (&adev->pcm_write_lock);
     out->frame_write_sum += out_frames;
 
@@ -2686,6 +2783,10 @@ static int insert_output_bytes (struct aml_stream_out *out, size_t size)
     }
 
     if (!out->pcm) {
+        ret = -ENOENT;
+        goto exit;
+    }
+    if (IS_HDMI_ARC_OUT_HW(adev->out_device) && !out->earc_pcm) {
         ret = -ENOENT;
         goto exit;
     }
@@ -2975,13 +3076,20 @@ rewrite:
                     /*to avoid ca noise in Sony TV*/
                     struct snd_pcm_status status;
                     pcm_ioctl(out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+                    if (IS_HDMI_ARC_OUT_HW(adev->out_device) && out->earc_pcm) {
+                        pcm_ioctl(out->earc_pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+                    }
                     if (status.state == PCM_STATE_SETUP ||
                         status.state == PCM_STATE_PREPARED ||
                         status.state == PCM_STATE_XRUN) {
                         ALOGI("mute the first raw data");
                         memset(ddp_dec->outbuf_raw, 0, ddp_dec->outlen_raw);
                     }
-                    ret = pcm_write (out->pcm, ddp_dec->outbuf_raw, ddp_dec->outlen_raw);
+                    if (IS_HDMI_ARC_OUT_HW(adev->out_device) && out->earc_pcm && adev->bHDMIARCon) {
+                        ret = pcm_write (out->earc_pcm, ddp_dec->outbuf_raw, ddp_dec->outlen_raw);
+                    } else {
+                        ret = pcm_write (out->pcm, ddp_dec->outbuf_raw, ddp_dec->outlen_raw);
+                    }
                 }
                 if (ret == 0) {
                    out->frame_write_sum += ddp_dec->outlen_raw / 4 ;
@@ -3049,7 +3157,11 @@ rewrite:
                         ALOGD ("could not open file:/data/hdmi_audio_out.pcm");
                     }
                 }
-                ret = pcm_write (out->pcm, write_buf, write_size);
+                if (IS_HDMI_ARC_OUT_HW(adev->out_device) && out->earc_pcm && adev->bHDMIARCon) {
+                    ret = pcm_write (out->earc_pcm, write_buf, write_size);
+                } else {
+                    ret = pcm_write (out->pcm, write_buf, write_size);
+                }
                 if (ret == 0) {
                     out->frame_write_sum += out_frames;
                 } else {
@@ -3082,7 +3194,11 @@ rewrite:
                 ALOGD ("could not open file:/data/pcm_write_passthrough.pcm");
             }
 #endif
-            ret = pcm_write (out->pcm, (void *) buf, out_frames * frame_size);
+            if (IS_HDMI_ARC_OUT_HW(adev->out_device) && out->earc_pcm && adev->bHDMIARCon) {
+                ret = pcm_write (out->earc_pcm, (void *) buf, out_frames * frame_size);
+            } else {
+                ret = pcm_write (out->pcm, (void *) buf, out_frames * frame_size);
+            }
             if (ret == 0) {
                 out->frame_write_sum += out_frames;
             } else {
@@ -3332,13 +3448,18 @@ static unsigned int select_port_by_device(struct aml_audio_device *adev)
     if (in_device & AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET) {
         inport = PORT_PCM;
     } else if ((in_device & AUDIO_DEVICE_IN_HDMI) ||
-               (in_device & AUDIO_DEVICE_IN_SPDIF)) {
+            (in_device & AUDIO_DEVICE_IN_HDMI_ARC) ||
+            (in_device & AUDIO_DEVICE_IN_SPDIF)) {
         /* fix auge tv input, hdmirx, tunner */
-        if (alsa_device_is_auge()
-            && (in_device & AUDIO_DEVICE_IN_HDMI))
+        if (alsa_device_is_auge() &&
+                (in_device & AUDIO_DEVICE_IN_HDMI)) {
             inport = PORT_TV;
-        else
+        } else if ((access(SYS_NODE_EARC_RX, F_OK) == 0) &&
+                (in_device & AUDIO_DEVICE_IN_HDMI_ARC)) {
+            inport = PORT_EARC;
+        } else {
             inport = PORT_SPDIF;
+        }
     } else if ((in_device & AUDIO_DEVICE_IN_BACK_MIC) ||
             (in_device & AUDIO_DEVICE_IN_BUILTIN_MIC)) {
         if (adev->mic_desc) {
@@ -4167,7 +4288,10 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                     aml_alsa_input_read(stream, in->input_tmp_buffer, read_bytes);
                     adjust_channels(in->input_tmp_buffer, in->config.channels,
                             buffer, channel_count, 2, read_bytes);
-                } else {
+                } else if (!((adev->in_device & AUDIO_DEVICE_IN_HDMI_ARC) &&
+                        (access(SYS_NODE_EARC_RX, F_OK) == 0) &&
+                        (aml_mixer_ctrl_get_int(&adev->alsa_mixer,
+                                AML_MIXER_ID_HDMI_EARC_AUDIO_ENABLE) == 0))) {
                     ret = aml_alsa_input_read(stream, buffer, bytes);
                 }
             }
@@ -4765,13 +4889,14 @@ const char* inport2String(enum IN_PORT enInPort)
     char *apcInPort[INPORT_MAX+1] = {
         "[0x0]TUNER",
         "[0x1]HDMIIN",
-        "[0x2]SPDIF",
+        "[0x2]SPDIFIN",
         "[0x3]LINEIN",
         "[0x4]REMOTE_SUBMIXIN",
         "[0x5]WIRED_HEADSETIN",
-        "[0x6]BUILTIN_MIC",
-        "[0x7]BT_SCO_HEADSET_MIC",
-        "[0x8]MAX"
+        "[0x6]BUILTIN_MICIN",
+        "[0x7]BT_SCO_HEADSET_MICIN",
+        "[0x8]ARCIN",
+        "[0x9]MAX"
     };
     return apcInPort[enInPort];
 }
@@ -4860,6 +4985,9 @@ static int aml_audio_input_routing(struct audio_hw_device *dev,
         case INPORT_BT_SCO_HEADSET_MIC:
         case INPORT_TUNER:
         case INPORT_HDMIIN:
+        case INPORT_ARCIN:
+        case INPORT_SPDIF:
+        case INPORT_REMOTE_SUBMIXIN:
         case INPORT_LINEIN:
         case INPORT_WIRED_HEADSETIN:
             break;
@@ -5994,7 +6122,8 @@ static int choose_stream_pcm_config(struct aml_stream_in *in)
     if (in->device & AUDIO_DEVICE_IN_ALL_SCO) {
         memcpy(&in->config, &pcm_config_bt, sizeof(pcm_config_bt));
     } else {
-        if (!(in->device & AUDIO_DEVICE_IN_HDMI)) {
+        if (!((in->device & AUDIO_DEVICE_IN_HDMI) ||
+                (in->device & AUDIO_DEVICE_IN_HDMI_ARC))) {
             memcpy(&in->config, &pcm_config_in, sizeof(pcm_config_in));
         }
     }
@@ -6621,7 +6750,8 @@ ssize_t aml_audio_spdif_output (struct audio_stream_out *stream,
             config.rate = MM_FULL_POWER_SAMPLING_RATE;
         }
         // reset the sample rate
-        if (patch && (patch->input_src == AUDIO_DEVICE_IN_HDMI || patch->input_src == AUDIO_DEVICE_IN_SPDIF)) {
+        if (patch && (IS_HDMI_IN_HW(patch->input_src) ||
+                patch->input_src == AUDIO_DEVICE_IN_SPDIF)) {
             if (patch->aformat == AUDIO_FORMAT_DTS ||
                 patch->aformat == AUDIO_FORMAT_DTS_HD) {
                 config.rate = aml_out->config.rate;
@@ -6916,7 +7046,7 @@ static void output_mute(struct audio_stream_out *stream, size_t *output_buffer_b
     int timer_in_ms = 0;
 
     if (adev->patch_src == SRC_LINEIN || adev->patch_src == SRC_SPDIFIN
-            || adev->patch_src == SRC_HDMIIN) {
+            || adev->patch_src == SRC_HDMIIN || adev->patch_src == SRC_ARCIN) {
         /* when aux/spdif/arcin/hdmiin switching or format change,
            mute 1000ms, then start fade in. */
         if (adev->active_input != NULL && (!adev->patch_start)) {
@@ -7015,6 +7145,12 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
     } else if (output_format == AUDIO_FORMAT_PCM_32_BIT) {
         int32_t *tmp_buffer = (int32_t *)buffer;
         size_t out_frames = bytes / FRAMESIZE_32BIT_STEREO;
+
+        if (IS_HDMI_ARC_OUT_HW(adev->out_device) && aml_out->earc_pcm && adev->bHDMIARCon) {
+            apply_volume(1.0, tmp_buffer, sizeof(uint32_t), bytes);
+            *output_buffer = tmp_buffer;
+            *output_buffer_bytes = bytes;
+        } else {
         float gain_speaker = adev->sink_gain[OUTPORT_SPEAKER];
         if (aml_out->hw_sync_mode)
              gain_speaker *= aml_out->volume_l;
@@ -7047,6 +7183,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
 
         *output_buffer = aml_out->tmp_buffer_8ch;
         *output_buffer_bytes = FRAMESIZE_32BIT_8ch * out_frames;
+        }
     } else {
         /*atom project supports 32bit hal only*/
         /*TODO: Direct PCM case, I think still needs EQ and AEC */
@@ -7172,11 +7309,16 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             }
 #endif
 
+            if (IS_HDMI_ARC_OUT_HW(adev->out_device) && aml_out->earc_pcm && adev->bHDMIARCon) {
+                apply_volume_16to32(1.0, tmp_buffer, spk_tmp_buf, bytes);
+                *output_buffer = (void *) spk_tmp_buf;
+                *output_buffer_bytes = bytes * 2;
+            } else {
             /* apply volume for spk/hp, SPDIF/HDMI keep the max volume */
             gain_speaker *= (adev->sink_gain[OUTPORT_SPEAKER]);
             apply_volume_16to32(gain_speaker, effect_tmp_buf, spk_tmp_buf, bytes);
 
-            /* 2 ch 16 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
+            /* 2 ch 32 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
             if (aml_out->tmp_buffer_8ch_size < 8 * bytes) {
                 aml_out->tmp_buffer_8ch = realloc(aml_out->tmp_buffer_8ch, 8 * bytes);
                 if (!aml_out->tmp_buffer_8ch) {
@@ -7216,6 +7358,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
 
             *output_buffer = aml_out->tmp_buffer_8ch;
             *output_buffer_bytes = 8 * bytes;
+            }
         } else {
             float gain_speaker = 1.0;
             if (!adev->is_TV)
@@ -7424,6 +7567,12 @@ ssize_t hw_write (struct audio_stream_out *stream
                     if (aml_out->is_tv_platform == true) {
                         out_frames = out_frames / 8;
                     }
+
+                    if (IS_HDMI_ARC_OUT_HW(adev->out_device) && aml_out->earc_pcm &&
+                            adev->bHDMIARCon) {
+                        out_frames = out_frames * 4;
+                    }
+
                     aml_out->frame_write_sum += out_frames;
 
                     total_frame =  aml_out->frame_write_sum;
@@ -8201,7 +8350,8 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
     /* here to check if the audio input format changed. */
     if (adev->audio_patch) {
         audio_format_t cur_aformat;
-        if (patch->input_src == AUDIO_DEVICE_IN_HDMI || patch->input_src == AUDIO_DEVICE_IN_SPDIF) {
+        if (IS_HDMI_IN_HW(patch->input_src) ||
+                patch->input_src == AUDIO_DEVICE_IN_SPDIF) {
             cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
             if (adev->debug_flag) {
                 audio_type_parse_t *status = patch->audio_parse_para;
@@ -9262,13 +9412,14 @@ void *audio_patch_input_threadloop(void *data)
             //DoDumpData(patch->in_buf, bytes_avail, CC_DUMP_SRC_TYPE_INPUT);
 
             /*if it is txl & 88.2k~192K, we will use software detect*/
-            if (txl_chip && (cur_audio_packet == AUDIO_PACKET_HBR) && (patch->input_src == AUDIO_DEVICE_IN_HDMI)) {
+            if (txl_chip && (cur_audio_packet == AUDIO_PACKET_HBR) &&
+                    (IS_HDMI_IN_HW(patch->input_src))) {
                 feeddata_audio_type_parse(&patch->audio_parse_para, patch->in_buf, bytes_avail);
             }
 
             do {
 
-                if (patch->input_src == AUDIO_DEVICE_IN_HDMI) {
+                if (IS_HDMI_IN_HW(patch->input_src)) {
                     // hdmi in audio channels recofig.
                     int current_channel = get_hdmiin_channel(&aml_dev->alsa_mixer);
                     if (current_channel != -1 && current_channel != last_channel_count) {
@@ -9331,6 +9482,11 @@ void *audio_patch_input_threadloop(void *data)
                         }
                     }
                     //usleep(1000);
+                } else if ((aml_dev->in_device & AUDIO_DEVICE_IN_HDMI_ARC) &&
+                        (access(SYS_NODE_EARC_RX, F_OK) == 0) &&
+                        (aml_mixer_ctrl_get_int(&aml_dev->alsa_mixer,
+                                AML_MIXER_ID_HDMI_EARC_AUDIO_ENABLE) == 0)) {
+                    ALOGW("%s(), arc in disconnect,please check the status", __func__);
                 } else {
                     retry = 1;
                     pthread_cond_signal(&patch->cond);
@@ -9643,7 +9799,8 @@ static int create_patch_l(struct audio_hw_device *dev,
         goto err_out_thread;
     }
 
-    if (patch->input_src == AUDIO_DEVICE_IN_HDMI || patch->input_src == AUDIO_DEVICE_IN_SPDIF) {
+    if (IS_HDMI_IN_HW(patch->input_src) ||
+            patch->input_src == AUDIO_DEVICE_IN_SPDIF) {
         //TODO add sample rate and channel information
         ret = creat_pthread_for_audio_type_parse(&patch->audio_parse_threadID,
                 &patch->audio_parse_para, &aml_dev->alsa_mixer, patch->input_src);
@@ -9701,7 +9858,8 @@ int release_patch_l(struct aml_audio_device *aml_dev)
     }
     patch->output_thread_exit = 1;
     patch->input_thread_exit = 1;
-    if (patch->input_src == AUDIO_DEVICE_IN_HDMI || patch->input_src == AUDIO_DEVICE_IN_SPDIF)
+    if (IS_HDMI_IN_HW(patch->input_src) ||
+            patch->input_src == AUDIO_DEVICE_IN_SPDIF)
         exit_pthread_for_audio_type_parse(patch->audio_parse_threadID,&patch->audio_parse_para);
     patch->input_thread_exit = 1;
     pthread_join(patch->audio_input_threadID, NULL);
@@ -9780,10 +9938,13 @@ static int create_parser (struct audio_hw_device *dev, enum IN_PORT inport)
         goto err_ring_buf;
     }
 
-    if (inport == INPORT_HDMIIN)
+    if (inport == INPORT_HDMIIN) {
         input_src = AUDIO_DEVICE_IN_HDMI;
-    else
+    } else if (inport == INPORT_ARCIN) {
+        input_src = AUDIO_DEVICE_IN_HDMI_ARC;
+    } else {
         input_src = AUDIO_DEVICE_IN_SPDIF;
+    }
 
     ret = creat_pthread_for_audio_type_parse (&parser->audio_parse_threadID,
             &parser->audio_parse_para, &aml_dev->alsa_mixer, input_src);
@@ -10148,6 +10309,11 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             inport = INPORT_HDMIIN;
             aml_dev->patch_src = SRC_HDMIIN;
             break;
+        case AUDIO_DEVICE_IN_HDMI_ARC:
+            input_src = ARCIN;
+            inport = INPORT_ARCIN;
+            aml_dev->patch_src = SRC_ARCIN;
+            break;
         case AUDIO_DEVICE_IN_LINE:
             input_src = LINEIN;
             inport = INPORT_LINEIN;
@@ -10197,7 +10363,9 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
         aml_audio_input_routing(dev, inport);
         aml_dev->src_gain[inport] = 1.0;
 
-        if (inport == INPORT_HDMIIN || inport == INPORT_SPDIF) {
+        if (inport == INPORT_HDMIIN ||
+                inport == INPORT_ARCIN ||
+                inport == INPORT_SPDIF) {
             create_parser(dev, inport);
         } else if ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_DTV)){
             if (aml_dev->audio_patching) {
@@ -10291,6 +10459,11 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             input_src = HDMIIN;
             inport = INPORT_HDMIIN;
             aml_dev->patch_src = SRC_HDMIIN;
+            break;
+        case AUDIO_DEVICE_IN_HDMI_ARC:
+            input_src = ARCIN;
+            inport = INPORT_ARCIN;
+            aml_dev->patch_src = SRC_ARCIN;
             break;
         case AUDIO_DEVICE_IN_LINE:
             input_src = LINEIN;
@@ -10853,6 +11026,9 @@ static int adev_set_audio_port_config (struct audio_hw_device *dev, const struct
             switch (config->ext.device.type) {
             case AUDIO_DEVICE_IN_HDMI:
                 inport = INPORT_HDMIIN;
+                break;
+            case AUDIO_DEVICE_IN_HDMI_ARC:
+                inport = INPORT_ARCIN;
                 break;
             case AUDIO_DEVICE_IN_LINE:
                 inport = INPORT_LINEIN;

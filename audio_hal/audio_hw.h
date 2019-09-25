@@ -21,6 +21,7 @@
 #include <hardware/audio.h>
 #include <cutils/list.h>
 #include <sound/asound.h>
+#include <string.h>
 #include <tinyalsa/asoundlib.h>
 
 /* ALSA cards for AML */
@@ -104,6 +105,15 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 #define EAC3_MULTIPLIER 4
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
+
+#define SYS_NODE_EARC_RX           "/sys/class/extcon/earcrx/state"
+#define SYS_NODE_EARC_TX           "/sys/class/extcon/earctx/state"
+
+#define IS_HDMI_IN_HW(device) ((device) == AUDIO_DEVICE_IN_HDMI ||\
+                             (device) == AUDIO_DEVICE_IN_HDMI_ARC)
+
+#define IS_HDMI_ARC_OUT_HW(device) ((access(SYS_NODE_EARC_TX, F_OK) == 0) &&\
+                (device & AUDIO_DEVICE_OUT_HDMI_ARC))
 
 enum {
     TYPE_PCM = 0,
@@ -216,8 +226,9 @@ enum patch_src_assortion {
     SRC_WIRED_HEADSETIN         = 6,
     SRC_BUILTIN_MIC             = 7,
     SRC_BT_SCO_HEADSET_MIC      = 8,
-    SRC_OTHER                   = 9,
-    SRC_INVAL                   = 10,
+    SRC_ARCIN                   = 9,
+    SRC_OTHER                   = 10,
+    SRC_INVAL                   = 11,
 };
 
 enum OUT_PORT {
@@ -242,7 +253,8 @@ enum IN_PORT {
     INPORT_WIRED_HEADSETIN      = 5,
     INPORT_BUILTIN_MIC          = 6,
     INPORT_BT_SCO_HEADSET_MIC   = 7,
-    INPORT_MAX                  = 8,
+    INPORT_ARCIN                = 8,
+    INPORT_MAX                  = 9,
 };
 
 struct audio_patch_set {
@@ -539,6 +551,7 @@ struct aml_stream_out {
     audio_output_flags_t flags;
     audio_devices_t out_device;
     struct pcm *pcm;
+    struct pcm *earc_pcm;
     struct resampler_itfe *resampler;
     char *buffer;
     size_t buffer_frames;
@@ -675,6 +688,19 @@ struct aml_stream_in {
 };
 typedef  int (*do_standby_func)(struct aml_stream_out *out);
 typedef  int (*do_startup_func)(struct aml_stream_out *out);
+
+inline struct pcm_config update_earc_out_config(struct pcm_config *config)
+{
+    struct pcm_config earc_config;
+    memset(&earc_config, 0, sizeof(struct pcm_config));
+    earc_config.channels = 2;
+    earc_config.rate = config->rate;
+    earc_config.period_size = config->period_size;
+    earc_config.period_count = config->period_count;
+    earc_config.start_threshold = config->start_threshold;
+    earc_config.format = config->format;
+    return earc_config;
+}
 
 inline int continous_mode(struct aml_audio_device *adev)
 {
