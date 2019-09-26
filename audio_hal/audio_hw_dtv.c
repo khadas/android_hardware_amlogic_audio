@@ -541,8 +541,8 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
     val = pts - lantcy * 90;
 
     patch->outlen_after_last_validpts = 0;
-    // ALOGI("====get pts:%lx offset:%d lan %d \n", val, patch->decoder_offset,
-    //       lantcy);
+    // ALOGI("====get pts:%lx offset:%d lan %d origin_apts:%lx\n",
+    //	val, patch->decoder_offset, lantcy, pts);
     return val;
 }
 
@@ -972,7 +972,6 @@ static int dtv_set_audio_latency(int apts_diff)
     }
     return apts_diff;
 }
-
 static int dtv_write_mute_frame(struct aml_audio_patch *patch,
                                 struct audio_stream_out *stream_out)
 {
@@ -1131,7 +1130,7 @@ static void dtv_do_drop_pcm(int avail, struct aml_audio_patch *patch,
     patch->dtv_apts_lookup = 0;
 }
 
-static void dtv_do_drop_ac3(int avail, struct aml_audio_patch *patch,
+static void dtv_do_drop_insert_ac3(int avail, struct aml_audio_patch *patch,
                             struct audio_stream_out *stream_out)
 {
     struct audio_hw_device *adev = patch->dev;
@@ -1139,6 +1138,14 @@ static void dtv_do_drop_ac3(int avail, struct aml_audio_patch *patch,
     struct aml_stream_out *out = (struct aml_stream_out *)stream_out;
     int fm_size;
     int drop_size, t1, t2;
+    int write_used_ms = 0;
+    unsigned int cur_pts = 0;
+    unsigned int cur_pcr = 0;
+    int ap_diff = 0;
+    int write_times = 0;
+    struct timespec before_write;
+    struct timespec after_write;
+
     if (!patch || !patch->dev || !stream_out || aml_dev->tuner2mix_patch == 1) {
         return;
     }
@@ -1164,13 +1171,34 @@ static void dtv_do_drop_ac3(int avail, struct aml_audio_patch *patch,
             t1 =  abs(patch->dtv_apts_lookup) / 90;
         }
         t2 = t1 / 32;
-        ALOGI("dtv_do_drop:++drop %d,lookup %d,diff %d ms,frame %d\n", t2 * fm_size, patch->dtv_apts_lookup, t1, fm_size);
+        ALOGI("dtv_do_insert:++insert %d,lookup %d,diff %d ms,frame %d\n", t2 * fm_size, patch->dtv_apts_lookup, t1, fm_size);
         t1 = 0;
         while (t1 == 0 && t2 > 0 && patch->output_thread_exit == 0) {
+
+            write_times++;
             t1 = dtv_write_mute_frame(patch, stream_out);
+            usleep(5000);
+
+            cur_pts = patch->last_apts;
+            get_sysfs_uint(TSYNC_PCRSCR, (unsigned int *) & (cur_pcr));
+            ap_diff = cur_pts - cur_pcr;
+            ALOGI("cur_pts=0x%x, cur_pcr=0x%x,ap_diff=%d\n", cur_pts, cur_pcr, ap_diff);
+            if (ap_diff < 90*10) {
+                ALOGI("write mute pcm enough, write_times=%d break\n", write_times);
+                break;
+            }
             t2--;
+
+            clock_gettime(CLOCK_MONOTONIC, &after_write);
+            write_used_ms = calc_time_interval_us(&before_write, &after_write)/1000;
+            ALOGI("write_used_ms = %d\n", write_used_ms);
+            if (write_used_ms > 1000) {
+                ALOGI("write cost over 1s write_times=%d, break\n", write_times);
+                break;
+            }
         }
     }
+    ALOGI("dtv_do_drop_insert done\n");
 }
 
 static int dtv_audio_tune_check(struct aml_audio_patch *patch, int cur_pts_diff, int last_pts_diff, unsigned int apts)
@@ -1317,13 +1345,23 @@ static void do_pll2_by_pts(unsigned int pcrpts, struct aml_audio_patch *patch,
                            unsigned int apts, struct aml_stream_out *stream_out)
 {
     unsigned int last_pcrpts, last_apts;
+    unsigned int cur_vpts = 0;
     int pcrpts_diff, last_pts_diff, cur_pts_diff;
     struct audio_hw_device *adev = patch->dev;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) adev;
     struct aml_mixer_handle * handle = &(aml_dev->alsa_mixer);
+    int ret = 0;
+    char buff[32] = {0};
+
     if (get_tsync_pcr_debug()) {
-        ALOGI("process_ac3_sync, diff:%d,pcrpts %x,size %d, latency %d,mode %d",
-              (int)(pcrpts - apts) / 90, pcrpts, get_buffer_read_space(&(patch->aml_ringbuffer)),
+
+        ret = aml_sysfs_get_str(TSYNC_VPTS, buff, sizeof(buff));
+        if (ret > 0) {
+            ret = sscanf(buff, "0x%x\n", &cur_vpts);
+        }
+
+        ALOGI("process_ac3_sync, diff:%d, pcrpts %x, apts %x, vpts %x, av_diff:%d, size %d, latency %d,mode %d",
+              (int)(pcrpts - apts) / 90, pcrpts, apts, cur_vpts, (int)(apts - cur_vpts)/90,                 get_buffer_read_space(&(patch->aml_ringbuffer)),
               (int)decoder_get_latency() / 90, patch->dtv_pcr_mode);
     }
     last_apts = patch->last_apts;
@@ -1548,7 +1586,8 @@ void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_out* st
     patch->dtv_pcr_mode = get_dtv_sync_mode();
     if (patch->aformat == AUDIO_FORMAT_E_AC3 || patch->aformat == AUDIO_FORMAT_AC3) {
         if (stream_out != NULL) {
-            unsigned int  pcm_lantcy = out_get_latency(&(stream_out->stream));
+            /*The decoder has one frame cached,need to add 32ms to the latency*/
+            unsigned int  pcm_lantcy = out_get_latency(&(stream_out->stream)) + 32;
             pts = dtv_hal_get_pts(patch, pcm_lantcy);
             process_ac3_sync(patch, pts, stream_out);
         }
@@ -1976,7 +2015,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
                         //ALOGI("dtv_audio_tune audio_lookup\n");
                         clean_dtv_patch_pts(patch);
                     } else if (patch->dtv_audio_tune == AUDIO_DROP) {
-                        dtv_do_drop_ac3(main_avail, patch, stream_out);
+                        dtv_do_drop_insert_ac3(main_avail, patch, stream_out);
                         clean_dtv_patch_pts(patch);
                         patch->dtv_apts_lookup = 0;
                         //ALOGI("dtv_audio_tune audio_latency\n");
@@ -2179,7 +2218,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
                         clean_dtv_patch_pts(patch);
                         //ALOGI("dtv_audio_tune audio_lookup\n");
                     } else if (patch->dtv_audio_tune == AUDIO_DROP) {
-                        dtv_do_drop_ac3(avail, patch, stream_out);
+                        dtv_do_drop_insert_ac3(avail, patch, stream_out);
                         clean_dtv_patch_pts(patch);
                         patch->dtv_apts_lookup = 0;
                         patch->dtv_audio_tune = AUDIO_LATENCY;
