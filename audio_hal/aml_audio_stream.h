@@ -270,6 +270,7 @@ struct aml_audio_patch {
     int i2s_step_clk;
     int dtv_audio_mode;
     int dtv_pcr_mode;
+    int tsync_mode;
     int dtv_apts_lookup;
     int dtv_audio_tune;
     int pll_state;
