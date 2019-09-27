@@ -7184,7 +7184,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             *output_buffer_bytes = 8 * bytes;
         } else {
             float gain_speaker = 1.0;
-            if (adev->is_STB)
+            if (!adev->is_TV)
                 gain_speaker = adev->sink_gain[adev->active_outport];
             else
                 gain_speaker = adev->sink_gain[OUTPORT_SPEAKER];
@@ -7263,7 +7263,7 @@ ssize_t hw_write (struct audio_stream_out *stream
 
         if (adev->useSubMix) {
             if (aml_out->usecase == STREAM_PCM_DIRECT && adev->audio_patching) {
-                if (adev->is_STB && (adev->ddp).digital_raw > 0 &&
+                if (!adev->is_TV && (adev->ddp).digital_raw > 0 &&
                         output_format != AUDIO_FORMAT_PCM_16_BIT && output_format != AUDIO_FORMAT_PCM) {
                     // TODO: mbox+dvb and bypass case
                     ret = aml_alsa_output_open(stream);
@@ -7660,8 +7660,9 @@ static void config_output(struct audio_stream_out *stream)
             case DD:
                 ddp_dec->digital_raw = 1;
                 //STB case
-                if (adev->is_STB) {
+                if (!adev->is_TV) {
                     set_stream_dual_output(stream, false);
+
                 } else {
                     set_stream_dual_output(stream, true);
                 }
@@ -7669,7 +7670,7 @@ static void config_output(struct audio_stream_out *stream)
                 break;
             case AUTO:
                 //STB case
-                if (adev->is_STB) {
+                if (!adev->is_TV) {
                     char *cap = NULL;
                     cap = (char *) get_hdmi_sink_cap (AUDIO_PARAMETER_STREAM_SUP_FORMATS,0,&(adev->hdmi_descs));
                     if (cap && mystrstr(cap, "AUDIO_FORMAT_E_AC3")) {
@@ -7792,7 +7793,7 @@ static void config_output(struct audio_stream_out *stream)
         case DD:
             dts_dec->digital_raw = 1;
             //STB case
-            if (adev->is_STB) {
+            if (!adev->is_TV) {
                 set_stream_dual_output(stream, false);
             } else {
                 set_stream_dual_output(stream, true);
@@ -8531,7 +8532,7 @@ re_write:
                 //now only TV ARC output is using single output. we are implementing the OTT HDMI output in this case.
                 // TODO  add OUTPUT_HDMI in this case
                 // or STB case
-                else if (ddp_dec->digital_raw > 0 && (adev->active_outport == OUTPORT_HDMI_ARC || adev->is_STB)) {/*single raw output*/
+                else if (ddp_dec->digital_raw > 0 && (adev->active_outport == OUTPORT_HDMI_ARC || !adev->is_TV)) {/*single raw output*/
                     if (ddp_dec->pcm_out_info.sample_rate > 0)
                         aml_out->config.rate = ddp_dec->pcm_out_info.sample_rate;
                     if (patch)
