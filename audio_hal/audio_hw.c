@@ -3400,15 +3400,6 @@ static int start_input_stream(struct aml_stream_in *in)
     ret = choose_stream_pcm_config(in);
     if (ret < 0)
         return -EINVAL;
-    if (in->requested_rate != in->config.rate) {
-        ret = add_in_stream_resampler(in);
-        if (ret < 0)
-            return -EINVAL;
-    }
-
-    ALOGD("%s: device(%x) channels=%d rate=%d requested_rate=%d mode= %d",
-        __func__, in->device, in->config.channels,
-        in->config.rate, in->requested_rate, adev->mode);
 
     adev->active_input = in;
     if (adev->mode != AUDIO_MODE_IN_CALL) {
@@ -3431,6 +3422,21 @@ static int start_input_stream(struct aml_stream_in *in)
         adev->active_input = NULL;
         return -ENOMEM;
     }
+
+    if (in->requested_rate != in->config.rate) {
+        ret = add_in_stream_resampler(in);
+        if (ret < 0) {
+            pcm_close (in->pcm);
+            adev->active_input = NULL;
+            return -EINVAL;
+        }
+    }
+
+    ALOGD("%s: device(%x) channels=%d rate=%d requested_rate=%d mode= %d",
+        __func__, in->device, in->config.channels,
+        in->config.rate, in->requested_rate, adev->mode);
+
+
 
     /* if no supported sample rate is available, use the resampler */
     if (in->resampler) {
