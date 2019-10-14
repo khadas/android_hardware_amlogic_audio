@@ -118,6 +118,8 @@
 #endif
 
 #include "sub_mixing_factory.h"
+#include "aml_malloc_debug.h"
+
 #define CARD_AMLOGIC_BOARD 0
 
 /*Google Voice Assistant channel_mask */
@@ -5687,6 +5689,15 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         adev->direct_mode = direct_mode;
         goto exit;
     }
+
+    ret = str_parms_get_str(parms, "show-meminfo", value, sizeof(value));
+    if (ret >= 0) {
+        unsigned int level = (unsigned int)atoi(value);
+        ALOGE ("Amlogic_HAL - %s: ShowMem info level:%d.", __FUNCTION__,level);
+        aml_audio_debug_malloc_showinfo(level);
+        return 0;
+    }
+
 exit:
     str_parms_destroy (parms);
 
@@ -10688,6 +10699,7 @@ static int adev_close(hw_device_t *device)
         free(adev->mic_desc);
 #endif
     free(device);
+    aml_audio_debug_malloc_close();
     return 0;
 }
 
@@ -10975,6 +10987,7 @@ int init_mic_desc(struct aml_audio_device *adev)
 static int adev_open(const hw_module_t* module, const char* name, hw_device_t** device)
 {
     struct aml_audio_device *adev;
+    aml_audio_debug_malloc_open();
     size_t bytes_per_frame = audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT)
                              * audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO);
     int buffer_size = PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE * bytes_per_frame;
