@@ -4257,14 +4257,15 @@ static int adev_get_microphones (const struct audio_hw_device *dev __unused,
 }
 
 /****************ch_num's value ******************************
-   virtual:x  0 : mean 2.0 ch   1 : mean 5.1 ch  param: 47
+   Virtual:x   0 : mean 2.0 ch   1 : mean 5.1 ch  param: 47
    TruvolumeHD 0 : mean 2.0 ch   4 : mean 5.1 ch  param: 70
+   cmdCode     5 : effect setparameter   2 : effect reset
 *************************************************************/
-#define VIRTUALXINMODE 47
-#define TRUVOLUMEINMODE 70
-#define VXCONUTER 74
+#define VIRTUALXINMODE   47
+#define TRUVOLUMEINMODE  70
+#define VXCONUTER        74
 
-void virtualx_setparameter(struct aml_audio_device *adev,int param,int ch_num)
+void virtualx_setparameter(struct aml_audio_device *adev,int param,int ch_num,int cmdCode)
 {
     effect_descriptor_t tmpdesc;
     int32_t replyData;
@@ -4279,7 +4280,8 @@ void virtualx_setparameter(struct aml_audio_device *adev,int param,int ch_num)
     if (adev->native_postprocess.postprocessors[0] != NULL) {
         (*(adev->native_postprocess.postprocessors[0]))->get_descriptor(adev->native_postprocess.postprocessors[0], &tmpdesc);
         if (0 == strcmp(tmpdesc.name,"VirtualX")) {
-            (*adev->native_postprocess.postprocessors[0])->command(adev->native_postprocess.postprocessors[0],5,cmdSize,(void *)p,&replySize,&replyData);
+            (*adev->native_postprocess.postprocessors[0])->command(adev->native_postprocess.postprocessors[0],cmdCode,cmdSize,
+                (void *)p,&replySize,&replyData);
         }
     }
 }
@@ -4304,8 +4306,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out = (struct aml_stream_out *)calloc(1, sizeof(struct aml_stream_out));
     if (!out)
         return -ENOMEM;
-    virtualx_setparameter(adev,VIRTUALXINMODE,0);
-    virtualx_setparameter(adev,TRUVOLUMEINMODE,0);
+    virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
+    virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
     adev->effect_in_ch = 2;
     if (flags == AUDIO_OUTPUT_FLAG_NONE)
         flags = AUDIO_OUTPUT_FLAG_PRIMARY;
@@ -4575,8 +4577,9 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
 
     ALOGD("%s: enter: dev(%p) stream(%p)", __func__, dev, stream);
-    virtualx_setparameter(adev,VIRTUALXINMODE,0);
-    virtualx_setparameter(adev,TRUVOLUMEINMODE,0);
+    virtualx_setparameter(adev,0,0,2);
+    virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
+    virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
     adev->effect_in_ch = 2;
     if (adev->useSubMix) {
         if (out->usecase == STREAM_PCM_NORMAL || out->usecase == STREAM_PCM_HWSYNC)
@@ -4601,7 +4604,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             }
         }
     }
-
     pthread_mutex_lock(&out->lock);
     free(out->audioeffect_tmp_buffer);
     free(out->tmp_buffer_8ch);
@@ -7104,7 +7106,6 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                   adev->sound_track_mode = AM_AOUT_OUTPUT_LRMIX;
                aml_audio_switch_output_mode((int16_t *)effect_tmp_buf, bytes, adev->sound_track_mode);
             }
-
             /*aduio effect process for speaker*/
             if (adev->native_postprocess.num_postprocessors == adev->native_postprocess.total_postprocessors) {
                 for (j = 0; j < adev->native_postprocess.num_postprocessors; j++) {
@@ -7116,7 +7117,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                             }
                         }
                     } else {
-                        virtualx_setparameter(adev,VXCONUTER,0);
+                        virtualx_setparameter(adev,VXCONUTER,0,5);
                         audio_post_process(adev->native_postprocess.postprocessors[j], effect_tmp_buf, out_frames);
                     }
                 }
@@ -7125,7 +7126,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 virtualx will be called twice,first implementation for process Trusurround:X->Truvolume->TBHDX
                 final implementation for process MC Dynamics
                 */
-                virtualx_setparameter(adev,VXCONUTER,1);
+                virtualx_setparameter(adev,VXCONUTER,1,5);
                 if (adev->native_postprocess.postprocessors[0] != NULL) {
                    (*(adev->native_postprocess.postprocessors[0]))->get_descriptor(adev->native_postprocess.postprocessors[0], &tmpdesc);
                    if (0 == strcmp(tmpdesc.name,"VirtualX")) {
@@ -7592,12 +7593,13 @@ static void config_output(struct audio_stream_out *stream)
     ALOGI("%s() adev->dolby_lib_type = %d", __FUNCTION__, adev->dolby_lib_type);
     if (aml_out->hal_internal_format != AUDIO_FORMAT_DTS
             && aml_out->hal_internal_format != AUDIO_FORMAT_DTS_HD) {
-         virtualx_setparameter(adev,VIRTUALXINMODE,0);
-         virtualx_setparameter(adev,TRUVOLUMEINMODE,0);
-         adev->effect_in_ch = 2;
          struct dca_dts_dec *dts_dec = & (adev->dts_hd);
          if (dts_dec->status == 1) {
             dca_decoder_release_patch(dts_dec);
+            virtualx_setparameter(adev,0,0,2);
+            virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
+            virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
+            adev->effect_in_ch = 2;
             if (dts_dec->digital_raw > 0) {
                 struct pcm *pcm = adev->pcm_handle[DIGITAL_DEVICE];
                 if (pcm && is_dual_output_stream(stream)) {
@@ -7859,12 +7861,13 @@ static void config_output(struct audio_stream_out *stream)
                                          || aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
                 int status = dca_decoder_init_patch(dts_dec);
                 if (adev->virtualx_mulch) {
-                    virtualx_setparameter(adev,VIRTUALXINMODE,1);
-                    virtualx_setparameter(adev,TRUVOLUMEINMODE,4);
+                    virtualx_setparameter(adev,0,0,2);
+                    virtualx_setparameter(adev,VIRTUALXINMODE,1,5);
+                    virtualx_setparameter(adev,TRUVOLUMEINMODE,4,5);
                     adev->effect_in_ch = 6;
                 } else {
-                    virtualx_setparameter(adev,VIRTUALXINMODE,0);
-                    virtualx_setparameter(adev,TRUVOLUMEINMODE,0);
+                    virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
+                    virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
                     adev->effect_in_ch = 2;
                 }
                 if ((patch && audio_parse_get_audio_type_direct(patch->audio_parse_para) == DTSCD) || dtscd_flag) {
@@ -7875,8 +7878,9 @@ static void config_output(struct audio_stream_out *stream)
             } else if (dts_dec->status == 1 && (aml_out->hal_internal_format == AUDIO_FORMAT_DTS
                                                 || aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
                 dca_decoder_release_patch(dts_dec);
-                virtualx_setparameter(adev,VIRTUALXINMODE,0);
-                virtualx_setparameter(adev,TRUVOLUMEINMODE,0);
+                virtualx_setparameter(adev,0,0,2);
+                virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
+                virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
                 adev->effect_in_ch = 2;
                 if (dts_dec->digital_raw > 0) {
                     struct pcm *pcm = adev->pcm_handle[DIGITAL_DEVICE];
@@ -8017,8 +8021,8 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         if (strcmp(val, "true" /*enble 5.1 ch*/) == 0) {
             if (adev->virtualx_mulch != true) {
                 adev->virtualx_mulch = true;
-                virtualx_setparameter(adev,VIRTUALXINMODE,1);
-                virtualx_setparameter(adev,TRUVOLUMEINMODE,4);
+                virtualx_setparameter(adev,VIRTUALXINMODE,1,5);
+                virtualx_setparameter(adev,TRUVOLUMEINMODE,4,5);
                 adev->effect_in_ch = 6;
                 /*reconfig dts  decoder interface*/
                 if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS) {
@@ -8028,8 +8032,8 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         } else if (strcmp(val, "false"/*disable 5.1 ch*/) == 0) {
             if (adev->virtualx_mulch != false) {
                 adev->virtualx_mulch = false;
-                virtualx_setparameter(adev,VIRTUALXINMODE,0);
-                virtualx_setparameter(adev,TRUVOLUMEINMODE,0);
+                virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
+                virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
                 adev->effect_in_ch = 2;
                 /*reconfig dts  decoder interface*/
                 if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS) {
@@ -8353,7 +8357,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
 
 #if 1
         //wirte raw data
-        if (dts_dec->digital_raw == 1 && is_dual_output_stream(stream)) {
+        if (dts_dec->digital_raw == 1 && is_dual_output_stream(stream) && dts_dec->outlen_raw > 0) {
             /* all the HDMI in we goes through into decoder, because sometimes it is 44.1 khz, we don't know
                 such info if we doesn't decoded it.
             */
@@ -8429,7 +8433,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
                 }
                 tmp_buffer = (int16_t *)adev->effect_buf;
                 memcpy(tmp_buffer, dts_buffer, bytes);
-                virtualx_setparameter(adev,VXCONUTER,0);
+                virtualx_setparameter(adev,VXCONUTER,0,5);
                 if (adev->native_postprocess.postprocessors[0] != NULL) {
                     (*(adev->native_postprocess.postprocessors[0]))->get_descriptor(adev->native_postprocess.postprocessors[0], &tmpdesc);
                     if (0 == strcmp(tmpdesc.name,"VirtualX")) {
@@ -11049,7 +11053,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->hw_device.get_audio_port = adev_get_audio_port;
     adev->hw_device.dump = adev_dump;
     adev->active_outport = -1;
-    adev->virtualx_mulch = false;
+    adev->virtualx_mulch = true;
     card = alsa_device_get_card_index();
     if ((card < 0) || (card > 7)) {
         ALOGE("error to get audio card");
