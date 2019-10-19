@@ -3317,11 +3317,7 @@ static int out_add_audio_effect (const struct audio_stream *stream, effect_handl
     }
 
     dev->native_postprocess.postprocessors[dev->native_postprocess.num_postprocessors++] = effect;
-    /*add for virtualx. specify effect order
-     according to dts profile2 block diagram: Trusurround:X->Truvolume->TBHDX->customer modules->MC Dynamics
-     virtualx will be called twice,first implementation for process Trusurround:X->Truvolume->TBHDX
-     final implementation for process MC Dynamics
-    */
+    /*specify effect order for virtualx.*/
     effect_descriptor_t tmpdesc;
     for ( i = 0; i < dev->native_postprocess.num_postprocessors; i++) {
         (*effect)->get_descriptor(dev->native_postprocess.postprocessors[i], &tmpdesc);
@@ -4191,7 +4187,8 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             ALOGD("%s:%d dtv_in_read data size:%d, src_gain:%f",__func__,__LINE__, bytes, adev->src_gain[adev->active_inport]);
         }
         ret = dtv_in_read(stream, buffer, bytes);
-        apply_volume(adev->src_gain[adev->active_inport], buffer, sizeof(uint16_t), bytes);
+        if (adev->src_gain[adev->active_inport] != 1.0)
+            apply_volume(adev->src_gain[adev->active_inport], buffer, sizeof(uint16_t), bytes);
         goto exit;
     } else {
         /* when audio is unstable, need to mute the audio data for a while
@@ -4387,7 +4384,6 @@ static int adev_get_microphones (const struct audio_hw_device *dev __unused,
 *************************************************************/
 #define VIRTUALXINMODE   47
 #define TRUVOLUMEINMODE  70
-#define VXCONUTER        74
 
 void virtualx_setparameter(struct aml_audio_device *adev,int param,int ch_num,int cmdCode)
 {
@@ -7244,9 +7240,6 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             else
                 source_gain = adev->eq_data.s_gain.media;
 
-            if (source_gain != 1.0)
-                apply_volume(source_gain, effect_tmp_buf, sizeof(int16_t), bytes);
-
             if (adev->patch_src == SRC_DTV && adev->audio_patch != NULL) {
                 aml_audio_switch_output_mode((int16_t *)effect_tmp_buf, bytes, adev->audio_patch->mode);
             } else if ( adev->audio_patch == NULL) {
@@ -7265,21 +7258,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                             }
                         }
                     } else {
-                        virtualx_setparameter(adev,VXCONUTER,0,5);
                         audio_post_process(adev->native_postprocess.postprocessors[j], effect_tmp_buf, out_frames);
                     }
-                }
-                /*
-                according to dts profile2 block diagram: Trusurround:X->Truvolume->TBHDX->customer modules->MC Dynamics
-                virtualx will be called twice,first implementation for process Trusurround:X->Truvolume->TBHDX
-                final implementation for process MC Dynamics
-                */
-                virtualx_setparameter(adev,VXCONUTER,1,5);
-                if (adev->native_postprocess.postprocessors[0] != NULL) {
-                   (*(adev->native_postprocess.postprocessors[0]))->get_descriptor(adev->native_postprocess.postprocessors[0], &tmpdesc);
-                   if (0 == strcmp(tmpdesc.name,"VirtualX")) {
-                       audio_post_process(adev->native_postprocess.postprocessors[0], effect_tmp_buf, out_frames);
-                   }
                 }
             } else {
                 gain_speaker *= EQ_GAIN_DEFAULT;
@@ -7316,7 +7296,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             } else {
             /* apply volume for spk/hp, SPDIF/HDMI keep the max volume */
             gain_speaker *= (adev->sink_gain[OUTPORT_SPEAKER]);
-            apply_volume_16to32(gain_speaker, effect_tmp_buf, spk_tmp_buf, bytes);
+            apply_volume_16to32(gain_speaker * source_gain, effect_tmp_buf, spk_tmp_buf, bytes);
 
             /* 2 ch 32 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
             if (aml_out->tmp_buffer_8ch_size < 8 * bytes) {
@@ -8594,7 +8574,6 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
                 }
                 tmp_buffer = (int16_t *)adev->effect_buf;
                 memcpy(tmp_buffer, dts_buffer, bytes);
-                virtualx_setparameter(adev,VXCONUTER,0,5);
                 if (adev->native_postprocess.postprocessors[0] != NULL) {
                     (*(adev->native_postprocess.postprocessors[0]))->get_descriptor(adev->native_postprocess.postprocessors[0], &tmpdesc);
                     if (0 == strcmp(tmpdesc.name,"VirtualX")) {
@@ -8603,6 +8582,12 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
                 }
                 tmp_bytes /= 3;
             } else {
+                if (adev->effect_in_ch != 2) {
+                    /*for special dts source*/
+                    virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
+                    virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
+                    adev->effect_in_ch = 2;
+                }
                 tmp_buffer = (int16_t *) dts_dec->outbuf;
                 tmp_bytes = bytes;
             }
