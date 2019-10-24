@@ -2794,7 +2794,7 @@ static int insert_output_bytes (struct aml_stream_out *out, size_t size)
     memset (insert_buf, 0, 8192);
     while (insert_size > 0) {
         once_write_size = insert_size > 8192 ? 8192 : insert_size;
-        if (eDolbyMS12Lib == adev->dolby_lib_type) {
+        if (eDolbyMS12Lib == adev->dolby_lib_type && !is_bypass_dolbyms12(stream)) {
             size_t used_size = 0;
             ret = dolby_ms12_main_process(stream, insert_buf, once_write_size, &used_size);
             if (ret) {
@@ -7132,9 +7132,9 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             }
             spdif_encoder_ad_flush_output_current_position();
 
-            //ALOGI("%s: SPDIF", __func__);
             *output_buffer = adev->temp_buf;
             *output_buffer_bytes = adev->temp_buf_pos;
+            //ALOGI("%s: SPDIF encoder size=%d", __func__, *output_buffer_bytes);
         }
     } else if (output_format == AUDIO_FORMAT_DTS) {
         *output_buffer = (void *) buffer;
@@ -7453,7 +7453,7 @@ ssize_t hw_write (struct audio_stream_out *stream
         aml_out->status = STREAM_HW_WRITING;
     }
 
-    if (eDolbyMS12Lib == adev->dolby_lib_type) {
+    if (eDolbyMS12Lib == adev->dolby_lib_type && !is_bypass_dolbyms12(stream)) {
         if (aml_out->hw_sync_mode && !adev->ms12.is_continuous_paused) {
             // histroy here: ms12lib->pcm_output()->hw_write() aml_out is passed as private data
             //               when registering output callback function in dolby_ms12_register_pcm_callback()
@@ -8224,7 +8224,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
             return hwsync_cost_bytes;
         }
         if (cur_pts != 0xffffffff && outsize > 0) {
-            if (eDolbyMS12Lib == adev->dolby_lib_type) {
+            if (eDolbyMS12Lib == adev->dolby_lib_type && !is_bypass_dolbyms12(stream)) {
                 // missing code with aml_audio_hwsync_checkin_apts, need to add for netflix tunnel mode. zzz
                 aml_audio_hwsync_checkin_apts(aml_out->hwsync, aml_out->hwsync->payload_offset, cur_pts);
                 aml_out->hwsync->payload_offset += outsize;
@@ -8253,7 +8253,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
                         enum hwsync_status sync_status = CONTINUATION;
                         apts_gap = get_pts_gap (pcr, apts32);
                         sync_status = check_hwsync_status (apts_gap);
-
+                        //ALOGI("pts = %d pcr=%d gap=%d", apts32/90, pcr/90, apts_gap / 90);
                         // limit the gap handle to 0.5~5 s.
                         if (sync_status == ADJUSTMENT) {
                             // two cases: apts leading or pcr leading
@@ -8629,7 +8629,11 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         //#ifdef DOLBY_MS12_ENABLE
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             if (is_bypass_dolbyms12(stream)) {
-                if (audio_hal_data_processing (stream, buffer, bytes, &output_buffer, &output_buffer_bytes, output_format) == 0)
+                if (adev->debug_flag) {
+                    ALOGI("%s passthrough dolbyms12, format %#x\n", __func__, aml_out->hal_format);
+                }
+
+                if (audio_hal_data_processing (stream, write_buf, write_bytes, &output_buffer, &output_buffer_bytes, output_format) == 0)
                     hw_write (stream, output_buffer, output_buffer_bytes, output_format);
             }
             else {
