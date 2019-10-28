@@ -107,6 +107,10 @@
 #define DTV_DECODER_CHECKIN_FIRSTAPTS_PATH "/sys/class/tsync/checkin_firstapts"
 #define DTV_DECODER_TSYNC_MODE      "/sys/class/tsync/mode"
 #define PROPERTY_LOCAL_ARC_LATENCY   "media.amnuplayer.audio.delayus"
+#define AUDIO_EAC3_FRAME_SIZE 16
+#define AUDIO_AC3_FRAME_SIZE 4
+#define AUDIO_TV_PCM_FRAME_SIZE 32
+#define AUDIO_DEFAULT_PCM_FRAME_SIZE 4
 
 //pthread_mutex_t dtv_patch_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t dtv_cmd_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -589,13 +593,11 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
         // ALOGI("decode_offset:%d out_pcm:%d   pts:%lx,audec->last_valid_pts %lx\n",
         //       patch->decoder_offset, patch->outlen_after_last_validpts, pts,
         //       patch->last_valid_pts);
-        if (patch->tsync_mode == TSYNC_MODE_PCRMASTER) {
-            return 0;
-        }
+        return pts;
     }
-    patch->last_valid_pts = pts;
     val = pts - lantcy * 90;
-
+    /*+[SE][BUG][SWPL-14811][zhizhong] set the real apts to last_valid_pts for sum cal*/
+    patch->last_valid_pts = val;
     patch->outlen_after_last_validpts = 0;
     // ALOGI("====get pts:%lx offset:%d lan %d origin_apts:%lx\n",
     //	val, patch->decoder_offset, lantcy, pts);
@@ -1237,8 +1239,32 @@ static void dtv_do_drop_pcm(int avail, struct aml_audio_patch *patch,
     }
     patch->dtv_apts_lookup = 0;
 }
+/*+[SE][BUG][SWPL-14811][zhizhong] add ac3/e-ac3 pcm drop function*/
+static int dtv_do_drop_ac3_pcm(struct aml_audio_patch *patch,
+            struct audio_stream_out *stream_out)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream_out;
+    struct aml_audio_device *adev = aml_out->dev;
+    size_t frame_size = 0;
+    switch (adev->sink_format) {
+    case AUDIO_FORMAT_E_AC3:
+        frame_size = AUDIO_EAC3_FRAME_SIZE;
+        break;
+    case AUDIO_FORMAT_AC3:
+        frame_size = AUDIO_AC3_FRAME_SIZE;
+        break;
+    default:
+        frame_size = (aml_out->is_tv_platform == true) ? AUDIO_TV_PCM_FRAME_SIZE : AUDIO_DEFAULT_PCM_FRAME_SIZE;
+        break;
+    }
+    aml_out->need_drop_size = (patch->dtv_apts_lookup / 90) * 48 * frame_size;
+    aml_out->need_drop_size &= ~(frame_size - 1);
+    ALOGI("dtv_do_drop need_drop_size=%d,frame_size=%d\n",
+        aml_out->need_drop_size, frame_size);
+    return 0;
+}
 
-static void dtv_do_drop_insert_ac3(int avail, struct aml_audio_patch *patch,
+static void dtv_do_drop_insert_ac3(struct aml_audio_patch *patch,
                             struct audio_stream_out *stream_out)
 {
     struct audio_hw_device *adev = patch->dev;
@@ -1257,21 +1283,11 @@ static void dtv_do_drop_insert_ac3(int avail, struct aml_audio_patch *patch,
     if (!patch || !patch->dev || !stream_out || aml_dev->tuner2mix_patch == 1) {
         return;
     }
-    fm_size = out->ddp_frame_size;
-    if (fm_size == 0) {
-        fm_size = 512;
-    }
-    if (patch->dtv_apts_lookup > 0) {
-        drop_size = (patch->dtv_apts_lookup / 90 / 32 * fm_size);
-        if (drop_size > avail) {
-            drop_size = avail;
-        }
-        t1 = drop_size / fm_size;
-        for (t2 = 0; t2 < t1; t2++) {
-            ring_buffer_read(&(patch->aml_ringbuffer), (unsigned char *)patch->out_buf, fm_size);
-            patch->decoder_offset += fm_size;
-        }
-        ALOGI("dtv_do_drop:--drop %d,avail %d,diff %d ms,fm_size %d\n", (patch->dtv_apts_lookup / 90 / 32 * fm_size), avail, t1 * 32, fm_size);
+
+    if (patch->dtv_apts_lookup > 0 && patch->ac3_pcm_dropping != 1) {
+        patch->ac3_pcm_dropping = 1;
+        dtv_do_drop_ac3_pcm(patch, stream_out);
+
     } else if (patch->dtv_apts_lookup < 0) {
         if (abs(patch->dtv_apts_lookup) / 90 > 1000) {
             t1 = 1000;
@@ -1279,7 +1295,7 @@ static void dtv_do_drop_insert_ac3(int avail, struct aml_audio_patch *patch,
             t1 =  abs(patch->dtv_apts_lookup) / 90;
         }
         t2 = t1 / 32;
-        ALOGI("dtv_do_insert:++insert %d,lookup %d,diff %d ms,frame %d\n", t2 * fm_size, patch->dtv_apts_lookup, t1, fm_size);
+        ALOGI("dtv_do_insert:++inset lookup %d,diff %d ms\n", patch->dtv_apts_lookup, t1);
         t1 = 0;
         while (t1 == 0 && t2 > 0 && patch->output_thread_exit == 0) {
 
@@ -2163,11 +2179,17 @@ void *audio_dtv_patch_output_threadloop(void *data)
                         //ALOGI("dtv_audio_tune audio_lookup\n");
                         clean_dtv_patch_pts(patch);
                     } else if (patch->dtv_audio_tune == AUDIO_DROP) {
-                        dtv_do_drop_insert_ac3(main_avail, patch, stream_out);
-                        clean_dtv_patch_pts(patch);
-                        patch->dtv_apts_lookup = 0;
-                        //ALOGI("dtv_audio_tune audio_latency\n");
-                        patch->dtv_audio_tune = AUDIO_LATENCY;
+                        aml_out = (struct aml_stream_out *)stream_out;
+                        dtv_do_drop_insert_ac3(patch, stream_out);
+                        if (patch->dtv_apts_lookup < 0 ||
+                            (patch->dtv_apts_lookup > 0 &&
+                            aml_out->need_drop_size == 0)) {
+                            clean_dtv_patch_pts(patch);
+                            patch->dtv_apts_lookup = 0;
+                            patch->ac3_pcm_dropping = 0;
+                            ALOGI("dtv_audio_tune audio_latency\n");
+                            patch->dtv_audio_tune = AUDIO_LATENCY;
+                        }
                     }
 
                     //dtv_assoc_get_main_frame_size(&main_frame_size);
@@ -2370,11 +2392,17 @@ void *audio_dtv_patch_output_threadloop(void *data)
                         clean_dtv_patch_pts(patch);
                         //ALOGI("dtv_audio_tune audio_lookup\n");
                     } else if (patch->dtv_audio_tune == AUDIO_DROP) {
-                        dtv_do_drop_insert_ac3(avail, patch, stream_out);
-                        clean_dtv_patch_pts(patch);
-                        patch->dtv_apts_lookup = 0;
-                        patch->dtv_audio_tune = AUDIO_LATENCY;
-                        //ALOGI("dtv_audio_tune audio_latency\n");
+                        dtv_do_drop_insert_ac3(patch, stream_out);
+                        aml_out = (struct aml_stream_out *)stream_out;
+                        if (patch->dtv_apts_lookup < 0 ||
+                            (patch->dtv_apts_lookup > 0 &&
+                            aml_out->need_drop_size == 0)) {
+                            clean_dtv_patch_pts(patch);
+                            patch->dtv_apts_lookup = 0;
+                            patch->ac3_pcm_dropping = 0;
+                            patch->dtv_audio_tune = AUDIO_LATENCY;
+                            ALOGI("dtv_audio_tune ac3 audio_latency\n");
+                        }
                     }
                     write_len = ring_buffer_read(ringbuffer, (unsigned char *)patch->out_buf, write_len);
                     if (write_len == 0) {
@@ -2664,6 +2692,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 patch->last_valid_pts = 0;
                 patch->last_out_pts = 0;
                 patch->first_apts_lookup_over = 0;
+                patch->ac3_pcm_dropping = 0;
                 if (patch->dtv_aformat == ACODEC_FMT_AC3) {
                     patch->aformat = AUDIO_FORMAT_AC3;
                     ddp_dec->is_iec61937 = false;

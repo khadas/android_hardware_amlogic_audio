@@ -4484,6 +4484,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->frame_write_sum = 0;
     out->hw_sync_mode = false;
     out->need_convert = false;
+    out->need_drop_size = 0;
     //aml_audio_hwsync_init(out->hwsync,out);
     /* FIXME: when we support multiple output devices, we will want to
      * do the following:
@@ -5082,6 +5083,8 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
 #ifdef ENABLE_DTV_PATCH
             if ((adev->patch_src == SRC_DTV) && adev->audio_patching) {
                 ALOGI("%s, now release the dtv patch now\n ", __func__);
+                ALOGI("tunner in set reset_dtv_audio 1\n");
+                adev->reset_dtv_audio = 1;
                 ret = release_dtv_patch(adev);
                 if (!ret) {
                     adev->audio_patching = 0;
