@@ -4932,15 +4932,23 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             adev->bHDMIConnected = 0;
             ALOGI("bHDMIConnected: %d\n", val);
         }
+        if (adev->patch_src == SRC_DTV) {
+            ALOGI("disconnect set reset_dtv_audio 1\n");
+            adev->reset_dtv_audio = 1;
+        }
         goto exit;
     }
 
     // HDMI cable plug in
     ret = str_parms_get_int(parms, "connect", &val);
     if (ret >= 0) {
-        if (val & AUDIO_DEVICE_OUT_HDMI_ARC) {
+        if ((val & AUDIO_DEVICE_OUT_HDMI_ARC) || (val & AUDIO_DEVICE_OUT_HDMI)) {
             adev->bHDMIConnected = 1;
             ALOGI("%s,bHDMIConnected: %d\n", __FUNCTION__, val);
+            if (adev->patch_src == SRC_DTV) {
+                ALOGI("connect set reset_dtv_audio 1\n");
+                adev->reset_dtv_audio = 1;
+            }
         }
         goto exit;
     }

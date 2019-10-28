@@ -934,13 +934,10 @@ static void dtv_check_audio_reset(struct aml_audio_device *aml_dev)
         return;
     }
     //ALOGI("demux_pcr %x first_checkinapts %x,reset %d", demux_pcr, first_checkinapts,aml_dev->reset_dtv_audio);
-    if (demux_pcr > first_checkinapts &&
-        (demux_pcr - first_checkinapts) > AUDIO_PTS_DISCONTINUE_THRESHOLD / 5) {
-        if (aml_dev->reset_dtv_audio) {
-            ALOGI("dtv_audio_reset %d", aml_dev->reset_dtv_audio);
-            aml_sysfs_set_str(AMSTREAM_AUDIO_PORT_RESET, "1");
-            aml_dev->reset_dtv_audio = 0;
-        }
+    if (aml_dev->reset_dtv_audio) {
+        ALOGI("dtv_audio_reset %d", aml_dev->reset_dtv_audio);
+        aml_sysfs_set_str(AMSTREAM_AUDIO_PORT_RESET, "1");
+        aml_dev->reset_dtv_audio = 0;
     }
 }
 
