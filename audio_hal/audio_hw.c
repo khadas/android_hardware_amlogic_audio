@@ -4382,8 +4382,9 @@ static int adev_get_microphones (const struct audio_hw_device *dev __unused,
    TruvolumeHD 0 : mean 2.0 ch   4 : mean 5.1 ch  param: 70
    cmdCode     5 : effect setparameter   2 : effect reset
 *************************************************************/
-#define VIRTUALXINMODE   47
-#define TRUVOLUMEINMODE  70
+#define VIRTUALXINMODE       47
+#define TRUVOLUMEINMODE      70
+#define VIRTUALX_CHANNEL_NUM 81
 
 void virtualx_setparameter(struct aml_audio_device *adev,int param,int ch_num,int cmdCode)
 {
@@ -8337,6 +8338,19 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
                 audio_type_parse_t *status = patch->audio_parse_para;
                 ALOGI("%s:%d cur_aformat:0x%x, aformat:0x%x", __func__, __LINE__, cur_aformat, patch->aformat);
             }
+            if ((cur_aformat == AUDIO_FORMAT_DTS) || (cur_aformat == AUDIO_FORMAT_DTS_HD)) {
+                int cur_channels = get_dts_stream_channels((const char*)buffer, bytes);
+                static int pre_channels = 0;
+                if ((cur_channels != -1) && (pre_channels != cur_channels)) {
+                    ALOGD("%s, pre_channels = %d, cur_channels = %d", __func__, pre_channels, cur_channels);
+                    pre_channels = cur_channels;
+                    if ((cur_channels == 6) || (cur_channels == 7) || (cur_channels == 8)) {
+                        virtualx_setparameter(adev, VIRTUALX_CHANNEL_NUM, 6, 5);
+                    } else {
+                        virtualx_setparameter(adev, VIRTUALX_CHANNEL_NUM, 2, 5);
+                    }
+                }
+            }
             if (cur_aformat != patch->aformat) {
                 ALOGI ("HDMI/SPDIF input format changed from %#x to %#x\n", patch->aformat, cur_aformat);
                 patch->aformat = cur_aformat;
@@ -8387,13 +8401,19 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         audio_format_t cur_aformat;
         int package_size;
         int cur_audio_type = audio_type_parse(write_buf, write_bytes, &package_size, &cur_ch_mask);
-
+        int cur_channels = get_dts_stream_channels(write_buf, write_bytes);
         cur_aformat = audio_type_convert_to_android_audio_format_t(cur_audio_type);
-        ALOGI("cur_aformat:%0x cur_audio_type:%d", cur_aformat, cur_audio_type);
+        ALOGD("%s, cur_aformat = %0x, cur_audio_type= %d, cur_channels = %d",
+            __func__, cur_aformat, cur_audio_type, cur_channels);
         if (cur_audio_type == DTSCD) {
             adev->dts_hd.is_dtscd = 1;
         } else {
             adev->dts_hd.is_dtscd = 0;
+        }
+        if ((cur_channels == 6) || (cur_channels == 7) || (cur_channels == 8)) {
+            virtualx_setparameter(adev, VIRTUALX_CHANNEL_NUM, 6, 5);
+        } else {
+            virtualx_setparameter(adev, VIRTUALX_CHANNEL_NUM, 2, 5);
         }
     }
 
@@ -8582,12 +8602,6 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
                 }
                 tmp_bytes /= 3;
             } else {
-                if (adev->effect_in_ch != 2) {
-                    /*for special dts source*/
-                    virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
-                    virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
-                    adev->effect_in_ch = 2;
-                }
                 tmp_buffer = (int16_t *) dts_dec->outbuf;
                 tmp_bytes = bytes;
             }
