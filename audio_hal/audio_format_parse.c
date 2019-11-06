@@ -237,7 +237,7 @@ int get_dts_stream_channels(const char *buffer, size_t buffer_size) {
             && temp_buffer[frame_header_len + 2] == 0x80
             && temp_buffer[frame_header_len + 3] == 0x01))) {
         ALOGE("%s, illegal synchronization", __FUNCTION__);
-        return -1;
+        goto exit;
     } else {
         ALOGI("%s, right synchronization", __FUNCTION__);
     }
@@ -260,7 +260,7 @@ int get_dts_stream_channels(const char *buffer, size_t buffer_size) {
         channels = 8;
     } else {
         ALOGE("%s, amode user defined", __FUNCTION__);
-        return -1;
+        goto exit;
     }
     lfe_value = extract_bits((const char*)(temp_buffer + frame_header_len), 85, 2);
     if (lfe_value == 0x0) {
@@ -269,14 +269,17 @@ int get_dts_stream_channels(const char *buffer, size_t buffer_size) {
         lfe = 1;
     } else {
         ALOGE("%s, invalid lfe value", __FUNCTION__);
-        return -1;
+        goto exit;
     }
     ALOGD("%s, channels = %d, lfe = %d", __FUNCTION__, channels, lfe);
+    return (channels + lfe);
+
+exit:
     if (temp_buffer != NULL) {
         free(temp_buffer);
         temp_buffer = NULL;
     }
-    return (channels + lfe);
+    return -1;
 }
 
 int audio_type_parse(void *buffer, size_t bytes, int *package_size, audio_channel_mask_t *cur_ch_mask)
