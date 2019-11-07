@@ -84,6 +84,8 @@
 #include "audio_hw_ms12.h"
 #include "dolby_lib_api.h"
 
+#include "earc_utils.h"
+
 #define ENABLE_NANO_NEW_PATH 1
 #if ENABLE_NANO_NEW_PATH
 #include "jb_nano.h"
@@ -5173,6 +5175,16 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         goto exit;
     }
 
+    /* eARCTX_CDS */
+    ret = str_parms_get_str (parms, "eARC_RX CDS", value, sizeof (value) );
+    if (ret >= 0) {
+        struct aml_mixer_handle *amixer = &adev->alsa_mixer;
+        struct mixer *pMixer = amixer->pMixer;
+
+        earcrx_config_cds(pMixer, value);
+        goto exit;
+    }
+
     ret = str_parms_get_str (parms, "tuner_in", value, sizeof (value) );
     // tuner_in=atv: tuner_in=dtv
     if (ret >= 0) {
@@ -5991,6 +6003,22 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         sprintf(temp_buf, "HDMI ARC Switch=%d", adev->bHDMIARCon);
         ALOGD("temp_buf %s", temp_buf);
         return strdup(temp_buf);
+    }
+    else if (strstr(keys, "eARC_TX CDS")) {
+        struct aml_mixer_handle *amixer = &adev->alsa_mixer;
+        struct mixer *pMixer = amixer->pMixer;
+        char cds[256] = {0};
+
+        earctx_fetch_cds(pMixer, cds);
+        return strdup(cds);
+    }
+    else if (strstr(keys, "eARC_RX CDS")) {
+        struct aml_mixer_handle *amixer = &adev->alsa_mixer;
+        struct mixer *pMixer = amixer->pMixer;
+        char cds[256] = {0};
+
+        earcrx_fetch_cds(pMixer, cds);
+        return strdup(cds);
     }
     else if (strstr(keys, "eq_enable")) {
         int cur_status = aml_mixer_ctrl_get_int(&adev->alsa_mixer,AML_MIXER_ID_AED_EQ_ENABLE);
