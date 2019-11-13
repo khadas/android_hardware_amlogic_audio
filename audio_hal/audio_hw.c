@@ -4066,6 +4066,100 @@ static void processBtAndUsbCardData(struct aml_stream_in *in, struct aml_audio_p
     }
 }
 
+static void processHdmiInputFormatChange(struct aml_stream_in *in, struct aml_audio_parser *parser)
+{
+    audio_format_t enCurFormat = audio_parse_get_audio_type(parser->audio_parse_para);
+    if (enCurFormat != parser->aformat) {
+        ALOGI("%s:%d input format changed from %#x to %#x, PreDecType:%#x", __func__, __LINE__, parser->aformat, enCurFormat, parser->enCurDecType);
+        for (int i=0; i<BT_AND_USB_PERIOD_DELAY_BUF_CNT; i++) {
+             memset(in->pBtUsbPeriodDelayBuf[i], 0, in->delay_buffer_size);
+        }
+        parser->in = in;
+        if (AUDIO_FORMAT_PCM_16_BIT == enCurFormat) {
+            if (AUDIO_FORMAT_AC3 == parser->aformat || AUDIO_FORMAT_E_AC3 == parser->aformat) {//from dd/dd+ -> pcm
+                dcv_decode_release(parser);
+            } else if (AUDIO_FORMAT_DTS == parser->aformat || AUDIO_FORMAT_DTS_HD == parser->aformat) {//from dts -> pcm
+                dca_decode_release(parser);
+            } else if (AUDIO_FORMAT_INVALID == parser->aformat) {//from PAUSE or MUTE -> pcm
+                if (AML_AUDIO_DECODER_TYPE_DOLBY == parser->enCurDecType) {
+                    dcv_decode_release(parser);
+                } else if (AML_AUDIO_DECODER_TYPE_DTS == parser->enCurDecType){
+                    dca_decode_release(parser);
+                }
+            }
+            parser->enCurDecType = AML_AUDIO_DECODER_TYPE_NONE;
+        } else if (AUDIO_FORMAT_AC3 == enCurFormat || AUDIO_FORMAT_E_AC3 == enCurFormat) {
+            if (AUDIO_FORMAT_PCM_16_BIT == parser->aformat) {//from pcm -> dd/dd+
+                dcv_decode_init(parser);
+            } else {
+                if (AML_AUDIO_DECODER_TYPE_NONE == parser->enCurDecType) {// non-dd/dd+ decoder scene
+                    dcv_decode_init(parser);
+                } else if (AML_AUDIO_DECODER_TYPE_DTS == parser->enCurDecType) {//from dts -> dd/dd+
+                    dca_decode_release(parser);
+                    dcv_decode_init(parser);
+                } else {
+                    ALOGI("from pause or mute to continue play Dolby audio");
+                }
+            }
+            parser->enCurDecType = AML_AUDIO_DECODER_TYPE_DOLBY;
+        } else if (AUDIO_FORMAT_DTS == enCurFormat || AUDIO_FORMAT_DTS_HD == enCurFormat) {
+            if (AUDIO_FORMAT_PCM_16_BIT == parser->aformat) {//from pcm -> dts
+                dca_decode_init(parser);
+            } else {
+                if (AML_AUDIO_DECODER_TYPE_NONE == parser->enCurDecType) {// non-dts decoder scene
+                    dca_decode_init(parser);
+                } else if (AML_AUDIO_DECODER_TYPE_DOLBY == parser->enCurDecType) {//from dd/dd+ -> dts
+                    dcv_decode_release(parser);
+                    dca_decode_init(parser);
+                } else {
+                    ALOGI("from pause or mute to continue play DTS audio");
+                }
+            }
+            parser->enCurDecType = AML_AUDIO_DECODER_TYPE_DTS;
+        } else if (enCurFormat == AUDIO_FORMAT_INVALID) {
+            ALOGI("cur format invalid, do nothing");
+        } else {
+            ALOGW("This format unsupport or no need to reset decoder!");
+        }
+        parser->aformat = enCurFormat;
+    }
+}
+
+static size_t parserRingBufferDataRead(struct aml_audio_parser *parser, void* buffer, size_t bytes)
+{
+    int ret = 0;
+    /*if data is ready, read from buffer.*/
+    if (parser->data_ready == 1) {
+        ret = ring_buffer_read(&parser->aml_ringbuffer, (unsigned char*)buffer, bytes);
+        if (ret < 0) {
+            ALOGE("%s:%d parser in_read err", __func__, __LINE__);
+        } else if (ret == 0) {
+            unsigned int u32TimeoutMs = 40;
+            while (u32TimeoutMs > 0) {
+                usleep(5000);
+                ret = ring_buffer_read(&parser->aml_ringbuffer, (unsigned char*)buffer, bytes);
+                if (parser->aformat == AUDIO_FORMAT_INVALID) { // don't need to wait when the format is unavailable
+                    break;
+                }
+                if (ret > 0) {
+                    bytes = ret;
+                    break;
+                }
+                u32TimeoutMs -= 5;
+            }
+            if (u32TimeoutMs <= 0) {
+                memset (buffer, 0, bytes);
+                ALOGW("%s:%d read parser ring buffer timeout 40 ms, insert mute data", __func__, __LINE__);
+            }
+        } else {
+            bytes = ret;
+        }
+    } else {
+        memset (buffer, 0, bytes);
+    }
+    return bytes;
+}
+
 static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
 {
     int ret = 0;
@@ -4109,59 +4203,11 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     }
     /* if audio patch type is hdmi to mixer, check audio format from hdmi*/
     if (adev->patch_src == SRC_HDMIIN && parser != NULL) {
-        audio_format_t cur_aformat = audio_parse_get_audio_type(parser->audio_parse_para);
-        if (cur_aformat != parser->aformat) {
-            ALOGI("%s: input format changed from %#x to %#x", __func__, parser->aformat, cur_aformat);
-            for (int i=0; i<BT_AND_USB_PERIOD_DELAY_BUF_CNT; i++) {
-                 memset(in->pBtUsbPeriodDelayBuf[i], 0, in->delay_buffer_size);
-            }
-            if (parser->aformat == AUDIO_FORMAT_PCM_16_BIT && //from pcm -> dd/dd+
-                (cur_aformat == AUDIO_FORMAT_AC3 || cur_aformat == AUDIO_FORMAT_E_AC3)) {
-                parser->aml_pcm = in->pcm;
-                parser->stream = stream;
-                parser->in_sample_rate = in->config.rate;
-                parser->out_sample_rate = in->requested_rate;
-                parser->decode_dev_op_mutex = &in->lock;
-                parser->data_ready = 0;
-                dcv_decode_init(parser);
-            } else if (parser->aformat == AUDIO_FORMAT_PCM_16_BIT && //from pcm -> dts
-                (cur_aformat == AUDIO_FORMAT_DTS || cur_aformat == AUDIO_FORMAT_DTS_HD)) {
-                parser->aml_pcm = in->pcm;
-                parser->stream = stream;
-                parser->in_sample_rate = in->config.rate;
-                parser->out_sample_rate = in->requested_rate;
-                parser->decode_dev_op_mutex = &in->lock;
-                parser->data_ready = 0;
-                dca_decode_init(parser);
-            } else if (cur_aformat == AUDIO_FORMAT_PCM_16_BIT && //from dd/dd+ -> pcm
-                       (parser->aformat == AUDIO_FORMAT_AC3 || parser->aformat == AUDIO_FORMAT_E_AC3)) {
-                dcv_decode_release(parser);
-                ring_buffer_reset(&(parser->aml_ringbuffer));
-            } else if (cur_aformat == AUDIO_FORMAT_PCM_16_BIT && //from dts -> pcm
-                       (parser->aformat == AUDIO_FORMAT_DTS || parser->aformat == AUDIO_FORMAT_DTS_HD)) {
-                dca_decode_release(parser);
-                ring_buffer_reset(&(parser->aml_ringbuffer));
-            } else {
-                ALOGI("This format unsupport or no need to reset decoder!\n");
-            }
-            parser->aformat = cur_aformat;
-        }
+        processHdmiInputFormatChange(in, parser);
     }
     /*if raw data from hdmi and decoder is ready read from decoder buffer*/
     if (parser != NULL && parser->decode_enabled == 1) {
-        /*if data is ready, read from buffer.*/
-        if (parser->data_ready == 1) {
-            ret = ring_buffer_read(&parser->aml_ringbuffer, (unsigned char*)buffer, bytes);
-            if (ret < 0) {
-                ALOGE("%s(), parser in_read err", __func__);
-                goto exit;
-            } else if (ret == 0) {
-                memset(buffer, 0, bytes);
-            } else {
-                bytes = ret;
-            }
-        } else
-            memset (buffer, 0, bytes);
+        bytes = parserRingBufferDataRead(parser, buffer, bytes);
     }
 #ifdef ENABLE_AEC_FUNC
     if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
@@ -4342,14 +4388,15 @@ exit:
                 in_get_sample_rate(&stream->common));
     }
     pthread_mutex_unlock(&in->lock);
-
     if (SRC_HDMIIN == adev->patch_src && parser != NULL) {
         audio_format_t cur_aformat = audio_parse_get_audio_type(parser->audio_parse_para);
         if ((parser->aformat == AUDIO_FORMAT_PCM_16_BIT && cur_aformat != parser->aformat ) ||
-            (parser->aformat == AUDIO_FORMAT_PCM_32_BIT && cur_aformat != parser->aformat))
+            (parser->aformat == AUDIO_FORMAT_PCM_32_BIT && cur_aformat != parser->aformat) ||
+             parser->aformat == AUDIO_FORMAT_INVALID) {
             memset(buffer , 0 , bytes);
-        else
+        } else {
             processBtAndUsbCardData(in, parser, buffer, bytes);
+        }
     }
 
     if (ret >= 0 && getprop_bool("media.audiohal.indump")) {
