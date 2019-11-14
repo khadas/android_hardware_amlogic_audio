@@ -278,6 +278,7 @@ typedef enum alsa_device {
     I2S_DEVICE = 0,
     DIGITAL_DEVICE,
     TDM_DEVICE,
+    EARC_DEVICE,
     ALSA_DEVICE_CNT
 } alsa_device_t;
 
@@ -398,7 +399,7 @@ struct aml_audio_device {
     struct aml_audio_patch *audio_patch;
     /* indicates atv to mixer patch, no need HAL patching  */
     bool tuner2mix_patch;
-    /* Now only two pcm handle supported: I2S, SPDIF */
+    /* Now only three pcm handle supported: I2S, SPDIF, EARC */
     pthread_mutex_t alsa_pcm_lock;
     struct pcm *pcm_handle[ALSA_DEVICE_CNT];
     int pcm_refs[ALSA_DEVICE_CNT];
