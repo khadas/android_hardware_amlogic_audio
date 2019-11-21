@@ -155,9 +155,9 @@
 
 #define DISABLE_CONTINUOUS_OUTPUT "persist.vendor.audio.continuous.disable"
 
-#define INPUTSOURCE_MUTE_DELAY_MS	800
+#define INPUTSOURCE_MUTE_DELAY_MS       800
 
-#define DROP_AUDIO_SIZE             (32 * 1024)
+#define DROP_AUDIO_SIZE             (64 * 1024)
 
 const char *str_usecases[STREAM_USECASE_MAX] = {
     "STREAM_PCM_NORMAL",
@@ -272,6 +272,11 @@ static int get_audio_patch_by_src_dev(struct audio_hw_device *dev,
 ssize_t out_write_new(struct audio_stream_out *stream,
                       const void *buffer,
                       size_t bytes);
+
+static int do_avsync(struct aml_audio_patch *patch, struct audio_stream_in * stream,
+                                    unsigned char* buffer,int bytes);
+static int pre_avsync(struct aml_audio_patch *patch);
+
 static aec_timestamp get_timestamp(void);
 static void config_output(struct audio_stream_out *stream);
 static inline bool need_hw_mix(usecase_mask_t masks)
@@ -2955,7 +2960,7 @@ rewrite:
             return hwsync_cost_bytes;
         }
         if (cur_pts != 0xffffffff && outsize > 0) {
-			int hwsync_hdmi_latency = aml_audio_get_hwsync_latency_offset();
+                        int hwsync_hdmi_latency = aml_audio_get_hwsync_latency_offset();
             // if we got the frame body,which means we get a complete frame.
             //we take this frame pts as the first apts.
             //this can fix the seek discontinue,we got a fake frame,which maybe cached before the seek
@@ -4168,6 +4173,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     struct aml_audio_parser *parser = adev->aml_parser;
     int channel_count = audio_channel_count_from_in_mask(in->hal_channel_mask);
     size_t in_frames = bytes / audio_stream_in_frame_size(&in->stream);
+    struct aml_audio_patch* patch = adev->audio_patch;
     size_t cur_in_bytes, cur_in_frames;
     int in_mute = 0, parental_mute = 0;
     bool stable = true;
@@ -4254,14 +4260,33 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             adev->patch_start = false;
             in->mute_flag = 1;
         }
+
+
+        if (patch) {
+            if (stable != patch->is_src_stable) {
+                ALOGI("now enter the avsync function %p ", patch);
+                {
+                    ALOGI("now do avsync \n");
+                    pre_avsync(patch);
+                }
+                patch->is_src_stable = stable;
+            }
+            ret = do_avsync(patch, stream,(unsigned char*)buffer,bytes);
+            if (ret != 0)
+            {
+                bytes = ret;
+                goto exit;
+            }
+        }
+
         if (in->mute_flag == 1) {
             in_mute = Stop_watch(in->mute_start_ts, in->mute_mdelay);
             if (!in_mute) {
-                ALOGI("%s: unmute audio since audio signal is stable", __func__);
+                ALOGV("%s: unmute audio since audio signal is stable", __func__);
                 in->mute_log_cntr = 0;
                 in->mute_flag = 0;
                 /* fade in start */
-                ALOGI("start fade in");
+                ALOGV("start fade in");
                 start_ease_in(adev);
             }
         }
@@ -6411,29 +6436,29 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
 
 #if (ENABLE_NANO_PATCH == 1)
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support { */
-	recording_device = nano_get_recorde_device();
-	ALOGD("recording_device=%d\n",recording_device);
-	if(recording_device == RECORDING_DEVICE_NANO){
-		int ret = nano_open(&in->config, config,source,&in->stream);
-		if(ret < 0){
-			recording_device = RECORDING_DEVICE_OTHER;
-		}
-		else{
-			ALOGD("use nano function\n");
-			in->stream.common.get_sample_rate = nano_get_sample_rate;
-			in->stream.common.get_buffer_size = nano_get_buffer_size;
-			in->stream.common.get_channels = nano_get_channels;
-			in->stream.common.get_format = nano_get_format;
-			in->stream.read = nano_read;
-		}
-	}
+        recording_device = nano_get_recorde_device();
+        ALOGD("recording_device=%d\n",recording_device);
+        if (recording_device == RECORDING_DEVICE_NANO) {
+                int ret = nano_open(&in->config, config,source,&in->stream);
+                if (ret < 0) {
+                        recording_device = RECORDING_DEVICE_OTHER;
+                }
+                else{
+                        ALOGD("use nano function\n");
+                        in->stream.common.get_sample_rate = nano_get_sample_rate;
+                        in->stream.common.get_buffer_size = nano_get_buffer_size;
+                        in->stream.common.get_channels = nano_get_channels;
+                        in->stream.common.get_format = nano_get_format;
+                        in->stream.read = nano_read;
+                }
+        }
 /*[SEN5-autumn.zhao-2018-01-11] add for B06 audio support } */
 #endif
     *stream_in = &in->stream;
     ALOGD("%s: exit", __func__);
 
 #if ENABLE_NANO_NEW_PATH
-	if (nano_is_connected() && (devices & AUDIO_DEVICE_IN_BUILTIN_MIC)) {
+        if (nano_is_connected() && (devices & AUDIO_DEVICE_IN_BUILTIN_MIC)) {
         ret = nano_input_open(*stream_in, config);
         if (ret < 0) {
             ALOGD("%s: nano_input_open : %d",__func__,ret);
@@ -9603,56 +9628,88 @@ void *audio_patch_input_threadloop(void *data)
     return (void *)0;
 }
 
-static unsigned int calc_drop_size(unsigned int dropms, struct audio_config* stream_config)
+
+enum
+{
+    AVSYNC_DROP = 0,
+    AVSYNC_DELAY = 1,
+};
+
+static unsigned int calc_avsync_size(struct aml_audio_patch *patch,unsigned char flag)
 {
     unsigned int size = 0;
     unsigned int byte_width = 0;
     unsigned int channum;
-    channum = audio_channel_count_from_out_mask(stream_config->channel_mask);
-    if (AUDIO_FORMAT_PCM_16_BIT == stream_config->format) {
+    channum = audio_channel_count_from_out_mask(patch->out_chanmask);
+    if (AUDIO_FORMAT_PCM_16_BIT == patch->out_format) {
         byte_width = 2;
-    } else if (AUDIO_FORMAT_PCM_32_BIT == stream_config->format) {
+    } else if (AUDIO_FORMAT_PCM_32_BIT == patch->out_format) {
         byte_width = 4;
-    } else if (AUDIO_FORMAT_PCM_8_BIT == stream_config->format) {
+    } else if (AUDIO_FORMAT_PCM_8_BIT == patch->out_format) {
         byte_width = 1;
     } else {
         byte_width = 0;
+        }
+    if (flag ==  AVSYNC_DROP) {
+    ALOGI("the avsync_drop is %d \n",patch->avsync_drop);
+    size = patch->avsync_drop * byte_width * channum * patch->out_sample_rate / 1000;
+    } else {
+        ALOGI("the avsync_adelay is %d \n",patch->avsync_adelay);
+        size = patch->avsync_adelay * byte_width * channum * patch->out_sample_rate / 1000;
     }
-    size = dropms * byte_width * channum * stream_config->sample_rate / 1000;
     return size;
 }
 
 #define AVSYNC_SAMPLE_INTERVAL (50)
 #define AVSYNC_SAMPLE_MAX_CNT (10)
 
-static int do_avsync(struct aml_audio_patch *patch, int period_mul, struct audio_config *stream_config)
+static int do_avsync(struct aml_audio_patch *patch, struct audio_stream_in * stream,unsigned char* buffer,int bytes)
 {
-    ring_buffer_t *ringbuffer = &(patch->aml_ringbuffer);
+        int ret = 0;
+        ring_buffer_t *ringbuffer = &(patch->aml_ringbuffer);
+        if (patch->avsync_drop > 0) {
+            unsigned int rsize = get_buffer_read_space(ringbuffer);
+            ALOGI("avsync the dropp size is %d,bytes %d \n", patch->avsync_drop,bytes);
+            if (patch->avsync_drop  > rsize) {
+                // if drop size > ringbuffer data level , clear ringbuffer ,and then
+                //drop the audio data from the alsa card;
+                memset(buffer, 0,sizeof(unsigned char)*bytes);
+                ring_buffer_seek(ringbuffer, rsize);
+                aml_alsa_input_read(stream, (unsigned char*) patch->drop_buf, patch->avsync_drop - rsize);
+                patch->avsync_drop = 0;
+            } else {
+                ring_buffer_seek(ringbuffer, patch->avsync_drop);
+                patch->avsync_drop = 0;
+            }
+        }
+     if (patch->avsync_adelay) {
+        if (patch->avsync_adelay > (unsigned int)bytes) {
+            memset(buffer, 0, bytes * sizeof(unsigned char));
+            patch->avsync_adelay -= bytes;
+            ret = bytes;
+            } else  {
+                memset(buffer,0, patch->avsync_adelay);
+                patch->avsync_adelay = 0;
+                ret = patch->avsync_adelay;
+            }
+            }
 
-    if (patch->avsync_sample_interval >= AVSYNC_SAMPLE_INTERVAL * period_mul) {
-        aml_dev_try_avsync(patch);
-        if (patch->avsync_adelay > 0) {
+            return ret ;
+}
+
+static int pre_avsync(struct aml_audio_patch *patch)
+{
+
+    aml_dev_try_avsync(patch);
+    if (patch->avsync_adelay > 0) {
+            patch->avsync_adelay = calc_avsync_size(patch,AVSYNC_DELAY);
             ALOGI("now delay the audio output by %d\n", patch->avsync_adelay);
         }
 
-        if (patch->avsync_drop > 0) {
-            unsigned int drop_byte = calc_drop_size(patch->avsync_drop,
-                stream_config);
-
-            ALOGI("avsync the dropp size is %d\n", drop_byte);
-            if (drop_byte > DROP_AUDIO_SIZE) {
-                ring_buffer_read(ringbuffer,
-                    (unsigned char*)patch->drop_buf, DROP_AUDIO_SIZE);
-                drop_byte = drop_byte - DROP_AUDIO_SIZE;
-            } else {
-                ring_buffer_read(ringbuffer,
-                    (unsigned char*)patch->drop_buf, drop_byte);
-            }
-        }
-        patch->avsync_sample_interval = 0;
-    } else {
-        patch->avsync_sample_interval++;
+    if (patch->avsync_drop > 0) {
+        patch->avsync_drop= calc_avsync_size(patch,AVSYNC_DROP);
     }
+
 
     return 0;
 }

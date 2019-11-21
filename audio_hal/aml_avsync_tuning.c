@@ -146,14 +146,14 @@ static int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev)
         ALOGV("  audio ringbuf latency = %d", rbuf_ltcy);
     }
 
-    if (aml_dev->spk_tuning_lvl) {
-        size_t rbuf_avail = 0;
+    // if (aml_dev->spk_tuning_lvl) {
+    //     size_t rbuf_avail = 0;
 
-        rbuf_avail = get_buffer_read_space(&aml_dev->spk_tuning_rbuf);
-        frames = rbuf_avail / frame_size;
-        spk_tuning_ltcy = frames / SAMPLE_RATE_MS;
-        ALOGV("  audio spk tuning latency = %d", spk_tuning_ltcy);
-    }
+    //     rbuf_avail = get_buffer_read_space(&aml_dev->spk_tuning_rbuf);
+    //     frames = rbuf_avail / frame_size;
+    //     spk_tuning_ltcy = frames / SAMPLE_RATE_MS;
+    //     ALOGV("  audio spk tuning latency = %d", spk_tuning_ltcy);
+    // }
 
     if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
         if (aml_dev->ms12.dolby_ms12_enable == true) {
@@ -170,7 +170,7 @@ static int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev)
         if (ret >= 0) {
             alsa_out_i2s_ltcy = frames / SAMPLE_RATE_MS;
         }
-        ALOGV("  audio i2s latency = %d", alsa_out_i2s_ltcy);
+        ALOGV("audio_hw_primary  audio i2s latency = %d", alsa_out_i2s_ltcy);
     }
 
     if (aml_dev->pcm_handle[DIGITAL_DEVICE]) {
@@ -268,7 +268,8 @@ err:
 
 static inline void aml_dev_accumulate_avsync_diff(struct aml_audio_patch *patch, int av_diff)
 {
-    if (patch->avsync_sample_accumed > 5) {
+    //if (patch->avsync_sample_accumed > 5)
+    {
         patch->av_diffs += av_diff;
     }
     patch->avsync_sample_accumed++;
@@ -320,13 +321,15 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
     int av_diff = 0, factor = (patch->aformat == AUDIO_FORMAT_E_AC3) ? 2 : 1;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *)patch->dev;
     int ret = 0;
-
     if (!patch) {
         return 0;
     }
+
     if (patch->avsync_tuned == 1) {
         patch->avsync_adelay = 0;
         patch->avsync_drop = 0;
+        patch->avsync_tuned = 0;
+        // ALOGI(" aml_dev_try_avsync  has tuned now\n");
         return 0;
     }
 
@@ -342,12 +345,10 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
     //    patch->do_tune = 1;
 
     aml_dev_accumulate_avsync_diff(patch, av_diff);
-    if (patch->avsync_sample_accumed >= patch->avsync_sample_max_cnt) {
-        patch->do_tune = 1;
-    }
 
-    if (patch->do_tune) {
-        int tune_val = patch->av_diffs / (patch->avsync_sample_accumed - 5);
+    //if (patch->do_tune)
+    {
+        int tune_val = patch->av_diffs;
         //tune_val += 50/factor;
         int user_tune_val = aml_audio_get_src_tune_latency(aml_dev->patch_src);
         ALOGV("%s(), av user tuning latency = %dms",
@@ -361,8 +362,10 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
         } else {
             if (patch->input_src == AUDIO_DEVICE_IN_LINE) {
                 patch->avsync_drop = tune_val;
+                ALOGV("the avsync_drop ms is %d \n", tune_val);
             } else {
                 patch->avsync_drop = tune_val;
+                ALOGV("the avsync_drop ms is %d \n", tune_val);
             }
             patch->avsync_adelay = 0;
         }

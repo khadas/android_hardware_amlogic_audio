@@ -288,9 +288,9 @@ struct aml_audio_patch {
     struct resample_para dtv_resample;
     unsigned char *resample_outbuf;
     AM_AOUT_OutputMode_t   mode;
-    unsigned char avsync_adelay;
+    unsigned int avsync_adelay;
     unsigned char avsync_tuned;
-    unsigned char avsync_drop;
+    unsigned int avsync_drop;
     void *drop_buf;
     bool ac3_pcm_dropping;
     int last_audio_delay;
@@ -319,7 +319,7 @@ bool is_hdmi_in_stable_sw(struct audio_stream_in *stream);
 /*@brief check the ATV audio stability by HW register */
 bool is_atv_in_stable_hw(struct audio_stream_in *stream);
 int set_audio_source(struct aml_mixer_handle *mixer_handle,
-		enum input_source audio_source, bool is_auge);
+                enum input_source audio_source, bool is_auge);
 int get_HW_resample(struct aml_mixer_handle *mixer_handle);
 int enable_HW_resample(struct aml_mixer_handle *mixer_handle, int enable_sr);
 bool Stop_watch(struct timespec start_ts, int64_t time);
