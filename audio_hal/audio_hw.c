@@ -9228,6 +9228,13 @@ ssize_t out_write_new(struct audio_stream_out *stream,
      */
     pthread_mutex_lock(&adev->lock);
     if (adev->direct_mode) {
+        /*
+         * when the third_party apk calls pcm_close during use and then calls pcm_open again,
+         * primary hal does not access the sound card,
+         * continue to let the third_party apk access the sound card.
+         */
+        aml_alsa_output_close(stream);
+        aml_out->status = STREAM_STANDBY;
         ALOGI("%s,direct mode write,skip bytes %zu\n",__func__,bytes);
         /*TODO accurate delay time */
         usleep(in_frames*1000/48);
