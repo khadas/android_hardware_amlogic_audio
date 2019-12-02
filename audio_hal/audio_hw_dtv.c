@@ -1191,6 +1191,8 @@ static void dtv_audio_gap_monitor(struct aml_audio_patch *patch)
 {
     char buff[32];
     unsigned int first_checkinapts = 0;
+    int cur_pts_diff = 0;
+    int audio_discontinue = 0;
     int ret;
     if (!patch) {
         return;
@@ -1198,7 +1200,20 @@ static void dtv_audio_gap_monitor(struct aml_audio_patch *patch)
     if (patch->tsync_mode != TSYNC_MODE_PCRMASTER) {
         return;
     }
-    if (get_audio_discontinue(patch) && patch->dtv_audio_tune == AUDIO_RUNNING) {
+    /*[SE][BUG][OTT-7302][zhizhong.zhang] detect audio discontinue by pts-diff*/
+    if ((patch->last_apts != 0  && patch->last_apts != (unsigned long) - 1) &&
+        (patch->last_pcrpts != 0  && patch->last_pcrpts != (unsigned long) - 1)) {
+        cur_pts_diff = patch->last_pcrpts - patch->last_apts;
+        if (audio_discontinue == 0 &&
+            abs(cur_pts_diff) > DTV_PTS_CORRECTION_THRESHOLD * 5) {
+            audio_discontinue = 1;
+            ALOGI("cur_pts_diff=%d, diff=%d, apts=0x%x, pcrpts=0x%x\n",
+                cur_pts_diff, cur_pts_diff/90, patch->last_apts, patch->last_pcrpts);
+        } else
+            audio_discontinue = 0;
+    }
+    if ((audio_discontinue || get_audio_discontinue(patch)) &&
+        patch->dtv_audio_tune == AUDIO_RUNNING) {
         //ALOGI("%s size %d", __FUNCTION__, get_buffer_read_space(&(patch->aml_ringbuffer)));
         ret = aml_sysfs_get_str(TSYNC_LAST_CHECKIN_APTS, buff, sizeof(buff));
         if (ret > 0) {
@@ -1207,6 +1222,9 @@ static void dtv_audio_gap_monitor(struct aml_audio_patch *patch)
         if (first_checkinapts) {
             patch->dtv_audio_tune = AUDIO_BREAK;
             ALOGI("audio discontinue, audio_break");
+        } else if (audio_discontinue == 1) {
+            patch->dtv_audio_tune = AUDIO_BREAK;
+            ALOGI("audio_discontinue set 1,break\n");
         }
     }
 }
