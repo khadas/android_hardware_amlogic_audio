@@ -318,6 +318,7 @@ struct aml_audio_patch {
     void *drop_buf;
     bool ac3_pcm_dropping;
     int last_audio_delay;
+    bool is_alsa_input_mute;
 };
 
 struct audio_stream_out;

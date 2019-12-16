@@ -30,4 +30,8 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch);
 int tuning_spker_latency(struct aml_audio_device *adev,
                          int16_t *sink_buffer, int16_t *src_buffer, size_t bytes);
 
+int do_avsync(struct aml_audio_patch *patch, struct audio_stream_in * stream,
+                                    unsigned char* buffer,int bytes);
+int pre_avsync(struct aml_audio_patch *patch);
+
 #endif /*_AML_AVSYNC_TUNING_H_ */

@@ -274,9 +274,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
                       const void *buffer,
                       size_t bytes);
 
-static int do_avsync(struct aml_audio_patch *patch, struct audio_stream_in * stream,
-                                    unsigned char* buffer,int bytes);
-static int pre_avsync(struct aml_audio_patch *patch);
+
 
 static aec_timestamp get_timestamp(void);
 //static void config_output(struct audio_stream_out *stream);
@@ -4313,10 +4311,8 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             in->mute_flag = 1;
         }
 
-
         if (patch) {
             if (stable != patch->is_src_stable) {
-                ALOGI("now enter the avsync function %p ", patch);
                 {
                     ALOGI("now do avsync \n");
                     pre_avsync(patch);
@@ -4359,10 +4355,25 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             if (frame_duration > estimated_sched_time_us) {
                 usleep(frame_duration - estimated_sched_time_us);
             }
+            if (patch) {
+                patch->is_alsa_input_mute = true;
+            }
         } else {
             if (adev->debug_flag) {
                 ALOGD("%s:%d pcm_read data size:%d, channels:%d, pResampler:%p",__func__,__LINE__, bytes, in->config.channels, in->resampler);
             }
+
+            if (patch && patch->is_alsa_input_mute == true) {
+                patch->is_alsa_input_mute = false;
+                aml_alsa_input_flush(stream);
+                pre_avsync(patch);
+                ret = do_avsync(patch, stream, (unsigned char*)buffer, bytes);
+                if (ret != 0) {
+                    bytes = ret;
+                    goto exit;
+                }
+            }
+
             if (in->resampler) {
                 ret = read_frames(in, buffer, in_frames);
             } else {
@@ -9833,91 +9844,7 @@ void *audio_patch_input_threadloop(void *data)
     return (void *)0;
 }
 
-
-enum
-{
-    AVSYNC_DROP = 0,
-    AVSYNC_DELAY = 1,
-};
-
-static unsigned int calc_avsync_size(struct aml_audio_patch *patch,unsigned char flag)
-{
-    unsigned int size = 0;
-    unsigned int byte_width = 0;
-    unsigned int channum;
-    channum = audio_channel_count_from_out_mask(patch->out_chanmask);
-    if (AUDIO_FORMAT_PCM_16_BIT == patch->out_format) {
-        byte_width = 2;
-    } else if (AUDIO_FORMAT_PCM_32_BIT == patch->out_format) {
-        byte_width = 4;
-    } else if (AUDIO_FORMAT_PCM_8_BIT == patch->out_format) {
-        byte_width = 1;
-    } else {
-        byte_width = 0;
-        }
-    if (flag ==  AVSYNC_DROP) {
-    ALOGI("the avsync_drop is %d \n",patch->avsync_drop);
-    size = patch->avsync_drop * byte_width * channum * patch->out_sample_rate / 1000;
-    } else {
-        ALOGI("the avsync_adelay is %d \n",patch->avsync_adelay);
-        size = patch->avsync_adelay * byte_width * channum * patch->out_sample_rate / 1000;
-    }
-    return size;
-}
-
-#define AVSYNC_SAMPLE_INTERVAL (50)
 #define AVSYNC_SAMPLE_MAX_CNT (10)
-
-static int do_avsync(struct aml_audio_patch *patch, struct audio_stream_in * stream,unsigned char* buffer,int bytes)
-{
-        int ret = 0;
-        ring_buffer_t *ringbuffer = &(patch->aml_ringbuffer);
-        if (patch->avsync_drop > 0) {
-            unsigned int rsize = get_buffer_read_space(ringbuffer);
-            ALOGI("avsync the dropp size is %d,bytes %d \n", patch->avsync_drop,bytes);
-            if (patch->avsync_drop  > rsize) {
-                // if drop size > ringbuffer data level , clear ringbuffer ,and then
-                //drop the audio data from the alsa card;
-                memset(buffer, 0,sizeof(unsigned char)*bytes);
-                ring_buffer_seek(ringbuffer, rsize);
-                aml_alsa_input_read(stream, (unsigned char*) patch->drop_buf, patch->avsync_drop - rsize);
-                patch->avsync_drop = 0;
-            } else {
-                ring_buffer_seek(ringbuffer, patch->avsync_drop);
-                patch->avsync_drop = 0;
-            }
-        }
-     if (patch->avsync_adelay) {
-        if (patch->avsync_adelay > (unsigned int)bytes) {
-            memset(buffer, 0, bytes * sizeof(unsigned char));
-            patch->avsync_adelay -= bytes;
-            ret = bytes;
-            } else  {
-                memset(buffer,0, patch->avsync_adelay);
-                patch->avsync_adelay = 0;
-                ret = patch->avsync_adelay;
-            }
-            }
-
-            return ret ;
-}
-
-static int pre_avsync(struct aml_audio_patch *patch)
-{
-
-    aml_dev_try_avsync(patch);
-    if (patch->avsync_adelay > 0) {
-            patch->avsync_adelay = calc_avsync_size(patch,AVSYNC_DELAY);
-            ALOGI("now delay the audio output by %d\n", patch->avsync_adelay);
-        }
-
-    if (patch->avsync_drop > 0) {
-        patch->avsync_drop= calc_avsync_size(patch,AVSYNC_DROP);
-    }
-
-
-    return 0;
-}
 
 void *audio_patch_output_threadloop(void *data)
 {
@@ -10118,6 +10045,7 @@ static int create_patch_l(struct audio_hw_device *dev,
 #endif
     patch->avsync_drop = 0;
     patch->avsync_adelay = 0;
+    patch->is_alsa_input_mute = false;
     patch->drop_buf = calloc(1, sizeof(unsigned char) * DROP_AUDIO_SIZE);
 
     if (aml_dev->useSubMix) {

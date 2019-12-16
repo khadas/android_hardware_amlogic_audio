@@ -53,4 +53,6 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
 
 
 int alsa_depop(int card);
+int aml_alsa_input_flush(struct audio_stream_in *stream);
+
 #endif // _ALSA_MANAGER_H_

@@ -27,6 +27,7 @@
 #include "audio_hw_utils.h"
 #include "aml_audio_stream.h"
 #include "aml_avsync_tuning.h"
+#include "alsa_manager.h"
 #include "dolby_lib_api.h"
 
 
@@ -143,17 +144,8 @@ static int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev)
         rbuf_avail = get_buffer_read_space(&patch->aml_ringbuffer);
         frames = rbuf_avail / frame_size;
         rbuf_ltcy = frames / SAMPLE_RATE_MS;
-        ALOGV("  audio ringbuf latency = %d", rbuf_ltcy);
+        ALOGV("audio ringbuf latency = %d", rbuf_ltcy);
     }
-
-    // if (aml_dev->spk_tuning_lvl) {
-    //     size_t rbuf_avail = 0;
-
-    //     rbuf_avail = get_buffer_read_space(&aml_dev->spk_tuning_rbuf);
-    //     frames = rbuf_avail / frame_size;
-    //     spk_tuning_ltcy = frames / SAMPLE_RATE_MS;
-    //     ALOGV("  audio spk tuning latency = %d", spk_tuning_ltcy);
-    // }
 
     if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
         if (aml_dev->ms12.dolby_ms12_enable == true) {
@@ -185,9 +177,10 @@ static int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev)
         if (in->pcm != NULL) {
             ret = pcm_ioctl(in->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
             if (ret >= 0) {
+                frames = frames%(in->config.period_size*in->config.period_count);
                 alsa_in_ltcy = frames / SAMPLE_RATE_MS;
             }
-            ALOGV("  audio alsa in latency = %d", alsa_in_ltcy);
+            ALOGV("audio alsa in latency = %d", alsa_in_ltcy);
         }
     }
 
@@ -258,7 +251,7 @@ static int aml_dev_avsync_diff_in_path(struct aml_audio_patch *patch, int *av_di
         src_diff_err = -30;
     }
     ALOGV("%s(), altcy: %dms, vltcy: %dms", __func__, altcy, vltcy);
-    *av_diff = altcy - vltcy + src_diff_err ;
+    *av_diff = altcy - vltcy + src_diff_err;
 
     return 0;
 
@@ -377,5 +370,96 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
         }
     }
     return 0;
+}
+
+#define AVSYNC_SAMPLE_INTERVAL (50)
+
+enum
+{
+    AVSYNC_DROP = 0,
+    AVSYNC_DELAY = 1,
+};
+
+unsigned int calc_avsync_size(struct aml_audio_patch *patch,unsigned char flag)
+{
+    unsigned int size = 0;
+    unsigned int byte_width = 0;
+    unsigned int channum;
+    channum = audio_channel_count_from_out_mask(patch->out_chanmask);
+    if (AUDIO_FORMAT_PCM_16_BIT == patch->out_format) {
+        byte_width = 2;
+    } else if (AUDIO_FORMAT_PCM_32_BIT == patch->out_format) {
+        byte_width = 4;
+    } else if (AUDIO_FORMAT_PCM_8_BIT == patch->out_format) {
+        byte_width = 1;
+    } else {
+        byte_width = 0;
+        }
+    if (flag ==  AVSYNC_DROP) {
+    ALOGI("the avsync_drop is %d \n",patch->avsync_drop);
+    size = patch->avsync_drop * byte_width * channum * patch->out_sample_rate / 1000;
+    } else {
+        ALOGI("the avsync_adelay is %d \n",patch->avsync_adelay);
+        size = patch->avsync_adelay * byte_width * channum * patch->out_sample_rate / 1000;
+    }
+    return size;
+}
+
+int pre_avsync(struct aml_audio_patch *patch)
+{
+    aml_dev_try_avsync(patch);
+    if (patch->avsync_adelay > 0) {
+        patch->avsync_adelay = calc_avsync_size(patch,AVSYNC_DELAY);
+        ALOGI("now delay the audio output by %d\n", patch->avsync_adelay);
+    }
+
+    if (patch->avsync_drop > 0) {
+        patch->avsync_drop = calc_avsync_size(patch,AVSYNC_DROP);
+    }
+
+    return 0;
+}
+int do_avsync(struct aml_audio_patch *patch, struct audio_stream_in * stream,unsigned char* buffer,int bytes)
+{
+    int ret = 0;
+    struct aml_stream_in *in = (struct aml_stream_in *)stream;
+    int framesize = audio_stream_in_frame_size(&in->stream);
+    ring_buffer_t *ringbuffer = &(patch->aml_ringbuffer);
+    if (patch->avsync_drop > 0) {
+        unsigned int rsize = get_buffer_read_space(ringbuffer);
+        ALOGI("avsync the dropp size is %d,bytes %d \n", patch->avsync_drop, bytes);
+        if (patch->avsync_drop > rsize) {
+            // if drop size > ringbuffer data level , clear ringbuffer ,and then
+            //drop the audio data from the alsa card;
+            int process_size = 0;
+            int temp_size = 0;
+            memset(buffer, 0, sizeof(unsigned char)*bytes);
+            ring_buffer_seek(ringbuffer, rsize);
+            process_size = patch->avsync_drop - rsize;
+            if (process_size > framesize) {
+                temp_size = process_size%framesize;
+                process_size = process_size - temp_size;
+                aml_alsa_input_read(stream, (unsigned char*) patch->drop_buf, process_size);
+            }
+            patch->avsync_drop = 0;
+        } else {
+            ring_buffer_seek(ringbuffer, patch->avsync_drop);
+            patch->avsync_drop = 0;
+        }
+    }
+
+    if (patch->avsync_adelay) {
+        if (patch->avsync_adelay > (unsigned int)bytes) {
+            memset(buffer, 0, bytes * sizeof(unsigned char));
+            patch->avsync_adelay -= bytes;
+            ret = bytes;
+        } else {
+            memset(buffer, 0, patch->avsync_adelay);
+            patch->avsync_adelay = 0;
+            ret = patch->avsync_adelay;
+        }
+    }
+
+    return ret ;
 }
 
