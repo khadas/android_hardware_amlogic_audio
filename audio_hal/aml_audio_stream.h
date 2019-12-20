@@ -278,6 +278,8 @@ struct aml_audio_patch {
     unsigned int last_apts;
     unsigned int last_pcrpts;
     dtv_avsync_process_cb avsync_callback;
+    int dtv_faded_out;
+    int dtv_ac3_fmsize;
     pthread_mutex_t dtv_output_mutex;
     pthread_mutex_t dtv_input_mutex;
     pthread_mutex_t assoc_mutex;

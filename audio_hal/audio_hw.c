@@ -5197,7 +5197,8 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             adev->out_device &= (~val);
             ALOGI("adev_set_parameters a2dp disconnect: %x, device=%x\n", val, adev->out_device);
         }
-        if (adev->patch_src == SRC_DTV) {
+        /* for tv, the adev->reset_dtv_audio is reset in "HDMI ARC Switch" param */
+        if (adev->patch_src == SRC_DTV && !adev->is_TV) {
             ALOGI("disconnect set reset_dtv_audio 1\n");
             adev->reset_dtv_audio = 1;
         }
@@ -5210,7 +5211,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         if ((val & AUDIO_DEVICE_OUT_HDMI_ARC) || (val & AUDIO_DEVICE_OUT_HDMI)) {
             adev->bHDMIConnected = 1;
             ALOGI("%s,bHDMIConnected: %d\n", __FUNCTION__, val);
-            if (adev->patch_src == SRC_DTV) {
+            if (adev->patch_src == SRC_DTV && !adev->is_TV) {
                 ALOGI("connect set reset_dtv_audio 1\n");
                 adev->reset_dtv_audio = 1;
             }
@@ -5361,8 +5362,10 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
 #ifdef ENABLE_DTV_PATCH
             if ((adev->patch_src == SRC_DTV) && adev->audio_patching) {
                 ALOGI("%s, now release the dtv patch now\n ", __func__);
-                ALOGI("tunner in set reset_dtv_audio 1\n");
-                adev->reset_dtv_audio = 1;
+                if (!adev->is_TV) {
+                    ALOGI("tunner in set reset_dtv_audio 1\n");
+                    adev->reset_dtv_audio = 1;
+                }
                 ret = release_dtv_patch(adev);
                 if (!ret) {
                     adev->audio_patching = 0;
@@ -7251,7 +7254,7 @@ static void output_mute(struct audio_stream_out *stream, size_t *output_buffer_b
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     size_t target_len = MIN(aml_out->tmp_buffer_8ch_size, *output_buffer_bytes);
-    int timer_in_ms = 0;
+    //int timer_in_ms = 0;
 
     if (adev->patch_src == SRC_LINEIN || adev->patch_src == SRC_SPDIFIN
             || adev->patch_src == SRC_HDMIIN || adev->patch_src == SRC_ARCIN) {
@@ -7261,7 +7264,7 @@ static void output_mute(struct audio_stream_out *stream, size_t *output_buffer_b
             clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
             adev->patch_start = true;
             adev->mute_start = true;
-            timer_in_ms = 1000;
+            adev->timer_in_ms = 1000;
             //ALOGI ("%s() detect AUX/SPDIF start mute!", __func__);
         }
 
@@ -7270,7 +7273,7 @@ static void output_mute(struct audio_stream_out *stream, size_t *output_buffer_b
             clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
             adev->spdif_fmt_hw = adev->active_input->spdif_fmt_hw;
             adev->mute_start = true;
-            timer_in_ms = 500;
+            adev->timer_in_ms = 500;
             ALOGI ("%s() detect AUX/SPDIF format change, start mute!", __func__);
         }
     } else if (adev->patch_src == SRC_DTV || adev->patch_src == SRC_ATV) {
@@ -7279,14 +7282,15 @@ static void output_mute(struct audio_stream_out *stream, size_t *output_buffer_b
             clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
             adev->patch_start = true;
             adev->mute_start = true;
-            timer_in_ms = 200;
+            adev->timer_in_ms = 200;
             ALOGI ("%s() detect tv source start mute 200ms", __func__);
         }
     }
 
     if (aml_out->tmp_buffer_8ch != NULL && adev->mute_start) {
-        if (!Stop_watch(adev->mute_start_ts, timer_in_ms)) {
+        if (!Stop_watch(adev->mute_start_ts, adev->timer_in_ms)) {
             adev->mute_start = false;
+            adev->timer_in_ms = 0;
             start_ease_in(adev);
             ALOGI ("%s() tv source unmute, start fade in", __func__);
         } else {

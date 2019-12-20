@@ -513,6 +513,7 @@ struct aml_audio_device {
     int reset_dtv_audio;
     int patch_start;
     int mute_start;
+    int timer_in_ms;
     aml_audio_ease_t  *audio_ease;
     int sound_track_mode;
 
