@@ -21,6 +21,8 @@
 #define MAX_FILE_NAME_SIZE 128
 #define MAX_EXT_AMP_NUM 8
 #define MAX_EQ_NUM 16
+#define MAX_INT_TABLE_MAX 2048
+#define MAX_STRING_TABLE_MAX 16384
 
 /*ini file parser*/
 struct audio_file_config_s {
@@ -56,6 +58,7 @@ struct audio_noise_gate_s {
 
 /*hw volume control in soc or AMP*/
 struct audio_volume_s {
+    char section_name[MAX_NAME_SIZE];
     bool enable;
     int master;
     char master_name[MAX_NAME_SIZE];
@@ -63,15 +66,20 @@ struct audio_volume_s {
     char ch1_name[MAX_NAME_SIZE];
     int ch2;
     char ch2_name[MAX_NAME_SIZE];
+    int LL_vol;
+    char LL_vol_name[MAX_NAME_SIZE];
+    int RR_vol;
+    char RR_vol_name[MAX_NAME_SIZE];
 };
 
-#define CC_AUDIO_REG_DATA_MAX   (64)
-#define CC_AUDIO_REG_CNT_MAX    (32)
+#define CC_AUDIO_REG_DATA_MAX   (32)
+#define CC_AUDIO_REG_CNT_MAX    (256)
 
 struct audio_reg_s {
     int len;
     unsigned int data[CC_AUDIO_REG_DATA_MAX];
 };
+
 struct audio_data_s {
     int reg_cnt;
     char section_name[MAX_NAME_SIZE];
@@ -80,6 +88,7 @@ struct audio_data_s {
 
 /*hw eq*/
 struct audio_eq_s {
+    char section_name[MAX_NAME_SIZE];
     bool enable;
     char eq_name[MAX_NAME_SIZE];
     char eq_enable_name[MAX_NAME_SIZE];
@@ -91,6 +100,7 @@ struct audio_eq_s {
 
 /*hw fullband drc*/
 struct audio_fdrc_s {
+    char section_name[MAX_NAME_SIZE];
     bool enable;
     char fdrc_name[MAX_NAME_SIZE];
     char fdrc_enable_name[MAX_NAME_SIZE];
@@ -99,15 +109,9 @@ struct audio_fdrc_s {
     struct audio_data_s *fdrc_table;
 };
 
-/*clip threshold*/
-struct audio_clip_s {
-    bool enable;
-    float clip_threshold;
-    char clip_threshold_name[MAX_NAME_SIZE];
-};
-
 /*hw multiband drc*/
 struct audio_mdrc_s {
+    char section_name[MAX_NAME_SIZE];
     bool enable;
     char mdrc_enable_name[MAX_NAME_SIZE];
     int drc_byte_mode;
@@ -118,11 +122,11 @@ struct audio_mdrc_s {
 };
 
 struct audio_eq_drc_info_s {
+    int id;
     struct audio_volume_s volume;
     struct audio_eq_s eq;
     struct audio_fdrc_s fdrc;
     struct audio_mdrc_s mdrc;
-    struct audio_clip_s clip;
 };
 
 struct eq_drc_data {
@@ -141,9 +145,12 @@ struct eq_drc_data {
 extern "C" {
 #endif
 
-int handle_audio_sum_ini(const char *file_name, char *model_name, struct audio_file_config_s *dev_cfg);
-int handle_audio_gain_ini(char *file_name, struct eq_drc_data *p_attr);
-int handle_audio_eq_drc_ini(char *file_name, struct audio_eq_drc_info_s *p_attr);
+int parse_audio_sum(const char *file_name, char *model_name, struct audio_file_config_s *dev_cfg);
+int parse_audio_gain(char *file_name, struct eq_drc_data *p_attr);
+int parse_audio_eq_drc_status(char *file_name, struct audio_eq_drc_info_s *p_attr);
+int parse_audio_eq_drc_table(char *file_name, struct audio_eq_drc_info_s *p_attr);
+int parse_AMP_num(char *file_name, struct eq_drc_data *p_attr);
+void free_eq_drc_table(struct audio_eq_drc_info_s *p_attr);
 
 #ifdef __cplusplus
 }

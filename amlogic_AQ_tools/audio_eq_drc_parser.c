@@ -39,11 +39,20 @@
 #define ITEM_LOGE(x...)
 #endif
 
+static int error_callback(const char *format, ...)
+{
+    va_list argptr;
+    va_start(argptr, format);
+    ITEM_LOGE(format, argptr);
+    va_end(argptr);
+    return 0;
+}
+
 static int parse_audio_source_gain_data(dictionary *pIniParser, struct eq_drc_data *p_attr)
 {
     p_attr->s_gain.enable = iniparser_getboolean(pIniParser, "source_gain:sg_enable", 0);
     if (!p_attr->s_gain.enable) {
-        ITEM_LOGD("%s, Section -> [source_gain] is not exist\n", __FUNCTION__);
+        ITEM_LOGD("%s, Section -> [source_gain] is disable!\n", __FUNCTION__);
         return 0;
     }
 
@@ -66,7 +75,7 @@ static int parse_audio_post_gain_data(dictionary *pIniParser, struct eq_drc_data
 {
     p_attr->p_gain.enable = iniparser_getboolean(pIniParser, "post_gain:pg_enable", 0);
     if (!p_attr->p_gain.enable) {
-        ITEM_LOGD("%s, Section -> [post_gain] is not exist\n", __FUNCTION__);
+        ITEM_LOGD("%s, Section -> [post_gain] is disable!\n", __FUNCTION__);
         return 0;
     }
 
@@ -106,64 +115,135 @@ static int parse_audio_ng_data(dictionary *pIniParser, struct eq_drc_data *p_att
 static int parse_audio_volume_status(dictionary *pIniParser, struct audio_eq_drc_info_s *p_attr)
 {
     const char  *str;
+    char buf_section_name[64];
 
-    p_attr->volume.enable = iniparser_getboolean(pIniParser, "volume:vol_enable", 0);
+    sprintf(buf_section_name, "volume_%d:", p_attr->id);
+    strcpy(p_attr->volume.section_name, buf_section_name);
+
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->volume.section_name, "vol_enable");
+    //ITEM_LOGD("%s, section_name is (%s)\n", __FUNCTION__, buf_section_name);
+    p_attr->volume.enable = iniparser_getboolean(pIniParser, buf_section_name, 1);
     if (!p_attr->volume.enable) {
-        ITEM_LOGD("%s, Volume is disable!\n", __FUNCTION__);
+        ITEM_LOGD("%s, HW volume is disable!\n", __FUNCTION__);
         return 0;
     }
 
-    p_attr->volume.master = iniparser_getint(pIniParser, "volume:master", 0);
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->volume.section_name, "master");
+    p_attr->volume.master = iniparser_getint(pIniParser, buf_section_name, 0);
     ITEM_LOGD("%s, Master Volume is (%d)\n", __FUNCTION__, p_attr->volume.master);
 
-    str = iniparser_getstring(pIniParser, "volume:master_name", NULL);
-    strcpy(p_attr->volume.master_name, str);
-    ITEM_LOGD("%s, Master Volume Name is (%s)\n", __FUNCTION__, p_attr->volume.master_name);
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->volume.section_name, "master_name");
+    str = iniparser_getstring(pIniParser, buf_section_name, NULL);
+    if (str) {
+        strcpy(p_attr->volume.master_name, str);
+        ITEM_LOGD("%s, Master Volume Name is (%s)\n", __FUNCTION__, p_attr->volume.master_name);
+    }
 
-    p_attr->volume.ch1 = iniparser_getint(pIniParser, "volume:ch1", 0);
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->volume.section_name, "ch1");
+    p_attr->volume.ch1 = iniparser_getint(pIniParser, buf_section_name, 0);
     ITEM_LOGD("%s, CH1 Volume is (%d)\n", __FUNCTION__, p_attr->volume.ch1);
 
-    str = iniparser_getstring(pIniParser, "volume:ch1_name", NULL);
-    strcpy(p_attr->volume.ch1_name, str);
-    ITEM_LOGD("%s, Master Ch1 Name is (%s)\n", __FUNCTION__, p_attr->volume.ch1_name);
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->volume.section_name, "ch1_name");
+    str = iniparser_getstring(pIniParser, buf_section_name, NULL);
+    if (str) {
+        strcpy(p_attr->volume.ch1_name, str);
+        ITEM_LOGD("%s, Master Ch1 Name is (%s)\n", __FUNCTION__, p_attr->volume.ch1_name);
+    }
 
-    p_attr->volume.ch2 = iniparser_getint(pIniParser, "volume:ch2", 0);
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->volume.section_name, "ch2");
+    p_attr->volume.ch2 = iniparser_getint(pIniParser, buf_section_name, 0);
     ITEM_LOGD("%s, CH2 Volume is  (%d)\n", __FUNCTION__, p_attr->volume.ch2);
 
-    str = iniparser_getstring(pIniParser, "volume:ch2_name", NULL);
-    strcpy(p_attr->volume.ch2_name, str);
-    ITEM_LOGD("%s, Master Ch2 Name is (%s)\n", __FUNCTION__, p_attr->volume.ch2_name);
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->volume.section_name, "ch2_name");
+    str = iniparser_getstring(pIniParser, buf_section_name, NULL);
+    if (str) {
+        strcpy(p_attr->volume.ch2_name, str);
+        ITEM_LOGD("%s, Master Ch2 Name is (%s)\n", __FUNCTION__, p_attr->volume.ch2_name);
+    }
 
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->volume.section_name, "LL_vol");
+    p_attr->volume.LL_vol= iniparser_getint(pIniParser, buf_section_name, 0);
+    ITEM_LOGD("%s, mixer LL Volume is  (%d)\n", __FUNCTION__, p_attr->volume.LL_vol);
+
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->volume.section_name, "LL_vol_name");
+    str = iniparser_getstring(pIniParser, buf_section_name, NULL);
+    if (str) {
+        strcpy(p_attr->volume.LL_vol_name, str);
+        ITEM_LOGD("%s, mixer LL Volume Name is (%s)\n", __FUNCTION__, p_attr->volume.LL_vol_name);
+    }
+
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->volume.section_name, "RR_vol");
+    p_attr->volume.RR_vol= iniparser_getint(pIniParser, buf_section_name, 0);
+    ITEM_LOGD("%s, mixer RR Volume is  (%d)\n", __FUNCTION__, p_attr->volume.RR_vol);
+
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->volume.section_name, "RR_vol_name");
+    str = iniparser_getstring(pIniParser, buf_section_name, NULL);
+    if (str) {
+        strcpy(p_attr->volume.RR_vol_name, str);
+        ITEM_LOGD("%s, mixer RR Volume Name is (%s)\n", __FUNCTION__, p_attr->volume.RR_vol_name);
+    }
     return 0;
 }
 
 static int parse_audio_eq_status(dictionary *pIniParser, struct audio_eq_drc_info_s* p_attr)
 {
     const char  *str;
+    char buf_section_name[64];
 
-    p_attr->eq.enable = iniparser_getboolean(pIniParser, "eq_param:eq_enable", 0);
+    sprintf(buf_section_name, "eq_param_%d:", p_attr->id);
+    strcpy(p_attr->eq.section_name, buf_section_name);
+
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->eq.section_name, "eq_enable");
+    p_attr->eq.enable = iniparser_getboolean(pIniParser, buf_section_name, 0);
     if (!p_attr->eq.enable) {
         ITEM_LOGD("%s, eq is disable!\n", __FUNCTION__);
-        return 0;
+    } else {
+        memset(buf_section_name, 0, 64);
+        sprintf(buf_section_name, "%s%s", p_attr->eq.section_name, "eq_name");
+        str = iniparser_getstring(pIniParser, buf_section_name, NULL);
+        if (str) {
+            strcpy(p_attr->eq.eq_name, str);
+            ITEM_LOGD("%s, EQ is from (%s)\n", __FUNCTION__, p_attr->eq.eq_name);
+        }
+
+        memset(buf_section_name, 0, 64);
+        sprintf(buf_section_name, "%s%s", p_attr->eq.section_name, "eq_byte_mode");
+        p_attr->eq.eq_byte_mode = iniparser_getint(pIniParser, buf_section_name, 0);
+        ITEM_LOGD("%s, EQ byte is (%d)\n", __FUNCTION__, p_attr->eq.eq_byte_mode);
+
+        memset(buf_section_name, 0, 64);
+        sprintf(buf_section_name, "%s%s", p_attr->eq.section_name, "eq_table_num");
+        p_attr->eq.eq_table_num = iniparser_getint(pIniParser, buf_section_name, 0);
+        ITEM_LOGD("%s, EQ table num is (%d)\n", __FUNCTION__, p_attr->eq.eq_table_num);
+
+        memset(buf_section_name, 0, 64);
+        sprintf(buf_section_name, "%s%s", p_attr->eq.section_name, "eq_table_name");
+        str = iniparser_getstring(pIniParser, buf_section_name, NULL);
+        if (str) {
+            strcpy(p_attr->eq.eq_table_name, str);
+            ITEM_LOGD("%s, EQ table name is (%s)\n", __FUNCTION__, p_attr->eq.eq_table_name);
+        }
     }
 
-    str = iniparser_getstring(pIniParser, "eq_param:eq_name", NULL);
-    strcpy(p_attr->eq.eq_name, str);
-    ITEM_LOGD("%s, EQ is from (%s)\n", __FUNCTION__, p_attr->eq.eq_name);
-
-    str = iniparser_getstring(pIniParser, "eq_param:eq_enable_name", NULL);
-    strcpy(p_attr->eq.eq_enable_name, str);
-    ITEM_LOGD("%s, EQ enable name is (%s)\n", __FUNCTION__, p_attr->eq.eq_enable_name);
-
-    p_attr->eq.eq_byte_mode = iniparser_getint(pIniParser, "eq_param:eq_byte_mode", 0);
-    ITEM_LOGD("%s, EQ byte is (%d)\n", __FUNCTION__, p_attr->eq.eq_byte_mode);
-
-    p_attr->eq.eq_table_num = iniparser_getint(pIniParser, "eq_param:eq_table_num", 0);
-    ITEM_LOGD("%s, EQ table num is (%d)\n", __FUNCTION__, p_attr->eq.eq_table_num);
-
-    str = iniparser_getstring(pIniParser, "eq_param:eq_table_name", NULL);
-    strcpy(p_attr->eq.eq_table_name, str);
-    ITEM_LOGD("%s, EQ table name is (%s)\n", __FUNCTION__, p_attr->eq.eq_table_name);
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->eq.section_name, "eq_enable_name");
+    str = iniparser_getstring(pIniParser, buf_section_name, NULL);
+    if (str) {
+        strcpy(p_attr->eq.eq_enable_name, str);
+        ITEM_LOGD("%s, EQ enable name is (%s)\n", __FUNCTION__, p_attr->eq.eq_enable_name);
+    }
 
     return 0;
 }
@@ -171,76 +251,100 @@ static int parse_audio_eq_status(dictionary *pIniParser, struct audio_eq_drc_inf
 static int parse_audio_drc_status(dictionary *pIniParser, struct audio_eq_drc_info_s* p_attr)
 {
     const char  *str;
+    char buf_section_name[64];
 
-    p_attr->fdrc.enable = iniparser_getboolean(pIniParser, "drc_param:drc_enable", 0);
+    sprintf(buf_section_name, "drc_param_%d:", p_attr->id);
+    strcpy(p_attr->fdrc.section_name, buf_section_name);
+    strcpy(p_attr->mdrc.section_name, buf_section_name);
+
+    /*parse fullband DRC*/
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->fdrc.section_name, "drc_enable");
+    p_attr->fdrc.enable = iniparser_getboolean(pIniParser, buf_section_name, 0);
     if (!p_attr->fdrc.enable) {
         ITEM_LOGD("%s, fullband drc is disable!\n", __FUNCTION__);
     } else {
-        str = iniparser_getstring(pIniParser, "drc_param:drc_name", NULL);
-        strcpy(p_attr->fdrc.fdrc_name, str);
-        ITEM_LOGD("%s, DRC is from (%s)\n", __FUNCTION__, p_attr->fdrc.fdrc_name);
+        memset(buf_section_name, 0, 64);
+        sprintf(buf_section_name, "%s%s", p_attr->fdrc.section_name, "drc_name");
+        str = iniparser_getstring(pIniParser, buf_section_name, NULL);
+        if (str) {
+            strcpy(p_attr->fdrc.fdrc_name, str);
+            ITEM_LOGD("%s, DRC is from (%s)\n", __FUNCTION__, p_attr->fdrc.fdrc_name);
+        }
 
-        str = iniparser_getstring(pIniParser, "drc_param:drc_enable_name", NULL);
-        strcpy(p_attr->fdrc.fdrc_enable_name, str);
-        ITEM_LOGD("%s, DRC enable name is (%s)\n", __FUNCTION__, p_attr->fdrc.fdrc_enable_name);
-
-        p_attr->fdrc.drc_byte_mode = iniparser_getint(pIniParser, "drc_param:drc_byte_mode", 4);
+        memset(buf_section_name, 0, 64);
+        sprintf(buf_section_name, "%s%s", p_attr->fdrc.section_name, "drc_byte_mode");
+        p_attr->fdrc.drc_byte_mode = iniparser_getint(pIniParser, buf_section_name, 1);
         ITEM_LOGD("%s, DRC byte is (%d)\n", __FUNCTION__, p_attr->fdrc.drc_byte_mode);
         p_attr->mdrc.drc_byte_mode = p_attr->fdrc.drc_byte_mode;
 
-        str = iniparser_getstring(pIniParser, "drc_param:drc_table_name", NULL);
-        strcpy(p_attr->fdrc.fdrc_table_name, str);
-        ITEM_LOGD("%s, DRC table name is (%s)\n", __FUNCTION__, p_attr->fdrc.fdrc_table_name);
+        memset(buf_section_name, 0, 64);
+        sprintf(buf_section_name, "%s%s", p_attr->fdrc.section_name, "drc_table_name");
+        str = iniparser_getstring(pIniParser, buf_section_name, NULL);
+        if (str) {
+            strcpy(p_attr->fdrc.fdrc_table_name, str);
+            ITEM_LOGD("%s, DRC table name is (%s)\n", __FUNCTION__, p_attr->fdrc.fdrc_table_name);
+        }
     }
 
-    p_attr->mdrc.enable = iniparser_getboolean(pIniParser, "drc_param:mdrc_enable", 0);
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->fdrc.section_name, "drc_enable_name");
+    str = iniparser_getstring(pIniParser, buf_section_name, NULL);
+    if (str) {
+        strcpy(p_attr->fdrc.fdrc_enable_name, str);
+        ITEM_LOGD("%s, DRC enable name is (%s)\n", __FUNCTION__, p_attr->fdrc.fdrc_enable_name);
+    }
+
+    /*parse multiband DRC*/
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->mdrc.section_name, "mdrc_enable");
+    p_attr->mdrc.enable = iniparser_getboolean(pIniParser, buf_section_name, 0);
     if (!p_attr->mdrc.enable) {
         ITEM_LOGD("%s, multiband drc is disable!\n", __FUNCTION__);
     } else {
-        str = iniparser_getstring(pIniParser, "drc_param:mdrc_enable_name", NULL);
-        strcpy(p_attr->mdrc.mdrc_enable_name, str);
-        ITEM_LOGD("%s, multiband DRC enable name is (%s)\n", __FUNCTION__, p_attr->mdrc.mdrc_enable_name);
+        memset(buf_section_name, 0, 64);
+        sprintf(buf_section_name, "%s%s", p_attr->mdrc.section_name, "mdrc_table_name");
+        str = iniparser_getstring(pIniParser, buf_section_name, NULL);
+        if (str) {
+            strcpy(p_attr->mdrc.mdrc_table_name, str);
+            ITEM_LOGD("%s, multiband DRC table name is (%s)\n", __FUNCTION__, p_attr->mdrc.mdrc_table_name);
+        }
 
-        str = iniparser_getstring(pIniParser, "drc_param:mdrc_table_name", NULL);
-        strcpy(p_attr->mdrc.mdrc_table_name, str);
-        ITEM_LOGD("%s, multiband DRC table name is (%s)\n", __FUNCTION__, p_attr->mdrc.mdrc_table_name);
-
-        str = iniparser_getstring(pIniParser, "drc_param:crossover_table_name", NULL);
-        strcpy(p_attr->mdrc.crossover_table_name, str);
-        ITEM_LOGD("%s, multiband DRC crossover name is (%s)\n", __FUNCTION__, p_attr->mdrc.crossover_table_name);
-
-        if (p_attr->mdrc.drc_byte_mode == 0)
-            p_attr->mdrc.drc_byte_mode = 4;
+        memset(buf_section_name, 0, 64);
+        sprintf(buf_section_name, "%s%s", p_attr->mdrc.section_name, "crossover_table_name");
+        str = iniparser_getstring(pIniParser, buf_section_name, NULL);
+        if (str) {
+            strcpy(p_attr->mdrc.crossover_table_name, str);
+            ITEM_LOGD("%s, multiband DRC crossover name is (%s)\n", __FUNCTION__, p_attr->mdrc.crossover_table_name);
+        }
     }
 
-    p_attr->clip.enable = iniparser_getboolean(pIniParser, "hw_clip:clip_enable", 0);
-    if (!p_attr->clip.enable) {
-        ITEM_LOGD("%s, hw clip is disable!\n", __FUNCTION__);
-    } else {
-        p_attr->clip.clip_threshold = iniparser_getdouble(pIniParser, "hw_clip:clip_threshold", 0.0f);
-        ITEM_LOGD("%s, hw clip threshold is (%f)\n", __FUNCTION__, p_attr->clip.clip_threshold);
-
-        str = iniparser_getstring(pIniParser, "hw_clip:clip_threshold_name", NULL);
-        strcpy(p_attr->clip.clip_threshold_name, str);
-        ITEM_LOGD("%s, hw clip threshold name is (%s)\n", __FUNCTION__, p_attr->clip.clip_threshold_name);
+    memset(buf_section_name, 0, 64);
+    sprintf(buf_section_name, "%s%s", p_attr->mdrc.section_name, "mdrc_enable_name");
+    str = iniparser_getstring(pIniParser, buf_section_name, NULL);
+    if (str) {
+        strcpy(p_attr->mdrc.mdrc_enable_name, str);
+        ITEM_LOGD("%s, multiband DRC enable name is (%s)\n", __FUNCTION__, p_attr->mdrc.mdrc_enable_name);
     }
 
     return 0;
 }
 
-static int transBufferData(const char *data_str, unsigned int data_buf[])
+static int transBufferData(const char *data_str, unsigned int *data_buf)
 {
     int item_ind = 0;
     char *token;
     char *pSave;
-    char tmp_buf[4096];
+    char *tmp_buf;
 
-    if (data_str == NULL) {
+    if (data_str == NULL)
         return 0;
-    }
 
-    memset((void *)tmp_buf, 0, sizeof(tmp_buf));
-    strncpy(tmp_buf, data_str, sizeof(tmp_buf) - 1);
+    tmp_buf = (char *)calloc(1, (MAX_STRING_TABLE_MAX * sizeof(char)));
+    if (tmp_buf == NULL)
+        return 0;
+
+    strncpy(tmp_buf, data_str, MAX_STRING_TABLE_MAX - 1);
     token = strtok_r(tmp_buf, ",", &pSave);
     while (token != NULL) {
         data_buf[item_ind] = strtoul(token, NULL, 0);
@@ -248,6 +352,7 @@ static int transBufferData(const char *data_str, unsigned int data_buf[])
         token = strtok_r(NULL, ",", &pSave);
     }
 
+    free(tmp_buf);
     return item_ind;
 }
 
@@ -255,17 +360,21 @@ static int parse_audio_table_data(dictionary *pIniParser, struct audio_data_s *t
 {
     int i = 0, j = 0, k = 0, data_cnt = 0;
     const char  *str = NULL;
-    unsigned int tmp_buf[4096];
+    unsigned int *tmp_buf;
 
     str = iniparser_getstring(pIniParser, table->section_name, NULL);
-    //ITEM_LOGD("%s, reg buffer data = %s\n", __FUNCTION__, str);
+    if (str == NULL)
+        return -1;
 
-    memset(tmp_buf, 0, 4096);
+    tmp_buf = (unsigned int *)calloc(1, (MAX_INT_TABLE_MAX * sizeof(unsigned int)));
+    if (tmp_buf == NULL)
+        return -1;
+
     data_cnt = transBufferData(str, tmp_buf);
     ITEM_LOGD("%s, reg buffer data cnt = %d\n", __FUNCTION__, data_cnt);
 
     while (i <= data_cnt) {
-        if (j >= CC_AUDIO_REG_DATA_MAX) {
+        if (j >= CC_AUDIO_REG_CNT_MAX) {
             break;
         }
 
@@ -284,6 +393,7 @@ static int parse_audio_table_data(dictionary *pIniParser, struct audio_data_s *t
     }
 
     table->reg_cnt = j;
+    free(tmp_buf);
     return 0;
 }
 
@@ -305,6 +415,8 @@ static void PrintRegData(int byte_mode, struct audio_data_s *table)
             if (byte_mode == 4) {
                 sprintf((char *)tmp_buf + tmp_len, "0x%08X, ", table->regs[i].data[j]);
             } else if (byte_mode == 2){
+                sprintf((char *)tmp_buf + tmp_len, "0x%04X, ", table->regs[i].data[j]);
+            } else if (byte_mode == 1){
                 sprintf((char *)tmp_buf + tmp_len, "0x%02X, ", table->regs[i].data[j]);
             }
         }
@@ -313,7 +425,7 @@ static void PrintRegData(int byte_mode, struct audio_data_s *table)
         memset(tmp_buf, 0, 1024);
     }
 
-    ITEM_LOGD("\n\n");
+    ITEM_LOGD("\n");
 }
 
 static int parse_audio_eq_data(dictionary *pIniParser, struct audio_eq_drc_info_s* p_attr)
@@ -321,17 +433,17 @@ static int parse_audio_eq_data(dictionary *pIniParser, struct audio_eq_drc_info_
     int eq_tabel_num = p_attr->eq.eq_table_num;
     int i = 0;
     struct audio_data_s *table;
-    char buf[64];
+    char buf_section_name[64];
 
     for (i = 0; i < eq_tabel_num; i++) {
         table = (struct audio_data_s *)calloc(1, sizeof(struct audio_data_s));
         if (!table) {
-            ALOGE("%s: calloc audio_data_s failed!", __FUNCTION__);
+            ITEM_LOGE("%s: calloc audio_data_s failed!", __FUNCTION__);
         } else {
             p_attr->eq.eq_table[i] = table;
-            memset(buf, 0, 64);
-            sprintf(buf, "eq_param:eq_table_%d", i);
-            strcpy(table->section_name, buf);
+            memset(buf_section_name, 0, 64);
+            sprintf(buf_section_name, "%s%s%d", p_attr->eq.section_name, "eq_table_", i);
+            strcpy(table->section_name, buf_section_name);
             ITEM_LOGD("%s, section_name = %s\n", __FUNCTION__, table->section_name);
             parse_audio_table_data(pIniParser, table);
             PrintRegData(p_attr->eq.eq_byte_mode, table);
@@ -344,13 +456,16 @@ static int parse_audio_eq_data(dictionary *pIniParser, struct audio_eq_drc_info_
 static int parse_audio_fdrc_data(dictionary *pIniParser, struct audio_eq_drc_info_s* p_attr)
 {
     struct audio_data_s *table;
+    char buf_section_name[64];
 
     table = (struct audio_data_s *)calloc(1, sizeof(struct audio_data_s));
     if (!table) {
-        ALOGE("%s: calloc audio_data_s failed!", __FUNCTION__);
+        ITEM_LOGE("%s: calloc audio_data_s failed!", __FUNCTION__);
     } else {
         p_attr->fdrc.fdrc_table = table;
-        strcpy(table->section_name, "drc_param:drc_table");
+        memset(buf_section_name, 0, 64);
+        sprintf(buf_section_name, "%s%s", p_attr->fdrc.section_name, "drc_table");
+        strcpy(table->section_name, buf_section_name);
         ITEM_LOGD("%s, section_name = %s\n", __FUNCTION__, table->section_name);
         parse_audio_table_data(pIniParser, table);
         PrintRegData(p_attr->fdrc.drc_byte_mode, table);
@@ -362,13 +477,16 @@ static int parse_audio_fdrc_data(dictionary *pIniParser, struct audio_eq_drc_inf
 static int parse_audio_mdrc_data(dictionary *pIniParser, struct audio_eq_drc_info_s* p_attr)
 {
     struct audio_data_s *table;
+    char buf_section_name[64];
 
     table = (struct audio_data_s *)calloc(1, sizeof(struct audio_data_s));
     if (!table) {
-        ALOGE("%s: calloc audio_data_s failed!", __FUNCTION__);
+        ITEM_LOGE("%s: calloc audio_data_s failed!", __FUNCTION__);
     } else {
         p_attr->mdrc.mdrc_table = table;
-        strcpy(table->section_name, "drc_param:mdrc_table");
+        memset(buf_section_name, 0, 64);
+        sprintf(buf_section_name, "%s%s", p_attr->mdrc.section_name, "mdrc_table");
+        strcpy(table->section_name, buf_section_name);
         ITEM_LOGD("%s, section_name = %s\n", __FUNCTION__, table->section_name);
         parse_audio_table_data(pIniParser, table);
         PrintRegData(p_attr->mdrc.drc_byte_mode, table);
@@ -376,10 +494,12 @@ static int parse_audio_mdrc_data(dictionary *pIniParser, struct audio_eq_drc_inf
 
     table = (struct audio_data_s *)calloc(1, sizeof(struct audio_data_s));
     if (!table) {
-        ALOGE("%s: calloc audio_data_s failed!", __FUNCTION__);
+        ITEM_LOGE("%s: calloc audio_data_s failed!", __FUNCTION__);
     } else {
         p_attr->mdrc.crossover_table = table;
-        strcpy(table->section_name, "drc_param:crossover_table");
+        memset(buf_section_name, 0, 64);
+        sprintf(buf_section_name, "%s%s", p_attr->mdrc.section_name, "crossover_table");
+        strcpy(table->section_name, buf_section_name);
         ITEM_LOGD("%s, section_name = %s\n", __FUNCTION__, table->section_name);
         parse_audio_table_data(pIniParser, table);
         PrintRegData(p_attr->mdrc.drc_byte_mode, table);
@@ -388,15 +508,17 @@ static int parse_audio_mdrc_data(dictionary *pIniParser, struct audio_eq_drc_inf
     return 0;
 }
 
-int handle_audio_sum_ini(const char *file_name, char *model_name, struct audio_file_config_s *dev_cfg)
+int parse_audio_sum(const char *file_name, char *model_name, struct audio_file_config_s *dev_cfg)
 {
     dictionary *ini = NULL;
     const char *ini_value = NULL;
     char buf[128];
 
+    iniparser_set_error_callback(error_callback);
+
     ini = iniparser_load(file_name);
     if (ini == NULL) {
-        ALOGD("%s, INI load file error, use default file\n", __FUNCTION__);
+        ITEM_LOGE("%s, INI load file (%s) error!\n", __FUNCTION__, file_name);
         goto exit;
     }
 
@@ -404,7 +526,7 @@ int handle_audio_sum_ini(const char *file_name, char *model_name, struct audio_f
     ini_value = iniparser_getstring(ini, buf, NULL);
 
     if (ini_value == NULL || access(ini_value, F_OK) == -1) {
-        ITEM_LOGD("%s, INI File is not exist, use default file\n", __FUNCTION__);
+        ITEM_LOGD("%s, INI File is not exist!\n", __FUNCTION__);
         goto exit;
     }
 
@@ -420,13 +542,13 @@ exit:
     return -1;
 }
 
-int handle_audio_gain_ini(char *file_name, struct eq_drc_data *p_attr)
+int parse_audio_gain(char *file_name, struct eq_drc_data *p_attr)
 {
     dictionary *ini = NULL;
 
     ini = iniparser_load(file_name);
     if (ini == NULL) {
-        ALOGD("%s, INI load file error!\n", __FUNCTION__);
+        ITEM_LOGE("%s, INI load file (%s) error!\n", __FUNCTION__, file_name);
         goto exit;
     }
 
@@ -440,20 +562,37 @@ exit:
     return 0;
 }
 
-int handle_audio_eq_drc_ini(char *file_name, struct audio_eq_drc_info_s *p_attr)
+int parse_audio_eq_drc_status(char *file_name, struct audio_eq_drc_info_s *p_attr)
 {
     dictionary *ini = NULL;
     const char *ini_value = NULL;
 
     ini = iniparser_load(file_name);
     if (ini == NULL) {
-        ALOGD("%s, INI load file error!\n", __FUNCTION__);
+        ITEM_LOGE("%s, INI load file (%s) error!\n", __FUNCTION__, file_name);
         goto exit;
     }
 
     parse_audio_volume_status(ini, p_attr);
     parse_audio_eq_status(ini, p_attr);
     parse_audio_drc_status(ini, p_attr);
+exit:
+    iniparser_freedict(ini);
+    return 0;
+}
+
+
+int parse_audio_eq_drc_table(char *file_name, struct audio_eq_drc_info_s *p_attr)
+{
+    dictionary *ini = NULL;
+    const char *ini_value = NULL;
+
+    ini = iniparser_load(file_name);
+    if (ini == NULL) {
+        ITEM_LOGE("%s, INI load file (%s) error!\n", __FUNCTION__, file_name);
+        goto exit;
+    }
+
     if (p_attr->eq.enable) {
         parse_audio_eq_data(ini, p_attr);
     }
@@ -467,5 +606,40 @@ int handle_audio_eq_drc_ini(char *file_name, struct audio_eq_drc_info_s *p_attr)
 exit:
     iniparser_freedict(ini);
     return 0;
+}
+
+int parse_AMP_num(char *file_name, struct eq_drc_data *pdata)
+{
+    dictionary *ini = NULL;
+
+    ini = iniparser_load(file_name);
+    if (ini == NULL) {
+        ITEM_LOGE("%s, INI load file (%s) error!\n", __FUNCTION__, file_name);
+        goto exit;
+    }
+
+    pdata->ext_amp_num = iniparser_getint(ini, "AMP_info:AMP_num", 1);
+    ITEM_LOGD("%s, external AMP num (%d)\n", __FUNCTION__, pdata->ext_amp_num);
+
+exit:
+    iniparser_freedict(ini);
+
+    return 0;
+}
+
+void free_eq_drc_table(struct audio_eq_drc_info_s *p_attr)
+{
+    int i = 0;
+
+    for (i = 0; i < p_attr->eq.eq_table_num; i++) {
+        if (p_attr->eq.eq_table[i])
+            free(p_attr->eq.eq_table[i]);
+    }
+    if (p_attr->fdrc.fdrc_table)
+        free(p_attr->fdrc.fdrc_table);
+    if (p_attr->mdrc.mdrc_table)
+        free(p_attr->mdrc.mdrc_table);
+    if (p_attr->mdrc.crossover_table)
+        free(p_attr->mdrc.crossover_table);
 }
 

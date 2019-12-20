@@ -26,6 +26,7 @@ extern "C" {
 int eq_mode_set(struct eq_drc_data *pdata, int eq_mode);
 int eq_drc_init(struct eq_drc_data *pdata);
 int eq_drc_release(struct eq_drc_data *pdata);
+int ext_eq_mode_set(struct eq_drc_data *pdata, int eq_mode, int amp_num);
 
 #ifdef __cplusplus
 }
