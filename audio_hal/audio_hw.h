@@ -115,6 +115,8 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 #define IS_HDMI_ARC_OUT_HW(device) ((access(SYS_NODE_EARC_TX, F_OK) == 0) &&\
                 (device & AUDIO_DEVICE_OUT_HDMI_ARC))
 
+#define SUPPORT_EARC_OUT_HW (access(SYS_NODE_EARC_TX, F_OK) == 0)
+
 enum {
     TYPE_PCM = 0,
     TYPE_AC3 = 2,

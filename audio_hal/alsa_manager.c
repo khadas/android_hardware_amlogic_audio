@@ -141,7 +141,8 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
             aml_out->pcm = NULL;
             pcm = NULL;
         }
-        if (IS_HDMI_ARC_OUT_HW(adev->out_device) && earc_pcm) {
+        if (SUPPORT_EARC_OUT_HW && adev->bHDMIConnected && earc_pcm) {
+            ALOGI("earc_pcm device already opened,close the handle %p to reopen", earc_pcm);
             pcm_close(earc_pcm);
             adev->pcm_handle[EARC_DEVICE] = NULL;
             aml_out->earc_pcm = NULL;
@@ -163,7 +164,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
             ALOGE("%s, pcm %p open [ready %d] failed", __func__, pcm, pcm_is_ready(pcm));
             return -ENOENT;
         }
-        if (IS_HDMI_ARC_OUT_HW(adev->out_device) && (!aml_out->earc_pcm)) {
+        if (SUPPORT_EARC_OUT_HW && adev->bHDMIConnected && (!aml_out->earc_pcm)) {
             int earc_port = alsa_device_update_pcm_index(PORT_EARC, PLAYBACK);
             struct pcm_config earc_config = update_earc_out_config(config);
             earc_pcm = pcm_open(card, earc_port, PCM_OUT, &earc_config);
@@ -174,6 +175,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
             }
             aml_out->earc_pcm = earc_pcm;
             adev->pcm_handle[EARC_DEVICE] = earc_pcm;
+            adev->pcm_refs[EARC_DEVICE]++;
         }
     }
     aml_out->pcm = pcm;
@@ -181,8 +183,8 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
     adev->pcm_refs[device]++;
     aml_out->dropped_size = 0;
     aml_out->device = device;
-    ALOGI("-%s, audio out(%p) device(%d) refs(%d) is_normal_pcm %d, handle %p\n\n",
-          __func__, aml_out, device, adev->pcm_refs[device], aml_out->is_normal_pcm, pcm);
+    ALOGI("-%s, audio out(%p) device(%d) refs(%d) is_normal_pcm %d, pcm handle %p earc_pcm handle %p\n\n",
+          __func__, aml_out, device, adev->pcm_refs[device], aml_out->is_normal_pcm, pcm, earc_pcm);
 
     return 0;
 }
@@ -219,6 +221,15 @@ void aml_alsa_output_close(struct audio_stream_out *stream)
         adev->pcm_refs[device] = 0;
         ALOGI("%s, device(%d) refs(%d)\n", __func__, device, adev->pcm_refs[device]);
     }
+
+    if (SUPPORT_EARC_OUT_HW && adev->bHDMIConnected && earc_pcm) {
+        adev->pcm_refs[EARC_DEVICE]--;
+        if (adev->pcm_refs[EARC_DEVICE] < 0) {
+            adev->pcm_refs[EARC_DEVICE] = 0;
+            ALOGI("%s, EARC_DEVICE refs(%d)\n", __func__, adev->pcm_refs[EARC_DEVICE]);
+        }
+    }
+
     if (pcm && (adev->pcm_refs[device] == 0)) {
         ALOGI("%s(), pcm_close audio device[%d] pcm handle %p", __func__, device, pcm);
         // insert enough zero byte to clean audio processing buffer when exit
@@ -226,14 +237,15 @@ void aml_alsa_output_close(struct audio_stream_out *stream)
         insert_eff_zero_bytes(adev, DEFAULT_PLAYBACK_PERIOD_SIZE * 32);
         pcm_close(pcm);
         adev->pcm_handle[device] = NULL;
-        if (IS_HDMI_ARC_OUT_HW(adev->out_device) && earc_pcm) {
+        if (SUPPORT_EARC_OUT_HW && adev->bHDMIConnected && earc_pcm && (adev->pcm_refs[EARC_DEVICE] == 0)) {
+            ALOGI("%s(), pcm_close audio device[%d] earc_pcm handle %p", __func__, EARC_DEVICE, earc_pcm);
             pcm_close (earc_pcm);
             adev->pcm_handle[EARC_DEVICE] = NULL;
-            aml_out->earc_pcm = NULL;
             earc_pcm = NULL;
         }
     }
     aml_out->pcm = NULL;
+    aml_out->earc_pcm = NULL;
 
     /* dual output management */
     /* TODO: only for Dcv, not for MS12 */
@@ -347,8 +359,6 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
         cur_vpts = first_vpts;
     }
 
-
-
     cur_apts = (unsigned int)((int64_t)first_apts + (int64_t)(((int64_t)aml_out->dropped_size * 90) / (48 * frame_size)));
     av_diff = (int)((int64_t)cur_apts - (int64_t)cur_vpts);
     ALOGI("[audio-startup] av both comming.fa:0x%x fv:0x%x ca:0x%x cv:0x%x cp:0x%x d:%d fs:%zu diff:%d ms\n",
@@ -394,7 +404,7 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
             return bytes;
         } else {
             //emset(audio_data, 0, need_drop_inject);
-            if (IS_HDMI_ARC_OUT_HW(adev->out_device) && aml_out->earc_pcm && adev->bHDMIARCon) {
+            if (SUPPORT_EARC_OUT_HW && adev->bHDMIConnected && aml_out->earc_pcm && adev->bHDMIARCon) {
                 ret = pcm_write(aml_out->earc_pcm, audio_data + need_drop_inject, bytes - need_drop_inject);
             } else {
                 ret = pcm_write(aml_out->pcm, audio_data + need_drop_inject, bytes - need_drop_inject);
@@ -508,7 +518,7 @@ write:
         aml_audio_dump_audio_bitstreams("/data/audio/pcm_write.raw",
             buffer, bytes);
     }
-    if (IS_HDMI_ARC_OUT_HW(adev->out_device) && aml_out->earc_pcm && adev->bHDMIARCon) {
+    if (SUPPORT_EARC_OUT_HW && adev->bHDMIConnected && aml_out->earc_pcm && adev->bHDMIARCon) {
         ret = pcm_write(aml_out->earc_pcm, buffer, bytes);
         if (ret < 0) {
             ALOGE("%s write failed,aml_out->earc_pcm handle:%p, ret:%#x, err info:%s",
@@ -572,9 +582,10 @@ void aml_close_continuous_audio_device(struct aml_audio_device *adev)
         continuous_pcm_device = NULL;
         adev->pcm_handle[pcm_index] = NULL;
         adev->pcm_refs[pcm_index] = 0;
-        if (IS_HDMI_ARC_OUT_HW(adev->out_device) && earc_pcm) {
+        if (SUPPORT_EARC_OUT_HW && adev->bHDMIConnected && earc_pcm) {
             pcm_close (earc_pcm);
             adev->pcm_handle[EARC_DEVICE] = NULL;
+            adev->pcm_refs[EARC_DEVICE] = 0;
         }
     }
     if (continuous_spdif_device) {
