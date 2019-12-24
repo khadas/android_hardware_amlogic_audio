@@ -46,6 +46,7 @@ LOCAL_C_INCLUDES += \
         hardware/libhardware_legacy/include \
         external/tinyalsa/include \
         frameworks/av/media/libaudioclient/include \
+        system/media/alsa_utils/include \
         $(call include-path-for, audio-utils) \
         $(LOCAL_PATH)/hidraw \
         $(LOCAL_PATH)/soundcard \

@@ -629,7 +629,7 @@ int audio_parse_get_audio_samplerate(audio_type_parse_t *status)
 {
     if (!status) {
         ALOGE("NULL pointer of audio_type_parse_t, return default samperate:48000\n");
-        return DEFAULT_SAMPLE_RATE;
+        return AML_DEFAULT_SAMPLE_RATE;
     }
     return status->audio_samplerate;
 }

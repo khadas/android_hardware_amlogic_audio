@@ -6195,6 +6195,17 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         return 0;
     }
 
+#ifdef USB_KARAOKE
+    ret = str_parms_get_int(parms, "karaoke_switch", &val);
+    if (ret >= 0) {
+        bool karaoke_on = !!val;
+        subMixingSetKaraoke(adev, karaoke_on);
+        adev->usb_audio.karaoke_on = karaoke_on;
+        ALOGE ("[%s]Set usb karaoke: %d", __FUNCTION__, karaoke_on);
+        return 0;
+    }
+#endif
+
 exit:
     str_parms_destroy (parms);
 
@@ -6567,6 +6578,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
                                 audio_source_t source)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    struct usb_audio_device *usb_adev = &adev->usb_audio;
     struct aml_stream_in *in;
     int channel_count = audio_channel_count_from_in_mask(config->channel_mask);
     int ret;
@@ -6575,6 +6587,15 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         devices, config->channel_mask, config->sample_rate, config->format, source);
 
     devices &= ~AUDIO_DEVICE_BIT_IN;
+
+    if (devices & AUDIO_DEVICE_IN_ALL_USB) {
+        usb_adev->adev_primary = (void*)adev;
+        adev->in_device |= devices;
+        ALOGD("%s: adev->in_device = %x", __func__, adev->in_device);
+        adev_open_usb_input_stream(usb_adev, devices, config, &(*stream_in), address);
+        return 0;
+    }
+
     if (check_input_parameters(config->sample_rate, config->format, channel_count, devices) != 0) {
         if (devices & AUDIO_DEVICE_IN_ALL_SCO) {
             config->sample_rate = VX_NB_SAMPLING_RATE;
@@ -6762,7 +6783,16 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
 
-    ALOGD("%s: enter: dev(%p) stream(%p) in->device(0x%x)", __func__, dev, stream,in->device);
+    ALOGD("%s: enter: dev(%p) stream(%p) in->device(0x%x)", __func__, dev, stream, adev->in_device);
+
+    if (adev->in_device & AUDIO_DEVICE_IN_ALL_USB) {
+        struct stream_in *usb_in = (struct stream_in *)stream;
+        adev_close_usb_input_stream(stream);
+        adev->in_device &= ~usb_in->device;
+        ALOGD("%s: adev->in_device = %x", __func__, adev->in_device);
+        return;
+    }
+
     if (remoteDeviceOnline() && (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC)) {
         kehwin_adev_close_input_stream(dev,stream);
         //return;
@@ -11623,6 +11653,12 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
     if (aml_dev->useSubMix) {
         subMixingDump(fd, aml_dev);
     }
+
+    if (profile_is_valid(&aml_dev->usb_audio.in_profile)) {
+        dprintf(fd, "\n-----------[AML_HAL] USB input device Capability-----------\n");
+        profile_dump(&aml_dev->usb_audio.in_profile, fd);
+    }
+
     return 0;
 }
 
@@ -12298,6 +12334,13 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
             ALOGE("%s() open tsync failed", __func__);
         }
         adev->rawtopcm_flag = false;
+#ifdef USB_KARAOKE
+        subMixingSetUsbProfile(adev, &adev->usb_audio.in_profile);
+        //debug, default enable karaoke mixer
+        subMixingSetKaraoke(adev, true);
+        adev->usb_audio.karaoke_on = true;
+#endif
+        profile_init(&adev->usb_audio.in_profile, PCM_IN);
     }
 
     if (adev && adev->aml_ng_enable) {

@@ -69,7 +69,7 @@ enum audio_sample {
 #define DTSHD_PERIOD_SIZE_1 (512*32)
 #define DTSHD_PERIOD_SIZE_2 (512*48)
 
-#define DEFAULT_SAMPLE_RATE 48000
+#define AML_DEFAULT_SAMPLE_RATE 48000
 
 enum parser_state {
     IEC61937_UNSYNC,

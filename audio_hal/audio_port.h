@@ -20,9 +20,11 @@
 #include <system/audio.h>
 #include <tinyalsa/asoundlib.h>
 #include <cutils/list.h>
+#include <alsa_device_profile.h>
 
 #include "hw_avsync.h"
 #include "sub_mixing_factory.h"
+#include "karaoke_manager.h"
 
 enum port_state {
     IDLE,
@@ -142,6 +144,9 @@ struct output_port {
     int sound_track_mode;
     // not sending audio data to ALSA
     bool dummy;
+    bool kara_on;
+    struct kara_manager kara;
+    alsa_device_profile* profile;
 };
 bool is_inport_valid(aml_mixer_input_port_type_e index);
 bool is_outport_valid(enum MIXER_OUTPUT_PORT index);
@@ -193,4 +198,7 @@ bool is_inport_pts_valid(struct input_port *in_port);
 int outport_stop_pcm(struct output_port *port);
 int outport_set_dummy(struct output_port *port, bool en);
 const char *inportType2Str(aml_mixer_input_port_type_e enInportType);
+int outport_set_karaoke(struct output_port *port, bool en);
+int outport_set_usb_profile(struct output_port *port, alsa_device_profile* profile);
+
 #endif /* _AUDIO_PORT_H_ */

@@ -103,7 +103,9 @@ include $(BUILD_PREBUILT)
         ../amlogic_AQ_tools/audio_eq_drc_compensation.c \
         ../amlogic_AQ_tools/audio_eq_drc_parser.c \
         ../amlogic_AQ_tools/ini/dictionary.c \
-        ../amlogic_AQ_tools/ini/iniparser.c
+        ../amlogic_AQ_tools/ini/iniparser.c \
+        karaoke_manager.c \
+        audio_usb_hal.c
 
     LOCAL_C_INCLUDES += \
         external/tinyalsa/include \
@@ -112,6 +114,7 @@ include $(BUILD_PREBUILT)
         system/media/audio_route/include \
         system/core/libion/include \
         system/core/include \
+        system/media/alsa_utils/include \
         hardware/libhardware/include \
         $(LOCAL_PATH)/../libms12/include \
         hardmare/amlogic/audio/libms12/include \
@@ -140,7 +143,8 @@ include $(BUILD_PREBUILT)
         libdroidaudiospdif libamaudioutils libamlaudiorc libamadec \
         libnano \
         libdtvad \
-        libion
+        libion \
+        libalsautils
 
 ifeq ($(BOARD_COMPILE_IN_SYSTEM), true)
     LOCAL_SHARED_LIBRARIES += libam_adp_vendor
@@ -176,6 +180,7 @@ LOCAL_CFLAGS += -DTV_AUDIO_OUTPUT
 else
 $(info "---------ott audio mode, compiler configure 2 channels output by default--------")
 LOCAL_CFLAGS += -DSUBMIXER_V1_1
+#LOCAL_CFLAGS += -DUSB_KARAOKE
 endif
     #LOCAL_CFLAGS += -Wall -Wunknown-pragmas
 
@@ -230,6 +235,7 @@ LOCAL_C_INCLUDES := \
    external/tinyalsa/include \
    system/media/audio_utils/include \
    system/media/audio/include \
+   system/media/alsa_utils/include \
    $(LOCAL_PATH)/../utils/include \
    system/core/libion/include \
    system/core/include \

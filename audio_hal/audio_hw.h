@@ -49,6 +49,7 @@
 #include "audio_port.h"
 #include "aml_audio_ease.h"
 #include "aml_malloc_debug.h"
+#include "audio_usb_hal.h"
 
 #ifdef ADD_AUDIO_DELAY_INTERFACE
 #include "aml_audio_delay.h"
@@ -571,6 +572,7 @@ struct aml_audio_device {
     void *alsa_handle[ALSA_DEVICE_CNT];
     bool dual_spdif_support; /*1 means supports spdif_a & spdif_b & spdif interface*/
     uint64_t  sys_audio_frame_written;
+    struct usb_audio_device usb_audio;
 };
 
 struct meta_data {

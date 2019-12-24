@@ -28,6 +28,7 @@
 #include "aml_ringbuffer.h"
 #include "audio_hw_utils.h"
 #include "audio_hwsync.h"
+#include "karaoke_manager.h"
 
 #define BUFF_CNT                    (4)
 #define SYS_BUFF_CNT                (4)
@@ -578,10 +579,30 @@ static ssize_t output_port_write_alsa(struct output_port *port, void *buffer, in
     if (port->sound_track_mode == 3)
            port->sound_track_mode = AM_AOUT_OUTPUT_LRMIX;
     aml_audio_switch_output_mode((int16_t *)buffer, bytes, port->sound_track_mode);
+
+#ifdef USB_KARAOKE
+    if (port->kara_on && profile_is_valid(port->profile)) {
+        if (!port->kara.karaoke_start) {
+            struct audioCfg audio_cfg = port->cfg;
+
+            audio_cfg.card = port->profile->card;
+            audio_cfg.device = port->profile->device;
+            ret = kara_open_micphone(&audio_cfg, &port->kara, port->profile);
+            if (ret < 0)
+                ALOGD("%s(), open micphone failed: %d", __func__, ret);
+        }
+        if (!ret && port->kara.karaoke_start)
+            kara_mix_micphone(&port->kara, buffer, bytes);
+    } else {
+        if (port->kara.karaoke_start == true)
+                kara_close_micphone(&port->kara);
+    }
+#endif
+
     pthread_mutex_lock(&port->lock);
     do {
         int written = 0;
-        ALOGV("%s(), line %d", __func__, __LINE__);
+
         ret = pcm_write(port->pcm_handle, (void *)buffer, bytes);
         if (ret == 0) {
            written += bytes;
@@ -719,3 +740,17 @@ bool is_inport_pts_valid(struct input_port *in_port)
 {
     return in_port->pts_valid;
 }
+
+int outport_set_karaoke(struct output_port *port, bool en)
+{
+    port->kara_on = en;
+    return 0;
+}
+
+int outport_set_usb_profile(struct output_port *port, alsa_device_profile* profile)
+{
+    port->profile = profile;
+
+    return 0;
+}
+

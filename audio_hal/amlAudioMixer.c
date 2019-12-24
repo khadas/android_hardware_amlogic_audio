@@ -1471,3 +1471,34 @@ void mixer_dump(int s32Fd, const struct aml_audio_device *pstAmlDev)
         dprintf(s32Fd, "[AML_HAL] not find output port description!!!\n");
     }
 }
+
+int mixer_set_karaoke(struct amlAudioMixer *audio_mixer, bool en)
+{
+    enum MIXER_OUTPUT_PORT port_index = MIXER_OUTPUT_PORT_PCM;
+    struct output_port *out_port = audio_mixer->out_ports[port_index];
+
+    ALOGI("++%s(), en = %d", __func__, en);
+    outport_set_karaoke(out_port, en);
+
+    return 0;
+}
+
+int mixer_set_usb_profile(struct amlAudioMixer *audio_mixer, alsa_device_profile* profile)
+{
+    enum MIXER_OUTPUT_PORT port_index = MIXER_OUTPUT_PORT_PCM;
+    struct output_port *out_port = audio_mixer->out_ports[port_index];
+
+    ALOGI("++%s(), profile = %p", __func__, profile);
+    outport_set_usb_profile(out_port, profile);
+
+    return 0;
+}
+
+struct kara_manager* mixer_get_karaoke(struct amlAudioMixer *audio_mixer)
+{
+    enum MIXER_OUTPUT_PORT port_index = MIXER_OUTPUT_PORT_PCM;
+    struct output_port *out_port = audio_mixer->out_ports[port_index];
+
+    return &(out_port->kara);
+}
+
