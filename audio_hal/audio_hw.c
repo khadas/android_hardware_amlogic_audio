@@ -7785,17 +7785,18 @@ ssize_t hw_write (struct audio_stream_out *stream
                         }
                     }
                 } else {
-                    if (aml_out->is_tv_platform == true) {
-                        out_frames = out_frames / 8;
-                    }
-
                     if (IS_HDMI_ARC_OUT_HW(adev->out_device) && aml_out->earc_pcm &&
                             adev->bHDMIARCon) {
                         out_frames = out_frames * 4;
+                    } else if (aml_out->is_tv_platform) {
+                        if (aml_out->hal_format == AUDIO_FORMAT_IEC61937 && eDolbyDcvLib == adev->dolby_lib_type) {
+                            aml_out->frame_write_sum = 0;
+                            out_frames = aml_out->input_bytes_size / audio_stream_out_frame_size(stream);
+                        } else {
+                            out_frames = out_frames / 8;
+                        }
                     }
-
                     aml_out->frame_write_sum += out_frames;
-
                     total_frame =  aml_out->frame_write_sum;
                 }
             }
@@ -8960,10 +8961,6 @@ re_write:
                 if (ret < 0 ) {
                     if (adev->debug_flag)
                         ALOGE("%s(), %d decoder error, ret %d", __func__, __LINE__, ret);
-                    if (aml_out->frame_write_sum > 0 ) {
-                        //aml_out->frame_write_sum = (aml_out->input_bytes_size - ddp_dec->remain_size)  / audio_stream_out_frame_size(stream);
-                        //aml_out->last_frames_postion = aml_out->frame_write_sum  - out_get_latency_frames (stream);
-                    }
                     return return_bytes;
                 }
                 /*wirte raw data*/
@@ -9007,9 +9004,6 @@ re_write:
                         hw_write(stream, output_buffer, output_buffer_bytes, output_format);
                     }
                 }
-
-                //aml_out->frame_write_sum = (aml_out->input_bytes_size - ddp_dec->remain_size) / audio_stream_out_frame_size(stream);
-                //aml_out->last_frames_postion = aml_out->frame_write_sum - out_get_latency_frames (stream);
                 return return_bytes;
             }
 
