@@ -7509,7 +7509,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             /* apply volume for spk/hp, SPDIF/HDMI keep the max volume */
             if (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
                 if ((adev->patch_src == SRC_DTV || adev->patch_src == SRC_HDMIIN
-                        || adev->patch_src == SRC_HDMIIN || adev->patch_src == SRC_ATV)
+                        || adev->patch_src == SRC_LINEIN || adev->patch_src == SRC_ATV)
                         && adev->audio_patching) {
                     gain_speaker *= (adev->sink_gain[OUTPORT_A2DP]);
                     apply_volume_16to32(gain_speaker * source_gain, effect_tmp_buf, spk_tmp_buf, bytes);
