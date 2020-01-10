@@ -6969,8 +6969,8 @@ ssize_t aml_audio_spdif_output (struct audio_stream_out *stream,
                 //ALOGD("rate=%d setrate=%d\n",config.rate,aml_out->config.rate);
             }
         }
-
-        config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE * 2;
+        /* SWPL-19631 increase spdif period_size to reduce spdifout delay when spdif/tdm dual output */
+        config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE * 2 * 2;
         config.period_count = PLAYBACK_PERIOD_COUNT;
         config.start_threshold = DEFAULT_PLAYBACK_PERIOD_SIZE * 2 * PLAYBACK_PERIOD_COUNT;
         config.format = PCM_FORMAT_S16_LE;
