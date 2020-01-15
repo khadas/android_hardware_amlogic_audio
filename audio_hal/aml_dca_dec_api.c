@@ -519,9 +519,10 @@ int dca_decoder_process_patch(struct dca_dts_dec *dts_dec, unsigned char*buffer,
 
         if (dts_dec->resample_handle == NULL) {
             audio_resample_config_t resample_config;
-            ALOGI("init resampler from %d to 48000!\n", dts_dec->pcm_out_info.sample_rate);
+            ALOGI("init resampler from %d to 48000!, channel num = %d\n",
+                dts_dec->pcm_out_info.sample_rate, dts_dec->pcm_out_info.channel_num);
             resample_config.aformat   = AUDIO_FORMAT_PCM_16_BIT;
-            resample_config.channels  = 2;
+            resample_config.channels  = dts_dec->pcm_out_info.channel_num;
             resample_config.input_sr  = dts_dec->pcm_out_info.sample_rate;
             resample_config.output_sr = 48000;
             ret = aml_audio_resample_init((aml_audio_resample_t **)&dts_dec->resample_handle, AML_AUDIO_ANDROID_RESAMPLE, &resample_config);

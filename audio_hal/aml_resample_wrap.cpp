@@ -46,11 +46,11 @@ public:
     : mFrameSize(frameSize),
     mRead(read),
     mHandle(handle) {
-        mWorkBuf = (unsigned char*)malloc (8192);
+        mWorkBuf = (unsigned char*)malloc (16384);
         if (!mWorkBuf) {
             ALOGE("fail failed check!!!\n");
         } else {
-            mWorkBufSize = 8192;
+            mWorkBufSize = 16384;
         }
     }
 
@@ -129,9 +129,10 @@ extern "C" int android_resample_init(android_resample_handle_t *handle,
         ALOGE("create resample failed\n");
         return -1;
     }
+
     resampler->setSampleRate(sr);
     resampler->setVolume(AudioResampler::UNITY_GAIN_FLOAT,AudioResampler::UNITY_GAIN_FLOAT);
-    provider = new Provider(ch*sample_size, read, read_handle);
+    provider = new Provider(ch * sample_size, read, read_handle);
     if (!provider) {
       ALOGE("new provider failed\n");
       delete resampler;
@@ -140,9 +141,9 @@ extern "C" int android_resample_init(android_resample_handle_t *handle,
     }
 
     handle->resampler = (void *)resampler;
-    handle->provider  = (void* )provider;
+    handle->provider  = (void *)provider;
 
-    ALOGI("%s input sr = %d ch=%d output sr =%d\n",__func__, sr , ch, handle->output_sr);
+    ALOGI("%s input sr = %d ch=%d output sr = %d\n",__func__, sr , ch, handle->output_sr);
     return 0;
 }
 
@@ -155,29 +156,27 @@ extern "C" int android_resample_read(android_resample_handle_t *handle, void *bu
     AudioResampler* resampler = NULL;
     Provider*       provider = NULL;
 
-
     if (handle == NULL) {
         return -1;
     }
 
     resampler = (AudioResampler*) handle->resampler;
     provider  = (Provider*) handle->provider;
+
     if (resampler) {
+        size_t frame_size = handle->channels * audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT);
 
-        /*resample out is Q4.27 in 32bits, we need 16bit*/
-        if ((in_size >> 2) > (handle->temp_buf_size>> 3)) {
-            ALOGE("Resamle input is too big\n");
-            return -1;
-        }
-        // 2ch, 16bit
         /*must init the buf, otherwise it will cause noise*/
-        memset(handle->temp_buf,0,handle->temp_buf_size);
+        memset(buf, 0, in_size);
 
-        resampled_frame = resampler->resample((int32_t *)handle->temp_buf, in_size >> 2, provider);
-        //ALOGE("in_frames=%d resampled_frame=%d size=%d\n",in_size >> 2,resampled_frame, handle->temp_buf_size);
+        resampled_frame = resampler->resample((int32_t *)buf, (in_size / frame_size), provider);
 
-        memcpy_to_i16_from_q4_27((int16_t *)buf, (int32_t *)handle->temp_buf, resampled_frame*2);
-        resampled_size = resampled_frame * 2 * 2;
+        // use int16_t or float format for dynamic resampler
+        memcpy_to_i16_from_q4_27(reinterpret_cast<int16_t*>(buf),
+                                 reinterpret_cast<int32_t*>(buf),
+                                 resampled_frame * handle->channels);
+
+        resampled_size = resampled_frame * frame_size;
     }
 
 #if 0

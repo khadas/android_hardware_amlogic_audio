@@ -29,10 +29,8 @@ typedef struct android_resample_handle {
     unsigned int channels;
     unsigned int ringbuf_size;
     ring_buffer_t ring_buf;
-    void * resampler;
-    void * provider;
-    unsigned char * temp_buf;
-    unsigned int temp_buf_size;
+    void *resampler;
+    void *provider;
 }android_resample_handle_t;
 
 int android_resample_init(android_resample_handle_t *handle,

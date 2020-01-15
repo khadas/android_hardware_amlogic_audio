@@ -51,7 +51,6 @@ int aml_audio_resample_init(aml_audio_resample_t ** ppaml_audio_resample, resamp
 
     aml_audio_resample_t *aml_audio_resample = NULL;
     audio_resample_func_t * resample_func = NULL;
-    int bitwidth = SAMPLE_16BITS;
 
     if (resample_config == NULL) {
         ALOGE("resample_config is NULL\n");
@@ -66,15 +65,10 @@ int aml_audio_resample_init(aml_audio_resample_t ** ppaml_audio_resample, resamp
     }
 
 
-    if (resample_config->aformat == AUDIO_FORMAT_PCM_16_BIT) {
-        bitwidth = SAMPLE_16BITS;
-    } else if (resample_config->aformat == AUDIO_FORMAT_PCM_32_BIT) {
-        bitwidth = SAMPLE_32BITS;
-    } else {
-        ALOGE("Not supported aformat=0x%x\n", resample_config->aformat);
+    if (resample_config->aformat != AUDIO_FORMAT_PCM_16_BIT) {
+        ALOGE("Not supported aformat = 0x%x\n", resample_config->aformat);
         return -1;
     }
-
 
     aml_audio_resample = (aml_audio_resample_t *)calloc(1, sizeof(aml_audio_resample_t));
 
@@ -96,9 +90,9 @@ int aml_audio_resample_init(aml_audio_resample_t ** ppaml_audio_resample, resamp
 
     aml_audio_resample->resample_rate = (float)resample_config->output_sr / (float)resample_config->input_sr;
 
-    aml_audio_resample->frame_bytes = (bitwidth >> 3) * resample_config->channels;
+    aml_audio_resample->frame_bytes = audio_bytes_per_sample(resample_config->aformat) * resample_config->channels;
 
-    aml_audio_resample->resample_buffer_size = aml_audio_resample->frame_bytes * RESAMPLE_LENGTH;
+    aml_audio_resample->resample_buffer_size =  2 * aml_audio_resample->frame_bytes * RESAMPLE_LENGTH;
 
     aml_audio_resample->resample_buffer = calloc(1, aml_audio_resample->resample_buffer_size);
 
@@ -196,19 +190,15 @@ int aml_audio_resample_process(aml_audio_resample_t * aml_audio_resample, void *
         return -1;
     }
 
-    out_size = aml_audio_resample->resample_buffer_size;
-    memset(aml_audio_resample->resample_buffer, 0, out_size);
+    memset(aml_audio_resample->resample_buffer, 0, aml_audio_resample->resample_buffer_size);
 
-    ret = resample_func->resample_process(aml_audio_resample->resample_handle, in_data, size, aml_audio_resample->resample_buffer, &out_size);
+    ret = resample_func->resample_process(aml_audio_resample->resample_handle,
+                                          in_data, size, aml_audio_resample->resample_buffer, &out_size);
     if (ret < 0) {
-        ALOGE("resmaple error=%d\n", ret);
         aml_audio_resample->resample_size = 0;
+        ALOGE("resmaple error=%d, output size=%d, buf size=%d\n",
+            ret, out_size, aml_audio_resample->resample_buffer_size);
         return ret;
-    }
-
-    if (out_size > aml_audio_resample->resample_buffer_size) {
-        ALOGE("output size=%d , buf size=%d\n", out_size, aml_audio_resample->resample_buffer_size);
-        return -1;
     }
 
     aml_audio_resample->resample_size = out_size;

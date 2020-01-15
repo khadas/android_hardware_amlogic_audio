@@ -8953,7 +8953,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
             aml_out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
         }
         //write pcm data
-        int read_bytes =  PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE * (dts_dec->pcm_out_info.channel_num / 2);
+        int read_bytes =  PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE * (dts_dec->pcm_out_info.channel_num);
         bytes  = read_bytes;
         int tmp_bytes = bytes;
         while (get_buffer_read_space(&dts_dec->output_ring_buf) > (int)bytes) {
