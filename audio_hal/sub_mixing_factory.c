@@ -1648,7 +1648,7 @@ int switchNormalStream(struct aml_stream_out *aml_out, bool on)
     }
     if (on) {
         initSubMixingInputPcm(&aml_out->out_cfg, aml_out);
-        aml_out->stream.write = mixer_aux_buffer_write_sm;
+        aml_out->stream.write = out_write_subMixingPCM;
         aml_out->stream.common.standby = out_standby_subMixingPCM;
         out_standby_subMixingPCM((struct audio_stream *)aml_out);
         mixer_output_dummy(audio_mixer, 0);
