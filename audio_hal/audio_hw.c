@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <time.h>
+#include <dlfcn.h>
 #include <inttypes.h>
 #include <sys/time.h>
 #include <sys/stat.h>
@@ -8637,7 +8638,10 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
             if ((cur_aformat == AUDIO_FORMAT_DTS) || (cur_aformat == AUDIO_FORMAT_DTS_HD)) {
                 int cur_channels = get_dts_stream_channels((const char*)buffer, bytes);
                 static int pre_channels = 0;
-                if ((cur_channels != -1) && (pre_channels != cur_channels)) {
+                if (cur_aformat != patch->aformat) {
+                    pre_channels = 0;
+                }
+                if ((cur_channels != -1) && (pre_channels != cur_channels) && (adev->libvx_exist)) {
                     ALOGD("%s, pre_channels = %d, cur_channels = %d", __func__, pre_channels, cur_channels);
                     pre_channels = cur_channels;
                     if ((cur_channels == 6) || (cur_channels == 7) || (cur_channels == 8)) {
@@ -8697,19 +8701,22 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         audio_format_t cur_aformat;
         int package_size;
         int cur_audio_type = audio_type_parse(write_buf, write_bytes, &package_size, &cur_ch_mask);
-        int cur_channels = get_dts_stream_channels(write_buf, write_bytes);
+        int cur_channels;
         cur_aformat = audio_type_convert_to_android_audio_format_t(cur_audio_type);
-        ALOGD("%s, cur_aformat = %0x, cur_audio_type= %d, cur_channels = %d",
-            __func__, cur_aformat, cur_audio_type, cur_channels);
+        ALOGD("%s, cur_aformat = %0x, cur_audio_type= %d", __func__, cur_aformat, cur_audio_type);
         if (cur_audio_type == DTSCD) {
             adev->dts_hd.is_dtscd = 1;
         } else {
             adev->dts_hd.is_dtscd = 0;
         }
-        if ((cur_channels == 6) || (cur_channels == 7) || (cur_channels == 8)) {
-            virtualx_setparameter(adev, VIRTUALX_CHANNEL_NUM, 6, 5);
-        } else {
-            virtualx_setparameter(adev, VIRTUALX_CHANNEL_NUM, 2, 5);
+        if (adev->libvx_exist) {
+            cur_channels = get_dts_stream_channels(write_buf, write_bytes);
+            ALOGD("%s, cur_channels = %d", __func__, cur_channels);
+            if ((cur_channels == 6) || (cur_channels == 7) || (cur_channels == 8)) {
+                virtualx_setparameter(adev, VIRTUALX_CHANNEL_NUM, 6, 5);
+            } else {
+                virtualx_setparameter(adev, VIRTUALX_CHANNEL_NUM, 2, 5);
+            }
         }
     }
 
@@ -11484,6 +11491,24 @@ int init_mic_desc(struct aml_audio_device *adev)
     return 0;
 };
 
+static bool is_libvx_exist() {
+    void *h_libvx_hanle = NULL;
+    if (access(VIRTUALX_LICENSE_LIB_PATH, R_OK) != 0) {
+        ALOGI("%s, %s does not exist", __func__, VIRTUALX_LICENSE_LIB_PATH);
+        return false;
+    }
+    h_libvx_hanle = dlopen(VIRTUALX_LICENSE_LIB_PATH, RTLD_NOW);
+    if (!h_libvx_hanle) {
+        ALOGE("%s, fail to dlopen %s(%s)", __func__, VIRTUALX_LICENSE_LIB_PATH, dlerror());
+        return false;
+    } else {
+        ALOGD("%s, success to dlopen %s", __func__, VIRTUALX_LICENSE_LIB_PATH);
+        dlclose(h_libvx_hanle);
+        h_libvx_hanle = NULL;
+        return true;
+    }
+}
+
 static int adev_open(const hw_module_t* module, const char* name, hw_device_t** device)
 {
     struct aml_audio_device *adev;
@@ -11679,6 +11704,8 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     if (load_ddp_decoder_lib() == 0) {
         ALOGI("load_ddp_decoder_lib success ");
     }
+    adev->libvx_exist = is_libvx_exist();
+    ALOGI("%s, '%s' exist flag : %s", __FUNCTION__, VIRTUALX_LICENSE_LIB_PATH, (adev->libvx_exist) ? "true" : "false");
 
 #if ENABLE_NANO_NEW_PATH
     nano_init();

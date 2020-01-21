@@ -101,6 +101,11 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 
 #define AUDIO_PARAMETER_HW_AV_EAC3_SYNC "HwAvSyncEAC3Supported"
 
+/*
+ * path of virtualx effect license library
+ */
+#define VIRTUALX_LICENSE_LIB_PATH "/vendor/lib/soundfx/libvx.so"
+
 #define DDP_FRAME_SIZE      768
 #define EAC3_MULTIPLIER 4
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
@@ -520,6 +525,8 @@ struct aml_audio_device {
     /* MIC_IN<->PDM/TDM and default configs */
     struct mic_in_desc *mic_desc;
     bool virtualx_mulch;
+    /* virtualx effect license library(/vendor/lib/soundfx/libvx.so) exist flag*/
+    bool libvx_exist;
     int effect_in_ch;
     /*
     for karaoke use case, the apk will acess

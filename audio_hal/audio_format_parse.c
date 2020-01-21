@@ -168,18 +168,18 @@ static size_t extract_bits(const char* buffer, size_t extract_bits_offset, size_
         ALOGE("%s, illegal param buffer, it is null", __FUNCTION__);
         return 0;
     }
-    ALOGD("%s, extract_bits_offset = %d, extract_bits_len = %d, offset_divisor = %d, offset_remainder = %d",
-        __FUNCTION__, extract_bits_offset, extract_bits_len, offset_divisor, offset_remainder);
+    //ALOGD("%s, extract_bits_offset = %d, extract_bits_len = %d, offset_divisor = %d, offset_remainder = %d",
+    //    __FUNCTION__, extract_bits_offset, extract_bits_len, offset_divisor, offset_remainder);
     char *temp_pointer = (char *)buffer;
     temp_pointer += offset_divisor;
     if (8 - offset_remainder >= (int)extract_bits_len) {
         ret = (temp_pointer[0] & (mask >> offset_remainder)) >> (8 - offset_remainder - (int)extract_bits_len);
-        ALOGD("%s, ret = %#x", __FUNCTION__, ret);
+        //ALOGD("%s, ret = %#x", __FUNCTION__, ret);
         return ret;
     }
     len_divisor = (extract_bits_len - (8 - offset_remainder)) / 8;
     len_remainder = (extract_bits_len - (8 - offset_remainder)) % 8;
-    ALOGD("%s, len_divisor = %d, len_remainder = %d", __FUNCTION__,  len_divisor, len_remainder);
+    //ALOGD("%s, len_divisor = %d, len_remainder = %d", __FUNCTION__,  len_divisor, len_remainder);
     for (i = (len_divisor + 1); i >= 0; i--) {
         if (i == (len_divisor + 1)) {
             ret |= (temp_pointer[i] >> (8 - len_remainder));
@@ -189,7 +189,7 @@ static size_t extract_bits(const char* buffer, size_t extract_bits_offset, size_
             ret |= (temp_pointer[i] << ((len_divisor - i) * 8 + len_remainder));
         }
     }
-    ALOGD("%s, ret = %#x", __FUNCTION__, ret);
+    //ALOGD("%s, ret = %#x", __FUNCTION__, ret);
     return ret;
 }
 
@@ -233,7 +233,7 @@ int get_dts_stream_channels(const char *buffer, size_t buffer_size) {
     if (temp_buffer[0] == 0xf8 && temp_buffer[1] == 0x72 && temp_buffer[2] == 0x4e && temp_buffer[3] == 0x1f) {
         little_end = true;
     }
-    ALOGD("%s, little_end = %d", __FUNCTION__, little_end);
+    //ALOGD("%s, little_end = %d", __FUNCTION__, little_end);
     if (!little_end) {
         if ((bytes - frame_header_len) % 2 == 0) {
             count = bytes - frame_header_len;
@@ -253,7 +253,7 @@ int get_dts_stream_channels(const char *buffer, size_t buffer_size) {
         ALOGE("%s, illegal synchronization", __FUNCTION__);
         goto exit;
     } else {
-        ALOGI("%s, right synchronization", __FUNCTION__);
+        //ALOGI("%s, right synchronization", __FUNCTION__);
     }
     amode = extract_bits((const char*)(temp_buffer + frame_header_len), 60, 6);
     if (amode == 0x0) {
@@ -285,7 +285,7 @@ int get_dts_stream_channels(const char *buffer, size_t buffer_size) {
         ALOGE("%s, invalid lfe value", __FUNCTION__);
         goto exit;
     }
-    ALOGD("%s, channels = %d, lfe = %d", __FUNCTION__, channels, lfe);
+    //ALOGD("%s, channels = %d, lfe = %d", __FUNCTION__, channels, lfe);
     return (channels + lfe);
 
 exit:
