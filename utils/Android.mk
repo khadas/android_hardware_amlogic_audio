@@ -4,13 +4,18 @@ include $(CLEAR_VARS)
 
 #LOCAL_CFLAGS += -DAML_CONFIG_SUPPORT_READ_ONLY
 
-LOCAL_C_INCLUDES +=                      \
-    hardware/libhardware/include \
-    $(TOPDIR)system/core/include        \
-    $(LOCAL_PATH)/include       \
-    $(TOPDIR)external/tinyalsa/include   \
+LOCAL_C_INCLUDES +=                           \
+    hardware/libhardware/include              \
+    $(TOPDIR)system/core/include              \
+    $(LOCAL_PATH)/include                     \
+    $(TOPDIR)external/tinyalsa/include        \
     $(TOPDIR)system/media/audio_utils/include \
-    $(LOCAL_PATH)/ini/include
+    $(LOCAL_PATH)/ini/include                 \
+    $(TOPDIR)frameworks/av/media/libaudiohal/include \
+    $(TOPDIR)frameworks/av/include                   \
+    $(TOPDIR)frameworks/native/libs/binder/include   \
+    $(TOPDIR)system/media/audio/include              \
+    $(TOPDIR)system/media/audio/include
 
 LOCAL_SRC_FILES  +=               \
     aml_buffer_provider.c         \
@@ -31,8 +36,9 @@ LOCAL_SRC_FILES  +=               \
     ac3_parser_utils.c            \
     alsa_device_parser.c          \
     aml_hw_mixer.c                \
-    aml_malloc_debug.c \
-    earc_utils.c
+    aml_malloc_debug.c            \
+    earc_utils.c                  \
+    aml_android_hidl_utils.cpp
 
 LOCAL_MODULE := libamaudioutils
 
@@ -47,7 +53,12 @@ LOCAL_SHARED_LIBRARIES += \
     liblog                \
     libtinyalsa           \
     libaudioutils         \
-    libdroidaudiospdif
+    libdroidaudiospdif    \
+    libamlaudiohal
+
+LOCAL_STATIC_LIBRARIES += \
+    android.hardware.audio@4.0 \
+    android.hardware.audio.common@4.0
 
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS += -DBUILD_IN_ANDROID
