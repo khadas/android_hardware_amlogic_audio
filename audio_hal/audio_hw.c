@@ -5866,10 +5866,15 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         int mode = atoi(value);
         if (adev->audio_patch != NULL) {
             ALOGI("%s()the audio patch is not NULL \n", __func__);
+            if (adev->patch_src == SRC_DTV) {
+                ALOGI("DTV sound mode %d ",mode);
+                adev->audio_patch->mode = mode;
+            }
             goto exit;
         }
         ALOGI("video player sound_track mode %d ",mode );
         adev->sound_track_mode = mode;
+        goto exit;
     }
     ret = str_parms_get_str(parms, "fmt", value, sizeof(value));
     if (ret > 0) {
