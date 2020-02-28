@@ -35,19 +35,23 @@ struct dolby_ddp_dec {
     int digital_raw;
     bool is_iec61937;
     int curFrmSize;
-    int (*get_parameters)(void *, int *, int *, int *,int *);
-    int (*decoder_process)(unsigned char*, int, unsigned char *, int *, char *, int *, int, struct pcm_info *);
     pthread_mutex_t lock;
     struct pcm_info pcm_out_info;
     struct resample_para aml_resample;
     unsigned char *resample_outbuf;
     ring_buffer_t output_ring_buf;
     int is_dolby_atmos;
+    int (*ddp_decoder_init)(int, int,void **);
+    int (*ddp_decoder_cleanup)(void *);
+    int (*ddp_decoder_process)(char *, int, int *, int, char *, int *, struct pcm_info *, char *, int *,void *);
+    int (*set_hal_version)(int );
+    void *gDDPDecoderLibHandler;
+    void *handle;
 };
 
 
-int load_ddp_decoder_lib();
-int unload_ddp_decoder_lib();
+int load_ddp_decoder_lib(struct dolby_ddp_dec *ddp_dec);
+int unload_ddp_decoder_lib(struct dolby_ddp_dec *ddp_dec);
 
 int dcv_decode_init(struct aml_audio_parser *parser);
 int dcv_decode_release(struct aml_audio_parser *parser);

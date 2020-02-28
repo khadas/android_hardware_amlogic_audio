@@ -11147,7 +11147,7 @@ static int adev_close(hw_device_t *device)
     stopReceiveAudioData();
 #endif
 
-    unload_ddp_decoder_lib();
+    unload_ddp_decoder_lib(&adev->ddp);
     if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
         aml_ms12_lib_release();
     }
@@ -11701,7 +11701,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     need also load the dcv lib as we need that when device-mixer patch
     even when MS12 is enabled.
     */
-    if (load_ddp_decoder_lib() == 0) {
+    if (load_ddp_decoder_lib(&adev->ddp) == 0) {
         ALOGI("load_ddp_decoder_lib success ");
     }
     adev->libvx_exist = is_libvx_exist();
