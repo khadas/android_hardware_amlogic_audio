@@ -449,6 +449,38 @@ static int audio_type_parse_release(audio_type_parse_t *status)
     return 0;
 }
 
+static int audio_transer_samplerate (int hw_sr)
+{
+    int samplerate;
+    switch (hw_sr) {
+    case HW_32K:
+        samplerate = 32000;
+        break;
+    case HW_44K:
+        samplerate = 44100;
+        break;
+    case HW_48K:
+        samplerate = 48000;
+        break;
+    case HW_88K:
+        samplerate = 88000;
+        break;
+    case HW_96K:
+        samplerate = 96000;
+        break;
+    case HW_176K:
+        samplerate = 176000;
+        break;
+    case HW_192K:
+        samplerate = 192000;
+        break;
+    default:
+        samplerate = 48000;
+        break;
+    }
+    return samplerate;
+}
+
 static int update_audio_type(audio_type_parse_t *status, int update_bytes, int sr)
 {
     audio_type_parse_t *audio_type_status = status;
@@ -512,6 +544,7 @@ void* audio_type_parse_threadloop(void *data)
     while (audio_type_status->running_flag) {
         if (audio_type_status->input_src == AUDIO_DEVICE_IN_HDMI) {
             cur_samplerate = get_hdmiin_samplerate(audio_type_status->mixer_handle);
+            audio_type_status->audio_samplerate = audio_transer_samplerate(cur_samplerate);
         } else if (audio_type_status->input_src == AUDIO_DEVICE_IN_SPDIF) {
             cur_samplerate = get_spdifin_samplerate(audio_type_status->mixer_handle);
         } else if (audio_type_status->input_src == AUDIO_DEVICE_IN_HDMI_ARC) {
@@ -584,6 +617,15 @@ void* audio_type_parse_threadloop(void *data)
 
     ALOGI("Exit thread loop for audio type parse!\n");
     return ((void *) 0);
+}
+
+int audio_parse_get_audio_samplerate(audio_type_parse_t *status)
+{
+    if (!status) {
+        ALOGE("NULL pointer of audio_type_parse_t, return default samperate:48000\n");
+        return DEFAULT_SAMPLE_RATE;
+    }
+    return status->audio_samplerate;
 }
 
 int creat_pthread_for_audio_type_parse(

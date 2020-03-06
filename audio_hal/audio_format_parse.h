@@ -43,6 +43,17 @@ enum audio_type {
     MUTE,
 };
 
+enum audio_sample {
+    NONE = 0,
+    HW_32K,
+    HW_44K,
+    HW_48K,
+    HW_88K,
+    HW_96K,
+    HW_176K,
+    HW_192K,
+};
+
 #define PARSER_DEFAULT_PERIOD_SIZE  (1024)
 
 /*Period of data burst in IEC60958 frames*/
@@ -55,6 +66,8 @@ enum audio_type {
 #define DTS3_PERIOD_SIZE (8192)
 /*min DTSHD Period 2048; max DTSHD Period 65536*/
 #define DTSHD_PERIOD_SIZE (2048)
+
+#define DEFAULT_SAMPLE_RATE 48000
 
 enum parser_state {
     IEC61937_UNSYNC,
@@ -81,7 +94,7 @@ typedef struct audio_type_parse {
 
     int read_bytes;
     int package_size;
-
+    int audio_samplerate;
     int running_flag;
     // used for software detection
     int state;
@@ -139,5 +152,6 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size, audio_channe
  */
 void feeddata_audio_type_parse(void **status, char * input, int size);
 
+int audio_parse_get_audio_samplerate(audio_type_parse_t *status);
 
 #endif

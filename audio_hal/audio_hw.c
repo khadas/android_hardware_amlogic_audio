@@ -7976,6 +7976,9 @@ void config_output(struct audio_stream_out *stream)
 
     int is_arc_connected = 0;
 
+    adev->dcvlib_bypass_enable = 0;
+    adev->dtslib_bypass_enable = 0;
+
     if (adev->bHDMIARCon && adev->bHDMIConnected && adev->speaker_mute) {
         is_arc_connected = 1;
     }
@@ -8791,6 +8794,32 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         }
     }
     aml_out->input_bytes_size += write_bytes;
+
+    if (patch && (adev->dtslib_bypass_enable || adev->dcvlib_bypass_enable)) {
+        int cur_samplerate = audio_parse_get_audio_samplerate(patch->audio_parse_para);
+        if (cur_samplerate != patch->input_sample_rate) {
+            ALOGI ("HDMI/SPDIF input samplerate from %d to %d\n", patch->input_sample_rate, cur_samplerate);
+            patch->input_sample_rate = cur_samplerate;
+            if (patch->aformat == AUDIO_FORMAT_DTS ||  patch->aformat == AUDIO_FORMAT_DTS_HD) {
+                if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+                    if (cur_samplerate == 44100 || cur_samplerate == 32000) {
+                        aml_out->config.rate = cur_samplerate;
+                    } else {
+                        aml_out->config.rate = 48000;
+                    }
+                }
+            }
+
+        if (patch->aformat == AUDIO_FORMAT_AC3 || patch->aformat == AUDIO_FORMAT_E_AC3) {
+            if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+                aml_out->config.rate = cur_samplerate;
+            }
+        }
+        aml_out->config.rate = cur_samplerate;
+        ALOGI("adev->dtslib_bypass_enable :%d,adev->dcvlib_bypass_enable:%d, aml_out->config.rate :%d\n",adev->dtslib_bypass_enable,
+            adev->dcvlib_bypass_enable,aml_out->config.rate);
+        }
+    }
 
     if ((patch && patch->aformat == AUDIO_FORMAT_DTS) || (aml_out->hal_internal_format == AUDIO_FORMAT_DTS)
         || (patch && patch->aformat == AUDIO_FORMAT_DTS_HD)) {

@@ -84,13 +84,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
     unsigned int device = aml_out->device;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     ALOGI("\n+%s stream %p,device %d", __func__, stream,device);
-    /*
-     * set default rate as 48000 when the platform is TV.
-     * then set this rate according to the dolby library type and its specified conditions.
-     */
-    if (adev->is_TV) {
-        config->rate = MM_FULL_POWER_SAMPLING_RATE;
-    }
+
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         if (adev->ms12.dolby_ms12_enable) {
             config = &(adev->ms12_config);
