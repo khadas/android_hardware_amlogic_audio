@@ -527,6 +527,15 @@ write:
         if (adev->patch_src == SRC_DTV && (adev->discontinue_mute_flag || adev->start_mute_flag)) {
             memset(buffer, 0x0, bytes);
         }
+        if (!audio_is_linear_pcm(adev->sink_format)) {
+            /*to avoid ca noise in Sony TV when audio format switch*/
+            if (status.state == PCM_STATE_SETUP ||
+                status.state == PCM_STATE_PREPARED ||
+                status.state == PCM_STATE_XRUN) {
+                ALOGI("mute the first dd+ raw data");
+                memset(buffer, 0,bytes);
+            }
+        }
     }
     if (getprop_bool("media.audiohal.outdump")) {
         aml_audio_dump_audio_bitstreams("/data/audio/pcm_write.raw",
