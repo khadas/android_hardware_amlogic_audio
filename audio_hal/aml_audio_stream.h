@@ -300,6 +300,7 @@ struct aml_audio_patch {
     int pll_state;
     unsigned int last_apts;
     unsigned int last_pcrpts;
+    unsigned int show_first_frame;
     dtv_avsync_process_cb avsync_callback;
     int dtv_faded_out;
     int dtv_ac3_fmsize;
