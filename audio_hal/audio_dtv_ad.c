@@ -91,7 +91,7 @@ static dtv_assoc_audio *get_assoc_audio(void)
 
 static void dump_ad_input_data(void *buffer, int size, char *file_name)
 {
-    if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
+    if (aml_getprop_bool("media.audiohal.outdump")) {
         FILE *fp1 = fopen(file_name, "a+");
         if (fp1) {
             int flen = fwrite((char *)buffer, 1, size, fp1);

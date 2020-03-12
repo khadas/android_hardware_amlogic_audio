@@ -476,8 +476,8 @@ write:
     //    adev->first_apts_flag = false;
     //}
 #if 1
-    if (getprop_bool("vendor.media.audiohal.outdump")) {
-        aml_audio_dump_audio_bitstreams("/data/alsa_pcm_write.pcm",
+    if (getprop_bool("media.audiohal.outdump")) {
+        aml_audio_dump_audio_bitstreams("/data/audio/alsa_pcm_write.pcm",
             buffer, bytes);
     }
 #endif
