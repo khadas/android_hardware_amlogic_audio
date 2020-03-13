@@ -98,14 +98,15 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
             }
         }
         else {
+            audio_format_t output_format = aml_out->alsa_output_format;
             get_hardware_config_parameters(
                 config
-                , adev->sink_format
+                , output_format
                 , audio_channel_count_from_out_mask(aml_out->hal_channel_mask)
                 , aml_out->config.rate
                 , aml_out->is_tv_platform
                 , continous_mode(adev));
-            switch (adev->sink_format) {
+            switch (output_format) {
                 case AUDIO_FORMAT_E_AC3:
                     device = DIGITAL_DEVICE;
                     break;
