@@ -8847,15 +8847,22 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
                         aml_out->config.rate = 48000;
                     }
                 }
+            } else if (patch->aformat == AUDIO_FORMAT_AC3) {
+                if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+                    aml_out->config.rate = cur_samplerate;
+                }
+            } else if (patch->aformat == AUDIO_FORMAT_E_AC3) {
+                if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+                    if (cur_samplerate == 192000 || cur_samplerate == 176400) {
+                        aml_out->config.rate = cur_samplerate / 4;
+                    } else {
+                        aml_out->config.rate = cur_samplerate;
+                    }
+                }
+            } else {
+                aml_out->config.rate = 48000;
             }
-
-        if (patch->aformat == AUDIO_FORMAT_AC3 || patch->aformat == AUDIO_FORMAT_E_AC3) {
-            if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
-                aml_out->config.rate = cur_samplerate;
-            }
-        }
-        aml_out->config.rate = cur_samplerate;
-        ALOGI("adev->dtslib_bypass_enable :%d,adev->dcvlib_bypass_enable:%d, aml_out->config.rate :%d\n",adev->dtslib_bypass_enable,
+            ALOGI("adev->dtslib_bypass_enable :%d,adev->dcvlib_bypass_enable:%d, aml_out->config.rate :%d\n",adev->dtslib_bypass_enable,
             adev->dcvlib_bypass_enable,aml_out->config.rate);
         }
     }
