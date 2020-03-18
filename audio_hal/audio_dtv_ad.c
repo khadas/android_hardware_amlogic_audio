@@ -118,7 +118,8 @@ static int audio_ad_set_source(int enable, int pid, int fmt, void *user)
 {
     AM_ErrorCode_t err = AM_SUCCESS;
     dtv_assoc_audio *param = get_assoc_audio();
-    ALOGI("AD set source enable[%d] pid[%d] fmt[%d]", enable, pid, fmt);
+    if (VALID_PID(pid))
+        ALOGI("AD set source enable[%d] pid[%d] fmt[%d]", enable, pid, fmt);
     if ((enable == DTV_ASSOC_STAT_ENABLE) && VALID_PID(pid)) {
         AM_AD_Para_t para = {.dmx_id = AD_DEMUX_ID, .pid = pid, .fmt = fmt};
         err = AM_AD_Create(&param->ad_handle, &para);

@@ -1058,27 +1058,6 @@ static int dtv_calc_abuf_level(struct aml_audio_patch *patch, struct aml_stream_
 
 static void dtv_check_audio_reset(struct aml_audio_device *aml_dev)
 {
-    unsigned int first_checkinapts = 0xffffffff;
-    unsigned int demux_pcr = 0xffffffff;
-    int ret, audio_reset;
-    char buff[32];
-    memset(buff, 0, 32);
-    ret = aml_sysfs_get_str(TSYNC_FIRSTCHECKIN_APTS, buff, sizeof(buff));
-    if (ret > 0) {
-        ret = sscanf(buff, "0x%x\n", &first_checkinapts);
-    } else {
-        return;
-    }
-    ret = aml_sysfs_get_str(TSYNC_DEMUX_PCR, buff, sizeof(buff));
-    if (ret > 0) {
-        ret = sscanf(buff, "0x%x\n", &demux_pcr);
-    } else {
-        return;
-    }
-    if (first_checkinapts == 0xffffffff) {
-        return;
-    }
-    //ALOGI("demux_pcr %x first_checkinapts %x,reset %d", demux_pcr, first_checkinapts,aml_dev->reset_dtv_audio);
     if (aml_dev->reset_dtv_audio) {
         ALOGI("dtv_audio_reset %d", aml_dev->reset_dtv_audio);
         aml_sysfs_set_str(AMSTREAM_AUDIO_PORT_RESET, "1");
@@ -1636,7 +1615,7 @@ static int dtv_audio_tune_check(struct aml_audio_patch *patch, int cur_pts_diff,
     char tempbuf[128];
     struct audio_hw_device *adev = patch->dev;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) adev;
-    if (!patch || !patch->dev || aml_dev->tuner2mix_patch == 1 || (aml_dev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
+    if (!patch || !patch->dev || aml_dev->tuner2mix_patch == 1) {
         patch->dtv_audio_tune = AUDIO_RUNNING;
         return 1;
     }
