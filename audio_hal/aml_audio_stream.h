@@ -319,6 +319,9 @@ struct aml_audio_patch {
     bool ac3_pcm_dropping;
     int last_audio_delay;
     bool is_alsa_input_mute;
+    int i2s_div_factor;
+    struct timespec speed_time;
+    struct timespec slow_time;
 };
 
 struct audio_stream_out;

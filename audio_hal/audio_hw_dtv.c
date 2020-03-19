@@ -799,31 +799,38 @@ static void dtv_adjust_i2s_output_clock(struct aml_audio_patch* patch, int direc
         i2s_current_clock == 0 || step <= 0 || step > DEFAULT_DTV_OUTPUT_CLOCK) {
         return;
     }
+    if (get_tsync_pcr_debug())
+        ALOGI("current:%d, default:%d\n", i2s_current_clock, patch->dtv_default_i2s_clock);
+
     if (direct == DIRECT_SPEED) {
-        if (compare_clock(i2s_current_clock, patch->dtv_default_i2s_clock)) {
+        if (i2s_current_clock >= patch->dtv_default_i2s_clock) {
+            if (i2s_current_clock - patch->dtv_default_i2s_clock >=
+                DEFAULT_DTV_OUTPUT_CLOCK) {
+                ALOGI("already > i2s_step_clk 1M,no need speed adjust\n");
+                return;
+            }
             output_clock = DEFAULT_DTV_OUTPUT_CLOCK + step;
             aml_mixer_ctrl_set_int(handle, AML_MIXER_ID_CHANGE_I2S_PLL, output_clock);
-        } else if (i2s_current_clock < patch->dtv_default_i2s_clock) {
+        } else {
             int value = patch->dtv_default_i2s_clock - i2s_current_clock;
             output_clock = DEFAULT_DTV_OUTPUT_CLOCK + value;
             aml_mixer_ctrl_set_int(handle, AML_MIXER_ID_CHANGE_I2S_PLL, output_clock);
-        } else {
-            //ALOGI("I2S_SPEED,clk %d,default %d",i2s_current_clock,patch->dtv_default_i2s_clock);
-            return ;
         }
     } else if (direct == DIRECT_SLOW) {
-        if (compare_clock(i2s_current_clock, patch->dtv_default_i2s_clock)) {
+        if (i2s_current_clock <= patch->dtv_default_i2s_clock) {
+            if (patch->dtv_default_i2s_clock - i2s_current_clock >
+                DEFAULT_DTV_OUTPUT_CLOCK) {
+                ALOGI("alread < 1M no need adjust slow, return\n");
+                return;
+            }
             output_clock = DEFAULT_DTV_OUTPUT_CLOCK - step;
             aml_mixer_ctrl_set_int(handle, AML_MIXER_ID_CHANGE_I2S_PLL, output_clock);
-        } else if (i2s_current_clock > patch->dtv_default_i2s_clock) {
+        } else {
             int value = i2s_current_clock - patch->dtv_default_i2s_clock;
             output_clock = DEFAULT_DTV_OUTPUT_CLOCK - value;
             aml_mixer_ctrl_set_int(handle, AML_MIXER_ID_CHANGE_I2S_PLL, output_clock);
             output_clock = DEFAULT_DTV_OUTPUT_CLOCK - step;
             aml_mixer_ctrl_set_int(handle, AML_MIXER_ID_CHANGE_I2S_PLL, output_clock);
-        } else {
-            //ALOGI("I2S_SLOW,clk %d,default %d",i2s_current_clock,patch->dtv_default_i2s_clock);
-            return ;
         }
     } else {
         if (compare_clock(i2s_current_clock, patch->dtv_default_i2s_clock)) {
@@ -965,6 +972,11 @@ static void dtv_adjust_output_clock(struct aml_audio_patch * patch, int direct, 
         return;
     }
     patch->pll_state = direct;
+    if (direct == DIRECT_SPEED) {
+        clock_gettime(CLOCK_MONOTONIC, &(patch->speed_time));
+    } else if (direct == DIRECT_SLOW) {
+        clock_gettime(CLOCK_MONOTONIC, &(patch->slow_time));
+    }
     if (patch->spdif_format_set == 0) {
         if (patch->dtv_default_i2s_clock > DEFAULT_SPDIF_PLL_DDP_CLOCK * 4 ||
             patch->dtv_default_i2s_clock == 0) {
@@ -976,7 +988,8 @@ static void dtv_adjust_output_clock(struct aml_audio_patch * patch, int direct, 
         if (aml_dev->bHDMIARCon) {
             dtv_adjust_i2s_output_clock(patch, direct, patch->i2s_step_clk / 4);
         } else {
-            dtv_adjust_i2s_output_clock(patch, direct, patch->i2s_step_clk);
+            dtv_adjust_i2s_output_clock(patch, direct, patch->i2s_step_clk /
+                                                        patch->i2s_div_factor);
         }
     } else if (!aml_dev->bHDMIARCon && aml_dev->is_TV) {
         if (patch->dtv_default_i2s_clock > DEFAULT_SPDIF_PLL_DDP_CLOCK * 4 ||
@@ -988,6 +1001,37 @@ static void dtv_adjust_output_clock(struct aml_audio_patch * patch, int direct, 
     } else {
         dtv_adjust_spdif_output_clock(patch, direct, patch->spdif_step_clk / 4);
     }
+}
+
+static void dtv_adjust_output_clock_continue(struct aml_audio_patch * patch, int direct)
+{
+    struct timespec current_time;
+    int time_cost = 0;
+    static int last_div = 0;
+    int adjust_interval = 0;
+    patch->i2s_div_factor = property_get_int32("media.audio_hal.div", 480);
+    adjust_interval = property_get_int32("media.audio_hal.adjtime", 1000);
+    if (last_div != patch->i2s_div_factor) {
+        ALOGI("new_div=%d, adjust_interval=%d ms,spdif_format_set=%d\n",
+            patch->i2s_div_factor, adjust_interval, patch->spdif_format_set);
+        last_div = patch->i2s_div_factor;
+    }
+
+    if (patch->pll_state == DIRECT_NORMAL || patch->pll_state != direct) {
+        ALOGI("pll_state=%d, direct=%d no need continue\n", patch->pll_state, direct);
+        return;
+    }
+    clock_gettime(CLOCK_MONOTONIC, &current_time);
+    if (direct == DIRECT_SPEED) {
+        time_cost = calc_time_interval_us(&patch->speed_time, &current_time)/1000;
+    } else if (direct == DIRECT_SLOW) {
+        time_cost = calc_time_interval_us(&patch->slow_time, &current_time)/1000;
+    }
+    if (time_cost > adjust_interval && patch->spdif_format_set == 0) {
+        ALOGI("over %d ms continue to adjust the clock\n", time_cost);
+        dtv_adjust_output_clock(patch, direct, DEFAULT_DTV_ADJUST_CLOCK);
+    }
+    return;
 }
 
 static unsigned int dtv_calc_pcrpts_latency(struct aml_audio_patch *patch, unsigned int pcrpts)
@@ -1176,7 +1220,8 @@ static bool dtv_firstapts_lookup_over(struct aml_audio_patch *patch,
             return false;
         }
 
-        if (patch->dtv_has_video && getprop_bool("vendor.media.audio.syncshow")) {
+        if (patch->dtv_has_video && getprop_bool("vendor.media.audio.syncshow") &&
+            patch->first_apts_lookup_over == 0) {
             aml_dev->start_mute_flag = 1;
             ALOGI("start_mute_flag 1.");
         }
@@ -1809,10 +1854,15 @@ static void do_pll1_by_pts(unsigned int pcrpts, struct aml_audio_patch *patch,
                                  abs(last_pts_diff) < DTV_PTS_CORRECTION_THRESHOLD)) {
             dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK);
         }
-    } else if (patch->pll_state == DIRECT_SLOW && cur_pts_diff > 0) {
-        if ((last_pts_diff + cur_pts_diff) > 0 || abs(last_pts_diff) < DTV_PTS_CORRECTION_THRESHOLD) {
+        if (cur_pts_diff > 0)
+            dtv_adjust_output_clock_continue(patch, DIRECT_SPEED);
+    } else if (patch->pll_state == DIRECT_SLOW) {
+        if (cur_pts_diff > 0 && ((last_pts_diff + cur_pts_diff) > 0 ||
+                                abs(last_pts_diff) < DTV_PTS_CORRECTION_THRESHOLD)) {
             dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK);
         }
+        if (cur_pts_diff < 0)
+            dtv_adjust_output_clock_continue(patch, DIRECT_SLOW);
     }
 }
 
@@ -1897,10 +1947,15 @@ static void do_pll2_by_pts(unsigned int pcrpts, struct aml_audio_patch *patch,
                                  abs(last_pts_diff) < DTV_PTS_CORRECTION_THRESHOLD)) {
             dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK);
         }
-    } else if (patch->pll_state == DIRECT_SLOW && cur_pts_diff > 0) {
-        if ((last_pts_diff + cur_pts_diff) > 0 || abs(last_pts_diff) < DTV_PTS_CORRECTION_THRESHOLD) {
+        if (cur_pts_diff > 0)
+            dtv_adjust_output_clock_continue(patch, DIRECT_SPEED);
+    } else if (patch->pll_state == DIRECT_SLOW) {
+        if (cur_pts_diff > 0 && ((last_pts_diff + cur_pts_diff) > 0 ||
+                                abs(last_pts_diff) < DTV_PTS_CORRECTION_THRESHOLD)) {
             dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK);
         }
+        if (cur_pts_diff < 0)
+            dtv_adjust_output_clock_continue(patch, DIRECT_SLOW);
     }
 }
 
@@ -3443,6 +3498,9 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
 
     patch->output_thread_exit = 0;
     patch->input_thread_exit = 0;
+    patch->i2s_div_factor = property_get_int32("media.audio_hal.div", 16);
+    if (patch->i2s_div_factor == 0)
+        patch->i2s_div_factor = 1;
     aml_dev->audio_patch = patch;
     pthread_mutex_init(&patch->mutex, NULL);
     pthread_cond_init(&patch->cond, NULL);
