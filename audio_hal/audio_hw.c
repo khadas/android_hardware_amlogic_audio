@@ -4268,6 +4268,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     size_t cur_in_bytes, cur_in_frames;
     int in_mute = 0, parental_mute = 0;
     bool stable = true;
+    int v_ltcy = 0;
 
     if (bytes == 0)
         return 0;
@@ -4277,7 +4278,6 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
      * mutex
      */
     pthread_mutex_lock(&in->lock);
-
     /* For voice communication BT & MIC switches */
     if (adev->active_inport == INPORT_BT_SCO_HEADSET_MIC) {
         int ret = 0;
@@ -4352,22 +4352,6 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             in->mute_flag = 1;
         }
 
-        if (patch) {
-            if (stable != patch->is_src_stable) {
-                {
-                    ALOGI("now do avsync \n");
-                    pre_avsync(patch);
-                }
-                patch->is_src_stable = stable;
-            }
-            ret = do_avsync(patch, stream,(unsigned char*)buffer,bytes);
-            if (ret != 0)
-            {
-                bytes = ret;
-                goto exit;
-            }
-        }
-
         if (in->mute_flag == 1) {
             in_mute = Stop_watch(in->mute_start_ts, in->mute_mdelay);
             if (!in_mute) {
@@ -4404,14 +4388,19 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                 ALOGD("%s:%d pcm_read data size:%d, channels:%d, pResampler:%p",__func__,__LINE__, bytes, in->config.channels, in->resampler);
             }
 
-            if (patch && patch->is_alsa_input_mute == true) {
-                patch->is_alsa_input_mute = false;
-                aml_alsa_input_flush(stream);
-                pre_avsync(patch);
-                ret = do_avsync(patch, stream, (unsigned char*)buffer, bytes);
-                if (ret != 0) {
-                    bytes = ret;
-                    goto exit;
+            if (patch && (patch->is_alsa_input_mute == true) &&
+                (adev->patch_src == SRC_ATV || adev->patch_src == SRC_HDMIIN ||
+                 adev->patch_src == SRC_LINEIN)) {
+                v_ltcy = aml_sysfs_get_int("/sys/class/video/vframe_walk_delay");
+                if (v_ltcy > 0) {
+                    patch->is_alsa_input_mute = false;
+                    aml_alsa_input_flush(stream);
+                    pre_avsync(patch);
+                    ret = do_avsync(patch, stream, (unsigned char*)buffer, bytes);
+                    if (ret != 0) {
+                        bytes = ret;
+                        goto exit;
+                    }
                 }
             }
 

@@ -306,7 +306,6 @@ static inline void aml_dev_avsync_reset(struct aml_audio_patch *patch)
 {
     patch->avsync_sample_accumed = 0;
     patch->av_diffs = 0;
-    patch->do_tune = 0;
 }
 
 int aml_dev_try_avsync(struct aml_audio_patch *patch)
@@ -318,12 +317,10 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
         return 0;
     }
 
-    if (patch->avsync_tuned == 1) {
+    {
         patch->avsync_adelay = 0;
         patch->avsync_drop = 0;
-        patch->avsync_tuned = 0;
         // ALOGI(" aml_dev_try_avsync  has tuned now\n");
-        return 0;
     }
 
     ret = aml_dev_avsync_diff_in_path(patch, &av_diff);
@@ -333,13 +330,8 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
         return 0;
     }
 
-    /* To tune immediately */
-    //if (av_diff > 16)
-    //    patch->do_tune = 1;
-
     aml_dev_accumulate_avsync_diff(patch, av_diff);
 
-    //if (patch->do_tune)
     {
         int tune_val = patch->av_diffs;
         //tune_val += 50/factor;
@@ -347,7 +339,6 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
         ALOGV("%s(), av user tuning latency = %dms",
               __func__, user_tune_val);
         tune_val += user_tune_val;
-        patch->avsync_tuned = 1;
         aml_dev_avsync_reset(patch);
         if (tune_val < 0) {
             patch->avsync_adelay = -tune_val;
@@ -409,8 +400,7 @@ int pre_avsync(struct aml_audio_patch *patch)
 {
     aml_dev_try_avsync(patch);
     if (patch->avsync_adelay > 0) {
-        patch->avsync_adelay = calc_avsync_size(patch,AVSYNC_DELAY);
-        ALOGI("now delay the audio output by %d\n", patch->avsync_adelay);
+        patch->avsync_adelay = calc_avsync_size(patch, AVSYNC_DELAY);
     }
 
     if (patch->avsync_drop > 0) {
@@ -449,17 +439,32 @@ int do_avsync(struct aml_audio_patch *patch, struct audio_stream_in * stream,uns
     }
 
     if (patch->avsync_adelay) {
+        unsigned int wsize = get_buffer_write_space(ringbuffer);
+        ALOGI("avsync the insert size is %d,bytes %d wsize:%d\n", patch->avsync_adelay, bytes, wsize);
         if (patch->avsync_adelay > (unsigned int)bytes) {
             memset(buffer, 0, bytes * sizeof(unsigned char));
             patch->avsync_adelay -= bytes;
             ret = bytes;
+
+            if (wsize < patch->avsync_adelay) {
+                patch->avsync_adelay = wsize;
+            }
+
+            if ((unsigned int)bytes < patch->avsync_adelay) {
+                do {
+                    ring_buffer_write(ringbuffer, buffer, bytes, UNCOVER_WRITE);
+                    patch->avsync_adelay -= bytes;
+                } while (patch->avsync_adelay > (unsigned int)bytes);
+            }
+
+            ring_buffer_write(ringbuffer, buffer, patch->avsync_adelay, UNCOVER_WRITE);
         } else {
             memset(buffer, 0, patch->avsync_adelay);
-            patch->avsync_adelay = 0;
             ret = patch->avsync_adelay;
+            patch->avsync_adelay = 0;
         }
     }
 
-    return ret ;
+    return ret;
 }
 

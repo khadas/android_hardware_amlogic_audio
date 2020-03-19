@@ -259,9 +259,7 @@ struct aml_audio_patch {
 #endif
 
     /* for AVSYNC tuning */
-    int is_src_stable;
     int av_diffs;
-    int do_tune;
     int avsync_sample_accumed;
     int avsync_sample_max_cnt;
     int avsync_sample_interval;
@@ -316,7 +314,6 @@ struct aml_audio_patch {
     unsigned char *resample_outbuf;
     AM_AOUT_OutputMode_t   mode;
     unsigned int avsync_adelay;
-    unsigned char avsync_tuned;
     unsigned int avsync_drop;
     void *drop_buf;
     bool ac3_pcm_dropping;
