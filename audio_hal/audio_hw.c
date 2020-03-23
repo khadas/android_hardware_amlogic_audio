@@ -6970,6 +6970,7 @@ static void aml_tinymix_set_spdif_format(audio_format_t output_format,struct aml
         audio_set_spdif_clock(stream, AML_STEREO_PCM);
     }
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, aml_spdif_format);
+    aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_EARC_AUDIO_TYPE, aml_spdif_format);
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_MUTE, spdif_mute);
     ALOGI("%s tinymix AML_MIXER_ID_SPDIF_FORMAT %d,spdif mute %d",
           __FUNCTION__, aml_spdif_format, spdif_mute);
@@ -7093,11 +7094,14 @@ ssize_t aml_audio_spdif_output (struct audio_stream_out *stream,
                 aml_dev->dual_spdifenc_inited = 1;
                 if (aml_dev->optical_format == AUDIO_FORMAT_AC3) {
                     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, AML_DOLBY_DIGITAL);
+                    aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_EARC_AUDIO_TYPE, AML_DOLBY_DIGITAL);
                 } else if (aml_dev->optical_format == AUDIO_FORMAT_E_AC3) {
                     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, AML_DOLBY_DIGITAL_PLUS);
+                    aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_EARC_AUDIO_TYPE, AML_DOLBY_DIGITAL_PLUS);
                 }
                 spdifenc_set_mute(aml_out->offload_mute);
                 ALOGI("%s tinymix AML_MIXER_ID_SPDIF_FORMAT %d\n", __FUNCTION__, AML_DOLBY_DIGITAL);
+
             }
         }
          ret = spdifenc_write(buffer, byte);
