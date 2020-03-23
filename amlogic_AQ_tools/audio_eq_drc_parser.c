@@ -68,6 +68,9 @@ static int parse_audio_source_gain_data(dictionary *pIniParser, struct eq_drc_da
     p_attr->s_gain.av = iniparser_getdouble(pIniParser, "source_gain:av", 0);
     ITEM_LOGD("%s, av is ((%f)\n", __FUNCTION__, p_attr->s_gain.av);
 
+    p_attr->s_gain.media = iniparser_getdouble(pIniParser, "source_gain:media", 0);
+    ITEM_LOGD("%s, av is ((%f)\n", __FUNCTION__, p_attr->s_gain.media);
+
     return 0;
 }
 

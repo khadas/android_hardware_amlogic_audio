@@ -7548,21 +7548,6 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 }
             }
 
-            /* SPDIF keep the max volume 1.0 */
-            for (i = 0; i < out_frames; i++) {
-                ps32SpdifTempBuffer[2 * i]      = tmp_buffer[2 * i] << 16;
-                ps32SpdifTempBuffer[2 * i + 1]  = tmp_buffer[2 * i + 1] << 16;
-            }
-#ifdef ADD_AUDIO_DELAY_INTERFACE
-            aml_audio_delay_process(AML_DELAY_OUTPORT_SPEAKER, effect_tmp_buf, out_frames * 2 * 2, AUDIO_FORMAT_PCM_16_BIT);
-            if (OUTPORT_SPEAKER == adev->active_outport) {
-                if (AUDIO_FORMAT_PCM_16_BIT == aml_out->hal_internal_format) {
-                    // spdif(PCM) out delay process, frame size 2ch * 4 Byte
-                    aml_audio_delay_process(AML_DELAY_OUTPORT_SPDIF, ps32SpdifTempBuffer, out_frames * 2 * 4, AUDIO_FORMAT_PCM_16_BIT);
-                }
-            }
-#endif
-
             if (SUPPORT_EARC_OUT_HW && adev->bHDMIConnected && aml_out->earc_pcm && adev->bHDMIARCon) {
                 apply_volume_16to32(1.0, tmp_buffer, spk_tmp_buf, bytes);
                 *output_buffer = (void *) spk_tmp_buf;
@@ -7581,7 +7566,19 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             } else {
                 gain_speaker *= (adev->sink_gain[OUTPORT_SPEAKER]);
                 apply_volume_16to32(gain_speaker * source_gain, effect_tmp_buf, spk_tmp_buf, bytes);
+                /* SPDIF with source_gain*/
+                apply_volume_16to32(source_gain, tmp_buffer, ps32SpdifTempBuffer, bytes);
             }
+
+#ifdef ADD_AUDIO_DELAY_INTERFACE
+            aml_audio_delay_process(AML_DELAY_OUTPORT_SPEAKER, spk_tmp_buf,
+                            out_frames * 2 * 4, AUDIO_FORMAT_PCM_16_BIT);
+            if (OUTPORT_SPEAKER == adev->active_outport && AUDIO_FORMAT_PCM_16_BIT == aml_out->hal_internal_format) {
+                // spdif(PCM) out delay process, frame size 2ch * 4 Byte
+                aml_audio_delay_process(AML_DELAY_OUTPORT_SPDIF, ps32SpdifTempBuffer,
+                        out_frames * 2 * 4, AUDIO_FORMAT_PCM_16_BIT);
+            }
+#endif
 
             /* 2 ch 32 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
             if (aml_out->tmp_buffer_8ch_size < 8 * bytes) {
