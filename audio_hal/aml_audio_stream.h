@@ -286,6 +286,7 @@ struct aml_audio_patch {
     unsigned int first_apts_lookup_over;
     int dtv_symple_rate;
     int dtv_pcm_channel;
+    int dtv_replay_flag;  //set for the first play
     unsigned int dtv_output_clock;
     unsigned int dtv_default_i2s_clock;
     unsigned int dtv_default_spdif_clock;

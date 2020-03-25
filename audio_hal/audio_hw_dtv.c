@@ -226,23 +226,24 @@ static int sysfs_get_systemfs_str(const char *path, char *val, int len)
 static unsigned long decoder_apts_lookup(unsigned int offset)
 {
     unsigned int pts = 0;
-    int ret;
+    int ret, debug_flag;
     char buff[32];
     memset(buff, 0, 32);
     snprintf(buff, 32, "%d", offset);
 
+    debug_flag = aml_audio_get_debug_flag();
     aml_sysfs_set_str(DTV_DECODER_PTS_LOOKUP_PATH, buff);
     ret = aml_sysfs_get_str(DTV_DECODER_PTS_LOOKUP_PATH, buff, sizeof(buff));
 
     if (ret > 0) {
         ret = sscanf(buff, "0x%x\n", &pts);
     }
-    // ALOGI("decoder_apts_lookup get the pts is %x\n", pts);
     if (pts == (unsigned int) - 1) {
         pts = 0;
     }
-
-    // adec_print("adec_apts_lookup get the pts is %lx\n", pts);
+    if (debug_flag) {
+        ALOGI("adec_apts_lookup get the pts is %x\n", pts);
+    }
 
     return (unsigned long)pts;
 }
@@ -670,13 +671,14 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
     unsigned long long frame_nums;
     unsigned long delay_pts;
     char value[PROPERTY_VALUE_MAX];
+    int debug_flag = 0;
 
     channels = 2;
     samplerate = 48;
     data_width = 2;
 
+    debug_flag = aml_audio_get_debug_flag();
     offset = patch->decoder_offset;
-
     // when first  look up apts,set offset 0
     if (patch->dtv_first_apts_flag == 0) {
         int fm_size, avail;
@@ -711,17 +713,20 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
         }
         frame_nums = (patch->outlen_after_last_validpts / (data_width * channels));
         pts += (frame_nums * 90 / samplerate);
-        // ALOGI("decode_offset:%d out_pcm:%d   pts:%lx,audec->last_valid_pts %lx\n",
-        //       patch->decoder_offset, patch->outlen_after_last_validpts, pts,
-        //       patch->last_valid_pts);
+        if (debug_flag) {
+            ALOGI("decode_offset:%d out_pcm:%d  pts:%lx,audec->last_valid_pts %lx\n",
+                  patch->decoder_offset, patch->outlen_after_last_validpts, pts,
+                  patch->last_valid_pts);
+        }
         return 0;
     }
     val = pts - lantcy * 90;
     /*+[SE][BUG][SWPL-14811][zhizhong] set the real apts to last_valid_pts for sum cal*/
     patch->last_valid_pts = val;
     patch->outlen_after_last_validpts = 0;
-    // ALOGI("====get pts:%lx offset:%d lan %d origin_apts:%lx\n",
-    // val, patch->decoder_offset, lantcy, pts);
+    if (debug_flag) {
+        ALOGI("====get pts:%lx offset:%d lan %d \n", val, patch->decoder_offset, lantcy);
+    }
     return val;
 }
 
@@ -2465,6 +2470,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
     patch->dtv_ac3_fmsize = 0;
     ALOGI("++%s live start output pcm now patch->output_thread_exit %d!!!\n ",
           __FUNCTION__, patch->output_thread_exit);
+    ALOGI("before decode: aml_dev->ddp.remain_size=%d\n", aml_dev->ddp.remain_size);
 
     prctl(PR_SET_NAME, (unsigned long)"audio_output_patch");
 
@@ -2818,6 +2824,11 @@ void *audio_dtv_patch_output_threadloop(void *data)
                     } else {
                         remain_size = aml_dev->ddp.remain_size;
                     }
+                    /* +[SE] [BUG][SWPL-22893][yinli.xia] av out of sync after plug cabel*/
+                    if (patch->dtv_replay_flag) {
+                        remain_size = 0;
+                        patch->dtv_replay_flag = 0;
+                    }
                     ret = out_write_new(stream_out, patch->out_buf, write_len);
                     if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
                         unsigned long long all_pcm_len = 0, all_zero_len = 0;
@@ -2831,6 +2842,11 @@ void *audio_dtv_patch_output_threadloop(void *data)
                         patch->outlen_after_last_validpts += aml_dev->ddp.outlen_pcm;
                         patch->decoder_offset += remain_size + ret - aml_dev->ddp.remain_size;
                         patch->dtv_pcm_readed += ret;
+                    }
+                    /* +[SE] [BUG][SWPL-22893][yinli.xia] av out of sync after plug cabel*/
+                    if (aml_dev->debug_flag) {
+                        ALOGI("after decode: decode_offset: %d, aml_dev->ddp.remain_size=%d\n",
+                        patch->decoder_offset, aml_dev->ddp.remain_size);
                     }
                     pthread_mutex_unlock(&(patch->dtv_output_mutex));
                 } else {
@@ -2903,13 +2919,21 @@ void *audio_dtv_patch_output_threadloop(void *data)
                 }
 
                 remain_size = aml_dev->dts_hd.remain_size;
-
+                /* +[SE] [BUG][SWPL-22893][yinli.xia] av out of sync after plug cabel*/
+                if (patch->dtv_replay_flag) {
+                    remain_size = 0;
+                    patch->dtv_replay_flag = 0;
+                }
                 ret = out_write_new(stream_out, patch->out_buf, ret);
                 patch->outlen_after_last_validpts += aml_dev->dts_hd.outlen_pcm;
 
                 patch->decoder_offset +=
                     remain_size + ret - aml_dev->dts_hd.remain_size;
                 patch->dtv_pcm_readed += ret;
+                /* +[SE] [BUG][SWPL-22893][yinli.xia] av out of sync after plug cabel*/
+                if (aml_dev->debug_flag) {
+                    ALOGI("after decode: aml_dev->ddp.remain_size=%d\n", aml_dev->ddp.remain_size);
+                }
                 pthread_mutex_unlock(&(patch->dtv_output_mutex));
             } else {
                 pthread_mutex_unlock(&(patch->dtv_output_mutex));
@@ -3345,6 +3369,7 @@ static int create_dtv_output_stream_thread(struct aml_audio_patch *patch)
     if (patch->ouput_thread_created == 0) {
         patch->output_thread_exit = 0;
         pthread_mutex_init(&patch->dtv_output_mutex, NULL);
+        patch->dtv_replay_flag = 1;
         ret = pthread_create(&(patch->audio_output_threadID), NULL,
                              audio_dtv_patch_output_threadloop, patch);
         if (ret != 0) {
