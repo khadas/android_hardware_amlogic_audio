@@ -66,10 +66,15 @@ static int insert_eff_zero_bytes(struct aml_audio_device *adev, size_t size)
     while (insert_size > 0) {
         once_write_size = insert_size > adev->effect_buf_size ? adev->effect_buf_size : insert_size;
         memset(effect_tmp_buf, 0, once_write_size);
-        /*aduio effect process for speaker*/
+        /*
+         * do not need to do the aduio effect process for speaker
+         * becasue it will produces a crash at VirtualX's Virtualx_process function
+         */
+        /*
         for (int i = 0; i < adev->native_postprocess.num_postprocessors; i++) {
             audio_post_process(adev->native_postprocess.postprocessors[i], effect_tmp_buf, once_write_size / bytes_per_frame);
         }
+        */
         insert_size -= once_write_size;
     }
 
