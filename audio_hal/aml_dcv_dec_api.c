@@ -425,6 +425,14 @@ int load_ddp_decoder_lib(struct dolby_ddp_dec *ddp_dec)
         ALOGV("<%s::%d>--[set_hal_version:]", __FUNCTION__, __LINE__);
         ddp_dec->set_hal_version(1);
     }
+
+    ddp_dec->ddp_decoder_config = (int (*)(void *, ddp_config_type_t, ddp_config_t *)) dlsym(ddp_dec->gDDPDecoderLibHandler, "ddp_decoder_config");
+    if (ddp_dec->ddp_decoder_config == NULL) {
+        ALOGI("%s,cant find decoder lib,%s\n", __FUNCTION__, dlerror());
+    } else {
+        ALOGV("<%s::%d>--[ddp_decoder_config:]", __FUNCTION__, __LINE__);
+    }
+
     ddp_dec->handle = NULL;
     return 0;
 Error:
@@ -698,8 +706,11 @@ int dcv_decode_release(struct aml_audio_parser *parser)
 
 int dcv_decoder_init_patch(struct dolby_ddp_dec *ddp_dec)
 {
-    //ddp_dec->status = dcv_decoder_init(ddp_dec->digital_raw);
-    ddp_dec->status = (*ddp_dec->ddp_decoder_init)(1, ddp_dec->digital_raw,&ddp_dec->handle);
+    int file_num = 1;
+    if (ddp_dec->dual_input) {
+        file_num = 2;
+    }
+    ddp_dec->status = (*ddp_dec->ddp_decoder_init)(file_num, ddp_dec->digital_raw,&ddp_dec->handle);
     if (ddp_dec->status < 0) {
         return -1;
     }
@@ -717,10 +728,13 @@ int dcv_decoder_init_patch(struct dolby_ddp_dec *ddp_dec)
 
     memset(&ddp_dec->pcm_out_info, 0, sizeof(struct pcm_info));
     memset(&ddp_dec->aml_resample, 0, sizeof(struct resample_para));
-    ddp_dec->inbuf = (unsigned char*) malloc(MAX_DECODER_FRAME_LENGTH * 4 * 4);
+    ddp_dec->inbuf_size = MAX_DECODER_FRAME_LENGTH * 4 * 4;
+    ddp_dec->inbuf = (unsigned char*) malloc(ddp_dec->inbuf_size);
+
 
     if (!ddp_dec->inbuf) {
         ALOGE("malloc buffer failed\n");
+        ddp_dec->inbuf_size = 0;
         pthread_mutex_unlock(&ddp_dec->lock);
         return -1;
     }
@@ -746,11 +760,14 @@ int dcv_decoder_release_patch(struct dolby_ddp_dec *ddp_dec)
     }
     if (ddp_dec->status == 1) {
         ddp_dec->status = 0;
+        ddp_dec->inbuf_size = 0;
         ddp_dec->remain_size = 0;
         ddp_dec->outlen_pcm = 0;
         ddp_dec->outlen_raw = 0;
         ddp_dec->nIsEc3 = 0;
         ddp_dec->curFrmSize = 0;
+        ddp_dec->dual_input = false;
+        ddp_dec->mixer_level = 0;
         free(ddp_dec->inbuf);
         free(ddp_dec->outbuf);
         ddp_dec->inbuf = NULL;
@@ -776,14 +793,14 @@ int dcv_decoder_get_framesize(unsigned char*buffer, int bytes, int* p_head_offse
     int mFrame_size = 0;
     int mChNum = 0;
     int is_eac3 = 0;
-    ALOGE("%s %x %x\n", __FUNCTION__, read_pointer[0], read_pointer[1]);
+    ALOGV("%s %x %x\n", __FUNCTION__, read_pointer[0], read_pointer[1]);
 
     while (offset <  bytes -1) {
         if ((read_pointer[0] == 0x0b && read_pointer[1] == 0x77) || \
                     (read_pointer[0] == 0x77 && read_pointer[1] == 0x0b)) {
             Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChNum,&is_eac3);
             *p_head_offset = offset;
-            ALOGE("%s mFrame_size %d offset %d\n", __FUNCTION__, mFrame_size, offset);
+            ALOGV("%s mFrame_size %d offset %d\n", __FUNCTION__, mFrame_size, offset);
             return mFrame_size;
         }
         offset++;
@@ -799,7 +816,7 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
     int mChNum = 0;
     int is_eac3 = 0;
     int in_sync = 0;
-    int used_size;
+    int used_size = 0;
     int i = 0;
     unsigned char *read_pointer = NULL;
     size_t main_frame_deficiency = 0;
@@ -822,14 +839,58 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
         }
     }
 #endif
-
-    //TODO should we need check the if the buffer overflow ???
-    memcpy((char *)ddp_dec->inbuf + ddp_dec->remain_size, (char *)buffer, bytes);
-    ddp_dec->remain_size += bytes;
-    total_size = ddp_dec->remain_size;
-    read_pointer = ddp_dec->inbuf;
-    ddp_dec->outlen_pcm = 0;
     pthread_mutex_lock(&ddp_dec->lock);
+
+    /* dual input is from dtv, and it is similar with MS12,
+     * main and associate is packaged with IEC61937
+     */
+    if (ddp_dec->dual_input) {
+        int dual_decoder_used_bytes = 0;
+        int dual_input_ret = 0;
+        void *main_frame_buffer = NULL;
+        int main_frame_size = 0;
+        void *associate_frame_buffer = NULL;
+        int associate_frame_size = 0;
+        dual_input_ret = scan_dolby_main_associate_frame(buffer
+                 , bytes
+                 , &dual_decoder_used_bytes
+                 , &main_frame_buffer
+                 , &main_frame_size
+                 , &associate_frame_buffer
+                 , &associate_frame_size);
+        if (dual_input_ret) {
+            ALOGE("%s used size %zu dont find the iec61937 format header, rescan next time!\n", __FUNCTION__, dual_decoder_used_bytes);
+            goto EXIT;
+        }
+        ALOGV("main frame size =%d ad frame size =%d", main_frame_size, associate_frame_size);
+        if (main_frame_size == 0 || associate_frame_size == 0) {
+            ALOGE("main frame size =%d ad frame size =%d", main_frame_size, associate_frame_size);
+            goto EXIT;
+        }
+        if ((main_frame_size + associate_frame_size) > ddp_dec->inbuf_size) {
+            ALOGE("too big frame size =%d %d", main_frame_size, associate_frame_size);
+            goto EXIT;
+        }
+        /* copy main data */
+        memcpy((char *)ddp_dec->inbuf, main_frame_buffer, main_frame_size);
+        /* copy ad data */
+        memcpy((char *)ddp_dec->inbuf + main_frame_size, associate_frame_buffer, associate_frame_size);
+        ddp_dec->remain_size = main_frame_size + associate_frame_size;
+        mFrame_size = main_frame_size + associate_frame_size;
+        read_pointer = ddp_dec->inbuf;
+        read_offset = 0;
+        in_sync = 1;
+    }
+    else {
+        //check if the buffer overflow
+        if ((ddp_dec->remain_size + bytes) > ddp_dec->inbuf_size) {
+            ALOGE("too big input size =%d %d", ddp_dec->remain_size, bytes);
+            goto EXIT;
+        }
+        memcpy((char *)ddp_dec->inbuf + ddp_dec->remain_size, (char *)buffer, bytes);
+        ddp_dec->remain_size += bytes;
+        total_size = ddp_dec->remain_size;
+        read_pointer = ddp_dec->inbuf;
 
     //check the sync word of dolby frames
     if (ddp_dec->is_iec61937 == false) {
@@ -853,26 +914,26 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
         //TODO, we need improve the perfermance issue from the whole pipeline,such
         //as read/write burst size optimization(DD/6144,DD+ 24576..) as some
 
-    while (ddp_dec->remain_size > 16) {
-        if ((read_pointer[i + 0] == 0x72 && read_pointer[i + 1] == 0xf8 && read_pointer[i + 2] == 0x1f && read_pointer[i + 3] == 0x4e)||
-               (read_pointer[i + 0] == 0x4e && read_pointer[i + 1] == 0x1f && read_pointer[i + 2] == 0xf8 && read_pointer[i + 3] == 0x72)) {
-                    unsigned int pcpd = *(uint32_t*)(read_pointer  + 4);
-                    int pc = (pcpd & 0x1f);
-                    int  payload_size ;
-                    if (pc == 0x15) {
-                        mFrame_size = payload_size = (pcpd >> 16);
-                        in_sync = 1;
-                        break;
-                    } else if (pc == 0x1) {
-                        mFrame_size = payload_size = (pcpd >> 16) / 8;
-                        in_sync = 1;
-                        break;
-                    }
+        while (ddp_dec->remain_size > 16) {
+            if ((read_pointer[0] == 0x72 && read_pointer[1] == 0xf8 && read_pointer[2] == 0x1f && read_pointer[3] == 0x4e)||
+                   (read_pointer[0] == 0x4e && read_pointer[1] == 0x1f && read_pointer[2] == 0xf8 && read_pointer[3] == 0x72)) {
+                        unsigned int pcpd = *(uint32_t*)(read_pointer  + 4);
+                        int pc = (pcpd & 0x1f);
+                        if (pc == 0x15) {
+                            mFrame_size = (pcpd >> 16);
+                            in_sync = 1;
+                            break;
+                        } else if (pc == 0x1) {
+                            mFrame_size = (pcpd >> 16) / 8;
+                            in_sync = 1;
+                            break;
+                        }
+                }
+                ddp_dec->remain_size--;
+                read_pointer++;
             }
-            ddp_dec->remain_size--;
-            read_pointer++;
+            read_offset = 8;
         }
-        read_offset = 8;
     }
     ddp_dec->curFrmSize = mFrame_size;
     ALOGV("remain %d, frame size %d,in sync %d\n", ddp_dec->remain_size, mFrame_size, in_sync);
@@ -897,10 +958,6 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
             read_pointer[2 * i] = temp;
         }
     }
-
-    ddp_dec->outlen_pcm =  0;
-    ddp_dec->outlen_raw = 0;
-    used_size = 0;
 
     while (mFrame_size > 0) {
         outPCMLen = 0;
@@ -994,4 +1051,17 @@ EXIT:
     pthread_mutex_unlock(&ddp_dec->lock);
     return -1;
 }
+
+int dcv_decoder_config(struct dolby_ddp_dec *ddp_dec, ddp_config_type_t config_type, ddp_config_t *config)
+{
+    int ret = -1;
+
+    if (ddp_dec->ddp_decoder_config == NULL) {
+        return ret;
+    }
+
+    ret = (ddp_dec->ddp_decoder_config)(ddp_dec, config_type, config);
+    return ret;
+}
+
 

@@ -542,6 +542,7 @@ struct aml_audio_device {
     int no_underrun_count;
     int no_underrun_max;
     int start_mute_flag;
+    int ad_start_enable;
 };
 
 struct meta_data {
@@ -842,5 +843,5 @@ int start_ease_out(struct aml_audio_device *adev);
 
 enum hwsync_status check_hwsync_status (uint apts_gap);
 void config_output(struct audio_stream_out *stream);
-
+int out_standby_direct (struct audio_stream *stream);
 #endif
