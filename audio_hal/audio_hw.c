@@ -2918,16 +2918,6 @@ static ssize_t out_write_direct(struct audio_stream_out *stream, const void* buf
         ALOGD("%s(): out %p, bytes %zu, hwsync:%d, last frame_write_sum %"PRIu64,
            __func__, out, bytes,
            out->hw_sync_mode, out->frame_write_sum);
-#if 0
-    FILE *fp1 = fopen ("/data/out_write_direct_passthrough.pcm", "a+");
-    if (fp1) {
-        int flen = fwrite ( (char *) buffer, 1, bytes, fp1);
-        //ALOGD("flen = %d---outlen=%d ", flen, out_frames * frame_size);
-        fclose (fp1);
-    } else {
-        ALOGD ("could not open file:/data/out_write_direct_passthrough.pcm");
-    }
-#endif
 
     if (adev->out_device != out->out_device) {
         ALOGD("%s:%p device:%x,%x", __func__, stream, out->out_device, adev->out_device);
@@ -3112,16 +3102,6 @@ rewrite:
     pthread_mutex_unlock (&adev->lock);
     out_frames = in_frames;
     buf = (void *) write_buf;
-    if (getprop_bool("media.hdmihal.outdump")) {
-        FILE *fp1 = fopen("/data/tmp/hal_audio_out.pcm", "a+");
-        if (fp1) {
-            int flen = fwrite ( (char *) buffer, 1, bytes, fp1);
-            //ALOGD("flen = %d---outlen=%d ", flen, out_frames * frame_size);
-            fclose (fp1);
-        } else {
-            ALOGD("could not open file:/data/tmp/hal_audio_out.pcm");
-        }
-    }
     if (codec_type_is_raw_data (out->codec_type) && !(out->flags & AUDIO_OUTPUT_FLAG_IEC958_NONAUDIO) ) {
         //here to do IEC61937 pack
         //ALOGV ("IEC61937 write size %zu,hw_sync_mode %d,flag %x\n", out_frames * frame_size, out->hw_sync_mode, out->flags);
@@ -3189,40 +3169,10 @@ rewrite:
         //for 5.1/7.1 LPCM direct output,we assume only use left channel volume
         if (!codec_type_is_raw_data(out->codec_type)
                 && (out->multich > 2 || out->hal_internal_format != AUDIO_FORMAT_PCM_16_BIT)) {
-            //do audio format and data conversion here
-            int input_frames = out_frames;
-            write_buf = convert_audio_sample_for_output (input_frames,
-                    out->hal_internal_format, out->multich, buf, &write_size);
             //volume apply here,TODO need apply that inside convert_audio_sample_for_output function.
-            if (out->multich == 2) {
-                short *sample = (short*) write_buf;
-                int l, r;
-                int kk;
-                for (kk = 0; kk <  input_frames; kk++) {
-                    l = out->volume_l * sample[kk * 2];
-                    sample[kk * 2] = CLIP (l);
-                    r = out->volume_r * sample[kk * 2 + 1];
-                    sample[kk * 2 + 1] = CLIP (r);
-                }
-            } else {
-                int *sample = (int*) write_buf;
-                int kk;
-                for (kk = 0; kk <  write_size / 4; kk++) {
-                    sample[kk] = out->volume_l * sample[kk];
-                }
-            }
+            apply_volume(out->volume_l, write_buf, audio_bytes_per_sample(out->hal_format), bytes);
 
             if (write_buf) {
-                if (getprop_bool ("media.hdmihal.outdump") ) {
-                    FILE *fp1 = fopen ("/data/tmp/hdmi_audio_out8.pcm", "a+");
-                    if (fp1) {
-                        int flen = fwrite ( (char *) buffer, 1, out_frames * frame_size, fp1);
-                        ALOGD ("flen = %d---outlen=%zu ", flen, out_frames * frame_size);
-                        fclose (fp1);
-                    } else {
-                        ALOGD ("could not open file:/data/hdmi_audio_out.pcm");
-                    }
-                }
                 if (SUPPORT_EARC_OUT_HW && adev->bHDMIConnected && out->earc_pcm && adev->bHDMIARCon) {
                     ret = pcm_write (out->earc_pcm, write_buf, write_size);
                 } else {
@@ -3232,9 +3182,6 @@ rewrite:
                     out->frame_write_sum += out_frames;
                 } else {
                     ALOGI ("pcm_get_error(out->pcm):%s",pcm_get_error (out->pcm) );
-                }
-                if (write_buf) {
-                    free (write_buf);
                 }
             }
         } else {
@@ -3250,16 +3197,6 @@ rewrite:
                     sample[kk * 2 + 1] = CLIP (r);
                 }
             }
-#if 0
-            FILE *fp1 = fopen ("/data/pcm_write_passthrough.pcm", "a+");
-            if (fp1) {
-                int flen = fwrite ( (char *) buf, 1, out_frames * frame_size, fp1);
-                //ALOGD("flen = %d---outlen=%d ", flen, out_frames * frame_size);
-                fclose (fp1);
-            } else {
-                ALOGD ("could not open file:/data/pcm_write_passthrough.pcm");
-            }
-#endif
             if (SUPPORT_EARC_OUT_HW && adev->bHDMIConnected && out->earc_pcm && adev->bHDMIARCon) {
                 ret = pcm_write (out->earc_pcm, (void *) buf, out_frames * frame_size);
             } else {
@@ -9694,7 +9631,8 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
         // Next step is to make all compitable.
         if (aml_out->usecase == STREAM_PCM_NORMAL || aml_out->usecase == STREAM_PCM_HWSYNC) {
             /*for 96000, we need bypass submix, this is for DTS certification*/
-            if (config->sample_rate == 96000 || config->sample_rate == 88200) {
+            if (config->sample_rate == 96000 || config->sample_rate == 88200 ||
+                    audio_channel_count_from_out_mask(config->channel_mask) > 2) {
                 aml_out->bypass_submix = true;
                 aml_out->stream.write = out_write_direct;
                 aml_out->stream.common.standby = out_standby_direct;
