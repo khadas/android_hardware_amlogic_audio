@@ -1389,6 +1389,10 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
     }
 #endif
 
+    if (adev->patch_src == SRC_DTV && adev->parental_control_av_mute) {
+        memset((void*)out_buffer,0x0,out_size);
+    }
+
     //sent = skt_write(out->audio_fd, out_buffer, out_size);
     if (aml_getprop_bool("media.audiohal.a2dp"))
     {
