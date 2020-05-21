@@ -3322,8 +3322,8 @@ static int out_get_render_position (const struct audio_stream_out *stream,
     int frame_latency = 0;
 
     if (*dsp_frames == 0) {
-        ALOGV("%s(), not ready yet", __func__);
-        return -EINVAL;
+        ALOGI("Amlogic_HAL - %s:%d: return Result::INVALID_STATE (3) instead of other error code. dsp_frames==0", __func__, __LINE__);
+        return INVALID_STATE;
     }
 
     if (out->flags & AUDIO_OUTPUT_FLAG_IEC958_NONAUDIO) {
