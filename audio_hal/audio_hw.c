@@ -7553,7 +7553,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                aml_audio_switch_output_mode((int16_t *)effect_tmp_buf, bytes, adev->sound_track_mode);
             }
             /*aduio effect process for speaker*/
-            if (adev->native_postprocess.num_postprocessors == adev->native_postprocess.total_postprocessors) {
+            if (adev->native_postprocess.num_postprocessors == adev->native_postprocess.total_postprocessors
+                && !(adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
                 for (j = 0; j < adev->native_postprocess.num_postprocessors; j++) {
                     if (adev->effect_in_ch == 6) {
                         if (adev->native_postprocess.postprocessors[j] != NULL) {
@@ -7589,8 +7590,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 if ((adev->patch_src == SRC_DTV || adev->patch_src == SRC_HDMIIN
                         || adev->patch_src == SRC_LINEIN || adev->patch_src == SRC_ATV)
                         && adev->audio_patching) {
-                    gain_speaker *= (adev->sink_gain[OUTPORT_A2DP]);
-                    apply_volume_16to32(gain_speaker * source_gain, effect_tmp_buf, spk_tmp_buf, bytes);
+                    apply_volume_16to32(adev->sink_gain[OUTPORT_A2DP] * source_gain, effect_tmp_buf, spk_tmp_buf, bytes);
                 } else {
                     apply_volume_16to32(source_gain, effect_tmp_buf, spk_tmp_buf, bytes);
                 }
