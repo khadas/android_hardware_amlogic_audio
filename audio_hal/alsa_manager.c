@@ -141,6 +141,10 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
             config_raw.format = PCM_FORMAT_S16_LE;
             config = &config_raw;
             device = DIGITAL_DEVICE;
+        } else if (adev->sink_format == AUDIO_FORMAT_PCM_16_BIT &&
+                adev->optical_format == AUDIO_FORMAT_PCM_16_BIT &&
+                adev->is_TV) {
+            config->rate = MM_FULL_POWER_SAMPLING_RATE;
         }
     }
     int card = aml_out->card;
