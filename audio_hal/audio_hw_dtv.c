@@ -127,6 +127,7 @@
 #define AUDIO_AC3_FRAME_SIZE 4
 #define AUDIO_TV_PCM_FRAME_SIZE 32
 #define AUDIO_DEFAULT_PCM_FRAME_SIZE 4
+#define VIDEO_DISPLAY_DELAY (17) /* default one vsync 60hz */
 
 //pthread_mutex_t dtv_patch_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t dtv_cmd_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -729,14 +730,46 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
 
 static uint32_t out_get_latency(const struct audio_stream_out *stream)
 {
-    audio_format_t afmt = get_output_format((struct audio_stream_out *)stream);
     const struct aml_stream_out *out = (const struct aml_stream_out *)stream;
-    snd_pcm_sframes_t frames = out_get_latency_frames(stream);
-    if (afmt == AUDIO_FORMAT_E_AC3 && out->dual_output_flag) {
-        return (frames * 1000) / 4 / out->config.rate;
-    } else {
-        return (frames * 1000) / out->config.rate;
+    struct aml_audio_device *adev = out->dev;
+    snd_pcm_sframes_t frames = 0;
+    uint32_t default_frames = 0, latency_frames = 0;
+    int ret = 0;
+    int mul = 1;
+    int buf_latency_frames = 0;
+
+    if (eDolbyDcvLib  == adev->dolby_lib_type) {
+        if (adev->sink_format == AUDIO_FORMAT_PCM_16_BIT) {
+            if (out->hal_internal_format == AUDIO_FORMAT_AC3 ||
+                out->hal_internal_format == AUDIO_FORMAT_E_AC3) {
+                buf_latency_frames = get_buffer_read_space(&adev->ddp.output_ring_buf) / 4;
+            }
+        }
+    } else if (eDolbyMS12Lib == adev->dolby_lib_type) {
+        if (out->hal_internal_format == AUDIO_FORMAT_AC3 ||
+            out->hal_internal_format == AUDIO_FORMAT_E_AC3) {
+            /* one frame peroid cached in buffer default */
+            buf_latency_frames = AC3_PERIOD_SIZE / 4;
+        }
     }
+    if (adev->sink_format == AUDIO_FORMAT_E_AC3) {
+        mul = 4;
+    }
+    default_frames = out->config.period_size * out->config.period_count;
+    if (!out->pcm || !pcm_is_ready(out->pcm)) {
+        latency_frames = default_frames / mul;
+        goto exit;
+    }
+    ret = pcm_ioctl(out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+    if (ret < 0) {
+        latency_frames = default_frames / mul;
+        goto exit;
+    }
+    latency_frames = frames / mul + buf_latency_frames;
+exit:
+    //ALOGI("%s latency %d, ringbuf %d, format %x", __FUNCTION__,
+    //(int)(latency_frames), buf_latency_frames, out->hal_internal_format);
+    return (latency_frames * 1000) / out->config.rate;
 }
 
 static void dtv_do_ease_out(struct aml_audio_device *aml_dev)
@@ -1046,10 +1079,11 @@ static unsigned int dtv_calc_pcrpts_latency(struct aml_audio_patch *patch, unsig
         return pcrpts;
     } else {
         /* for arc output, there were any little lantency */
-        if ((aml_dev->hdmi_format != PCM) &&
-            !aml_dev->disable_pcm_mixing && patch->aformat == AUDIO_FORMAT_E_AC3) {
-            pcrpts += 3 * DTV_PTS_CORRECTION_THRESHOLD;
+        if ((aml_dev->hdmi_format != PCM && eDolbyMS12Lib == aml_dev->dolby_lib_type) &&
+            (patch->aformat == AUDIO_FORMAT_AC3 || patch->aformat == AUDIO_FORMAT_E_AC3)) {
+            pcrpts += DTV_PTS_CORRECTION_THRESHOLD;
         }
+        pcrpts += DTV_PTS_CORRECTION_THRESHOLD;
         return pcrpts;
     }
     if (aml_dev->bHDMIARCon && aml_dev->hdmi_format == PCM) {
@@ -2207,9 +2241,8 @@ void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_out* st
 
     if (patch->aformat == AUDIO_FORMAT_E_AC3 || patch->aformat == AUDIO_FORMAT_AC3) {
         if (stream_out != NULL) {
-            /*The decoder has one frame cached,need to add 32ms to the latency*/
-            unsigned int  pcm_lantcy = out_get_latency(&(stream_out->stream)) + 32
-                                        + audio_output_delay;
+            unsigned int  pcm_lantcy = out_get_latency(&(stream_out->stream))
+                                        + audio_output_delay - VIDEO_DISPLAY_DELAY;
             pts = dtv_hal_get_pts(patch, pcm_lantcy);
             process_ac3_sync(patch, pts, stream_out);
         }
@@ -2217,7 +2250,7 @@ void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_out* st
         if (stream_out != NULL) {
             ringbuffer = &(patch->aml_ringbuffer);
             unsigned int pcm_lantcy = out_get_latency(&(stream_out->stream)) +
-                                        audio_output_delay;
+                                        audio_output_delay - VIDEO_DISPLAY_DELAY;
             pts = dtv_hal_get_pts(patch, pcm_lantcy);
             process_ac3_sync(patch, pts, stream_out);
         }
@@ -2225,7 +2258,7 @@ void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_out* st
         {
             if (stream_out != NULL) {
                 unsigned int pcm_lantcy = out_get_latency(&(stream_out->stream)) +
-                                            audio_output_delay;
+                                            audio_output_delay - VIDEO_DISPLAY_DELAY;
                 int abuf_level = get_buffer_read_space(ringbuffer);
                 process_pts_sync(pcm_lantcy, patch, abuf_level, stream_out);
             }
