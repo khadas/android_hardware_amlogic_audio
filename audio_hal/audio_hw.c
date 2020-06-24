@@ -1881,10 +1881,10 @@ static int out_resume (struct audio_stream_out *stream)
                 r = pcm_ioctl (out->earc_pcm, SNDRV_PCM_IOCTL_PREPARE);
             }
         } else {
-            r = pcm_ioctl (out->pcm, SNDRV_PCM_IOCTL_PAUSE, 0);
+            r = pcm_ioctl (out->pcm, SNDRV_PCM_IOCTL_PREPARE, 0);
             if (SUPPORT_EARC_OUT_HW && adev->bHDMIConnected &&
                     out->earc_pcm && pcm_is_ready (out->earc_pcm)) {
-                r = pcm_ioctl (out->earc_pcm, SNDRV_PCM_IOCTL_PAUSE, 0);
+                r = pcm_ioctl (out->earc_pcm, SNDRV_PCM_IOCTL_PREPARE, 0);
             }
         }
         if (r < 0) {
@@ -3322,7 +3322,9 @@ static int out_get_render_position (const struct audio_stream_out *stream,
     int frame_latency = 0;
 
     if (*dsp_frames == 0) {
-        ALOGI("Amlogic_HAL - %s:%d: return Result::INVALID_STATE (3) instead of other error code. dsp_frames==0", __func__, __LINE__);
+        if (adev->debug_flag) {
+            ALOGI("Amlogic_HAL - %s:%d: return Result::INVALID_STATE (3) instead of other error code. dsp_frames==0", __func__, __LINE__);
+        }
         return INVALID_STATE;
     }
 
