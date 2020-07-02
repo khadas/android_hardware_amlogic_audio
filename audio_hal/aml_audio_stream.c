@@ -242,7 +242,7 @@ bool is_hdmi_in_stable_hw (struct audio_stream_in *stream)
     struct aml_audio_device *aml_dev = in->dev;
     int type = 0;
     int stable = 0;
-    int txl_chip = is_txl_chip();
+    int txl_chip = check_chip_name("txl", 3);
     hdmiin_audio_packet_t audio_packet = AUDIO_PACKET_NONE;
 
 

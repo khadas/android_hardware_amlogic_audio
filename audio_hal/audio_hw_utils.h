@@ -35,8 +35,6 @@ unsigned char codec_type_is_raw_data(int type);
 int mystrstr(char *mystr, char *substr);
 void *convert_audio_sample_for_output(int input_frames, int input_format, int input_ch, void *input_buf, int *out_size/*,float lvol*/);
 int  aml_audio_start_trigger(void *stream);
-int is_txlx_chip();
-int is_txl_chip();
 int aml_audio_get_debug_flag();
 int aml_audio_debug_set_optical_format();
 int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes);
@@ -59,5 +57,8 @@ int aml_audio_get_speaker_latency_offset(int aformat);
 uint32_t tspec_diff_to_us(struct timespec tval_old,
         struct timespec tval_new);
 void aml_audio_switch_output_mode(int16_t *buf, size_t bytes, AM_AOUT_OutputMode_t mode);
+int is_need_config_channel(void);
+int check_chip_name(char *name, unsigned int length);
+
 
 #endif

@@ -191,34 +191,37 @@ int getprop_bool(const char *path)
     return 0;
 }
 
-int is_txlx_chip()
+int check_chip_name(char *name, unsigned int length)
 {
     char buf[PROPERTY_VALUE_MAX];
+    char *chip_name = name;
     int ret = -1;
 
     ret = property_get("ro.board.platform", buf, NULL);
     if (ret > 0) {
-        if (strcasecmp(buf, "txlx") == 0) {
+        if (strncasecmp(buf, chip_name, length) == 0) {
             return true;
         }
     }
     return false;
 }
 
-int is_txl_chip()
+int is_need_config_channel()
 {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
 
     ret = property_get("ro.board.platform", buf, NULL);
     if (ret > 0) {
-        if (strcasecmp(buf, "txl") == 0) {
-            return true;
+        if (strncasecmp(buf, "txl", 3) == 0
+            || strncasecmp(buf, "txlx", 4) == 0
+            || strncasecmp(buf, "txhd", 4) == 0
+            || strncasecmp(buf, "tl1", 3) == 0) {
+            return false;
         }
     }
-    return false;
+    return true;
 }
-
 
 /*
 convert audio formats to supported audio format

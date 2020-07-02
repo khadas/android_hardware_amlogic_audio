@@ -415,7 +415,7 @@ static int audio_type_parse_init(audio_type_parse_t *status)
     }
 
     /* Only txlx using software parser */
-    if (is_txlx_chip()) {
+    if (check_chip_name("txlx", 4)) {
         in = pcm_open(audio_type_status->card, audio_type_status->device,
                       PCM_IN, &audio_type_status->config_in);
         if (!pcm_is_ready(in)) {
@@ -440,7 +440,7 @@ static int audio_type_parse_release(audio_type_parse_t *status)
 {
     audio_type_parse_t *audio_type_status = status;
 
-    if (is_txlx_chip() && audio_type_status->in)
+    if (check_chip_name("txlx", 4) && audio_type_status->in)
         pcm_close(audio_type_status->in);
 
     audio_type_status->in = NULL;
@@ -518,8 +518,8 @@ void* audio_type_parse_threadloop(void *data)
     int cur_samplerate = HW_RESAMPLE_48K;
     int last_cur_samplerate = HW_RESAMPLE_48K;
     int read_bytes = 0;
-    int txlx_chip = is_txlx_chip();
-    int txl_chip = is_txl_chip();
+    int txlx_chip = check_chip_name("txlx", 4);
+    int txl_chip = check_chip_name("txl", 3);
     int auge_chip = alsa_device_is_auge();
 
     ret = audio_type_parse_init(audio_type_status);

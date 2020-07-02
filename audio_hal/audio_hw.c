@@ -4358,6 +4358,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                 ret = read_frames(in, buffer, in_frames);
             } else {
                 //if input channel count from hdmirx is 8, do audio downmix.
+#ifdef MULTI_CHANNEL_SUPPORT
                 if (in->config.channels == 8) {
                     if (in->input_tmp_buffer ||
                         in->input_tmp_buffer_size < bytes) {
@@ -4401,7 +4402,9 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                     aml_alsa_input_read(stream, in->input_tmp_buffer, read_bytes);
                     adjust_channels(in->input_tmp_buffer, in->config.channels,
                             buffer, channel_count, 2, read_bytes);
-                } else if (!((adev->in_device & AUDIO_DEVICE_IN_HDMI_ARC) &&
+                } else
+ #endif
+                if (!((adev->in_device & AUDIO_DEVICE_IN_HDMI_ARC) &&
                         (access(SYS_NODE_EARC_RX, F_OK) == 0) &&
                         (aml_mixer_ctrl_get_int(&adev->alsa_mixer,
                                 AML_MIXER_ID_HDMI_EARC_AUDIO_ENABLE) == 0))) {
@@ -9763,8 +9766,9 @@ void *audio_patch_input_threadloop(void *data)
     bool bSpdifin_PAO = false;
     hdmiin_audio_packet_t cur_audio_packet = AUDIO_PACKET_AUDS;
     hdmiin_audio_packet_t last_audio_packet = AUDIO_PACKET_AUDS;
-    int txl_chip = is_txl_chip();
+    int txl_chip = check_chip_name("txl", 3);
     int last_channel_count = 2;
+    bool need_config_channel = is_need_config_channel();
 
     ALOGD("%s: enter", __func__);
     patch->chanmask = stream_config.channel_mask = patch->in_chanmask;
@@ -9850,6 +9854,7 @@ void *audio_patch_input_threadloop(void *data)
 
                 if (IS_HDMI_IN_HW(patch->input_src)) {
                     // hdmi in audio channels recofig.
+#ifdef MULTI_CHANNEL_SUPPORT
                     int current_channel = get_hdmiin_channel(&aml_dev->alsa_mixer);
                     if (current_channel != -1 && current_channel != last_channel_count) {
                         ALOGI("%s(), channel count changed from %d to %d!",
@@ -9857,7 +9862,7 @@ void *audio_patch_input_threadloop(void *data)
                         last_channel_count = current_channel;
                         in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_CHANNELS, &current_channel);
                     }
-
+#endif
                     cur_audio_packet = get_hdmiin_audio_packet(&aml_dev->alsa_mixer);
                     //reconfig period size when HBR and non HBR audio switching
                     if ((last_audio_packet == AUDIO_PACKET_HBR ||
@@ -9865,6 +9870,7 @@ void *audio_patch_input_threadloop(void *data)
                             last_audio_packet != cur_audio_packet) {
                         int period_size = 0;
                         int buf_size = 0;
+                        int channel = 2;
 
                         cur_aformat = audio_parse_get_audio_type(patch->audio_parse_para);
                         ALOGD("HDMI Format Switch from 0x%x to 0x%x last_type=%d cur_type=%d\n",
@@ -9876,11 +9882,13 @@ void *audio_patch_input_threadloop(void *data)
                             period_size = DEFAULT_CAPTURE_PERIOD_SIZE * 4;
                             // increase the buffer size
                             buf_size = ring_buffer_size * 8;
+                            int channel = 8;
                         } else {
                             bSpdifin_PAO = false;
                             period_size = DEFAULT_CAPTURE_PERIOD_SIZE;
                             // reset to original one
                             buf_size = ring_buffer_size;
+                            int channel = 2;
                         }
 
                         if (!alsa_device_is_auge()) {
@@ -9888,6 +9896,8 @@ void *audio_patch_input_threadloop(void *data)
                         }
                         ring_buffer_reset_size(ringbuffer, buf_size);
                         in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_PERIODS, &period_size);
+                        if (need_config_channel)
+                            in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_CHANNELS, &channel);
                         last_aformat = cur_aformat;
                         last_audio_packet = cur_audio_packet;
                         break;
