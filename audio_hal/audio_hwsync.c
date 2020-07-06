@@ -158,6 +158,8 @@ void aml_audio_hwsync_init(audio_hwsync_t *p_hwsync, struct aml_stream_out  *out
     p_hwsync->hw_sync_state = HW_SYNC_STATE_HEADER;
     p_hwsync->hw_sync_header_cnt = 0;
     p_hwsync->version_num = 0;
+    p_hwsync->hw_sync_frame_size = 0;
+    p_hwsync->bvariable_frame_size = 0;
     memset(p_hwsync->pts_tab, 0, sizeof(apts_tab_t)*HWSYNC_APTS_NUM);
     pthread_mutex_init(&p_hwsync->lock, NULL);
     p_hwsync->payload_offset = 0;
@@ -225,6 +227,12 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                 }
                 p_hwsync->hw_sync_state = HW_SYNC_STATE_BODY;
                 p_hwsync->hw_sync_body_cnt = hwsync_header_get_size(&p_hwsync->hw_sync_header[0]);
+                if (p_hwsync->hw_sync_frame_size && p_hwsync->hw_sync_body_cnt) {
+                    if (p_hwsync->hw_sync_frame_size != p_hwsync->hw_sync_body_cnt) {
+                        p_hwsync->bvariable_frame_size = 1;
+                        ALOGI("old frame size=%d new=%d", p_hwsync->hw_sync_frame_size, p_hwsync->hw_sync_body_cnt);
+                    }
+                }
                 p_hwsync->hw_sync_frame_size = p_hwsync->hw_sync_body_cnt;
                 p_hwsync->body_align_cnt = 0; //  alisan zz
                 p_hwsync->hw_sync_header_cnt = 0; //8.1
@@ -471,10 +479,17 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, unsign
         ALOGI("%s offset %zu,first %d", __func__, offset, p_hwsync->first_apts_flag);
     }
     pthread_mutex_lock(&p_hwsync->lock);
-    if (p_hwsync->first_apts_flag == false) {
-        align = 0;
+
+    /*the hw_sync_frame_size will be an issue if it is fixed one*/
+    //ALOGI("Adaptive steam =%d", p_hwsync->bvariable_frame_size);
+    if (!p_hwsync->bvariable_frame_size) {
+        if (p_hwsync->hw_sync_frame_size) {
+            align = offset - offset % p_hwsync->hw_sync_frame_size;
+        } else {
+            align = offset;
+        }
     } else {
-        align = offset - offset % p_hwsync->hw_sync_frame_size;
+        align = offset;
     }
     pts_tab = p_hwsync->pts_tab;
     for (i = 0; i < HWSYNC_APTS_NUM; i++) {
