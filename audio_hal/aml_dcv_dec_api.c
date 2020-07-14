@@ -940,7 +940,7 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
 
     //we do not have one complete dolby frames.we need cache the
     //data and combine with the next input data.
-    if (ddp_dec->remain_size < mFrame_size || in_sync == 0) {
+    if (ddp_dec->remain_size - read_offset < mFrame_size || in_sync == 0) {
         //ALOGI("remain %d,frame size %d, read more\n",remain_size,mFrame_size);
         memcpy(ddp_dec->inbuf, read_pointer, ddp_dec->remain_size);
         goto EXIT;
@@ -980,8 +980,12 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
             mFrame_size -= current_size;
     }
     if (used_size > 0) {
-        ddp_dec->remain_size -= used_size;
-        memcpy(ddp_dec->inbuf, read_pointer + used_size, ddp_dec->remain_size);
+        if (ddp_dec->remain_size >= used_size) {
+            ddp_dec->remain_size -= used_size;
+            memcpy(ddp_dec->inbuf, read_pointer + used_size, ddp_dec->remain_size);
+        } else {
+            ALOGW("[%s:%d] remain_size:%d < used_size:%d", __func__, __LINE__, ddp_dec->remain_size, used_size);
+        }
     }
 
 #if 0
