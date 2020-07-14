@@ -8642,6 +8642,10 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                 }
             } else if ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_DTV)) {
 #ifdef ENABLE_DTV_PATCH
+                 if (property_get_bool("tv.need.tvview.fast_switch", false)) {
+                     ALOGI("in tvview fast switch mode, no need re-create DTV patch 1\n");
+                     return ret;
+                 }
                  if (/*aml_dev->is_TV*/1) {
 
                      if (aml_dev->is_TV) {
@@ -8716,6 +8720,10 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             if (inport == INPORT_HDMIIN || inport == INPORT_ARCIN || inport == INPORT_SPDIF) {
                 aml_dev2mix_parser_create(dev, src_config->ext.device.type);
             } else if ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_DTV)){///zzz
+                if (property_get_bool("tv.need.tvview.fast_switch", false)) {
+                    ALOGI("in tvview fast switch mode, no need re-create DTV patch 2\n");
+                    return ret;
+                }
                 if (aml_dev->is_TV) {
                     if (aml_dev->audio_patching) {
                         ALOGI("%s,!!!now release the dtv patch now\n ", __func__);
@@ -8786,6 +8794,10 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
 #ifdef ENABLE_DTV_PATCH
         if (aml_dev->patch_src == SRC_DTV) {
             ALOGI("patch src == DTV now line %d \n", __LINE__);
+            if (property_get_bool("tv.need.tvview.fast_switch", false)) {
+                ALOGI("intvview fast switch mode, no need release DTV patch\n");
+                return ret;
+            }
             release_dtv_patch(aml_dev);
             aml_dev->audio_patching = 0;
         }
