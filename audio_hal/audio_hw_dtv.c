@@ -1138,11 +1138,8 @@ static int dtv_calc_abuf_level(struct aml_audio_patch *patch, struct aml_stream_
 
 static void dtv_check_audio_reset(struct aml_audio_device *aml_dev)
 {
-    if (aml_dev->reset_dtv_audio) {
-        ALOGI("dtv_audio_reset %d", aml_dev->reset_dtv_audio);
-        aml_sysfs_set_str(AMSTREAM_AUDIO_PORT_RESET, "1");
-        aml_dev->reset_dtv_audio = 0;
-    }
+    ALOGI("dtv_audio_reset %d", aml_dev->reset_dtv_audio);
+    aml_sysfs_set_str(AMSTREAM_AUDIO_PORT_RESET, "1");
 }
 
 static void dtv_set_pcr_latency(struct aml_audio_patch *patch, int mode)
@@ -3276,6 +3273,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 dtv_assoc_audio_stop(1);
                 dts_dec->is_dtv = false;
                 aml_dev->ad_start_enable = 0;
+                dtv_check_audio_reset(aml_dev);
                 patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_INIT;
             } else {
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
@@ -3305,6 +3303,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 dtv_patch_input_stop(adec_handle);
                 dtv_assoc_audio_stop(1);
                 aml_dev->ad_start_enable = 0;
+                dtv_check_audio_reset(aml_dev);
                 patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_INIT;
             } else {
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
@@ -3329,6 +3328,8 @@ exit:
     dtv_patch_input_stop(adec_handle);
     dtv_assoc_audio_stop(1);
     aml_dev->ad_start_enable = 0;
+    dtv_check_audio_reset(aml_dev);
+    ALOGI("[audiohal_kpi]++%s Exit", __FUNCTION__);
     pthread_exit(NULL);
 }
 
@@ -3635,7 +3636,7 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
     aml_dev->dual_decoder_support = 0;
     aml_dev->associate_audio_mixing_enable = 0;
     aml_dev->mixing_level = 0;
-    dtv_check_audio_reset(aml_dev);
+    //dtv_check_audio_reset(aml_dev);
     ALOGI("--%s", __FUNCTION__);
     //pthread_mutex_unlock(&aml_dev->patch_lock);
     if (aml_dev->useSubMix) {
