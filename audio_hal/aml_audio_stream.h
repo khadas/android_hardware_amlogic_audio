@@ -303,6 +303,8 @@ struct aml_audio_patch {
     dtv_avsync_process_cb avsync_callback;
     int dtv_faded_out;
     int dtv_ac3_fmsize;
+    int dtv_disable_tune_latency;
+    int dtv_apts_diff;
     pthread_mutex_t dtv_output_mutex;
     pthread_mutex_t dtv_input_mutex;
     pthread_mutex_t assoc_mutex;

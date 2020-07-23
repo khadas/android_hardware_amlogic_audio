@@ -5206,8 +5206,9 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             ALOGI("adev_set_parameters a2dp disconnect: %x, device=%x\n", val, adev->out_device);
         }
         /* for tv, the adev->reset_dtv_audio is reset in "HDMI ARC Switch" param */
-        if (adev->patch_src == SRC_DTV && !adev->is_TV) {
-            ALOGI("disconnect set reset_dtv_audio 1\n");
+        if ((adev->patch_src == SRC_DTV) &&
+            (val & (AUDIO_DEVICE_OUT_HDMI_ARC | AUDIO_DEVICE_OUT_HDMI | AUDIO_DEVICE_OUT_ALL_A2DP))) {
+            ALOGI("disconnect set reset_dtv_audio 1, val %x\n", val);
             adev->reset_dtv_audio = 1;
         }
         goto exit;
@@ -5219,15 +5220,16 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         if ((val & AUDIO_DEVICE_OUT_HDMI_ARC) || (val & AUDIO_DEVICE_OUT_HDMI)) {
             adev->bHDMIConnected = 1;
             ALOGI("%s,bHDMIConnected: %d\n", __FUNCTION__, val);
-            if (adev->patch_src == SRC_DTV && !adev->is_TV) {
-                ALOGI("connect set reset_dtv_audio 1\n");
-                adev->reset_dtv_audio = 1;
-            }
         } else if (val & AUDIO_DEVICE_OUT_ALL_A2DP) {
             adev->a2dp_updated = 1;
             adev->out_device |= val;
             adev->a2dp_connected = true;
             ALOGI("adev_set_parameters a2dp connect: %x, device=%x\n", val, adev->out_device);
+        }
+        if ((adev->patch_src == SRC_DTV) &&
+            (val & (AUDIO_DEVICE_OUT_HDMI_ARC | AUDIO_DEVICE_OUT_HDMI | AUDIO_DEVICE_OUT_ALL_A2DP))) {
+            ALOGI("connect set reset_dtv_audio 1, val %x\n", val);
+            adev->reset_dtv_audio = 1;
         }
         goto exit;
     }
@@ -11011,8 +11013,10 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
                 ALOGI("intvview fast switch mode, no need release DTV patch\n");
                 return ret;
             }
-            aml_dev->reset_dtv_audio = 1;
-            ALOGI("device->device,reset the dtv audio port\n");
+            if (!aml_dev->is_TV) {
+                aml_dev->reset_dtv_audio = 1;
+                ALOGI("device->device,reset the dtv audio port\n");
+            }
             release_dtv_patch(aml_dev);
             aml_dev->audio_patching = 0;
         }
