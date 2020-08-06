@@ -339,6 +339,15 @@ enum mic_in_dev {
     DEV_MIC_TDM,
     DEV_MIC_CNT
 };
+typedef enum hdmiin_audio_packet {
+    AUDIO_PACKET_NONE,
+    AUDIO_PACKET_AUDS,
+    AUDIO_PACKET_OBA,
+    AUDIO_PACKET_DST,
+    AUDIO_PACKET_HBR,
+    AUDIO_PACKET_OBM,
+    AUDIO_PACKET_MAS
+} hdmiin_audio_packet_t;
 
 struct mic_in_desc {
     enum mic_in_dev mic;
@@ -713,6 +722,7 @@ struct aml_stream_in {
     size_t      delay_buffer_size;
 
     bool bt_sco_active;
+    hdmiin_audio_packet_t audio_packet_type;
 };
 typedef  int (*do_standby_func)(struct aml_stream_out *out);
 typedef  int (*do_startup_func)(struct aml_stream_out *out);

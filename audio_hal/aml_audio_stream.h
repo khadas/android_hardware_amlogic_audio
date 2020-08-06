@@ -82,16 +82,6 @@ enum sample_bitwidth {
     SAMPLE_32BITS = 32,
 };
 
-typedef enum hdmiin_audio_packet {
-    AUDIO_PACKET_NONE,
-    AUDIO_PACKET_AUDS,
-    AUDIO_PACKET_OBA,
-    AUDIO_PACKET_DST,
-    AUDIO_PACKET_HBR,
-    AUDIO_PACKET_OBM,
-    AUDIO_PACKET_MAS
-} hdmiin_audio_packet_t;
-
 static inline bool is_main_write_usecase(stream_usecase_t usecase)
 {
     return usecase > 0;
@@ -374,5 +364,6 @@ bool is_dual_output_stream(struct audio_stream_out *stream);
 int get_spdifin_samplerate(struct aml_mixer_handle *mixer_handle);
 unsigned int inport_to_device(enum IN_PORT inport);
 int set_resample_source(struct aml_mixer_handle *mixer_handle, enum ResampleSource source);
+int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, size_t bytes);
 
 #endif /* _AML_AUDIO_STREAM_H_ */

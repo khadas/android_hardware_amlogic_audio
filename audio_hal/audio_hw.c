@@ -4208,7 +4208,6 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
     struct aml_audio_device *adev = in->dev;
     struct aml_audio_parser *parser = adev->aml_parser;
-    int channel_count = audio_channel_count_from_in_mask(in->hal_channel_mask);
     size_t in_frames = bytes / audio_stream_in_frame_size(&in->stream);
     struct aml_audio_patch* patch = adev->audio_patch;
     size_t cur_in_bytes, cur_in_frames;
@@ -4352,60 +4351,13 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
 
             if (in->resampler) {
                 ret = read_frames(in, buffer, in_frames);
-            } else {
-                //if input channel count from hdmirx is 8, do audio downmix.
-#ifdef MULTI_CHANNEL_SUPPORT
-                if (in->config.channels == 8) {
-                    if (in->input_tmp_buffer ||
-                        in->input_tmp_buffer_size < bytes) {
-                        in->input_tmp_buffer = realloc(in->input_tmp_buffer, bytes * 4);
-                        in->input_tmp_buffer_size = bytes * 4;
-                    }
-                    ret = aml_alsa_input_read(stream, in->input_tmp_buffer, bytes * 4);
-                    if (in->config.format == PCM_FORMAT_S16_LE) {
-                        int16_t *out_ptr = buffer;
-                        int16_t *in_ptr = in->input_tmp_buffer;
-                        for (unsigned i = 0; i < in_frames; i++) {
-                            int left = 0, right = 0;
-                            for (int k = 0; k < 4; k++) {
-                                left += *in_ptr++;
-                                right += *in_ptr++;
-                            }
-                            *out_ptr++ = (int16_t)(left >> 2);
-                            *out_ptr++ = (int16_t)(right >> 2);
-                        }
-                    } else if (in->config.format == PCM_FORMAT_S32_LE) {
-                        int32_t *out_ptr = buffer;
-                        int32_t *in_ptr = in->input_tmp_buffer;
-                        long long left = 0, right = 0;
-                        for (int k = 0; k < 4; k++) {
-                            left += *in_ptr++;
-                            right += *in_ptr++;
-                        }
-                        *out_ptr++ = (int32_t)(left >> 2);
-                        *out_ptr++ = (int32_t)(right >> 2);
-                    }
-                } else if (in->config.channels == 4 ||
-                        (in->config.channels == 2 && channel_count != 2)) {
-                    unsigned int mult = in->config.channels / channel_count;
-                    size_t read_bytes = mult * bytes;
-
-                    if (in->input_tmp_buffer ||
-                        in->input_tmp_buffer_size < read_bytes) {
-                        in->input_tmp_buffer = realloc(in->input_tmp_buffer, read_bytes);
-                        in->input_tmp_buffer_size = read_bytes;
-                    }
-                    aml_alsa_input_read(stream, in->input_tmp_buffer, read_bytes);
-                    adjust_channels(in->input_tmp_buffer, in->config.channels,
-                            buffer, channel_count, 2, read_bytes);
-                } else
- #endif
-                if (!((adev->in_device & AUDIO_DEVICE_IN_HDMI_ARC) &&
-                        (access(SYS_NODE_EARC_RX, F_OK) == 0) &&
-                        (aml_mixer_ctrl_get_int(&adev->alsa_mixer,
-                                AML_MIXER_ID_HDMI_EARC_AUDIO_ENABLE) == 0))) {
-                    ret = aml_alsa_input_read(stream, buffer, bytes);
-                }
+            } else if (in->audio_packet_type != AUDIO_PACKET_HBR && in->config.channels != 2) {
+                ret = input_stream_channels_adjust(stream, buffer, bytes);
+            } else if (!((adev->in_device & AUDIO_DEVICE_IN_HDMI_ARC) &&
+                    (access(SYS_NODE_EARC_RX, F_OK) == 0) &&
+                    (aml_mixer_ctrl_get_int(&adev->alsa_mixer,
+                            AML_MIXER_ID_HDMI_EARC_AUDIO_ENABLE) == 0))) {
+                ret = aml_alsa_input_read(stream, buffer, bytes);
             }
 
             if (ret < 0) {
@@ -4414,12 +4366,12 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                 }
                 goto exit;
             }
+
             if ((adev->in_device & AUDIO_DEVICE_IN_TV_TUNER) && in->first_buffer_discard) {
                 in->first_buffer_discard = false;
                 memset(buffer, 0, bytes);
                 ret = 0;
             }
-            //DoDumpData(buffer, bytes, CC_DUMP_SRC_TYPE_INPUT);
         }
     }
 
@@ -9751,28 +9703,27 @@ static void ts_wait_time(struct timespec *ts, uint32_t time)
 void *audio_patch_input_threadloop(void *data)
 {
     struct aml_audio_patch *patch = (struct aml_audio_patch *)data;
-    struct audio_hw_device *dev = patch->dev;
-    struct aml_audio_device *aml_dev = (struct aml_audio_device *) dev;
-    ring_buffer_t *ringbuffer = & (patch->aml_ringbuffer);
+    struct audio_hw_device *dev;
+    struct aml_audio_device *aml_dev;
+    ring_buffer_t *ringbuffer;
     struct audio_stream_in *stream_in = NULL;
     struct aml_stream_in *in;
     struct audio_config stream_config;
     struct timespec ts;
     int aux_read_bytes, read_bytes;
-    // FIXME: add calc for read_bytes;
-    read_bytes = DEFAULT_CAPTURE_PERIOD_SIZE * CAPTURE_PERIOD_COUNT;
     int ret = 0, retry = 0;
-    audio_format_t cur_aformat  = AUDIO_FORMAT_INVALID;
-    audio_format_t last_aformat = AUDIO_FORMAT_INVALID;
     int ring_buffer_size = 0;
-    bool bSpdifin_PAO = false;
-    hdmiin_audio_packet_t cur_audio_packet = AUDIO_PACKET_AUDS;
     hdmiin_audio_packet_t last_audio_packet = AUDIO_PACKET_AUDS;
     int txl_chip = check_chip_name("txl", 3);
     int last_channel_count = 2;
-    bool need_config_channel = is_need_config_channel();
 
     ALOGD("%s: enter", __func__);
+    if (!patch) {
+        return (void *)0;
+    }
+    dev = patch->dev;
+    aml_dev = (struct aml_audio_device *) dev;
+    ringbuffer = & (patch->aml_ringbuffer);
     patch->chanmask = stream_config.channel_mask = patch->in_chanmask;
     patch->sample_rate = stream_config.sample_rate = patch->in_sample_rate;
     patch->aformat = stream_config.format = patch->in_format;
@@ -9804,6 +9755,9 @@ void *audio_patch_input_threadloop(void *data)
         switch (patch->aformat) {
         case AUDIO_FORMAT_E_AC3:
             period_mul = EAC3_MULTIPLIER;
+            break;
+        case AUDIO_FORMAT_MAT:
+            period_mul = 4 * 4;
             break;
         case AUDIO_FORMAT_DTS_HD:
             // 192Khz
@@ -9844,39 +9798,26 @@ void *audio_patch_input_threadloop(void *data)
         ALOGV("++%s in read over read_bytes = %d, in_read returns = %d",
               __FUNCTION__, read_bytes * period_mul, bytes_avail);
         if (bytes_avail > 0) {
-            //DoDumpData(patch->in_buf, bytes_avail, CC_DUMP_SRC_TYPE_INPUT);
-
-            /*if it is txl & 88.2k~192K, we will use software detect*/
-            if (txl_chip && (cur_audio_packet == AUDIO_PACKET_HBR) &&
-                    (IS_HDMI_IN_HW(patch->input_src))) {
-                feeddata_audio_type_parse(&patch->audio_parse_para, patch->in_buf, bytes_avail);
-            }
-
             do {
-
-                if (IS_HDMI_IN_HW(patch->input_src)) {
-                    // hdmi in audio channels recofig.
-#ifdef MULTI_CHANNEL_SUPPORT
+                if (patch->input_src == AUDIO_DEVICE_IN_HDMI) {
+                    hdmiin_audio_packet_t cur_audio_packet = get_hdmiin_audio_packet(&aml_dev->alsa_mixer);
                     int current_channel = get_hdmiin_channel(&aml_dev->alsa_mixer);
-                    if (current_channel != -1 && current_channel != last_channel_count) {
-                        ALOGI("%s(), channel count changed from %d to %d!",
-                            __func__, last_channel_count, current_channel);
-                        last_channel_count = current_channel;
-                        in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_CHANNELS, &current_channel);
+
+                    /*if it is txl & 88.2k~192K, we will use software detect*/
+                    if (txl_chip && (cur_audio_packet == AUDIO_PACKET_HBR)) {
+                        feeddata_audio_type_parse(&patch->audio_parse_para, patch->in_buf, bytes_avail);
                     }
-#endif
-                    cur_audio_packet = get_hdmiin_audio_packet(&aml_dev->alsa_mixer);
-                    //reconfig period size when HBR and non HBR audio switching
-                    if ((last_audio_packet == AUDIO_PACKET_HBR ||
-                            cur_audio_packet == AUDIO_PACKET_HBR) &&
-                            last_audio_packet != cur_audio_packet) {
+
+                    //reconfig input stream and buffer when HBR and AUDS audio switching or channel num changed
+                    if ((current_channel != -1 && last_channel_count != current_channel)
+                        || (cur_audio_packet != AUDIO_PACKET_NONE && last_audio_packet != cur_audio_packet)) {
                         int period_size = 0;
                         int buf_size = 0;
                         int channel = 2;
+                        bool bSpdifin_PAO = false;
 
-                        cur_aformat = audio_parse_get_audio_type(patch->audio_parse_para);
-                        ALOGD("HDMI Format Switch from 0x%x to 0x%x last_type=%d cur_type=%d\n",
-                            last_aformat, cur_aformat, last_audio_packet, cur_audio_packet);
+                        ALOGD("HDMI Format Switch from last_type=%d, cur_type=%d, last_ch = %d, cur_ch = %d\n",
+                            last_audio_packet, cur_audio_packet, last_channel_count, current_channel);
 
                         if (cur_audio_packet == AUDIO_PACKET_HBR) {
                             // if it is high bitrate bitstream, use PAO and increase the buffer size
@@ -9884,28 +9825,27 @@ void *audio_patch_input_threadloop(void *data)
                             period_size = DEFAULT_CAPTURE_PERIOD_SIZE * 4;
                             // increase the buffer size
                             buf_size = ring_buffer_size * 8;
-                            int channel = 8;
-                        } else {
+                            channel = 8;
+                        } else if (cur_audio_packet == AUDIO_PACKET_AUDS) {
                             bSpdifin_PAO = false;
                             period_size = DEFAULT_CAPTURE_PERIOD_SIZE;
                             // reset to original one
                             buf_size = ring_buffer_size;
-                            int channel = 2;
+                            channel = current_channel;
                         }
 
                         if (!alsa_device_is_auge()) {
                             set_spdifin_pao(&aml_dev->alsa_mixer, bSpdifin_PAO);
                         }
+
                         ring_buffer_reset_size(ringbuffer, buf_size);
                         in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_PERIODS, &period_size);
-                        if (need_config_channel)
-                            in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_CHANNELS, &channel);
-                        last_aformat = cur_aformat;
+                        in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_CHANNELS, &channel);
                         last_audio_packet = cur_audio_packet;
+                        last_channel_count = current_channel;
+                        in->audio_packet_type = cur_audio_packet;
                         break;
                     }
-
-
                 }
                 if (get_buffer_write_space(ringbuffer) >= bytes_avail) {
                     retry = 0;
