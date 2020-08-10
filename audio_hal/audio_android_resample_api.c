@@ -43,7 +43,7 @@ int android_resample_open(void **handle, audio_resample_config_t *resample_confi
         return -1;
     }
 
-    resample = (android_resample_handle_t *)calloc(1, sizeof(android_resample_handle_t));
+    resample = (android_resample_handle_t *)aml_audio_calloc(1, sizeof(android_resample_handle_t));
     if (resample == NULL) {
         ALOGE("malloc resample_para failed\n");
         return -1;
@@ -79,7 +79,7 @@ int android_resample_open(void **handle, audio_resample_config_t *resample_confi
 exit:
     if (resample) {
         ring_buffer_release(&resample->ring_buf);
-        free(resample);
+        aml_audio_free(resample);
         *handle = 0;
     }
     ALOGE("android resample open failed\n");
@@ -99,7 +99,7 @@ void android_resample_close(void *handle)
     android_resample_release(handle);
 
     ring_buffer_release(&resample->ring_buf);
-    free(resample);
+    aml_audio_free(resample);
 
     return;
 }

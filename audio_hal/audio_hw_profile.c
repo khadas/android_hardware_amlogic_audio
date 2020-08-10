@@ -86,12 +86,12 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
     int size = 0;
     char *aud_cap = NULL;
     ALOGD("%s is running...\n", __func__);
-    infobuf = (char *)malloc(1024 * sizeof(char));
+    infobuf = (char *)aml_audio_malloc(1024 * sizeof(char));
     if (infobuf == NULL) {
         ALOGE("malloc buffer failed\n");
         goto fail;
     }
-    aud_cap = (char*)malloc(1024);
+    aud_cap = (char*)aml_audio_malloc(1024);
     if (aud_cap == NULL) {
         ALOGE("malloc buffer failed\n");
         goto fail;
@@ -176,7 +176,7 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
         ALOGE("open /sys/class/amhdmitx/amhdmitx0/aud_cap failed!!\n");
     }
     if (infobuf) {
-        free(infobuf);
+        aml_audio_free(infobuf);
     }
     if (fd >= 0) {
         close(fd);
@@ -184,10 +184,10 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
     return aud_cap;
 fail:
     if (aud_cap) {
-        free(aud_cap);
+        aml_audio_free(aud_cap);
     }
     if (infobuf) {
-        free(infobuf);
+        aml_audio_free(infobuf);
     }
     return NULL;
 }
@@ -202,7 +202,7 @@ char*  get_hdmi_arc_cap(unsigned *ad, int maxsize, const char *keys)
     int iec_added = 0;
     char *aud_cap = NULL;
     unsigned char format, ch, sr;
-    aud_cap = (char*)malloc(1024);
+    aud_cap = (char*)aml_audio_malloc(1024);
     if (aud_cap == NULL) {
         ALOGE("malloc buffer failed\n");
         goto fail;
@@ -285,7 +285,7 @@ char*  get_hdmi_arc_cap(unsigned *ad, int maxsize, const char *keys)
     return aud_cap;
 fail:
     if (aud_cap) {
-        free(aud_cap);
+        aml_audio_free(aud_cap);
     }
     return NULL;
 }

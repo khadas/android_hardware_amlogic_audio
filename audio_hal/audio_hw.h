@@ -48,6 +48,7 @@
 //#include "aml_audio_mixer.h"
 #include "audio_port.h"
 #include "aml_audio_ease.h"
+#include "aml_malloc_debug.h"
 
 #ifdef ADD_AUDIO_DELAY_INTERFACE
 #include "aml_audio_delay.h"

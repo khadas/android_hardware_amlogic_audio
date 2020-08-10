@@ -219,7 +219,7 @@ int get_dts_stream_channels(const char *buffer, size_t buffer_size) {
         ALOGE("%s, illegal param bytes(%d)", __FUNCTION__, bytes);
         return -1;
     }
-    temp_buffer = (char *)malloc(sizeof(char) * bytes);
+    temp_buffer = (char *)aml_audio_malloc(sizeof(char) * bytes);
     if (temp_buffer == NULL) {
         ALOGE("%s, malloc error", __FUNCTION__);
         return -1;
@@ -285,12 +285,14 @@ int get_dts_stream_channels(const char *buffer, size_t buffer_size) {
         ALOGE("%s, invalid lfe value", __FUNCTION__);
         goto exit;
     }
+
+    aml_audio_free(temp_buffer);
     //ALOGD("%s, channels = %d, lfe = %d", __FUNCTION__, channels, lfe);
     return (channels + lfe);
 
 exit:
     if (temp_buffer != NULL) {
-        free(temp_buffer);
+        aml_audio_free(temp_buffer);
         temp_buffer = NULL;
     }
     return -1;
@@ -408,7 +410,7 @@ static int audio_type_parse_init(audio_type_parse_t *status)
     audio_type_status->period_bytes = bytes;
 
     /*malloc max audio type size, save last 3 byte*/
-    audio_type_status->parse_buffer = (char*) malloc(sizeof(char) * (bytes + 16) * 4);
+    audio_type_status->parse_buffer = (char*) aml_audio_malloc(sizeof(char) * (bytes + 16) * 4);
     if (NULL == audio_type_status->parse_buffer) {
         ALOGE("%s, no memory\n", __FUNCTION__);
         return -1;
@@ -432,7 +434,7 @@ static int audio_type_parse_init(audio_type_parse_t *status)
           audio_type_status->in);
     return 0;
 error:
-    free(audio_type_status->parse_buffer);
+    aml_audio_free(audio_type_status->parse_buffer);
     return -1;
 }
 
@@ -444,7 +446,7 @@ static int audio_type_parse_release(audio_type_parse_t *status)
         pcm_close(audio_type_status->in);
 
     audio_type_status->in = NULL;
-    free(audio_type_status->parse_buffer);
+    aml_audio_free(audio_type_status->parse_buffer);
 
     return 0;
 }
@@ -640,7 +642,7 @@ int creat_pthread_for_audio_type_parse(
         return -1;
     }
 
-    audio_type_status = (audio_type_parse_t*) malloc(sizeof(audio_type_parse_t));
+    audio_type_status = (audio_type_parse_t*) aml_audio_malloc(sizeof(audio_type_parse_t));
     if (NULL == audio_type_status) {
         ALOGE("%s, no memory\n", __FUNCTION__);
         return -1;
@@ -662,7 +664,7 @@ int creat_pthread_for_audio_type_parse(
     pthread_attr_destroy(&attr);
     if (ret != 0) {
         ALOGE("%s, Create thread fail!\n", __FUNCTION__);
-        free(audio_type_status);
+        aml_audio_free(audio_type_status);
         return -1;
     }
 
@@ -678,7 +680,7 @@ void exit_pthread_for_audio_type_parse(
     audio_type_parse_t *audio_type_status = (audio_type_parse_t *)(*status);
     audio_type_status->running_flag = 0;
     pthread_join(audio_type_parse_ThreadID, NULL);
-    free(audio_type_status);
+    aml_audio_free(audio_type_status);
     *status = NULL;
     ALOGI("Exit parse thread,thread ID: %ld!\n", audio_type_parse_ThreadID);
     return;

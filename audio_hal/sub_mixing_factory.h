@@ -23,6 +23,7 @@
 #include <sound/asound.h>
 #include <tinyalsa/asoundlib.h>
 #include <hardware/audio.h>
+#include "aml_malloc_debug.h"
 
 enum MIXER_TYPE {
     MIXER_LPCM = 1,

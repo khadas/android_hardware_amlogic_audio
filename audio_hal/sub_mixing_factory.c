@@ -165,7 +165,7 @@ static int consume_meta_data(void *cookie,
     //struct aml_audio_mixer *audio_mixer = adev->audio_mixer;
     struct subMixing *sm = adev->sm;
     struct amlAudioMixer *audio_mixer = sm->mixerData;
-    struct meta_data_list *mdata_list = calloc(1, sizeof(struct meta_data_list));
+    struct meta_data_list *mdata_list = aml_audio_calloc(1, sizeof(struct meta_data_list));
 
     if (!mdata_list) {
         ALOGE("%s(), no memory", __func__);
@@ -754,8 +754,8 @@ static int deleteSubMixingInputPcm(struct aml_stream_out *out)
             item = list_head(&out->mdata_list);
             mdata_list = node_to_item(item, struct meta_data_list, list);
             list_remove(item);
-            //ALOGI("free medata list=%p", mdata_list);
-            free(mdata_list);
+            //ALOGI("aml_audio_free medata list=%p", mdata_list);
+            aml_audio_free(mdata_list);
         }
         pthread_mutex_unlock(&out->mdata_lock);
     }
@@ -874,7 +874,7 @@ static int newSubMixingFactory(
         res = -EINVAL;
         goto exit;
     }
-    sm = calloc(1, sizeof(struct subMixing));
+    sm = aml_audio_calloc(1, sizeof(struct subMixing));
     if (sm == NULL) {
         ALOGE("%s(), No mem!", __func__);
         res = -ENOMEM;
@@ -912,7 +912,7 @@ static void deleteSubMixing(struct subMixing *sm)
 {
     ALOGI("++%s()", __func__);
     if (sm != NULL) {
-        free(sm);
+        aml_audio_free(sm);
     }
 }
 
@@ -1143,7 +1143,7 @@ static int open_btSCO_device(struct aml_audio_device *adev, size_t frames)
     }
 
     output_frames = frames * VX_NB_SAMPLING_RATE / MM_FULL_POWER_SAMPLING_RATE + 1;
-    bt->bt_out_buffer = calloc(1, output_frames * 2);
+    bt->bt_out_buffer = aml_audio_calloc(1, output_frames * 2);
     if (bt->bt_out_buffer == NULL) {
         ALOGE ("cannot malloc memory for bt_out_buffer");
         ret = -ENOMEM;
@@ -1151,7 +1151,7 @@ static int open_btSCO_device(struct aml_audio_device *adev, size_t frames)
     }
     bt->bt_out_frames = 0;
 
-    bt->resampler_buffer = calloc(1, frames * 2);
+    bt->resampler_buffer = aml_audio_calloc(1, frames * 2);
     if (bt->resampler_buffer == NULL) {
         ALOGE ("cannot malloc memory for resampler_buffer");
         ret = -ENOMEM;
@@ -1163,7 +1163,7 @@ static int open_btSCO_device(struct aml_audio_device *adev, size_t frames)
     return 0;
 
 err_resampler_buf:
-    free(bt->bt_out_buffer);
+    aml_audio_free(bt->bt_out_buffer);
 err_out_buf:
     release_resampler(bt->resampler);
     bt->resampler = NULL;
@@ -1189,9 +1189,9 @@ static void close_btSCO_device(struct aml_audio_device *adev)
         bt->resampler = NULL;
     }
     if (bt->bt_out_buffer)
-        free(bt->bt_out_buffer);
+        aml_audio_free(bt->bt_out_buffer);
     if (bt->resampler_buffer)
-        free(bt->resampler_buffer);
+        aml_audio_free(bt->resampler_buffer);
 }
 
 ssize_t write_to_sco(struct audio_stream_out *stream,
@@ -1220,7 +1220,7 @@ ssize_t write_to_sco(struct audio_stream_out *stream,
         size_t frames_needed = bt->resampler_in_frames + in_frames;
         if (bt->resampler_buffer_size_in_frames < frames_needed) {
             bt->resampler_buffer_size_in_frames = frames_needed;
-            bt->resampler_buffer = (int16_t *)realloc(bt->resampler_buffer,
+            bt->resampler_buffer = (int16_t *)aml_audio_realloc(bt->resampler_buffer,
                     bt->resampler_buffer_size_in_frames * frame_size);
         }
 
@@ -1312,7 +1312,7 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
             __func__, aml_out, aml_out->port_index);
         aml_out->standby = false;
         /* start padding zero to fill buffer */
-        padding_buf = calloc(1, 512 * 4);
+        padding_buf = aml_audio_calloc(1, 512 * 4);
         if (padding_buf == NULL) {
             ALOGE("%s(), no memory", __func__);
             return -ENOMEM;
@@ -1323,7 +1323,7 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
             aml_out_write_to_mixer(stream, padding_buf, 512 * 4);
             padding_bytes -= 512 * 4;
         }
-        free(padding_buf);
+        aml_audio_free(padding_buf);
     }
 
     if (bytes == 0) {
@@ -1667,7 +1667,7 @@ static int out_flush_subMixingPCM(struct audio_stream_out *stream)
                 item = list_head(&aml_out->mdata_list);
                 mdata_list = node_to_item(item, struct meta_data_list, list);
                 list_remove(item);
-                free(mdata_list);
+                aml_audio_free(mdata_list);
             }
             pthread_mutex_unlock(&aml_out->mdata_lock);
         }

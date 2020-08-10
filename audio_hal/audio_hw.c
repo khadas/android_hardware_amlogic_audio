@@ -121,7 +121,6 @@
 #endif
 
 #include "sub_mixing_factory.h"
-#include "aml_malloc_debug.h"
 #include "audio_a2dp_hw.h"
 
 #define CARD_AMLOGIC_BOARD 0
@@ -670,7 +669,7 @@ static int start_output_stream (struct aml_stream_out *out)
             }
             out->buffer_frames = (out->config.period_size * out->config.rate) /
                                  out_get_sample_rate (&out->stream.common) + 1;
-            out->buffer = malloc (pcm_frames_to_bytes (out->pcm, out->buffer_frames) );
+            out->buffer = aml_audio_malloc (pcm_frames_to_bytes (out->pcm, out->buffer_frames) );
             if (out->buffer == NULL) {
                 ALOGE ("cannot malloc memory for out->buffer");
                 return -ENOMEM;
@@ -1149,7 +1148,7 @@ static int do_output_standby (struct aml_stream_out *out)
         //pcm_close(out->pcm);
         //out->pcm = NULL;
         if (out->buffer) {
-            free (out->buffer);
+            aml_audio_free (out->buffer);
             out->buffer = NULL;
         }
         if (out->resampler) {
@@ -1215,7 +1214,7 @@ static int do_output_standby_direct (struct aml_stream_out *out)
 
     if (!out->standby) {
         if (out->buffer) {
-            free (out->buffer);
+            aml_audio_free (out->buffer);
             out->buffer = NULL;
         }
         out->standby = 1;
@@ -1271,7 +1270,7 @@ int out_standby_direct (struct audio_stream *stream)
     pthread_mutex_lock (&out->lock);
     if (!out->standby) {
         if (out->buffer) {
-            free (out->buffer);
+            aml_audio_free (out->buffer);
             out->buffer = NULL;
         }
         if (adev->hi_pcm_mode) {
@@ -1640,7 +1639,7 @@ static char *out_get_parameters (const struct audio_stream *stream, const char *
         }
         if (cap) {
             para = strdup (cap);
-            free (cap);
+            aml_audio_free (cap);
         } else {
             para = strdup ("");
         }
@@ -1661,7 +1660,7 @@ static char *out_get_parameters (const struct audio_stream *stream, const char *
         }
         if (cap) {
             para = strdup (cap);
-            free (cap);
+            aml_audio_free (cap);
         } else {
             para = strdup ("");
         }
@@ -1686,7 +1685,7 @@ static char *out_get_parameters (const struct audio_stream *stream, const char *
         }
         if (cap) {
             para = strdup (cap);
-            free (cap);
+            aml_audio_free (cap);
         } else {
             para = strdup ("");
         }
@@ -2372,17 +2371,17 @@ static ssize_t out_write_legacy (struct audio_stream_out *stream, const void* bu
                                 insert_size = insert_size & (~63);
                                 insert_size_total = insert_size;
                                 ALOGI ("audio gap %"PRIx64" ms ,need insert pcm size %d\n", two_frame_gap/*abs(pts -apts) */ / 90, insert_size);
-                                char *insert_buf = (char*) malloc (8192);
+                                char *insert_buf = (char*) aml_audio_malloc (8192);
                                 if (insert_buf == NULL) {
                                     ALOGE("malloc size failed \n");
                                     goto exit;
                                 }
                                 memset(insert_buf, 0, 8192);
                                 if (need_mix) {
-                                    mix_buf = malloc (once_write_size);
+                                    mix_buf = aml_audio_malloc (once_write_size);
                                     if (mix_buf == NULL) {
                                         ALOGE("mix_buf malloc failed\n");
-                                        free(insert_buf);
+                                        aml_audio_free(insert_buf);
                                         goto exit;
                                     }
                                 }
@@ -2408,19 +2407,19 @@ static ssize_t out_write_legacy (struct audio_stream_out *stream, const void* bu
                                     pthread_mutex_unlock (&adev->pcm_write_lock);
                                     if (ret != 0) {
                                         ALOGE ("pcm write failed\n");
-                                        free (insert_buf);
+                                        aml_audio_free (insert_buf);
                                         if (mix_buf) {
-                                            free(mix_buf);
+                                            aml_audio_free(mix_buf);
                                         }
                                         goto exit;
                                     }
                                     insert_size -= once_write_size;
                                 }
                                 if (mix_buf) {
-                                    free (mix_buf);
+                                    aml_audio_free (mix_buf);
                                 }
                                 mix_buf = NULL;
-                                free (insert_buf);
+                                aml_audio_free (insert_buf);
                                 // insert end
                                 //adev->first_apts = pts;
                                 out->frame_write_sum +=  insert_size_total / frame_size;
@@ -2540,7 +2539,7 @@ static ssize_t out_write_legacy (struct audio_stream_out *stream, const void* bu
                     align = m & 63;
                     if ( (m - align) > 0) {
                         short *w_buf = (short*) p;
-                        mix_buf = (short *) malloc (m - align);
+                        mix_buf = (short *) aml_audio_malloc (m - align);
                         if (mix_buf == NULL) {
                             ALOGE ("!!!fatal err,malloc %d bytes fail\n", m - align);
                             ret = -1;
@@ -2579,7 +2578,7 @@ static ssize_t out_write_legacy (struct audio_stream_out *stream, const void* bu
                         pthread_mutex_lock (&adev->pcm_write_lock);
                         ret = pcm_write (out->pcm, mix_buf, m - align);
                         pthread_mutex_unlock (&adev->pcm_write_lock);
-                        free (mix_buf);
+                        aml_audio_free (mix_buf);
                         out->frame_write_sum += (m - align) / frame_size;
 
                         p += m - align;
@@ -2831,7 +2830,7 @@ static int insert_output_bytes (struct aml_stream_out *out, size_t size)
     void *output_buffer = NULL;
     size_t output_buffer_bytes = 0;
     audio_format_t output_format = get_output_format(stream);
-    char *insert_buf = (char*) malloc (8192);
+    char *insert_buf = (char*) aml_audio_malloc (8192);
     if (insert_buf == NULL) {
         ALOGE ("malloc size failed \n");
         return -ENOMEM;
@@ -2866,7 +2865,7 @@ static int insert_output_bytes (struct aml_stream_out *out, size_t size)
     }
 
 exit:
-    free (insert_buf);
+    aml_audio_free (insert_buf);
     return 0;
 }
 
@@ -3691,7 +3690,7 @@ static int do_input_standby (struct aml_stream_in *in)
             in->resampler = NULL;
         }
         if (in->buffer) {
-            free(in->buffer);
+            aml_audio_free(in->buffer);
             in->buffer = NULL;
         }
 
@@ -3833,7 +3832,7 @@ static char * in_get_parameters (const struct audio_stream *stream, const char *
         cap = strdup ("sup_formats=AUDIO_FORMAT_PCM_16_BIT");
         if (cap) {
             para = strdup (cap);
-            free (cap);
+            aml_audio_free (cap);
             return para;
         }
     }
@@ -4089,10 +4088,10 @@ static void processBtAndUsbCardData(struct aml_stream_in *in, struct aml_audio_p
     }
 
     if (NULL == in->pBtUsbTempDelayBuf || in->delay_buffer_size != bytes || bIsBufNull) {
-        in->pBtUsbTempDelayBuf = realloc(in->pBtUsbTempDelayBuf, bytes);
+        in->pBtUsbTempDelayBuf = aml_audio_realloc(in->pBtUsbTempDelayBuf, bytes);
         memset(in->pBtUsbTempDelayBuf, 0, bytes);
         for (int i=0; i<BT_AND_USB_PERIOD_DELAY_BUF_CNT; i++) {
-            in->pBtUsbPeriodDelayBuf[i] = realloc(in->pBtUsbPeriodDelayBuf[i], bytes);
+            in->pBtUsbPeriodDelayBuf[i] = aml_audio_realloc(in->pBtUsbPeriodDelayBuf[i], bytes);
             memset(in->pBtUsbPeriodDelayBuf[i], 0, bytes);
         }
         in->delay_buffer_size = bytes;
@@ -4260,7 +4259,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
         if (!in->tmp_buffer_8ch || in->tmp_buffer_8ch_size < 4 * cur_in_bytes) {
             ALOGI("%s: realloc tmp_buffer_8ch size from %zu to %zu",
                 __func__, in->tmp_buffer_8ch_size, 4 * cur_in_bytes);
-            in->tmp_buffer_8ch = realloc(in->tmp_buffer_8ch, 4 * cur_in_bytes);
+            in->tmp_buffer_8ch = aml_audio_realloc(in->tmp_buffer_8ch, 4 * cur_in_bytes);
             if (!in->tmp_buffer_8ch) {
                 ALOGE("%s malloc failed\n", __func__);
             }
@@ -4351,7 +4350,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
 
             if (in->resampler) {
                 ret = read_frames(in, buffer, in_frames);
-            } else if (in->audio_packet_type != AUDIO_PACKET_HBR && in->config.channels != 2) {
+            } else if (in->audio_packet_type == AUDIO_PACKET_AUDS && in->config.channels != 2) {
                 ret = input_stream_channels_adjust(stream, buffer, bytes);
             } else if (!((adev->in_device & AUDIO_DEVICE_IN_HDMI_ARC) &&
                     (access(SYS_NODE_EARC_RX, F_OK) == 0) &&
@@ -4492,7 +4491,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     ALOGD("%s: enter: devices(%#x) channel_mask(%#x) rate(%d) format(%#x) flags(%#x)", __func__,
         devices, config->channel_mask, config->sample_rate, config->format, flags);
 
-    out = (struct aml_stream_out *)calloc(1, sizeof(struct aml_stream_out));
+    out = (struct aml_stream_out *)aml_audio_calloc(1, sizeof(struct aml_stream_out));
     if (!out)
         return -ENOMEM;
     virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
@@ -4691,7 +4690,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         out->config.format = PCM_FORMAT_S32_LE;
 
         out->tmp_buffer_8ch_size = out->config.period_size * 4 * 8;
-        out->tmp_buffer_8ch = malloc(out->tmp_buffer_8ch_size);
+        out->tmp_buffer_8ch = aml_audio_malloc(out->tmp_buffer_8ch_size);
         if (!out->tmp_buffer_8ch) {
             ALOGE("%s: alloc tmp_buffer_8ch failed", __func__);
             ret = -ENOMEM;
@@ -4699,7 +4698,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         }
         memset(out->tmp_buffer_8ch, 0, out->tmp_buffer_8ch_size);
 
-        out->audioeffect_tmp_buffer = malloc(out->config.period_size * 6);
+        out->audioeffect_tmp_buffer = aml_audio_malloc(out->config.period_size * 6);
         if (!out->audioeffect_tmp_buffer) {
             ALOGE("%s: alloc audioeffect_tmp_buffer failed", __func__);
             ret = -ENOMEM;
@@ -4708,16 +4707,16 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         memset(out->audioeffect_tmp_buffer, 0, out->config.period_size * 6);
     }
 
-    out->hwsync =  calloc(1, sizeof(audio_hwsync_t));
+    out->hwsync =  aml_audio_calloc(1, sizeof(audio_hwsync_t));
     if (!out->hwsync) {
         ALOGE("%s,malloc hwsync failed", __func__);
         if (out->tmp_buffer_8ch) {
-            free(out->tmp_buffer_8ch);
+            aml_audio_free(out->tmp_buffer_8ch);
         }
         if (out->audioeffect_tmp_buffer) {
-            free(out->audioeffect_tmp_buffer);
+            aml_audio_free(out->audioeffect_tmp_buffer);
         }
-        free(out);
+        aml_audio_free(out);
         return -ENOMEM;
     }
     out->hwsync->tsync_fd = -1;
@@ -4756,10 +4755,10 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     return 0;
 err:
     if (out->audioeffect_tmp_buffer)
-        free(out->audioeffect_tmp_buffer);
+        aml_audio_free(out->audioeffect_tmp_buffer);
     if (out->tmp_buffer_8ch)
-        free(out->tmp_buffer_8ch);
-    free(out);
+        aml_audio_free(out->tmp_buffer_8ch);
+    aml_audio_free(out);
     return ret;
 }
 
@@ -4814,12 +4813,12 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     }
 
     pthread_mutex_lock(&out->lock);
-    free(out->audioeffect_tmp_buffer);
-    free(out->tmp_buffer_8ch);
+    aml_audio_free(out->audioeffect_tmp_buffer);
+    aml_audio_free(out->tmp_buffer_8ch);
     if (out->hwsync) {
         // release hwsync resource ..zzz
         aml_audio_hwsync_release(out->hwsync);
-        free(out->hwsync);
+        aml_audio_free(out->hwsync);
     }
 
     if (out->resample_handle) {
@@ -4827,7 +4826,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         out->resample_handle = NULL;
     }
     pthread_mutex_unlock(&out->lock);
-    free(stream);
+    aml_audio_free(stream);
     ALOGD("%s: exit", __func__);
 }
 
@@ -6134,7 +6133,7 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
     //4.audio format
     else if (strstr(keys, "HDMIIN audio format")) {
         int cur_format = aml_mixer_ctrl_get_int(&adev->alsa_mixer,AML_MIXER_ID_HDMI_IN_FORMATS);
-        ALOGD("cur_format :%d", cur_format);
+        ALOGV("cur_format :%d", cur_format);
         sprintf(temp_buf, "%d", cur_format);
         return  strdup(temp_buf);
     }
@@ -6349,7 +6348,7 @@ int add_in_stream_resampler(struct aml_stream_in *in)
     if (in->requested_rate == in->config.rate)
         return 0;
 
-    in->buffer = calloc(1, in->config.period_size * audio_stream_in_frame_size(&in->stream));
+    in->buffer = aml_audio_calloc(1, in->config.period_size * audio_stream_in_frame_size(&in->stream));
     if (!in->buffer) {
         ret = -ENOMEM;
         goto err;
@@ -6369,7 +6368,7 @@ int add_in_stream_resampler(struct aml_stream_in *in)
 
     return 0;
 err_resampler:
-    free(in->buffer);
+    aml_audio_free(in->buffer);
 err:
     return ret;
 }
@@ -6426,7 +6425,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     else
         config->channel_mask = AUDIO_CHANNEL_IN_STEREO;
 
-    in = (struct aml_stream_in *)calloc(1, sizeof(struct aml_stream_in));
+    in = (struct aml_stream_in *)aml_audio_calloc(1, sizeof(struct aml_stream_in));
     if (!in)
         return -ENOMEM;
 #if defined(ENABLE_HBG_PATCH)
@@ -6564,10 +6563,10 @@ err:
         in->resampler = NULL;
     }
     if (in->buffer) {
-        free(in->buffer);
+        aml_audio_free(in->buffer);
         in->buffer = NULL;
     }
-    free(in);
+    aml_audio_free(in);
     *stream_in = NULL;
     return ret;
 }
@@ -6603,7 +6602,7 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
 #ifdef ENABLE_AEC_FUNC
     if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
         if (in->tmp_buffer_8ch) {
-            free(in->tmp_buffer_8ch);
+            aml_audio_free(in->tmp_buffer_8ch);
             in->tmp_buffer_8ch = NULL;
         }
         aec_spk_mic_release();
@@ -6611,34 +6610,36 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
 #endif
 
     if (in->input_tmp_buffer) {
-        free(in->input_tmp_buffer);
+        aml_audio_free(in->input_tmp_buffer);
         in->input_tmp_buffer = NULL;
+        in->input_tmp_buffer_size = 0;
     }
+
     for (int i=0; i<BT_AND_USB_PERIOD_DELAY_BUF_CNT; i++) {
         if (in->pBtUsbPeriodDelayBuf[i]) {
-            free(in->pBtUsbPeriodDelayBuf[i]);
+            aml_audio_free(in->pBtUsbPeriodDelayBuf[i]);
             in->pBtUsbPeriodDelayBuf[i] = NULL;
         }
     }
 
     if (in->pBtUsbTempDelayBuf) {
-        free(in->pBtUsbTempDelayBuf);
+        aml_audio_free(in->pBtUsbTempDelayBuf);
         in->pBtUsbTempDelayBuf = NULL;
     }
     in->delay_buffer_size = 0;
 
     if (in->proc_buf) {
-        free(in->proc_buf);
+        aml_audio_free(in->proc_buf);
     }
     if (in->ref_buf) {
-        free(in->ref_buf);
+        aml_audio_free(in->ref_buf);
     }
 
 #if defined(ENABLE_HBG_PATCH)
     unregist_callBack_stream(in->hbg_channel);
 #endif
 
-    free(stream);
+    aml_audio_free(stream);
     ALOGD("%s: exit", __func__);
     return;
 }
@@ -6721,7 +6722,7 @@ int do_output_standby_l(struct audio_stream *stream)
     if (adev->continuous_audio_mode == 0) {
         // release buffers
         if (aml_out->buffer) {
-            free(aml_out->buffer);
+            aml_audio_free(aml_out->buffer);
             aml_out->buffer = NULL;
         }
 
@@ -7280,7 +7281,7 @@ static void output_mute(struct audio_stream_out *stream, size_t *output_buffer_b
             start_ease_in(adev);
             ALOGI ("%s() tv source unmute, start fade in", __func__);
         } else {
-            ALOGD("%s line %d target memset len 0x%x\n", __func__, __LINE__, target_len);
+            ALOGV("%s line %d target memset len 0x%x\n", __func__, __LINE__, target_len);
             memset(aml_out->tmp_buffer_8ch, 0, target_len);
         }
     }
@@ -7356,7 +7357,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
 
         /* 2 ch 32 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
         if (aml_out->tmp_buffer_8ch_size < FRAMESIZE_32BIT_8ch * out_frames) {
-            aml_out->tmp_buffer_8ch = realloc(aml_out->tmp_buffer_8ch, FRAMESIZE_32BIT_8ch * out_frames);
+            aml_out->tmp_buffer_8ch = aml_audio_realloc(aml_out->tmp_buffer_8ch, FRAMESIZE_32BIT_8ch * out_frames);
             if (!aml_out->tmp_buffer_8ch) {
                 ALOGE("%s: realloc tmp_buffer_8ch buf failed size = %zu format = %#x", __func__,
                         FRAMESIZE_32BIT_8ch * out_frames, output_format);
@@ -7398,7 +7399,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
 
             /* handling audio effect process here */
             if (adev->effect_buf_size < bytes) {
-                adev->effect_buf = realloc(adev->effect_buf, bytes);
+                adev->effect_buf = aml_audio_realloc(adev->effect_buf, bytes);
                 if (!adev->effect_buf) {
                     ALOGE ("realloc effect buf failed size %zu format = %#x", bytes, output_format);
                     return -ENOMEM;
@@ -7407,13 +7408,13 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 }
                 adev->effect_buf_size = bytes;
 
-                adev->spk_output_buf = realloc(adev->spk_output_buf, bytes*2);
+                adev->spk_output_buf = aml_audio_realloc(adev->spk_output_buf, bytes*2);
                 if (!adev->spk_output_buf) {
                     ALOGE ("realloc headphone buf failed size %zu format = %#x", bytes, output_format);
                     return -ENOMEM;
                 }
                 // 16bit -> 32bit, need realloc
-                adev->spdif_output_buf = realloc(adev->spdif_output_buf, bytes * 2);
+                adev->spdif_output_buf = aml_audio_realloc(adev->spdif_output_buf, bytes * 2);
                 if (!adev->spdif_output_buf) {
                     ALOGE ("realloc spdif buf failed size %zu format = %#x", bytes, output_format);
                     return -ENOMEM;
@@ -7510,7 +7511,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
 
             /* 2 ch 32 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
             if (aml_out->tmp_buffer_8ch_size < 8 * bytes) {
-                aml_out->tmp_buffer_8ch = realloc(aml_out->tmp_buffer_8ch, 8 * bytes);
+                aml_out->tmp_buffer_8ch = aml_audio_realloc(aml_out->tmp_buffer_8ch, 8 * bytes);
                 if (!aml_out->tmp_buffer_8ch) {
                     ALOGE("%s: realloc tmp_buffer_8ch buf failed size = %zu format = %#x",
                         __func__, 8 * bytes, output_format);
@@ -7729,7 +7730,7 @@ ssize_t hw_write (struct audio_stream_out *stream
             ALOGI("%s hwsync audio need %s %d ms,adjust bytes %d",
                   __func__, adjust_ms > 0 ? "insert" : "skip", abs(adjust_ms), adjust_bytes);
             if (adjust_ms > 0) {
-                char *buf = malloc(1024);
+                char *buf = aml_audio_malloc(1024);
                 int write_size = 0;
                 if (!buf) {
                     ALOGE("%s malloc failed", __func__);
@@ -7750,7 +7751,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                     }
                     adjust_bytes -= write_size;
                 }
-                free(buf);
+                aml_audio_free(buf);
             } else {
                 //do nothing.
                 /*
@@ -8114,7 +8115,7 @@ void config_output(struct audio_stream_out *stream)
                         ddp_dec->digital_raw = 0;
                     }
                     if (cap) {
-                        free(cap);
+                        aml_audio_free(cap);
                     }
                 } else {
                     if (adev->hdmi_descs.ddp_fmt.is_support) {
@@ -8895,7 +8896,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
             if (dts_dec->pcm_out_info.channel_num == 6) {
                 int16_t *dts_buffer = (int16_t *) dts_dec->outbuf;
                 if (adev->effect_buf_size < bytes) {
-                    adev->effect_buf = realloc(adev->effect_buf, bytes);
+                    adev->effect_buf = aml_audio_realloc(adev->effect_buf, bytes);
                     if (!adev->effect_buf) {
                         ALOGE ("realloc effect buf failed size %zu format = %#x", bytes, output_format);
                         return -ENOMEM;
@@ -9101,7 +9102,7 @@ dcv_rewrite:
 #if defined(IS_ATOM_PROJECT)
                 audio_format_t output_format = AUDIO_FORMAT_PCM_32_BIT;
                 if (!adev->output_tmp_buf || adev->output_tmp_buf_size < 2 * hw_sync->hw_sync_frame_size) {
-                    adev->output_tmp_buf = realloc(adev->output_tmp_buf, 2 * hw_sync->hw_sync_frame_size);
+                    adev->output_tmp_buf = aml_audio_realloc(adev->output_tmp_buf, 2 * hw_sync->hw_sync_frame_size);
                     adev->output_tmp_buf_size = 2 * hw_sync->hw_sync_frame_size;
                 }
                 uint16_t *p = (uint16_t *)write_buf;
@@ -9737,7 +9738,7 @@ void *audio_patch_input_threadloop(void *data)
     in = (struct aml_stream_in *)stream_in;
 
     patch->in_buf_size = read_bytes = DEFAULT_CAPTURE_PERIOD_SIZE * audio_stream_in_frame_size(&in->stream);
-    patch->in_buf = calloc(1, patch->in_buf_size);
+    patch->in_buf = aml_audio_calloc(1, patch->in_buf_size);
     if (!patch->in_buf) {
         adev_close_input_stream(patch->dev, &in->stream);
         return (void *)0;
@@ -9775,7 +9776,7 @@ void *audio_patch_input_threadloop(void *data)
         // buffer size diff from allocation size, need to resize.
         if (patch->in_buf_size < (size_t)read_bytes * period_mul) {
             ALOGI("%s: !!realloc in buf size from %zu to %zu", __func__, patch->in_buf_size, read_bytes * period_mul);
-            patch->in_buf = realloc(patch->in_buf, read_bytes * period_mul);
+            patch->in_buf = aml_audio_realloc(patch->in_buf, read_bytes * period_mul);
             patch->in_buf_size = read_bytes * period_mul;
         }
 #if 0
@@ -9872,7 +9873,7 @@ void *audio_patch_input_threadloop(void *data)
                     retry = 1;
                     pthread_cond_signal(&patch->cond);
                     //Fixme: if ringbuffer is full enough but no output, reset ringbuffer
-                    ALOGW("%s(), ring buffer no space to write, buffer free size:%d, need write size:%d", __func__,
+                    ALOGW("%s(), ring buffer no space to write, buffer aml_audio_free size:%d, need write size:%d", __func__,
                         get_buffer_write_space(ringbuffer), bytes_avail);
                     ring_buffer_reset(ringbuffer);
                     usleep(3000);
@@ -9890,7 +9891,7 @@ void *audio_patch_input_threadloop(void *data)
 
     adev_close_input_stream(patch->dev, &in->stream);
     if (patch->in_buf) {
-        free(patch->in_buf);
+        aml_audio_free(patch->in_buf);
         patch->in_buf = NULL;
     }
     ALOGD("%s: exit", __func__);
@@ -9967,7 +9968,7 @@ void *audio_patch_output_threadloop(void *data)
 
     out = (struct aml_stream_out *)stream_out;
     patch->out_buf_size = write_bytes = out->config.period_size * audio_stream_out_frame_size(&out->stream);
-    patch->out_buf = calloc(1, patch->out_buf_size);
+    patch->out_buf = aml_audio_calloc(1, patch->out_buf_size);
     if (!patch->out_buf) {
         adev_close_output_stream_new(patch->dev, &out->stream);
         return (void *)0;
@@ -9988,7 +9989,7 @@ void *audio_patch_output_threadloop(void *data)
         // buffer size diff from allocation size, need to resize.
         if (patch->out_buf_size < (size_t)write_bytes * period_mul) {
             ALOGI("%s: !!realloc out buf size from %zu to %zu", __func__, patch->out_buf_size, write_bytes * period_mul);
-            patch->out_buf = realloc(patch->out_buf, write_bytes * period_mul);
+            patch->out_buf = aml_audio_realloc(patch->out_buf, write_bytes * period_mul);
             patch->out_buf_size = write_bytes * period_mul;
         }
 
@@ -10040,7 +10041,7 @@ void *audio_patch_output_threadloop(void *data)
 
     adev_close_output_stream_new(patch->dev, &out->stream);
     if (patch->out_buf) {
-        free(patch->out_buf);
+        aml_audio_free(patch->out_buf);
         patch->out_buf = NULL;
     }
     ALOGD("%s: exit", __func__);
@@ -10071,7 +10072,7 @@ static int create_patch_l(struct audio_hw_device *dev,
             release_patch_l(aml_dev);
     }
 
-    patch = calloc(1, sizeof(*patch));
+    patch = aml_audio_calloc(1, sizeof(*patch));
     if (!patch) {
         return -ENOMEM;
     }
@@ -10100,7 +10101,7 @@ static int create_patch_l(struct audio_hw_device *dev,
     patch->avsync_drop = 0;
     patch->avsync_adelay = 0;
     patch->is_alsa_input_mute = false;
-    patch->drop_buf = calloc(1, sizeof(unsigned char) * DROP_AUDIO_SIZE);
+    patch->drop_buf = aml_audio_calloc(1, sizeof(unsigned char) * DROP_AUDIO_SIZE);
 
     if (aml_dev->useSubMix) {
         // switch normal stream to old tv mode writing
@@ -10153,7 +10154,7 @@ err_out_thread:
 err_in_thread:
     ring_buffer_release(&patch->aml_ringbuffer);
 err_ring_buf:
-    free(patch);
+    aml_audio_free(patch);
     return ret;
 }
 
@@ -10196,12 +10197,12 @@ int release_patch_l(struct aml_audio_device *aml_dev)
     patch->output_thread_exit = 1;
     pthread_join(patch->audio_output_threadID, NULL);
     ring_buffer_release(&patch->aml_ringbuffer);
-    free(patch->drop_buf);
-    free(patch);
+    aml_audio_free(patch->drop_buf);
+    aml_audio_free(patch);
     aml_dev->audio_patch = NULL;
     ALOGD("%s: exit", __func__);
 #if defined(IS_ATOM_PROJECT)
-    free(aml_dev->output_tmp_buf);
+    aml_audio_free(aml_dev->output_tmp_buf);
     aml_dev->output_tmp_buf = NULL;
     aml_dev->output_tmp_buf_size = 0;
 #endif
@@ -10251,7 +10252,7 @@ static int create_parser (struct audio_hw_device *dev, enum IN_PORT inport)
     audio_devices_t input_src;
 
     ALOGI ("++%s", __func__);
-    parser = calloc (1, sizeof (struct aml_audio_parser) );
+    parser = aml_audio_calloc (1, sizeof (struct aml_audio_parser) );
     if (!parser) {
         ret = -ENOMEM;
         goto err;
@@ -10287,7 +10288,7 @@ static int create_parser (struct audio_hw_device *dev, enum IN_PORT inport)
 err_in_thread:
     ring_buffer_release (& (parser->aml_ringbuffer) );
 err_ring_buf:
-    free (parser);
+    aml_audio_free (parser);
 err:
     return ret;
 }
@@ -10308,7 +10309,7 @@ static int release_parser (struct aml_audio_device *aml_dev)
     }
     exit_pthread_for_audio_type_parse (parser->audio_parse_threadID,&parser->audio_parse_para);
     ring_buffer_release (& (parser->aml_ringbuffer) );
-    free (parser);
+    aml_audio_free (parser);
     aml_dev->aml_parser = NULL;
     ALOGI ("--%s", __FUNCTION__);
     return 0;
@@ -10404,7 +10405,7 @@ static int unregister_audio_patch(struct audio_hw_device *dev __unused,
     dump_audio_patch_set(patch_set);
 #endif
     list_remove(&patch_set->list);
-    free(patch_set);
+    aml_audio_free(patch_set);
     ALOGD("%s: exit", __func__);
 
     return 0;
@@ -10427,7 +10428,7 @@ static struct audio_patch_set *register_audio_patch(struct audio_hw_device *dev,
     struct listnode *node = NULL;
     audio_patch_handle_t patch_handle;
 
-    patch_set_new = calloc(1, sizeof (*patch_set_new) );
+    patch_set_new = aml_audio_calloc(1, sizeof (*patch_set_new) );
     if (!patch_set_new) {
         ALOGE("%s(): no memory", __func__);
         return NULL;
@@ -11195,6 +11196,11 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
             aml_dev->hdmi_format);
     dprintf(fd, "[AML_HAL]      dolby_lib: %d\n",
             aml_dev->dolby_lib_type);
+
+#ifdef AML_MALLOC_DEBUG
+    aml_audio_debug_malloc_showinfo(MEMINFO_SHOW_PRINT);
+#endif
+
     return 0;
 }
 
@@ -11214,18 +11220,18 @@ static int adev_close(hw_device_t *device)
     }
 #if defined(IS_ATOM_PROJECT)
     if (adev->aec_buf)
-        free(adev->aec_buf);
+        aml_audio_free(adev->aec_buf);
     if (adev->dsp_in_buf)
-        free(adev->dsp_in_buf);
+        aml_audio_free(adev->dsp_in_buf);
 #endif
     if (adev->effect_buf) {
-        free(adev->effect_buf);
+        aml_audio_free(adev->effect_buf);
     }
     if (adev->spk_output_buf) {
-        free(adev->spk_output_buf);
+        aml_audio_free(adev->spk_output_buf);
     }
     if (adev->spdif_output_buf) {
-        free(adev->spdif_output_buf);
+        aml_audio_free(adev->spdif_output_buf);
     }
     if (adev->aml_ng_handle) {
         release_noise_gate(adev->aml_ng_handle);
@@ -11250,9 +11256,9 @@ static int adev_close(hw_device_t *device)
 #endif
 #ifdef PDM_MIC_CHANNELS
     if (adev->mic_desc)
-        free(adev->mic_desc);
+        aml_audio_free(adev->mic_desc);
 #endif
-    free(device);
+    aml_audio_free(device);
     aml_audio_debug_malloc_close();
     return 0;
 }
@@ -11528,7 +11534,7 @@ static int adev_get_audio_port(struct audio_hw_device *dev __unused, struct audi
 //#define PDM_MIC_CHANNELS 4
 int init_mic_desc(struct aml_audio_device *adev)
 {
-    struct mic_in_desc *mic_desc = calloc(1, sizeof(struct mic_in_desc));
+    struct mic_in_desc *mic_desc = aml_audio_calloc(1, sizeof(struct mic_in_desc));
     if (!mic_desc)
         return -ENOMEM;
 
@@ -11596,7 +11602,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     if (alsa_device_is_auge())
         alsa_depop(card);
 #endif
-    adev = calloc(1, sizeof(struct aml_audio_device));
+    adev = aml_audio_calloc(1, sizeof(struct aml_audio_device));
     if (!adev) {
         ret = -ENOMEM;
         goto err;
@@ -11676,21 +11682,21 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 
     adev->next_unique_ID = 1;
     list_init(&adev->patch_list);
-    adev->effect_buf = malloc(buffer_size);
+    adev->effect_buf = aml_audio_malloc(buffer_size);
     if (adev->effect_buf == NULL) {
         ALOGE("malloc effect buffer failed");
         ret = -ENOMEM;
         goto err_adev;
     }
     memset(adev->effect_buf, 0, buffer_size);
-    adev->spk_output_buf = malloc(buffer_size * 2);
+    adev->spk_output_buf = aml_audio_malloc(buffer_size * 2);
     if (adev->spk_output_buf == NULL) {
         ALOGE("no memory for headphone output buffer");
         ret = -ENOMEM;
         goto err_effect_buf;
     }
     memset(adev->spk_output_buf, 0, buffer_size);
-    adev->spdif_output_buf = malloc(buffer_size * 2);
+    adev->spdif_output_buf = aml_audio_malloc(buffer_size * 2);
     if (adev->spdif_output_buf == NULL) {
         ALOGE("no memory for spdif output buffer");
         ret = -ENOMEM;
@@ -11854,11 +11860,11 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 err_ringbuf:
     ring_buffer_release(&adev->spk_tuning_rbuf);
 err_spk_tuning_buf:
-    free(adev->spk_output_buf);
+    aml_audio_free(adev->spk_output_buf);
 err_effect_buf:
-    free(adev->effect_buf);
+    aml_audio_free(adev->effect_buf);
 err_adev:
-    free(adev);
+    aml_audio_free(adev);
 err:
     return ret;
 }

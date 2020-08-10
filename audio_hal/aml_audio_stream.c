@@ -57,7 +57,7 @@ static audio_format_t get_sink_capability (struct audio_stream_out *stream)
                 sink_capability = AUDIO_FORMAT_AC3;
             }
             ALOGI ("%s mbox+dvb case sink_capability =  %d\n", __FUNCTION__, sink_capability);
-            free(cap);
+            aml_audio_free(cap);
             cap = NULL;
         }
     } else {
@@ -298,12 +298,12 @@ void  release_audio_stream(struct audio_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     if (aml_out->is_tv_platform == 1) {
-        free(aml_out->tmp_buffer_8ch);
+        aml_audio_free(aml_out->tmp_buffer_8ch);
         aml_out->tmp_buffer_8ch = NULL;
-        free(aml_out->audioeffect_tmp_buffer);
+        aml_audio_free(aml_out->audioeffect_tmp_buffer);
         aml_out->audioeffect_tmp_buffer = NULL;
     }
-    free(stream);
+    aml_audio_free(stream);
 }
 bool is_atv_in_stable_hw (struct audio_stream_in *stream)
 {
@@ -552,8 +552,8 @@ int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, s
         return ret;
 
     size_t read_bytes = in->config.channels * bytes / channel_count;
-    if (in->input_tmp_buffer || in->input_tmp_buffer_size < read_bytes) {
-        in->input_tmp_buffer = realloc(in->input_tmp_buffer, read_bytes);
+    if (!in->input_tmp_buffer || in->input_tmp_buffer_size < read_bytes) {
+        in->input_tmp_buffer = aml_audio_realloc(in->input_tmp_buffer, read_bytes);
         in->input_tmp_buffer_size = read_bytes;
     }
 

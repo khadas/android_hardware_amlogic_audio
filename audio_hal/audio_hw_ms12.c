@@ -194,7 +194,7 @@ int get_the_dolby_ms12_prepared(
     /*************************************/
     if (continous_mode(adev)) {
         // TODO: zz: Might have memory leak, not clear route to release this pointer
-        out = (struct aml_stream_out *)calloc(1, sizeof(struct aml_stream_out));
+        out = (struct aml_stream_out *)aml_audio_calloc(1, sizeof(struct aml_stream_out));
         if (!out) {
             ALOGE("%s malloc  stream failed failed", __func__);
             return -ENOMEM;
@@ -204,17 +204,17 @@ int get_the_dolby_ms12_prepared(
         if (adev->is_TV) {
             out->config.channels = 8;
             out->config.format = PCM_FORMAT_S32_LE;
-            out->tmp_buffer_8ch = malloc(out->config.period_size * 4 * 8);
+            out->tmp_buffer_8ch = aml_audio_malloc(out->config.period_size * 4 * 8);
             if (out->tmp_buffer_8ch == NULL) {
-                free(out);
+                aml_audio_free(out);
                 ALOGE("%s cannot malloc memory for out->tmp_buffer_8ch", __func__);
                 return -ENOMEM;
             }
             out->tmp_buffer_8ch_size = out->config.period_size * 4 * 8;
-            out->audioeffect_tmp_buffer = malloc(out->config.period_size * 6);
+            out->audioeffect_tmp_buffer = aml_audio_malloc(out->config.period_size * 6);
             if (out->audioeffect_tmp_buffer == NULL) {
-                free(out->tmp_buffer_8ch);
-                free(out);
+                aml_audio_free(out->tmp_buffer_8ch);
+                aml_audio_free(out);
                 ALOGE("%s cannot malloc memory for audioeffect_tmp_buffer", __func__);
                 return -ENOMEM;
             }
@@ -278,9 +278,9 @@ Err_dolby_ms12_thread:
         ALOGE("%s() %d exit dolby_ms12_thread\n", __FUNCTION__, __LINE__);
         ms12->dolby_ms12_thread_exit = true;
         ms12->dolby_ms12_threadID = 0;
-        free(out->tmp_buffer_8ch);
-        free(out->audioeffect_tmp_buffer);
-        free(out);
+        aml_audio_free(out->tmp_buffer_8ch);
+        aml_audio_free(out->audioeffect_tmp_buffer);
+        aml_audio_free(out);
     }
 
     pthread_mutex_unlock(&ms12->lock);

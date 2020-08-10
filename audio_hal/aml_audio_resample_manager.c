@@ -70,7 +70,7 @@ int aml_audio_resample_init(aml_audio_resample_t ** ppaml_audio_resample, resamp
         return -1;
     }
 
-    aml_audio_resample = (aml_audio_resample_t *)calloc(1, sizeof(aml_audio_resample_t));
+    aml_audio_resample = (aml_audio_resample_t *)aml_audio_calloc(1, sizeof(aml_audio_resample_t));
 
     if (aml_audio_resample == NULL) {
         ALOGE("malloc aml_audio_resample failed\n");
@@ -94,7 +94,7 @@ int aml_audio_resample_init(aml_audio_resample_t ** ppaml_audio_resample, resamp
 
     aml_audio_resample->resample_buffer_size =  2 * aml_audio_resample->frame_bytes * RESAMPLE_LENGTH;
 
-    aml_audio_resample->resample_buffer = calloc(1, aml_audio_resample->resample_buffer_size);
+    aml_audio_resample->resample_buffer = aml_audio_calloc(1, aml_audio_resample->resample_buffer_size);
 
     if (aml_audio_resample->resample_buffer == NULL) {
         ALOGE("resample_buffer is NULL\n");
@@ -116,12 +116,12 @@ int aml_audio_resample_init(aml_audio_resample_t ** ppaml_audio_resample, resamp
 exit:
 
     if (aml_audio_resample->resample_buffer) {
-        free(aml_audio_resample->resample_buffer);
+        aml_audio_free(aml_audio_resample->resample_buffer);
         aml_audio_resample->resample_buffer = NULL;
     }
 
     if (aml_audio_resample) {
-        free(aml_audio_resample);
+        aml_audio_free(aml_audio_resample);
     }
     * ppaml_audio_resample = NULL;
     return -1;
@@ -148,11 +148,11 @@ int aml_audio_resample_close(aml_audio_resample_t * aml_audio_resample)
     }
 
     if (aml_audio_resample->resample_buffer) {
-        free(aml_audio_resample->resample_buffer);
+        aml_audio_free(aml_audio_resample->resample_buffer);
         aml_audio_resample->resample_buffer = NULL;
     }
 
-    free(aml_audio_resample);
+    aml_audio_free(aml_audio_resample);
 
     return 0;
 }
@@ -175,7 +175,7 @@ int aml_audio_resample_process(aml_audio_resample_t * aml_audio_resample, void *
 
     if (out_size > aml_audio_resample->resample_buffer_size) {
         int new_buf_size = out_size;
-        aml_audio_resample->resample_buffer = realloc(aml_audio_resample->resample_buffer, new_buf_size);
+        aml_audio_resample->resample_buffer = aml_audio_realloc(aml_audio_resample->resample_buffer, new_buf_size);
         if (aml_audio_resample->resample_buffer == NULL) {
             ALOGE("realloc resample_buffer is failed\n");
             return -1;

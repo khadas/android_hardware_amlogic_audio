@@ -22,6 +22,7 @@ extern "C" {
 #endif
 
 #include <pthread.h>
+#include "aml_malloc_debug.h"
 
 typedef struct ring_buffer {
     pthread_mutex_t lock;

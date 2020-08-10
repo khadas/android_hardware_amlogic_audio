@@ -531,16 +531,16 @@ void *decode_threadloop(void *data)
     }
 
     ALOGI("++ %s:%d in_sr = %d, out_sr = %d\n", __func__, __LINE__, parser->in_sample_rate, parser->out_sample_rate);
-    outbuf = (unsigned char*) malloc (MAX_DDP_BUFFER_SIZE);
+    outbuf = (unsigned char*) aml_audio_malloc (MAX_DDP_BUFFER_SIZE);
     if (!outbuf) {
         ALOGE("%s:%d malloc output buffer failed", __func__, __LINE__);
         return NULL;
     }
     outbuf_raw = outbuf + MAX_DECODER_FRAME_LENGTH;
-    inbuf = (unsigned char *) malloc(MAX_DDP_FRAME_LENGTH + READ_PERIOD_LENGTH);
+    inbuf = (unsigned char *) aml_audio_malloc(MAX_DDP_FRAME_LENGTH + READ_PERIOD_LENGTH);
     if (!inbuf) {
         ALOGE("%s:%d malloc input buffer failed", __func__, __LINE__);
-        free(outbuf);
+        aml_audio_free(outbuf);
         return NULL;
     }
        /*TODO: always decode*/
@@ -648,10 +648,10 @@ void *decode_threadloop(void *data)
     }
     parser->decode_enabled = 0;
     if (inbuf) {
-        free(inbuf);
+        aml_audio_free(inbuf);
     }
     if (outbuf) {
-        free(outbuf);
+        aml_audio_free(outbuf);
     }
 
     ALOGI("-- %s\n", __func__);
@@ -729,7 +729,7 @@ int dcv_decoder_init_patch(struct dolby_ddp_dec *ddp_dec)
     memset(&ddp_dec->pcm_out_info, 0, sizeof(struct pcm_info));
     memset(&ddp_dec->aml_resample, 0, sizeof(struct resample_para));
     ddp_dec->inbuf_size = MAX_DECODER_FRAME_LENGTH * 4 * 4;
-    ddp_dec->inbuf = (unsigned char*) malloc(ddp_dec->inbuf_size);
+    ddp_dec->inbuf = (unsigned char*) aml_audio_malloc(ddp_dec->inbuf_size);
 
 
     if (!ddp_dec->inbuf) {
@@ -738,7 +738,7 @@ int dcv_decoder_init_patch(struct dolby_ddp_dec *ddp_dec)
         pthread_mutex_unlock(&ddp_dec->lock);
         return -1;
     }
-    ddp_dec->outbuf = (unsigned char*) malloc(MAX_DDP_BUFFER_SIZE);
+    ddp_dec->outbuf = (unsigned char*) aml_audio_malloc(MAX_DDP_BUFFER_SIZE);
     if (!ddp_dec->outbuf) {
         ALOGE("malloc buffer failed\n");
         pthread_mutex_unlock(&ddp_dec->lock);
@@ -768,8 +768,8 @@ int dcv_decoder_release_patch(struct dolby_ddp_dec *ddp_dec)
         ddp_dec->curFrmSize = 0;
         ddp_dec->dual_input = false;
         ddp_dec->mixer_level = 0;
-        free(ddp_dec->inbuf);
-        free(ddp_dec->outbuf);
+        aml_audio_free(ddp_dec->inbuf);
+        aml_audio_free(ddp_dec->outbuf);
         ddp_dec->inbuf = NULL;
         ddp_dec->outbuf = NULL;
         ddp_dec->outbuf_raw = NULL;
@@ -777,7 +777,7 @@ int dcv_decoder_release_patch(struct dolby_ddp_dec *ddp_dec)
         memset(&ddp_dec->aml_resample, 0, sizeof(struct resample_para));
         ring_buffer_release(&ddp_dec->output_ring_buf);
         if (!ddp_dec->resample_outbuf) {
-            free(ddp_dec->resample_outbuf);
+            aml_audio_free(ddp_dec->resample_outbuf);
             ddp_dec->resample_outbuf = NULL;
         }
     }
@@ -1020,7 +1020,7 @@ int dcv_decoder_process_patch(struct dolby_ddp_dec *ddp_dec, unsigned char*buffe
             resampler_init (&ddp_dec->aml_resample);
             /*max buffer from 32K to 48K*/
             if (!ddp_dec->resample_outbuf) {
-                ddp_dec->resample_outbuf = (unsigned char*) malloc (MAX_DDP_BUFFER_SIZE *3/2);
+                ddp_dec->resample_outbuf = (unsigned char*) aml_audio_malloc (MAX_DDP_BUFFER_SIZE *3/2);
                 if (!ddp_dec->resample_outbuf) {
                     ALOGE ("malloc buffer failed\n");
                     ret = -1;

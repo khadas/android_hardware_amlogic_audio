@@ -60,7 +60,7 @@ int get_dolby_ms12_init(struct dolby_ms12_desc *ms12_desc)
         }
 #else
         if (ms12_desc->dolby_ms12_out_max_size > 0) {
-            ms12_desc->dolby_ms12_out_data = (char *)malloc(ms12_desc->dolby_ms12_out_max_size);
+            ms12_desc->dolby_ms12_out_data = (char *)aml_audio_malloc(ms12_desc->dolby_ms12_out_max_size);
         }
         if ((ms12_desc->dolby_ms12_ptr == NULL) || (ms12_desc->dolby_ms12_out_data == NULL)) {
             ALOGD("%s() dolby ms12 init fail!\n", __FUNCTION__);
@@ -146,7 +146,7 @@ int aml_ms12_cleanup(struct dolby_ms12_desc *ms12_desc)
 
 #else
     if (ms12_desc->dolby_ms12_out_data) {
-        free(ms12_desc->dolby_ms12_out_data);
+        aml_audio_free(ms12_desc->dolby_ms12_out_data);
         ms12_desc->dolby_ms12_out_data = NULL;
     }
 #endif

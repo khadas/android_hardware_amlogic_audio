@@ -293,7 +293,7 @@ int ring_buffer_init(struct ring_buffer *rbuffer, int buffer_size)
     pthread_mutex_lock(&buf->lock);
 
     buf->size = buffer_size;
-    buf->start_addr = malloc(buffer_size * sizeof(unsigned char));
+    buf->start_addr = aml_audio_malloc(buffer_size * sizeof(unsigned char));
     if (buf->start_addr == NULL) {
         ALOGD("%s, Malloc android out buffer error!\n", __FUNCTION__);
         pthread_mutex_unlock(&buf->lock);
@@ -323,7 +323,7 @@ int ring_buffer_release(struct ring_buffer *rbuffer)
     pthread_mutex_lock(&buf->lock);
 
     if (buf->start_addr != NULL) {
-        free(buf->start_addr);
+        aml_audio_free(buf->start_addr);
         buf->start_addr = NULL;
     }
 

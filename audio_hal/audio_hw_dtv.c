@@ -1425,7 +1425,7 @@ static int dtv_get_ac3_frame_size(struct aml_audio_patch *patch, int main_avail)
         main_frame_size = (main_frame_size > diff2) ? main_frame_size : diff2;
     }
     t1 = get_buffer_read_space(&(patch->aml_ringbuffer));
-    tmpbuff = malloc(t1 + AC3_IEC61937_FRAME_SIZE);
+    tmpbuff = aml_audio_malloc(t1 + AC3_IEC61937_FRAME_SIZE);
     if (!tmpbuff) {
         ALOGE("%s, malloc error", __func__);
         return 0;
@@ -1433,7 +1433,7 @@ static int dtv_get_ac3_frame_size(struct aml_audio_patch *patch, int main_avail)
     memcpy(tmpbuff, framebuffer, AC3_IEC61937_FRAME_SIZE);
     ring_buffer_read(&(patch->aml_ringbuffer), &tmpbuff[AC3_IEC61937_FRAME_SIZE], t1);
     ring_buffer_write(&(patch->aml_ringbuffer), (unsigned char *)tmpbuff, t1 + AC3_IEC61937_FRAME_SIZE, 0);
-    free(tmpbuff);
+    aml_audio_free(tmpbuff);
     if (main_frame_size == -1) {
         main_frame_size = 0;
     }
@@ -1575,7 +1575,7 @@ static void dtv_do_drop_pcm(int avail, struct aml_audio_patch *patch,
             drop_size = t2;
         }
         t2 = t1 + drop_size;
-        dropbuff = malloc(t2);
+        dropbuff = aml_audio_malloc(t2);
         if (!dropbuff) {
             patch->dtv_apts_lookup = 0;
             ALOGE("%s, malloc error", __func__);
@@ -1584,7 +1584,7 @@ static void dtv_do_drop_pcm(int avail, struct aml_audio_patch *patch,
         memset(dropbuff, 0, drop_size);
         ring_buffer_read(&(patch->aml_ringbuffer), (unsigned char *)&dropbuff[drop_size], t1);
         ring_buffer_write(&(patch->aml_ringbuffer), (unsigned char *)dropbuff, t2, 0);
-        free(dropbuff);
+        aml_audio_free(dropbuff);
         ALOGI("dtv_do_drop:++drop %d ms,size %d,avail %d,now %d\n", patch->dtv_apts_lookup / 90, drop_size, avail, get_buffer_read_space(&(patch->aml_ringbuffer)));
     }
     patch->dtv_apts_lookup = 0;
@@ -2374,7 +2374,7 @@ static int dtv_patch_pcm_write(unsigned char *pcm_data, int size,
             }
             if (!patch->resample_outbuf) {
                 patch->resample_outbuf =
-                    (unsigned char *)malloc(OUTPUT_BUFFER_SIZE * 3);
+                    (unsigned char *)aml_audio_malloc(OUTPUT_BUFFER_SIZE * 3);
                 if (!patch->resample_outbuf) {
                     ALOGE("malloc buffer failed\n");
                     return -1;
@@ -3061,7 +3061,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
     ALOGI("++%s live create a output stream success now!!!\n ", __FUNCTION__);
 
     patch->out_buf_size = write_bytes * EAC3_MULTIPLIER;
-    patch->out_buf = calloc(1, patch->out_buf_size);
+    patch->out_buf = aml_audio_calloc(1, patch->out_buf_size);
     if (!patch->out_buf) {
         ret = -ENOMEM;
         goto exit_outbuf;
@@ -3105,7 +3105,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
             ret = audio_dtv_patch_output_default(patch, stream_out);
         }
     }
-    free(patch->out_buf);
+    aml_audio_free(patch->out_buf);
 exit_outbuf:
     adev_close_output_stream_new(dev, stream_out);
 exit_open:
@@ -3226,7 +3226,6 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                     patch->first_apts_lookup_over = 0;
                 } else if (patch->dtv_aformat == ACODEC_FMT_DTS) {
                     patch->aformat = AUDIO_FORMAT_DTS;
-                    dca_decoder_init_patch(dts_dec);
                     dts_dec->is_dtv = true;
                     patch->decoder_offset = 0;
                     patch->first_apts_lookup_over = 0;
@@ -3537,7 +3536,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
             release_patch_l(aml_dev);
         }
     }
-    patch = calloc(1, sizeof(*patch));
+    patch = aml_audio_calloc(1, sizeof(*patch));
     if (!patch) {
         ret = -1;
         goto err;
@@ -3620,7 +3619,7 @@ err_out_thread:
 err_in_thread:
     ring_buffer_release(&(patch->aml_ringbuffer));
 err_ring_buf:
-    free(patch);
+    aml_audio_free(patch);
 err:
     //pthread_mutex_unlock(&aml_dev->patch_lock);
     return ret;
@@ -3647,14 +3646,14 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
 
     pthread_mutex_destroy(&patch->dtv_input_mutex);
     if (patch->resample_outbuf) {
-        free(patch->resample_outbuf);
+        aml_audio_free(patch->resample_outbuf);
         patch->resample_outbuf = NULL;
     }
     release_dtv_output_stream_thread(patch);
     release_dtvin_buffer(patch);
     dtv_assoc_deinit();
     ring_buffer_release(&(patch->aml_ringbuffer));
-    free(patch);
+    aml_audio_free(patch);
     aml_dev->audio_patch = NULL;
     if (aml_dev->start_mute_flag != 0)
         aml_dev->start_mute_flag = 0;

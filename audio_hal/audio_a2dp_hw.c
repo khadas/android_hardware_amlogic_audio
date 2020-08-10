@@ -1466,7 +1466,7 @@ int a2dp_output_enable(struct audio_stream_out* stream) {
         ALOGD("a2dp_output_enable already exist");
         return 0;
     }
-    out = (struct a2dp_stream_out*)malloc(sizeof(struct a2dp_stream_out));
+    out = (struct a2dp_stream_out*)aml_audio_malloc(sizeof(struct a2dp_stream_out));
     if (!out) {
         ALOGE("a2dp_output_enable a2dp_stream_out realloc error");
         return -ENOMEM;
@@ -1545,7 +1545,7 @@ void a2dp_output_disable(struct audio_stream_out* stream) {
 
     a2dp_stream_common_destroy(out);
     pthread_mutex_unlock(&out->mutex);
-    free(out);
+    aml_audio_free(out);
     aml_out->a2dp_out = NULL;
     ALOGD("a2dp_output_disable done");
 }

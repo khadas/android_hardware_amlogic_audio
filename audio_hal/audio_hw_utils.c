@@ -243,7 +243,7 @@ void *convert_audio_sample_for_output(int input_frames, int input_format, int in
         max_ch = 8;
     }
     //our HW need round the frames to 8 channels
-    out_buf = malloc(sizeof(int) * max_ch * input_frames);
+    out_buf = aml_audio_malloc(sizeof(int) * max_ch * input_frames);
     if (out_buf == NULL) {
         ALOGE("malloc buffer failed\n");
         return NULL;

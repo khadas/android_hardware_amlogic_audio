@@ -45,7 +45,7 @@ int config_spdif_encoder_output_buffer(audio_format_t format, struct aml_audio_d
     else
         adev->temp_buf_size = IEC61937_PACKET_SIZE_OF_EAC3 * eac3_coef;//0x6000bytes is 6block of eac3
     adev->temp_buf_pos = 0;
-    adev->temp_buf = (void *)malloc(adev->temp_buf_size);
+    adev->temp_buf = (void *)aml_audio_malloc(adev->temp_buf_size);
     ALOGV("-%s() temp_buf_size %x\n", __FUNCTION__, adev->temp_buf_size);
     if (adev->temp_buf == NULL) {
         ALOGE("-%s() malloc fail", __FUNCTION__);
@@ -65,7 +65,7 @@ void release_spdif_encoder_output_buffer(struct audio_stream_out *stream)
     struct aml_audio_device *adev = aml_out->dev;
 
     if (adev->temp_buf) {
-        free(adev->temp_buf);
+        aml_audio_free(adev->temp_buf);
         adev->temp_buf = NULL;
     }
     adev->temp_buf_size = 0;

@@ -301,7 +301,7 @@ static int aml_alsa_add_zero(struct aml_stream_out *stream, int size)
     struct aml_audio_device *adev = aml_out->dev;
 
     while (retry--) {
-        buf = malloc(AML_ZERO_ADD_MIN_SIZE);
+        buf = aml_audio_malloc(AML_ZERO_ADD_MIN_SIZE);
         if (buf != NULL) {
             break;
         }
@@ -321,7 +321,7 @@ static int aml_alsa_add_zero(struct aml_stream_out *stream, int size)
         }
         adjust_bytes -= write_size;
     }
-    free(buf);
+    aml_audio_free(buf);
     return (size - adjust_bytes);
 }
 
@@ -646,7 +646,7 @@ int alsa_depop(int card)
     int port = alsa_device_update_pcm_index(PORT_I2S, PLAYBACK);
 
     struct pcm *pcm = pcm_open(card, port, PCM_OUT, &pcm_cfg_out);
-    char *buf = calloc(1, 2048);
+    char *buf = aml_audio_calloc(1, 2048);
     if (buf == NULL)
         return -ENOMEM;
 
@@ -658,7 +658,7 @@ int alsa_depop(int card)
     }
     usleep(10000);
     if (buf)
-        free(buf);
+        aml_audio_free(buf);
 
     ALOGI("%s, card %d, device %d", __func__, card, port);
     return 0;
