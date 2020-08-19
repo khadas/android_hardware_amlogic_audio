@@ -9823,7 +9823,10 @@ void *audio_patch_input_threadloop(void *data)
                         if (cur_audio_packet == AUDIO_PACKET_HBR) {
                             // if it is high bitrate bitstream, use PAO and increase the buffer size
                             bSpdifin_PAO = true;
-                            period_size = DEFAULT_CAPTURE_PERIOD_SIZE * 4;
+                            if (is_need_config_channel())
+                                period_size = DEFAULT_CAPTURE_PERIOD_SIZE * 4;
+                            else
+                                period_size = DEFAULT_CAPTURE_PERIOD_SIZE * 4 * 4;
                             // increase the buffer size
                             buf_size = ring_buffer_size * 8;
                             channel = 8;
@@ -9841,7 +9844,8 @@ void *audio_patch_input_threadloop(void *data)
 
                         ring_buffer_reset_size(ringbuffer, buf_size);
                         in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_PERIODS, &period_size);
-                        in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_CHANNELS, &channel);
+                        if (is_need_config_channel())
+                            in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_CHANNELS, &channel);
                         last_audio_packet = cur_audio_packet;
                         last_channel_count = current_channel;
                         in->audio_packet_type = cur_audio_packet;
