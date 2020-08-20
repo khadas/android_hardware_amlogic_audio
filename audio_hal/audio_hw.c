@@ -6694,7 +6694,9 @@ int do_output_standby_l(struct audio_stream *stream)
         if ((eDolbyMS12Lib == adev->dolby_lib_type) && (ms12->dolby_ms12_enable == true)) {
             get_dolby_ms12_cleanup(&adev->ms12);
         }
-        a2dp_out_standby(stream);
+        if ( aml_out->dev->patch_src != SRC_DTV && aml_out->dev->patch_src != SRC_ATV &&
+             aml_out->dev->patch_src != SRC_LINEIN && aml_out->dev->patch_src != SRC_HDMIIN )
+            a2dp_out_standby(stream);
     }
 
     /*
