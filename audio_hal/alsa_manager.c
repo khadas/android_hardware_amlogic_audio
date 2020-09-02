@@ -333,12 +333,7 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_audio_patch *patch = adev->audio_patch;
     int ret = 0;
-    struct pcm_config *config = &aml_out->config;
-    size_t frame_size = audio_stream_out_frame_size(stream);
-    bool need_trigger = false;
-    bool is_dtv = (adev->patch_src == SRC_DTV);
-    bool is_dtv_live = 1;
-    bool has_video = adev->is_has_video;
+    size_t frame_size = 0;
     unsigned int first_apts = 0;
     unsigned int first_vpts = 0;
     unsigned int cur_apts = 0;
@@ -362,7 +357,7 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
     }
 
     // pre-check
-    if (!has_video || !is_dtv) {
+    if (adev->is_has_video == false || adev->patch_src != SRC_DTV) {
         goto write;
     }
     if (!adev->first_apts_flag) {
@@ -475,26 +470,23 @@ write:
     //    aml_audio_start_trigger(stream);
     //    adev->first_apts_flag = false;
     //}
-#if 1
     if (getprop_bool("media.audiohal.outdump")) {
         aml_audio_dump_audio_bitstreams("/data/audio/alsa_pcm_write.pcm",
             buffer, bytes);
     }
-#endif
 
     // SWPL-412, when input source is DTV, and UI set "parental_control_av_mute" command to audio hal
     // we need to mute audio output for PCM output here
     if (adev->patch_src == SRC_DTV && adev->parental_control_av_mute) {
-        memset(buffer,0x0,bytes);
+        memset(buffer, 0x0, bytes);
     }
 
     if (aml_out->pcm == NULL) {
         ALOGE("%s: pcm is null", __func__);
         return bytes;
     }
-
     /*+[SE][BUG][SWPL-14811][zhizhong] add drop ac3 pcm function*/
-    if (adev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0) {
+    if (adev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0 && patch != NULL) {
         if (aml_out->need_drop_size >= (int)bytes) {
             aml_out->need_drop_size -= bytes;
             ALOGI("av sync drop %d pcm, need drop:%d more,apts:0x%x,pcr:0x%x\n",
@@ -514,26 +506,25 @@ write:
         }
     }
 
+    struct snd_pcm_status status;
     {
         /*[SE][BUG][SWPL-14813][chengshun.wang] detect audio discontinue and alsa underrun,
          * mute sound avoid noise,such as stream replay.
          */
-        struct snd_pcm_status status;
         pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
         if (status.state == PCM_STATE_XRUN) {
-            ALOGD("alsa underrun");
+            ALOGW("[%s:%d] alsa underrun", __func__, __LINE__);
             if (adev->audio_discontinue) {
                 adev->discontinue_mute_flag = 1;
                 adev->no_underrun_count = 0;
                 ALOGD("output_write, audio discontinue, underrun, begin mute\n");
             }
         } else if (adev->discontinue_mute_flag == 1) {
-            if ((adev->audio_discontinue == 0 &&
+            if ((adev->audio_discontinue == 0 && patch != NULL &&
                 patch->dtv_audio_tune == AUDIO_RUNNING) ||
                 adev->no_underrun_count++ >= adev->no_underrun_max) {
-                ALOGD("no underrun, not mute, audio_discontinue=%d,count=%d\n",
-                        adev->audio_discontinue, adev->no_underrun_count);
-                ALOGD("dtv_audio_tune=%d\n", patch->dtv_audio_tune);
+                ALOGD("no underrun, not mute, audio_discontinue=%d,count=%d, dtv_audio_tune:%d",
+                        adev->audio_discontinue, adev->no_underrun_count, patch->dtv_audio_tune);
                 adev->discontinue_mute_flag = 0;
                 adev->no_underrun_count = 0;
             }
@@ -546,12 +537,9 @@ write:
         aml_audio_dump_audio_bitstreams("/data/audio/pcm_write.raw",
             buffer, bytes);
     }
-    {
-        struct snd_pcm_status status;
-        pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
-        if (status.state == PCM_STATE_XRUN) {
-            ALOGD("alsa underrun");
-        }
+    pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+    if (status.state == PCM_STATE_XRUN) {
+        ALOGW("[%s:%d] alsa underrun", __func__, __LINE__);
     }
     if (SUPPORT_EARC_OUT_HW && adev->bHDMIConnected && aml_out->earc_pcm && adev->bHDMIARCon) {
         ret = pcm_write(aml_out->earc_pcm, buffer, bytes);
@@ -585,7 +573,6 @@ write:
             audio_virtual_buf_open(&aml_out->alsa_vir_buf_handle, "alsa out", ALSA_OUT_BUF_NS, ALSA_OUT_BUF_NS, 0);
             audio_virtual_buf_process(aml_out->alsa_vir_buf_handle, ALSA_OUT_BUF_NS - input_ns/2);
         }
-
 
         audio_virtual_buf_process(aml_out->alsa_vir_buf_handle, input_ns);
         if(mutex_lock_success) {
