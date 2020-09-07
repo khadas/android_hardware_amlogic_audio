@@ -75,8 +75,10 @@ int get_sysfs_uint(const char *path, uint *value)
         return -1;
     }
     if (sscanf(valstr, "0x%x", &val) < 1) {
-        ALOGE("unable to get pts from: %s", valstr);
-        return -1;
+        if (sscanf(valstr, "%u", &val) < 1) {
+            ALOGE("unable to get pts from: %s", valstr);
+            return -1;
+        }
     }
     *value = val;
     return 0;

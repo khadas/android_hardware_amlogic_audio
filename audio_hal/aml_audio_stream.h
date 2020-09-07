@@ -316,6 +316,7 @@ struct aml_audio_patch {
     int i2s_div_factor;
     struct timespec speed_time;
     struct timespec slow_time;
+    int a_discontinue_threshold;
 };
 
 struct audio_stream_out;
