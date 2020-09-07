@@ -477,7 +477,11 @@ write:
 
     // SWPL-412, when input source is DTV, and UI set "parental_control_av_mute" command to audio hal
     // we need to mute audio output for PCM output here
-    if (adev->patch_src == SRC_DTV && adev->parental_control_av_mute) {
+    if (adev->patch_src == SRC_DTV && (adev->parental_control_av_mute ||
+        ((adev->passthrough_mute || adev->tv_mute) &&
+        (eDolbyDcvLib == adev->dolby_lib_type) &&
+        (adev->sink_format  == AUDIO_FORMAT_E_AC3 ||
+        adev->sink_format  == AUDIO_FORMAT_AC3)))) {
         memset(buffer, 0x0, bytes);
     }
 
