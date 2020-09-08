@@ -5283,6 +5283,13 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         goto exit;
     }
 
+    ret = str_parms_get_int (parms, "ChannelReverse", &val);
+    if (ret >= 0) {
+        adev->FactoryChannelReverse = val;
+        ALOGI ("ChannelReverse = %d\n", adev->FactoryChannelReverse);
+        goto exit;
+    }
+
     ret = str_parms_get_str (parms, "set_ARC_hdmi", value, sizeof (value) );
     if (ret >= 0) {
         set_arc_hdmi (dev, value, VAL_LEN);
@@ -7542,8 +7549,13 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
 
             if (alsa_device_is_auge()) {
                 for (i = 0; i < out_frames; i++) {
-                    aml_out->tmp_buffer_8ch[8 * i + 0] = spk_tmp_buf[2 * i];
-                    aml_out->tmp_buffer_8ch[8 * i + 1] = spk_tmp_buf[2 * i + 1];
+                    if (adev->FactoryChannelReverse) {
+                        aml_out->tmp_buffer_8ch[8 * i + 0] = spk_tmp_buf[2 * i + 1];
+                        aml_out->tmp_buffer_8ch[8 * i + 1] = spk_tmp_buf[2 * i];
+                    } else {
+                        aml_out->tmp_buffer_8ch[8 * i + 0] = spk_tmp_buf[2 * i];
+                        aml_out->tmp_buffer_8ch[8 * i + 1] = spk_tmp_buf[2 * i + 1];
+                    }
                     aml_out->tmp_buffer_8ch[8 * i + 2] = ps32SpdifTempBuffer[2 * i];
                     aml_out->tmp_buffer_8ch[8 * i + 3] = ps32SpdifTempBuffer[2 * i + 1];
                     aml_out->tmp_buffer_8ch[8 * i + 4] = (int32_t)tmp_buffer[2 * i] << 16;

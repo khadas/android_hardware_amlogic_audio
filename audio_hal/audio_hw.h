@@ -557,6 +557,7 @@ struct aml_audio_device {
     int no_underrun_max;
     int start_mute_flag;
     int ad_start_enable;
+    int FactoryChannelReverse;
 };
 
 struct meta_data {
