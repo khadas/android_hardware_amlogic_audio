@@ -865,7 +865,8 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
     ms12->bitsteam_cnt++;
 
     if (adev->debug_flag > 1) {
-        ALOGI("+%s() size %zu,dual_output = %d, optical_format = %d, sink_format = %d out total=%d main in=%d", __FUNCTION__, size, aml_out->dual_output_flag, adev->optical_format, adev->sink_format, ms12->bitsteam_cnt, ms12->input_total_ms);
+        ALOGI("+%s() size %zu,dual_output:%d, optical_format:%#x, sink_format:%#x out total=%d main in=%d", __FUNCTION__,
+            size, aml_out->dual_output_flag, adev->optical_format, adev->sink_format, ms12->bitsteam_cnt, ms12->input_total_ms);
     }
 
     /*dump ms12 bitstream output*/

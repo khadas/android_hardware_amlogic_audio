@@ -7648,7 +7648,6 @@ ssize_t hw_write (struct audio_stream_out *stream
                   , size_t bytes
                   , audio_format_t output_format)
 {
-    ALOGV ("+%s() buffer %p bytes %zu", __func__, buffer, bytes);
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
     const uint16_t *tmp_buffer = buffer;
@@ -7664,7 +7663,8 @@ ssize_t hw_write (struct audio_stream_out *stream
 
     adev->debug_flag = aml_audio_get_debug_flag();
     if (adev->debug_flag) {
-        ALOGI("+%s() buffer %p bytes %zu, format %#x", __func__, buffer, bytes, output_format);
+        ALOGD("+[%s:%d] stream:%p, bytes:%zu, output_format:%#x, hal_internal_format:%#x", __func__, __LINE__,
+            stream, bytes, output_format, aml_out->hal_internal_format);
     }
     if (is_dtv && need_hw_mix(adev->usecase_masks)) {
         if (adev->audio_patch && adev->audio_patch->avsync_callback)
@@ -7933,23 +7933,22 @@ ssize_t hw_write (struct audio_stream_out *stream
     }
 
     if (adev->debug_flag) {
-        ALOGI("%s() stream(%p) pcm handle %p format input %#x output %#x 61937 frame %d",
-              __func__, stream, aml_out->pcm, aml_out->hal_internal_format, output_format, is_iec61937_format(stream));
-
+        uint64_t diff_time_ms = 0;
+        if ((aml_out->hal_internal_format == AUDIO_FORMAT_AC3) || (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3)) {
+            diff_time_ms =(write_frames - total_frame) / 48;
+        } else {
+            diff_time_ms = (write_frames - aml_out->last_frames_postion) / 48;
+        }
+        ALOGD("[%s:%d] pcm:%p, is_61937_frame:%d, write_frames:%llu, diff_ms:%llu ms", __func__, __LINE__,
+             aml_out->pcm, is_iec61937_format(stream), write_frames, diff_time_ms);
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             //ms12 internal buffer avail(main/associate/system)
             if (adev->ms12.dolby_ms12_enable == true)
                 ALOGI("%s MS12 buffer avail main %d associate %d system %d\n",
                       __FUNCTION__, dolby_ms12_get_main_buffer_avail(NULL), dolby_ms12_get_associate_buffer_avail(), dolby_ms12_get_system_buffer_avail(NULL));
         }
-
-        if ((aml_out->hal_internal_format == AUDIO_FORMAT_AC3) || (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3)) {
-            ALOGI("%s() total_frame %"PRIu64" latency_frames %d last_frames_postion %"PRIu64" total write %"PRIu64" total writes frames %"PRIu64" diff latency %"PRIu64" ms\n",
-                  __FUNCTION__, total_frame, latency_frames, aml_out->last_frames_postion, aml_out->input_bytes_size, write_frames, (write_frames - total_frame) / 48);
-        } else {
-            ALOGI("%s() total_frame %"PRIu64" latency_frames %d last_frames_postion %"PRIu64" total write %"PRIu64" total writes frames %"PRIu64" diff latency %"PRIu64" ms\n",
-                  __FUNCTION__, total_frame, latency_frames, aml_out->last_frames_postion, aml_out->input_bytes_size, write_frames, (write_frames - aml_out->last_frames_postion) / 48);
-        }
+        ALOGD("[%s:%d] total_frame:%llu, latency_frames:%d, last_frames:%llu, input_bytes:%llu", __func__, __LINE__,
+              total_frame, latency_frames, aml_out->last_frames_postion, aml_out->input_bytes_size);
     }
     return ret;
 }
