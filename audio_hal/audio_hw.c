@@ -10236,9 +10236,7 @@ static int create_patch_l(struct audio_hw_device *dev,
         }
     }
 
-    aml_dev->audio_patch = patch;
     ALOGD("%s: exit", __func__);
-
     return 0;
 err_parse_thread:
     patch->output_thread_exit = 1;
@@ -10249,6 +10247,7 @@ err_out_thread:
 err_in_thread:
     ring_buffer_release(&patch->aml_ringbuffer);
 err_ring_buf:
+    aml_dev->audio_patch = NULL;
     aml_audio_free(patch);
     return ret;
 }
