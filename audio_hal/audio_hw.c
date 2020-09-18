@@ -7970,6 +7970,7 @@ void config_output(struct audio_stream_out *stream)
     uint64_t write_frames = 0;
 
     int is_arc_connected = 0;
+    int sink_format = AUDIO_FORMAT_PCM_16_BIT;
 
     adev->dcvlib_bypass_enable = 0;
     adev->dtslib_bypass_enable = 0;
@@ -8015,6 +8016,7 @@ void config_output(struct audio_stream_out *stream)
     }
     /*get sink format*/
     get_sink_format (stream);
+    sink_format = adev->sink_format;
     ALOGI("%s() adev->dolby_lib_type = %d", __FUNCTION__, adev->dolby_lib_type);
     if (aml_out->hal_internal_format != AUDIO_FORMAT_DTS
             && aml_out->hal_internal_format != AUDIO_FORMAT_DTS_HD) {
@@ -8348,7 +8350,7 @@ void config_output(struct audio_stream_out *stream)
      is still SPDIF, then the sound is abnormal.
     */
     if (!(continous_mode(adev) && (eDolbyMS12Lib == adev->dolby_lib_type))) {
-        if (adev->sink_format == AUDIO_FORMAT_PCM_16_BIT || adev->sink_format == AUDIO_FORMAT_PCM_32_BIT) {
+        if (sink_format == AUDIO_FORMAT_PCM_16_BIT || sink_format == AUDIO_FORMAT_PCM_32_BIT) {
             aml_out->device = PORT_I2S;
         } else {
             aml_out->device = PORT_SPDIF;
