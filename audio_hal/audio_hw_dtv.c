@@ -88,6 +88,7 @@
 #define TSYNC_LASTCHECKIN_APTS "/sys/class/tsync/last_checkin_apts"
 #define TSYNC_LASTCHECKIN_VPTS "/sys/class/tsync/checkin_firstvpts"
 #define TSYNC_PCR_LANTCY        "/sys/class/tsync/pts_latency"
+#define TSYNC_PCR_INITED    "/sys/class/tsync_pcr/tsync_pcr_inited_flag"
 #define AMSTREAM_AUDIO_PORT_RESET   "/sys/class/amstream/reset_audio_port"
 #define VIDEO_FIRST_FRAME_SHOW  "/sys/module/amvideo/parameters/first_frame_toggled"
 
@@ -123,6 +124,7 @@
 #define PROPERTY_DTV_SPEAKER_LATENCY   "media.dtv.speaker.delayus"
 #define PROPERTY_DTV_RESAMPLE_DISABLE   "media.dtv.resample.disable"
 #define PROPERTY_LOCAL_PASSTHROUGH_LATENCY  "media.dtv.passthrough.latencyms"
+#define PROPERTY_AUDIO_DISCONTINUE_THRESHOLD "media.audio.discontinue_threshold"
 #define AUDIO_EAC3_FRAME_SIZE 16
 #define AUDIO_AC3_FRAME_SIZE 4
 #define AUDIO_TV_PCM_FRAME_SIZE 32
@@ -1179,10 +1181,20 @@ static bool dtv_firstapts_lookup_over(struct aml_audio_patch *patch,
     int ret;
     unsigned int first_checkinapts = 0xffffffff;
     unsigned int demux_pcr = 0xffffffff;
+    unsigned int pcr_inited = 0;
     if (!patch || !aml_dev) {
         return true;
     }
     patch->tsync_mode = dtv_get_tsync_mode();
+    if (patch->tsync_mode == TSYNC_MODE_PCRMASTER && get_dtv_pcr_sync_mode() == 0) {
+        ret = get_sysfs_uint(TSYNC_PCR_INITED, &pcr_inited);
+        if (ret == 0 && pcr_inited != 0) {
+            ALOGI("pcr_already inited=0x%x\n", pcr_inited);
+        } else {
+            ALOGI("ret = %d, pcr_inited=%x\n",ret, pcr_inited);
+            return false;
+        }
+    }
     if (a_discontinue) {
         ret = aml_sysfs_get_str(TSYNC_LAST_CHECKIN_APTS, buff, sizeof(buff));
         if (ret > 0) {
@@ -1713,7 +1725,7 @@ static int dtv_audio_tune_check(struct aml_audio_patch *patch, int cur_pts_diff,
         patch->last_pcrpts = 0;
         return 1;
     }
-    if (abs(cur_pts_diff) >= AUDIO_PTS_DISCONTINUE_THRESHOLD) {
+    if (abs(cur_pts_diff) >= patch->a_discontinue_threshold) {
         sprintf(tempbuf, "AUDIO_TSTAMP_DISCONTINUITY:0x%lx",
                 (unsigned long)apts);
         dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK);
@@ -3154,6 +3166,10 @@ static void *audio_dtv_patch_process_threadloop(void *data)
     patch->sample_rate = stream_config.sample_rate = 48000;
     patch->chanmask = stream_config.channel_mask = AUDIO_CHANNEL_IN_STEREO;
     patch->aformat = stream_config.format = AUDIO_FORMAT_PCM_16_BIT;
+    patch->a_discontinue_threshold = property_get_int32(
+                                    PROPERTY_AUDIO_DISCONTINUE_THRESHOLD, 30000*90);
+    ALOGI("a_discontinue_threshold=%d\n", patch->a_discontinue_threshold);
+
 
     ALOGI("++%s live \n", __FUNCTION__);
     patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_INIT;
