@@ -1016,7 +1016,6 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
     size_t buffer_size = 0;
     switch (out->hal_internal_format) {
     case AUDIO_FORMAT_AC3:
-    case AUDIO_FORMAT_DTS:
         if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
             size = AC3_PERIOD_SIZE;
             ALOGI("%s AUDIO_FORMAT_IEC61937 %zu)", __FUNCTION__, size);
@@ -1035,14 +1034,6 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         } else {
             size = DEFAULT_PLAYBACK_PERIOD_SIZE;
         }
-
-        if (out->hal_internal_format == AUDIO_FORMAT_DTS) {
-            ALOGI("stream->get_format(stream):%0x", stream->get_format(stream));
-            if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
-                size = DEFAULT_PLAYBACK_PERIOD_SIZE;
-                ALOGI("%s dts buf size%zu)", __FUNCTION__, size);
-            }
-        }
         break;
     case AUDIO_FORMAT_E_AC3:
         if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
@@ -1053,7 +1044,7 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
             /*frame align*/
             if (1 /* adev->continuous_audio_mode */) {
                 /*Tunnel sync HEADER is 16 bytes*/
-                if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
+                if ((out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) && out->hw_sync_mode) {
                     size = out->ddp_frame_size + 20;
                 } else {
                     size = out->ddp_frame_size * 4;
@@ -1070,16 +1061,35 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
             }
         }
         break;
-    case AUDIO_FORMAT_DTS_HD:
     case AUDIO_FORMAT_DOLBY_TRUEHD:
         if (out->flags & AUDIO_OUTPUT_FLAG_IEC958_NONAUDIO) {
             size = 16 * DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
         } else {
-            size = 4 * PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
+            size = PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
         }
         if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
             size = 4 * PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
         }
+        break;
+    case AUDIO_FORMAT_DTS:
+        if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
+            size = DTS1_PERIOD_SIZE / 2;
+        } else {
+            size = DTS1_PERIOD_SIZE;
+        }
+        ALOGI("%s AUDIO_FORMAT_DTS buffer size = %zuframes", __FUNCTION__, size);
+        break;
+    case AUDIO_FORMAT_DTS_HD:
+        if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
+            size = 4 * PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
+        } else {
+            if (out->hal_rate == 192000) {
+                size = DTSHD_PERIOD_SIZE_2;
+            } else {
+                size = DTSHD_PERIOD_SIZE_1;
+            }
+        }
+        ALOGI("%s AUDIO_FORMAT_DTS_HD buffer size = %zuframes", __FUNCTION__, size);
         break;
     case AUDIO_FORMAT_PCM:
         if (adev->continuous_audio_mode) {
@@ -3437,12 +3447,6 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         }
     }
 
-    if (frames_written_hw == 0) {
-        ALOGV("%s(), not ready yet", __func__);
-        return -EINVAL;
-    }
-    *frames = frames_written_hw;
-    *timestamp = out->lasttimestamp;
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         if (direct_continous((struct audio_stream_out *)stream)) {
             *frames = adev->ms12.last_frames_postion;
@@ -3474,8 +3478,13 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         }
     }
 
-    if (*frames < 0)
+    if ((frame_latency + frames_written_hw) <= 0) {
+        ALOGV("%s(), not ready yet", __func__);
         return -EINVAL;
+    }
+
+    *frames = (frame_latency + frames_written_hw) * out->hal_rate / out->config.rate;
+    *timestamp = out->lasttimestamp;
 
     if (adev->debug_flag) {
         ALOGI("frames_written_hw %llu postion %llu frame_latency %d",frames_written_hw ,*frames,frame_latency);
@@ -4585,7 +4594,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
             } else if (out->config.channels == 2 && out->config.rate >= 32000 && out->config.rate <= 48000) {
                 if (adev->audio_type == DTS) {
                     out->hal_internal_format = AUDIO_FORMAT_DTS;
-                    adev->dts_hd.is_dtscd = -1;
+                    adev->dts_hd.frame_info.is_dtscd = false;
                     adev->dolby_lib_type = eDolbyDcvLib;
                 } else {
                     out->hal_internal_format = AUDIO_FORMAT_AC3;
@@ -4607,23 +4616,38 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
             }
             ALOGI("convert format IEC61937 to 0x%x\n", out->hal_internal_format);
             break;
+        case AUDIO_FORMAT_AC3:
+        case AUDIO_FORMAT_E_AC3:
+        case AUDIO_FORMAT_AC4:
+            adev->dolby_lib_type = adev->dolby_lib_type_last;
+            break;
+        case AUDIO_FORMAT_DTS:
+        case AUDIO_FORMAT_DTS_HD:
+            adev->dolby_lib_type = eDolbyDcvLib;
+            break;
+
         default:
             break;
         }
         digital_codec = get_codec_type(out->hal_internal_format);
         switch (digital_codec) {
+        case TYPE_AC3:
+            out->raw_61937_frame_size = 4;
         case TYPE_EAC3:
             out->config.period_size *= 2;
             out->raw_61937_frame_size = 4;
             break;
         case TYPE_TRUE_HD:
-        case TYPE_DTS_HD:
             out->config.period_size *= 4 * 2;
             out->raw_61937_frame_size = 16;
             break;
-        case TYPE_AC3:
         case TYPE_DTS:
+            out->config.period_count *= 2;
             out->raw_61937_frame_size = 4;
+            break;
+        case TYPE_DTS_HD:
+            out->config.period_count *= 4;
+            out->raw_61937_frame_size = 16;
             break;
         case TYPE_PCM:
             if (out->config.channels >= 6 || out->config.rate > 48000)
@@ -7854,7 +7878,13 @@ ssize_t hw_write (struct audio_stream_out *stream
             }
         }
     }
-    latency_frames = out_get_latency_frames(stream);
+
+    if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+        latency_frames = a2dp_out_get_latency(stream) * aml_out->hal_rate / 1000;
+    } else {
+        latency_frames = aml_alsa_output_get_letancy(stream) * aml_out->config.rate / 1000;
+    }
+
     pthread_mutex_unlock(&adev->alsa_pcm_lock);
 
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
@@ -8281,20 +8311,26 @@ void config_output(struct audio_stream_out *stream)
             if (((!adev->is_TV) && (adev->active_outport == OUTPORT_HDMI)) ||
                 (adev->is_TV && (adev->active_outport == OUTPORT_HDMI_ARC))) {
                 if (adev->hdmi_descs.dtshd_fmt.is_support) {
-                    adev->dtslib_bypass_enable = 1;
+                    if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+                        adev->dtslib_bypass_enable = 1;
+                    } else {
+                        adev->dtslib_bypass_enable = 0;
+                    }
                     dts_dec->digital_raw = 2;
                 } else if (adev->hdmi_descs.dts_fmt.is_support) {
                     if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
-                       adev->dtslib_bypass_enable = 0;
-                } else if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS) {
-                        dts_dec->digital_raw = 1;
-                        if (dts_dec->is_dtscd == 1) {
+                        adev->dtslib_bypass_enable = 0;
+                    } else if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS) {
+                        if (dts_dec->frame_info.is_dtscd) {
                             adev->dtslib_bypass_enable = 0;
                             dtscd_flag = true;
-                        } else {
+                        } else if (aml_out->hal_format == AUDIO_FORMAT_IEC61937){
                             adev->dtslib_bypass_enable = 1;
+                        } else {
+                            adev->dtslib_bypass_enable = 0;
                         }
                     }
+                    dts_dec->digital_raw = 1;
                 } else {
                     dts_dec->digital_raw = 0;
                     adev->dtslib_bypass_enable = 0;
@@ -8324,10 +8360,18 @@ void config_output(struct audio_stream_out *stream)
                     adev->effect_in_ch = 2;
                 }
                 if ((patch && audio_parse_get_audio_type_direct(patch->audio_parse_para) == DTSCD) || dtscd_flag) {
-                    dts_dec->is_dtscd = 1;
+                    dts_dec->frame_info.is_dtscd = true;
                     ALOGI("dts cd stream,dtscd_flag %d,type %d",dtscd_flag,audio_parse_get_audio_type_direct(patch->audio_parse_para));
                 }
-                ALOGI("dca_decoder_init_patch return :%d", status);
+
+                if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+                    dts_dec->frame_info.is_iec61937 = true;
+                } else {
+                    dts_dec->frame_info.is_iec61937 = false;
+                }
+
+                ALOGI("dca_decoder_init_patch return:%d, is_dtscd:%d, is_iec61937:%d, raw:%d"
+                    , status, dts_dec->frame_info.is_dtscd, dts_dec->frame_info.is_iec61937, dts_dec->digital_raw);
             } else if (dts_dec->status == 1 && (aml_out->hal_internal_format == AUDIO_FORMAT_DTS
                                                 || aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
                 dca_decoder_release_patch(dts_dec);
@@ -8717,8 +8761,9 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
             }
         }
     } else if (aml_out->hal_format== AUDIO_FORMAT_IEC61937 &&
-            aml_out->hal_internal_format == AUDIO_FORMAT_DTS &&
-            adev->dts_hd.is_dtscd == -1) {
+                aml_out->hal_internal_format == AUDIO_FORMAT_DTS &&
+                aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD &&
+                !adev->dts_hd.frame_info.is_dtscd) {
         audio_channel_mask_t cur_ch_mask;
         audio_format_t cur_aformat;
         int package_size;
@@ -8727,9 +8772,9 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         cur_aformat = audio_type_convert_to_android_audio_format_t(cur_audio_type);
         ALOGD("%s, cur_aformat = %0x, cur_audio_type= %d", __func__, cur_aformat, cur_audio_type);
         if (cur_audio_type == DTSCD) {
-            adev->dts_hd.is_dtscd = 1;
+            adev->dts_hd.frame_info.is_dtscd = true;
         } else {
-            adev->dts_hd.is_dtscd = 0;
+            adev->dts_hd.frame_info.is_dtscd = false;
         }
         if (adev->libvx_exist) {
             cur_channels = get_dts_stream_channels(write_buf, write_bytes);
@@ -8848,13 +8893,16 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         }
     }
 
-    if ((patch && patch->aformat == AUDIO_FORMAT_DTS) || (aml_out->hal_internal_format == AUDIO_FORMAT_DTS)
-        || (patch && patch->aformat == AUDIO_FORMAT_DTS_HD)) {
-        audio_format_t output_format;
+    if ((patch && patch->aformat == AUDIO_FORMAT_DTS)
+        || (patch && patch->aformat == AUDIO_FORMAT_DTS_HD)
+        || (aml_out->hal_internal_format == AUDIO_FORMAT_DTS)
+        || (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
+        audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
         int16_t *tmp_buffer;
+        int read_bytes = 0;
         if (adev->dtslib_bypass_enable) {
             if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
-                output_format = aml_out->hal_internal_format;
+                output_format = AUDIO_FORMAT_DTS;
                 if (adev->debug_flag) {
                     ALOGD("%s:%d DTS write passthrough data", __func__, __LINE__);
                 }
@@ -8864,113 +8912,87 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
                 return return_bytes;
             }
         }
-        int ret = -1;
+
         struct dca_dts_dec *dts_dec = &(adev->dts_hd);
+        if (dts_dec->status != 1) {
+            config_output(stream);
+        }
+
         if (dts_dec->status == 1) {
             if (adev->debug_flag) {
                 ALOGD("%s:%d DTS decoder start", __func__, __LINE__);
             }
-            ret = dca_decoder_process_patch(dts_dec, (unsigned char *)write_buf, write_bytes);
-        } else {
-            config_output(stream);
-        }
 
+            while (dca_decoder_process_patch(dts_dec, (unsigned char *)write_buf, write_bytes) >= 0) {
+                write_bytes = 0;
+                read_bytes =  PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE * (dts_dec->pcm_out_info.channel_num);
 #if 1
-        //wirte raw data
-        if (dts_dec->digital_raw == 1 && is_dual_output_stream(stream) && dts_dec->outlen_raw > 0) {
-            /* all the HDMI in we goes through into decoder, because sometimes it is 44.1 khz, we don't know
-                such info if we doesn't decoded it.
-            */
-            if (ret == 0) {
-                // we only support 44.1 Khz & 48 Khz raw output
-                 if (dts_dec->pcm_out_info.sample_rate == 44100 ) {
+                //wirte raw data
+                if ((dts_dec->digital_raw == 1) && (dts_dec->outlen_raw > 0)) {
+                    /* all the HDMI in we goes through into decoder, because sometimes it is 44.1 khz, we don't know
+                        such info if we doesn't decoded it.
+                    */
+                    // we only support 44.1 Khz & 48 Khz raw output
+                    if (dts_dec->pcm_out_info.sample_rate == 44100 ) {
                         aml_out->config.rate = dts_dec->pcm_out_info.sample_rate;
-                 } else {
+                    } else {
                         aml_out->config.rate = 48000;
-                 }
-            }
-            if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
-                if (adev->debug_flag) {
-                        ALOGD("%s:%d SPDIF/HDMIIN, rate:%d set:%d DTS output size:%d", __func__, __LINE__,
-                            aml_out->config.rate,dts_dec->pcm_out_info.sample_rate,dts_dec->outlen_raw);
-                 }
-                 if (ret == 0 && dts_dec->outlen_raw) {
-                    aml_audio_spdif_output(stream, (void *)dts_dec->outbuf_raw, dts_dec->outlen_raw);
-                 }
-            } else if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS){
-                if (adev->debug_flag) {
-                    ALOGD("%s:%d non SPDIF/HDMIIN, DTS output bytes:%d", __func__, __LINE__, bytes);
-                }
-                aml_audio_spdif_output(stream, (void *)write_buf, write_bytes);
-            }
-        } else if (adev->active_outport == OUTPORT_HDMI_ARC) {
-            output_format = AUDIO_FORMAT_DTS;
-            if (ret == 0 && dts_dec->outlen_raw) {
-                if (audio_hal_data_processing(stream, (void *)dts_dec->outbuf_raw, dts_dec->outlen_raw, &output_buffer, &output_buffer_bytes, output_format) == 0) {
-                    hw_write(stream, output_buffer, output_buffer_bytes, output_format);
-                }
-                return return_bytes;
-            }
-        }
-#endif
+                    }
 
-        if (ret < 0) {
-            aml_out->frame_write_sum = (aml_out->input_bytes_size  - dts_dec->remain_size ) / audio_stream_out_frame_size(stream);
-            aml_out->last_frames_postion = aml_out->frame_write_sum - out_get_latency_frames (stream);
-            if (aml_out->pcm == NULL) {
-                clock_gettime (CLOCK_MONOTONIC, &aml_out->timestamp);
-                aml_out->lasttimestamp.tv_sec = aml_out->timestamp.tv_sec;
-                aml_out->lasttimestamp.tv_nsec = aml_out->timestamp.tv_nsec;
-            }
-            return write_bytes;
-        }
-        /* if one frame size is too big, such as 4096 frames = 85ms, but the alsa buffer only 42ms
-           it will block the whole pipeline, we must increase the alsa buffer
-        */
-        if (dts_dec->outlen_pcm >= 4096*2*2) {
-            aml_out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE*4;
-        } else {
-            aml_out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
-        }
-        //write pcm data
-        int read_bytes =  PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE * (dts_dec->pcm_out_info.channel_num);
-        bytes  = read_bytes;
-        int tmp_bytes = bytes;
-        while (get_buffer_read_space(&dts_dec->output_ring_buf) > (int)bytes) {
-            audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
-            ring_buffer_read(&dts_dec->output_ring_buf, dts_dec->outbuf, bytes);
-            if (dts_dec->pcm_out_info.channel_num == 6) {
-                int16_t *dts_buffer = (int16_t *) dts_dec->outbuf;
-                if (adev->effect_buf_size < bytes) {
-                    adev->effect_buf = aml_audio_realloc(adev->effect_buf, bytes);
-                    if (!adev->effect_buf) {
-                        ALOGE ("realloc effect buf failed size %zu format = %#x", bytes, output_format);
-                        return -ENOMEM;
-                     } else {
-                        ALOGI("realloc effect_buf size from %zu to %zu format = %#x", adev->effect_buf_size, bytes, output_format);
-                     }
-                     adev->effect_buf_size = bytes;
-                }
-                tmp_buffer = (int16_t *)adev->effect_buf;
-                memcpy(tmp_buffer, dts_buffer, bytes);
-                if (adev->native_postprocess.postprocessors[0] != NULL) {
-                    (*(adev->native_postprocess.postprocessors[0]))->get_descriptor(adev->native_postprocess.postprocessors[0], &tmpdesc);
-                    if (0 == strcmp(tmpdesc.name,"VirtualX")) {
-                        audio_post_process(adev->native_postprocess.postprocessors[0], tmp_buffer, bytes/(6 * 2));
+                    output_format = AUDIO_FORMAT_DTS;
+                    if (is_dual_output_stream(stream)) {
+                        while (get_buffer_read_space(&dts_dec->raw_ring_buf) >= read_bytes) {
+                            ring_buffer_read(&dts_dec->raw_ring_buf, dts_dec->outbuf_raw, read_bytes);
+                            aml_audio_spdif_output(stream, (void *)dts_dec->outbuf_raw, read_bytes);
+                        }
+                    } else if (adev->active_outport == OUTPORT_HDMI_ARC) {
+                        while (get_buffer_read_space(&dts_dec->raw_ring_buf) >= read_bytes) {
+                            ring_buffer_read(&dts_dec->raw_ring_buf, dts_dec->outbuf_raw, read_bytes);
+                            if (audio_hal_data_processing(stream, (void *)dts_dec->outbuf_raw, read_bytes, &output_buffer, &output_buffer_bytes, output_format) == 0) {
+                                hw_write(stream, output_buffer, output_buffer_bytes, output_format);
+                            }
+                        }
+                        continue;
                     }
                 }
-                tmp_bytes /= 3;
-            } else {
-                tmp_buffer = (int16_t *) dts_dec->outbuf;
-                tmp_bytes = bytes;
-            }
-            aml_hw_mixer_mixing(&adev->hw_mixer, (void*)tmp_buffer, tmp_bytes, output_format);
-            if (audio_hal_data_processing(stream, (void*)tmp_buffer, tmp_bytes, &output_buffer, &output_buffer_bytes, output_format) == 0) {
-                hw_write(stream, output_buffer, output_buffer_bytes, output_format);
+#endif
+                //write pcm data
+                int tmp_bytes = read_bytes;
+                output_format = AUDIO_FORMAT_PCM_16_BIT;
+                while (get_buffer_read_space(&dts_dec->output_ring_buf) >= (int)read_bytes) {
+                    ring_buffer_read(&dts_dec->output_ring_buf, dts_dec->outbuf, read_bytes);
+                    if (dts_dec->pcm_out_info.channel_num == 6) {
+                        int16_t *dts_buffer = (int16_t *)dts_dec->outbuf;
+                        if (adev->effect_buf_size < (size_t)read_bytes) {
+                            adev->effect_buf = aml_audio_realloc(adev->effect_buf, read_bytes);
+                            if (!adev->effect_buf) {
+                                ALOGE ("realloc effect buf failed size %zu format = %#x", read_bytes, output_format);
+                                return -ENOMEM;
+                            } else {
+                                ALOGI("realloc effect_buf size from %zu to %zu format = %#x", adev->effect_buf_size, read_bytes, output_format);
+                            }
+                            adev->effect_buf_size = read_bytes;
+                        }
+                        tmp_buffer = (int16_t *)adev->effect_buf;
+                        memcpy(tmp_buffer, dts_buffer, read_bytes);
+                        if (adev->native_postprocess.postprocessors[0] != NULL) {
+                            (*(adev->native_postprocess.postprocessors[0]))->get_descriptor(adev->native_postprocess.postprocessors[0], &tmpdesc);
+                            if (0 == strcmp(tmpdesc.name,"VirtualX")) {
+                                audio_post_process(adev->native_postprocess.postprocessors[0], tmp_buffer, read_bytes/(6 * 2));
+                            }
+                        }
+                        tmp_bytes /= 3;
+                    } else {
+                        tmp_buffer = (int16_t *) dts_dec->outbuf;
+                        tmp_bytes = read_bytes;
+                    }
+                    aml_hw_mixer_mixing(&adev->hw_mixer, (void*)tmp_buffer, tmp_bytes, output_format);
+                    if (audio_hal_data_processing(stream, (void*)tmp_buffer, tmp_bytes, &output_buffer, &output_buffer_bytes, output_format) == 0) {
+                        hw_write(stream, output_buffer, output_buffer_bytes, output_format);
+                    }
+                }
             }
         }
-        aml_out->frame_write_sum = (aml_out->input_bytes_size  - dts_dec->remain_size )  / audio_stream_out_frame_size(stream);
-        aml_out->last_frames_postion = aml_out->frame_write_sum - out_get_latency_frames (stream);
         return return_bytes;
     }
 

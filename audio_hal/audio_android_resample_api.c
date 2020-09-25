@@ -23,7 +23,7 @@
 #include "aml_resample_wrap.h"
 
 #define RING_BUF_FRAMES 16384
-
+#define MINUM_RESAMPLE_OUTPUT_SIZE 1024
 static size_t in_read_func(void *ring_buffer, void *buf, size_t size)
 {
     int ret = -1;
@@ -119,28 +119,28 @@ int android_resample_process(void *handle, void * in_buffer, size_t bytes, void 
         return -1;
     }
 
-    input_sr = resample->input_sr;
-    output_sr = resample->output_sr;
-
-    framesize = audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT) * resample->channels;
-
-    input_size = bytes;
-    input_frames = bytes / framesize;
-
-    output_frames = ((int64_t) input_frames * output_sr) / input_sr;
-    output_size = output_frames * framesize;
-
     if (get_buffer_write_space(&resample->ring_buf) > (int)bytes) {
         ring_buffer_write(&resample->ring_buf, in_buffer, bytes, UNCOVER_WRITE);
     } else {
         ALOGE("Lost data, bytes:%d\n", bytes);
     }
 
+    input_sr = resample->input_sr;
+    output_sr = resample->output_sr;
+
+    framesize = audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT) * resample->channels;
+
+    input_size = bytes;
+    input_frames = input_size / framesize;
+
+    output_frames = ((int64_t) input_frames * output_sr) / input_sr;
+    output_size = output_frames * framesize;
+
     /*do resample for one period.*/
     resampled_size  = android_resample_read(resample, (char *)out_buffer, output_size);
 
-    min_outsize = 16;
-    min_insize = ((int64_t) min_outsize * output_sr) / input_sr;
+    min_insize = MINUM_RESAMPLE_OUTPUT_SIZE;
+    min_outsize = ((int64_t) min_insize * output_sr) / input_sr;
     min_insize *= framesize;
     min_outsize *= framesize;
 
@@ -150,7 +150,6 @@ int android_resample_process(void *handle, void * in_buffer, size_t bytes, void 
 
     //ALOGD("input_size = %d, resampled_size = %d, left_size = %d\n",
     //    input_size, resampled_size, get_buffer_read_space(&resample->ring_buf));
-
     *out_size = resampled_size;
     return 0;
 }

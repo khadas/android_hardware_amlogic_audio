@@ -65,7 +65,9 @@ enum audio_sample {
 #define DTS2_PERIOD_SIZE (4096)
 #define DTS3_PERIOD_SIZE (8192)
 /*min DTSHD Period 2048; max DTSHD Period 65536*/
-#define DTSHD_PERIOD_SIZE (2048)
+#define DTSHD_PERIOD_SIZE   (512*8)
+#define DTSHD_PERIOD_SIZE_1 (512*32)
+#define DTSHD_PERIOD_SIZE_2 (512*48)
 
 #define DEFAULT_SAMPLE_RATE 48000
 

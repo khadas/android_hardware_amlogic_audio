@@ -3233,8 +3233,8 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                     patch->decoder_offset = 0;
                     patch->first_apts_lookup_over = 0;
                 } else if (patch->dtv_aformat == ACODEC_FMT_DTS) {
+                    dts_dec->frame_info.is_iec61937 = false;
                     patch->aformat = AUDIO_FORMAT_DTS;
-                    dts_dec->is_dtv = true;
                     patch->decoder_offset = 0;
                     patch->first_apts_lookup_over = 0;
                 } else {
@@ -3291,7 +3291,6 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK);
                 release_dtv_output_stream_thread(patch);
                 dtv_assoc_audio_stop(1);
-                dts_dec->is_dtv = false;
                 aml_dev->ad_start_enable = 0;
                 if (!aml_dev->is_TV) {
                     dtv_check_audio_reset(aml_dev);
