@@ -99,11 +99,12 @@ int mixer_set_padding_size(
         int padding_bytes);
 
 int mixer_set_continuous_output(struct amlAudioMixer *audio_mixer,
-		bool continuous_output);
+        bool continuous_output);
 int mixer_idle_sleep_time_us(struct amlAudioMixer *audio_mixer);
 int mixer_stop_outport_pcm(struct amlAudioMixer *audio_mixer);
 int mixer_output_standby(struct amlAudioMixer *audio_mixer);
 int mixer_output_dummy(struct amlAudioMixer *audio_mixer, bool en);
+struct pcm * get_mixer_output_pcm_handle(struct amlAudioMixer *audio_mixer, enum MIXER_OUTPUT_PORT enOutputIndex);
 void mixer_dump(int s32Fd, const struct aml_audio_device *pstAmlDev);
 __END_DECLS
 

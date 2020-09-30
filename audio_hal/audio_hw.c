@@ -5934,7 +5934,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
     }
 
     ret = str_parms_get_str(parms, "reconfigA2dp", value, sizeof(value));
-	if (ret >= 0) {
+    if (ret >= 0) {
         ALOGE ("%s A2DP reconfigA2dp out_device=%x", __FUNCTION__, adev->out_device);
         goto exit;
     }
@@ -7693,26 +7693,24 @@ ssize_t hw_write (struct audio_stream_out *stream
         }
 
         if (adev->useSubMix) {
-            if (aml_out->usecase == STREAM_PCM_DIRECT && adev->audio_patching) {
-                if (!adev->is_TV && (adev->ddp).digital_raw > 0 &&
-                        output_format != AUDIO_FORMAT_PCM_16_BIT && output_format != AUDIO_FORMAT_PCM) {
-                    // TODO: mbox+dvb and bypass case
-                    ret = aml_alsa_output_open(stream);
-                    if (ret) {
-                        ALOGE("%s() open failed", __func__);
-                    }
-                } else {
-                    ret = aml_alsa_output_open(stream);
-                    if (ret) {
-                        ALOGE("%s() open failed", __func__);
-                    }
+            if (adev->audio_patching &&
+                output_format != AUDIO_FORMAT_PCM_16_BIT &&
+                output_format != AUDIO_FORMAT_PCM) {
+                // TODO: mbox+dvb and bypass case
+                ret = aml_alsa_output_open(stream);
+                if (ret) {
+                    ALOGE("%s() open failed", __func__);
                 }
             } else {
-                // TODO: as discussed with lianlian, these code may still need in the future
-                //ret = aml_alsa_output_open(stream);
-                //if (ret) {
-                //    ALOGE("%s() open failed", __func__);
-                //}
+                aml_out->pcm = getSubMixingPCMdev(adev->sm);
+                if (aml_out->pcm == NULL) {
+                    ALOGE("%s() get pcm handle failed", __func__);
+                }
+                if (adev->rawtopcm_flag) {
+                    ALOGI("disable rawtopcm_flag --");
+                    pcm_stop(aml_out->pcm);
+                    adev->rawtopcm_flag = false;
+                }
             }
         } else {
             if (!adev->tuner2mix_patch) {
