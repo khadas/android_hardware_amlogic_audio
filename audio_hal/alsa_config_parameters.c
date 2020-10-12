@@ -60,7 +60,6 @@ static void get_ddp_hardware_config_parameters(
     hardware_config->format = PCM_FORMAT_S16_LE;
     hardware_config->rate = rate /* * 4 */;
     hardware_config->period_count = PLAYBACK_PERIOD_COUNT;
-    //hardware_config->period_size = PERIOD_SIZE /* * 4 */;
     if (continuous_mode) {
         hardware_config->period_size = PERIOD_SIZE * 4 * 2;
         hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count / 4;
@@ -86,7 +85,6 @@ static void get_dd_hardware_config_parameters(
     hardware_config->format = PCM_FORMAT_S16_LE;
     hardware_config->rate = rate;
     hardware_config->period_size = PERIOD_SIZE;
-
     if (continuous_mode) {
         hardware_config->period_count = PLAYBACK_PERIOD_COUNT * 2;
         hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count / 4;
@@ -94,7 +92,6 @@ static void get_dd_hardware_config_parameters(
         hardware_config->period_count = PLAYBACK_PERIOD_COUNT;
         hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count / 2;
     }
-
     hardware_config->avail_min = 0;
 
     return ;
@@ -126,7 +123,6 @@ static void get_pcm_hardware_config_parameters(
     }
     hardware_config->rate = rate;//defualt sample rate = 48KHz
     hardware_config->period_size = PERIOD_SIZE;
-    hardware_config->avail_min = 0;
 
     if (continuous_mode) {
         hardware_config->period_count = PLAYBACK_PERIOD_COUNT * 2;
@@ -135,6 +131,8 @@ static void get_pcm_hardware_config_parameters(
         hardware_config->period_count = PLAYBACK_PERIOD_COUNT;
         hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count / 2;
     }
+    hardware_config->avail_min = 0;
+
 
     return ;
 }

@@ -71,6 +71,22 @@ int dolby_ms12_system_process(
     , size_t *used_size);
 
 /*
+ *@brief dolby ms12 app process
+ *
+ * input parameters
+ *     stream: audio_stream_out handle
+ *     buffer: data buffer address
+ *     bytes: data size
+ * output parameters
+ *     used_size: buffer used size
+ */
+int dolby_ms12_app_process(
+    struct audio_stream_out *stream
+    , const void *buffer
+    , size_t bytes
+    , size_t *used_size);
+
+/*
  *@brief get dolby ms12 cleanup
  */
 int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12);
@@ -99,12 +115,33 @@ int pcm_output(void *buffer, void *priv_data, size_t size);
 int bitstream_output(void *buffer, void *priv_data, size_t size);
 
 /*
+ *@brief an callback for dolby ms12 bitstream output
+ */
+int spdif_bitstream_output(void *buffer, void *priv_data, size_t size);
+
+/*
  *@brief dolby ms12 register the callback
  */
 int dolby_ms12_register_callback(struct aml_stream_out *aml_out);
 
 /*
+ *@brief dolby ms12 downmix output, get the bytes of PCM frame
+ */
+int nbytes_of_dolby_ms12_downmix_output_pcm_frame();
+
+void dolby_ms12_app_flush();
+/*
  *@brief dolby ms12 flush the main related buffer
  */
 int dolby_ms12_main_flush(struct audio_stream_out *stream);
+
+bool is_ms12_continous_mode(struct aml_audio_device *adev);
+bool is_bypass_dolbyms12(struct audio_stream_out *stream);
+
+
+int dolby_ms12_hwsync_init(void);
+int dolby_ms12_hwsync_release(void);
+int dolby_ms12_hwsync_checkin_pts(int offset, int apts);
+int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, size_t bytes);
+
 #endif //end of _AUDIO_HW_MS12_H_

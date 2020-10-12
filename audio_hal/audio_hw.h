@@ -110,6 +110,7 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 
 #define DDP_FRAME_SIZE      768
 #define EAC3_MULTIPLIER 4
+#define  JITTER_DURATION_MS  3
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
@@ -287,9 +288,10 @@ typedef enum stream_usecase {
 
 typedef enum alsa_device {
     I2S_DEVICE = 0,
-    DIGITAL_DEVICE,
+    DIGITAL_DEVICE, /*for spdifa*/
     TDM_DEVICE,
     EARC_DEVICE,
+	DIGITAL_DEVICE2, /*for spdifb*/
     ALSA_DEVICE_CNT
 } alsa_device_t;
 
@@ -457,6 +459,7 @@ struct aml_audio_device {
      */
     int dolby_lib_type;
     int dolby_lib_type_last;
+    int dolby_decode_enable;   /*it can decode dolby, not passthrough lib*/
     /*used for dts decoder*/
     struct dca_dts_dec dts_hd;
     bool bHDMIARCon;
@@ -488,8 +491,12 @@ struct aml_audio_device {
     size_t frame_trigger_thred;
     struct aml_audio_parser *aml_parser;
     int continuous_audio_mode;
+    int continuous_audio_mode_default;
+    int delay_disable_continuous;
     bool atoms_lock_flag;
     bool need_remove_conti_mode;
+    int  exiting_ms12;
+    struct timespec ms12_exiting_start;
     int debug_flag;
     int dcvlib_bypass_enable;
     int dtslib_bypass_enable;
@@ -520,6 +527,7 @@ struct aml_audio_device {
     //int cnt_stream_using_mixer;
     int tsync_fd;
     bool rawtopcm_flag;
+    bool is_netflix;
     int dtv_aformat;
     unsigned int dtv_i2s_clock;
     unsigned int dtv_spidif_clock;
@@ -557,7 +565,11 @@ struct aml_audio_device {
     int no_underrun_max;
     int start_mute_flag;
     int ad_start_enable;
+    int count;
     int FactoryChannelReverse;
+    void *alsa_handle[ALSA_DEVICE_CNT];
+    bool dual_spdif_support; /*1 means supports spdif_a & spdif_b & spdif interface*/
+    uint64_t  sys_audio_frame_written;
 };
 
 struct meta_data {
@@ -570,6 +582,27 @@ struct meta_data_list {
     struct listnode list;
     struct meta_data mdata;
 };
+
+typedef struct aml_stream_config {
+    struct audio_config config;
+} aml_stream_config_t;
+
+typedef struct aml_device_config {
+    uint32_t device_port;
+
+} aml_device_config_t;
+
+typedef enum info_type {
+    PCMOUTPUT_CONFIG_INFO,   // refer to aml_stream_config
+    OUTPUT_INFO_STATUS,      // running or xrun etc..
+    OUTPUT_INFO_DELAYFRAME,  // the delay frames
+} info_type_t;
+
+typedef union output_info {
+    int                 delay_frame;
+
+} output_info_t;
+
 
 struct aml_stream_out {
     struct audio_stream_out stream;
@@ -585,6 +618,8 @@ struct aml_stream_out {
     audio_format_t hal_format;
     /* samplerate exposed to AudioFlinger. */
     unsigned int hal_rate;
+    unsigned int hal_ch;
+    unsigned int hal_frame_size;
     audio_output_flags_t flags;
     audio_devices_t out_device;
     struct a2dp_stream_out *a2dp_out;
@@ -610,8 +645,11 @@ struct aml_stream_out {
     void *audioeffect_tmp_buffer;
     bool pause_status;
     bool hw_sync_mode;
+    int  tsync_status;
     float volume_l;
     float volume_r;
+    float last_volume_l;
+    float last_volume_r;
     int last_codec_type;
     /**
      * as raw audio framesize  is 1 computed by audio_stream_out_frame_size
@@ -672,7 +710,13 @@ struct aml_stream_out {
     int ddp_frame_nblks;
     uint64_t total_ddp_frame_nblks;
     int framevalid_flag;
+    bool spdifenc_init;
+    void *spdifenc_handle;
+    bool dual_spdif;
+    uint64_t  last_frame_reported;
+    struct timespec  last_timestamp_reported;
     void    *pstMmapAudioParam;    // aml_mmap_audio_param_st (aml_mmap_audio.h)
+    bool restore_continuous;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
@@ -862,6 +906,8 @@ int start_ease_in(struct aml_audio_device *adev);
 int start_ease_out(struct aml_audio_device *adev);
 
 enum hwsync_status check_hwsync_status (uint apts_gap);
-void config_output(struct audio_stream_out *stream);
+void config_output(struct audio_stream_out *stream, bool reset_decoder);
 int out_standby_direct (struct audio_stream *stream);
+void *adev_get_handle();
+
 #endif

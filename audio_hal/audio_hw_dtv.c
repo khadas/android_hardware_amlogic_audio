@@ -61,6 +61,7 @@
 #include "dolby_lib_api.h"
 #include "audio_dtv_ad.h"
 #include "alsa_device_parser.h"
+#include "aml_audio_timer.h"
 
 #define TSYNC_PCRSCR "/sys/class/tsync/pts_pcrscr"
 #define TSYNC_EVENT "/sys/class/tsync/event"
@@ -198,7 +199,6 @@ static int dtv_get_tsync_mode(void);
 static int create_dtv_output_stream_thread(struct aml_audio_patch *patch);
 static int release_dtv_output_stream_thread(struct aml_audio_patch *patch);
 static int dtv_get_ac3_frame_size(struct aml_audio_patch *patch, int main_avail);
-extern int calc_time_interval_us(struct timespec *ts0, struct timespec *ts1);
 extern size_t aml_alsa_output_write(struct audio_stream_out *stream, void *buffer, size_t bytes);
 struct cmd_list cmd_array[16]; // max cache 16 cmd;
 

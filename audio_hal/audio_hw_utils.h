@@ -52,10 +52,14 @@ int aml_audio_debug_set_optical_format();
 int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes);
 int aml_audio_get_arc_latency_offset(int format);
 int aml_audio_get_hwsync_latency_offset(void);
+int aml_audio_get_ms12_latency_offset(bool b_raw_in, bool b_raw_out);
+int aml_audio_get_ms12_tunnel_latency_offset(bool b_raw_in, bool b_raw_out);
+int aml_audio_get_ms12_atmos_latency_offset(bool tunnel);
 int aml_audio_get_ddp_frame_size();
 bool is_stream_using_mixer(struct aml_stream_out *out);
 uint32_t out_get_outport_latency(const struct audio_stream_out *stream);
 uint32_t out_get_latency_frames(const struct audio_stream_out *stream);
+uint32_t out_get_ms12_latency_frames(const struct audio_stream_out *stream);
 int aml_audio_get_spdif_tuning_latency(void);
 int aml_audio_get_arc_tuning_latency(audio_format_t arc_afmt);
 int aml_audio_get_src_tune_latency(enum patch_src_assortion patch_src);
@@ -68,9 +72,14 @@ int aml_audio_get_hdmi_latency_offset(int aformat,int is_ms12,int hdmi_format);
 int aml_audio_get_speaker_latency_offset(int aformat);
 uint32_t tspec_diff_to_us(struct timespec tval_old,
         struct timespec tval_new);
+int aml_audio_get_dolby_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost);
 void aml_audio_switch_output_mode(int16_t *buf, size_t bytes, AM_AOUT_OutputMode_t mode);
 int is_need_config_channel(void);
 int check_chip_name(char *name, unsigned int length);
+int halformat_convert_to_spdif(audio_format_t format);
+int alsa_device_get_port_index(alsa_device_t alsa_device);
 int aml_set_thread_priority(char *pName, pthread_t threadId);
-
+bool is_multi_channel_pcm(struct audio_stream_out *stream);
+bool is_high_rate_pcm(struct audio_stream_out *stream);
+bool is_disable_ms12_continuous(struct audio_stream_out *stream);
 #endif

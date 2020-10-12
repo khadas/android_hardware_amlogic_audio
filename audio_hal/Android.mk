@@ -96,7 +96,10 @@ include $(BUILD_PREBUILT)
         audio_virtual_buf.c \
         aml_audio_ease.c \
         aml_audio_ac3parser.c \
+        aml_audio_spdifout.c \
+        aml_audio_spdifdec.c \
         aml_mmap_audio.c \
+        aml_audio_ms12_bypass.c \
         ../amlogic_AQ_tools/audio_eq_drc_compensation.c \
         ../amlogic_AQ_tools/audio_eq_drc_parser.c \
         ../amlogic_AQ_tools/ini/dictionary.c \

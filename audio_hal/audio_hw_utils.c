@@ -44,14 +44,22 @@
 #include "audio_hw.h"
 #include "amlAudioMixer.h"
 #include <audio_utils/primitives.h>
+#include "alsa_device_parser.h"
 #include "audio_a2dp_hw.h"
 #include "dolby_lib_api.h"
-
+#include "aml_audio_avsync_table.h"
 #ifdef LOG_NDEBUG_FUNCTION
 #define LOGFUNC(...) ((void)0)
 #else
 #define LOGFUNC(...) (ALOGD(__VA_ARGS__))
 #endif
+//DRC Mode
+#define DDPI_UDC_COMP_LINE 2
+#define DRC_MODE_BIT  0
+#define DRC_HIGH_CUT_BIT 3
+#define DRC_LOW_BST_BIT 16
+static const char *str_compmode[] = {"custom mode, analog dialnorm","custom mode, digital dialnorm",
+                            "line out mode","RF remod mode"};
 
 int64_t aml_gettime(void)
 {
@@ -458,19 +466,83 @@ int aml_audio_get_arc_latency_offset(int aformat)
 
 int aml_audio_get_hwsync_latency_offset(void)
 {
-	char buf[PROPERTY_VALUE_MAX];
-	int ret = -1;
-	int latency_ms = 0;
-	char *prop_name = NULL;
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
 
-	prop_name = "media.audio.hal.hwsync_latency.ddp";
-	latency_ms = 0;
-	ret = property_get(prop_name, buf, NULL);
-	if (ret > 0) {
-		latency_ms = atoi(buf);
-	}
-	return latency_ms;
+    prop_name = "media.audio.hal.hwsync_latency.ddp";
+    latency_ms = 0;
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0) {
+        latency_ms = atoi(buf);
+    }
+    return latency_ms;
 }
+
+int aml_audio_get_ms12_tunnel_latency_offset(bool b_raw_in, bool b_raw_out)
+{
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    int out_latency_ms = 0;
+    char *prop_name = NULL;
+    /*tunnle mode case*/
+    ALOGV("tunnel raw in=%d raw out=%d", b_raw_in, b_raw_out);
+    if (!b_raw_in) {
+        /*for non tunnel ddp2h/heaac case:netlfix AL1 case */
+        prop_name = AVSYNC_MS12_TUNNEL_PCM_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_TUNNEL_PCM_LATENCY;
+    } else {
+        /*for non tunnel dolby ddp5.1 case:netlfix AL1 case*/
+        prop_name = AVSYNC_MS12_TUNNEL_RAW_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_TUNNEL_RAW_LATENCY;
+    }
+
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0) {
+        latency_ms = atoi(buf);
+    }
+
+    /* get the different output latency*/
+    if (!b_raw_out) {
+        out_latency_ms = AVSYNC_MS12_PCM_OUT_LATENCY;
+        prop_name = AVSYNC_MS12_PCM_OUT_LATENCY_PROPERTY;
+    } else {
+        out_latency_ms = AVSYNC_MS12_RAW_OUT_LATENCY;
+        prop_name = AVSYNC_MS12_RAW_OUT_LATENCY_PROPERTY;
+    }
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0) {
+        out_latency_ms = atoi(buf);
+    }
+    latency_ms += out_latency_ms;
+
+    return latency_ms;
+}
+
+int aml_audio_get_ms12_atmos_latency_offset(bool tunnel)
+{
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    if (tunnel) {
+        /*tunnel atmos case*/
+        prop_name = AVSYNC_MS12_TUNNEL_ATMOS_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_TUNNEL_ATMOS_LATENCY;
+    }else {
+        /*non tunnel atmos case*/
+        prop_name = AVSYNC_MS12_NONTUNNEL_ATMOS_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_NONTUNNEL_ATMOS_LATENCY;
+    }
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0) {
+        latency_ms = atoi(buf);
+    }
+    return latency_ms;
+}
+
 
 int aml_audio_get_ddp_frame_size()
 {
@@ -570,6 +642,48 @@ uint32_t out_get_latency_frames(const struct audio_stream_out *stream)
     }
 
     return frames / mul + ringbuf_latency_frames + decoder_latency_frames;
+}
+uint32_t out_get_ms12_latency_frames(const struct audio_stream_out *stream)
+{
+    const struct aml_stream_out *hal_out = (const struct aml_stream_out *)stream;
+    snd_pcm_sframes_t frames = 0;
+    struct snd_pcm_status status;
+    uint32_t whole_latency_frames;
+    int ret = 0;
+    struct aml_audio_device *adev = hal_out->dev;
+    struct aml_stream_out *ms12_out = adev->ms12_out;
+    struct pcm_config *config = &adev->ms12_config;
+    int mul = 1;
+
+    if (ms12_out == NULL) {
+        return 0;
+    }
+    if (adev->sink_format == AUDIO_FORMAT_E_AC3) {
+        mul = 4;
+    }
+
+    if (ms12_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+        return a2dp_out_get_latency(stream)*ms12_out->hal_rate/1000;
+    }
+
+    whole_latency_frames = config->start_threshold;
+    if (!ms12_out->pcm || !pcm_is_ready(ms12_out->pcm)) {
+        return whole_latency_frames / mul;
+    }
+
+    ret = pcm_ioctl(ms12_out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+    if (ret < 0) {
+        return whole_latency_frames / mul;
+    }
+    if (status.state != PCM_STATE_RUNNING && status.state != PCM_STATE_DRAINING) {
+        return whole_latency_frames / mul;
+    }
+
+    ret = pcm_ioctl(ms12_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+    if (ret < 0) {
+        return whole_latency_frames / mul;
+    }
+    return frames / mul;
 }
 
 int aml_audio_get_spdif_tuning_latency(void)
@@ -777,6 +891,31 @@ uint32_t tspec_diff_to_us(struct timespec tval_old,
             + (tval_new.tv_nsec - tval_old.tv_nsec) / 1000;
 }
 
+
+int aml_audio_get_dolby_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost)
+{
+    char cEndpoint[PROPERTY_VALUE_MAX];
+    int ret = 0;
+    unsigned ac3_drc_control = (DDPI_UDC_COMP_LINE<<DRC_MODE_BIT)|(100<<DRC_HIGH_CUT_BIT)|(100<<DRC_LOW_BST_BIT);
+    ac3_drc_control = get_sysfs_int("/sys/class/audiodsp/ac3_drc_control");
+
+    if (!drc_mode || !drc_cut || !drc_boost)
+        return -1;
+    *drc_mode = ac3_drc_control&3;
+    ALOGI("drc mode from sysfs %s\n",str_compmode[*drc_mode]);
+    ret = property_get("ro.vendor.dolby.drcmode",cEndpoint,"");
+    if (ret > 0) {
+        *drc_mode = atoi(cEndpoint)&3;
+        ALOGI("drc mode from prop %s\n",str_compmode[*drc_mode]);
+    }
+    *drc_cut  = (ac3_drc_control>>DRC_HIGH_CUT_BIT)&0xff;
+    *drc_boost  = (ac3_drc_control>>DRC_LOW_BST_BIT)&0xff;
+    ALOGI("dd+ drc mode %s,high cut %d pct,low boost %d pct\n",
+        str_compmode[*drc_mode],*drc_cut, *drc_boost);
+    return 0;
+}
+
+
 void aml_audio_switch_output_mode(int16_t *buf, size_t bytes, AM_AOUT_OutputMode_t mode)
 {
     int16_t tmp;
@@ -805,6 +944,47 @@ void aml_audio_switch_output_mode(int16_t *buf, size_t bytes, AM_AOUT_OutputMode
     }
 }
 
+int halformat_convert_to_spdif(audio_format_t format) {
+    int aml_spdif_format = AML_STEREO_PCM;
+    switch (format) {
+        case AUDIO_FORMAT_PCM_16_BIT:
+            aml_spdif_format = AML_STEREO_PCM;
+            break;
+        case AUDIO_FORMAT_AC3:
+            aml_spdif_format = AML_DOLBY_DIGITAL;
+            break;
+        case AUDIO_FORMAT_E_AC3:
+            aml_spdif_format = AML_DOLBY_DIGITAL_PLUS;
+            break;
+        case AUDIO_FORMAT_DTS:
+            aml_spdif_format = AML_DTS;
+            break;
+        case AUDIO_FORMAT_DTS_HD:
+            aml_spdif_format = AML_DTS_HD;
+            break;
+        default:
+            aml_spdif_format = AML_STEREO_PCM;
+            break;
+    }
+    return aml_spdif_format;
+}
+
+/*
+ * convert alsa_device_t to PORT***
+ */
+int alsa_device_get_port_index(alsa_device_t alsa_device)
+{
+    int alsa_port = -1;
+    if (alsa_device == I2S_DEVICE) {
+        alsa_port = PORT_I2S;
+    } else if (alsa_device == DIGITAL_DEVICE) {
+        alsa_port = PORT_SPDIF;
+    } else if (alsa_device == DIGITAL_DEVICE2) {
+        alsa_port = PORT_SPDIFB;
+    }
+    return alsa_port;
+}
+
 int aml_set_thread_priority(char *pName, pthread_t threadId)
 {
     struct sched_param  params = {0};
@@ -820,3 +1000,40 @@ int aml_set_thread_priority(char *pName, pthread_t threadId)
         __func__, __LINE__, pName, ret, policy, params.sched_priority);
     return ret;
 }
+
+bool is_multi_channel_pcm(struct audio_stream_out *stream) {
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+
+    return (audio_is_linear_pcm(aml_out->hal_internal_format) &&
+           (aml_out->hal_ch > 2));
+}
+
+bool is_high_rate_pcm(struct audio_stream_out *stream) {
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+
+    return (audio_is_linear_pcm(aml_out->hal_internal_format) &&
+           (aml_out->hal_rate > MM_FULL_POWER_SAMPLING_RATE));
+}
+
+bool is_disable_ms12_continuous(struct audio_stream_out *stream) {
+    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = aml_out->dev;
+
+    if ((aml_out->hal_internal_format == AUDIO_FORMAT_DTS)
+        || (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
+        /*dts case, we need disable ms12 continuous mode*/
+        return true;
+    } else if (is_high_rate_pcm(stream) || is_multi_channel_pcm(stream)) {
+        /*high bit rate pcm case, we need disable ms12 continuous mode*/
+        return true;
+    } else if ((aml_out->hal_internal_format == AUDIO_FORMAT_AC3 \
+               || aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3)
+               && (aml_out->hal_rate == 48000 || aml_out->hal_rate == 192000)) {
+        /*only support 48kz ddp/dd*/
+        return false;
+    } else if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+        return true;
+    }
+    return false;
+}
+

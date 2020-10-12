@@ -55,4 +55,8 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
 int alsa_depop(int card);
 int aml_alsa_input_flush(struct audio_stream_in *stream);
 
+int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config, aml_device_config_t *device_config);
+void aml_alsa_output_close_new(void *handle);
+size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes);
+int aml_alsa_output_getinfo(void *handle, info_type_t type, output_info_t * info);
 #endif // _ALSA_MANAGER_H_

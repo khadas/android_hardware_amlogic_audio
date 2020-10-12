@@ -40,7 +40,7 @@ namespace android
 
 //here the file path is fake
 //@@pcm [application sounds]
-#define DEFAULT_APPLICATION_PCM_FILE_NAME "/data/application"
+#define DEFAULT_APPLICATION_PCM_FILE_NAME "/data/app48khz.wav"
 //@@pcm [system sounds]
 #define DEFAULT_SYSTEM_PCM_FILE_NAME "/data/system48kHz.wav"
 //@@pcm [ott sounds]
@@ -57,8 +57,10 @@ namespace android
 
 #define DEFAULT_OUTPUT_PCM_MULTI_FILE_NAME "/data/outputmulti.wav"
 #define DEFAULT_OUTPUT_PCM_DOWNMIX_FILE_NAME "/data/outputdownmix.wav"
+#define DEFAULT_OUTPUT_DAP_FILE_NAME "/data/outputdap.wav"
 #define DEFAULT_OUTPUT_DD_FILE_NAME "/data/output.ac3"
 #define DEFAULT_OUTPUT_DDP_FILE_NAME "/data/output.ec3"
+#define DEFAULT_OUTPUT_MAT_FILE_NAME "/data/output.mat"
 
 #define DEFAULT_APP_SOUNDS_CHANNEL_cONFIGURATION 7//means 3/2 (L, R, C, l, r)
 #define DEFAULT_SYSTEM_SOUNDS_CHANNEL_cONFIGURATION 2//means 2/0 (L, R)
@@ -79,17 +81,18 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mAudioStreamOutChannelMask(AUDIO_CHANNEL_OUT_STEREO)
     , mAudioSteamOutSampleRate(48000)
     // , mAudioSteamOutDevices(AUDIO_DEVICE_OUT_SPEAKER)
+    , mDolbyMS12OutConfig(MS12_OUTPUT_MASK_DD)
     , mDolbyMS12OutFormat(AUDIO_FORMAT_AC3)
     , mDolbyMS12OutSampleRate(48000)
     , mDolbyMS12OutChannelMask(AUDIO_CHANNEL_OUT_STEREO)
     , mConfigParams(NULL)
-    , mStereoOutputFlag(false)
+    , mStereoOutputFlag(true)
     // , mMultiOutputFlag(true)
     , mDRCBoost(100)
     , mDRCCut(100)
     , mDRCBoostSystem(100)
     , mDRCCutSystem(100)
-    , mChannelConfAppSoundsIn(7)//5.1
+    , mChannelConfAppSoundsIn(2)//5.1
     , mChannelConfSystemIn(2)//2.0
     , mMainFlags(true)
     //, mMainFlags(false) // always have mMainFlags on? zz
@@ -102,11 +105,11 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mDAPDRCMode(0)
     , mDonwmixMode(0)
     , mEvaluationMode(0)
-    , mLFEPresentInAppSoundIn(1)
+    , mLFEPresentInAppSoundIn(0)
     , mLFEPresentInSystemSoundIn(0)
     , mMaxChannels(6)//fixme, here choose 5.1ch
     , mDonwnmix71PCMto51(0)
-    , mLockingChannelModeENC(1)//Encoder Channel Mode Locking Mode as 5.1
+    , mLockingChannelModeENC(0)//Encoder Channel Mode Locking Mode as 5.1
     , mRISCPrecisionFlag(1)
     , mDualMonoReproMode(0)
     , mVerbosity(2)
@@ -133,7 +136,9 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mDAPSurDecEnable(false)
     , mHasAssociateInput(false)
     , mHasSystemInput(false)
+    , mHasAppInput(false)
     , mDualOutputFlag(false)
+    , mDualBitstreamOut(false)
     , mActivateOTTSignal(false)
     , mChannelConfOTTSoundsIn(2)//2.0 if mActivateOTTSignal is true
     , mLFEPresentInOTTSoundIn(0)//on(default) if mActivateOTTSignal is true
@@ -142,8 +147,8 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mMain1IsDummy(false)
     , mOTTSoundInputEnable(false)
 {
-    ALOGD("+%s() mAudioOutFlags %d mAudioStreamOutFormat %#x mAudioStreamOutChannelMask %#x mHasAssociateInput %d mHasSystemInput %d\n",
-          __FUNCTION__, mAudioOutFlags, mAudioStreamOutFormat, mAudioStreamOutChannelMask, mHasAssociateInput, mHasSystemInput);
+    ALOGD("+%s() mAudioOutFlags %d mAudioStreamOutFormat %#x mAudioStreamOutChannelMask %#x mHasAssociateInput %d mHasSystemInput %d AppInput %d\n",
+          __FUNCTION__, mAudioOutFlags, mAudioStreamOutFormat, mAudioStreamOutChannelMask, mHasAssociateInput, mHasSystemInput, mHasAppInput);
     mConfigParams = PrepareConfigParams(MAX_ARGC, MAX_ARGV_STRING_LEN);
     if (!mConfigParams) {
         ALOGD("%s() line %d prepare the array fail", __FUNCTION__, __LINE__);
@@ -170,7 +175,7 @@ void DolbyMS12ConfigParams::SetAudioStreamOutParams(
     , audio_format_t input_format
     , audio_channel_mask_t channel_mask
     , int sample_rate
-    , audio_format_t output_format)
+    , int output_config)
 {
     ALOGD("+%s()", __FUNCTION__);
     mAudioOutFlags = flags;
@@ -189,7 +194,18 @@ void DolbyMS12ConfigParams::SetAudioStreamOutParams(
     }
 
     mAudioSteamOutSampleRate = sample_rate;
-    mDolbyMS12OutFormat = output_format;
+
+    mDolbyMS12OutConfig = output_config & MS12_OUTPUT_MASK_PUBLIC;
+
+    // speaker output w/o a DAP tuning file will use downmix output instead
+    if (mDolbyMS12OutConfig & MS12_OUTPUT_MASK_SPEAKER) {
+        if (mDAPInitMode) {
+            mDolbyMS12OutConfig |= MS12_OUTPUT_MASK_DAP;
+        } else {
+            mDolbyMS12OutConfig |= MS12_OUTPUT_MASK_STEREO;
+        }
+    }
+
     ALOGD("-%s() AudioStreamOut Flags %x Format %#x ChannelMask %x SampleRate %d OutputFormat %#x\n",
           __FUNCTION__, mAudioOutFlags, mAudioStreamOutFormat, mAudioStreamOutChannelMask,
           mAudioSteamOutSampleRate, mDolbyMS12OutFormat);
@@ -267,7 +283,7 @@ int DolbyMS12ConfigParams::SetInputOutputFileName(char **ConfigParams, int *row_
                 sprintf(ConfigParams[*row_index], "%s%d%s", DEFAULT_APPLICATION_PCM_FILE_NAME, mAudioSteamOutSampleRate, "kHz.wav");
                 (*row_index)++;
                 mMainFlags = true;
-                mAppSoundFlags = false;
+                mAppSoundFlags = true;
                 mSystemSoundFlags = true;
             }
         } else {
@@ -347,30 +363,49 @@ int DolbyMS12ConfigParams::SetInputOutputFileName(char **ConfigParams, int *row_
         (*row_index)++;
     }
 
+    if (mHasAppInput == true) {
+        sprintf(ConfigParams[*row_index], "%s", "-ias");
+        (*row_index)++;
+        sprintf(ConfigParams[*row_index], "%s", DEFAULT_APPLICATION_PCM_FILE_NAME);
+        (*row_index)++;
+    }
 
-    //OUTPUT mDolbyMS12OutFormat(AUDIO_FORMAT_E_AC3)
-    if (mDolbyMS12OutFormat == AUDIO_FORMAT_AC3) {
+    if (mDolbyMS12OutConfig & MS12_OUTPUT_MASK_DD) {
         sprintf(ConfigParams[*row_index], "%s", "-od");
         (*row_index)++;
         sprintf(ConfigParams[*row_index], "%s", DEFAULT_OUTPUT_DD_FILE_NAME);
         (*row_index)++;
-        if (mDualOutputFlag == true) {
-            sprintf(ConfigParams[*row_index], "%s", "-oms");
-            (*row_index)++;
-            sprintf(ConfigParams[*row_index], "%s", DEFAULT_OUTPUT_PCM_DOWNMIX_FILE_NAME);
-            (*row_index)++;
-        }
-    } else if (mDolbyMS12OutFormat == AUDIO_FORMAT_E_AC3) {
+    }
+
+    if (mDolbyMS12OutConfig & MS12_OUTPUT_MASK_DDP) {
         sprintf(ConfigParams[*row_index], "%s", "-odp");
         (*row_index)++;
         sprintf(ConfigParams[*row_index], "%s", DEFAULT_OUTPUT_DDP_FILE_NAME);
         (*row_index)++;
-    } else if ((mDolbyMS12OutFormat == AUDIO_FORMAT_PCM_16_BIT) && (mStereoOutputFlag == false) && (mDAPInitMode != 0)) { //pcm multi
+    }
+
+    if (mDolbyMS12OutConfig & MS12_OUTPUT_MASK_MAT) {
+        sprintf(ConfigParams[*row_index], "%s", "-omat");
+        (*row_index)++;
+        sprintf(ConfigParams[*row_index], "%s", DEFAULT_OUTPUT_MAT_FILE_NAME);
+        (*row_index)++;
+    }
+
+    if (mDolbyMS12OutConfig & MS12_OUTPUT_MASK_DAP) {
+        sprintf(ConfigParams[*row_index], "%s", "-o_dap_speaker");
+        (*row_index)++;
+        sprintf(ConfigParams[*row_index], "%s", DEFAULT_OUTPUT_DAP_FILE_NAME);
+        (*row_index)++;
+    }
+
+    if (mDolbyMS12OutConfig & MS12_OUTPUT_MASK_MC) {
         sprintf(ConfigParams[*row_index], "%s", "-om");
         (*row_index)++;
         sprintf(ConfigParams[*row_index], "%s", DEFAULT_OUTPUT_PCM_MULTI_FILE_NAME);
         (*row_index)++;
-    } else { //pcm 2-channel downmix output
+    }
+
+    if (mDolbyMS12OutConfig & MS12_OUTPUT_MASK_STEREO) {
         sprintf(ConfigParams[*row_index], "%s", "-oms");
         (*row_index)++;
         sprintf(ConfigParams[*row_index], "%s", DEFAULT_OUTPUT_PCM_DOWNMIX_FILE_NAME);
@@ -613,7 +648,7 @@ int DolbyMS12ConfigParams::SetFunctionalSwitches(char **ConfigParams, int *row_i
         (*row_index)++;
     }
 
-    if (mLockingChannelModeENC == 1) {
+    if (1/*mLockingChannelModeENC == 1*/) {
         sprintf(ConfigParams[*row_index], "%s", "-chmod_locking");
         (*row_index)++;
         sprintf(ConfigParams[*row_index], "%d", mLockingChannelModeENC);

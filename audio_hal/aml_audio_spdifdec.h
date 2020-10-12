@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Amlogic Corporation.
+ * Copyright (C) 2020 Amlogic Corporation.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,13 @@
  * limitations under the License.
  */
 
+#ifndef _AML_AUDIO_SPDIFDEC_H_
+#define _AML_AUDIO_SPDIFDEC_H_
 
-#ifndef AML_AUDIO_SLEEP_H
-#define AML_AUDIO_SLEEP_H
+int aml_spdif_decoder_open(void **spdifdec_handle);
+int aml_spdif_decoder_close(void *phandle);
+int aml_spdif_decoder_process(void *phandle, const void *inbuf, int32_t n_bytes_inbuf, int32_t *used_size, void **output_buf, int32_t *out_size);
+int aml_spdif_decoder_getformat(void *phandle);
+int aml_spdif_decoder_reset(void *phandle);
 
-#include <stdint.h>
-
-int aml_audio_sleep(uint64_t us);
-
-uint64_t aml_audio_get_systime(void);
-
-uint64_t aml_audio_get_systime_ns(void);
-
-int64_t calc_time_interval_us(struct timespec *ts_start, struct timespec *ts_end);
-
-#endif
-
+#endif //

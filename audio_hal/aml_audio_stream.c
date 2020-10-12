@@ -142,11 +142,13 @@ void get_sink_format (struct audio_stream_out *stream)
             break;
         case AUTO:
             sink_audio_format = (source_format != AUDIO_FORMAT_DTS && source_format != AUDIO_FORMAT_DTS_HD) ? min(source_format, sink_capability) : AUDIO_FORMAT_DTS;
-            if ((source_format == AUDIO_FORMAT_PCM_16_BIT) && (adev->continuous_audio_mode == 1) && (sink_capability >= AUDIO_FORMAT_AC3)) {
-                // For continous output, we need to continous output data
-                // when input is PCM, we still need to output AC3/EAC3 according to sink capability
-                sink_audio_format = sink_capability;
-                ALOGI("%s continuous_audio_mode %d source_format %#x sink_capability %#x\n", __FUNCTION__, adev->continuous_audio_mode, source_format, sink_capability);
+
+            if (eDolbyMS12Lib == adev->dolby_lib_type && !is_dts_format(source_format)) {
+                if (!adev->disable_pcm_mixing) {
+                    sink_audio_format = sink_capability;
+                } else {
+                    sink_audio_format = min(source_format, sink_capability);
+                }
             }
             optical_audio_format = sink_audio_format;
             break;
@@ -177,14 +179,17 @@ void get_sink_format (struct audio_stream_out *stream)
             }
             break;
         case AUTO:
-            if (adev->continuous_audio_mode == 0) {
-                sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
-                optical_audio_format = (source_format != AUDIO_FORMAT_DTS && source_format != AUDIO_FORMAT_DTS_HD)
-                                       ? min(source_format, AUDIO_FORMAT_AC3)
-                                       : AUDIO_FORMAT_DTS;
-            } else {
-                sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
-                optical_audio_format = (source_format != AUDIO_FORMAT_DTS && source_format != AUDIO_FORMAT_DTS_HD) ? AUDIO_FORMAT_AC3 : AUDIO_FORMAT_DTS;
+            sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
+            optical_audio_format = (source_format != AUDIO_FORMAT_DTS && source_format != AUDIO_FORMAT_DTS_HD)
+                                   ? min(source_format, AUDIO_FORMAT_AC3)
+                                   : AUDIO_FORMAT_DTS;
+
+            if (eDolbyMS12Lib == adev->dolby_lib_type && !is_dts_format(source_format)) {
+                if (!adev->disable_pcm_mixing) {
+                    optical_audio_format = AUDIO_FORMAT_AC3;
+                } else {
+                    optical_audio_format = min(source_format, AUDIO_FORMAT_AC3);
+                }
             }
             ALOGI("%s() source_format %#x sink_audio_format %#x "
                   "optical_audio_format %#x",

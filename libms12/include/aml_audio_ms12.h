@@ -25,6 +25,16 @@
 
 #define DOLBY_SAMPLE_SIZE 4//2ch x 2bytes(16bits) = 4 bytes
 
+enum {
+    BITSTREAM_OUTPUT_A,
+    BITSTREAM_OUTPUT_B,
+    BITSTREAM_OUTPUT_CNT
+};
+
+struct bitstream_out_desc {
+    audio_format_t audio_format;
+    void *spdifout_handle;
+};
 
 struct dolby_ms12_desc {
     bool dolby_ms12_enable;
@@ -32,7 +42,7 @@ struct dolby_ms12_desc {
     audio_format_t input_config_format;
     audio_channel_mask_t config_channel_mask;
     int config_sample_rate;
-    audio_format_t output_format;
+    int output_config;
     int output_samplerate;
     audio_channel_mask_t output_channelmask;
     int ms12_out_bytes;
@@ -70,6 +80,7 @@ struct dolby_ms12_desc {
     whatever what bistream is outputed we need use this latency frames.
     */
     int latency_frame;
+    int sys_avail;
     int curDBGain;
 
     // for DDP stream, the input frame is 768/1537/1792(each 32ms)
@@ -83,7 +94,26 @@ struct dolby_ms12_desc {
     void * main_virtual_buf_handle;
     void * system_virtual_buf_handle;
     int nbytes_of_dmx_output_pcm_frame;
+    int need_resume;
+    int need_resync; /*handle from pause to resume sync*/
+    bool dual_bitstream_support;
+    struct bitstream_out_desc bitstream_out[BITSTREAM_OUTPUT_CNT];
+    struct timespec  sys_audio_timestamp;
+    uint64_t  sys_audio_frame_pos;
+    uint64_t  sys_audio_base_pos;
+    uint64_t  last_sys_audio_cost_pos;
     void * ac3_parser_handle;
+    void * spdif_dec_handle;
+    audio_format_t sink_format;
+    audio_format_t optical_format;
+    bool dual_decoder_support;
+    void * ms12_bypass_handle;
+    bool   is_bypass_ms12;
+    uint64_t main_input_us;
+    uint64_t main_output_us;
+    uint32_t main_input_rate;  /*it is used to calculate the buffer duration*/
+    uint32_t main_buffer_min_level;
+    uint32_t main_buffer_max_level;
 };
 
 /*
@@ -111,12 +141,13 @@ int get_dolby_ms12_init(struct dolby_ms12_desc *ms12_desc);
  * ms12_config_format: AUDIO_FORMAT_PCM_16_BIT/AUDIO_FORMAT_PCM_32_BIT/AUDIO_FORMAT_AC3/AUDIO_FORMAT_E_AC3
  * config_channel_mask: AUDIO_CHANNEL_OUT_STEREO/AUDIO_CHANNEL_OUT_5POINT1/AUDIO_CHANNEL_OUT_7POINT1
  * config_sample_rate: sample rate.
+ * output_config: bit mask | of {MS12_OUTPUT_MASK_DD/DDP/MAT/STEREO/SPEAKER}
  */
 int aml_ms12_config(struct dolby_ms12_desc *ms12_desc
                     , audio_format_t config_format
                     , audio_channel_mask_t config_channel_mask
                     , int config_sample_rate
-                    , audio_format_t output_format);
+                    , int output_config);
 /*
  *@brief cleanup the dolby ms12
  */

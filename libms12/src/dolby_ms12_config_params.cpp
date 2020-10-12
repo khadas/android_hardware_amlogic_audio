@@ -103,17 +103,37 @@ extern "C" bool dolby_ms12_config_params_get_system_flag(void)
     }
 }
 
+extern "C" void dolby_ms12_config_params_set_app_flag(bool flag)
+{
+    ALOGV("%s() system flag %d\n", __FUNCTION__, flag);
+    android::DolbyMS12ConfigParams *config_param = getInstance();
+    if (config_param) {
+        config_param->setAppFlag(flag);
+    }
+}
+
+extern "C" bool dolby_ms12_config_params_get_app_flag(void)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12ConfigParams *config_param = getInstance();
+    if (config_param) {
+        return config_param->getAppFlag();
+    } else {
+        return false;
+    }
+}
+
 extern "C" void dolby_ms12_config_params_set_audio_stream_out_params(
     audio_output_flags_t flags
     , audio_format_t input_format
     , audio_channel_mask_t channel_mask
     , int sample_rate
-    , audio_format_t output_format)
+    , int output_config)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
     if (config_param) {
-        config_param->SetAudioStreamOutParams(flags, input_format, channel_mask, sample_rate, output_format);
+        config_param->SetAudioStreamOutParams(flags, input_format, channel_mask, sample_rate, output_config);
     }
 }
 
@@ -771,6 +791,15 @@ extern "C" void dolby_ms12_set_dual_output_flag(bool need_dual_output)
     android::DolbyMS12ConfigParams *config_param = getInstance();
     if (config_param) {
         return config_param->setDualOutputFlag(need_dual_output);
+    }
+}
+
+extern "C" void dolby_ms12_set_dual_bitstream_out(bool need_dual_output)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12ConfigParams *config_param = getInstance();
+    if (config_param) {
+        return config_param->setDualBitstreamOut(need_dual_output);
     }
 }
 

@@ -17,19 +17,11 @@
 #ifndef _SPDIF_ENCODER_API_H_
 #define _SPDIF_ENCODER_API_H_
 
-/*
- *@brief get the spdif encoder output buffer
- */
-int config_spdif_encoder_output_buffer(audio_format_t format, struct aml_audio_device *adev);
+int aml_spdif_encoder_open(void **spdifenc_handle, audio_format_t format);
+int aml_spdif_encoder_close(void *phandle);
+int aml_spdif_encoder_process(void *phandle, const void *buffer, size_t numBytes, void **output_buf, size_t *out_size);
+int aml_spdif_encoder_mute(void *phandle, bool bmute);
 
-/*
- *@brief release the spdif encoder output buffer
- */
-void release_spdif_encoder_output_buffer(struct audio_stream_out *stream);
 
-/*
- *@brief get spdif encoder prepared
- */
-int get_the_spdif_encoder_prepared(audio_format_t format, struct aml_stream_out *aml_out);
 
 #endif // _ALSA_MANAGER_H_

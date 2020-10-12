@@ -80,6 +80,15 @@ static const uint16_t ff_ac3_frame_size_tab[38][3] = {
 static const uint8_t ff_ac3_channels_tab[8] = {
     2, 1, 2, 3, 3, 4, 4, 5
 };
+
+static const int fs_tab[3] = {
+    48000, 44100, 32000
+};
+
+static const int fs2_tab[3] = {
+    24000, 22050, 16000
+};
+
 /** Channel mode (audio coding mode) */
 typedef enum {
     AC3_CHMODE_DUALMONO = 0,
@@ -123,6 +132,7 @@ int aml_ac3_parser_open(void **pparser_handle)
     if (parser_hanlde->buf == NULL) {
         ALOGE("%s data buffer error", __func__);
         aml_audio_free(parser_hanlde);
+        parser_hanlde = NULL;
         goto error;
     }
     parser_hanlde->status = PARSER_SYNCING;
@@ -205,7 +215,8 @@ static int parse_dolby_frame_header
  , int *numblks
  , int *timeslice_61937
  , int *framevalid_flag
- , int *frame_dependent)
+ , int *frame_dependent
+ , int *sample_rate)
 {
     int acmod = 0;
     int lfeOn = 0;
@@ -217,6 +228,7 @@ static int parse_dolby_frame_header
     char inheader[12] = {0};
     int offset = 0;
     int header = 0;
+    int sr= 48000;
     int i = 0;
     *channel_num = 2;
 
@@ -285,6 +297,7 @@ static int parse_dolby_frame_header
                 goto error;
             }
             frame_size_code = inheader[4] & 0x3F;
+            sr = fs_tab[sr_code];
             if (frame_size_code > 37) {
                 ALOGE("%s error frame_size_code %d", __FUNCTION__, frame_size_code);
                 goto error;
@@ -320,6 +333,14 @@ static int parse_dolby_frame_header
             lfeOn = inheader[4] & 0x1;
             numblkscod = (sr_code == 0x3) ? 0x3 : ((inheader[4] >> 4) & 0x3);
             numblk_per_frame = (numblkscod == 0x3) ? 6 : (numblkscod + 1);
+            if (sr_code < 0x3) {
+                sr = fs_tab[sr_code];
+            } else {
+                sr_code = ((inheader[4] >> 4) & 0x3);
+                if (sr_code < 0x3) {
+                    sr = fs2_tab[sr_code];
+                }
+            }
             ALOGV("%s() ec3 numblkscod %d numblk_per_frame %d substreamid %d strmtyp %d\n",
                   __FUNCTION__, numblkscod, numblk_per_frame, substreamid, strmtyp);
             if (substreamid == 0 && strmtyp == 0) {
@@ -344,12 +365,20 @@ static int parse_dolby_frame_header
             }
             *numblks = numblk_per_frame;
             *frame_dependent = strmtyp;
+            /* TV-23269 the stream has substream id 0,1,2 and depedency frame, we use
+             * numblks to indicate the frame duration, for substrem id != 0, we dont need
+             * this info, so we keep it as 0.
+             */
+            if (substreamid != 0) {
+                *numblks = 0;
+            }
 
         }
         // ALOGV("%s acmod %d lfeOn %d\n", nIsEc3==0?"ac3":"ec3",acmod, lfeOn);
         *channel_num = ff_ac3_channels_tab[acmod] + lfeOn;
     }
     *frame_offset = offset;
+    *sample_rate  = sr;
     ALOGV("%s frame_offset %d frame_size %d channel_num %d numblks %d timeslice_61937 %d framevalid_flag %d\n",
           __FUNCTION__, *frame_offset, *frame_size, *channel_num, *numblks, *timeslice_61937, *framevalid_flag);
 
@@ -484,7 +513,8 @@ int aml_ac3_parser_process(void *parser_handle, const void *in_buffer, int32_t n
     ret = parse_dolby_frame_header(parser_buf, parser_hanlde->buf_remain,  &frame_offset, &ac3_info->frame_size,
                                    &ac3_info->channel_num, &ac3_info->numblks, &ac3_info->timeslice_61937,
                                    &ac3_info->framevalid_flag,
-                                   &ac3_info->frame_dependent);
+                                   &ac3_info->frame_dependent,
+                                   &ac3_info->sample_rate);
 
 
 

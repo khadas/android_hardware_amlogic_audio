@@ -21,6 +21,7 @@
 #include <system/audio.h>
 #include <system/audio_policy.h>
 #include "dolby_ms12_config_parameter_struct.h"
+#include "dolby_ms12_output_mask.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,6 +44,17 @@ void dolby_ms12_config_params_set_system_flag(bool flag);
  * @brief Get system flag
  */
 bool dolby_ms12_config_params_get_system_flag(void);
+
+/**
+ * @brief Set app flag
+ */
+void dolby_ms12_config_params_set_app_flag(bool flag);
+
+/**
+ * @brief Get app flag
+ */
+bool dolby_ms12_config_params_get_app_flag(void);
+
 
 /**
  * @brief Set input&output parameters
@@ -523,6 +535,11 @@ void dolby_ms12_set_dap_dialogue_enhancer(DAPDialogueEnhancer *dapDialogueEnhanc
  * @brief set dual output flag, when hdmi-arc not connected, and using the dolby ms12, that optical is always on.
  */
 void dolby_ms12_set_dual_output_flag(bool need_dual_output);
+
+/**
+ * @brief set dual bitstream output, HDMI out ddp, spdif output dd
+ */
+void dolby_ms12_set_dual_bitstream_out(bool need_dual_output);
 
 
 /**

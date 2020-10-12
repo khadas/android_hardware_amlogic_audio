@@ -24,6 +24,7 @@
 #include <utils/Mutex.h>
 
 #include "dolby_ms12_config_parameter_struct.h"
+#include "dolby_ms12_output_mask.h"
 
 //@@@DDPlus input file
 #define DEFAULT_MAIN_DDP_FILE_NAME "/data/main.ac3"
@@ -51,7 +52,7 @@ public:
                                          , audio_format_t input_format
                                          , audio_channel_mask_t channel_mask
                                          , int sample_rate
-                                         , audio_format_t output_format);
+                                         , int output_config);
     virtual bool SetDolbyMS12ParamsbyOutProfile(audio_policy_forced_cfg_t forceUse);
     virtual int SetInputOutputFileName(char **ConfigParams, int *row_index);
     virtual int SetFunctionalSwitches(char **ConfigParams, int *row_index);
@@ -111,6 +112,20 @@ public:
         ALOGI("%s() mHasSystemInput %d\n", __FUNCTION__, mHasSystemInput);
         return mHasSystemInput;
     }
+
+    //app flags
+    virtual void setAppFlag(bool flag)
+    {
+        ALOGI("%s() App flag %d\n", __FUNCTION__, flag);
+        mHasAppInput = flag;
+        mAppSoundFlags = flag;
+    }
+    virtual int getAppFlag(void)
+    {
+        ALOGI("%s() mHasSystemInput %d\n", __FUNCTION__, mHasSystemInput);
+        return mHasAppInput;
+    }
+
     virtual int APPSoundChannelMaskConvertToChannelConfiguration(audio_channel_mask_t channel_mask);
     virtual int SystemSoundChannelMaskConvertToChannelConfiguration(audio_channel_mask_t channel_mask);
 
@@ -382,6 +397,12 @@ public:
         ALOGI("%s() set mDualOutputFlag %d", __FUNCTION__, mDualOutputFlag);
     }
 
+    virtual void setDualBitstreamOut(bool need_dual_output)
+    {
+        mDualBitstreamOut = need_dual_output;
+        ALOGI("%s() set mDualBitstreamOut %d", __FUNCTION__, mDualBitstreamOut);
+    }
+
     virtual bool getDualOutputFlag(void)
     {
         return mDualOutputFlag;
@@ -491,6 +512,7 @@ private:
     int mAudioSteamOutSampleRate;
 
     //dolby ms12 output
+    int mDolbyMS12OutConfig;
 
     audio_format_t mDolbyMS12OutFormat;
     int mDolbyMS12OutSampleRate;
@@ -577,6 +599,7 @@ private:
     bool mDAPSurDecEnable = true;//DAP surround decoder enable flag (Default 1)
     bool mHasAssociateInput = false;
     bool mHasSystemInput = false;
+    bool mHasAppInput = false;
     DAPSurroundVirtualizer DeviceDAPSurroundVirtualizer = {
         .virtualizer_enable = 1,
         .headphone_reverb = 0,
@@ -651,6 +674,7 @@ private:
     };
 
     bool mDualOutputFlag;
+    bool mDualBitstreamOut;
 
     bool mActivateOTTSignal;
     int mChannelConfOTTSoundsIn;
