@@ -686,7 +686,6 @@ struct aml_stream_out {
     int dropped_size;
     unsigned long long mute_bytes;
     bool is_get_mute_bytes;
-    int frame_deficiency;
     bool normal_pcm_mixing_config;
     uint32_t latency_frames;
     aml_mixer_input_port_type_e enInputPortType;

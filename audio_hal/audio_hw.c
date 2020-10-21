@@ -2072,7 +2072,6 @@ static int out_flush_new (struct audio_stream_out *stream)
             dolby_ms12_main_flush(stream);
             pthread_mutex_unlock(&ms12->lock);
             out->continuous_audio_offset = 0;
-            out->frame_deficiency = 0;
         }
     }
 
