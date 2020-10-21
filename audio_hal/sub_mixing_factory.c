@@ -40,6 +40,11 @@ static int out_pause_subMixingPCM(struct audio_stream_out *stream);
 static int out_resume_subMixingPCM(struct audio_stream_out *stream);
 static int out_flush_subMixingPCM(struct audio_stream_out *stream);
 
+struct pcm * getSubMixingPCMdev(struct subMixing *sm)
+{
+    return get_mixer_output_pcm_handle(sm->mixerData, MIXER_OUTPUT_PORT_PCM);
+}
+
 static int startMixingThread(struct subMixing *sm)
 {
     return pcm_mixer_thread_run(sm->mixerData);

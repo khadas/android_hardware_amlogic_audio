@@ -164,6 +164,10 @@ int delete_mixer_input_port(struct amlAudioMixer *audio_mixer,
         aml_mixer_input_port_type_e port_index)
 {
     ALOGI("[%s:%d] input port:%s", __func__, __LINE__, inportType2Str(port_index));
+    if (port_index <= AML_MIXER_INPUT_PORT_INVAL || port_index >= AML_MIXER_INPUT_PORT_BUTT) {
+        ALOGW("[%s:%d] input port:%s invalid!!!", __func__, __LINE__, inportType2Str(port_index));
+        return -1;
+    }
     if (audio_mixer->in_ports[port_index]) {
         free_input_port(audio_mixer->in_ports[port_index]);
         audio_mixer->in_ports[port_index] = NULL;
@@ -368,6 +372,20 @@ static int mixer_output_startup(struct amlAudioMixer *audio_mixer)
     audio_mixer->submix_standby = 0;
 
     return 0;
+}
+
+struct pcm * get_mixer_output_pcm_handle(struct amlAudioMixer *audio_mixer, enum MIXER_OUTPUT_PORT enOutputIndex)
+{
+    if (enOutputIndex <= MIXER_OUTPUT_PORT_INVAL || enOutputIndex >= MIXER_OUTPUT_PORT_NUM) {
+        ALOGW("[%s:%d] enOutputIndex:%d, is invalid", __func__, __LINE__, enOutputIndex);
+        return NULL;
+    }
+    struct output_port *out_port = audio_mixer->out_ports[enOutputIndex];
+    if (out_port == NULL) {
+        ALOGW("[%s:%d] sub mixer outport:% is null", __func__, __LINE__, enOutputIndex);
+        return NULL;
+    }
+    return out_port->pcm_handle;
 }
 
 int mixer_output_standby(struct amlAudioMixer *audio_mixer)
