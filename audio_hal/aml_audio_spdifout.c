@@ -163,7 +163,7 @@ static int spdifout_support_format(audio_format_t audio_format)
     }
 }
 
-int aml_audio_spdifout_open(void **pphandle, spdif_format_t *spdif_format)
+int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
 {
     int ret = -1;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *)adev_get_handle();
@@ -173,12 +173,12 @@ int aml_audio_spdifout_open(void **pphandle, spdif_format_t *spdif_format)
     int aml_spdif_format = AML_STEREO_PCM;
     audio_format_t audio_format = AUDIO_FORMAT_PCM_16_BIT;
 
-    if (spdif_format == NULL) {
-        ALOGE("%s spdif_format is NULL", __func__);
+    if (spdif_config == NULL) {
+        ALOGE("%s spdif_config is NULL", __func__);
         return -1;
     }
 
-    if (!spdifout_support_format(spdif_format->audio_format)) {
+    if (!spdifout_support_format(spdif_config->audio_format)) {
         ALOGE("%s format not support =0x%x", __FUNCTION__, audio_format);
         return -1;
     }
@@ -190,12 +190,12 @@ int aml_audio_spdifout_open(void **pphandle, spdif_format_t *spdif_format)
         goto error;
     }
 
-    if (spdif_format->audio_format == AUDIO_FORMAT_IEC61937) {
+    if (spdif_config->audio_format == AUDIO_FORMAT_IEC61937) {
         phandle->need_spdif_enc = 0;
-        audio_format = spdif_format->sub_format;
+        audio_format = spdif_config->sub_format;
     } else {
         phandle->need_spdif_enc = 1;
-        audio_format = spdif_format->audio_format;
+        audio_format = spdif_config->audio_format;
     }
     phandle->audio_format = audio_format;
 
@@ -229,7 +229,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_format_t *spdif_format)
         memset(&device_config, 0, sizeof(aml_device_config_t));
         /*config stream info*/
         stream_config.config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
-        stream_config.config.sample_rate  = MM_FULL_POWER_SAMPLING_RATE;
+        stream_config.config.sample_rate  = spdif_config->rate;
         stream_config.config.format       = AUDIO_FORMAT_IEC61937;
         stream_config.config.offload_info.format = audio_format;
 
@@ -325,6 +325,7 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
     if (b_mute) {
         memset(output_buffer, 0, output_buffer_bytes);
     }
+
     if (output_buffer_bytes) {
         ret = aml_alsa_output_write_new(alsa_handle, output_buffer, output_buffer_bytes);
     }

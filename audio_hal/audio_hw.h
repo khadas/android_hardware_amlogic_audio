@@ -158,15 +158,6 @@ enum Result {
 
 #define SYSTEM_APP_SOUND_MIXING_ON 1
 #define SYSTEM_APP_SOUND_MIXING_OFF 0
-struct aml_hal_mixer {
-    unsigned char start_buf[AML_HAL_MIXER_BUF_SIZE];
-    unsigned int wp;
-    unsigned int rp;
-    unsigned int buf_size;
-    /* flag to check if need cache some data before write to mix */
-    unsigned char need_cache_flag;
-    pthread_mutex_t lock;
-};
 
 enum arc_hdmi_format {
     _LPCM = 1,
@@ -387,7 +378,6 @@ struct aml_audio_device {
     struct echo_reference_itfe *echo_reference;
     bool low_power;
     struct aml_stream_out *hwsync_output;
-    struct aml_hal_mixer hal_mixer;
     struct pcm *pcm;
     struct aml_bt_output bt_output;
     bool pcm_paused;
@@ -719,6 +709,7 @@ struct aml_stream_out {
     struct timespec  last_timestamp_reported;
     void    *pstMmapAudioParam;    // aml_mmap_audio_param_st (aml_mmap_audio.h)
     bool restore_continuous;
+    void *spdifout_handle;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
@@ -864,9 +855,6 @@ inline struct aml_stream_out *direct_active(struct aml_audio_device *adev)
  */
 audio_format_t get_output_format(struct audio_stream_out *stream);
 void *audio_patch_output_threadloop(void *data);
-
-ssize_t aml_audio_spdif_output(struct audio_stream_out *stream,
-                               void *buffer, size_t bytes);
 
 /*
  *@brief audio_hal_data_processing

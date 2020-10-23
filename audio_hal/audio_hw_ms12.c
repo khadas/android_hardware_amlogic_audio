@@ -1193,7 +1193,7 @@ static ssize_t aml_ms12_spdif_output_new (struct audio_stream_out *stream,
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *aml_dev = aml_out->dev;
-    spdif_format_t spdif_format = { 0 };
+    spdif_config_t spdif_config = { 0 };
 
     int ret = 0;
 
@@ -1205,16 +1205,17 @@ static ssize_t aml_ms12_spdif_output_new (struct audio_stream_out *stream,
         bitstream_desc->spdifout_handle = NULL;
     }
 
-    if (output_format == AUDIO_FORMAT_IEC61937) {
-        spdif_format.audio_format = AUDIO_FORMAT_IEC61937;
-        spdif_format.sub_format   = aml_out->hal_internal_format;
-    } else {
-        spdif_format.audio_format = output_format;
-        spdif_format.sub_format   = output_format;
-    }
-
     if (bitstream_desc->spdifout_handle == NULL) {
-        ret = aml_audio_spdifout_open(&bitstream_desc->spdifout_handle, &spdif_format);
+        if (output_format == AUDIO_FORMAT_IEC61937) {
+            spdif_config.audio_format = AUDIO_FORMAT_IEC61937;
+            spdif_config.sub_format   = aml_out->hal_internal_format;
+        } else {
+            spdif_config.audio_format = output_format;
+            spdif_config.sub_format   = output_format;
+        }
+        spdif_config.rate = DDP_OUTPUT_SAMPLE_RATE;
+
+        ret = aml_audio_spdifout_open(&bitstream_desc->spdifout_handle, &spdif_config);
     }
     if (ret != 0) {
         ALOGE("open spdif out failed\n");
