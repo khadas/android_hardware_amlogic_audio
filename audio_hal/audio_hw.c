@@ -146,6 +146,7 @@
 #define MM_FULL_POWER_SAMPLING_RATE 48000
 /* sampling rate when using VX port for narrow band */
 #define VX_NB_SAMPLING_RATE 8000
+#define VAL_LEN 2048
 
 #define MIXER_XML_PATH "/vendor/etc/mixer_paths.xml"
 #define DOLBY_MS12_INPUT_FORMAT_TEST
@@ -1609,6 +1610,18 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
             ret = a2dp_out_set_parameters(stream, kvpairs);
         goto exit;
     }
+
+    if (eDolbyMS12Lib == adev->dolby_lib_type) {
+        ret = str_parms_get_str(parms, "ms12_runtime", value, sizeof(value));
+        if (ret >= 0) {
+            char *parm = strstr(kvpairs, "=");
+            pthread_mutex_lock(&adev->lock);
+            if (parm)
+                aml_ms12_update_runtime_params(&(adev->ms12), parm+1);
+            pthread_mutex_unlock(&adev->lock);
+            goto exit;
+        }
+    }
 exit:
     str_parms_destroy (parms);
 
@@ -1954,11 +1967,9 @@ static int out_pause_new (struct audio_stream_out *stream)
             if ((aml_dev->ms12.dolby_ms12_enable == true) && (aml_dev->ms12.is_continuous_paused == false)) {
                 aml_dev->ms12.is_continuous_paused = true;
                 pthread_mutex_lock(&ms12->lock);
-                int ms12_runtime_update_ret = 0;
                 dolby_ms12_set_pause_flag(aml_dev->ms12.is_continuous_paused);
-                ms12_runtime_update_ret = aml_ms12_update_runtime_params(&(aml_dev->ms12));
+                set_dolby_ms12_runtime_pause(&(aml_dev->ms12), aml_dev->ms12.is_continuous_paused);
                 pthread_mutex_unlock(&ms12->lock);
-                ALOGI("%s ms12 set pause flag runtime return %d\n", __func__, ms12_runtime_update_ret);
             } else {
                 ALOGI("%s do nothing\n", __func__);
             }
@@ -2019,11 +2030,9 @@ static int out_resume_new (struct audio_stream_out *stream)
             if ((aml_dev->ms12.dolby_ms12_enable == true) && (aml_dev->ms12.is_continuous_paused == true)) {
                 aml_dev->ms12.is_continuous_paused = false;
                 pthread_mutex_lock(&ms12->lock);
-                int ms12_runtime_update_ret = 0;
                 dolby_ms12_set_pause_flag(aml_dev->ms12.is_continuous_paused);
-                ms12_runtime_update_ret = aml_ms12_update_runtime_params(&(aml_dev->ms12));
+                set_dolby_ms12_runtime_pause(&(aml_dev->ms12), aml_dev->ms12.is_continuous_paused);
                 pthread_mutex_unlock(&ms12->lock);
-                ALOGI("%s ms12 set unpause flag runtime return %d\n", __func__, ms12_runtime_update_ret);
             }
         }
     }
@@ -5227,7 +5236,6 @@ static int aml_audio_input_routing(struct audio_hw_device *dev,
     return 0;
 }
 
-#define VAL_LEN 64
 static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs)
 {
     ALOGD ("%s(%p, %s)", __FUNCTION__, dev, kvpairs);
@@ -5725,8 +5733,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
                 if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
                     pthread_mutex_lock(&ms12->lock);
                     dolby_ms12_set_asscociated_audio_mixing(adev->associate_audio_mixing_enable);
-                    int ms12_runtime_update_ret = aml_ms12_update_runtime_params(& (adev->ms12));
-                    ALOGI("aml_ms12_update_runtime_params return %d\n", ms12_runtime_update_ret);
+                    set_ms12_ad_mixing_enable(ms12, adev->associate_audio_mixing_enable);
                     pthread_mutex_unlock(&ms12->lock);
                 }
                 pthread_mutex_unlock(&adev->lock);
@@ -5753,8 +5760,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
                 pthread_mutex_lock(&ms12->lock);
                 dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(adev->mixing_level);
-                int ms12_runtime_update_ret = aml_ms12_update_runtime_params(& (adev->ms12));
-                ALOGI("aml_ms12_update_runtime_params return %d\n", ms12_runtime_update_ret);
+                set_ms12_ad_mixing_level(ms12, adev->mixing_level);
                 pthread_mutex_unlock(&ms12->lock);
             }
             pthread_mutex_unlock(&adev->lock);
@@ -5771,8 +5777,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             // if exit netflix, we need disable atmos lock
             if (disable_continuous) {
                 adev->atoms_lock_flag = 0;
-                dolby_ms12_set_atmos_lock_flag(adev->atoms_lock_flag);
-                aml_ms12_update_runtime_params(&(adev->ms12));
+                set_ms12_atmos_lock(&(adev->ms12), adev->atoms_lock_flag);
                 ALOGI("exit netflix, set atmos lock as 0");
             }
             ALOGI("%s ignore the continuous_audio_mode!\n", __func__ );
@@ -5839,8 +5844,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
                     ALOGI("%s already adev->atoms_lock_flag = %d, need to do nothing.\n", __func__,adev->atoms_lock_flag);
                 } else {
                     // enable/disable atoms lock
-                    dolby_ms12_set_atmos_lock_flag(b_atmos_lock);
-                    aml_ms12_update_runtime_params(&(adev->ms12));
+                    set_ms12_atmos_lock(&(adev->ms12),b_atmos_lock);
                     adev->atoms_lock_flag = b_atmos_lock;
                     ALOGI("%s set adev->atoms_lock_flag = %d, \n", __func__,adev->atoms_lock_flag);
                 }
@@ -5849,6 +5853,15 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             }
             pthread_mutex_unlock(&adev->lock);
             }
+            goto exit;
+        }
+        ret = str_parms_get_str(parms, "ms12_runtime", value, sizeof(value));
+        if (ret >= 0) {
+            char *parm = strstr(kvpairs, "=");
+            pthread_mutex_lock(&adev->lock);
+            if (parm)
+                aml_ms12_update_runtime_params(&(adev->ms12), parm + 1);
+            pthread_mutex_unlock(&adev->lock);
             goto exit;
         }
 
@@ -7004,7 +7017,6 @@ int do_output_standby_l(struct audio_stream *stream)
                             //int iMS12DB = 0;//restore to full volume
                             //set_dolby_ms12_primary_input_db_gain(&(adev->ms12), iMS12DB , 10);
                             //adev->ms12.curDBGain = iMS12DB;
-                            aml_ms12_update_runtime_params(&(adev->ms12));
                             adev->ms12.is_continuous_paused = false;
                             adev->ms12.need_resume       = 0;
                             adev->ms12.need_resync       = 0;
@@ -7018,7 +7030,6 @@ int do_output_standby_l(struct audio_stream *stream)
 
                             dolby_ms12_main_flush((void *)stream);
                             dolby_ms12_set_pause_flag(false);
-                            aml_ms12_update_runtime_params(&(adev->ms12));
                             adev->ms12.is_continuous_paused = false;
                             adev->ms12.need_resume       = 0;
                             adev->ms12.need_resync       = 0;
@@ -7029,6 +7040,7 @@ int do_output_standby_l(struct audio_stream *stream)
                             ALOGI("%s set ott dummy", __func__);
                         }
                     }
+                    set_dolby_ms12_runtime_pause(&(adev->ms12), adev->ms12.is_continuous_paused);
                     pthread_mutex_unlock(&adev->ms12.lock);
                 }
             }
@@ -9082,12 +9094,10 @@ hwsync_rewrite:
         if (continous_mode(adev)) {
             if ((adev->ms12.dolby_ms12_enable == true) && (adev->ms12.is_continuous_paused == true)) {
                 pthread_mutex_lock(&ms12->lock);
-                int ms12_runtime_update_ret = 0;
                 dolby_ms12_set_pause_flag(false);
-                ms12_runtime_update_ret = aml_ms12_update_runtime_params(&(adev->ms12));
                 adev->ms12.is_continuous_paused = false;
+                set_dolby_ms12_runtime_pause(&(adev->ms12), adev->ms12.is_continuous_paused);
                 pthread_mutex_unlock(&ms12->lock);
-                ALOGI("%s ms12 set unpause flag runtime return %d\n", __func__, ms12_runtime_update_ret);
             }
         }
     }
@@ -12364,6 +12374,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     // however, sometimes function didn't goto hw_write() before encounting error.
     // set debug_flag here to see more debug log when debugging.
     adev->debug_flag = aml_audio_get_debug_flag();
+    adev->count = 1;
     ALOGD("%s: exit", __func__);
     return 0;
 

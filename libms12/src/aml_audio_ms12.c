@@ -47,7 +47,6 @@ int get_dolby_ms12_init(struct dolby_ms12_desc *ms12_desc)
         ALOGE("%s, fail to get ms12 handle\n", __FUNCTION__);
         return ret;
     }
-
     if (ms12_desc->dolby_ms12_init_argv) {
         ms12_desc->dolby_ms12_ptr = dolby_ms12_init(ms12_desc->dolby_ms12_init_argc, ms12_desc->dolby_ms12_init_argv);
         ms12_desc->dolby_ms12_out_max_size = get_dolby_ms12_output_max_size();
@@ -168,7 +167,7 @@ int aml_ms12_cleanup(struct dolby_ms12_desc *ms12_desc)
     return 0;
 }
 
-int aml_ms12_update_runtime_params(struct dolby_ms12_desc *ms12_desc)
+int aml_ms12_update_runtime_params(struct dolby_ms12_desc *ms12_desc, char *cmd)
 {
     ALOGI("+%s()\n", __FUNCTION__);
     int ret = -1;
@@ -183,7 +182,7 @@ int aml_ms12_update_runtime_params(struct dolby_ms12_desc *ms12_desc)
         if ((get_audio_associate_format() == AUDIO_FORMAT_AC3) || (get_audio_associate_format() == AUDIO_FORMAT_E_AC3)) {
             dolby_ms12_config_params_set_associate_flag(true);
         }
-        ms12_desc->dolby_ms12_init_argv = dolby_ms12_config_params_get_runtime_config_params(&ms12_desc->dolby_ms12_init_argc);
+        ms12_desc->dolby_ms12_init_argv = dolby_ms12_config_params_update_runtime_config_params(&ms12_desc->dolby_ms12_init_argc, cmd);
         if (ms12_desc->dolby_ms12_ptr) {
             ret = dolby_ms12_update_runtime_params(ms12_desc->dolby_ms12_ptr, ms12_desc->dolby_ms12_init_argc, ms12_desc->dolby_ms12_init_argv);
         }

@@ -135,7 +135,7 @@ int dolby_ms12_register_callback(struct aml_stream_out *aml_out)
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     int ret = 0;
 
-    if (ms12->output_config & MS12_OUTPUT_MASK_STEREO) {
+    if (ms12->output_config & MS12_OUTPUT_MASK_SPEAKER) {
         ret = dolby_ms12_register_pcm_callback(pcm_output, (void *)aml_out);
         ALOGI("%s() dolby_ms12_register_pcm_callback return %d", __FUNCTION__, ret);
     }
@@ -348,7 +348,7 @@ int get_the_dolby_ms12_prepared(
     //init the dolby ms12
     //ms12->dual_bitstream_support = adev->dual_spdif_support;
 
-    int output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO;
+    int output_config = MS12_OUTPUT_MASK_SPEAKER | MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP;
     aml_ms12_config(ms12, input_format, input_channel_mask, input_sample_rate, output_config);
 
     if (ms12->dolby_ms12_enable) {
@@ -407,6 +407,48 @@ static bool is_iec61937_format(struct audio_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     return (aml_out->hal_format == AUDIO_FORMAT_IEC61937);
+}
+
+void set_dolby_ms12_runtime_pause(struct dolby_ms12_desc *ms12, int is_pause)
+{
+    char parm[12] = "";
+    sprintf(parm, "%s %d", "-pause", is_pause);
+    if ((strlen(parm) > 0) && ms12) {
+        aml_ms12_update_runtime_params(ms12, parm);
+    }
+}
+
+void set_ms12_ad_mixing_enable(struct dolby_ms12_desc *ms12, int ad_mixing_enable)
+{
+    char parm[12] = "";
+    sprintf(parm, "%s %d", "-xa", ad_mixing_enable);
+    if (strlen(parm) > 0)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+void set_ms12_ad_mixing_level(struct dolby_ms12_desc *ms12, int mixing_level)
+{
+    char parm[12] = "";
+    sprintf(parm, "%s %d", "-xu", mixing_level);
+    if (strlen(parm) > 0)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+void set_ms12_atmos_lock(struct dolby_ms12_desc *ms12, bool is_atmos_lock_on)
+{
+    char parm[64] = "";
+    sprintf(parm, "%s %d", "-atmos_lock", is_atmos_lock_on);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+void set_dolby_ms12_runtime_system_mixing_enable(struct dolby_ms12_desc *ms12, int system_mixing_enable)
+{
+    char parm[12] = "";
+    sprintf(parm, "%s %d", "-xs", system_mixing_enable);
+    if ((strlen(parm) > 0) && ms12) {
+        aml_ms12_update_runtime_params(ms12, parm);
+    }
 }
 
 bool is_ms12_passthrough(struct audio_stream_out *stream) {
@@ -956,8 +998,6 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12)
 
     if (ms12->dolby_ms12_threadID != 0) {
         ms12->dolby_ms12_thread_exit = true;
-        int ms12_runtime_update_ret = aml_ms12_update_runtime_params(ms12);
-        ALOGI("aml_ms12_update_runtime_params return %d\n", ms12_runtime_update_ret);
         pthread_join(ms12->dolby_ms12_threadID, NULL);
         ms12->dolby_ms12_threadID = 0;
         ALOGI("%s() dolby_ms12_threadID reset to %ld\n", __FUNCTION__, ms12->dolby_ms12_threadID);
@@ -1401,7 +1441,7 @@ int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_stat
 
     if (ms12->dolby_ms12_enable) {
         pthread_mutex_lock(&ms12->lock);
-        ret = aml_ms12_update_runtime_params(&(adev->ms12));
+        set_dolby_ms12_runtime_system_mixing_enable(ms12, system_app_mixing_status);
         pthread_mutex_unlock(&ms12->lock);
         ALOGI("%s return %d stream-status %d set system-app-audio-mixing %d\n",
               __func__, ret, stream_status, system_app_mixing_status);

@@ -266,6 +266,7 @@ int dolby_ms12_hwsync_init_internal(void);
 int dolby_ms12_hwsync_release_internal(void);
 
 int dolby_ms12_hwsync_checkin_pts_internal(int offset, int apts);
+char * dolby_ms12_get_version(void);
 
 #ifdef __cplusplus
 }

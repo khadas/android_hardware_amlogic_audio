@@ -134,6 +134,24 @@ void dolby_ms12_app_flush();
  *@brief dolby ms12 flush the main related buffer
  */
 int dolby_ms12_main_flush(struct audio_stream_out *stream);
+/*
+ *@brief set dolby ms12 mixing level
+ */
+void set_ms12_ad_mixing_level(struct dolby_ms12_desc *ms12, int mixing_level);
+
+/*
+ *@brief set dolby ms12 pause
+ */
+void set_dolby_ms12_runtime_pause(struct dolby_ms12_desc *ms12, int is_pause);
+
+/*
+ *@brief set dolby ms12 ad mixing enable
+ */
+void set_ms12_ad_mixing_enable(struct dolby_ms12_desc *ms12, int ad_mixing_enable);
+
+void set_ms12_atmos_lock(struct dolby_ms12_desc *ms12, bool is_atmos_lock_on);
+
+void set_dolby_ms12_runtime_system_mixing_enable(struct dolby_ms12_desc *ms12, int sys_mixing_enable);
 
 bool is_ms12_continous_mode(struct aml_audio_device *adev);
 bool is_bypass_dolbyms12(struct audio_stream_out *stream);

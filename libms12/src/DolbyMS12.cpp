@@ -77,7 +77,7 @@ unsigned long long (*FuncDolbyMS12GetNBytesConsumedSysSound)(void);
 int (*FuncDolbyMS12HWSyncInit)(void);
 int (*FuncDolbyMS12HWSyncRelease)(void);
 int (*FuncDolbyMS12HWSyncCheckinPTS)(int offset, int apts);
-
+char * (*FunDolbMS12GetVersion)(void);
 
 
 DolbyMS12::DolbyMS12() :
@@ -279,28 +279,31 @@ int DolbyMS12::GetLibHandle(void)
 
     FuncDolbyMS12GetNBytesConsumedSysSound= (unsigned long long (*)(void))  dlsym(mDolbyMS12LibHanle, "get_n_bytes_consumed_of_sys_sound");
     if (!FuncDolbyMS12GetNBytesConsumedSysSound) {
-        ALOGW("%s, dlsym FuncDolbyMS12GetNBytesConsumedSysSound fail,ingore it as version difference\n", __FUNCTION__);
+        ALOGW("%s, dlsym FuncDolbyMS12GetNBytesConsumedSysSound fail, ingore it as version difference\n", __FUNCTION__);
         //goto ERROR;
     }
 
     FuncDolbyMS12HWSyncInit= (int (*)(void))  dlsym(mDolbyMS12LibHanle, "ms12_hwsync_init");
     if (!FuncDolbyMS12HWSyncInit) {
-        ALOGW("%s, dlsym FuncDolbyMS12HWSyncInit fail,ingore it as version difference\n", __FUNCTION__);
+        ALOGW("%s, dlsym FuncDolbyMS12HWSyncInit fail, ingore it as version difference\n", __FUNCTION__);
         //goto ERROR;
     }
 
     FuncDolbyMS12HWSyncRelease= (int (*)(void))  dlsym(mDolbyMS12LibHanle, "ms12_hwsync_release");
     if (!FuncDolbyMS12HWSyncRelease) {
-        ALOGW("%s, dlsym FuncDolbyMS12HWSyncRelease fail,ingore it as version difference\n", __FUNCTION__);
+        ALOGW("%s, dlsym FuncDolbyMS12HWSyncRelease fail, ingore it as version difference\n", __FUNCTION__);
         //goto ERROR;
     }
 
     FuncDolbyMS12HWSyncCheckinPTS= (int (*)(int,  int))  dlsym(mDolbyMS12LibHanle, "ms12_hwsync_checkin_pts");
     if (!FuncDolbyMS12HWSyncCheckinPTS) {
-        ALOGW("%s, dlsym FuncDolbyMS12HWSyncCheckinPTS fail,ingore it as version difference\n", __FUNCTION__);
+        ALOGW("%s, dlsym FuncDolbyMS12HWSyncCheckinPTS fail, ingore it as version difference\n", __FUNCTION__);
         //goto ERROR;
     }
-
+    FunDolbMS12GetVersion = (char * (*)(void)) dlsym(mDolbyMS12LibHanle, "ms12_get_version");
+    if (!FunDolbMS12GetVersion) {
+        ALOGW("%s, dlsym FunDolbMS12GetVersion fail, ingore it as version difference\n", __FUNCTION__);
+    }
     ALOGD("-%s() line %d get libdolbyms12 success!", __FUNCTION__, __LINE__);
     return 0;
 
@@ -341,6 +344,7 @@ void DolbyMS12::ReleaseLibHandle(void)
     FuncDolbyMS12GetNBytesPcmOutOfUDC = NULL;
     FuncDolbyMS12Config = NULL;
     FuncDolbyMS12GetAudioInfo = NULL;
+    FunDolbMS12GetVersion = NULL;
 
     if (mDolbyMS12LibHanle != NULL) {
         dlclose(mDolbyMS12LibHanle);
@@ -380,6 +384,17 @@ void * DolbyMS12::DolbyMS12Init(int configNum, char **configParams)
     return dolby_ms12_init_ret;
 }
 
+char * DolbyMS12:: DolbMS12GetVersion(void)
+{
+    char *versioninfo = NULL;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FunDolbMS12GetVersion) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return NULL;
+    }
+    versioninfo = (*FunDolbMS12GetVersion)();
+    return versioninfo;
+}
 void DolbyMS12::DolbyMS12Release(void *DolbyMS12Pointer)
 {
     ALOGD("+%s()", __FUNCTION__);

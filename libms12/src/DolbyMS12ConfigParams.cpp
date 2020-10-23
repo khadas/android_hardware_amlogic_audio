@@ -27,6 +27,8 @@
 #include <utils/String8.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sstream>
+
 //#include <media/AudioSystem.h>
 
 #include "DolbyMS12ConfigParams.h"
@@ -71,6 +73,8 @@ namespace android
 #define DRC_HIGH_CUT_BIT 3
 #define DRC_LOW_BST_BIT 16
 
+#define MIN_USER_CONTROL_VALUES (-32)
+#define MAX_USER_CONTROL_VALUES (32)
 
 DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     // mDolbyMS12GetOutProfile(NULL)
@@ -98,12 +102,12 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     //, mMainFlags(false) // always have mMainFlags on? zz
     , mAppSoundFlags(false)
     , mSystemSoundFlags(false)
-    , mDAPInitMode(0)
-    , mDAPVirtualBassEnable(0)
+    , mDAPInitMode(3)
+    , mDAPVirtualBassEnable(1)
     , mDBGOut(0)
     , mDRCModesOfDownmixedOutput(0)
     , mDAPDRCMode(0)
-    , mDonwmixMode(0)
+    , mDownmixMode(0)
     , mEvaluationMode(0)
     , mLFEPresentInAppSoundIn(0)
     , mLFEPresentInSystemSoundIn(0)
@@ -593,10 +597,10 @@ int DolbyMS12ConfigParams::SetFunctionalSwitches(char **ConfigParams, int *row_i
         (*row_index)++;
     }
 
-    if (mDonwmixMode == 1) {
+    if (mDownmixMode == 1) {
         sprintf(ConfigParams[*row_index], "%s", "-dmx");
         (*row_index)++;
-        sprintf(ConfigParams[*row_index], "%d", mDonwmixMode);
+        sprintf(ConfigParams[*row_index], "%d", mDownmixMode);
         (*row_index)++;
     }
 
@@ -836,10 +840,10 @@ int DolbyMS12ConfigParams::SetFunctionalSwitchesRuntime(char **ConfigParams, int
         (*row_index)++;
     }
 
-    if (mDonwmixMode == 1) {
+    if (mDownmixMode == 1) {
         sprintf(ConfigParams[*row_index], "%s", "-dmx");
         (*row_index)++;
-        sprintf(ConfigParams[*row_index], "%d", mDonwmixMode);
+        sprintf(ConfigParams[*row_index], "%d", mDownmixMode);
         (*row_index)++;
     }
 
@@ -1393,6 +1397,355 @@ char **DolbyMS12ConfigParams::GetDolbyMS12ConfigParams(int *argc)
     ALOGD("-%s()", __FUNCTION__);
     return mConfigParams;
 }
+
+int DolbyMS12ConfigParams::ms_get_int_array_from_str(char **p_csv_string, int num_el, int *p_vals)
+{
+    char *endstr;
+    int i;
+
+    for (i = 0; i < num_el; i++) {
+        int val = strtol(*p_csv_string, &endstr, 0);
+        if (*p_csv_string == endstr) {
+            return -1;
+        }
+        p_vals[i] = val;
+        *p_csv_string = endstr;
+        if (**p_csv_string == ',') {
+            (*p_csv_string)++;
+        }
+    }
+
+    return 0;
+}
+
+int DolbyMS12ConfigParams::ms_get_int_from_str(char **p_csv_string, int *p_vals)
+{
+    char *endstr;
+    int val = strtol(*p_csv_string, &endstr, 0);
+
+    if (*p_csv_string == endstr) {
+        return -1;
+    } else {
+        *p_vals = val;
+        *p_csv_string = endstr;
+        if (**p_csv_string == ',') {
+            (*p_csv_string)++;
+        }
+    }
+
+    return 0;
+}
+
+char **DolbyMS12ConfigParams::UpdateDolbyMS12RuntimeConfigParams(int *argc, char *cmd)
+{
+    ALOGD("+%s()", __FUNCTION__);
+    ALOGD("ms12 runtime cmd: %s", cmd);
+
+    strcpy(mConfigParams[0], "ms12_runtime");
+
+    *argc = 1;
+    mParamNum = 1;
+
+    std::string token;
+    std::istringstream cmd_string(cmd);
+    int index = 1, val;
+    char *opt = NULL;
+
+    while (cmd_string >> token) {
+        strncpy(mConfigParams[mParamNum], token.c_str(), MAX_ARGV_STRING_LEN);
+        mConfigParams[mParamNum][MAX_ARGV_STRING_LEN - 1] = '\0';
+        ALOGI("argv[%d] = %s", mParamNum, mConfigParams[mParamNum]);
+        mParamNum++;
+        (*argc)++;
+    }
+
+    while (index < *argc) {
+        if (!opt) {
+            if ((mConfigParams[index][0] == '-') && (mConfigParams[index][1] < '0' || mConfigParams[index][1] > '9')) {
+                opt = mConfigParams[index] + 1;
+            } else {
+                ALOGE("Invalid option sequence, skipped %s", mConfigParams[index]);
+            }
+            index++;
+            continue;
+        }
+
+        if (strcmp(opt, "u") == 0) {
+            val = atoi(mConfigParams[index]);
+            if ((val >= 0) && (val <= 2)) {
+                ALOGI("-u DualMonoReproMode: %d", val);
+                mDualMonoReproMode = val;
+            }
+        } else if (strcmp(opt, "b") == 0) {
+            val = atoi(mConfigParams[index]);
+            if ((val >= 0) && (val <= 100)) {
+                ALOGI("-b DRCBoost: %d", val);
+                mDRCBoost = val;
+            }
+        } else if (strcmp(opt, "bs") == 0) {
+            val = atoi(mConfigParams[index]);
+            if ((val >= 0) && (val <= 100)) {
+                ALOGI("-bs DRCBoostStereo: %d", val);
+                mDRCBoostSystem = val;
+            }
+        } else if (strcmp(opt, "c") == 0) {
+            val = atoi(mConfigParams[index]);
+            if ((val >= 0) && (val <= 100)) {
+                ALOGI("-c DRCCut: %d", val);
+                mDRCCut = val;
+            }
+        } else if (strcmp(opt, "cs") == 0) {
+            val = atoi(mConfigParams[index]);
+            if ((val >= 0) && (val <= 100)) {
+                ALOGI("-c DRCCutStereo: %d", val);
+                mDRCCutSystem = val;
+            }
+        } else if (strcmp(opt, "dmx") == 0) {
+            val = atoi(mConfigParams[index]);
+            if ((val >= 0) && (val <= 2)) {
+                ALOGI("-c DRCCutStereo: %d", val);
+                mDownmixMode = val;
+            }
+        } else if (strcmp(opt, "drc") == 0) {
+            val = atoi(mConfigParams[index]);
+            if ((val >= 0) && (val <= 1)) {
+                ALOGI("-drc DRCModesOfDownmixedOutput: %d", val);
+                mDRCModesOfDownmixedOutput = val;
+            }
+        } else if (strcmp(opt, "at") == 0) {
+            val = atoi(mConfigParams[index]);
+            if ((val >= 0) && (val <= 3)) {
+                ALOGI("-at AC4Ac: %d", val);
+                mDdplusAssocSubstream = val;
+            }
+        } else if (strcmp(opt, "xa") == 0) {
+            val = atoi(mConfigParams[index]);
+            if ((val >= 0) && (val <= 1)) {
+                ALOGI("-xa Associated audio mixing: %d", val);
+                mAssociatedAudioMixing = val;
+            }
+        } else if (strcmp(opt, "xu") == 0) {
+            val = atoi(mConfigParams[index]);
+            if ((val >= MIN_USER_CONTROL_VALUES) && (val <= MAX_USER_CONTROL_VALUES)) {
+                ALOGI("-xu User control values:[-32 (mute assoc) to 32 (mute main)] %d", val);
+                mUserControlVal = val;
+            }
+        } else if (strcmp(opt, "dap_surround_decoder_enable") == 0) {
+            val = atoi(mConfigParams[index]);
+            if ((val >= 0) && (val <= 1)) {
+                ALOGI("-dap_surround_decoder_enable DAPSurDecEnable: %d", val);
+                mDAPSurDecEnable = val;
+            }
+        } else if (strcmp(opt, "dap_drc") == 0) {
+            val = atoi(mConfigParams[index]);
+            if ((val >= 0) && (val <= 1)) {
+                ALOGI("-dap_drc DAPDRCMode: %d", val);
+                mDAPDRCMode = val;
+            }
+        } else if (strcmp(opt, "dap_bass_enhancer") == 0) {
+            int param[4];
+            if (sscanf(mConfigParams[index], "%d,%d,%d,%d",
+                &param[0], &param[1], &param[2], &param[3]) == 4) {
+                if ((param[0] >= 0) && (param[0] <= 1))
+                    DeviceDAPBassEnhancer.bass_enable = param[0];
+                if ((param[1] >= 0) && (param[1] <= 384))
+                    DeviceDAPBassEnhancer.bass_boost = param[1];
+                if ((param[2] >= 20) && (param[2] <= 20000))
+                    DeviceDAPBassEnhancer.bass_cutoff = param[2];
+                if ((param[3] >= 2) && (param[3] <= 64))
+                    DeviceDAPBassEnhancer.bass_width = param[3];
+                ALOGI("-dap_bass_enhancer DeviceDAPBassEnhancer: %d %d %d %d", param[0], param[1], param[2], param[3]);
+            }
+        } else if (strcmp(opt, "dap_dialogue_enhancer") == 0) {
+            int param[3];
+            if (sscanf(mConfigParams[index], "%d,%d,%d",
+                &param[0], &param[1], &param[2]) == 3) {
+                if ((param[0] >= 0) && (param[0] <= 1))
+                    ContenDAPDialogueEnhancer.de_enable = param[0];
+                if ((param[1] >= 0) && (param[1] <= 16))
+                    ContenDAPDialogueEnhancer.de_amount = param[1];
+                if ((param[2] >= 0) && (param[2] <= 16))
+                    ContenDAPDialogueEnhancer.de_ducking = param[2];
+                ALOGI("-dap_dialogue_enhancer ContenDAPDialogueEnhancer: %d %d %d", param[0], param[1], param[2]);
+            }
+        } else if (strcmp(opt, "dap_graphic_eq") == 0) {
+            DAPGraphicEQ eq;
+            char *ptr = mConfigParams[index];
+            if (ms_get_int_from_str(&ptr, &eq.eq_enable) < 0)
+                goto eq_error;
+            if (ms_get_int_from_str(&ptr, &eq.eq_nb_bands) < 0)
+                goto eq_error;
+            if (eq.eq_nb_bands > 20)
+                goto eq_error;
+            if (ms_get_int_array_from_str(&ptr, eq.eq_nb_bands,
+                &eq.eq_band_center[0]) < 0)
+                goto eq_error;
+            if (ms_get_int_array_from_str(&ptr, eq.eq_nb_bands,
+                &eq.eq_band_target[0]) < 0)
+                goto eq_error;
+            DeviceDAPGraphicEQ = eq;
+            ALOGI("-dap_graphic_eq DeviceDAPGraphicEQ: %d %d", eq.eq_enable, eq.eq_nb_bands);
+        } else if (strcmp(opt, "dap_ieq") == 0) {
+            DAPIEQ ieq;
+            char *ptr = mConfigParams[index];
+            if (ms_get_int_from_str(&ptr, &ieq.ieq_enable) < 0)
+                goto eq_error;
+            if (ms_get_int_from_str(&ptr, &ieq.ieq_amount) < 0)
+                goto eq_error;
+            if (ms_get_int_from_str(&ptr, &ieq.ieq_nb_bands) < 0)
+                goto eq_error;
+            if (ieq.ieq_nb_bands > 20)
+                goto eq_error;
+            if (ms_get_int_array_from_str(&ptr, ieq.ieq_nb_bands,
+                &ieq.ieq_band_center[0]) < 0)
+                goto eq_error;
+            if (ms_get_int_array_from_str(&ptr, ieq.ieq_nb_bands,
+                &ieq.ieq_band_target[0]) < 0)
+                goto eq_error;
+            ContentDAPIEQ = ieq;
+            ALOGI("-dap_ieq: %d %d %d", ieq.ieq_enable, ieq.ieq_amount, ieq.ieq_nb_bands);
+        } else if (strcmp(opt, "dap_gains") == 0) {
+            val = atoi(mConfigParams[index]);
+            if ((val >= -2080) && (val <= 480)) {
+                ALOGI("-dap_gains: %d", val);
+                mDAPGains = val;
+            }
+        } else if (strcmp(opt, "dap_leveler") == 0) {
+            int param[3];
+            if (sscanf(mConfigParams[index], "%d,%d,%d",
+                &param[0], &param[1], &param[2]) == 3) {
+                if ((param[0] >= 0) && (param[0] <= 1))
+                    ContentDAPLeveler.leveler_enable = param[0];
+                if ((param[1] >= 0) && (param[1] <= 10))
+                    ContentDAPLeveler.leveler_amount = param[1];
+                if ((param[2] >= 0) && (param[2] <= 1))
+                    ContentDAPLeveler.leveler_ignore_il = param[2];
+                ALOGI("-dap_leveler: %d %d %d", param[0], param[1], param[2]);
+            }
+        } else if (strcmp(opt, "dap_mi_steering") == 0) {
+            int param[4];
+            if (sscanf(mConfigParams[index], "%d,%d,%d,%d",
+                &param[0], &param[1], &param[2], &param[3]) == 4) {
+                if ((param[0] >= 0) && (param[0] <= 1))
+                    ContentDAPMISteering.mi_ieq_enable = param[0];
+                if ((param[1] >= 0) && (param[1] <= 1))
+                    ContentDAPMISteering.mi_dv_enable = param[1];
+                if ((param[2] >= 0) && (param[2] <= 1))
+                    ContentDAPMISteering.mi_de_enable = param[2];
+                if ((param[3] >= 0) && (param[3] <= 1))
+                     ContentDAPMISteering.mi_surround_enable = param[3];
+                ALOGI("-dap_mi_steering %d %d %d %d",param[0], param[1], param[2], param[3]);
+            }
+        } else if (strcmp(opt, "dap_surround_virtualizer") == 0) {
+            int param[5];
+            if (sscanf(mConfigParams[index], "%d,%d,%d,%d,%d",
+                &param[0], &param[1], &param[2], &param[3], &param[4]) == 5) {
+                if ((param[0] >= 0) && (param[0] <= 1))
+                    DeviceDAPSurroundVirtualizer.virtualizer_enable = param[0];
+                if ((param[1] >= -2080) && (param[1] <= 192))
+                    DeviceDAPSurroundVirtualizer.headphone_reverb = param[1];
+                if ((param[2] >= 5) && (param[2] <= 30))
+                    DeviceDAPSurroundVirtualizer.speaker_angle = param[2];
+                if ((param[3] >= 20) && (param[3] <= 2000))
+                    DeviceDAPSurroundVirtualizer.speaker_start = param[3];
+                if ((param[4] >= 0) && (param[4] <= 96))
+                    DeviceDAPSurroundVirtualizer.surround_boost = param[4];
+                ALOGI("-dap_surround_virtualizer: %d %d %d %d %d", param[0], param[1], param[2], param[3], param[4]);
+            }
+        } else if (strcmp(opt, "atmos_lock") == 0) {
+            val = atoi(mConfigParams[index]);
+            mAtmosLock = val ? true : false;
+            ALOGI("-atmos_lock: %d", mAtmosLock);
+        } else if (strcmp(opt, "dap_calibration_boost") == 0) {
+            val = atoi(mConfigParams[index]);
+            if ((val >= 0) && (val <= 192)) {
+                mDAPCalibrationBoost = val;
+                ALOGI("-dap_calibration_boost: %d", mDAPCalibrationBoost);
+            }
+        } else if (strcmp(opt, "dap_virtual_bass") == 0) {
+            int param[10];
+            if (sscanf(mConfigParams[index], "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+                &param[0], &param[1], &param[2], &param[3], &param[4], &param[5],
+                &param[6], &param[7], &param[8], &param[9]) == 10) {
+                if ((param[0] >= 0) && (param[0] <= 3))
+                    DeviceDAPVirtualBass.virtual_bass_mode = param[0];
+                if ((param[1] >= 30) && (param[1] <= 90))
+                    DeviceDAPVirtualBass.virtual_bass_low_src_freq = param[1];
+                if ((param[2] >= 90) && (param[2] <= 270))
+                    DeviceDAPVirtualBass.virtual_bass_high_src_freq = param[2];
+                if ((param[3] >= -480) && (param[3] <= 0))
+                    DeviceDAPVirtualBass.virtual_bass_overall_gain = param[3];
+                if ((param[4] >= -3) && (param[4] <= 0))
+                    DeviceDAPVirtualBass.virtual_bass_slope_gain = param[4];
+                if ((param[5] >= -480) && (param[5] <= 0))
+                    DeviceDAPVirtualBass.virtual_bass_subgains[0] = param[5];
+                if ((param[6] >= -480) && (param[6] <= 0))
+                    DeviceDAPVirtualBass.virtual_bass_subgains[1] = param[6];
+                if ((param[7] >= -480) && (param[7] <= 0))
+                    DeviceDAPVirtualBass.virtual_bass_subgains[2] = param[7];
+                if ((param[8] >= 0) && (param[8] <= 375))
+                    DeviceDAPVirtualBass.virtual_bass_low_mix_freq = param[8];
+                if ((param[9] >= 281) && (param[9] <= 938))
+                    DeviceDAPVirtualBass.virtual_bass_high_mix_freq = param[9];
+                ALOGI("-dap_virtual_bass %d %d %d %d %d %d %d %d %d %d",param[0], param[1], param[2], param[3], param[4],
+                    param[5], param[6], param[7], param[8], param[9]);
+            }
+        } else if (strcmp(opt, "dap_regulator") == 0) {
+            DAPRegulator regulator;
+            char *ptr = mConfigParams[index];
+            if (ms_get_int_from_str(&ptr, &regulator.regulator_enable) < 0)
+                goto eq_error;
+            if (ms_get_int_from_str(&ptr, &regulator.regulator_mode) < 0)
+                goto eq_error;
+            if (ms_get_int_from_str(&ptr, &regulator.regulator_overdrive) < 0)
+                goto eq_error;
+            if (ms_get_int_from_str(&ptr, &regulator.regulator_timbre) < 0)
+                goto eq_error;
+            if (ms_get_int_from_str(&ptr, &regulator.regulator_distortion) < 0)
+                goto eq_error;
+            if (ms_get_int_from_str(&ptr, &regulator.reg_nb_bands) < 0)
+                goto eq_error;
+            if (regulator.reg_nb_bands > 20)
+                goto eq_error;
+            if (ms_get_int_array_from_str(&ptr, regulator.reg_nb_bands,
+                &regulator.reg_band_center[0]) < 0)
+                goto eq_error;
+            if (ms_get_int_array_from_str(&ptr, regulator.reg_nb_bands,
+                &regulator.reg_low_thresholds[0]) < 0)
+                goto eq_error;
+            if (ms_get_int_array_from_str(&ptr, regulator.reg_nb_bands,
+                &regulator.reg_high_thresholds[0]) < 0)
+                goto eq_error;
+            if (ms_get_int_array_from_str(&ptr, regulator.reg_nb_bands,
+                &regulator.reg_isolated_bands[0]) < 0)
+                goto eq_error;
+            DeviceDAPRegulator = regulator;
+        } else if (strcmp(opt, "dap_optimizer") == 0) {
+            DAPOptimizer optimizer;
+            char *ptr = mConfigParams[index];
+            if (ms_get_int_from_str(&ptr, &optimizer.optimizer_enable) < 0)
+                goto eq_error;
+            if (ms_get_int_from_str(&ptr, &optimizer.opt_nb_bands) < 0)
+                goto eq_error;
+            if (optimizer.opt_nb_bands > 20)
+                goto eq_error;
+            if (ms_get_int_array_from_str(&ptr, optimizer.opt_nb_bands,
+                &optimizer.opt_band_center_freq[0]) < 0)
+                goto eq_error;
+            if (ms_get_int_array_from_str(&ptr, optimizer.opt_nb_bands * mMaxChannels,
+                &optimizer.opt_band_gains[0]) < 0)
+                goto eq_error;
+            DeviceDAPOptimizer = optimizer;
+        }
+eq_error:
+        index++;
+        opt = NULL;
+    }
+
+    ALOGD("-%s()", __FUNCTION__);
+    return mConfigParams;
+}
+
 
 char **DolbyMS12ConfigParams::GetDolbyMS12RuntimeConfigParams(int *argc)
 {

@@ -274,6 +274,17 @@ extern "C" char **dolby_ms12_config_params_prepare_config_params(int max_raw_siz
     }
 }
 
+extern "C" char **dolby_ms12_config_params_update_runtime_config_params(int *argc, char *cmd)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12ConfigParams *config_param = getInstance();
+    if (config_param) {
+        return config_param->UpdateDolbyMS12RuntimeConfigParams(argc, cmd);
+    } else {
+        return NULL;
+    }
+}
+
 extern "C" void dolby_ms12_config_params_cleanup_config_params(char **ConfigParams, int max_raw_size)
 {
     ALOGV("%s()\n", __FUNCTION__);

@@ -56,6 +56,7 @@ public:
     virtual void    ReleaseLibHandle(void);
     virtual int     GetMS12OutputMaxSize(void);
     virtual void *  DolbyMS12Init(int configNum, char **configParams);
+    virtual char *  DolbMS12GetVersion(void);
     virtual void    DolbyMS12Release(void *dolbyMS12_pointer);
     virtual int     DolbyMS12InputMain(
         void *dolbyMS12_pointer
