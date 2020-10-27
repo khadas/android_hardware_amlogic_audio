@@ -219,6 +219,16 @@ extern "C" int dolby_ms12_register_pcm_callback(void *callback, void *priv_data)
     }
 }
 
+extern "C" int dolby_ms12_register_dap_pcm_callback(void *callback, void *priv_data)
+{
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12RegisterDAPPCMCallback((android::output_callback)callback, priv_data);
+    } else {
+        return -1;
+    }
+}
+
 extern "C" int dolby_ms12_register_bitstream_callback(void *callback, void *priv_data)
 {
     android::DolbyMS12* dolby_ms12_instance = getInstance();

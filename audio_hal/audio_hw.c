@@ -6219,6 +6219,13 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
     }
 #endif
 
+    ret = str_parms_get_str(parms, "bypass_dap", value, sizeof(value));
+    if (ret >= 0) {
+        sscanf(value,"%d %f", &adev->ms12.dap_bypass_enable, &adev->ms12.dap_bypassgain);
+        ALOGD("dap_bypass_enable is %d and dap_bypassgain is %f",adev->ms12.dap_bypass_enable, adev->ms12.dap_bypassgain);
+        goto exit;
+    }
+
 exit:
     str_parms_destroy (parms);
 
@@ -7741,9 +7748,17 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 }
             } else {
                 gain_speaker *= (adev->sink_gain[OUTPORT_SPEAKER]);
-                apply_volume_16to32(gain_speaker * source_gain, effect_tmp_buf, spk_tmp_buf, bytes);
+                apply_volume_16to32(gain_speaker * source_gain * adev->ms12.dap_bypassgain, effect_tmp_buf, spk_tmp_buf, bytes);
                 /* SPDIF with source_gain*/
-                apply_volume_16to32(source_gain, tmp_buffer, ps32SpdifTempBuffer, bytes);
+                if (is_dolbyms12_dap_enable(aml_out)) {
+                    if (adev->ms12.spdif_ring_buffer.size &&
+                        get_buffer_read_space(&adev->ms12.spdif_ring_buffer) >= (int)bytes) {
+                        ring_buffer_read(&adev->ms12.spdif_ring_buffer, (unsigned char*)adev->ms12.lpcm_temp_buffer, bytes);
+                        apply_volume_16to32(source_gain, (int16_t *)adev->ms12.lpcm_temp_buffer, ps32SpdifTempBuffer, bytes);
+                    }
+                } else {
+                    apply_volume_16to32(source_gain, tmp_buffer, ps32SpdifTempBuffer, bytes);
+                }
             }
 
 #ifdef ADD_AUDIO_DELAY_INTERFACE
@@ -12141,6 +12156,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->virtualx_mulch = true;
     adev->hdmi_format = AUTO;
     adev->pre_hdmi_format = AUTO;
+    adev->ms12.dap_bypassgain = 1.0;
     card = alsa_device_get_card_index();
     if ((card < 0) || (card > 7)) {
         ALOGE("error to get audio card");

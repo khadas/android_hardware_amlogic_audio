@@ -18,6 +18,7 @@
 #include "dolby_ms12.h"
 #include "dolby_ms12_config_params.h"
 #include "dolby_ms12_status.h"
+#include "aml_ringbuffer.h"
 #include <system/audio.h>
 #include <time.h>
 
@@ -114,6 +115,10 @@ struct dolby_ms12_desc {
     uint32_t main_input_rate;  /*it is used to calculate the buffer duration*/
     uint32_t main_buffer_min_level;
     uint32_t main_buffer_max_level;
+    ring_buffer_t spdif_ring_buffer;
+    unsigned char *lpcm_temp_buffer;
+    int   dap_bypass_enable;
+    float dap_bypassgain;
 };
 
 /*

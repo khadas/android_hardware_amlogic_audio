@@ -151,7 +151,6 @@ int aml_ms12_lib_release() {
 int aml_ms12_cleanup(struct dolby_ms12_desc *ms12_desc)
 {
     dolby_ms12_status_self_cleanup();
-    dolby_ms12_config_params_self_cleanup();
     dolby_ms12_release(ms12_desc->dolby_ms12_ptr);
     //dolby_ms12_self_cleanup();
 #ifdef REPLACE_OUTPUT_BUFFER_WITH_CALLBACK

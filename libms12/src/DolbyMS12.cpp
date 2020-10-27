@@ -45,6 +45,7 @@ int (*FuncDolbyMS12InputApp)(void *, const void *, size_t, int, int, int);
 
 #ifdef REPLACE_OUTPUT_BUFFER_WITH_CALLBACK
 int (*FuncDolbyMS12RegisterPCMCallback)(output_callback , void *);
+int (*FuncDolbyMS12RegisterDAPPCMCallback)(output_callback , void *);
 int (*FuncDolbyMS12RegisterBitstreamCallback)(output_callback , void *);
 int (*FuncDolbyMS12RegisterSpdifBitstreamCallback)(output_callback , void *);
 #else
@@ -157,6 +158,12 @@ int DolbyMS12::GetLibHandle(void)
         ALOGE("%s, dlsym ms12_output_register_pcm_callback fail\n", __FUNCTION__);
         goto ERROR;
     }
+    FuncDolbyMS12RegisterDAPPCMCallback = (int (*)(output_callback , void *)) dlsym(mDolbyMS12LibHanle, "ms12_output_register_dap_pcm_callback");
+    if (!FuncDolbyMS12RegisterDAPPCMCallback) {
+        ALOGE("%s, dlsym FuncDolbyMS12RegisterDAPPCMCallback fail\n", __FUNCTION__);
+        goto ERROR;
+    }
+
     FuncDolbyMS12RegisterBitstreamCallback = (int (*)(output_callback , void *)) dlsym(mDolbyMS12LibHanle, "ms12_output_register_bitstream_callback");
     if (!FuncDolbyMS12RegisterBitstreamCallback) {
         ALOGE("%s, dlsym ms12_output_register_bitstream_callback fail\n", __FUNCTION__);
@@ -325,6 +332,7 @@ void DolbyMS12::ReleaseLibHandle(void)
     FuncDolbyMS12InputSystem = NULL;
 #ifdef REPLACE_OUTPUT_BUFFER_WITH_CALLBACK
     FuncDolbyMS12RegisterPCMCallback = NULL;
+    FuncDolbyMS12RegisterDAPPCMCallback = NULL;
     FuncDolbyMS12RegisterBitstreamCallback = NULL;
     FuncDolbyMS12RegisterSpdifBitstreamCallback = NULL;
 #else
@@ -528,6 +536,20 @@ int DolbyMS12::DolbyMS12RegisterPCMCallback(output_callback callback, void *priv
     }
 
     ret = (*FuncDolbyMS12RegisterPCMCallback)(callback, priv_data);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
+int DolbyMS12::DolbyMS12RegisterDAPPCMCallback(output_callback callback, void *priv_data)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12RegisterDAPPCMCallback) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return -1;
+    }
+
+    ret = (*FuncDolbyMS12RegisterDAPPCMCallback)(callback, priv_data);
     ALOGV("-%s() ret %d", __FUNCTION__, ret);
     return ret;
 }

@@ -107,7 +107,12 @@ int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_stat
 /*
  *@brief an callback for dolby ms12 pcm output
  */
-int pcm_output(void *buffer, void *priv_data, size_t size);
+int dap_pcm_output(void *buffer, void *priv_data, size_t size);
+
+/*
+ *@brief an callback for dolby ms12 pcm output
+ */
+int stereo_pcm_output(void *buffer, void *priv_data, size_t size);
 
 /*
  *@brief an callback for dolby ms12 bitstream output
@@ -155,6 +160,7 @@ void set_dolby_ms12_runtime_system_mixing_enable(struct dolby_ms12_desc *ms12, i
 
 bool is_ms12_continous_mode(struct aml_audio_device *adev);
 bool is_bypass_dolbyms12(struct audio_stream_out *stream);
+bool is_dolbyms12_dap_enable(struct aml_stream_out *aml_out);
 
 
 int dolby_ms12_hwsync_init(void);

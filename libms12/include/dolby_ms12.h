@@ -128,6 +128,14 @@ int dolby_ms12_input_app(void *dolby_mS12_pointer
 int dolby_ms12_register_pcm_callback(void *callback, void *priv_data);
 
 /*@@
+    @brief register the pcm callback
+
+    @void *callback //pcm callback handle
+    @void *priv_data //priv data
+*/
+int dolby_ms12_register_dap_pcm_callback(void *callback, void *priv_data);
+
+/*@@
     @brief register the bitstream callback
 
     @void *callback //bitstream callback handle

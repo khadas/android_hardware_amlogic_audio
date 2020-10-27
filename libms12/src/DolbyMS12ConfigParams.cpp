@@ -38,7 +38,7 @@ namespace android
 {
 
 #define MAX_ARGC 100
-#define MAX_ARGV_STRING_LEN 256
+#define MAX_ARGV_STRING_LEN 1024
 
 //here the file path is fake
 //@@pcm [application sounds]
@@ -1209,14 +1209,12 @@ int DolbyMS12ConfigParams::SetDAPDeviceSwitches(char **ConfigParams, int *row_in
         (*row_index)++;
     }
 
-    if (DeviceDAPSurroundVirtualizer.virtualizer_enable == 1) {
-        sprintf(ConfigParams[*row_index], "%s", "-dap_surround_virtualizer");
-        (*row_index)++;
-        sprintf(ConfigParams[*row_index], "%d,%d,%d,%d,%d", DeviceDAPSurroundVirtualizer.virtualizer_enable,
-                DeviceDAPSurroundVirtualizer.headphone_reverb, DeviceDAPSurroundVirtualizer.speaker_angle,
-                DeviceDAPSurroundVirtualizer.speaker_start, DeviceDAPSurroundVirtualizer.surround_boost);
-        (*row_index)++;
-    }
+    sprintf(ConfigParams[*row_index], "%s", "-dap_surround_virtualizer");
+    (*row_index)++;
+    sprintf(ConfigParams[*row_index], "%d,%d,%d,%d,%d", DeviceDAPSurroundVirtualizer.virtualizer_enable,
+            DeviceDAPSurroundVirtualizer.headphone_reverb, DeviceDAPSurroundVirtualizer.speaker_angle,
+            DeviceDAPSurroundVirtualizer.speaker_start, DeviceDAPSurroundVirtualizer.surround_boost);
+    (*row_index)++;
 
     if (DeviceDAPGraphicEQ.eq_enable == 1) {
         sprintf(ConfigParams[*row_index], "%s", "-dap_graphic_eq");
@@ -1652,7 +1650,7 @@ char **DolbyMS12ConfigParams::UpdateDolbyMS12RuntimeConfigParams(int *argc, char
                     DeviceDAPSurroundVirtualizer.surround_boost = param[4];
                 ALOGI("-dap_surround_virtualizer: %d %d %d %d %d", param[0], param[1], param[2], param[3], param[4]);
             }
-        } else if (strcmp(opt, "atmos_lock") == 0) {
+        } else if (strcmp(opt, "atmos_locking") == 0) {
             val = atoi(mConfigParams[index]);
             mAtmosLock = val ? true : false;
             ALOGI("-atmos_lock: %d", mAtmosLock);
@@ -1720,6 +1718,7 @@ char **DolbyMS12ConfigParams::UpdateDolbyMS12RuntimeConfigParams(int *argc, char
                 &regulator.reg_isolated_bands[0]) < 0)
                 goto eq_error;
             DeviceDAPRegulator = regulator;
+            ALOGI("-dap_regulator: %d",regulator.regulator_enable);
         } else if (strcmp(opt, "dap_optimizer") == 0) {
             DAPOptimizer optimizer;
             char *ptr = mConfigParams[index];
@@ -1736,6 +1735,7 @@ char **DolbyMS12ConfigParams::UpdateDolbyMS12RuntimeConfigParams(int *argc, char
                 &optimizer.opt_band_gains[0]) < 0)
                 goto eq_error;
             DeviceDAPOptimizer = optimizer;
+            ALOGI("-dap_optimizer %d",optimizer.optimizer_enable);
         }
 eq_error:
         index++;
