@@ -8868,6 +8868,8 @@ hwsync_rewrite:
                     } else {
                         virtualx_setparameter(adev, VIRTUALX_CHANNEL_NUM, 2, 5);
                     }
+                    need_reconfig_output = true;
+                    need_reset_decoder = true;
                 }
             }
             if (cur_aformat != patch->aformat) {
@@ -8951,6 +8953,8 @@ hwsync_rewrite:
             } else {
                 virtualx_setparameter(adev, VIRTUALX_CHANNEL_NUM, 2, 5);
             }
+            need_reconfig_output = true;
+            need_reset_decoder = true;
         }
     }
 
