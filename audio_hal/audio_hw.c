@@ -810,7 +810,7 @@ static int start_output_stream_direct (struct aml_stream_out *out)
     aml_tinymix_set_spdif_format(out->hal_internal_format,out);
     /* mute spdif when dd+ output */
     if (codec_type == TYPE_EAC3) {
-        aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_MUTE, 1);
+        audio_route_set_spdif_mute(&adev->alsa_mixer, 1);
     }
 
     ALOGI ("ALSA open configs: channels=%d, format=%d, period_count=%d, period_size=%d,,rate=%d",
@@ -1250,7 +1250,7 @@ static int do_output_standby_direct (struct aml_stream_out *out)
     }
     out->pause_status = false;
     aml_tinymix_set_spdif_format(AUDIO_FORMAT_PCM_16_BIT, out);
-    aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_MUTE, 0);
+    audio_route_set_spdif_mute(&adev->alsa_mixer, 0);
     /* clear the hdmitx channel config to default */
     if (out->multich == 6) {
         sysfs_set_sysfs_str ("/sys/class/amhdmitx/amhdmitx0/aud_output_chs", "0:0");
@@ -1307,7 +1307,7 @@ int out_standby_direct (struct audio_stream *stream)
     }
     out->pause_status = false;
     aml_tinymix_set_spdif_format(AUDIO_FORMAT_PCM_16_BIT, out);
-    aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_MUTE, 0);
+    audio_route_set_spdif_mute(&adev->alsa_mixer, 0);
 
     if (out->need_convert) {
         ALOGI("need_convert release %d ",__LINE__);
@@ -5252,7 +5252,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
 
     ret = str_parms_get_int(parms, "Audio spdif mute", &val);
     if (ret >= 0) {
-        aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_MUTE, val);
+        audio_route_set_spdif_mute(&adev->alsa_mixer, val);
         ALOGI("audio spdif out status: %d\n", val);
         goto exit;
     }
@@ -5310,8 +5310,8 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
     //  HDMI plug off and UI [Sound Output Device] set to "speaker" will recieve HDMI ARC Switch = 0
     ret = str_parms_get_int(parms, "HDMI ARC Switch", &val);
     if (ret >= 0) {
-        aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_HDMI_ARC_AUDIO_ENABLE, val);
         adev->bHDMIARCon = (val == 0) ? 0 : 1;
+        audio_route_set_hdmi_arc_mute(&adev->alsa_mixer, !adev->bHDMIARCon);
         ALOGI("%s audio hdmi arc status: %d\n", __FUNCTION__, adev->bHDMIARCon);
         /*
            * when user switch UI setting, means output device changed,
@@ -5321,7 +5321,9 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         adev->arc_hdmi_updated = 1;
         if (adev->patch_src == SRC_DTV)
             adev->reset_dtv_audio = 1;
-
+        if (adev->bHDMIARCon) {
+            aml_audio_output_routing((struct audio_hw_device *)adev, OUTPORT_HDMI_ARC, true);
+        }
         goto exit;
     }
     ret = str_parms_get_int(parms, "spdifin/arcin switch", &val);
@@ -7076,7 +7078,7 @@ static void aml_tinymix_set_spdif_format(audio_format_t output_format,struct aml
     }
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, aml_spdif_format);
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_EARC_AUDIO_TYPE, aml_spdif_format);
-    aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_MUTE, spdif_mute);
+    audio_route_set_spdif_mute(&aml_dev->alsa_mixer, spdif_mute);
     ALOGI("%s tinymix AML_MIXER_ID_SPDIF_FORMAT %d,spdif mute %d",
           __FUNCTION__, aml_spdif_format, spdif_mute);
 }
@@ -9647,10 +9649,6 @@ ssize_t mixer_app_buffer_write(struct audio_stream_out *stream, const void *buff
    size_t bytes_remaining = bytes;
    size_t bytes_written = 0;
    int retry = 20;
-
-    /* --------------------- TODO ----------------  */
-    ALOGW("not support ms12 AAudio input now!!!");
-    return bytes;
 
    if (adev->debug_flag) {
        ALOGD("[%s:%d] size:%d, frame_size:%d", __func__, __LINE__, bytes, frame_size);

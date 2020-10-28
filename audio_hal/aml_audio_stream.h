@@ -352,5 +352,7 @@ int get_spdifin_samplerate(struct aml_mixer_handle *mixer_handle);
 unsigned int inport_to_device(enum IN_PORT inport);
 int set_resample_source(struct aml_mixer_handle *mixer_handle, enum ResampleSource source);
 int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, size_t bytes);
+int audio_route_set_hdmi_arc_mute(struct aml_mixer_handle *mixer_handle, int enable);
+int audio_route_set_spdif_mute(struct aml_mixer_handle *mixer_handle, int enable);
 
 #endif /* _AML_AUDIO_STREAM_H_ */

@@ -1271,6 +1271,10 @@ int spdif_bitstream_output(void *buffer, void *priv_data, size_t size)
         return 0;
     }
 
+    if (adev->active_outport == OUTPORT_HDMI_ARC && adev->sink_format == AUDIO_FORMAT_PCM_16_BIT) {
+        return 0;
+    }
+
     if (ms12->optical_format != AUDIO_FORMAT_AC3) {
         return 0;
     }
