@@ -112,6 +112,7 @@ static void audio_adcallback(const unsigned char * data, int len, void * handle)
 
     ring_buffer_t *ringbuffer = &(param->sub_abuf);
     int left;
+    ALOGV("asso_enable =%d param->bufinited=%d cache=%d len=%d", param->assoc_enable, param->bufinited, param->cache, len);
     if (param->assoc_enable == DTV_ASSOC_STAT_ENABLE && param->bufinited == 1 && param->cache > 0) {
         unsigned short head1 = data[0] << 8 | data[1];
         left = get_buffer_write_space(ringbuffer);
@@ -293,7 +294,8 @@ void dtv_assoc_audio_cache(int value)
     dtv_assoc_audio *param = get_assoc_audio();
 
     if (value < 0) {
-        param->cache = -1000;
+        /*change it to a small value, otherwise the AD sound comes out too later*/
+        param->cache = -10;
         ring_buffer_reset(&param->sub_abuf);
     } else {
         param->cache += value;

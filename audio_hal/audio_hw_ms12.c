@@ -79,6 +79,7 @@
 #define DUMP_MS12_INPUT_MAIN             0x10
 #define DUMP_MS12_INPUT_SYS              0x20
 #define DUMP_MS12_INPUT_APP              0x40
+#define DUMP_MS12_INPUT_ASSOCIATE        0x80
 
 
 #define MS12_OUTPUT_SPEAKER_PCM_FILE     "/data/vendor/audiohal/ms12_speaker_pcm.raw"
@@ -86,6 +87,7 @@
 #define MS12_OUTPUT_BITSTREAM_FILE       "/data/vendor/audiohal/ms12_bitstream.raw"
 #define MS12_INPUT_SYS_PCM_FILE          "/data/vendor/audiohal/ms12_input_sys.pcm"
 #define MS12_INPUT_SYS_MAIN_FILE         "/data/vendor/audiohal/ms12_input_main.raw"
+#define MS12_INPUT_SYS_ASSOCIATE_FILE    "/data/vendor/audiohal/ms12_input_associate.raw"
 #define MS12_INPUT_SYS_APP_FILE          "/data/vendor/audiohal/ms12_input_app.pcm"
 #define MS12_INPUT_SYS_MAIN_IEC_FILE     "/data/vendor/audiohal/ms12_input_main_iec.raw"
 
@@ -672,6 +674,10 @@ int dolby_ms12_main_process(
                                        , audio_channel_count_from_out_mask(ms12->config_channel_mask)
                                        , ms12->config_sample_rate
                                       );
+            if (get_ms12_dump_enable(DUMP_MS12_INPUT_ASSOCIATE)) {
+                dump_ms12_output_data((void*)associate_frame_buffer, associate_frame_size, MS12_INPUT_SYS_ASSOCIATE_FILE);
+            }
+
         }
 
 MAIN_INPUT:
