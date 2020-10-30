@@ -143,7 +143,7 @@ static int _dts_frame_scan(struct dca_dts_dec *dts_dec)
     struct dts_syncword_info* syncword_info = &dts_dec->syncword_info;
 
     read_pointer = input_rbuffer->start_addr + syncword_info->check_pos;
-    if (read_pointer < input_rbuffer->wr) {
+    if (read_pointer <= input_rbuffer->wr) {
         unuse_size = input_rbuffer->wr - read_pointer;
     } else {
         unuse_size = input_rbuffer->size + input_rbuffer->wr - read_pointer;

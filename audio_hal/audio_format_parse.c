@@ -208,14 +208,21 @@ int get_dts_stream_channels(const char *buffer, size_t buffer_size) {
     size_t bytes = 0;
 
     pos_iec_header = seek_61937_sync_word((char *)buffer, (int)buffer_size);
-    if (pos_iec_header > 0) {
-        bytes = buffer_size - (size_t)pos_iec_header;
-    } else {
-        bytes = buffer_size;
+    if (pos_iec_header < 0) {
+        return -1;
     }
 
-    //8 Byte IEC Header + 15 Byte Bitstream Header(120 bits)
-    if (bytes < 23) {
+    bytes = buffer_size - (size_t)pos_iec_header;
+    if (buffer_size > 6) {
+        //case of DTS type IV, have 12 bytes of IEC_DTS_HD_APPEND
+        if (((buffer[pos_iec_header + 4] & 0x1f) == IEC61937_DTSHD)
+            || ((buffer[pos_iec_header + 5] & 0x1f) == IEC61937_DTSHD)) {
+            frame_header_len += 12;
+        }
+    }
+
+    //IEC Header + 15 Byte Bitstream Header(120 bits)
+    if (bytes < (frame_header_len + 15)) {
         ALOGE("%s, illegal param bytes(%d)", __FUNCTION__, bytes);
         return -1;
     }
@@ -225,11 +232,8 @@ int get_dts_stream_channels(const char *buffer, size_t buffer_size) {
         return -1;
     }
     memset(temp_buffer, '\0', sizeof(char) * bytes);
-    if (pos_iec_header > 0) {
-        memcpy(temp_buffer, buffer + pos_iec_header, bytes);
-    } else {
-        memcpy(temp_buffer, buffer, bytes);
-    }
+    memcpy(temp_buffer, buffer + pos_iec_header, bytes);
+
     if (temp_buffer[0] == 0xf8 && temp_buffer[1] == 0x72 && temp_buffer[2] == 0x4e && temp_buffer[3] == 0x1f) {
         little_end = true;
     }
@@ -240,12 +244,16 @@ int get_dts_stream_channels(const char *buffer, size_t buffer_size) {
         } else {
             count = bytes - frame_header_len - 1;
         }
+
+        //DTS frame header mybe 11 bytes, and align 2 bytes
+        count = (count > 12) ? 12 : count;
         for (i = 0; i < count; i+=2) {
             temp_ch = temp_buffer[frame_header_len + i];
             temp_buffer[frame_header_len + i] = temp_buffer[frame_header_len + i + 1];
             temp_buffer[frame_header_len + i + 1] = temp_ch;
         }
     }
+
     if (!((temp_buffer[frame_header_len + 0] == 0x7F
             && temp_buffer[frame_header_len + 1] == 0xFE
             && temp_buffer[frame_header_len + 2] == 0x80
