@@ -6942,42 +6942,39 @@ int do_output_standby_l(struct audio_stream *stream)
                         adev->continuous_audio_mode = 0;
                     }
                     pthread_mutex_lock(&adev->ms12.lock);
-                    if (adev->ms12_main1_dolby_dummy == false
-                        && !audio_is_linear_pcm(aml_out->hal_internal_format)) {
-                        dolby_ms12_set_main_dummy(0, true);
-                        dolby_ms12_main_flush((void *)stream);
-                        dolby_ms12_set_pause_flag(false);
-                        //int iMS12DB = 0;//restore to full volume
-                        //set_dolby_ms12_primary_input_db_gain(&(adev->ms12), iMS12DB , 10);
-                        //adev->ms12.curDBGain = iMS12DB;
-                        aml_ms12_update_runtime_params(&(adev->ms12));
-                        adev->ms12.is_continuous_paused = false;
-                        adev->ms12.need_resume       = 0;
-                        adev->ms12.need_resync       = 0;
-                        adev->ms12_main1_dolby_dummy = true;
-                        adev->ms12_out->hw_sync_mode = false;
-                        aml_out->hwsync->payload_offset = 0;
-                        ALOGI("%s set main dd+ dummy", __func__);
-                    } else if (adev->ms12_ott_enable == true
-                               && audio_is_linear_pcm(aml_out->hal_internal_format)
-                               && (aml_out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)) {
-#if 0
-                        dolby_ms12_set_ott_sound_input_enable(true);
-                        dolby_ms12_main_flush(stream);
-                        adev->ms12_ott_enable = true;
-#else
-                        dolby_ms12_main_flush((void *)stream);
-                        dolby_ms12_set_pause_flag(false);
-                        aml_ms12_update_runtime_params(&(adev->ms12));
-                        adev->ms12.is_continuous_paused = false;
-                        adev->ms12.need_resume       = 0;
-                        adev->ms12.need_resync       = 0;
-                        dolby_ms12_set_main_dummy(1, true);
-                        adev->ms12_ott_enable = false;
-                        adev->ms12_out->hw_sync_mode = false;
-                        aml_out->hwsync->payload_offset = 0;
-                        ALOGI("%s set ott dummy", __func__);
-#endif
+                    if (adev->ms12.dolby_ms12_enable) {
+                        if (adev->ms12_main1_dolby_dummy == false
+                            && !audio_is_linear_pcm(aml_out->hal_internal_format)) {
+                            dolby_ms12_set_main_dummy(0, true);
+                            dolby_ms12_main_flush((void *)stream);
+                            dolby_ms12_set_pause_flag(false);
+                            //int iMS12DB = 0;//restore to full volume
+                            //set_dolby_ms12_primary_input_db_gain(&(adev->ms12), iMS12DB , 10);
+                            //adev->ms12.curDBGain = iMS12DB;
+                            aml_ms12_update_runtime_params(&(adev->ms12));
+                            adev->ms12.is_continuous_paused = false;
+                            adev->ms12.need_resume       = 0;
+                            adev->ms12.need_resync       = 0;
+                            adev->ms12_main1_dolby_dummy = true;
+                            adev->ms12_out->hw_sync_mode = false;
+                            aml_out->hwsync->payload_offset = 0;
+                            ALOGI("%s set main dd+ dummy", __func__);
+                        } else if (adev->ms12_ott_enable == true
+                                   && audio_is_linear_pcm(aml_out->hal_internal_format)
+                                   && (aml_out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)) {
+
+                            dolby_ms12_main_flush((void *)stream);
+                            dolby_ms12_set_pause_flag(false);
+                            aml_ms12_update_runtime_params(&(adev->ms12));
+                            adev->ms12.is_continuous_paused = false;
+                            adev->ms12.need_resume       = 0;
+                            adev->ms12.need_resync       = 0;
+                            dolby_ms12_set_main_dummy(1, true);
+                            adev->ms12_ott_enable = false;
+                            adev->ms12_out->hw_sync_mode = false;
+                            aml_out->hwsync->payload_offset = 0;
+                            ALOGI("%s set ott dummy", __func__);
+                        }
                     }
                     pthread_mutex_unlock(&adev->ms12.lock);
                 }
