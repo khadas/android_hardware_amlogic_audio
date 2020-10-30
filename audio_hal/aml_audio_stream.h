@@ -253,6 +253,7 @@ struct aml_audio_patch {
     unsigned int dtv_pcm_writed;
     unsigned int dtv_pcm_readed;
     unsigned int dtv_decoder_ready;
+    unsigned int dtv_dropped_offset;
     unsigned int ouput_thread_created;
     unsigned int decoder_offset ;
     unsigned int outlen_after_last_validpts;

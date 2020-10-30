@@ -167,5 +167,9 @@ int dolby_ms12_hwsync_init(void);
 int dolby_ms12_hwsync_release(void);
 int dolby_ms12_hwsync_checkin_pts(int offset, int apts);
 int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, size_t bytes);
+/*
+ *@brief dolby ms12 insert one frame, it is 32ms
+ */
+int dolby_ms12_output_insert_oneframe(struct audio_stream_out *stream);
 
 #endif //end of _AUDIO_HW_MS12_H_
