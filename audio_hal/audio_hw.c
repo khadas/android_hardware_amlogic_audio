@@ -16,6 +16,7 @@
 
 #define LOG_TAG "audio_hw_primary"
 //#define LOG_NDEBUG 0
+#define __USE_GNU
 
 #include <errno.h>
 #include <pthread.h>
@@ -4570,9 +4571,12 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out = (struct aml_stream_out *)aml_audio_calloc(1, sizeof(struct aml_stream_out));
     if (!out)
         return -ENOMEM;
-    virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
-    virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
-    adev->effect_in_ch = 2;
+
+    if (adev->libvx_exist) {
+        virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
+        virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
+        adev->effect_in_ch = 2;
+    }
     if (flags == AUDIO_OUTPUT_FLAG_NONE)
         flags = AUDIO_OUTPUT_FLAG_PRIMARY;
     if (config->channel_mask == AUDIO_CHANNEL_NONE)
@@ -4881,10 +4885,12 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
 
     ALOGD("%s: enter: dev(%p) stream(%p)", __func__, dev, stream);
-    virtualx_setparameter(adev,0,0,2);
-    virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
-    virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
-    adev->effect_in_ch = 2;
+    if (adev->libvx_exist) {
+        virtualx_setparameter(adev,0,0,2);
+        virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
+        virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
+        adev->effect_in_ch = 2;
+    }
     if (adev->useSubMix) {
         if (out->usecase == STREAM_PCM_NORMAL || out->usecase == STREAM_PCM_HWSYNC)
             out_standby_subMixingPCM(&stream->common);
@@ -8274,10 +8280,12 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
          struct dca_dts_dec *dts_dec = & (adev->dts_hd);
          if (dts_dec->status == 1) {
             dca_decoder_release_patch(dts_dec);
-            virtualx_setparameter(adev,0,0,2);
-            virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
-            virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
-            adev->effect_in_ch = 2;
+            if (adev->libvx_exist) {
+                virtualx_setparameter(adev,0,0,2);
+                virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
+                virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
+                adev->effect_in_ch = 2;
+            }
             if (dts_dec->digital_raw > 0) {
                 struct pcm *pcm = adev->pcm_handle[DIGITAL_DEVICE];
                 if (pcm && is_dual_output_stream(stream)) {
@@ -8564,15 +8572,18 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             if (dts_dec->status != 1 && (aml_out->hal_internal_format == AUDIO_FORMAT_DTS
                                          || aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
                 int status = dca_decoder_init_patch(dts_dec);
-                if (adev->virtualx_mulch) {
-                    virtualx_setparameter(adev,0,0,2);
-                    virtualx_setparameter(adev,VIRTUALXINMODE,1,5);
-                    virtualx_setparameter(adev,TRUVOLUMEINMODE,4,5);
-                    adev->effect_in_ch = 6;
-                } else {
-                    virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
-                    virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
-                    adev->effect_in_ch = 2;
+
+                if (adev->libvx_exist) {
+                    if (adev->virtualx_mulch) {
+                        virtualx_setparameter(adev,0,0,2);
+                        virtualx_setparameter(adev,VIRTUALXINMODE,1,5);
+                        virtualx_setparameter(adev,TRUVOLUMEINMODE,4,5);
+                        adev->effect_in_ch = 6;
+                    } else {
+                        virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
+                        virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
+                        adev->effect_in_ch = 2;
+                    }
                 }
                 if ((patch && audio_parse_get_audio_type_direct(patch->audio_parse_para) == DTSCD) || dtscd_flag) {
                     dts_dec->frame_info.is_dtscd = true;
@@ -8590,10 +8601,12 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             } else if (dts_dec->status == 1 && (aml_out->hal_internal_format == AUDIO_FORMAT_DTS
                                                 || aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
                 dca_decoder_release_patch(dts_dec);
-                virtualx_setparameter(adev,0,0,2);
-                virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
-                virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
-                adev->effect_in_ch = 2;
+                if (adev->libvx_exist) {
+                    virtualx_setparameter(adev,0,0,2);
+                    virtualx_setparameter(adev,VIRTUALXINMODE,0,5);
+                    virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
+                    adev->effect_in_ch = 2;
+                }
                 if (dts_dec->digital_raw > 0) {
                     struct pcm *pcm = adev->pcm_handle[DIGITAL_DEVICE];
                     if (pcm && is_dual_output_stream(stream)) {
@@ -8744,7 +8757,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         return return_bytes;
     }
     char val[PROPERTY_VALUE_MAX];
-    if (property_get("media.libplayer.dtsMulChPcm", val, NULL) > 0) {
+    if (adev->libvx_exist && property_get("media.libplayer.dtsMulChPcm", val, NULL) > 0) {
         if (strcmp(val, "true" /*enble 5.1 ch*/) == 0) {
             if (adev->virtualx_mulch != true) {
                 adev->virtualx_mulch = true;
@@ -8939,7 +8952,8 @@ hwsync_rewrite:
                 audio_type_parse_t *status = patch->audio_parse_para;
                 ALOGI("%s:%d cur_aformat:0x%x, aformat:0x%x", __func__, __LINE__, cur_aformat, patch->aformat);
             }
-            if ((cur_aformat == AUDIO_FORMAT_DTS) || (cur_aformat == AUDIO_FORMAT_DTS_HD)) {
+            if ((cur_aformat == AUDIO_FORMAT_DTS || cur_aformat == AUDIO_FORMAT_DTS_HD) &&
+                    adev->libvx_exist) {
                 int cur_channels = get_dts_stream_channels((const char*)buffer, bytes);
                 static int pre_channels = 0;
                 if (cur_aformat != patch->aformat) {
@@ -8976,12 +8990,19 @@ hwsync_rewrite:
                 aml_out->hal_internal_format = cur_aformat;
                 aml_out->hal_channel_mask = audio_parse_get_audio_channel_mask (patch->audio_parse_para);
                 ALOGI ("%s hal_channel_mask %#x\n", __FUNCTION__, aml_out->hal_channel_mask);
-                if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS) {
+                if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS ||
+                        aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
                     /*switch to MS12, we need cleanup MS12 first*/
                     if (adev->dolby_lib_type_last == eDolbyMS12Lib && adev->ms12.dolby_ms12_enable) {
                         get_dolby_ms12_cleanup(&adev->ms12);
                     }
                     adev->dolby_lib_type = eDolbyDcvLib;
+                    if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
+                        /* For DTS HBR case, needs enlarge buffer and start threshold to anti-xrun */
+                        aml_out->config.period_count = 6;
+                        aml_out->config.start_threshold =
+                            aml_out->config.period_size * aml_out->config.period_count;
+                    }
                 } else {
                     adev->dolby_lib_type = adev->dolby_lib_type_last;
                 }
@@ -10427,6 +10448,15 @@ void *audio_patch_output_threadloop(void *data)
         return (void *)0;
     }
     prctl(PR_SET_NAME, (unsigned long)"audio_output_patch");
+
+    cpu_set_t cpuSet;
+    CPU_ZERO(&cpuSet);
+    CPU_SET(2, &cpuSet);
+    CPU_SET(3, &cpuSet);
+    int sastat = sched_setaffinity(0, sizeof(cpu_set_t), &cpuSet);
+    if (sastat) {
+        ALOGW("%s(), failed to set cpu affinity", __FUNCTION__);
+    }
     while (!patch->output_thread_exit) {
         int period_mul = 1;
         switch (patch->aformat) {
