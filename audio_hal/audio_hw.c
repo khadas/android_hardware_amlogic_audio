@@ -8406,6 +8406,9 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             pthread_mutex_lock(&adev->lock);
             if (!adev->hw_mixer.start_buf) {
                 aml_hw_mixer_init(&adev->hw_mixer);
+                if (adev->patch_src == SRC_DTV) {
+                    adev->hw_mixer.mute_main_flag = adev->tv_mute;
+                }
             } else {
                 aml_hw_mixer_reset(&adev->hw_mixer);
             }
@@ -8532,6 +8535,9 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
         pthread_mutex_lock(&adev->lock);
         if (!adev->hw_mixer.start_buf) {
             aml_hw_mixer_init(&adev->hw_mixer);
+            if (adev->patch_src == SRC_DTV) {
+                adev->hw_mixer.mute_main_flag = adev->tv_mute;
+            }
         } else {
             aml_hw_mixer_reset(&adev->hw_mixer);
         }
@@ -8651,6 +8657,9 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         /*if mixer has started, no need restart*/
         if (!adev->hw_mixer.start_buf) {
             aml_hw_mixer_init(&adev->hw_mixer);
+            if (adev->patch_src == SRC_DTV) {
+                adev->hw_mixer.mute_main_flag = adev->tv_mute;
+            }
         }
         pthread_mutex_unlock(&adev->lock);
     }
@@ -9201,13 +9210,13 @@ hwsync_rewrite:
                     if (!adev->is_TV && (adev->audio_patching)) {
                         float out_gain = 1.0f;
                         out_gain = adev->sink_gain[adev->active_outport];
-                        if (adev->tv_mute)
+                        if (adev->patch_src == SRC_DTV && adev->tv_mute)
                             out_gain = 0.0f;
                         if (!audio_is_linear_pcm(aml_out->hal_internal_format)) {
                             dolby_ms12_set_main_volume(out_gain);
                         } else {
-                            //for stb,no chance to here
-                            //apply_volume(out_gain, write_buf, sizeof(int16_t), write_bytes);
+                            if (adev->patch_src == SRC_DTV && adev->tv_mute)
+                                apply_volume(0.0f , write_buf, sizeof(int16_t), write_bytes);
                         }
                     }
                     /*when it is non continuous mode, we bypass data here*/
