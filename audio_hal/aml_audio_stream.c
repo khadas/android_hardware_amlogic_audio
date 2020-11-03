@@ -71,6 +71,44 @@ static audio_format_t get_sink_capability (struct audio_stream_out *stream)
     return sink_capability;
 }
 
+static audio_format_t get_sink_dts_capability (struct audio_stream_out *stream)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+
+    bool dts_is_support = hdmi_desc->dts_fmt.is_support;
+    bool dtshd_is_support = hdmi_desc->dtshd_fmt.is_support;
+
+    audio_format_t sink_capability = AUDIO_FORMAT_PCM_16_BIT;
+
+    //STB case
+    if (!adev->is_TV)
+    {
+        char *cap = NULL;
+        cap = (char *) get_hdmi_sink_cap (AUDIO_PARAMETER_STREAM_SUP_FORMATS,0,&(adev->hdmi_descs));
+        if (cap) {
+            if (strstr(cap, "AUDIO_FORMAT_DTS") != NULL) {
+                sink_capability = AUDIO_FORMAT_DTS;
+            } else if (strstr(cap, "AUDIO_FORMAT_DTS_HD") != NULL) {
+                sink_capability = AUDIO_FORMAT_DTS_HD;
+            }
+            ALOGI ("%s mbox+dvb case sink_capability =  %d\n", __FUNCTION__, sink_capability);
+            aml_audio_free(cap);
+            cap = NULL;
+        }
+    } else {
+        if (dtshd_is_support) {
+            sink_capability = AUDIO_FORMAT_DTS_HD;
+        } else if (dts_is_support) {
+            sink_capability = AUDIO_FORMAT_DTS;
+        }
+        ALOGI ("%s dts support %d dtshd support %d\n", __FUNCTION__, dts_is_support, dtshd_is_support);
+    }
+    return sink_capability;
+}
+
+
 bool is_sink_support_dolby_passthrough(audio_format_t sink_capability)
 {
     return sink_capability == AUDIO_FORMAT_E_AC3 || sink_capability == AUDIO_FORMAT_AC3;
@@ -94,6 +132,7 @@ void get_sink_format (struct audio_stream_out *stream)
     audio_format_t optical_audio_format = AUDIO_FORMAT_PCM_16_BIT;
 
     audio_format_t sink_capability = get_sink_capability(stream);
+    audio_format_t sink_dts_capability = get_sink_dts_capability(stream);
     audio_format_t source_format = aml_out->hal_internal_format;
 
     if (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
@@ -141,8 +180,11 @@ void get_sink_format (struct audio_stream_out *stream)
             optical_audio_format = sink_audio_format;
             break;
         case AUTO:
-            sink_audio_format = (source_format != AUDIO_FORMAT_DTS && source_format != AUDIO_FORMAT_DTS_HD) ? min(source_format, sink_capability) : AUDIO_FORMAT_DTS;
-
+            if (is_dts_format(source_format)) {
+                sink_audio_format = min(source_format, sink_dts_capability);
+            } else {
+                sink_audio_format = min(source_format, sink_capability);
+            }
             if (eDolbyMS12Lib == adev->dolby_lib_type && !is_dts_format(source_format)) {
                 if (!adev->disable_pcm_mixing) {
                     sink_audio_format = sink_capability;
