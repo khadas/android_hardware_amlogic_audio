@@ -3286,6 +3286,7 @@ static int out_get_render_position (const struct audio_stream_out *stream,
     uint64_t  dsp_frame_int64 = out->last_frames_postion;
     *dsp_frames = (uint32_t)(dsp_frame_int64 & 0xffffffff);
     int frame_latency = 0;
+    int out_rate = out->config.rate;
 
     if (*dsp_frames == 0) {
         if (adev->debug_flag) {
@@ -3316,11 +3317,21 @@ static int out_get_render_position (const struct audio_stream_out *stream,
         }
         if ((out->hal_rate != MM_FULL_POWER_SAMPLING_RATE) &&
             (!is_bypass_dolbyms12((struct audio_stream_out *)stream))) {
-            dsp_frame_int64 = (dsp_frame_int64 * out->hal_rate) / MM_FULL_POWER_SAMPLING_RATE;
+            out_rate = MM_FULL_POWER_SAMPLING_RATE;
         }
-
-        *dsp_frames = (uint32_t)(dsp_frame_int64 & 0xffffffff);
+    } else if (eDolbyDcvLib  == adev->dolby_lib_type) {
+        if (out->hal_internal_format == AUDIO_FORMAT_AC3 ||
+            out->hal_internal_format == AUDIO_FORMAT_E_AC3) {
+            /* why we sitll use hal rate instead of alsa output rate?
+             * becase for dd/ddp input, the positon is calculated with write size in mixer_main_buffer_write
+             * so the frame position rate is same with input
+             * we will unify the position later, then we can remove this
+             */
+            out_rate = out->hal_rate;
+        }
     }
+
+    *dsp_frames = (dsp_frame_int64) * out->hal_rate / out_rate;
 
     if (!adev->continuous_audio_mode) {
         if (adev->active_outport == OUTPORT_HDMI_ARC) {
@@ -3470,7 +3481,18 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
             written_timestamp = adev->ms12.timestamp;
         }
         out_rate = MM_FULL_POWER_SAMPLING_RATE;
+    } else if (eDolbyDcvLib  == adev->dolby_lib_type) {
+        if (out->hal_internal_format == AUDIO_FORMAT_AC3 ||
+            out->hal_internal_format == AUDIO_FORMAT_E_AC3) {
+            /* why we sitll use hal rate instead of alsa output rate?
+             * becase for dd/ddp input, the positon is calculated with write size in mixer_main_buffer_write
+             * so the frame position rate is same with input
+             * we will unify the position later, then we can remove this
+             */
+            out_rate = out->hal_rate;
+        }
     }
+
 
     if (!adev->continuous_audio_mode) {
         if (adev->active_outport == OUTPORT_HDMI_ARC) {
@@ -4663,6 +4685,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         switch (digital_codec) {
         case TYPE_AC3:
             out->raw_61937_frame_size = 4;
+            break;
         case TYPE_EAC3:
             out->config.period_size *= 2;
             out->raw_61937_frame_size = 4;
