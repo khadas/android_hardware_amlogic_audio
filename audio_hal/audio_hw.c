@@ -8451,7 +8451,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                     } else {
                         adev->dtslib_bypass_enable = 0;
                     }
-                    dts_dec->digital_raw = 2;
+                    dts_dec->digital_raw = 1;
                 } else if (adev->hdmi_descs.dts_fmt.is_support) {
                     if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
                         adev->dtslib_bypass_enable = 0;
@@ -9111,7 +9111,7 @@ hwsync_rewrite:
                 read_bytes =  PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE * (dts_dec->pcm_out_info.channel_num);
 #if 1
                 //wirte raw data
-                if ((dts_dec->digital_raw == 1) && (dts_dec->outlen_raw > 0)) {
+                if ((dts_dec->digital_raw > 0) && (dts_dec->outlen_raw > 0)) {
                     /* all the HDMI in we goes through into decoder, because sometimes it is 44.1 khz, we don't know
                         such info if we doesn't decoded it.
                     */
