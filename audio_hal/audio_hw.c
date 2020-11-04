@@ -8434,7 +8434,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             }
             pthread_mutex_unlock(&adev->lock);
         } else {
-            ALOGE("%s() no DOLBY lib avaliable ", __FUNCTION__);
+            ALOGI("%s() don't reset decoder ", __FUNCTION__);
         }
     } else {
         pthread_mutex_lock(&adev->alsa_pcm_lock);
@@ -8603,7 +8603,6 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
     size_t total_bytes = bytes;
     size_t bytes_cost = 0;
     int ms12_write_failed = 0;
-    static int pre_hdmi_out_format = 0;
     effect_descriptor_t tmpdesc;
     uint32_t latency_frames = 0;
     audio_hwsync_t *hw_sync = aml_out->hwsync;
@@ -8728,11 +8727,9 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
         adev->arc_hdmi_updated = 0;
     }
     /* here to check if the hdmi audio output format dynamic changed. */
-    if (pre_hdmi_out_format != adev->hdmi_format /*&&
-        aml_out->hal_internal_format != AUDIO_FORMAT_PCM_16_BIT &&
-        aml_out->hal_internal_format != AUDIO_FORMAT_PCM_32_BIT*/) {
-        ALOGI("hdmi format is changed from %d to %d need reconfig output", pre_hdmi_out_format, adev->hdmi_format);
-        pre_hdmi_out_format = adev->hdmi_format;
+    if (adev->pre_hdmi_format != adev->hdmi_format ) {
+        ALOGI("hdmi format is changed from %d to %d need reconfig output", adev->pre_hdmi_format, adev->hdmi_format);
+        adev->pre_hdmi_format = adev->hdmi_format;
         need_reconfig_output = true;
         need_reset_decoder = digital_input_src ? true: false;
     }
@@ -9554,13 +9551,20 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
                     aml_out->out_device = adev->out_device;
                     need_reconfig_output = true;
                 }
-            }
-                /* here to check if ms12 is already enabled */
-                if (!adev->ms12.dolby_ms12_enable) {
-                    ALOGI("%s(), 0x%x, Swithing system output to MS12, need MS12 reconfig output", __func__, aml_out->out_device);
+                /* here to check if the hdmi audio output format dynamic changed. */
+                if (adev->pre_hdmi_format != adev->hdmi_format) {
+                    ALOGI("hdmi format is changed from %d to %d need reconfig output", adev->pre_hdmi_format, adev->hdmi_format);
+                    adev->pre_hdmi_format = adev->hdmi_format;
                     need_reconfig_output = true;
-                    need_reset_decoder = true;
                 }
+            }
+
+            /* here to check if ms12 is already enabled */
+            if (!adev->ms12.dolby_ms12_enable) {
+                ALOGI("%s(), 0x%x, Swithing system output to MS12, need MS12 reconfig output", __func__, aml_out->out_device);
+                need_reconfig_output = true;
+                need_reset_decoder = true;
+            }
 
             if (need_reconfig_output) {
                 /*during ms12 switch, the frame write may be not matched with
@@ -12090,6 +12094,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->active_outport = -1;
     adev->virtualx_mulch = true;
     adev->hdmi_format = AUTO;
+    adev->pre_hdmi_format = AUTO;
     card = alsa_device_get_card_index();
     if ((card < 0) || (card > 7)) {
         ALOGE("error to get audio card");

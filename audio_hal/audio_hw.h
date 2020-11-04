@@ -395,6 +395,7 @@ struct aml_audio_device {
     bool audio_patching;
     /* audio configuration for dolby HDMI/SPDIF output */
     int hdmi_format;
+    int pre_hdmi_format;
     int spdif_format;
     int hdmi_is_pth_active;
     int disable_pcm_mixing;
