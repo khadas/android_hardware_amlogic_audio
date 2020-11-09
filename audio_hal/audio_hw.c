@@ -7109,7 +7109,7 @@ static bool is_iec61937_format (struct audio_stream_out *stream)
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
 
-    if ( (adev->disable_pcm_mixing == true) && \
+    if ( (adev->hdmi_format == BYPASS) && \
          (aml_out->hal_format == AUDIO_FORMAT_IEC61937) && \
          (adev->sink_format == AUDIO_FORMAT_E_AC3) ) {
         /*
@@ -8388,6 +8388,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                 adev->dcvlib_bypass_enable = 0;
                 break;
             case AUTO:
+            case BYPASS:
                 //STB case
                 if (!adev->is_TV) {
                     char *cap = NULL;
@@ -8531,6 +8532,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             adev->optical_format = AUDIO_FORMAT_AC3;
             break;
         case AUTO:
+        case BYPASS:
             if (((!adev->is_TV) && (adev->active_outport == OUTPORT_HDMI)) ||
                 (adev->is_TV && (adev->active_outport == OUTPORT_HDMI_ARC))) {
                 if (adev->hdmi_descs.dtshd_fmt.is_support) {
@@ -9663,7 +9665,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
              *when disable_pcm_mixing is true and offload format is dolby
              *the system tone voice should not be mixed
              */
-            if (adev->disable_pcm_mixing && (dolby_stream_active(adev) || hwsync_lpcm_active(adev))) {
+            if ((adev->hdmi_format == BYPASS) && (dolby_stream_active(adev) || hwsync_lpcm_active(adev))) {
                 memset((void *)buffer, 0, bytes);
                 if (adev->debug_flag) {
                     ALOGI("%s mute the mixer voice(system/alexa)\n", __FUNCTION__);

@@ -106,9 +106,6 @@
 #define LOOKUP_MPEG_MIN_BYTES (48 * 4 * 200)
 #define DTV_FADED_OUT_MS (50)
 #define DEFAULT_ARC_DELAY_MS (100)
-#define PCM 0  /*AUDIO_FORMAT_PCM_16_BIT*/
-#define DD 4   /*AUDIO_FORMAT_AC3*/
-#define AUTO 5 /*choose by sink capability/source format/Digital format*/
 
 #define DEFAULT_DTV_OUTPUT_CLOCK    (1000*1000)
 #define DEFAULT_DTV_ADJUST_CLOCK    (1000)
@@ -1086,9 +1083,9 @@ static unsigned int dtv_calc_pcrpts_latency(struct aml_audio_patch *patch, unsig
             pcrpts + DTV_PTS_CORRECTION_THRESHOLD;
         }
     } else if (eDolbyMS12Lib == aml_dev->dolby_lib_type && aml_dev->bHDMIARCon) {
-        if (patch->aformat == AUDIO_FORMAT_E_AC3 && !aml_dev->disable_pcm_mixing) {
+        if (patch->aformat == AUDIO_FORMAT_E_AC3 && (aml_dev->hdmi_format != BYPASS)) {
             pcrpts += 8 * DTV_PTS_CORRECTION_THRESHOLD;
-        } else if (patch->aformat == AUDIO_FORMAT_E_AC3 && aml_dev->disable_pcm_mixing) {
+        } else if (patch->aformat == AUDIO_FORMAT_E_AC3 && (aml_dev->hdmi_format == BYPASS)) {
             pcrpts += 6 * DTV_PTS_CORRECTION_THRESHOLD;
         } else {
             pcrpts += 3 * DTV_PTS_CORRECTION_THRESHOLD;
@@ -1162,7 +1159,7 @@ static void dtv_set_pcr_latency(struct aml_audio_patch *patch, int mode)
     }
     if (eDolbyMS12Lib == aml_dev->dolby_lib_type &&
         aml_dev->bHDMIARCon && aml_dev->hdmi_format != PCM &&
-        aml_dev->disable_pcm_mixing == 0 &&
+        (aml_dev->hdmi_format != BYPASS) &&
         patch->aformat == AUDIO_FORMAT_E_AC3) {
         if (decoder_get_latency() != DECODER_PTS_MAX_LATENCY) {
             decoder_set_latency(DECODER_PTS_MAX_LATENCY);

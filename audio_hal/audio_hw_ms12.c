@@ -468,7 +468,7 @@ bool is_ms12_passthrough(struct audio_stream_out *stream) {
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
-    if ((adev->disable_pcm_mixing == true)
+    if ((adev->hdmi_format == BYPASS)
         /* when arc output, the optical_format == sink format
          * when speaker output, the optical format != format
          * only the optical_format == hal_internal_format, we can do passthrough,
@@ -483,8 +483,8 @@ bool is_ms12_passthrough(struct audio_stream_out *stream) {
             }
         }
     }
-    ALOGV("bypass_ms12 =%d disable_pcm_mixing=%d optical format =0x%x 0x%x",
-        bypass_ms12, adev->disable_pcm_mixing, ms12->optical_format, aml_out->hal_internal_format);
+    ALOGV("bypass_ms12 =%d hdmi format =%d optical format =0x%x 0x%x",
+        bypass_ms12, adev->hdmi_format, ms12->optical_format, aml_out->hal_internal_format);
     return bypass_ms12;
 }
 
@@ -1176,7 +1176,7 @@ int ms12_passthrough_output(struct aml_stream_out *aml_out) {
         uint64_t consume_offset = dolby_ms12_get_consumed_payload();
         aml_ms12_bypass_checkout_data(ms12->ms12_bypass_handle, &output_buf, &out_size, consume_offset, &frame_info);
     }
-    if (adev->disable_pcm_mixing == false) {
+    if ((adev->hdmi_format != BYPASS)) {
         ms12->is_bypass_ms12 = false;
     }
 

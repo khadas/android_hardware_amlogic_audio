@@ -27,9 +27,6 @@
 #include "alsa_manager.h"
 
 #define min(a,b) (((a) < (b)) ? (a) : (b))
-#define PCM  0/*AUDIO_FORMAT_PCM_16_BIT*/
-#define DD   4/*AUDIO_FORMAT_AC3*/
-#define AUTO 5/*choose by sink capability/source format/Digital format*/
 
 /*
  *@brief get sink capability
@@ -186,11 +183,15 @@ void get_sink_format (struct audio_stream_out *stream)
                 sink_audio_format = min(source_format, sink_capability);
             }
             if (eDolbyMS12Lib == adev->dolby_lib_type && !is_dts_format(source_format)) {
-                if (!adev->disable_pcm_mixing) {
-                    sink_audio_format = sink_capability;
-                } else {
-                    sink_audio_format = min(source_format, sink_capability);
-                }
+                sink_audio_format = sink_capability;
+            }
+            optical_audio_format = sink_audio_format;
+            break;
+        case BYPASS:
+            if (is_dts_format(source_format)) {
+                sink_audio_format = min(source_format, sink_dts_capability);
+            } else {
+                sink_audio_format = min(source_format, sink_capability);
             }
             optical_audio_format = sink_audio_format;
             break;
@@ -227,17 +228,21 @@ void get_sink_format (struct audio_stream_out *stream)
                                    : AUDIO_FORMAT_DTS;
 
             if (eDolbyMS12Lib == adev->dolby_lib_type && !is_dts_format(source_format)) {
-                if (!adev->disable_pcm_mixing) {
-                    optical_audio_format = AUDIO_FORMAT_AC3;
-                } else {
-                    optical_audio_format = min(source_format, AUDIO_FORMAT_AC3);
-                }
+                optical_audio_format = AUDIO_FORMAT_AC3;
             }
             ALOGI("%s() source_format %#x sink_audio_format %#x "
                   "optical_audio_format %#x",
                   __FUNCTION__, source_format, sink_audio_format,
                   optical_audio_format);
             break;
+        case BYPASS:
+           sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
+           if (is_dts_format(source_format)) {
+               optical_audio_format = min(source_format, AUDIO_FORMAT_DTS);
+           } else {
+               optical_audio_format = min(source_format, AUDIO_FORMAT_AC3);
+           }
+           break;
         default:
             sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
             optical_audio_format = sink_audio_format;

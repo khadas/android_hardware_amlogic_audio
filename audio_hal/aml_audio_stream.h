@@ -63,7 +63,8 @@ enum auge_input_source {
 enum digital_format {
     PCM = 0,
     DD = 4,
-    AUTO = 5
+    AUTO = 5,
+    BYPASS = 6
 };
 
 /**\brief Audio output mode*/
