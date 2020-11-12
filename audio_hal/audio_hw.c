@@ -1155,7 +1155,7 @@ static int do_output_standby (struct aml_stream_out *out)
 
     ALOGD ("%s(%p)", __FUNCTION__, out);
 
-    if ((out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && out->a2dp_out)
+    if ((out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && adev->a2dp_out)
         a2dp_out_standby(&out->stream.common);
 
     if (!out->standby) {
@@ -1224,7 +1224,7 @@ static int do_output_standby_direct (struct aml_stream_out *out)
     struct aml_audio_device *adev = out->dev;
     ALOGI ("%s,out %p", __FUNCTION__,  out);
 
-    if ((out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && out->a2dp_out)
+    if ((out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && adev->a2dp_out)
         a2dp_out_standby(&out->stream.common);
 
     if (!out->standby) {
@@ -1601,13 +1601,13 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
     }
     ret = str_parms_get_str (parms, "A2dpSuspended", value, sizeof (value) );
     if (ret >= 0) {
-        if (out->a2dp_out)
+        if (adev->a2dp_out)
             ret = a2dp_out_set_parameters(stream, kvpairs);
         goto exit;
     }
     ret = str_parms_get_str (parms, "closing", value, sizeof (value) );
     if (ret >= 0) {
-        if (out->a2dp_out)
+        if (adev->a2dp_out)
             ret = a2dp_out_set_parameters(stream, kvpairs);
         goto exit;
     }
@@ -4928,9 +4928,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             }
         }
     }
-    if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        a2dp_output_disable(stream);
-    }
 
     /*now the raw stream is closed, we can reset the sink device*/
     if (adev->continuous_audio_mode && (eDolbyMS12Lib == adev->dolby_lib_type)) {
@@ -5304,6 +5301,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             adev->a2dp_updated = 1;
             adev->a2dp_connected = false;
             adev->out_device &= (~val);
+            a2dp_output_disable(dev);
             ALOGI("adev_set_parameters a2dp disconnect: %x, device=%x\n", val, adev->out_device);
         }
         /* for tv, the adev->reset_dtv_audio is reset in "HDMI ARC Switch" param */
@@ -5325,6 +5323,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             adev->a2dp_updated = 1;
             adev->out_device |= val;
             adev->a2dp_connected = true;
+            a2dp_output_enable(dev);
             ALOGI("adev_set_parameters a2dp connect: %x, device=%x\n", val, adev->out_device);
         }
         if ((adev->patch_src == SRC_DTV) &&
@@ -6927,7 +6926,7 @@ int do_output_standby_l(struct audio_stream *stream)
     ALOGI("[%s:%d] stream usecase:%s , continuous:%d", __func__, __LINE__,
         usecase2Str(aml_out->usecase), adev->continuous_audio_mode);
 
-    if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && aml_out->a2dp_out) {
+    if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && adev->a2dp_out) {
         if ((eDolbyMS12Lib == adev->dolby_lib_type) && (ms12->dolby_ms12_enable == true)) {
             get_dolby_ms12_cleanup(&adev->ms12);
         }
@@ -7956,7 +7955,7 @@ ssize_t hw_write (struct audio_stream_out *stream
             }
         }
     }
-    if (aml_out->pcm || aml_out->a2dp_out || is_sco_port(adev->active_outport)) {
+    if (aml_out->pcm || adev->a2dp_out || is_sco_port(adev->active_outport)) {
 #ifdef ADD_AUDIO_DELAY_INTERFACE
         ret = aml_audio_delay_process(AML_DELAY_OUTPORT_ALL, (void *) tmp_buffer, bytes, output_format);
         if (ret < 0) {
@@ -7966,7 +7965,7 @@ ssize_t hw_write (struct audio_stream_out *stream
         if (adjust_ms) {
             int adjust_bytes = 0;
             memset((void*)buffer, 0, bytes);
-            if (aml_out->a2dp_out) {
+            if (adev->a2dp_out) {
                 adjust_bytes = 48 * 4 * abs(adjust_ms); // 2ch 16bit
             } else if (output_format == AUDIO_FORMAT_E_AC3) {
                 adjust_bytes = 192 * 4 * abs(adjust_ms);
@@ -8234,14 +8233,6 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
 
     if (adev->bHDMIARCon && adev->bHDMIConnected && adev->speaker_mute) {
         is_arc_connected = 1;
-    }
-
-    if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        ALOGD("config_output: output: %p, a2dp_out=%p", aml_out, aml_out->a2dp_out);
-        if (aml_out->a2dp_out == NULL)
-            a2dp_output_enable(stream);
-    } else {
-        a2dp_output_disable(stream);
     }
     /*
     *   when ARC is connecting, and user switch [Sound Output Device] to "ARC"
@@ -10110,7 +10101,6 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
             aml_out->stream.resume = out_resume_new;
             aml_out->stream.flush = out_flush_new;
         }
-        a2dp_output_enable(&aml_out->stream);
     }
     aml_out->codec_type = get_codec_type(aml_out->hal_internal_format);
 

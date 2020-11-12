@@ -139,6 +139,7 @@ typedef enum {
 struct a2dp_stream_out {
     //struct aml_stream_out aml_out;
     pthread_mutex_t mutex;
+    void * dev;
     int ctrl_fd;
     int audio_fd;
     size_t buffer_sz;
@@ -151,6 +152,9 @@ struct a2dp_stream_out {
     uint32_t rate;
     void * vir_buf_handle;
     uint64_t last_write_time;
+    uint32_t format;
+    char * buff_conv_format;
+    int buff_size_conv_format;
 
 #if defined(AUDIO_EFFECT_EXTERN_DEVICE)
     float bt_gain;
@@ -165,8 +169,8 @@ struct a2dp_stream_out {
  *  Functions
  *****************************************************************************/
 
-int a2dp_output_enable(struct audio_stream_out* stream);
-void a2dp_output_disable(struct audio_stream_out* stream);
+int a2dp_output_enable(struct audio_hw_device* dev);
+void a2dp_output_disable(struct audio_hw_device* dev);
 uint32_t a2dp_out_get_latency(const struct audio_stream_out* stream);
 ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size_t bytes);
 int a2dp_out_standby(struct audio_stream* stream);

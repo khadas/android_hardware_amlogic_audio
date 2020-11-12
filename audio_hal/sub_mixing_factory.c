@@ -994,18 +994,6 @@ int subWrite(
 }
 #endif
 
-void a2dp_switch(struct audio_stream_out *stream) {
-    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
-
-    if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        ALOGD("a2dp_switch: output: %p, a2dp_out=%p", aml_out, aml_out->a2dp_out);
-        if (aml_out->a2dp_out == NULL)
-            a2dp_output_enable(stream);
-    } else {
-        a2dp_output_disable(stream);
-    }
-}
-
 int outSubMixingWrite(
             struct audio_stream_out *stream,
             const void *buf,
@@ -1041,7 +1029,6 @@ ssize_t mixer_main_buffer_write_sm (struct audio_stream_out *stream, const void 
         ALOGD("[%s:%d] stream:%p, switch from device:%#x to device:%#x", __func__, __LINE__,
              stream, adev->out_device, aml_out->out_device);
         aml_out->out_device = adev->out_device;
-        a2dp_switch(stream);
     }
 
     if (popcount(adev->usecase_masks & SUBMIX_USECASE_MASK) > 1) {
@@ -1091,7 +1078,6 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
         ALOGD("[%s:%d] stream:%p, switch from device:%#x to device:%#x", __func__, __LINE__,
              stream, adev->out_device, aml_out->out_device);
         aml_out->out_device = adev->out_device;
-        a2dp_switch(stream);
         aml_out->stream.common.standby(&aml_out->stream.common);
         goto exit;
     } else if (aml_out->out_device == 0) {
@@ -1381,7 +1367,7 @@ int out_standby_subMixingPCM(struct audio_stream *stream)
     aml_out->standby = true;
     delete_mixer_input_port(audio_mixer, aml_out->enInputPortType);
 
-    if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && aml_out->a2dp_out)
+    if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && adev->a2dp_out)
         a2dp_out_standby(stream);
 
     if (adev->debug_flag > 1) {

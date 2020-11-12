@@ -46,6 +46,7 @@
 #include <cutils/properties.h>
 #include <cutils/log.h>
 #include <cutils/str_parms.h>
+#include <audio_utils/primitives.h>
 
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
@@ -223,8 +224,8 @@ static int skt_disconnect(int fd) {
 
 static int skt_write(struct audio_stream_out* stream, int fd, const void* p, size_t len) {
     struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
-    struct a2dp_stream_out* out = aml_out->a2dp_out;
     struct aml_audio_device *aml_dev = aml_out->dev;
+    struct a2dp_stream_out* out = aml_dev->a2dp_out;
     ssize_t sent;
 
     if (WRITE_POLL_MS == 0) {
@@ -267,9 +268,9 @@ static int skt_write(struct audio_stream_out* stream, int fd, const void* p, siz
             mutex_lock_success = 1;
         }
         if (out->is_stereo_to_mono)
-            frame_size = 2; // mono pcm 16bit
+            frame_size = audio_bytes_per_sample(out->format); // mono pcm 16bit
         else
-            frame_size = 4; // stereo pcm 16bit
+            frame_size = 2*audio_bytes_per_sample(out->format); // stereo pcm 16bit
         input_ns = (uint64_t)(count) * 1000000000LL / frame_size / out->rate;
         if (aml_dev->debug_flag) {
             if (total_input_ns == 0)
@@ -572,17 +573,14 @@ static int a2dp_get_output_audio_config(
     return 0;
 }
 
-static int a2dp_read_output_audio_config(struct audio_stream_out* stream) {
-    struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
-    struct a2dp_stream_out* out = aml_out->a2dp_out;
+static int a2dp_read_output_audio_config(struct a2dp_stream_out* out, btav_a2dp_codec_config_t* codec_capability) {
     btav_a2dp_codec_config_t codec_config;
-    btav_a2dp_codec_config_t codec_capability;
     bool is_stereo_to_mono;
     unsigned int rate;
     audio_format_t format;
     audio_channel_mask_t channel_mask;
 
-    if (a2dp_get_output_audio_config(out, &codec_config, &codec_capability) < 0)
+    if (a2dp_get_output_audio_config(out, &codec_config, codec_capability) < 0)
         return -1;
     // Check the codec config sample rate
     switch (codec_config.sample_rate) {
@@ -647,6 +645,7 @@ static int a2dp_read_output_audio_config(struct audio_stream_out* stream) {
     }
 
     out->rate = rate;
+    out->format = format;
     out->is_stereo_to_mono = is_stereo_to_mono;
     out->buffer_sz = a2dp_hw_buffer_size(&codec_config);
     if (is_stereo_to_mono) {
@@ -657,13 +656,11 @@ static int a2dp_read_output_audio_config(struct audio_stream_out* stream) {
     ALOGD("got output codec config: sample_rate=0x%x bits_per_sample=0x%x channel_mode=0x%x",
         codec_config.sample_rate, codec_config.bits_per_sample, codec_config.channel_mode);
     ALOGD("got output codec capability: sample_rate=0x%x bits_per_sample=0x%x channel_mode=0x%x",
-        codec_capability.sample_rate, codec_capability.bits_per_sample, codec_capability.channel_mode);
+        codec_capability->sample_rate, codec_capability->bits_per_sample, codec_capability->channel_mode);
     return 0;
 }
 
-static int a2dp_write_output_audio_config(struct audio_stream_out* stream) {
-    struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
-    struct a2dp_stream_out* out = aml_out->a2dp_out;
+static int a2dp_write_output_audio_config(struct a2dp_stream_out* out, btav_a2dp_codec_config_t* codec_capability) {
     btav_a2dp_codec_config_t config;
 
     if (a2dp_command(out, A2DP_CTRL_SET_OUTPUT_AUDIO_CONFIG) < 0) {
@@ -671,66 +668,20 @@ static int a2dp_write_output_audio_config(struct audio_stream_out* stream) {
         return -1;
     }
 
-    switch (aml_out->hal_rate) {
-        case 44100:
-            config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
-            break;
-        case 48000:
-            config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_48000;
-            break;
-        case 88200:
-            config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_88200;
-            break;
-        case 96000:
-            config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_96000;
-            break;
-        case 176400:
-            config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_176400;
-            break;
-        case 192000:
-            config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_192000;
-            break;
-        default:
-            ALOGE("Invalid sample rate: %" PRIu32, aml_out->hal_rate);
-            config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
-            //return -1;
-    }
+    if (codec_capability->sample_rate & BTAV_A2DP_CODEC_SAMPLE_RATE_48000)
+        config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_48000;
+    else
+        config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
 
-    switch (aml_out->hal_format) {
-        case AUDIO_FORMAT_PCM_16_BIT:
-            config.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16;
-            break;
-        case AUDIO_FORMAT_PCM_24_BIT_PACKED:
-            config.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24;
-            break;
-        case AUDIO_FORMAT_PCM_32_BIT:
-            config.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_32;
-            break;
-        case AUDIO_FORMAT_PCM_8_24_BIT:
-        // FALLTHROUGH
-        // All 24-bit audio is expected in AUDIO_FORMAT_PCM_24_BIT_PACKED format
-        default:
-            ALOGE("Invalid audio format: 0x%x", aml_out->hal_format);
-            config.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16;
-            //return -1;
-    }
+    if (codec_capability->bits_per_sample & BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16)
+        config.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16;
+    else
+        config.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_32;
 
-    switch (aml_out->hal_channel_mask) {
-        case AUDIO_CHANNEL_OUT_MONO:
-            config.channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_MONO;
-            break;
-        case AUDIO_CHANNEL_OUT_STEREO:
-            if (out->is_stereo_to_mono) {
-                config.channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_MONO;
-            } else {
-                config.channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO;
-            }
-            break;
-        default:
-            ALOGE("Invalid channel mask: 0x%x", aml_out->hal_channel_mask);
-            config.channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO;
-            //return -1;
-    }
+    if (codec_capability->channel_mode & BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO)
+        config.channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO;
+    else
+        config.channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_MONO;
 
     // Send the current codec config that has been selected by us
     if (a2dp_ctrl_send(out, &config.sample_rate,
@@ -782,6 +733,7 @@ static void a2dp_stream_common_init(struct a2dp_stream_out* out) {
     /* manages max capacity of socket pipe */
     out->buffer_sz = AUDIO_STREAM_OUTPUT_BUFFER_SZ;
     out->rate = 44100;
+    out->format = AUDIO_FORMAT_PCM_16_BIT;
     out->vir_buf_handle = NULL;
 }
 
@@ -798,8 +750,8 @@ static void a2dp_stream_common_destroy(struct a2dp_stream_out* out) {
 
 static int start_audio_datapath(struct audio_stream_out* stream) {
     struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
-    struct a2dp_stream_out* out = aml_out->a2dp_out;
     struct aml_audio_device *adev = aml_out->dev;
+    struct a2dp_stream_out* out = adev->a2dp_out;
     int oldstate = out->state;
 
     ALOGD("start_audio_datapath state %d (%p), flags=%x", out->state, aml_out, aml_out->flags);
@@ -826,13 +778,13 @@ static int start_audio_datapath(struct audio_stream_out* stream) {
     }
     out->state = (a2dp_state_t)AUDIO_A2DP_STATE_STARTED;
     /* check to see if delay reporting is enabled */
-    out->enable_delay_reporting = !property_get_bool("persist.bluetooth.disabledelayreports", false);
+    out->enable_delay_reporting = false;//!property_get_bool("persist.bluetooth.disabledelayreports", false);
     if (aml_out->hal_rate != out->rate) {
         audio_resample_config_t stResamplerConfig;
         stResamplerConfig.aformat   = AUDIO_FORMAT_PCM_16_BIT;
         stResamplerConfig.channels  = 2;
         stResamplerConfig.input_sr  = aml_out->hal_rate;
-        stResamplerConfig.output_sr = aml_out->a2dp_out->rate;
+        stResamplerConfig.output_sr = out->rate;
         int ret = aml_audio_resample_init(&out->pstResampler, AML_AUDIO_SIMPLE_RESAMPLE, &stResamplerConfig);
         if (ret < 0) {
             ALOGE("[%s:%d] Resampler is failed initialization !!!", __func__, __LINE__);
@@ -847,10 +799,9 @@ error:
     return -1;
 }
 
-static int stop_audio_datapath(struct audio_stream* stream) {
-    struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
-    struct a2dp_stream_out* out = aml_out->a2dp_out;
-    struct aml_audio_device *adev = aml_out->dev;
+static int stop_audio_datapath(struct audio_hw_device* dev) {
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    struct a2dp_stream_out* out = adev->a2dp_out;
     int oldstate = out->state;
 
     ALOGD("stop_audio_datapath state %d (%p)", out->state, out);
@@ -881,8 +832,8 @@ static int stop_audio_datapath(struct audio_stream* stream) {
 
 int suspend_audio_datapath(struct audio_stream* stream, bool standby) {
     struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
-    struct a2dp_stream_out* out = aml_out->a2dp_out;
     struct aml_audio_device *adev = aml_out->dev;
+    struct a2dp_stream_out* out = adev->a2dp_out;
 
     ALOGD("suspend_audio_datapath state %d", out->state);
     if (out->state == AUDIO_A2DP_STATE_STOPPING)
@@ -902,27 +853,29 @@ int suspend_audio_datapath(struct audio_stream* stream, bool standby) {
 
 static size_t a2dp_out_get_buffer_size(const struct audio_stream* stream) {
     struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
-    struct a2dp_stream_out* out = aml_out->a2dp_out;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct a2dp_stream_out* out = adev->a2dp_out;
     // the AudioFlinger mixer buffer size.
     return out->buffer_sz / AUDIO_STREAM_OUTPUT_BUFFER_PERIODS;
 }
 
 int a2dp_out_set_parameters(struct audio_stream* stream, const char* kvpairs) {
     struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
-    struct a2dp_stream_out* out = aml_out->a2dp_out;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct a2dp_stream_out* out = adev->a2dp_out;
     struct str_parms *parms;
     char value[32];
     int ret;
 
     ALOGI("a2dp_out_set_parameters %s (%p)\n", kvpairs, aml_out);
     parms = str_parms_create_str (kvpairs);
-    ret = str_parms_get_str (parms, "closing", value, sizeof (value) );
+    /*ret = str_parms_get_str (parms, "closing", value, sizeof (value) );
     if (ret >= 0) {
         pthread_mutex_lock(&out->mutex);
         if (strncmp(value, "true", 4) == 0)
             out->state = AUDIO_A2DP_STATE_STOPPING;
         pthread_mutex_unlock(&out->mutex);
-    }
+    }*/
     ret = str_parms_get_str (parms, "A2dpSuspended", value, sizeof (value) );
     if (ret >= 0) {
         pthread_mutex_lock(&out->mutex);
@@ -930,7 +883,7 @@ int a2dp_out_set_parameters(struct audio_stream* stream, const char* kvpairs) {
             if (out->state == AUDIO_A2DP_STATE_STARTED)
                 suspend_audio_datapath(stream, false);
         } else {
-            if (out->state == AUDIO_A2DP_STATE_SUSPENDED)
+            //if (out->state == AUDIO_A2DP_STATE_SUSPENDED)
                 out->state = AUDIO_A2DP_STATE_STANDBY;
         }
         pthread_mutex_unlock(&out->mutex);
@@ -939,7 +892,8 @@ int a2dp_out_set_parameters(struct audio_stream* stream, const char* kvpairs) {
 }
 static char* a2dp_out_get_parameters(const struct audio_stream* stream, const char* keys) {
     struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
-    struct a2dp_stream_out* out = aml_out->a2dp_out;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct a2dp_stream_out* out = adev->a2dp_out;
     char cap[1024];
     int size = 0;
     btav_a2dp_codec_config_t codec_config;
@@ -1050,7 +1004,8 @@ uint32_t a2dp_out_get_latency(const struct audio_stream_out* stream) {
 int a2dp_out_get_presentation_position(const struct audio_stream_out* stream,
         uint64_t* frames, struct timespec* timestamp) {
     struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
-    struct a2dp_stream_out* out = aml_out->a2dp_out;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct a2dp_stream_out* out = adev->a2dp_out;
 
     if (stream == NULL || frames == NULL || timestamp == NULL)
         return -EINVAL;
@@ -1094,7 +1049,8 @@ int a2dp_out_get_presentation_position(const struct audio_stream_out* stream,
 static int a2dp_out_get_render_position(const struct audio_stream_out* stream,
                                    uint32_t* dsp_frames) {
     struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
-    struct a2dp_stream_out* out = aml_out->a2dp_out;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct a2dp_stream_out* out = adev->a2dp_out;
 
     if (stream == NULL || dsp_frames == NULL)
         return -EINVAL;
@@ -1109,127 +1065,10 @@ static int a2dp_out_get_render_position(const struct audio_stream_out* stream,
     pthread_mutex_unlock(&out->mutex);
     return 0;
 }
-#if 0
-static int a2dp_write_hwsync(struct audio_stream_out* stream, const void* buffer, size_t bytes,
-            const void* out_buffer, size_t* out_size) {
-    struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
-    struct a2dp_stream_out* out = aml_out->a2dp_out;
-    struct aml_audio_device *adev = aml_out->dev;
-    audio_hwsync_t *hw_sync = aml_out->hwsync;
-    int return_bytes = bytes;
-    uint64_t cur_pts = 0xffffffff;
-    int outsize = 0;
-
-    if (aml_out->hw_sync_mode == 0) {
-        out_buffer = buffer;
-        *out_size = bytes;
-        return bytes;
-    }
-
-    if (adev->debug_flag)
-        ALOGD("a2dp_write_hwsync bytes=%zu\n", bytes);
-    pthread_mutex_lock (&adev->lock);
-    pthread_mutex_lock (&out->mutex);
-    return_bytes = aml_audio_hwsync_find_frame(hw_sync, (char *)buffer, bytes, &cur_pts, &outsize);
-    if (cur_pts > 0xffffffff)
-            ALOGE ("APTS exeed the max 32bit value");
-    if (adev->debug_flag)
-        ALOGI ("after aml_audio_hwsync_find_frame bytes remain %zu,cost %zu,outsize %d,pts %"PRId64"ms\n",
-                bytes - return_bytes, return_bytes, outsize, cur_pts / 90);
-
-    if (cur_pts != 0xffffffff && outsize > 0) {
-        //TODO,skip 3 frames after flush, to tmp fix seek pts discontinue issue.need dig more
-        // to find out why seek ppint pts frame is remained after flush.WTF.
-        if (aml_out->skip_frame > 0) {
-            aml_out->skip_frame--;
-            ALOGI ("skip pts@%"PRIx64",cur frame size %d,cost size %zu\n", cur_pts, outsize, return_bytes);
-            pthread_mutex_unlock (&out->mutex);
-            pthread_mutex_unlock (&adev->lock);
-            return return_bytes;
-        }
-        *out_size = outsize;
-        out_buffer = hw_sync->hw_sync_body_buf;
-
-        // if we got the frame body,which means we get a complete frame.
-        //we take this frame pts as the first apts.
-        //this can fix the seek discontinue,we got a fake frame,which maybe cached before the seek
-        if (hw_sync->first_apts_flag == false) {
-            aml_audio_hwsync_set_first_pts(hw_sync, cur_pts);
-        } else {
-            uint64_t apts;
-            uint32_t apts32;
-            uint pcr = 0;
-            uint apts_gap = 0;
-            uint64_t latency = a2dp_out_get_latency(stream) * 90;
-            // check PTS discontinue, which may happen when audio track switching
-            // discontinue means PTS calculated based on first_apts and frame_write_sum
-            // does not match the timestamp of next audio samples
-            if (cur_pts > latency)
-                apts = cur_pts - latency;
-            else
-                apts = 0;
-            apts32 = apts & 0xffffffff;
-            if (get_sysfs_uint (TSYNC_PCRSCR, &pcr) == 0) {
-                enum hwsync_status sync_status = CONTINUATION;
-                apts_gap = get_pts_gap (pcr, apts32);
-                sync_status = check_hwsync_status (apts_gap);
-                ALOGD("%s()audio pts %dms, pcr %dms, latency %lldms, diff %dms, sync_status=%d",
-                        __func__, apts32/90, pcr/90, latency/90,
-                        (apts32 > pcr) ? (apts32 - pcr)/90 : (pcr - apts32)/90, sync_status);
-                // limit the gap handle to 0.5~5 s.
-                if (sync_status == ADJUSTMENT) {
-                    // two cases: apts leading or pcr leading
-                    // apts leading needs inserting frame and pcr leading neads discarding frame
-                    if (apts32 > pcr) {
-                        size_t once_write_size = 0;
-                        int sent = -1;
-                        char insert_buf[1024];
-                        int insert_size = apts_gap / 90 * 44 * 4;
-                        insert_size = insert_size & (~63);
-                        ALOGI ("audio gap 0x%"PRIx32" ms ,need insert data %d\n", apts_gap / 90, insert_size);
-                        memset(&insert_buf, 0, 1024);
-                        while (insert_size > 0) {
-                            once_write_size = insert_size > 1024 ? 1024 : insert_size;
-                            sent = skt_write(out->audio_fd, &insert_buf, once_write_size);
-                            insert_size -= once_write_size;
-                            if (sent < 0) {
-                                pthread_mutex_unlock (&out->mutex);
-                                pthread_mutex_unlock (&adev->lock);
-                                return -1;
-                            }
-                        }
-                    } else {
-                        //audio pts smaller than pcr,need skip frame.
-                        ALOGI ("audio slow 0x%x,skip frame @pts 0x%"PRIx64",pcr 0x%x,cur apts 0x%x\n",
-                                apts_gap, cur_pts, pcr, apts32);
-                        aml_out->frame_skip_sum += 1764; // 40ms*44100/SEC_TO_MS
-                        pthread_mutex_unlock (&out->mutex);
-                        pthread_mutex_unlock (&adev->lock);
-                        return return_bytes;
-                    }
-                } else if (sync_status == RESYNC) {
-                    char tempbuf[32];
-                    sprintf (tempbuf, "0x%x", apts32);
-                    ALOGI ("tsync -> reset pcrscr 0x%x -> 0x%x, %s big,diff %"PRIx64" ms",
-                            pcr, apts32, apts32 > pcr ? "apts" : "pcr", get_pts_gap (apts, pcr) / 90);
-                    int ret_val = sysfs_set_sysfs_str (TSYNC_APTS, tempbuf);
-                    if (ret_val == -1) {
-                        ALOGE ("unable to open file %s,err: %s", TSYNC_APTS, strerror (errno) );
-                    }
-                }
-            }
-        }
-    }
-    pthread_mutex_unlock (&out->mutex);
-    pthread_mutex_unlock (&adev->lock);
-
-    return return_bytes;
-}
-#endif
 ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size_t bytes) {
     struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
-    struct a2dp_stream_out* out = aml_out->a2dp_out;
     struct aml_audio_device *adev = aml_out->dev;
+    struct a2dp_stream_out* out = adev->a2dp_out;
     struct aml_audio_patch *patch = adev->audio_patch;
     char* data_buffer = (char *)buffer;
     int sent = -1;
@@ -1344,6 +1183,38 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
         }
         out_size /= 2;
     }
+    if (out->format == AUDIO_FORMAT_PCM_32_BIT) {
+        int conv_size = out_size*2;
+        if ((out->buff_size_conv_format < conv_size) || (out->buff_conv_format == NULL)) {
+            if (out->buff_conv_format)
+                aml_audio_free(out->buff_conv_format);
+            out->buff_conv_format = (char *)aml_audio_malloc(conv_size);
+            if (out->buff_conv_format == NULL) {
+                ALOGE("realloc hal->buff fail: %d", conv_size);
+                return bytes;
+            }
+            out->buff_size_conv_format = conv_size;
+        }
+        memcpy_to_i32_from_i16((int32_t *)out->buff_conv_format, (int16_t *)out_buffer, out_size/sizeof(int16_t));
+        out_buffer = out->buff_conv_format;
+        out_size = conv_size;
+    } else if (out->format == AUDIO_FORMAT_PCM_24_BIT_PACKED) {
+        int conv_size = (out_size*3+1)/2;
+        if ((out->buff_size_conv_format < conv_size) || (out->buff_conv_format == NULL)) {
+            if (out->buff_conv_format)
+                aml_audio_free(out->buff_conv_format);
+            out->buff_conv_format = (char *)aml_audio_malloc(conv_size);
+            if (out->buff_conv_format == NULL) {
+                ALOGE("realloc out->buff fail: %d", conv_size);
+                return bytes;
+            }
+            out->buff_size_conv_format = conv_size;
+        }
+        memcpy_to_p24_from_i16((uint8_t *)out->buff_conv_format, (int16_t *)out_buffer, out_size/sizeof(int16_t));
+        out_buffer = out->buff_conv_format;
+        out_size = conv_size;
+    }
+
     pthread_mutex_unlock(&out->mutex);
 #if defined(AUDIO_EFFECT_EXTERN_DEVICE)
     if (aml_out->hal_format == AUDIO_FORMAT_PCM_16_BIT) {
@@ -1439,7 +1310,8 @@ finish:
 
 int a2dp_out_standby(struct audio_stream* stream) {
     struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
-    struct a2dp_stream_out* out = aml_out->a2dp_out;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct a2dp_stream_out* out = adev->a2dp_out;
     int retVal = 0;
 
     ALOGD("a2dp_out_standby: %p", aml_out);
@@ -1454,15 +1326,13 @@ int a2dp_out_standby(struct audio_stream* stream) {
     return retVal;
 }
 
-int a2dp_output_enable(struct audio_stream_out* stream) {
-    struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
-    struct aml_audio_device *aml_dev = aml_out->dev;
+int a2dp_output_enable(struct audio_hw_device *dev) {
+    struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
     struct a2dp_stream_out* out = NULL;
-    struct audio_config* config = &aml_out->out_cfg;
     int ret = 0;
 
     ALOGD("a2dp_output_enable");
-    if (aml_out->a2dp_out != NULL) {
+    if (aml_dev->a2dp_out != NULL) {
         ALOGD("a2dp_output_enable already exist");
         return 0;
     }
@@ -1472,7 +1342,8 @@ int a2dp_output_enable(struct audio_stream_out* stream) {
         return -ENOMEM;
     }
     memset(out, 0, sizeof(struct a2dp_stream_out));
-    aml_out->a2dp_out = out;
+    aml_dev->a2dp_out = out;
+    out->dev = aml_dev;
     //aml_alsa_output_close(stream);
     pthread_mutex_init(&out->mutex, NULL);
     pthread_mutex_lock(&out->mutex);
@@ -1482,17 +1353,17 @@ int a2dp_output_enable(struct audio_stream_out* stream) {
     a2dp_stream_common_init(out);
 
     // Make sure we always have the feeding parameters configured
-    if (a2dp_read_output_audio_config(stream) < 0) {
+    btav_a2dp_codec_config_t codec_capability;
+    if (a2dp_read_output_audio_config(out, &codec_capability) < 0) {
         ALOGE("a2dp_read_output_audio_config failed");
         ret = -1;
         //goto err_open;
     }
+    a2dp_write_output_audio_config(out, &codec_capability);
+    a2dp_read_output_audio_config(out, &codec_capability);
 
-    a2dp_write_output_audio_config(stream);
-    a2dp_read_output_audio_config(stream);
-
-    ALOGD("Output stream config: format=0x%x sample_rate=%d channel_mask=0x%x buffer_sz=%zu",
-            config->format, config->sample_rate, config->channel_mask, out->buffer_sz);
+    ALOGD("Output stream config: format=0x%x sample_rate=%d is_stereo_to_mono=0%d buffer_sz=%zu",
+            out->format, out->rate, out->is_stereo_to_mono, out->buffer_sz);
 
     //aml_out->stream.common.set_parameters = a2dp_out_set_parameters;
     //aml_out->stream.common.get_parameters = a2dp_out_get_parameters;
@@ -1501,6 +1372,8 @@ int a2dp_output_enable(struct audio_stream_out* stream) {
     //aml_out->stream.get_presentation_position = a2dp_out_get_presentation_position;
     aml_dev->sink_format = AUDIO_FORMAT_PCM_16_BIT;
     aml_dev->optical_format = AUDIO_FORMAT_PCM_16_BIT;
+    out->buff_conv_format = NULL;
+    out->buff_size_conv_format = 0;
 
 #if defined(AUDIO_EFFECT_EXTERN_DEVICE)
     out->bt_gain = 1;
@@ -1518,13 +1391,13 @@ int a2dp_output_enable(struct audio_stream_out* stream) {
 
 err_open:
     pthread_mutex_unlock(&out->mutex);
-    aml_out->a2dp_out = NULL;
+    aml_dev->a2dp_out = NULL;
     ALOGE("a2dp_output_enable failed");
     return ret;
 }
-void a2dp_output_disable(struct audio_stream_out* stream) {
-    struct aml_stream_out* aml_out = (struct aml_stream_out*)stream;
-    struct a2dp_stream_out* out = aml_out->a2dp_out;
+void a2dp_output_disable(struct audio_hw_device *dev) {
+    struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
+    struct a2dp_stream_out* out = aml_dev->a2dp_out;
     /*
     aml_out->stream.common.set_parameters = out_set_parameters;
     aml_out->stream.common.get_parameters = out_get_parameters;
@@ -1538,15 +1411,17 @@ void a2dp_output_disable(struct audio_stream_out* stream) {
     total_input_ns = 0;
     ALOGD("a2dp_output_disable  (state %d)", (int)out->state);
     if ((out->state == AUDIO_A2DP_STATE_STARTED) || (out->state == AUDIO_A2DP_STATE_STOPPING)) {
-        stop_audio_datapath(&stream->common);
+        stop_audio_datapath(dev);
     }
     if (out->vir_buf_handle != NULL)
         audio_virtual_buf_close(&out->vir_buf_handle);
+    if (out->buff_conv_format)
+        aml_audio_free(out->buff_conv_format);
 
     a2dp_stream_common_destroy(out);
+    aml_dev->a2dp_out = NULL;
     pthread_mutex_unlock(&out->mutex);
     aml_audio_free(out);
-    aml_out->a2dp_out = NULL;
     ALOGD("a2dp_output_disable done");
 }
 
