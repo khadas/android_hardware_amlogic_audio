@@ -819,7 +819,7 @@ int DolbyMS12::DolbyMS12GetSystemBufferAvail(int * max_size)
 
 unsigned long long DolbyMS12::DolbyMS12GetNBytesPcmOutOfUDC()
 {
-    int ret = 0;
+    unsigned long long  ret = 0;
     ALOGV("+%s()", __FUNCTION__);
     if (!FuncDolbyMS12GetNBytesPcmOutOfUDC) {
         ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
@@ -827,7 +827,7 @@ unsigned long long DolbyMS12::DolbyMS12GetNBytesPcmOutOfUDC()
     }
 
     ret = (*FuncDolbyMS12GetNBytesPcmOutOfUDC)();
-    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    ALOGV("-%s() ret %llu", __FUNCTION__, ret);
     return ret;
 }
 

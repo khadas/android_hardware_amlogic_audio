@@ -102,7 +102,7 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     //, mMainFlags(false) // always have mMainFlags on? zz
     , mAppSoundFlags(false)
     , mSystemSoundFlags(false)
-    , mDAPInitMode(3)
+    , mDAPInitMode(4)
     , mDAPVirtualBassEnable(1)
     , mDBGOut(0)
     , mDRCModesOfDownmixedOutput(0)
