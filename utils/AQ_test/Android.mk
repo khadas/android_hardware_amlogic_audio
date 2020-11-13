@@ -21,3 +21,27 @@ LOCAL_SRC_FILES := \
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_EXECUTABLE)
+
+#--------------------------------------------------------
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := param_set
+
+LOCAL_SHARED_LIBRARIES := \
+    libutils \
+    libaudioclient \
+    libmediaplayerservice \
+    libcutils \
+    libmedia_helper \
+
+LOCAL_C_INCLUDES := \
+    frameworks/av/media/libaudioclient/include \
+    frameworks/av/media/libmediaplayerservice/include \
+
+LOCAL_SRC_FILES := \
+    aparam.cpp
+
+LOCAL_MODULE_TAGS := optional
+
+include $(BUILD_EXECUTABLE)

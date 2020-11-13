@@ -126,6 +126,12 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 
 #define SUPPORT_EARC_OUT_HW (access(SYS_NODE_EARC_TX, F_OK) == 0)
 
+#ifdef USB_KARAOKE
+#ifndef AUDIO_SOURCE_KARAOKE_SPEAKER
+#define AUDIO_SOURCE_KARAOKE_SPEAKER 1001
+#endif
+#endif
+
 enum {
     TYPE_PCM = 0,
     TYPE_AC3 = 2,

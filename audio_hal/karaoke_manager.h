@@ -20,38 +20,41 @@
 
 #include <alsa_device_profile.h>
 #include <alsa_device_proxy.h>
+#include <pthread.h>
 
 #include <aml_ringbuffer.h>
 #include "sub_mixing_factory.h"
 
+struct audioCfg;
+
 struct voice_in {
     struct audioCfg cfg;
-    struct pcm *pcm;
     bool debug;
-    /** Read audio buffer in from audio driver. Returns number of bytes read, or a
-     *  negative status_t. If at least one frame was read prior to the error,
-     *  read should return that byte count and then return an error in the subsequent call.
-     */
-    ssize_t (*read)(struct voice_in *in, void *buffer, size_t bytes);
-    alsa_device_profile in_profile;
+    alsa_device_profile *in_profile;
     alsa_device_proxy proxy;
     void *conversion_buffer;
     size_t conversion_buffer_size;
 };
 
 struct kara_manager {
+    pthread_mutex_t lock;
+    bool karaoke_on;
+    bool karaoke_enable;
     bool karaoke_start;
+    bool kara_mic_mute;
+    float kara_mic_gain;
     struct voice_in in;
     void *buf;
     size_t buf_len;
     ring_buffer_t mic_buffer;
+    int (*open)(struct kara_manager *in, struct audioCfg *cfg);
+    int (*close)(struct kara_manager *in);
+    /* mixer audio data to output */
+    int (*mix)(struct kara_manager *in, void *buffer, size_t bytes);
+    /* read data from ringbuffer */
     ssize_t (*read)(struct kara_manager *in, void *buffer, size_t bytes);
 };
 
-int kara_open_micphone(struct audioCfg *cfg,
-    struct kara_manager *k_manager, alsa_device_profile* profile);
-int kara_close_micphone(struct kara_manager *kara);
-int kara_mix_micphone(struct kara_manager *kara, void *buf, size_t bytes);
-int kara_read_micphone(struct kara_manager *kara, void *buf, size_t bytes);
+int karaoke_init(struct kara_manager *karaoke, alsa_device_profile *profile);
 
 #endif

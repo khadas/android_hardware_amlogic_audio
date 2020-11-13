@@ -597,21 +597,22 @@ static ssize_t output_port_write_alsa(struct output_port *port, void *buffer, in
     aml_audio_switch_output_mode((int16_t *)buffer, bytes, port->sound_track_mode);
 
 #ifdef USB_KARAOKE
-    if (port->kara_on && profile_is_valid(port->profile)) {
-        if (!port->kara.karaoke_start) {
-            struct audioCfg audio_cfg = port->cfg;
+    struct kara_manager *karaoke = port->kara;
+    if (karaoke) {
+        if (karaoke->karaoke_on && karaoke->karaoke_enable &&
+            karaoke->in.in_profile && profile_is_valid(karaoke->in.in_profile)) {
+            if (!karaoke->karaoke_start && karaoke->open) {
+                struct audioCfg audio_cfg = port->cfg;
 
-            audio_cfg.card = port->profile->card;
-            audio_cfg.device = port->profile->device;
-            ret = kara_open_micphone(&audio_cfg, &port->kara, port->profile);
-            if (ret < 0)
-                ALOGD("%s(), open micphone failed: %d", __func__, ret);
+                ret = karaoke->open(karaoke, &audio_cfg);
+                if (ret < 0)
+                    ALOGD("%s(), open micphone failed: %d", __func__, ret);
+            } else if (!ret && karaoke->mix) {
+                karaoke->mix(karaoke, buffer, bytes);
+            }
+        } else if (karaoke->karaoke_start && karaoke->close) {
+                karaoke->close(karaoke);
         }
-        if (!ret && port->kara.karaoke_start)
-            kara_mix_micphone(&port->kara, buffer, bytes);
-    } else {
-        if (port->kara.karaoke_start == true)
-                kara_close_micphone(&port->kara);
     }
 #endif
 
@@ -761,16 +762,9 @@ bool is_inport_pts_valid(struct input_port *in_port)
     return in_port->pts_valid;
 }
 
-int outport_set_karaoke(struct output_port *port, bool en)
+int outport_set_karaoke(struct output_port *port, struct kara_manager *kara)
 {
-    port->kara_on = en;
-    return 0;
-}
-
-int outport_set_usb_profile(struct output_port *port, alsa_device_profile* profile)
-{
-    port->profile = profile;
-
+    port->kara = kara;
     return 0;
 }
 

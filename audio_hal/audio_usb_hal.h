@@ -28,13 +28,13 @@
      /* input */
      alsa_device_profile in_profile;
      struct listnode input_stream_list;
+     struct audio_stream_in *stream;
 
      bool mic_muted;
      int32_t inputs_open; /* number of input streams currently open. */
 
      /* for karaoke mixer*/
-     struct kara_manager *karaoke;
-     bool karaoke_on;
+     struct kara_manager karaoke;
 
      void *adev_primary;
  };

@@ -346,6 +346,9 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 		break;
 	case PORT_BUILTINMIC:
 		pADD = p_info->builtinmic_descrpt;
+		if (!pADD) {
+			pADD = p_info->i2s_descrpt;
+		}
 		break;
 	case PORT_EARC:
 		pADD = p_info->earc_descrpt;

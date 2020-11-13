@@ -15,7 +15,7 @@
  */
 
 #define LOG_TAG "usb_audio_hw_primary"
-/*#define LOG_NDEBUG 0*/
+//#define LOG_NDEBUG 0
 
 #include <errno.h>
 #include <inttypes.h>
@@ -224,11 +224,10 @@ static int in_standby(struct audio_stream *stream)
 {
     struct stream_in *in = (struct stream_in *)stream;
     struct usb_audio_device *usb_device = in->adev;
-    struct kara_manager *karaoke = usb_device->karaoke;
+    struct kara_manager *karaoke = &usb_device->karaoke;
 
-    if (usb_device->karaoke_on ||
-            (karaoke && karaoke->karaoke_start)) {
-        ALOGI("%s stop karaoke", __func__);
+    if (karaoke->karaoke_on || karaoke->karaoke_start) {
+        ALOGI("%s stop karaoke record!", __func__);
         return 0;
     }
 
@@ -261,7 +260,7 @@ static int in_dump(const struct audio_stream *stream, int fd)
 
 static int in_set_parameters(struct audio_stream *stream, const char *kvpairs)
 {
-    ALOGV("in_set_parameters() keys:%s", kvpairs);
+    ALOGV("++in_set_parameters() keys:%s", kvpairs);
 
     struct stream_in *in = (struct stream_in *)stream;
 
@@ -297,12 +296,17 @@ static int in_set_parameters(struct audio_stream *stream, const char *kvpairs)
     device_unlock(in->adev);
     stream_unlock(&in->lock);
 
+    ALOGV("--in_set_parameters() ret_value:%d", ret_value);
     return ret_value;
 }
 
 static char * in_get_parameters(const struct audio_stream *stream, const char *keys)
 {
     struct stream_in *in = (struct stream_in *)stream;
+    //struct usb_audio_device *usb_device = in->adev;
+    //struct kara_manager *karaoke = &usb_device->karaoke;
+
+    ALOGV("++in_get_parameters() keys:%s", keys);
 
     stream_lock(&in->lock);
     device_lock(in->adev);
@@ -311,6 +315,8 @@ static char * in_get_parameters(const struct audio_stream *stream, const char *k
 
     device_unlock(in->adev);
     stream_unlock(&in->lock);
+
+    ALOGV("--in_get_parameters() keys:%s", keys);
 
     return params_str;
 }
@@ -334,11 +340,23 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     struct stream_in * in = (struct stream_in *)stream;
     struct usb_audio_device *usb_device = in->adev;
     struct aml_audio_device *adev = (struct aml_audio_device *)usb_device->adev_primary;
+    struct kara_manager *karaoke = &usb_device->karaoke;
 
-    subMixingGetKaraoke(adev);
-
-    if (usb_device->karaoke_on || usb_device->karaoke->karaoke_start) {
-        ret = usb_device->karaoke->read(usb_device->karaoke, buffer, bytes);
+    if (karaoke->karaoke_on || karaoke->karaoke_start) {
+        if (!in->standby) {
+            //device_lock(in->adev);
+            proxy_close(&in->proxy);
+            //device_unlock(in->adev);
+            in->standby = true;
+            karaoke->karaoke_enable = true;
+            ALOGD("karaoke is on, audio record steam do standby!");
+        }
+        if (karaoke->read) {
+            ret = karaoke->read(karaoke, buffer, bytes);
+        } else {
+            memset(buffer, 0, bytes);
+            ret = bytes;
+        }
         return ret;
     }
 
@@ -412,12 +430,13 @@ int adev_open_usb_input_stream(struct usb_audio_device *hw_dev,
                                struct audio_stream_in **stream_in,
                                const char *address)
 {
-    ALOGV("adev_open_usb_input_stream() rate:%" PRIu32 ", chanMask:0x%" PRIX32 ", fmt:%" PRIu8,
+    ALOGV("++adev_open_usb_input_stream() rate:%" PRIu32 ", chanMask:0x%" PRIX32 ", fmt:%" PRIu8,
           config->sample_rate, config->channel_mask, config->format);
 
     /* Pull out the card/device pair */
     int32_t card, device;
     struct aml_audio_device *adev = (struct aml_audio_device *)hw_dev->adev_primary;
+    struct kara_manager *karaoke = &hw_dev->karaoke;
 
     if (!parse_card_device_params(address, &card, &device)) {
         ALOGW("%s fail - invalid address %s", __func__, address);
@@ -425,8 +444,10 @@ int adev_open_usb_input_stream(struct usb_audio_device *hw_dev,
         return -EINVAL;
     }
 
-    if (hw_dev->karaoke_on)
-        subMixingSetKaraoke(adev, false);
+    /* if karaoke is enable, free hardware for usb hal */
+    karaoke->karaoke_enable = false;
+    if (karaoke->close)
+        karaoke->close(karaoke);
 
     struct stream_in * const in = (struct stream_in *)calloc(1, sizeof(struct stream_in));
     if (in == NULL) {
@@ -511,6 +532,10 @@ int adev_open_usb_input_stream(struct usb_audio_device *hw_dev,
         }
     }
 
+    /* set profile to karaoke*/
+    if (profile_is_valid(&hw_dev->in_profile))
+        karaoke_init(&hw_dev->karaoke, &hw_dev->in_profile);
+
     /* Channels */
     bool calc_mask = false;
     if (config->channel_mask == AUDIO_CHANNEL_NONE) {
@@ -580,22 +605,27 @@ int adev_open_usb_input_stream(struct usb_audio_device *hw_dev,
         // adev_close_input_stream() in this case.
         *stream_in = NULL;
         free(in);
+        goto Exit;
     }
 
     device_lock(in->adev);
     ++in->adev->inputs_open;
     device_unlock(in->adev);
 
-    if (hw_dev->karaoke_on)
-        subMixingSetKaraoke(adev, true);
+    karaoke->karaoke_enable = true;
 
+    in->adev->stream = (struct audio_stream_in *)in;
+
+Exit:
+    ALOGV("--adev_open_usb_input_stream() exit, stream = %p, ret = %d", in->adev->stream, ret);
     return ret;
 }
 
 void adev_close_usb_input_stream(struct audio_stream_in *stream)
 {
     struct stream_in *in = (struct stream_in *)stream;
-    ALOGV("adev_close_input_stream(c:%d d:%d)", in->profile->card, in->profile->device);
+
+    ALOGV("++adev_close_input_stream, stream = %p", in);
 
     //adev_remove_stream_from_list(in->adev, &in->list_node);
 
@@ -610,6 +640,12 @@ void adev_close_usb_input_stream(struct audio_stream_in *stream)
 
     free(in->conversion_buffer);
 
+    in->adev->stream = NULL;
+
     free(stream);
+
+    ALOGV("--adev_close_usb_input_stream exit");
+
+    return;
 }
 

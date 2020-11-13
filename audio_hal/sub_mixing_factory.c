@@ -27,6 +27,7 @@ Description:
 #include "dolby_lib_api.h"
 #include "alsa_device_parser.h"
 #include "audio_a2dp_hw.h"
+#include "karaoke_manager.h"
 
 //#define DEBUG_TIME
 
@@ -1542,30 +1543,11 @@ void subMixingDump(int s32Fd, const struct aml_audio_device *pstAmlDev)
     mixer_dump(s32Fd, pstAmlDev);
 }
 
-int subMixingSetKaraoke(struct aml_audio_device *adev, bool on)
+int subMixingSetKaraoke(struct aml_audio_device *adev, struct kara_manager *kara)
 {
     struct subMixing *sm = adev->sm;
     struct amlAudioMixer *audio_mixer = sm->mixerData;
 
-    return mixer_set_karaoke(audio_mixer, on);
-}
-
-int subMixingSetUsbProfile(struct aml_audio_device *adev,
-        alsa_device_profile* profile)
-{
-    struct subMixing *sm = adev->sm;
-    struct amlAudioMixer *audio_mixer = sm->mixerData;
-
-    return mixer_set_usb_profile(audio_mixer, profile);
-}
-
-int subMixingGetKaraoke(struct aml_audio_device *adev)
-{
-    struct subMixing *sm = adev->sm;
-    struct amlAudioMixer *audio_mixer = sm->mixerData;
-
-    adev->usb_audio.karaoke = mixer_get_karaoke(audio_mixer);
-
-    return 0;
+    return mixer_set_karaoke(audio_mixer, kara);
 }
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_hw_primary"
+#define LOG_TAG "karaoke_audio_hw_primary"
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>
@@ -23,6 +23,7 @@
 #include "audio_data_process.h"
 #include "audio_hw_utils.h"
 #include "karaoke_manager.h"
+#include "aml_volume_utils.h"
 
 #define USB_DEFAULT_PERIOD_SIZE 512
 #define USB_DEFAULT_PERIOD_COUNT 2
@@ -55,7 +56,7 @@ static ssize_t voice_in_read(struct voice_in *in, void *buffer, size_t bytes)
 
     ret = proxy_read(&in->proxy, read_buff, num_read_buff_bytes);
     if (ret == 0) {
-        ALOGV("%s(), num_read_buff_bytes %d", __func__, num_read_buff_bytes);
+        //ALOGV("%s(), num_read_buff_bytes %d", __func__, num_read_buff_bytes);
         if (in->debug) {
             aml_audio_dump_audio_bitstreams("/data/tmp/karaoke_usb.raw", read_buff, num_read_buff_bytes);
         }
@@ -77,12 +78,12 @@ static ssize_t voice_in_read(struct voice_in *in, void *buffer, size_t bytes)
         num_read_buff_bytes = 0;
     }
 
-    return 0;
+    return num_read_buff_bytes;
 }
 
 static ssize_t mic_buffer_read(struct kara_manager *kara, void *buffer, size_t bytes)
 {
-    if (!kara || !buffer || kara->mic_buffer.size == 0) {
+    if (!kara || !buffer || kara->mic_buffer.size == 0 || !kara->karaoke_start) {
         return 0;
     }
 
@@ -94,21 +95,30 @@ static ssize_t mic_buffer_read(struct kara_manager *kara, void *buffer, size_t b
     return 0;
 }
 
-int kara_open_micphone(struct audioCfg *cfg,
-    struct kara_manager *k_manager, alsa_device_profile* profile)
+static int kara_open_micphone(struct kara_manager *kara, struct audioCfg *cfg)
 {
-    struct kara_manager *kara = k_manager;
     struct voice_in *in = NULL;
     struct pcm_config proxy_config;
+    alsa_device_profile *profile = NULL;
     int ret = 0;
 
-    if (!cfg || !k_manager || !profile) {
-        ALOGE("%s() NULL pointer, cfg %p, kara %p, profile %p",
-            __func__, cfg, k_manager, profile);
+    ALOGV("++%s()", __func__);
+
+    if (!cfg || !kara) {
+        ALOGE("%s() NULL pointer, cfg %p, kara %p", __func__, cfg, kara);
         return -EINVAL;
     }
 
+    pthread_mutex_lock(&kara->lock);
+    if (kara->karaoke_start == true) {
+        ALOGI("%s() karaoke is opened!", __func__);
+        pthread_mutex_unlock(&kara->lock);
+        return 0;
+    }
+
     in = &kara->in;
+    profile = in->in_profile;
+
     memset(&proxy_config, 0, sizeof(proxy_config));
     proxy_config.channels = profile_get_closest_channel_count(profile, cfg->channelCnt);
 
@@ -118,6 +128,7 @@ int kara_open_micphone(struct audioCfg *cfg,
         ALOGE("USB profile can't support rate: %d", cfg->sampleRate);
         proxy_config.rate = profile_get_default_sample_rate(profile);
     }
+
     proxy_config.format = PCM_FORMAT_S16_LE;
     proxy_config.period_size = USB_DEFAULT_PERIOD_SIZE;
     proxy_config.period_count = USB_DEFAULT_PERIOD_COUNT;
@@ -145,24 +156,33 @@ int kara_open_micphone(struct audioCfg *cfg,
 
     in->conversion_buffer = NULL;
     in->conversion_buffer_size = 0;
-    in->read = voice_in_read;
 
     kara->buf = NULL;
     kara->buf_len = 0;
-    kara->read = mic_buffer_read;
     ring_buffer_init(&kara->mic_buffer, USB_DEFAULT_PERIOD_SIZE * 32);
     kara->karaoke_start = true;
 
+    pthread_mutex_unlock(&kara->lock);
+    ALOGV("--%s()", __func__);
+
     return 0;
 err:
+    pthread_mutex_unlock(&kara->lock);
+    kara->karaoke_start = false;
     return ret;
 }
 
-int kara_close_micphone(struct kara_manager *kara)
+static int kara_close_micphone(struct kara_manager *kara)
 {
     struct voice_in *in = &kara->in;
 
-    ALOGI("%s()", __func__);
+    ALOGV("++%s()", __func__);
+    pthread_mutex_lock(&kara->lock);
+    if (kara->karaoke_start == false) {
+        ALOGI("%s() karaoke is closed!", __func__);
+        pthread_mutex_unlock(&kara->lock);
+        return 0;
+    }
     proxy_close(&in->proxy);
     free(in->conversion_buffer);
     in->conversion_buffer = NULL;
@@ -172,29 +192,54 @@ int kara_close_micphone(struct kara_manager *kara)
     kara->buf_len = 0;
     ring_buffer_release(&kara->mic_buffer);
     kara->karaoke_start = false;
+    pthread_mutex_unlock(&kara->lock);
+    ALOGV("--%s()", __func__);
 
     return 0;
 }
 
-int kara_mix_micphone(struct kara_manager *kara, void *buf, size_t bytes)
+static int kara_mix_micphone(struct kara_manager *kara, void *buf, size_t bytes)
 {
     struct voice_in *in = &kara->in;
     int frames = bytes / in->cfg.frame_size;
     int ret = 0;
 
+    pthread_mutex_lock(&kara->lock);
     if (bytes > kara->buf_len) {
         kara->buf = realloc(kara->buf, bytes);
         kara->buf_len = bytes;
     }
 
-    ret = in->read(in, kara->buf, bytes);
-    if (!ret) {
+    ret = voice_in_read(in, kara->buf, bytes);
+    if (ret) {
+        if (kara->kara_mic_mute) {
+            memset(kara->buf, 0, bytes);
+        } else {
+            apply_volume(kara->kara_mic_gain, kara->buf, 2, bytes);
+        }
         /* mixer to output */
         do_mixing_2ch(buf, kara->buf, frames, in->cfg, in->cfg);
         if (get_buffer_write_space(&kara->mic_buffer) >= (int)bytes) {
             ring_buffer_write(&kara->mic_buffer, kara->buf, bytes, UNCOVER_WRITE);
         }
     }
+    pthread_mutex_unlock(&kara->lock);
 
     return ret;
+}
+
+int karaoke_init(struct kara_manager *karaoke, alsa_device_profile *profile)
+{
+    if (!karaoke || !profile) {
+        return -EINVAL;
+    }
+
+    ALOGI("%s()", __func__);
+    karaoke->open = kara_open_micphone;
+    karaoke->read = mic_buffer_read;
+    karaoke->close = kara_close_micphone;
+    karaoke->mix = kara_mix_micphone;
+    karaoke->in.in_profile = profile;
+
+    return 0;
 }

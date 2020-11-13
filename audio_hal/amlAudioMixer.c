@@ -1472,33 +1472,14 @@ void mixer_dump(int s32Fd, const struct aml_audio_device *pstAmlDev)
     }
 }
 
-int mixer_set_karaoke(struct amlAudioMixer *audio_mixer, bool en)
+int mixer_set_karaoke(struct amlAudioMixer *audio_mixer, struct kara_manager *kara)
 {
     enum MIXER_OUTPUT_PORT port_index = MIXER_OUTPUT_PORT_PCM;
     struct output_port *out_port = audio_mixer->out_ports[port_index];
 
-    ALOGI("++%s(), en = %d", __func__, en);
-    outport_set_karaoke(out_port, en);
+    ALOGI("++%s(), set karaoke = %p", __func__, kara);
+    outport_set_karaoke(out_port, kara);
 
     return 0;
-}
-
-int mixer_set_usb_profile(struct amlAudioMixer *audio_mixer, alsa_device_profile* profile)
-{
-    enum MIXER_OUTPUT_PORT port_index = MIXER_OUTPUT_PORT_PCM;
-    struct output_port *out_port = audio_mixer->out_ports[port_index];
-
-    ALOGI("++%s(), profile = %p", __func__, profile);
-    outport_set_usb_profile(out_port, profile);
-
-    return 0;
-}
-
-struct kara_manager* mixer_get_karaoke(struct amlAudioMixer *audio_mixer)
-{
-    enum MIXER_OUTPUT_PORT port_index = MIXER_OUTPUT_PORT_PCM;
-    struct output_port *out_port = audio_mixer->out_ports[port_index];
-
-    return &(out_port->kara);
 }
 

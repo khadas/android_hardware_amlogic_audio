@@ -23,8 +23,8 @@
 #include <sound/asound.h>
 #include <tinyalsa/asoundlib.h>
 #include <hardware/audio.h>
-#include "aml_malloc_debug.h"
 #include <alsa_device_profile.h>
+#include "aml_malloc_debug.h"
 
 enum MIXER_TYPE {
     MIXER_LPCM = 1,
@@ -34,6 +34,7 @@ enum MIXER_TYPE {
 struct subMixing;
 struct aml_stream_out;
 struct aml_audio_device;
+struct kara_manager;
 
 typedef int (*writeSubMixing_t)(
             struct subMixing *sm,
@@ -47,6 +48,7 @@ typedef int (*writeSysBuf_t)(
             struct subMixing *sm,
             void *buffer,
             size_t bytes);
+
 struct audioCfg {
     int card;
     int device;
@@ -91,12 +93,9 @@ int usecase_change_validate_l_sm(struct aml_stream_out *out, bool is_standby);
 int out_standby_subMixingPCM(struct audio_stream *stream);
 int switchNormalStream(struct aml_stream_out *aml_out, bool on);
 struct pcm * getSubMixingPCMdev(struct subMixing *sm);
-int subMixingSetKaraoke(struct aml_audio_device *adev, bool on);
-int subMixingSetUsbProfile(struct aml_audio_device *adev,
-        alsa_device_profile* profile);
-int subMixingGetKaraoke(struct aml_audio_device *adev);
-
 void subMixingDump(int s32Fd, const struct aml_audio_device *pstAmlDev);
 
+/* set karaoke to submixer*/
+int subMixingSetKaraoke(struct aml_audio_device *adev, struct kara_manager *kara);
 
 #endif /* _SUB_MIXING_FACTORY_H_ */

@@ -108,9 +108,7 @@ int mixer_output_dummy(struct amlAudioMixer *audio_mixer, bool en);
 struct pcm * get_mixer_output_pcm_handle(struct amlAudioMixer *audio_mixer, enum MIXER_OUTPUT_PORT enOutputIndex);
 void mixer_dump(int s32Fd, const struct aml_audio_device *pstAmlDev);
 /* usb karaoke for hal mixer */
-int mixer_set_karaoke(struct amlAudioMixer *audio_mixer, bool en);
-int mixer_set_usb_profile(struct amlAudioMixer *audio_mixer, alsa_device_profile* profile);
-struct kara_manager* mixer_get_karaoke(struct amlAudioMixer *audio_mixer);
+int mixer_set_karaoke(struct amlAudioMixer *audio_mixer, struct kara_manager *kara);
 
 __END_DECLS
 
