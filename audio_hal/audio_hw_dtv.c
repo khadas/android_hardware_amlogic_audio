@@ -93,6 +93,7 @@
 #define TSYNC_PCR_INITED    "/sys/class/tsync_pcr/tsync_pcr_inited_flag"
 #define AMSTREAM_AUDIO_PORT_RESET   "/sys/class/amstream/reset_audio_port"
 #define VIDEO_FIRST_FRAME_SHOW  "/sys/module/amvideo/parameters/first_frame_toggled"
+#define VIDEO_NEW_FRAME_COUNT  "/sys/module/amvideo/parameters/new_frame_count"
 
 #define PATCH_PERIOD_COUNT 4
 #define DTV_PTS_CORRECTION_THRESHOLD (90000 * 30 / 1000)
@@ -2464,11 +2465,21 @@ void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_out* st
                 patch->show_first_frame, firstvpts, pcrpts, (int)(firstvpts - pcrpts)/90);
         }
     }
-    if (aml_dev->start_mute_flag && ((firstvpts != 0 && pcrpts + 10*90 > firstvpts) || patch->show_first_frame)) {
-        ALOGI("start_mute_flag 0.");
-        aml_dev->start_mute_flag = 0;
+    if (aml_dev->start_mute_flag ) {
+        unsigned int frame_count = 0;
+        get_sysfs_uint(VIDEO_NEW_FRAME_COUNT, &frame_count);
+        /*if pcr > firstvpts or video frame is increased, unmute to play*/
+        if (firstvpts && ((pcrpts + DTV_PTS_CORRECTION_THRESHOLD > firstvpts) || frame_count > 5)) {
+            ALOGI("start_mute_flag 0.");
+            aml_dev->start_mute_flag = 0;
+        } else {
+            /*wait start_mute finished, then begin to ease*/
+            ALOGV("firstvpts %x,pcrpts %x,frame_count %d",firstvpts, pcrpts, frame_count);
+            if (aml_dev->audio_ease) {
+                aml_dev->patch_start = false;
+            }
+        }
     }
-
     patch->dtv_pcr_mode = get_dtv_pcr_sync_mode();
     aml_dev->audio_discontinue = get_audio_discontinue(patch);
 
