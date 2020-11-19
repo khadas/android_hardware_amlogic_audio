@@ -81,9 +81,10 @@ enum {
 /****below MS12 tunning is for dtv, ms*****/
 
 /*speaker raw/pcm input*/
-#define  DTV_AVSYNC_MS12_LATENCY_SPK_PCM             (20)
-#define  DTV_AVSYNC_MS12_LATENCY_SPK_RAW             (0)
-#define  DTV_AVSYNC_MS12_LATENCY_DOLBY_DAP           (70)
+#define  DTV_AVSYNC_MS12_LATENCY_SPK_PCM             (50)
+#define  DTV_AVSYNC_MS12_LATENCY_SPK_RAW             (50)
+/*speaker dap enabled*/
+#define  DTV_AVSYNC_MS12_LATENCY_DOLBY_DAP           (0)
 /*atmos with arc*/
 #define  DTV_AVSYNC_MS12_LATENCY_ARC_ATMOS           (180)
 /*ddp sink with arc*/
