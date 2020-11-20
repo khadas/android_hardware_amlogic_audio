@@ -1103,7 +1103,13 @@ ssize_t a2dp_out_write(struct audio_stream_out* stream, const void* buffer, size
     if (aml_out->is_tv_platform == 1) {
         in_frames = bytes/32; // 8ch pcm32
     }
-
+    if (out->mute_time > 0) {
+        uint64_t cur_time = aml_audio_get_systime_ns();
+        if (cur_time > out->mute_time)
+            out->mute_time = 0;
+        else
+            goto finish;
+    }
     if (out->state == AUDIO_A2DP_STATE_SUSPENDED || out->state == AUDIO_A2DP_STATE_STOPPING) {
         ALOGD("stream %p suspended or closing", aml_out);
         goto finish;
@@ -1315,6 +1321,8 @@ int a2dp_out_standby(struct audio_stream* stream) {
     int retVal = 0;
 
     ALOGD("a2dp_out_standby: %p", aml_out);
+    if (out == NULL)
+        return -1;
     pthread_mutex_lock(&out->mutex);
     // Do nothing in SUSPENDED state.
     if (out->state != AUDIO_A2DP_STATE_SUSPENDED)
@@ -1374,6 +1382,7 @@ int a2dp_output_enable(struct audio_hw_device *dev) {
     aml_dev->optical_format = AUDIO_FORMAT_PCM_16_BIT;
     out->buff_conv_format = NULL;
     out->buff_size_conv_format = 0;
+    out->mute_time = aml_audio_get_systime_ns() + 1000000000; // mute for 1s
 
 #if defined(AUDIO_EFFECT_EXTERN_DEVICE)
     out->bt_gain = 1;

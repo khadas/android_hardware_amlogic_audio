@@ -3896,6 +3896,9 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         virtualx_setparameter(adev,TRUVOLUMEINMODE,0,5);
         adev->effect_in_ch = 2;
     }
+    if ((out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && adev->audio_patching)
+        a2dp_out_standby(&stream->common);
+
     if (adev->useSubMix) {
         if (out->usecase == STREAM_PCM_NORMAL || out->usecase == STREAM_PCM_HWSYNC)
             out_standby_subMixingPCM(&stream->common);
@@ -8538,6 +8541,8 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
                 /* here to check if the audio output routing changed. */
                 if ((adev->out_device != aml_out->out_device) && (adev->ms12.dolby_ms12_enable == true)) {
                     ALOGI("%s(), output routing changed from 0x%x to 0x%x,need MS12 reconfig output", __func__, aml_out->out_device, adev->out_device);
+                    if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)
+                        need_reset_decoder = true;
                     aml_out->out_device = adev->out_device;
                     need_reconfig_output = true;
                 }

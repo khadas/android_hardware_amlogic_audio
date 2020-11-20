@@ -155,6 +155,7 @@ struct a2dp_stream_out {
     uint32_t format;
     char * buff_conv_format;
     int buff_size_conv_format;
+    uint64_t mute_time;
 
 #if defined(AUDIO_EFFECT_EXTERN_DEVICE)
     float bt_gain;
