@@ -1450,11 +1450,15 @@ char **DolbyMS12ConfigParams::UpdateDolbyMS12RuntimeConfigParams(int *argc, char
     char *opt = NULL;
 
     while (cmd_string >> token) {
-        strncpy(mConfigParams[mParamNum], token.c_str(), MAX_ARGV_STRING_LEN);
-        mConfigParams[mParamNum][MAX_ARGV_STRING_LEN - 1] = '\0';
-        ALOGI("argv[%d] = %s", mParamNum, mConfigParams[mParamNum]);
-        mParamNum++;
-        (*argc)++;
+        if (mParamNum <= MAX_ARGC - 1) {
+            strncpy(mConfigParams[mParamNum], token.c_str(), MAX_ARGV_STRING_LEN);
+            mConfigParams[mParamNum][MAX_ARGV_STRING_LEN - 1] = '\0';
+            ALOGI("argv[%d] = %s", mParamNum, mConfigParams[mParamNum]);
+            mParamNum++;
+            (*argc)++;
+        } else {
+            break;
+        }
     }
 
     while (index < *argc) {
