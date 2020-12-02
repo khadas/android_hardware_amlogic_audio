@@ -969,6 +969,145 @@ int halformat_convert_to_spdif(audio_format_t format) {
     return aml_spdif_format;
 }
 
+
+int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_port)
+{
+    switch (android_dev) {
+    /* audio hal output device port */
+    case AUDIO_DEVICE_OUT_HDMI_ARC:
+        *hal_dev_port = OUTPORT_HDMI_ARC;
+        break;
+    case AUDIO_DEVICE_OUT_HDMI:
+        *hal_dev_port = OUTPORT_HDMI;
+        break;
+    case AUDIO_DEVICE_OUT_SPDIF:
+        *hal_dev_port = OUTPORT_SPDIF;
+        break;
+    case AUDIO_DEVICE_OUT_AUX_LINE:
+        *hal_dev_port = OUTPORT_AUX_LINE;
+        break;
+    case AUDIO_DEVICE_OUT_SPEAKER:
+        *hal_dev_port = OUTPORT_SPEAKER;
+        break;
+    case AUDIO_DEVICE_OUT_WIRED_HEADPHONE:
+        *hal_dev_port = OUTPORT_HEADPHONE;
+        break;
+    case AUDIO_DEVICE_OUT_REMOTE_SUBMIX:
+        *hal_dev_port = OUTPORT_REMOTE_SUBMIX;
+        break;
+    case AUDIO_DEVICE_OUT_BLUETOOTH_SCO:
+        *hal_dev_port = OUTPORT_BT_SCO;
+        break;
+    case AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET:
+        *hal_dev_port = OUTPORT_BT_SCO_HEADSET;
+        break;
+    case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP:
+    case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES:
+    case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER:
+        *hal_dev_port = OUTPORT_A2DP;
+        break;
+    /* audio hal input device port */
+    case AUDIO_DEVICE_IN_HDMI:
+        *hal_dev_port = INPORT_HDMIIN;
+        break;
+    case AUDIO_DEVICE_IN_HDMI_ARC:
+        *hal_dev_port = INPORT_ARCIN;
+        break;
+    case AUDIO_DEVICE_IN_LINE:
+        *hal_dev_port = INPORT_LINEIN;
+        break;
+    case AUDIO_DEVICE_IN_TV_TUNER:
+        *hal_dev_port = INPORT_TUNER;
+        break;
+    case AUDIO_DEVICE_IN_SPDIF:
+        *hal_dev_port = INPORT_SPDIF;
+        break;
+    case AUDIO_DEVICE_IN_REMOTE_SUBMIX:
+        *hal_dev_port = INPORT_REMOTE_SUBMIXIN;
+        break;
+    case AUDIO_DEVICE_IN_WIRED_HEADSET:
+        *hal_dev_port = INPORT_WIRED_HEADSETIN;
+        break;
+    case AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
+        *hal_dev_port = INPORT_BT_SCO_HEADSET_MIC;
+        break;
+
+    default:
+        if (AUDIO_DEVICE_BIT_IN & android_dev) {
+            *hal_dev_port = INPORT_HDMIIN;
+            ALOGW("[%s:%d] unsupport input dev:%#x, return default HDMIN.", __func__, __LINE__, android_dev);
+        } else {
+            *hal_dev_port = OUTPORT_SPEAKER;
+            ALOGW("[%s:%d] unsupport output dev:%#x, return default SPEAKER.", __func__, __LINE__, android_dev);
+        }
+        return -1;
+    }
+    return 0;
+}
+
+enum patch_src_assortion android_input_dev_convert_to_hal_patch_src(audio_devices_t android_dev)
+{
+    enum patch_src_assortion patch_src = SRC_INVAL;
+    switch (android_dev) {
+    case AUDIO_DEVICE_IN_HDMI:
+        patch_src = SRC_HDMIIN;
+        break;
+    case AUDIO_DEVICE_IN_HDMI_ARC:
+        patch_src = SRC_ARCIN;
+        break;
+    case AUDIO_DEVICE_IN_LINE:
+        patch_src = SRC_LINEIN;
+        break;
+    case AUDIO_DEVICE_IN_SPDIF:
+        patch_src = SRC_SPDIFIN;
+        break;
+    case AUDIO_DEVICE_IN_TV_TUNER:
+        patch_src = SRC_ATV;
+        break;
+    case AUDIO_DEVICE_IN_REMOTE_SUBMIX:
+        patch_src = SRC_REMOTE_SUBMIXIN;
+        break;
+    case AUDIO_DEVICE_IN_WIRED_HEADSET:
+        patch_src = SRC_WIRED_HEADSETIN;
+        break;
+    case AUDIO_DEVICE_IN_BUILTIN_MIC:
+        patch_src = SRC_BUILTIN_MIC;
+        break;
+    case AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
+        patch_src = SRC_BT_SCO_HEADSET_MIC;
+        break;
+    default:
+        ALOGW("[%s:%d] unsupport input dev:%#x, return SRC_INVAL.", __func__, __LINE__, android_dev);
+    }
+    return patch_src;
+}
+
+enum input_source android_input_dev_convert_to_hal_input_src(audio_devices_t android_dev)
+{
+    enum input_source input_src = SRC_NA;
+    switch (android_dev) {
+    case AUDIO_DEVICE_IN_HDMI:
+        input_src = HDMIIN;
+        break;
+    case AUDIO_DEVICE_IN_HDMI_ARC:
+        input_src = ARCIN;
+        break;
+    case AUDIO_DEVICE_IN_LINE:
+        input_src = LINEIN;
+        break;
+    case AUDIO_DEVICE_IN_SPDIF:
+        input_src = SPDIFIN;
+        break;
+    case AUDIO_DEVICE_IN_TV_TUNER:
+        input_src = ATV;
+        break;
+    default:
+        input_src = SRC_NA;
+        break;
+    }
+    return input_src;
+}
+
 /*
  * convert alsa_device_t to PORT***
  */

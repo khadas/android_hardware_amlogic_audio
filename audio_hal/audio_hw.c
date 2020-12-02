@@ -7718,7 +7718,8 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
 
     /* here to check if the audio output routing changed. */
     if (adev->out_device != aml_out->out_device) {
-        ALOGI ("%s(), output routing changed, need reconfig output", __func__);
+        ALOGI("%s(), output routing changed, need reconfig output, out dev:%#x, adev dev:%#x", __func__,
+            aml_out->out_device, adev->out_device);
         need_reconfig_output = true;
         need_reset_decoder = false;
         aml_out->out_device = adev->out_device;
@@ -9922,402 +9923,203 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
     unsigned int i = 0;
     int ret = -1;
     aml_dev->no_underrun_max = property_get_int32("media.audio_hal.nounderrunmax", 60);
-    ALOGI("++%s, src_config->ext.device.type(0x%x)", __FUNCTION__,src_config->ext.device.type);
     if (bypass_primary_patch(src_config)) {
-        ALOGD("bluetooth voice search is in use, bypass adev_create_audio_patch()!!\n");
-        goto err;
+        ALOGI("[%s:%d] bluetooth voice search is in use, bypass it.", __func__, __LINE__);
+        return -1;
     }
     if (!sources || !sinks || !handle) {
-        ALOGE("%s: null pointer!", __func__);
-        ret = -EINVAL;
-        goto err;
+        ALOGE("[%s:%d] null pointer! sources:%p, sinks:%p, handle:%p", __func__, __LINE__, sources, sinks, handle);
+        return -EINVAL;
     }
 
     if ((num_sources != 1) || (num_sinks > AUDIO_PATCH_PORTS_MAX)) {
-        ALOGE("%s: unsupport num sources or sinks", __func__);
-        ret = -EINVAL;
-        goto err;
+        ALOGE("[%s:%d] unsupport num_sources:%d != 1 or num_sinks:%d > %d", __func__, __LINE__,
+            num_sources, num_sinks, AUDIO_PATCH_PORTS_MAX);
+        return -EINVAL;
     }
 
-    ALOGI("+%s num_sources [%d] , num_sinks [%d],src_config->type=%d,sink_config->type=%d,aml_dev->patch_src=%d", __func__, num_sources, num_sinks,src_config->type,sink_config->type,aml_dev->patch_src);
-    patch_set = register_audio_patch(dev, num_sources, sources,
-                                     num_sinks, sinks, handle);
-    ALOGI("%s(), patch new handle for AF: %p", __func__, handle);
+    patch_set = register_audio_patch(dev, num_sources, sources, num_sinks, sinks, handle);
+    ALOGI("[%s:%d] num_sources:%d, num_sinks:%d, source:%d -> sink:%d, patch_src:%d, AF:%p", __func__, __LINE__,
+        num_sources, num_sinks, src_config->type, sink_config->type,aml_dev->patch_src, handle);
     if (!patch_set) {
-        ret = -ENOMEM;
-        goto err;
+        ALOGW("[%s:%d] patch_set is null, create fail.", __func__, __LINE__);
+        return -ENOMEM;
     }
 
-    /* mix to device audio patch */
-    if (src_config->type == AUDIO_PORT_TYPE_MIX) {
-        if (sink_config->type != AUDIO_PORT_TYPE_DEVICE) {
-            ALOGE("unsupport patch case");
-            ret = -EINVAL;
-            goto err_patch;
-        }
-
-        switch (sink_config->ext.device.type) {
-        case AUDIO_DEVICE_OUT_HDMI_ARC:
-            outport = OUTPORT_HDMI_ARC;
-            break;
-        case AUDIO_DEVICE_OUT_HDMI:
-            outport = OUTPORT_HDMI;
-            break;
-        case AUDIO_DEVICE_OUT_SPDIF:
-            outport = OUTPORT_SPDIF;
-            break;
-        case AUDIO_DEVICE_OUT_AUX_LINE:
-            outport = OUTPORT_AUX_LINE;
-            break;
-        case AUDIO_DEVICE_OUT_SPEAKER:
-            outport = OUTPORT_SPEAKER;
-            break;
-        case AUDIO_DEVICE_OUT_WIRED_HEADPHONE:
-            outport = OUTPORT_HEADPHONE;
-            break;
-        case AUDIO_DEVICE_OUT_REMOTE_SUBMIX:
-            outport = OUTPORT_REMOTE_SUBMIX;
-            break;
-        case AUDIO_DEVICE_OUT_BLUETOOTH_SCO:
-            outport = OUTPORT_BT_SCO;
-            break;
-        case AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET:
-            outport = OUTPORT_BT_SCO_HEADSET;
-            break;
-        case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP:
-        case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES:
-        case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER:
-            outport = OUTPORT_A2DP;
-            break;
-        default:
-            ALOGE("d-m %s: invalid sink device type %#x",
-                  __func__, sink_config->ext.device.type);
-        }
-
-        /*
-          // when HDMI plug in or UI [Sound Output Device] set to "ARC" ,AUDIO need to output from HDMI ARC
-          // while in current design, speaker is an "always on" device
-          // in this case , there will be 2 devices, one is ARC, one is SPEAKER
-          // we need to output audio from ARC, so set outport as OUTPORT_HDMI_ARC
-          */
+    if (sink_config->type == AUDIO_PORT_TYPE_DEVICE) {
+        android_dev_convert_to_hal_dev(sink_config->ext.device.type, (int *)&outport);
+          /*
+           * when HDMI plug in or UI [Sound Output Device] set to "ARC" ,AUDIO need to output from HDMI ARC
+           * while in current design, speaker is an "always on" device
+           * in this case , there will be 2 devices, one is ARC, one is SPEAKER
+           * we need to output audio from ARC, so set outport as OUTPORT_HDMI_ARC
+           */
         if (num_sinks == 2) {
-            ALOGI("sink[0] type =0x%x sink[1] type =0x%x", sink_config[0].ext.device.type, sink_config[1].ext.device.type );
+            ALOGI("[%s:%d] sink[0]:%#x, sink[1]:%#x", __func__, __LINE__, sink_config[0].ext.device.type, sink_config[1].ext.device.type);
             if ((sink_config[0].ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC && sink_config[1].ext.device.type == AUDIO_DEVICE_OUT_SPEAKER)
                 || (sink_config[0].ext.device.type == AUDIO_DEVICE_OUT_SPEAKER && sink_config[1].ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC)) {
                 if (aml_dev->bHDMIARCon) {
                     outport = OUTPORT_HDMI_ARC;
-                    ALOGI("%s() mix->device patch: speaker and HDMI_ARC co-exist case, output=ARC", __func__);
                 } else {
                     outport = OUTPORT_SPEAKER;
-                    ALOGI("%s() mix->device patch: speaker and HDMI_ARC co-exist case, output=SPEAKER", __func__);
                 }
+                ALOGI("[%s:%d] bHDMIARCon:%d speaker and HDMI_ARC co-exist case, ouput:%s.", __func__, __LINE__,
+                    aml_dev->bHDMIARCon, outport2String(outport));
             }
         }
-
         if (outport != OUTPORT_SPDIF) {
             ret = aml_audio_output_routing(dev, outport, false);
         }
         if (ret < 0) {
-            ALOGE("%s() output routing failed", __func__);
+            ALOGW("[%s:%d] output routing failed, outport:%s.", __func__, __LINE__, outport2String(outport));
         }
-
         aml_dev->out_device = 0;
         for (i = 0; i < num_sinks; i++) {
             aml_dev->out_device |= sink_config[i].ext.device.type;
         }
 
-        ALOGI("%s: mix->device patch: outport(%s)", __func__, outport2String(outport));
-        return 0;
-    }
-
-    /* device to mix audio patch */
-    if (sink_config->type == AUDIO_PORT_TYPE_MIX) {
-        if (src_config->type != AUDIO_PORT_TYPE_DEVICE) {
-            ALOGE("unsupport patch case");
-            ret = -EINVAL;
-            goto err_patch;
-        }
-
-        switch (src_config->ext.device.type) {
-        case AUDIO_DEVICE_IN_HDMI:
-            input_src = HDMIIN;
-            inport = INPORT_HDMIIN;
-            aml_dev->patch_src = SRC_HDMIIN;
-            break;
-        case AUDIO_DEVICE_IN_HDMI_ARC:
-            input_src = ARCIN;
-            inport = INPORT_ARCIN;
-            aml_dev->patch_src = SRC_ARCIN;
-            break;
-        case AUDIO_DEVICE_IN_LINE:
-            input_src = LINEIN;
-            inport = INPORT_LINEIN;
-            aml_dev->patch_src = SRC_LINEIN;
-            break;
-        case AUDIO_DEVICE_IN_SPDIF:
-            input_src = SPDIFIN;
-            inport = INPORT_SPDIF;
-            aml_dev->patch_src = SRC_SPDIFIN;
-            break;
-        case AUDIO_DEVICE_IN_TV_TUNER:
-            input_src = ATV;
-            inport = INPORT_TUNER;
-            aml_dev->tuner2mix_patch = true;
-            break;
-        case AUDIO_DEVICE_IN_REMOTE_SUBMIX:
-            input_src = SRC_NA;
-            inport = INPORT_REMOTE_SUBMIXIN;
-            aml_dev->patch_src = SRC_REMOTE_SUBMIXIN;
-            break;
-        case AUDIO_DEVICE_IN_WIRED_HEADSET:
-            input_src = SRC_NA;
-            inport = INPORT_WIRED_HEADSETIN;
-            aml_dev->patch_src = SRC_WIRED_HEADSETIN;
-            break;
-        case AUDIO_DEVICE_IN_BUILTIN_MIC:
-            input_src = SRC_NA;
-            inport = INPORT_BUILTIN_MIC;
-            aml_dev->patch_src = SRC_BUILTIN_MIC;
-            break;
-        case AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
-            input_src = SRC_NA;
-            inport = INPORT_BT_SCO_HEADSET_MIC;
-            aml_dev->patch_src = SRC_BT_SCO_HEADSET_MIC;
-            break;
-        default:
-            ALOGE("%s: invalid src device type %#x",
-                  __func__, src_config->ext.device.type);
-            ret = -EINVAL;
-            goto err_patch;
-        }
-
-        if (input_src != SRC_NA)
-            set_audio_source(&aml_dev->alsa_mixer,
-                    input_src, alsa_device_is_auge());
-
-        aml_audio_input_routing(dev, inport);
-        aml_dev->src_gain[inport] = 1.0;
-
-        if (inport == INPORT_HDMIIN ||
-                inport == INPORT_ARCIN ||
-                inport == INPORT_SPDIF) {
-            create_parser(dev, inport);
-        } else if ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_DTV)){
-            if (property_get_bool("tv.need.tvview.fast_switch", false)) {
-                ALOGI("in tvview fast switch mode, no need re-create DTV patch 1\n");
-                return ret;
+        /* 1.device to device audio patch. TODO: unify with the android device type*/
+        if (src_config->type == AUDIO_PORT_TYPE_DEVICE) {
+            if (sink_config->config_mask & AUDIO_PORT_CONFIG_SAMPLE_RATE) {
+                sample_rate = sink_config->sample_rate;
             }
-            if (aml_dev->audio_patching) {
-                ALOGI("%s,!!!now release the dtv patch now\n ", __func__);
-                ret = release_dtv_patch(aml_dev);
-                if (!ret) {
-                    aml_dev->audio_patching = 0;
+
+            if (sink_config->config_mask & AUDIO_PORT_CONFIG_CHANNEL_MASK) {
+                channel_cnt = audio_channel_count_from_out_mask(sink_config->channel_mask);
+            }
+
+            ret = android_dev_convert_to_hal_dev(src_config->ext.device.type, (int *)&inport);
+            if (ret != 0) {
+                ALOGE("[%s:%d] device->device patch: unsupport input dev:%#x.", __func__, __LINE__, src_config->ext.device.type);
+                ret = -EINVAL;
+                unregister_audio_patch(dev, patch_set);
+            }
+            aml_audio_input_routing(dev, inport);
+            aml_dev->src_gain[inport] = 1.0;
+            //aml_dev->sink_gain[outport] = 1.0;
+            ALOGI("[%s:%d] dev->dev patch: inport(%s) -> outport(%s)", __func__, __LINE__,
+                inport2String(inport), outport2String(outport));
+
+            // ATV path goes to dev set_params which could
+            // tell atv or dtv source and decide to create or not.
+            // One more case is ATV->ATV, should recreate audio patch.
+            if ((inport != INPORT_TUNER)
+                    || ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_ATV))) {
+                if (input_src != SRC_NA)
+                    set_audio_source(&aml_dev->alsa_mixer, input_src, alsa_device_is_auge());
+
+                ret = create_patch(dev, src_config->ext.device.type, outport);
+                if (ret) {
+                    ALOGE("[%s:%d] create patch failed, outport:%s.", __func__, __LINE__, outport2String(outport));
+                    ret = -EINVAL;
+                    unregister_audio_patch(dev, patch_set);
                 }
-            }
-            ALOGI("%s, !!! now create the dtv patch now\n ", __func__);
-            ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER,AUDIO_DEVICE_OUT_SPEAKER);
-            if (ret == 0) {
                 aml_dev->audio_patching = 1;
-                dtv_patch_add_cmd(AUDIO_DTV_PATCH_CMD_START);
-            }
-        }
-        ALOGI("%s: device->mix patch: inport(%s)", __func__, inport2String(inport));
-        return 0;
-    }
-
-    /*device to device audio patch. TODO: unify with the android device type*/
-    if (sink_config->type == AUDIO_PORT_TYPE_DEVICE && src_config->type == AUDIO_PORT_TYPE_DEVICE) {
-        switch (sink_config->ext.device.type) {
-        case AUDIO_DEVICE_OUT_HDMI_ARC:
-            outport = OUTPORT_HDMI_ARC;
-            break;
-        case AUDIO_DEVICE_OUT_HDMI:
-            outport = OUTPORT_HDMI;
-            break;
-        case AUDIO_DEVICE_OUT_SPDIF:
-            outport = OUTPORT_SPDIF;
-            break;
-        case AUDIO_DEVICE_OUT_AUX_LINE:
-            outport = OUTPORT_AUX_LINE;
-            break;
-        case AUDIO_DEVICE_OUT_SPEAKER:
-            outport = OUTPORT_SPEAKER;
-            break;
-        case AUDIO_DEVICE_OUT_WIRED_HEADPHONE:
-            outport = OUTPORT_HEADPHONE;
-            break;
-        case AUDIO_DEVICE_OUT_REMOTE_SUBMIX:
-            outport = OUTPORT_REMOTE_SUBMIX;
-            break;
-        case AUDIO_DEVICE_OUT_BLUETOOTH_SCO:
-            outport = OUTPORT_BT_SCO;
-            break;
-        case AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET:
-            outport = OUTPORT_BT_SCO_HEADSET;
-            break;
-        case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP:
-        case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES:
-        case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER:
-            outport = OUTPORT_A2DP;
-            break;
-        default:
-            ALOGE("d-d %s: invalid sink device type %#x",
-                  __func__, sink_config->ext.device.type);
-        }
-
-        /*
-           * while in current design, speaker is an "always attached" device
-           * when HDMI cable is plug in, there will be 2 sink devices "SPEAKER" and "HDMI ARC"
-           * we need to do extra check to set proper sink device
-           */
-        if (num_sinks == 2) {
-            if ((sink_config[0].ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC && sink_config[1].ext.device.type == AUDIO_DEVICE_OUT_SPEAKER)
-                || (sink_config[0].ext.device.type == AUDIO_DEVICE_OUT_SPEAKER && sink_config[1].ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC)) {
-                if (aml_dev->bHDMIARCon) {
-                    outport = OUTPORT_HDMI_ARC;
-                    ALOGI("%s() dev->dev patch: speaker and HDMI_ARC co-exist case, output=ARC", __func__);
-                } else {
-                    outport = OUTPORT_SPEAKER;
-                    ALOGI("%s() dev->dev patch: speaker and HDMI_ARC co-exist case, output=SPEAKER", __func__);
+                if (inport == INPORT_TUNER) {
+                    aml_dev->patch_src = SRC_ATV;
                 }
-            }
-        }
-
-        if (outport != OUTPORT_SPDIF) {
-            ret = aml_audio_output_routing(dev, outport, false);
-        }
-        if (ret < 0) {
-            ALOGE("%s() output routing failed", __func__);
-        }
-        aml_dev->out_device = sink_config->ext.device.type;
-
-        if (sink_config->config_mask & AUDIO_PORT_CONFIG_SAMPLE_RATE) {
-            sample_rate = sink_config->sample_rate;
-        }
-
-        if (sink_config->config_mask & AUDIO_PORT_CONFIG_CHANNEL_MASK) {
-            channel_cnt = audio_channel_count_from_out_mask(sink_config->channel_mask);
-        }
-
-        switch (src_config->ext.device.type) {
-        case AUDIO_DEVICE_IN_HDMI:
-            input_src = HDMIIN;
-            inport = INPORT_HDMIIN;
-            aml_dev->patch_src = SRC_HDMIIN;
-            break;
-        case AUDIO_DEVICE_IN_HDMI_ARC:
-            input_src = ARCIN;
-            inport = INPORT_ARCIN;
-            aml_dev->patch_src = SRC_ARCIN;
-            break;
-        case AUDIO_DEVICE_IN_LINE:
-            input_src = LINEIN;
-            inport = INPORT_LINEIN;
-            aml_dev->patch_src = SRC_LINEIN;
-            break;
-        case AUDIO_DEVICE_IN_TV_TUNER:
-            input_src = ATV;
-            inport = INPORT_TUNER;
-            break;
-        case AUDIO_DEVICE_IN_SPDIF:
-            input_src = SPDIFIN;
-            inport = INPORT_SPDIF;
-            aml_dev->patch_src = SRC_SPDIFIN;
-            break;
-        case AUDIO_DEVICE_IN_REMOTE_SUBMIX:
-            input_src = SRC_NA;
-            inport = INPORT_REMOTE_SUBMIXIN;
-            aml_dev->patch_src = SRC_REMOTE_SUBMIXIN;
-            break;
-        case AUDIO_DEVICE_IN_WIRED_HEADSET:
-            input_src = SRC_NA;
-            inport = INPORT_WIRED_HEADSETIN;
-            aml_dev->patch_src = SRC_WIRED_HEADSETIN;
-            break;
-        case AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
-            input_src = SRC_NA;
-            inport = INPORT_BT_SCO_HEADSET_MIC;
-            aml_dev->patch_src = SRC_BT_SCO_HEADSET_MIC;
-            break;
-        default:
-            ALOGE("%s: invalid src device type %#x",
-                  __func__, src_config->ext.device.type);
-            ret = -EINVAL;
-            goto err_patch;
-        }
-
-        aml_audio_input_routing(dev, inport);
-        aml_dev->src_gain[inport] = 1.0;
-        //aml_dev->sink_gain[outport] = 1.0;
-        ALOGI("%s: dev->dev patch: inport(%s), outport(%s)",
-              __func__, inport2String(inport), outport2String(outport));
-
-        // ATV path goes to dev set_params which could
-        // tell atv or dtv source and decide to create or not.
-        // One more case is ATV->ATV, should recreate audio patch.
-        if ((inport != INPORT_TUNER)
-                || ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_ATV))) {
-            if (input_src != SRC_NA)
-                set_audio_source(&aml_dev->alsa_mixer,
-                        input_src, alsa_device_is_auge());
-
-            ret = create_patch(dev,
-                               src_config->ext.device.type, outport);
-            if (ret) {
-                ALOGE("%s: create patch failed", __func__);
-                goto err_patch;
-            }
-            aml_dev->audio_patching = 1;
-            if (inport == INPORT_TUNER) {
-                aml_dev->patch_src = SRC_ATV;
-            }
-            if (inport == INPORT_HDMIIN ||
-                inport == INPORT_LINEIN ||
-                inport == INPORT_SPDIF  ||
-                inport == INPORT_TUNER) {
-
-                if (eDolbyMS12Lib == aml_dev->dolby_lib_type && aml_dev->continuous_audio_mode)
-                {
-                    get_dolby_ms12_cleanup(&aml_dev->ms12);
-                    aml_dev->exiting_ms12 = 1;
-                    aml_dev->continuous_audio_mode = 0;
-                    clock_gettime(CLOCK_MONOTONIC, &aml_dev->ms12_exiting_start);
-                    usecase_change_validate_l(aml_dev->active_outputs[STREAM_PCM_NORMAL], true);
-                    ALOGI("enter patching mode, exit MS12 continuous mode");
+                if (inport == INPORT_HDMIIN || inport == INPORT_LINEIN ||
+                    inport == INPORT_SPDIF  || inport == INPORT_TUNER) {
+                    if (eDolbyMS12Lib == aml_dev->dolby_lib_type && aml_dev->continuous_audio_mode)
+                    {
+                        get_dolby_ms12_cleanup(&aml_dev->ms12);
+                        aml_dev->exiting_ms12 = 1;
+                        aml_dev->continuous_audio_mode = 0;
+                        clock_gettime(CLOCK_MONOTONIC, &aml_dev->ms12_exiting_start);
+                        usecase_change_validate_l(aml_dev->active_outputs[STREAM_PCM_NORMAL], true);
+                        ALOGI("enter patching mode, exit MS12 continuous mode");
+                    }
                 }
-            }
-        } else if ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_DTV)) {
+            } else if ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_DTV)) {
 #ifdef ENABLE_DTV_PATCH
-            if (property_get_bool("tv.need.tvview.fast_switch", false)) {
-                ALOGI("in tvview fast switch mode, no need re-create DTV patch 2\n");
-                return ret;
-            }
-             if ((aml_dev->patch_src == SRC_DTV) && aml_dev->audio_patching) {
-                 ALOGI("%s, now release the dtv patch now\n ", __func__);
-                 ret = release_dtv_patch(aml_dev);
-                 if (!ret) {
-                     aml_dev->audio_patching = 0;
+                if (property_get_bool("tv.need.tvview.fast_switch", false)) {
+                    ALOGI("in tvview fast switch mode, no need re-create DTV patch 2\n");
+                    return ret;
+                }
+                 if ((aml_dev->patch_src == SRC_DTV) && aml_dev->audio_patching) {
+                     ALOGI("%s, now release the dtv patch now\n ", __func__);
+                     ret = release_dtv_patch(aml_dev);
+                     if (!ret) {
+                         aml_dev->audio_patching = 0;
+                     }
                  }
-             }
-             ALOGI("%s, now end release dtv patch the audio_patching is %d ", __func__, aml_dev->audio_patching);
-             ALOGI("%s, now create the dtv patch now\n ", __func__);
-             aml_dev->patch_src = SRC_DTV;
+                 ALOGI("%s, now end release dtv patch the audio_patching is %d ", __func__, aml_dev->audio_patching);
+                 ALOGI("%s, now create the dtv patch now\n ", __func__);
+                 aml_dev->patch_src = SRC_DTV;
 
-             ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER,
-                                    AUDIO_DEVICE_OUT_SPEAKER);
-             if (ret == 0) {
-                aml_dev->audio_patching = 1;
-                dtv_patch_add_cmd(AUDIO_DTV_PATCH_CMD_START);/// this command should not be sent here
-             }
-            ALOGI("%s, now end create dtv patch the audio_patching is %d ", __func__, aml_dev->audio_patching);
+                 ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER,
+                                        AUDIO_DEVICE_OUT_SPEAKER);
+                 if (ret == 0) {
+                    aml_dev->audio_patching = 1;
+                    dtv_patch_add_cmd(AUDIO_DTV_PATCH_CMD_START);/// this command should not be sent here
+                 }
+                ALOGI("%s, now end create dtv patch the audio_patching is %d ", __func__, aml_dev->audio_patching);
 #endif
+            }
+        } else if (src_config->type == AUDIO_PORT_TYPE_MIX) {  /* 2. mix to device audio patch */
+            ALOGI("[%s:%d] mix->device patch: mix - >outport(%s)", __func__, __LINE__, outport2String(outport));
+            ret = 0;
+        } else {
+            ALOGE("[%s:%d] invalid patch, source error, source:%d to sink DEVICE", __func__, __LINE__, src_config->type);
+            ret = -EINVAL;
+            unregister_audio_patch(dev, patch_set);
         }
-    }
-    return 0;
+    } else if (sink_config->type == AUDIO_PORT_TYPE_MIX) {
+        if (src_config->type == AUDIO_PORT_TYPE_DEVICE) { /* 3.device to mix audio patch */
+            ret = android_dev_convert_to_hal_dev(src_config->ext.device.type, (int *)&inport);
+            if (ret != 0) {
+                ALOGE("[%s:%d] device->mix patch: unsupport input dev:%#x.", __func__, __LINE__, src_config->ext.device.type);
+                ret = -EINVAL;
+                unregister_audio_patch(dev, patch_set);
+            }
 
-err_patch:
-    unregister_audio_patch(dev, patch_set);
-err:
+            input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
+            aml_dev->patch_src = android_input_dev_convert_to_hal_patch_src(src_config->ext.device.type);
+            if (AUDIO_DEVICE_IN_TV_TUNER == src_config->ext.device.type) {
+                aml_dev->tuner2mix_patch = true;
+            }
+
+            if (input_src != SRC_NA)
+                set_audio_source(&aml_dev->alsa_mixer, input_src, alsa_device_is_auge());
+
+            aml_audio_input_routing(dev, inport);
+            aml_dev->src_gain[inport] = 1.0;
+
+            if (inport == INPORT_HDMIIN ||
+                    inport == INPORT_ARCIN ||
+                    inport == INPORT_SPDIF) {
+                create_parser(dev, inport);
+            } else if ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_DTV)){
+                if (property_get_bool("tv.need.tvview.fast_switch", false)) {
+                    ALOGI("in tvview fast switch mode, no need re-create DTV patch 1");
+                    return ret;
+                }
+                if (aml_dev->audio_patching) {
+                    ALOGI("%s,!!!now release the dtv patch now\n ", __func__);
+                    ret = release_dtv_patch(aml_dev);
+                    if (!ret) {
+                        aml_dev->audio_patching = 0;
+                    }
+                }
+                ALOGI("%s, !!! now create the dtv patch now\n ", __func__);
+                ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER,AUDIO_DEVICE_OUT_SPEAKER);
+                if (ret == 0) {
+                    aml_dev->audio_patching = 1;
+                    dtv_patch_add_cmd(AUDIO_DTV_PATCH_CMD_START);
+                }
+            }
+            ALOGI("[%s:%d] device->mix patch: inport(%s) -> mix", __func__, __LINE__, inport2String(inport));
+            ret = 0;
+        } else {
+            ALOGE("[%s:%d] invalid patch, source error, source:%d to sink MIX", __func__, __LINE__, src_config->type);
+            ret = -EINVAL;
+            unregister_audio_patch(dev, patch_set);
+        }
+    } else {
+        ALOGE("[%s:%d] invalid patch, sink:%d error", __func__, __LINE__, sink_config->type);
+        ret = -EINVAL;
+        unregister_audio_patch(dev, patch_set);
+    }
     return ret;
 }
 

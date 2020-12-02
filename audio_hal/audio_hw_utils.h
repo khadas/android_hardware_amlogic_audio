@@ -77,6 +77,9 @@ void aml_audio_switch_output_mode(int16_t *buf, size_t bytes, AM_AOUT_OutputMode
 int is_need_config_channel(void);
 int check_chip_name(char *name, unsigned int length);
 int halformat_convert_to_spdif(audio_format_t format);
+int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_port);
+enum patch_src_assortion android_input_dev_convert_to_hal_patch_src(audio_devices_t android_dev);
+enum input_source android_input_dev_convert_to_hal_input_src(audio_devices_t android_dev);
 int alsa_device_get_port_index(alsa_device_t alsa_device);
 int aml_set_thread_priority(char *pName, pthread_t threadId);
 bool is_multi_channel_pcm(struct audio_stream_out *stream);
