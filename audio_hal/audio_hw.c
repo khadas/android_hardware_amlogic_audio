@@ -9994,6 +9994,10 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                 ret = -EINVAL;
                 unregister_audio_patch(dev, patch_set);
             }
+            input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
+            if (AUDIO_DEVICE_IN_TV_TUNER != src_config->ext.device.type) {
+                aml_dev->patch_src = android_input_dev_convert_to_hal_patch_src(src_config->ext.device.type);
+            }
             aml_audio_input_routing(dev, inport);
             aml_dev->src_gain[inport] = 1.0;
             //aml_dev->sink_gain[outport] = 1.0;
@@ -10073,21 +10077,19 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                 unregister_audio_patch(dev, patch_set);
             }
 
-            input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
-            aml_dev->patch_src = android_input_dev_convert_to_hal_patch_src(src_config->ext.device.type);
             if (AUDIO_DEVICE_IN_TV_TUNER == src_config->ext.device.type) {
                 aml_dev->tuner2mix_patch = true;
+            } else {
+                aml_dev->patch_src = android_input_dev_convert_to_hal_patch_src(src_config->ext.device.type);
             }
-
+            input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
             if (input_src != SRC_NA)
                 set_audio_source(&aml_dev->alsa_mixer, input_src, alsa_device_is_auge());
 
             aml_audio_input_routing(dev, inport);
             aml_dev->src_gain[inport] = 1.0;
 
-            if (inport == INPORT_HDMIIN ||
-                    inport == INPORT_ARCIN ||
-                    inport == INPORT_SPDIF) {
+            if (inport == INPORT_HDMIIN || inport == INPORT_ARCIN || inport == INPORT_SPDIF) {
                 create_parser(dev, inport);
             } else if ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_DTV)){
                 if (property_get_bool("tv.need.tvview.fast_switch", false)) {
