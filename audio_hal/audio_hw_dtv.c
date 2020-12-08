@@ -2440,8 +2440,10 @@ void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_out* st
 
     if (patch->dtv_has_video && patch->show_first_frame == 0) {
         patch->show_first_frame = get_sysfs_int(VIDEO_FIRST_FRAME_SHOW);
-        ALOGI("dtv_avsync_process: patch->show_first_frame=%d, firstvpts=0x%x, pcrpts=0x%x, cache:%dms",
-               patch->show_first_frame, firstvpts, pcrpts, (int)(firstvpts - pcrpts)/90);
+        if (aml_getprop_bool("media.audiohal.debug")) {
+            ALOGI("dtv_avsync_process: patch->show_first_frame=%d, firstvpts=0x%x, pcrpts=0x%x, cache:%dms",
+                patch->show_first_frame, firstvpts, pcrpts, (int)(firstvpts - pcrpts)/90);
+        }
     }
     if (aml_dev->start_mute_flag && ((firstvpts != 0 && pcrpts + 10*90 > firstvpts) || patch->show_first_frame)) {
         ALOGI("start_mute_flag 0.");
