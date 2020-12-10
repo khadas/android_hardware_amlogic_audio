@@ -2583,10 +2583,11 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
 }
 
 /** audio_stream_in implementation **/
-static unsigned int select_port_by_device(struct aml_audio_device *adev)
+static unsigned int select_port_by_device(struct aml_stream_in *in)
 {
+    struct aml_audio_device *adev = in->dev;
     unsigned int inport = PORT_I2S;
-    audio_devices_t in_device = adev->in_device;
+    audio_devices_t in_device = in->device;
 
     if (in_device & AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET) {
         inport = PORT_PCM;
@@ -2636,6 +2637,11 @@ static unsigned int select_port_by_device(struct aml_audio_device *adev)
         inport = PORT_LOOPBACK;
 #endif
 
+#ifdef USB_KARAOKE
+    if (in->source == AUDIO_SOURCE_KARAOKE_SPEAKER)
+        inport = PORT_LOOPBACK;
+#endif
+
     return inport;
 }
 
@@ -2674,9 +2680,18 @@ static int start_input_stream(struct aml_stream_in *in)
     }
 
     card = alsa_device_get_card_index();
-    port = select_port_by_device(adev);
+    port = select_port_by_device(in);
     /* check to update alsa device by port */
     alsa_device = alsa_device_update_pcm_index(port, CAPTURE);
+#ifdef USB_KARAOKE
+    if (in->source == AUDIO_SOURCE_KARAOKE_SPEAKER) {
+        card = alsa_device_get_card_index_by_name("Loopback");
+        if (card < 0)
+            return -EINVAL;
+        /* Aloop in device id = 1 */
+        alsa_device = 1;
+    }
+#endif
     ALOGD("*%s, open alsa_card(%d) alsa_device(%d), in_device:0x%x\n",
         __func__, card, alsa_device, adev->in_device);
 
@@ -4228,6 +4243,7 @@ static int aml_audio_input_routing(struct audio_hw_device *dev,
         case INPORT_REMOTE_SUBMIXIN:
         case INPORT_LINEIN:
         case INPORT_WIRED_HEADSETIN:
+        case INPORT_LOOPBACK:
             break;
         default:
             ALOGE("%s: inport = %s unsupport", __func__, inport2String(inport));
@@ -5724,7 +5740,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     in->device = devices;
     in->dev = adev;
     in->standby = 1;
-
+    in->source = source;
     in->requested_rate = config->sample_rate;
     in->hal_channel_mask = config->channel_mask;
     in->hal_format = config->format;

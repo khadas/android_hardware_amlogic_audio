@@ -1031,6 +1031,9 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
     case AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
         *hal_dev_port = INPORT_BT_SCO_HEADSET_MIC;
         break;
+    case AUDIO_DEVICE_IN_BUS:
+        *hal_dev_port = INPORT_LOOPBACK;
+        break;
 
     default:
         if (AUDIO_DEVICE_BIT_IN & android_dev) {
@@ -1075,6 +1078,9 @@ enum patch_src_assortion android_input_dev_convert_to_hal_patch_src(audio_device
         break;
     case AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
         patch_src = SRC_BT_SCO_HEADSET_MIC;
+        break;
+    case AUDIO_DEVICE_IN_BUS:
+        patch_src = SRC_LOOPBACK;
         break;
     default:
         ALOGW("[%s:%d] unsupport input dev:%#x, return SRC_INVAL.", __func__, __LINE__, android_dev);

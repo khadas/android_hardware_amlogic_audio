@@ -229,8 +229,9 @@ enum patch_src_assortion {
     SRC_BUILTIN_MIC             = 7,
     SRC_BT_SCO_HEADSET_MIC      = 8,
     SRC_ARCIN                   = 9,
-    SRC_OTHER                   = 10,
-    SRC_INVAL                   = 11,
+    SRC_LOOPBACK                = 10,
+    SRC_OTHER                   = 11,
+    SRC_INVAL                   = 12,
 };
 
 enum OUT_PORT {
@@ -257,7 +258,8 @@ enum IN_PORT {
     INPORT_BUILTIN_MIC          = 6,
     INPORT_BT_SCO_HEADSET_MIC   = 7,
     INPORT_ARCIN                = 8,
-    INPORT_MAX                  = 9,
+    INPORT_LOOPBACK             = 9,
+    INPORT_MAX                  = 10,
 };
 
 struct audio_patch_set {
@@ -733,7 +735,7 @@ struct aml_stream_in {
     unsigned int requested_rate;
     uint32_t main_channels;
     bool standby;
-    int source;
+    audio_source_t source;
     struct echo_reference_itfe *echo_reference;
     bool need_echo_reference;
     effect_handle_t preprocessors[MAX_PREPROCESSORS];

@@ -134,6 +134,7 @@ struct output_port {
     size_t data_buf_frame_cnt;
     size_t data_buf_len;
     struct pcm *pcm_handle;
+    struct pcm *loopback_handle;
     enum port_state port_status;
     pthread_mutex_t lock;
     pthread_cond_t cond;

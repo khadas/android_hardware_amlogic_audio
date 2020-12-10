@@ -23,6 +23,7 @@
 #include <linux/ioctl.h>
 #include <sound/asound.h>
 #include <tinyalsa/asoundlib.h>
+#include <alsa_device_parser.h>
 
 #include "audio_port.h"
 #include "aml_ringbuffer.h"
@@ -505,7 +506,16 @@ static ssize_t output_port_start(struct output_port *port)
     }
     port->pcm_handle = pcm;
     port->port_status = ACTIVE;
-
+#ifdef USB_KARAOKE
+    card = alsa_device_get_card_index_by_name("Loopback");
+    /* Aloop out device id = 1 */
+    port->loopback_handle = pcm_open(card, 0, PCM_OUT, &pcm_cfg);
+    if (!pcm_is_ready(port->loopback_handle)) {
+        ALOGE("%s: cannot open loopback: %s", __func__, pcm_get_error(port->loopback_handle));
+        pcm_close (port->loopback_handle);
+        port->loopback_handle = NULL;
+    }
+#endif
     return 0;
 }
 
@@ -520,6 +530,12 @@ static int output_port_standby(struct output_port *port)
         port->port_status = STOPPED;
         pthread_mutex_unlock(&port->lock);
     }
+#ifdef USB_KARAOKE
+    if (port->loopback_handle) {
+        pcm_close(port->loopback_handle);
+        port->loopback_handle = NULL;
+    }
+#endif
     return 0;
 }
 
@@ -605,7 +621,11 @@ static ssize_t output_port_write_alsa(struct output_port *port, void *buffer, in
 
         ret = pcm_write(port->pcm_handle, (void *)buffer, bytes);
         if (ret == 0) {
-           written += bytes;
+            written += bytes;
+#ifdef USB_KARAOKE
+            if (port->loopback_handle)
+                pcm_write(port->loopback_handle, (void *)buffer, bytes);
+#endif
         } else {
            ALOGE("pcm_write failed ret = %d, pcm_get_error(out->pcm):%s",
                 ret, pcm_get_error(port->pcm_handle));

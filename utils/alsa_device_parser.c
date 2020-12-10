@@ -109,6 +109,19 @@ bool alsa_device_is_auge(void)
 
 	return false;
 }
+/** TODO: only for aloop test
+ *    Suppose that aloop card id =0,
+ *    if not, need way to parse.
+ */
+int alsa_device_get_card_index_by_name(void *name)
+{
+	if (!name)
+		return -1;
+	if (strcmp(name, "Loopback") == 0)
+		return 0;
+
+	return -1;
+}
 
 /*
  * cat /proc/asound/cards
@@ -154,7 +167,7 @@ int alsa_device_get_card_index()
 					isCardIndexFound = true;
 					p_aml_alsa_info->is_auge = 1;
 					break;
-				} else {
+				} else if (strcmp(Rch, CARD_NAME_MESON) == 0) {
 					ALOGD("\t meson sound cardIndex found = %d", mCardIndex);
 					isCardIndexFound = true;
 					p_aml_alsa_info->is_auge = 0;
