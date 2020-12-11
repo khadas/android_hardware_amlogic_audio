@@ -257,7 +257,7 @@ static int skt_write(struct audio_stream_out* stream, int fd, const void* p, siz
         count += sent;
         p = (const uint8_t*)p + sent;
     }
-    if ((aml_dev->is_TV) && (count != 0)) {
+    if ((aml_dev->is_TV) && aml_dev->audio_patching && (count != 0)) {
         uint64_t input_ns = 0;
         size_t frame_size;
         static uint64_t begin_ns = 0;
