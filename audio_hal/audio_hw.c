@@ -3409,9 +3409,6 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
 
         /*if need mute input source, don't read data from hardware anymore*/
         if (adev->mic_mute || in_mute || parental_mute || in->spdif_fmt_hw == SPDIFIN_AUDIO_TYPE_PAUSE || adev->source_mute) {
-            if (adev->in_device & AUDIO_DEVICE_IN_TV_TUNER) {
-                in->first_buffer_discard = true;
-            }
             memset(buffer, 0, bytes);
             unsigned int estimated_sched_time_us = 1000;
             uint64_t frame_duration = bytes * 1000000 / audio_stream_in_frame_size(stream) /
@@ -3460,12 +3457,6 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                     ALOGE("%s:%d pcm_read fail, ret:%s",__func__,__LINE__, strerror(errno));
                 }
                 goto exit;
-            }
-
-            if ((adev->in_device & AUDIO_DEVICE_IN_TV_TUNER) && in->first_buffer_discard) {
-                in->first_buffer_discard = false;
-                memset(buffer, 0, bytes);
-                ret = 0;
             }
         }
     }
@@ -4574,6 +4565,7 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
     if (ret >= 0) {
         bool is_linein_audio = strncmp(value, "linein", 6) == 0;
         bool is_hdmiin_audio = strncmp(value, "hdmi", 4) == 0;
+        bool is_tv_exit = strncmp(value, "TV_exit", 7) == 0;
         if (is_linein_audio || is_hdmiin_audio) {
 
             struct audio_patch *pAudPatchTmp = NULL;
@@ -4651,6 +4643,9 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
                 }
             }
 
+        } else if (is_tv_exit) {
+            adev->source_mute = true;
+            ALOGI("%s() fast exiting TV, mute the tv source", __func__);
         }
     }
 
@@ -6454,7 +6449,7 @@ static void output_mute(struct audio_stream_out *stream, size_t *output_buffer_b
             clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
             adev->patch_start = true;
             adev->mute_start = true;
-            adev->timer_in_ms = 200;
+            adev->timer_in_ms = 500;
             ALOGI ("%s() detect tv source start mute 200ms", __func__);
         }
     }
@@ -9618,12 +9613,6 @@ static int release_patch(struct aml_audio_device *aml_dev)
     pthread_mutex_lock(&aml_dev->patch_lock);
     release_patch_l(aml_dev);
     pthread_mutex_unlock(&aml_dev->patch_lock);
-    if (aml_dev->audio_ease) {
-        ALOGI("%s(), do fade out", __func__);
-        start_ease_out(aml_dev);
-        aml_dev->patch_start = false;
-        usleep(200*1000);
-    }
 
     return 0;
 }

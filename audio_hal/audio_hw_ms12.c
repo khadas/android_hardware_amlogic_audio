@@ -1645,7 +1645,7 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream) {
     ms12->last_frames_postion = 0;
 
     if (ms12->spdif_dec_handle) {
-        aml_spdif_decoder_reset(ms12->ac3_parser_handle);
+        aml_spdif_decoder_reset(ms12->spdif_dec_handle);
     }
 
     if (ms12->ac3_parser_handle) {
