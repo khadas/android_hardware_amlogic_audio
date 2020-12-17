@@ -8313,7 +8313,9 @@ dcv_rewrite:
                     spdif_config.audio_format = AUDIO_FORMAT_IEC61937;
                     spdif_config.sub_format   = adev->optical_format;
                     spdif_config.rate         = aml_out->config.rate;
-                    aml_audio_spdif_output(stream, (void *)ddp_dec->outbuf_raw, ddp_dec->outlen_raw, &spdif_config);
+                    if (adev->parental_control_av_mute == false) {
+                        aml_audio_spdif_output(stream, (void *)ddp_dec->outbuf_raw, ddp_dec->outlen_raw, &spdif_config);
+                    }
                 }
                 //now only TV ARC output is using single output. we are implementing the OTT HDMI output in this case.
                 // TODO  add OUTPUT_HDMI in this case
