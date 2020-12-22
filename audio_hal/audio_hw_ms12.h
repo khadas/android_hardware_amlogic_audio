@@ -89,7 +89,8 @@ int dolby_ms12_app_process(
 /*
  *@brief get dolby ms12 cleanup
  */
-int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12);
+int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous);
+
 
 /*
  *@brief set dolby ms12 primary gain

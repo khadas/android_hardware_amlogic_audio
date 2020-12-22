@@ -1080,7 +1080,7 @@ int dolby_ms12_app_process(
 /*
  *@brief get dolby ms12 cleanup
  */
-int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12)
+int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous)
 {
     int is_quit = 1;
     int i = 0;
@@ -1146,6 +1146,10 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12)
     }
     aml_ms12_bypass_close(ms12->ms12_bypass_handle);
     ms12->ms12_bypass_handle = NULL;
+    /*because we are still in lock, we can set continuous_audio_mode here safely*/
+    if (set_non_continuous) {
+        adev->continuous_audio_mode = 0;
+    }
     ALOGI("--%s(), locked", __FUNCTION__);
     pthread_mutex_unlock(&ms12->main_lock);
     pthread_mutex_unlock(&ms12->lock);
