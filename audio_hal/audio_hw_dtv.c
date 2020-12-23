@@ -105,7 +105,7 @@
 #define DEMUX_PCR_VPTS_LATENCY (500 * 90)
 #define LOOKUP_AC3_MIN_BYTES (512 * 3 * 6)
 #define LOOKUP_MPEG_MIN_BYTES (48 * 4 * 200)
-#define DTV_FADED_OUT_MS (50)
+#define DEFAULT_DTV_FADED_OUT_MS (100)
 #define DEFAULT_ARC_DELAY_MS (100)
 
 #define DEFAULT_DTV_OUTPUT_CLOCK    (1000*1000)
@@ -124,6 +124,7 @@
 #define PROPERTY_DTV_RESAMPLE_DISABLE   "media.dtv.resample.disable"
 #define PROPERTY_LOCAL_PASSTHROUGH_LATENCY  "media.dtv.passthrough.latencyms"
 #define PROPERTY_AUDIO_DISCONTINUE_THRESHOLD "media.audio.discontinue_threshold"
+#define PROPERTY_DTV_FADED_OUT_MS       "media.dtv.audio.fadedout.ms"
 #define AUDIO_EAC3_FRAME_SIZE 16
 #define AUDIO_AC3_FRAME_SIZE 4
 #define AUDIO_TV_PCM_FRAME_SIZE 32
@@ -807,11 +808,29 @@ exit:
 
 static void dtv_do_ease_out(struct aml_audio_device *aml_dev)
 {
-    if (aml_dev && aml_dev->audio_ease) {
-        ALOGI("%s(), do fade out", __func__);
-        start_ease_out(aml_dev);
-        //usleep(200 * 1000);
+    int time_ms = 0;
+    struct aml_audio_patch *patch;
+
+    if (aml_dev == NULL || aml_dev->audio_patch == NULL) {
+        ALOGI("[%s] paramter error\n", __FUNCTION__);
+        return;
     }
+    patch = aml_dev->audio_patch;
+    time_ms = property_get_int32(PROPERTY_DTV_FADED_OUT_MS, DEFAULT_DTV_FADED_OUT_MS);
+    if (time_ms > 200) {
+        time_ms = 200;
+    } else if (time_ms < 0) {
+        time_ms = 0;
+    }
+    pthread_mutex_lock(&patch->dtv_ease_mutex);
+    if (aml_dev->audio_ease && aml_dev->patch_start && patch->dtv_faded_out == 0) {
+        ALOGI("%s(), do fade out, %d ms, buffer size %d",
+            __FUNCTION__, time_ms, get_buffer_read_space(&patch->aml_ringbuffer));
+        start_ease_out(aml_dev);
+        usleep(time_ms * 1000);
+        patch->dtv_faded_out = 1;
+    }
+    pthread_mutex_unlock(&patch->dtv_ease_mutex);
 }
 
 static int dtv_get_tsync_mode(void)
@@ -3484,11 +3503,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 ALOGI("++%s live now  stop  the audio decoder now \n",
                       __FUNCTION__);
                 dtv_patch_input_stop(adec_handle);
-                if (patch->dtv_faded_out == 0) {
-                    dtv_do_ease_out(aml_dev);
-                    patch->dtv_faded_out = 1;
-                    usleep(DTV_FADED_OUT_MS * 1000);
-                }
+                dtv_do_ease_out(aml_dev);
                 dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK);
                 release_dtv_output_stream_thread(patch);
                 dtv_assoc_audio_stop(1);
@@ -3783,6 +3798,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     pthread_mutex_init(&patch->mutex, NULL);
     pthread_cond_init(&patch->cond, NULL);
     pthread_mutex_init(&patch->dtv_input_mutex, NULL);
+    pthread_mutex_init(&patch->dtv_ease_mutex, NULL);
 
     ret = ring_buffer_init(&(patch->aml_ringbuffer),
                            4 * period_size * PATCH_PERIOD_COUNT * 10);
@@ -3865,6 +3881,7 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
     release_dtvin_buffer(patch);
     dtv_assoc_deinit();
     ring_buffer_release(&(patch->aml_ringbuffer));
+    pthread_mutex_destroy(&patch->dtv_ease_mutex);
     aml_audio_free(patch);
     aml_dev->audio_patch = NULL;
     if (aml_dev->start_mute_flag != 0)
@@ -3900,11 +3917,8 @@ int release_dtv_patch(struct aml_audio_device *aml_dev)
 {
     int ret = 0;
     struct aml_audio_patch *patch = aml_dev->audio_patch;
-    if (patch && !patch->dtv_faded_out) {
-        dtv_do_ease_out(aml_dev);
-        patch->dtv_faded_out = 1;
-        usleep(DTV_FADED_OUT_MS * 1000);
-    }
+
+    dtv_do_ease_out(aml_dev);
     pthread_mutex_lock(&aml_dev->patch_lock);
     ret = release_dtv_patch_l(aml_dev);
     pthread_mutex_unlock(&aml_dev->patch_lock);

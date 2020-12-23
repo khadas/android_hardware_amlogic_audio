@@ -285,6 +285,7 @@ struct aml_audio_patch {
     int dtv_apts_diff;
     pthread_mutex_t dtv_output_mutex;
     pthread_mutex_t dtv_input_mutex;
+    pthread_mutex_t dtv_ease_mutex;
     pthread_mutex_t assoc_mutex;
     /*end dtv play*/
     // correspond to audio_patch:: audio_patch_handle_t id;
