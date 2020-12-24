@@ -7391,7 +7391,6 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                         aml_out->spdifout_handle = NULL;
                         set_stream_dual_output(stream, false);
                     }
-
                     ALOGI("dcv_decoder_release_patch release");
                 }
            }
@@ -7933,6 +7932,12 @@ hwsync_rewrite:
                     aml_out->spdifenc_init = false;
                 }
                 adev->spdif_encoder_init_flag = false;
+                if (aml_out->spdifout_handle) {
+                    ALOGI("[%s:%d] close spdif device", __func__, __LINE__);
+                    aml_audio_spdifout_close(aml_out->spdifout_handle);
+                    aml_out->spdifout_handle = NULL;
+                    set_stream_dual_output(stream, false);
+                }
             }
 
             if (cur_aformat == AUDIO_FORMAT_INVALID) {
