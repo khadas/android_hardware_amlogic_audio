@@ -2772,6 +2772,10 @@ int audio_dtv_patch_output_default(struct aml_audio_patch *patch,
             aml_out->hal_format = aml_out->hal_internal_format = patch->aformat;
             get_sink_format(stream_out);
         }
+        /*this is for LPCM audio,we will memset when tv mute flag set*/
+        if (aml_dev->tv_mute) {
+            memset(patch->out_buf, 0, ret);
+        }
         ret = out_write_new(stream_out, patch->out_buf, ret);
         patch->dtv_pcm_readed += ret;
         pthread_mutex_unlock(&(patch->dtv_output_mutex));
