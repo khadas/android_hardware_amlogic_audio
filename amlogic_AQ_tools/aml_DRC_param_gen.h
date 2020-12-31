@@ -20,9 +20,11 @@
 #ifdef __cplusplus
 extern "C"  {
 #endif
-int setcsfilter_drc(unsigned int band_id,unsigned int fc);
-int setmb_drc(unsigned int band_id,unsigned int attrack_time,unsigned int release_time,unsigned int estimate_time,float K,float threshold);
-int setfb_drc(unsigned int band_id,unsigned int attrack_time,unsigned int release_time,unsigned int estimate_time,float K,float threshold,unsigned int delays);
+int setcsfilter_drc(unsigned int band_id, unsigned int fc);
+int setmb_drc(unsigned int band_id, unsigned int attrack_time, unsigned int release_time,
+              unsigned int estimate_time, float K, float threshold);
+int setfb_drc(unsigned int band_id, unsigned int attrack_time, unsigned int release_time,
+              unsigned int estimate_time, float K, float threshold, unsigned int delays);
 #ifdef __cplusplus
 }
 #endif

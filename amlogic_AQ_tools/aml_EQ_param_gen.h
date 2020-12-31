@@ -20,8 +20,7 @@
 #ifdef __cplusplus
 extern "C"  {
 #endif
-int setpar_eq(double G,double Q,unsigned int fc,unsigned int type,unsigned int band_id);
-
+int setpar_eq(double G, double Q, unsigned int fc, unsigned int type, unsigned int band_id);
 #ifdef __cplusplus
 }
 #endif

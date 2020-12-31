@@ -302,8 +302,10 @@ static int ext_table_set(struct audio_data_s *table, int card, char *name)
     }
 
     ptr = (unsigned int *)param_buf;
-    ptr[0] = 0;
-    ptr[1] = tlv_size;
+    if (mixer_ctl_is_access_tlv_rw(ctl)) {
+        ptr[0] = 0;
+        ptr[1] = tlv_size;
+    }
 
     ALOGD("%s: param_count = %d, name = %s, tlv_header_size = %d",
             __FUNCTION__, tlv_size, name, tlv_header_size);
