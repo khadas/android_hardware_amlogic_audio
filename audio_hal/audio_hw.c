@@ -10226,9 +10226,6 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
         }
         aml_dev->audio_patching = 0;
         aml_dev->patch_src = SRC_INVAL;
-        if (aml_dev->is_TV) {
-            aml_dev->parental_control_av_mute = false;
-        }
     }
 
     if (patch->sources[0].type == AUDIO_PORT_TYPE_DEVICE
