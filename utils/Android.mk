@@ -38,7 +38,8 @@ LOCAL_SRC_FILES  +=               \
     aml_hw_mixer.c                \
     aml_malloc_debug.c            \
     earc_utils.c                  \
-    aml_android_hidl_utils.cpp
+    aml_android_hidl_utils.cpp    \
+    aml_echo_reference.c
 
 LOCAL_MODULE := libamaudioutils
 

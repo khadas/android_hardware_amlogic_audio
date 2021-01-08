@@ -235,9 +235,10 @@ enum patch_src_assortion {
     SRC_BUILTIN_MIC             = 7,
     SRC_BT_SCO_HEADSET_MIC      = 8,
     SRC_ARCIN                   = 9,
-    SRC_LOOPBACK                = 10,
-    SRC_OTHER                   = 11,
-    SRC_INVAL                   = 12,
+    SRC_USB                     = 10,
+    SRC_LOOPBACK                = 11,
+    SRC_OTHER                   = 12,
+    SRC_INVAL                   = 13
 };
 
 enum OUT_PORT {
@@ -264,8 +265,9 @@ enum IN_PORT {
     INPORT_BUILTIN_MIC          = 6,
     INPORT_BT_SCO_HEADSET_MIC   = 7,
     INPORT_ARCIN                = 8,
-    INPORT_LOOPBACK             = 9,
-    INPORT_MAX                  = 10,
+    INPORT_USB                  = 9,
+    INPORT_LOOPBACK             = 10,
+    INPORT_MAX                  = 11
 };
 
 struct audio_patch_set {

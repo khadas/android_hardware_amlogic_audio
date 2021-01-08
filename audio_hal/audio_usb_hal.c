@@ -226,6 +226,14 @@ static int in_standby(struct audio_stream *stream)
     struct usb_audio_device *usb_device = in->adev;
     struct kara_manager *karaoke = &usb_device->karaoke;
 
+    if (in->echo_reference) {
+        ALOGD("%s() - stop echo_reference", __func__);
+        /* stop reading from echo reference */
+        in->echo_reference->read(in->echo_reference, NULL);
+        put_echo_reference(karaoke, in->echo_reference);
+        in->echo_reference = NULL;
+    }
+
     if (karaoke->karaoke_on || karaoke->karaoke_start) {
         ALOGI("%s stop karaoke record!", __func__);
         return 0;
@@ -321,6 +329,37 @@ static char * in_get_parameters(const struct audio_stream *stream, const char *k
     return params_str;
 }
 
+static int read_from_kara_buffer(struct audio_stream_in *stream, void *buffer, size_t bytes)
+{
+    struct stream_in *in = (struct stream_in *)stream;
+    struct usb_audio_device *usb_device = in->adev;
+    struct kara_manager *kara = &usb_device->karaoke;
+    int rate_req = proxy_get_sample_rate(&in->proxy);
+    int channels_req = proxy_get_channel_count(&in->proxy);
+    int frames = bytes / channels_req / 2; // suppose 16bit
+    int ret;
+
+    if (!in->echo_reference) {
+        in->echo_reference = get_echo_reference(kara,
+                AUDIO_FORMAT_PCM_16_BIT,
+                channels_req, rate_req);
+    }
+
+    if (in->echo_reference) {
+        struct echo_reference_buffer b;
+        memset(&b, 0, sizeof(b));
+
+        b.raw = buffer;
+        b.frame_count = frames;
+
+        in->echo_reference->read(in->echo_reference, &b);
+    } else {
+        memset(buffer, 0, bytes);
+    }
+
+    return bytes;
+}
+
 /* must be called with hw device and output stream mutexes locked */
 static int start_input_stream(struct stream_in *in)
 {
@@ -336,7 +375,6 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     void * read_buff = buffer;
     void * out_buff = buffer;
     int ret = 0;
-
     struct stream_in * in = (struct stream_in *)stream;
     struct usb_audio_device *usb_device = in->adev;
     struct aml_audio_device *adev = (struct aml_audio_device *)usb_device->adev_primary;
@@ -351,13 +389,8 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             karaoke->karaoke_enable = true;
             ALOGD("karaoke is on, audio record steam do standby!");
         }
-        if (karaoke->read) {
-            ret = karaoke->read(karaoke, buffer, bytes);
-        } else {
-            memset(buffer, 0, bytes);
-            ret = bytes;
-        }
-        return ret;
+
+        return read_from_kara_buffer(stream, buffer, bytes);
     }
 
     stream_lock(&in->lock);
@@ -445,9 +478,11 @@ int adev_open_usb_input_stream(struct usb_audio_device *hw_dev,
     }
 
     /* if karaoke is enable, free hardware for usb hal */
-    karaoke->karaoke_enable = false;
-    if (karaoke->close)
-        karaoke->close(karaoke);
+    if (karaoke->karaoke_enable) {
+        karaoke->karaoke_enable = false;
+        if (karaoke->close)
+            karaoke->close(karaoke);
+    }
 
     struct stream_in * const in = (struct stream_in *)calloc(1, sizeof(struct stream_in));
     if (in == NULL) {

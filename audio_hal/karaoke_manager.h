@@ -21,8 +21,9 @@
 #include <alsa_device_profile.h>
 #include <alsa_device_proxy.h>
 #include <pthread.h>
-
 #include <aml_ringbuffer.h>
+#include <aml_echo_reference.h>
+
 #include "sub_mixing_factory.h"
 
 struct audioCfg;
@@ -47,6 +48,7 @@ struct kara_manager {
     void *buf;
     size_t buf_len;
     ring_buffer_t mic_buffer;
+    struct echo_reference_itfe *echo_reference;
     int (*open)(struct kara_manager *in, struct audioCfg *cfg);
     int (*close)(struct kara_manager *in);
     /* mixer audio data to output */
@@ -56,5 +58,12 @@ struct kara_manager {
 };
 
 int karaoke_init(struct kara_manager *karaoke, alsa_device_profile *profile);
+void put_echo_reference(struct kara_manager *kara,
+                          struct echo_reference_itfe *reference);
+
+struct echo_reference_itfe *get_echo_reference(struct kara_manager *kara,
+        audio_format_t format,
+        uint32_t channel_count,
+        uint32_t sampling_rate);
 
 #endif

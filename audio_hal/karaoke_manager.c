@@ -219,8 +219,18 @@ static int kara_mix_micphone(struct kara_manager *kara, void *buf, size_t bytes)
         }
         /* mixer to output */
         do_mixing_2ch(buf, kara->buf, frames, in->cfg, in->cfg);
-        if (get_buffer_write_space(&kara->mic_buffer) >= (int)bytes) {
-            ring_buffer_write(&kara->mic_buffer, kara->buf, bytes, UNCOVER_WRITE);
+        if (kara->echo_reference != NULL) {
+            struct echo_reference_buffer b;
+
+            b.raw = (void *)kara->buf;
+            b.frame_count = frames;
+            clock_gettime(CLOCK_REALTIME, &b.time_stamp);
+            b.delay_ns = 0;
+            kara->echo_reference->write(kara->echo_reference, &b);
+
+            if (in->debug) {
+                aml_audio_dump_audio_bitstreams("/data/tmp/kara.raw", kara->buf, bytes);
+            }
         }
     }
     pthread_mutex_unlock(&kara->lock);
@@ -243,3 +253,66 @@ int karaoke_init(struct kara_manager *karaoke, alsa_device_profile *profile)
 
     return 0;
 }
+
+static void add_echo_reference(struct kara_manager *kara,
+                               struct echo_reference_itfe *reference)
+{
+    pthread_mutex_lock(&kara->lock);
+    kara->echo_reference = reference;
+    pthread_mutex_unlock(&kara->lock);
+}
+
+static void remove_echo_reference(struct kara_manager *kara,
+                                  struct echo_reference_itfe *reference)
+{
+    pthread_mutex_lock(&kara->lock);
+    if (kara->echo_reference == reference) {
+        /* stop writing to echo reference */
+        reference->write(reference, NULL);
+        kara->echo_reference = NULL;
+    }
+    pthread_mutex_unlock(&kara->lock);
+}
+
+void put_echo_reference(struct kara_manager *kara,
+                          struct echo_reference_itfe *reference)
+{
+    if (kara->echo_reference != NULL &&
+            reference == kara->echo_reference) {
+        remove_echo_reference(kara, reference);
+        aml_release_echo_reference(reference);
+        kara->echo_reference = NULL;
+    }
+}
+
+struct echo_reference_itfe *get_echo_reference(struct kara_manager *kara,
+        audio_format_t format,
+        uint32_t channel_count,
+        uint32_t sampling_rate)
+{
+    struct echo_reference_itfe *echo = NULL;
+
+    put_echo_reference(kara, kara->echo_reference);
+    if (kara->karaoke_start) {
+        uint32_t wr_channel_count = 2;//proxy_get_channel_count(&kara->in.proxy);
+        uint32_t wr_sampling_rate = 48000;//proxy_get_sample_rate(&kara->in.proxy);
+        ALOGI("%s() rd channel %d, rate %d, wr channel %d rate %d",
+            __func__, channel_count, sampling_rate,
+            wr_channel_count, wr_sampling_rate);
+
+        int status = aml_create_echo_reference(AUDIO_FORMAT_PCM_16_BIT,
+                channel_count,
+                sampling_rate,
+                format,
+                wr_channel_count,
+                wr_sampling_rate,
+                &echo);
+        if (status == 0) {
+            add_echo_reference(kara, echo);
+            ALOGI("%s() sucess", __func__);
+        }
+    }
+
+    return echo;
+}
+

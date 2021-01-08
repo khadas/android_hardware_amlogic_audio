@@ -81,6 +81,8 @@
                                           * they could come from here too if
                                           * there was a previous conversion */
      size_t conversion_buffer_size;      /* in bytes */
+
+     struct echo_reference_itfe *echo_reference;
  };
 
 int adev_open_usb_input_stream(struct usb_audio_device *hw_dev,

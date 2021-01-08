@@ -115,12 +115,38 @@ bool alsa_device_is_auge(void)
  */
 int alsa_device_get_card_index_by_name(void *name)
 {
+	FILE *mCardFile = NULL;
+	int mCardIndex = -1;
+
 	if (!name)
 		return -1;
-	if (strcmp(name, "Loopback") == 0)
-		return 0;
 
-	return -1;
+	mCardFile = fopen(ALSASOUND_CARD_PATH, "r");
+	if (mCardFile) {
+		char tempbuffer[READ_BUFFER_SIZE];
+
+		while (!feof(mCardFile)) {
+			fgets(tempbuffer, READ_BUFFER_SIZE, mCardFile);
+
+			/* this line contain '[' character */
+			if (strchr(tempbuffer, '[')) {
+				char *Rch = strtok(tempbuffer, "[");
+				int id = atoi(Rch);
+				ALOGD("\tcurrent card id = %d, Rch = %s", id, Rch);
+				Rch = strtok(NULL, " ]");
+				ALOGD("\tcurrent sound card name = %s", Rch);
+				if (strcmp(Rch, name) == 0) {
+					ALOGD("\t sound cardIndex found = %d", id);
+					mCardIndex = id;
+					break;
+				}
+			}
+
+			memset((void *)tempbuffer, 0, READ_BUFFER_SIZE);
+		}
+	}
+
+	return mCardIndex;
 }
 
 /*

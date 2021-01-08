@@ -4142,7 +4142,9 @@ const char* inport2String(enum IN_PORT enInPort)
         "[0x6]BUILTIN_MICIN",
         "[0x7]BT_SCO_HEADSET_MICIN",
         "[0x8]ARCIN",
-        "[0x9]MAX"
+        "[9]USB",
+        "[10]LOOPBACK",
+        "[11]MAX"
     };
     return apcInPort[enInPort];
 }
@@ -4243,6 +4245,7 @@ static int aml_audio_input_routing(struct audio_hw_device *dev,
         case INPORT_REMOTE_SUBMIXIN:
         case INPORT_LINEIN:
         case INPORT_WIRED_HEADSETIN:
+        case INPORT_USB:
         case INPORT_LOOPBACK:
             break;
         default:
