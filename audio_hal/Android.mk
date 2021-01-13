@@ -127,7 +127,8 @@ include $(BUILD_PREBUILT)
         vendor/amlogic/common/external/dvb/include/am_adp \
         frameworks/av/include \
         $(LOCAL_PATH)/../amlogic_AQ_tools \
-        $(LOCAL_PATH)/../amlogic_AQ_tools/ini
+        $(LOCAL_PATH)/../amlogic_AQ_tools/ini \
+        $(LOCAL_PATH)/../utils/Reverb
 
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/lib_aml_ng.a
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/Amlogic_EQ_Param_Generator.a
@@ -144,7 +145,8 @@ include $(BUILD_PREBUILT)
         libnano \
         libdtvad \
         libion \
-        libalsautils
+        libalsautils \
+        libamlreverb
 
 ifeq ($(BOARD_COMPILE_IN_SYSTEM), true)
     LOCAL_SHARED_LIBRARIES += libam_adp_vendor

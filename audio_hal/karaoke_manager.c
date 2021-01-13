@@ -24,6 +24,7 @@
 #include "audio_hw_utils.h"
 #include "karaoke_manager.h"
 #include "aml_volume_utils.h"
+#include "EffectReverb.h"
 
 #define USB_DEFAULT_PERIOD_SIZE 512
 #define USB_DEFAULT_PERIOD_COUNT 2
@@ -215,6 +216,10 @@ static int kara_mix_micphone(struct kara_manager *kara, void *buf, size_t bytes)
         if (kara->kara_mic_mute) {
             memset(kara->buf, 0, bytes);
         } else {
+            if (kara->reverb_enable) {
+                Set_AML_Reverb_Mode(kara->reverb_handle, kara->reverb_mode);
+                AML_Reverb_Process(kara->reverb_handle, kara->buf, kara->buf, bytes >> 2);
+            }
             apply_volume(kara->kara_mic_gain, kara->buf, 2, bytes);
         }
         /* mixer to output */
@@ -240,6 +245,8 @@ static int kara_mix_micphone(struct kara_manager *kara, void *buf, size_t bytes)
 
 int karaoke_init(struct kara_manager *karaoke, alsa_device_profile *profile)
 {
+    int ret;
+
     if (!karaoke || !profile) {
         return -EINVAL;
     }
@@ -250,6 +257,13 @@ int karaoke_init(struct kara_manager *karaoke, alsa_device_profile *profile)
     karaoke->close = kara_close_micphone;
     karaoke->mix = kara_mix_micphone;
     karaoke->in.in_profile = profile;
+    if (!karaoke->reverb_handle) {
+        ret = AML_Reverb_Init(&karaoke->reverb_handle);
+        if (ret < 0) {
+            ALOGE("%s() int Reverb Error!", __func__);
+            return -EINVAL;
+        }
+    }
 
     return 0;
 }

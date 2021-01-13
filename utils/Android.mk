@@ -65,3 +65,5 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS += -DBUILD_IN_ANDROID
 
 include $(BUILD_SHARED_LIBRARY)
+
+include $(LOCAL_PATH)/Reverb/Android.mk

@@ -5260,6 +5260,20 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         ALOGI("[%s]Set usb mic volume: %f dB", __func__, karaoke_mic_volume);
         goto exit;
     }
+    ret = str_parms_get_int(parms, "karaoke_reverb_enable", &val);
+    if (ret >= 0) {
+        bool reverb_enable = !!val;
+        adev->usb_audio.karaoke.reverb_enable = reverb_enable;
+        ALOGI("[%s]Set usb mic reverb enable: %d", __FUNCTION__, reverb_enable);
+        goto exit;
+    }
+    ret = str_parms_get_int(parms, "karaoke_reverb_mode", &val);
+    if (ret >= 0) {
+        int reverb_mode = val;
+        adev->usb_audio.karaoke.reverb_mode = reverb_mode;
+        ALOGI("[%s]Set usb mic reverb mode: %d", __FUNCTION__, reverb_mode);
+        goto exit;
+    }
 #endif
 
     ret = str_parms_get_str(parms, "bypass_dap", value, sizeof(value));

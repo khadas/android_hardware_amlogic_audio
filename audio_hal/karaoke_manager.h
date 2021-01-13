@@ -55,6 +55,10 @@ struct kara_manager {
     int (*mix)(struct kara_manager *in, void *buffer, size_t bytes);
     /* read data from ringbuffer */
     ssize_t (*read)(struct kara_manager *in, void *buffer, size_t bytes);
+    /* reverb for mic */
+    void *reverb_handle;
+    bool reverb_enable;
+    int reverb_mode;
 };
 
 int karaoke_init(struct kara_manager *karaoke, alsa_device_profile *profile);
