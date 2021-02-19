@@ -508,13 +508,17 @@ static ssize_t output_port_start(struct output_port *port)
     port->pcm_handle = pcm;
     port->port_status = ACTIVE;
 #ifdef USB_KARAOKE
-    card = alsa_device_get_card_index_by_name("Loopback");
-    /* Aloop out device id = 1 */
-    port->loopback_handle = pcm_open(card, 0, PCM_OUT, &pcm_cfg);
-    if (!pcm_is_ready(port->loopback_handle)) {
-        ALOGE("%s: cannot open loopback: %s", __func__, pcm_get_error(port->loopback_handle));
-        pcm_close (port->loopback_handle);
-        port->loopback_handle = NULL;
+    struct kara_manager *karaoke = port->kara;
+
+    if (karaoke && karaoke->karaoke_on && karaoke->karaoke_enable) {
+        card = alsa_device_get_card_index_by_name("Loopback");
+        port->loopback_handle = pcm_open(card, 0, PCM_OUT, &pcm_cfg);
+        if (!pcm_is_ready(port->loopback_handle)) {
+            ALOGE("%s: cannot open loopback: %s", __func__,
+                    pcm_get_error(port->loopback_handle));
+            pcm_close (port->loopback_handle);
+            port->loopback_handle = NULL;
+        }
     }
 #endif
     return 0;
