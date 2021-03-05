@@ -1614,7 +1614,7 @@ int Reverb_paramValueSize(int32_t param) {
     return sizeof(int32_t);
 }
 
-int AML_Reverb_Init(void **reverb_handle)
+int ANDROID_Reverb_Init(void **reverb_handle)
 {
     struct ReverbContext *pContext;
     int ret;
@@ -1649,7 +1649,7 @@ int AML_Reverb_Init(void **reverb_handle)
     return 0;
 }
 
-int AML_Reverb_Process(void *reverb_handle, int16_t *inBuffer, int16_t *outBuffer, int frameCount)
+int ANDROID_Reverb_Process(void *reverb_handle, int16_t *inBuffer, int16_t *outBuffer, int frameCount)
 {
     struct ReverbContext *pContext = (struct ReverbContext *)reverb_handle;
     int    status = 0;
@@ -1679,7 +1679,7 @@ int AML_Reverb_Process(void *reverb_handle, int16_t *inBuffer, int16_t *outBuffe
     return status;
 }
 
-int AML_Reverb_Release(void *reverb_handle)
+int ANDROID_Reverb_Release(void *reverb_handle)
 {
     struct ReverbContext *pContext = (struct ReverbContext *)reverb_handle;
 
@@ -1698,7 +1698,7 @@ int AML_Reverb_Release(void *reverb_handle)
     return 0;
 }
 
-void Set_AML_Reverb_Mode(void *reverb_handle, t_reverb_presets mode)
+void ANDROID_Reverb_Set_Mode(void *reverb_handle, t_reverb_presets mode)
 {
     struct ReverbContext *pContext = (struct ReverbContext *)reverb_handle;
 

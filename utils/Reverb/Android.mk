@@ -7,7 +7,8 @@ LOCAL_ARM_MODE := arm
 
 LOCAL_VENDOR_MODULE := true
 LOCAL_SRC_FILES:= \
-    EffectReverb.c
+    EffectReverb.c \
+    reverb.c
 
 LOCAL_CFLAGS += -Wall -Werror
 

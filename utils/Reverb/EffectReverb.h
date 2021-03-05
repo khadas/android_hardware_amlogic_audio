@@ -37,9 +37,9 @@ typedef enum
     REVERB_PRESET_LAST = REVERB_PRESET_PLATE
 } t_reverb_presets;
 
-int AML_Reverb_Init(void **reverb_handle);
-int AML_Reverb_Process(void *reverb_handle, int16_t *inBuffer, int16_t *outBuffer, int frameCount);
-int AML_Reverb_Release(void *reverb_handle);
-void Set_AML_Reverb_Mode(void *reverb_handle, t_reverb_presets mode);
+int ANDROID_Reverb_Init(void **reverb_handle);
+int ANDROID_Reverb_Process(void *reverb_handle, int16_t *inBuffer, int16_t *outBuffer, int frameCount);
+int ANDROID_Reverb_Release(void *reverb_handle);
+void ANDROID_Reverb_Set_Mode(void *reverb_handle, t_reverb_presets mode);
 
 #endif /*ANDROID_EFFECTREVERB_H_*/

@@ -25,6 +25,7 @@
 #include "karaoke_manager.h"
 #include "aml_volume_utils.h"
 #include "EffectReverb.h"
+#include "reverb.h"
 
 #define USB_DEFAULT_PERIOD_SIZE 512
 #define USB_DEFAULT_PERIOD_COUNT 2
@@ -39,8 +40,8 @@ static ssize_t voice_in_read(struct voice_in *in, void *buffer, size_t bytes)
     int ret = 0;
 
     if (num_device_channels != num_req_channels) {
-        ALOGV("%s() device channels: %d, req channels: %d",
-            __func__, num_device_channels, num_req_channels);
+        //ALOGV("%s() device channels: %d, req channels: %d",
+        //    __func__, num_device_channels, num_req_channels);
         num_read_buff_bytes = (num_device_channels * num_read_buff_bytes) / num_req_channels;
     }
 
@@ -58,6 +59,7 @@ static ssize_t voice_in_read(struct voice_in *in, void *buffer, size_t bytes)
     ret = proxy_read(&in->proxy, read_buff, num_read_buff_bytes);
     if (ret == 0) {
         //ALOGV("%s(), num_read_buff_bytes %d", __func__, num_read_buff_bytes);
+        in->debug = getprop_bool("media.audiohal.usb.karaoke");
         if (in->debug) {
             aml_audio_dump_audio_bitstreams("/data/tmp/karaoke_usb.raw", read_buff, num_read_buff_bytes);
         }
@@ -142,12 +144,17 @@ static int kara_open_micphone(struct kara_manager *kara, struct audioCfg *cfg)
         goto err;
     }
 
-    ALOGI("%s() open configs: channels %d format %d rate %d",
-          __func__, proxy_config.channels, proxy_config.format, proxy_config.rate);
+    ALOGI("%s() open configs: channels %d, format %d, rate %d, period size %d, period count %d",
+          __func__, proxy_config.channels, proxy_config.format, proxy_config.rate,
+          proxy_config.period_size, proxy_config.period_count);
 
     ALOGV("%s() mixer port configs: channels %d, format %d, rate %d, frame_size %d",
           __func__, in->cfg.channelCnt, in->cfg.format,
           in->cfg.sampleRate, in->cfg.frame_size);
+
+    ALOGV("%s() alsa proxy configs: channels %d, format %d, rate %d, period size %d, period count %d",
+          __func__, in->proxy.alsa_config.channels, in->proxy.alsa_config.format, in->proxy.alsa_config.rate,
+          in->proxy.alsa_config.period_size, in->proxy.alsa_config.period_count);
 
     ret = proxy_open(&in->proxy);
     if (ret < 0) {
@@ -216,11 +223,16 @@ static int kara_mix_micphone(struct kara_manager *kara, void *buf, size_t bytes)
         if (kara->kara_mic_mute) {
             memset(kara->buf, 0, bytes);
         } else {
-            if (kara->reverb_enable) {
-                Set_AML_Reverb_Mode(kara->reverb_handle, kara->reverb_mode);
-                AML_Reverb_Process(kara->reverb_handle, kara->buf, kara->buf, bytes >> 2);
-            }
             apply_volume(kara->kara_mic_gain, kara->buf, 2, bytes);
+            if (kara->reverb_enable) {
+#ifdef ANDROID_REVERB
+                ANDROID_Reverb_Set_Mode(kara->reverb_handle, kara->reverb_mode);
+                ANDROID_Reverb_Process(kara->reverb_handle, kara->buf, kara->buf, bytes >> 2);
+#else
+                AML_Reverb_Set_Mode(kara->reverb_handle, kara->reverb_mode);
+                AML_Reverb_Process(kara->reverb_handle, kara->buf, kara->buf, bytes >> 2);
+#endif
+            }
         }
         /* mixer to output */
         do_mixing_2ch(buf, kara->buf, frames, in->cfg, in->cfg);
@@ -232,10 +244,9 @@ static int kara_mix_micphone(struct kara_manager *kara, void *buf, size_t bytes)
             clock_gettime(CLOCK_REALTIME, &b.time_stamp);
             b.delay_ns = 0;
             kara->echo_reference->write(kara->echo_reference, &b);
-
-            if (in->debug) {
-                aml_audio_dump_audio_bitstreams("/data/tmp/kara.raw", kara->buf, bytes);
-            }
+        }
+        if (in->debug) {
+            aml_audio_dump_audio_bitstreams("/data/tmp/karaoke_output.raw", buf, frames << 2);
         }
     }
     pthread_mutex_unlock(&kara->lock);
@@ -258,7 +269,11 @@ int karaoke_init(struct kara_manager *karaoke, alsa_device_profile *profile)
     karaoke->mix = kara_mix_micphone;
     karaoke->in.in_profile = profile;
     if (!karaoke->reverb_handle) {
+#ifdef ANDROID_REVERB
+        ret = ANDROID_Reverb_Init(&karaoke->reverb_handle);
+#else
         ret = AML_Reverb_Init(&karaoke->reverb_handle);
+#endif
         if (ret < 0) {
             ALOGE("%s() int Reverb Error!", __func__);
             return -EINVAL;
