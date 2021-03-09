@@ -531,7 +531,7 @@ static int output_port_standby(struct output_port *port)
         ALOGI("%s()", __func__);
         pthread_mutex_lock(&port->lock);
         pcm_close(pcm);
-        pcm = NULL;
+        port->pcm_handle = NULL;
         port->port_status = STOPPED;
         pthread_mutex_unlock(&port->lock);
     }
@@ -624,6 +624,9 @@ static ssize_t output_port_write_alsa(struct output_port *port, void *buffer, in
     pthread_mutex_lock(&port->lock);
     do {
         int written = 0;
+
+        if (!port->pcm_handle)
+            break;
 
         ret = pcm_write(port->pcm_handle, (void *)buffer, bytes);
         if (ret == 0) {
