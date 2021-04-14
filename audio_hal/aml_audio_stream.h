@@ -279,6 +279,9 @@ struct aml_audio_patch {
     unsigned int last_pcrpts;
     unsigned int show_first_frame;
     dtv_avsync_process_cb avsync_callback;
+    unsigned long drop_size; //drop size
+    bool  drop_state;  // 0: no need drop; 1: droping data; 2:drop over
+    unsigned int get_firstvpts_count;
     int dtv_faded_out;
     int dtv_ac3_fmsize;
     int dtv_disable_tune_latency;
