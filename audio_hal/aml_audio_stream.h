@@ -93,6 +93,7 @@ static inline bool is_digital_raw_format(audio_format_t format)
     switch (format) {
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3:
+    case AUDIO_FORMAT_E_AC3_JOC:
     case AUDIO_FORMAT_DTS:
     case AUDIO_FORMAT_DTS_HD:
     case AUDIO_FORMAT_DOLBY_TRUEHD:
@@ -107,6 +108,7 @@ static inline bool is_dolby_format(audio_format_t format) {
     switch (format) {
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3:
+    case AUDIO_FORMAT_E_AC3_JOC:
     case AUDIO_FORMAT_DOLBY_TRUEHD:
         return true;
     default:

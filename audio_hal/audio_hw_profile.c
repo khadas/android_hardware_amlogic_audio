@@ -111,6 +111,7 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
             }
             if (mystrstr(infobuf, "ATMOS")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3_JOC");
+                p_hdmi_descs->ddp_fmt.is_support = 1;
             }
             if (mystrstr(infobuf, "AC-3")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC3");
@@ -146,6 +147,8 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
                        (mystrstr(infobuf, "Dobly_Digital+") && format == AUDIO_FORMAT_AC3)||
                        (mystrstr(infobuf, "DTS") && format == AUDIO_FORMAT_DTS)) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_CHANNEL_OUT_PENTA|AUDIO_CHANNEL_OUT_5POINT1");
+            }  else if (mystrstr(infobuf, "ATMOS") && format == AUDIO_FORMAT_E_AC3_JOC) {
+                size += sprintf(aud_cap + size, "|%s", "AUDIO_CHANNEL_OUT_5POINT1|AUDIO_CHANNEL_OUT_7POINT1");
             }
         } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
             ALOGD("query hdmi sample_rate...\n");
