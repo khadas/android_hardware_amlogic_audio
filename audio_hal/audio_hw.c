@@ -5247,6 +5247,11 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
     if (ret >= 0) {
         bool karaoke_on = !!val;
         adev->usb_audio.karaoke.karaoke_on = karaoke_on;
+        if (karaoke_on) {
+            submixing_set_thread_priority(adev, "amlAudioMixer16", SCHED_FIFO);
+        } else {
+            submixing_set_thread_priority(adev, "amlAudioMixer16", SCHED_NORMAL);
+        }
         ALOGI("[%s]Set usb karaoke: %d", __FUNCTION__, karaoke_on);
         goto exit;
     }

@@ -81,7 +81,7 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
 enum patch_src_assortion android_input_dev_convert_to_hal_patch_src(audio_devices_t android_dev);
 enum input_source android_input_dev_convert_to_hal_input_src(audio_devices_t android_dev);
 int alsa_device_get_port_index(alsa_device_t alsa_device);
-int aml_set_thread_priority(char *pName, pthread_t threadId);
+int aml_set_thread_priority(char *pName, pthread_t threadId, int sched_type);
 bool is_multi_channel_pcm(struct audio_stream_out *stream);
 bool is_high_rate_pcm(struct audio_stream_out *stream);
 bool is_disable_ms12_continuous(struct audio_stream_out *stream);

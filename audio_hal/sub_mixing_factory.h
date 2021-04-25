@@ -97,5 +97,6 @@ void subMixingDump(int s32Fd, const struct aml_audio_device *pstAmlDev);
 
 /* set karaoke to submixer*/
 int subMixingSetKaraoke(struct aml_audio_device *adev, struct kara_manager *kara);
+int submixing_set_thread_priority(struct aml_audio_device *adev, char *pName, int sched_type);
 
 #endif /* _SUB_MIXING_FACTORY_H_ */

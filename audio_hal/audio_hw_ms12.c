@@ -1530,7 +1530,7 @@ static void *dolby_ms12_threadloop(void *data)
     }
 
     prctl(PR_SET_NAME, (unsigned long)"DOLBY_MS12");
-    aml_set_thread_priority("DOLBY_MS12", pthread_self());
+    aml_set_thread_priority("DOLBY_MS12", pthread_self(), SCHED_FIFO);
 
     cpu_set_t cpuSet;
     CPU_ZERO(&cpuSet);

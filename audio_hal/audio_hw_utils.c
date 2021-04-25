@@ -1136,13 +1136,16 @@ int alsa_device_get_port_index(alsa_device_t alsa_device)
     return alsa_port;
 }
 
-int aml_set_thread_priority(char *pName, pthread_t threadId)
+int aml_set_thread_priority(char *pName, pthread_t threadId, int sched_type)
 {
     struct sched_param  params = {0};
     int                 ret = 0;
-    int                 policy = SCHED_FIFO; /* value:1 [pthread.h] */
-    params.sched_priority = 5;
-    ret = pthread_setschedparam(threadId, SCHED_FIFO, &params);
+    int                 policy = sched_type; /* value:1 [pthread.h] */
+    if (sched_type == SCHED_NORMAL)
+        params.sched_priority = 0;
+    else
+        params.sched_priority = 5;
+    ret = pthread_setschedparam(threadId, policy, &params);
     if (ret != 0) {
         ALOGW("[%s:%d] set scheduled param error, ret:%#x", __func__, __LINE__, ret);
     }

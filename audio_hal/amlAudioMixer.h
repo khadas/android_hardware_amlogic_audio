@@ -109,6 +109,7 @@ struct pcm * get_mixer_output_pcm_handle(struct amlAudioMixer *audio_mixer, enum
 void mixer_dump(int s32Fd, const struct aml_audio_device *pstAmlDev);
 /* usb karaoke for hal mixer */
 int mixer_set_karaoke(struct amlAudioMixer *audio_mixer, struct kara_manager *kara);
+int mixer_set_thread_priority(struct amlAudioMixer *audio_mixer, char *pName, int sched_type);
 
 __END_DECLS
 
