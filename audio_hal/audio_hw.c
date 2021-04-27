@@ -1968,7 +1968,6 @@ static ssize_t out_write_direct(struct audio_stream_out *stream, const void* buf
     int return_bytes = bytes;
     size_t total_bytes = bytes;
     size_t bytes_cost = 0;
-    char *read_buf = (char *)buffer;
     audio_hwsync_t *hw_sync = out->hwsync;
     /* acquiring hw device mutex systematically is useful if a low priority thread is waiting
     * on the output stream mutex - e.g. executing select_mode() while holding the hw device
@@ -2031,6 +2030,25 @@ static ssize_t out_write_direct(struct audio_stream_out *stream, const void* buf
         }
     }
     if (out->standby) {
+        if (out->config.rate == 44100 && (out->flags & AUDIO_OUTPUT_FLAG_IEC958_NONAUDIO)) {
+            /* detect DTSCD format which ALSA treats as LPCM */
+            int package_size;
+            audio_channel_mask_t ch_mask;
+            enum audio_type cur_audio_type = audio_type_parse((void *)buffer,
+                        bytes, &package_size, &ch_mask);
+
+            if (cur_audio_type == LPCM) {
+                ret = -1;
+                pthread_mutex_unlock (&adev->lock);
+                goto exit;
+            }
+
+            if (cur_audio_type == DTSCD) {
+                ALOGD("%s() detected DTSCD format", __func__);
+                out->fmt_dts_cd = true;
+            }
+        }
+
         ret = start_output_stream_direct (out);
         if (ret != 0) {
             pthread_mutex_unlock (&adev->lock);
@@ -6244,18 +6262,20 @@ static bool is_iec61937_format (struct audio_stream_out *stream)
     return false;
 }
 
-static void aml_tinymix_set_spdif_format(audio_format_t output_format,struct aml_stream_out *stream)
+static void aml_tinymix_set_spdif_format(audio_format_t output_format,struct aml_stream_out *aml_out)
 {
-    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *aml_dev = aml_out->dev;
     int aml_spdif_format = AML_STEREO_PCM;
     int spdif_mute = 0;
     if (output_format == AUDIO_FORMAT_AC3) {
-        aml_spdif_format = AML_DOLBY_DIGITAL;
-        audio_set_spdif_clock(stream, AML_DOLBY_DIGITAL);
+        if (!aml_out->fmt_dts_cd)
+            aml_spdif_format = AML_DOLBY_DIGITAL;
+        else
+            aml_spdif_format = AML_STEREO_PCM;
+        audio_set_spdif_clock(aml_out, AML_DOLBY_DIGITAL);
     } else if (output_format == AUDIO_FORMAT_E_AC3) {
         aml_spdif_format = AML_DOLBY_DIGITAL_PLUS;
-        audio_set_spdif_clock(stream, AML_DOLBY_DIGITAL_PLUS);
+        audio_set_spdif_clock(aml_out, AML_DOLBY_DIGITAL_PLUS);
         // for BOX with ms12 continous mode, need DDP output
         if ((eDolbyMS12Lib == aml_dev->dolby_lib_type) && aml_dev->continuous_audio_mode && !aml_dev->is_TV) {
             // do nothing
@@ -6264,12 +6284,16 @@ static void aml_tinymix_set_spdif_format(audio_format_t output_format,struct aml
             spdif_mute = 1;
         }
     } else if (output_format == AUDIO_FORMAT_DTS) {
-        aml_spdif_format = AML_DTS;
-        audio_set_spdif_clock(stream, AML_DTS);
+        if (!aml_out->fmt_dts_cd)
+            aml_spdif_format = AML_DTS;
+        else
+            aml_spdif_format = AML_STEREO_PCM;
+        audio_set_spdif_clock(aml_out, AML_DTS);
     } else {
         aml_spdif_format = AML_STEREO_PCM;
-        audio_set_spdif_clock(stream, AML_STEREO_PCM);
+        audio_set_spdif_clock(aml_out, AML_STEREO_PCM);
     }
+
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, aml_spdif_format);
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_EARC_AUDIO_TYPE, aml_spdif_format);
     audio_route_set_spdif_mute(&aml_dev->alsa_mixer, spdif_mute);

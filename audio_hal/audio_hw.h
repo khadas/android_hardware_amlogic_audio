@@ -641,6 +641,7 @@ struct aml_stream_out {
     bool low_power;
     unsigned multich;
     int codec_type;
+    bool fmt_dts_cd;
     uint64_t frame_write_sum;
     uint64_t frame_skip_sum;
     uint64_t last_frames_postion;
