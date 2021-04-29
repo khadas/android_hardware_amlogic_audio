@@ -449,6 +449,7 @@ struct aml_audio_device {
     bool dolby_ms12_status;
     struct pcm_config ms12_config;
     int mixing_level;
+    int advol_level;
     bool associate_audio_mixing_enable;
     bool need_reset_for_dual_decoder;
     /* Dolby MS12 lib variable end */
@@ -540,6 +541,8 @@ struct aml_audio_device {
     unsigned int passthrough_mute;
     int sub_apid;
     int sub_afmt;
+    int pid;
+    int demux_id;
     int reset_dtv_audio;
     int patch_start;
     int mute_start;
@@ -574,6 +577,7 @@ struct aml_audio_device {
     bool dual_spdif_support; /*1 means supports spdif_a & spdif_b & spdif interface*/
     uint64_t  sys_audio_frame_written;
     struct usb_audio_device usb_audio;
+    int security_mem_level;
 };
 
 struct meta_data {

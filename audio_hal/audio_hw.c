@@ -4780,6 +4780,30 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             goto exit;
         }
 
+        ret = str_parms_get_int(parms, "dual_decoder_advol_level", &val);
+        if (ret >= 0) {
+            int madvol_level = val;
+
+            pthread_mutex_lock(&adev->lock);
+            if (madvol_level < 0) {
+                madvol_level = 0;
+            } else if (madvol_level > 100) {
+                madvol_level = 100;
+            }
+            adev->advol_level = madvol_level;
+            ALOGI("madvol_level set to %d\n", madvol_level);
+            if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
+                pthread_mutex_lock(&ms12->lock);
+                madvol_level = (madvol_level * 64 - 32 * 100) / 100; //[0,100] mapping to [-32,32]
+                //dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(madvol_level);
+                //int ms12_runtime_update_ret = aml_ms12_update_runtime_params(& (adev->ms12));
+                //ALOGI("aml_ms12_update_runtime_params return %d\n", ms12_runtime_update_ret);
+                pthread_mutex_unlock(&ms12->lock);
+            }
+            pthread_mutex_unlock(&adev->lock);
+            goto exit;
+        }
+
         ret = str_parms_get_int(parms, "dual_decoder_mixing_level", &val);
         if (ret >= 0) {
             int mix_user_prefer = 0;
@@ -4802,6 +4826,17 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
             pthread_mutex_unlock(&adev->lock);
             goto exit;
         }
+
+        ret = str_parms_get_int(parms, "security_mem_level", &val);
+        if (ret >= 0) {
+            int security_mem_level = val;
+            pthread_mutex_lock(&adev->lock);
+            adev->security_mem_level = security_mem_level;
+            ALOGI("security_mem_level set to %d\n", adev->security_mem_level);
+            pthread_mutex_unlock(&adev->lock);
+            goto exit;
+        }
+
     }
 
     /*use dolby_lib_type_last to check ms12 type, because durig playing DTS file,
@@ -5066,6 +5101,20 @@ static int adev_set_parameters (struct audio_hw_device *dev, const char *kvpairs
         }
         ALOGI("video player sound_track mode %d ",mode );
         adev->sound_track_mode = mode;
+        goto exit;
+    }
+    ret = str_parms_get_str(parms, "demux_id", value, sizeof(value));
+    if (ret > 0) {
+        unsigned int demux_id = (unsigned int)atoi(value); // zz
+        ALOGI("%s() get the audio demux_id %d\n", __func__, demux_id);
+        adev->demux_id = demux_id;
+        goto exit;
+    }
+    ret = str_parms_get_str(parms, "pid", value, sizeof(value));
+    if (ret > 0) {
+        unsigned int pid = (unsigned int)atoi(value); // zz
+        ALOGI("%s() get the audio pid %d\n", __func__, pid);
+        adev->pid = pid;
         goto exit;
     }
     ret = str_parms_get_str(parms, "fmt", value, sizeof(value));

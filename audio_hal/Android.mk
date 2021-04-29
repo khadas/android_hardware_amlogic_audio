@@ -128,7 +128,9 @@ include $(BUILD_PREBUILT)
         frameworks/av/include \
         $(LOCAL_PATH)/../amlogic_AQ_tools \
         $(LOCAL_PATH)/../amlogic_AQ_tools/ini \
-        $(LOCAL_PATH)/../utils/Reverb
+        $(LOCAL_PATH)/../utils/Reverb \
+        hardware/amlogic/audio/dtv_audio_utils/sync \
+        hardware/amlogic/audio/dtv_audio_utils/audio_read_api
 
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/lib_aml_ng.a
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/Amlogic_EQ_Param_Generator.a
@@ -144,6 +146,7 @@ include $(BUILD_PREBUILT)
         libdroidaudiospdif libamaudioutils libamlaudiorc libamadec \
         libnano \
         libdtvad \
+        libdvbaudioutils \
         libion \
         libalsautils \
         libamlreverb
@@ -242,7 +245,9 @@ LOCAL_C_INCLUDES := \
    system/core/libion/include \
    system/core/include \
    hardware/libhardware/include \
-   vendor/amlogic/common/external/dvb/include/am_adp
+   vendor/amlogic/common/external/dvb/include/am_adp \
+   hardware/amlogic/audio/dtv_audio_utils/sync \
+   hardware/amlogic/audio/dtv_audio_utils/audio_read_api
 
 LOCAL_CFLAGS += -Werror
 LOCAL_MODULE := libdtvad

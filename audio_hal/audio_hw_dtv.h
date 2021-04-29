@@ -49,6 +49,20 @@
 #define ACODEC_FMT_WMAVOI 28
 
 //}
+#define DTV_AUDIO_JUMPED_DEFAULT_THRESHOLD   (400)  //ms
+#define DTV_AUDIO_RETUNE_DEFAULT_THRESHOLD   (200)  //ms
+#define DTV_AUDIO_DROP_HOLD_LEAST_MS         (32 * 4) //ms
+#define DTV_AV_DISCONTINUE_THREDHOLD         (3000 * 90)
+#define DTV_PCRSCR_DEFAULT_LATENCY           (1000 * 90)
+#define DTV_PCRSCR_MIN_LATENCY               (500 * 90)
+#define DEMUX_PCR_DEFAULT_LATENCY            (500 * 90)
+#define DEMUX_PCR_MIN_LATENCY                (300 * 90)
+#define TIME_UNIT90K                         (1000 * 90)
+#define DTV_AUDIO_MUTE_PRIOD_HTRESHOLD       (TIME_UNIT90K * 2)
+#define DTV_AUDIO_DROP_TIMEOUT_HTRESHOLD     (TIME_UNIT90K)
+
+#define DTV_AUDIO_JUMPED_THRESHOLD_PROPERTY   "vendor.media.audio.hal.dtv.jumped.threshold.ms"
+#define DTV_AUDIO_RETUNE_THRESHOLD_PROPERTY   "vendor.media.audio.hal.dtv.retune.threshold.ms"
 
 enum {
     AUDIO_DTV_PATCH_DECODER_STATE_INIT,

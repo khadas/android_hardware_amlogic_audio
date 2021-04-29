@@ -309,6 +309,21 @@ struct aml_audio_patch {
     struct timespec speed_time;
     struct timespec slow_time;
     int a_discontinue_threshold;
+    int audio_jumped;
+    int tune_drop_state; // 1 insert, 2 drop
+    int a_retune_threshold;
+    unsigned int last_lookup_apts;
+    unsigned long long last_lookup_offset;
+    unsigned long long dtv_pcm_total;
+    struct timespec last_jumped_record;
+    struct timespec tune_drop_record;
+    struct timespec audio_mute_record;
+    unsigned int dtv_paused_latency;
+    int dtv_audio_underrun_flag;
+    int dtv_audio_mute_flag;
+    unsigned int last_decoder_offset ;
+    int pid;
+    int is_multi_demux;
 };
 
 struct audio_stream_out;
