@@ -207,7 +207,8 @@ int aml_alsa_output_open(struct audio_stream_out *stream)
               config->start_threshold, config->stop_threshold, config->silence_threshold, config->silence_size, config->avail_min);
         pcm = pcm_open(card, device_index, PCM_OUT, config);
         if (!pcm || !pcm_is_ready(pcm)) {
-            ALOGE("%s, pcm %p open [ready %d] failed", __func__, pcm, pcm_is_ready(pcm));
+            ALOGE("%s, pcm %p open [ready %d] failed: %s",
+                __func__, pcm, pcm_is_ready(pcm), pcm_get_error(pcm));
             return -ENOENT;
         }
         if (SUPPORT_EARC_OUT_HW && adev->bHDMIConnected && (!aml_out->earc_pcm)) {

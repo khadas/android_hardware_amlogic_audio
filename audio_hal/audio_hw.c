@@ -7496,7 +7496,14 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                     }
                     ALOGI("dcv_decoder_release_patch release");
                 }
-           }
+           } else {
+                if (ddp_dec->status == 1 && aml_out->spdifout_handle &&
+                        (aml_out->hal_internal_format == AUDIO_FORMAT_AC3 ||
+                        aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3)) {
+                    aml_audio_spdifout_close(aml_out->spdifout_handle);
+                    aml_out->spdifout_handle = NULL;
+                }
+            }
 
             pthread_mutex_lock(&adev->lock);
             if (!adev->hw_mixer.start_buf) {
@@ -7626,6 +7633,13 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                 ALOGI("dca_decoder_release_patch release");
             }
 
+        } else {
+            if (dts_dec->status == 1 && aml_out->spdifout_handle &&
+                    (aml_out->hal_internal_format == AUDIO_FORMAT_DTS ||
+                    aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
+                aml_audio_spdifout_close(aml_out->spdifout_handle);
+                aml_out->spdifout_handle = NULL;
+            }
         }
 
         pthread_mutex_lock(&adev->lock);
