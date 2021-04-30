@@ -723,6 +723,7 @@ struct aml_stream_out {
     struct timespec  last_timestamp_reported;
     void    *pstMmapAudioParam;    // aml_mmap_audio_param_st (aml_mmap_audio.h)
     bool restore_continuous;
+    bool restore_dolby_lib_type;
     void *spdifout_handle;
 };
 

@@ -3690,6 +3690,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                     out->hal_internal_format = AUDIO_FORMAT_DTS;
                     adev->dts_hd.frame_info.is_dtscd = false;
                     adev->dolby_lib_type = eDolbyDcvLib;
+                    out->restore_dolby_lib_type = true;
                 } else {
                     out->hal_internal_format = AUDIO_FORMAT_AC3;
                 }
@@ -3718,6 +3719,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         case AUDIO_FORMAT_DTS:
         case AUDIO_FORMAT_DTS_HD:
             adev->dolby_lib_type = eDolbyDcvLib;
+            out->restore_dolby_lib_type = true;
             break;
 
         default:
@@ -3953,13 +3955,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         }
     }
 
-    /*when open dts decoder, the dolby lib is changed, so we need restore it*/
-    if (out->hal_internal_format == AUDIO_FORMAT_DTS) {
-        if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
-            adev->dolby_lib_type = eDolbyMS12Lib;
-        }
-    }
-
     if (out->restore_continuous == true) {
         ALOGI("restore ms12 continuous mode");
         adev->continuous_audio_mode = 1;
@@ -3990,6 +3985,11 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     if (out->spdifout_handle) {
         aml_audio_spdifout_close(out->spdifout_handle);
         out->spdifout_handle = NULL;
+    }
+    /*the dolby lib is changed, so we need restore it*/
+    if (out->restore_dolby_lib_type) {
+        adev->dolby_lib_type = adev->dolby_lib_type_last;
+        ALOGI("%s restore dolby lib =%d", __func__, adev->dolby_lib_type);
     }
 
     pthread_mutex_unlock(&out->lock);
@@ -8004,6 +8004,7 @@ hwsync_rewrite:
                         get_dolby_ms12_cleanup(&adev->ms12, false);
                     }
                     adev->dolby_lib_type = eDolbyDcvLib;
+                    aml_out->restore_dolby_lib_type = true;
                     if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
                         /* For DTS HBR case, needs enlarge buffer and start threshold to anti-xrun */
                         aml_out->config.period_count = 6;
