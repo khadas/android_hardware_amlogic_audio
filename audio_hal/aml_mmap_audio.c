@@ -94,7 +94,7 @@ static void *outMmapThread(void *pArg) {
         return NULL;
     }
     prctl(PR_SET_NAME, "outMmapThread");
-    aml_set_thread_priority("outMmapThread", pstThread->threadId);
+    aml_set_thread_priority("outMmapThread", pstThread->threadId, SCHED_FIFO);
     pu8TempBufferAddr = (unsigned char *)malloc(MMAP_WRITE_SIZE_BYTE);
     while (false == pstThread->bExitThread) {
         if (false == pstThread->bStopPlay) {

@@ -1551,3 +1551,16 @@ int subMixingSetKaraoke(struct aml_audio_device *adev, struct kara_manager *kara
     return mixer_set_karaoke(audio_mixer, kara);
 }
 
+int submixing_set_thread_priority(struct aml_audio_device *adev, char *pName, int sched_type)
+{
+    int ret = 0;
+    struct subMixing *sm = adev->sm;
+    struct amlAudioMixer *audio_mixer = sm->mixerData;
+
+    if (!audio_mixer || sched_type < 0)
+        return  -EINVAL;
+
+    ret = mixer_set_thread_priority(audio_mixer, pName, sched_type);
+    return ret;
+}
+

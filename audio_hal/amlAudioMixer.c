@@ -1221,7 +1221,6 @@ static void *mixer_16b_threadloop(void *data)
     audio_mixer->exit_thread = 0;
     prctl(PR_SET_NAME, "amlAudioMixer16");
     set_thread_affinity();
-    aml_set_thread_priority("amlAudioMixer16", audio_mixer->out_mixer_tid);
     while (!audio_mixer->exit_thread) {
         if (pstVirtualBuffer == NULL) {
             audio_virtual_buf_open((void **)&pstVirtualBuffer, "mixer_16bit_thread",
@@ -1481,5 +1480,10 @@ int mixer_set_karaoke(struct amlAudioMixer *audio_mixer, struct kara_manager *ka
     outport_set_karaoke(out_port, kara);
 
     return 0;
+}
+
+int mixer_set_thread_priority(struct amlAudioMixer *audio_mixer, char *pName, int sched_type)
+{
+    return aml_set_thread_priority(pName, audio_mixer->out_mixer_tid, sched_type);
 }
 
