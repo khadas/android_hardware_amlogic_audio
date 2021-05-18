@@ -33,6 +33,7 @@
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/utsname.h>
 #include <system/audio.h>
 #include <time.h>
 #include <utils/Timers.h>
@@ -79,6 +80,8 @@
 #define TSYNC_FIRSTCHECKIN_AVSTATE "/sys/class/tsync_pcr/tsync_firstcheckin_avstate"
 #define TSYNC_CHECKIN_APTS "/sys/class/tsync_pcr/tsync_checkin_apts"
 #define TSYNC_CHECKIN_VPTS "/sys/class/tsync_pcr/tsync_checkin_vpts"
+#define TSYNC_CHECKIN_APTS_2 "/sys/class/tsync/last_checkin_apts"
+#define TSYNC_CHECKIN_VPTS_2 "/sys/class/tsync/last_checkin_vpts"
 #define TSYNC_CHECKIN_AOFFSET "/sys/class/tsync_pcr/tsync_checkin_aoffset"
 #define TSYNC_VIDEO_STATE "/sys/class/tsync_pcr/tsync_video_state"
 #define TSYNC_AUDIO_STATE "/sys/class/tsync_pcr/tsync_audio_state"
@@ -96,6 +99,8 @@
 #define AMSTREAM_AUDIO_PORT_RESET   "/sys/class/amstream/reset_audio_port"
 #define VIDEO_FIRST_FRAME_SHOW  "/sys/module/amvideo/parameters/first_frame_toggled"
 #define VIDEO_NEW_FRAME_COUNT  "/sys/module/amvideo/parameters/new_frame_count"
+#define VIDEO_FIRST_FRAME_SHOW_2  "/sys/module/aml_media/parameters/first_frame_toggled"
+#define VIDEO_NEW_FRAME_COUNT_2  "/sys/module/aml_media/parameters/new_frame_count"
 
 #define PATCH_PERIOD_COUNT 4
 #define DTV_PTS_CORRECTION_THRESHOLD (90000 * 30 / 1000)
@@ -239,6 +244,19 @@ static int is_multi_demux()
 {
     if (access("/sys/module/dvb_demux/",F_OK) == 0) {
         ALOGI("use AmHwMultiDemux mode\n");
+        return 1;
+    }
+    return 0;
+}
+
+/* to distinguish kernel 4.19 and 5.4 or later */
+static int is_new_kernel()
+{
+    struct utsname u;
+    int main_version = 0;
+    uname(&u);
+    main_version = atoi(u.release);
+    if (main_version >= 5) {
         return 1;
     }
     return 0;
@@ -416,9 +434,17 @@ static unsigned int get_tsync_checkin_pts(int type)
     unsigned int pts = 0;
     char buff[32];
     if (type == 0) {
-        ret = aml_sysfs_get_str(TSYNC_CHECKIN_VPTS, buff, sizeof(buff));
+        if (is_new_kernel()) {
+            ret = aml_sysfs_get_str(TSYNC_CHECKIN_VPTS_2, buff, sizeof(buff));
+        } else {
+            ret = aml_sysfs_get_str(TSYNC_CHECKIN_VPTS, buff, sizeof(buff));
+        }
     } else if (type == 1) {
-        ret = aml_sysfs_get_str(TSYNC_CHECKIN_APTS, buff, sizeof(buff));
+        if (is_new_kernel()) {
+            ret = aml_sysfs_get_str(TSYNC_CHECKIN_APTS_2, buff, sizeof(buff));
+        } else {
+            ret = aml_sysfs_get_str(TSYNC_CHECKIN_APTS, buff, sizeof(buff));
+        }
     } else {
         pts = 0;
     }
@@ -2602,6 +2628,15 @@ static int dtv_audio_tune_check(struct aml_audio_patch *patch, int cur_pts_diff,
         }
         return 1;
     }
+    if (patch->dtv_audio_tune != AUDIO_RUNNING) {
+        uint demux_apts = 0;
+        demux_apts = get_tsync_checkin_pts(1);
+        /*if demux apts is less pcrpts, don`t tune avsync*/
+        if (demux_apts && (int)demux_apts != -1 && patch->last_pcrpts > demux_apts) {
+            return 1;
+        }
+    }
+
     if (patch->dtv_audio_tune == AUDIO_LOOKUP) {
         if (abs(last_pts_diff - cur_pts_diff) < DTV_PTS_CORRECTION_THRESHOLD) {
             patch->dtv_apts_lookup = (last_pts_diff + cur_pts_diff) / 2;
@@ -3102,7 +3137,11 @@ void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_out* st
     get_sysfs_uint(TSYNC_FIRST_VPTS, &firstvpts);
 
     if (patch->dtv_has_video && patch->show_first_frame == 0) {
-        patch->show_first_frame = get_sysfs_int(VIDEO_FIRST_FRAME_SHOW);
+        if (is_new_kernel()) {
+            patch->show_first_frame = get_sysfs_int(VIDEO_FIRST_FRAME_SHOW_2);
+        } else {
+            patch->show_first_frame = get_sysfs_int(VIDEO_FIRST_FRAME_SHOW);
+        }
         if (aml_getprop_bool("media.audiohal.debug")) {
             ALOGI("dtv_avsync_process: patch->show_first_frame=%d, firstvpts=0x%x, pcrpts=0x%x, cache:%dms",
                 patch->show_first_frame, firstvpts, pcrpts, (int)(firstvpts - pcrpts)/90);
@@ -4100,8 +4139,9 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                                       aml_dev->associate_audio_mixing_enable,
                                       aml_dev->mixing_level);
                 create_dtv_output_stream_thread(patch);
-                ALOGI("++%s live now  start the audio decoder now !\n",
-                      __FUNCTION__);
+                ALOGI("++%s live now start the audio decoder now: dmxid %d pid %d fmt %d; %d %d %d %d\n",
+                      __FUNCTION__, demux_id, patch->pid, patch->dtv_aformat, patch->dtv_has_video,
+                      aml_dev->dual_decoder_support, aml_dev->associate_audio_mixing_enable, aml_dev->mixing_level);
                 patch->dtv_first_apts_flag = 0;
                 patch->outlen_after_last_validpts = 0;
                 patch->last_valid_pts = 0;
