@@ -37,9 +37,6 @@ static audio_format_t get_sink_capability (struct audio_stream_out *stream)
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
 
-    bool dd_is_support = hdmi_desc->dd_fmt.is_support;
-    bool ddp_is_support = hdmi_desc->ddp_fmt.is_support;
-
     audio_format_t sink_capability = AUDIO_FORMAT_PCM_16_BIT;
 
     //STB case
@@ -58,6 +55,17 @@ static audio_format_t get_sink_capability (struct audio_stream_out *stream)
             cap = NULL;
         }
     } else {
+        bool dd_is_support = false;
+        bool ddp_is_support = false;
+
+        /* TODO: NEED get from CDS by mixer */
+        if (aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_ATTENDED_TYPE) == ATTEND_TYPE_EARC) {
+            hdmi_desc->dd_fmt.is_support = true;
+            hdmi_desc->ddp_fmt.is_support = true;
+        }
+        dd_is_support = hdmi_desc->dd_fmt.is_support;
+        ddp_is_support = hdmi_desc->ddp_fmt.is_support;
+
         if (ddp_is_support) {
             sink_capability = AUDIO_FORMAT_E_AC3;
         } else if (dd_is_support) {
@@ -73,9 +81,6 @@ static audio_format_t get_sink_dts_capability (struct audio_stream_out *stream)
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
-
-    bool dts_is_support = hdmi_desc->dts_fmt.is_support;
-    bool dtshd_is_support = hdmi_desc->dtshd_fmt.is_support;
 
     audio_format_t sink_capability = AUDIO_FORMAT_PCM_16_BIT;
 
@@ -95,6 +100,17 @@ static audio_format_t get_sink_dts_capability (struct audio_stream_out *stream)
             cap = NULL;
         }
     } else {
+        bool dts_is_support = false;
+        bool dtshd_is_support = false;
+
+        /* TODO: NEED get from CDS by mixer */
+        if (aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_ATTENDED_TYPE) == ATTEND_TYPE_EARC) {
+            hdmi_desc->dts_fmt.is_support = true;
+            hdmi_desc->dtshd_fmt.is_support = true;
+        }
+        dts_is_support = hdmi_desc->dts_fmt.is_support;
+        dtshd_is_support = hdmi_desc->dtshd_fmt.is_support;
+
         if (dtshd_is_support) {
             sink_capability = AUDIO_FORMAT_DTS_HD;
         } else if (dts_is_support) {

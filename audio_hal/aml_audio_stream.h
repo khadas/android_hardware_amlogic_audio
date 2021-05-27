@@ -83,6 +83,12 @@ enum sample_bitwidth {
     SAMPLE_32BITS = 32,
 };
 
+enum {
+    ATTEND_TYPE_NONE = 0,
+    ATTEND_TYPE_ARC,
+    ATTEND_TYPE_EARC
+};
+
 static inline bool is_main_write_usecase(stream_usecase_t usecase)
 {
     return usecase > 0;

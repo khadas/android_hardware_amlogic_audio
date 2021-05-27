@@ -84,6 +84,7 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_SPDIF_IN_SAMPLERATE,  "SPDIFIN audio samplerate"},
     {AML_MIXER_ID_HW_RESAMPLE_SOURCE,   "Hw resample module"},
     {AML_MIXER_ID_EARC_AUDIO_TYPE,      "eARC_TX Audio Codec Type"},
+    {AML_MIXER_ID_EARC_TX_ATTENDED_TYPE, "eARC_TX attended type"},
 };
 
 static char *get_mixer_name_by_id(int mixer_id)
