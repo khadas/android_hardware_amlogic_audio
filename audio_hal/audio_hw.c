@@ -3831,7 +3831,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->hw_sync_mode = false;
     out->need_convert = false;
     out->need_drop_size = 0;
-    out->enInputPortType = AML_MIXER_INPUT_PORT_BUTT;
+    out->enInputPortType = AML_MIXER_INPUT_PORT_INVAL;
 
     if (flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) {
         if ((eDolbyMS12Lib == adev->dolby_lib_type) && !adev->ms12.dolby_ms12_enable) {

@@ -1248,8 +1248,10 @@ static void *mixer_16b_threadloop(void *data)
 uint32_t mixer_get_inport_latency_frames(struct amlAudioMixer *audio_mixer,
         aml_mixer_input_port_type_e port_index)
 {
-    struct input_port *port = audio_mixer->in_ports[port_index];
-    int written = 0;
+    struct input_port *port = NULL;
+
+    if (is_inport_valid(port_index))
+        port = audio_mixer->in_ports[port_index];
 
     if (!port) {
         ALOGE("%s(), NULL pointer", __func__);
