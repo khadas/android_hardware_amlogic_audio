@@ -7283,7 +7283,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
     adev->dcvlib_bypass_enable = 0;
     adev->dtslib_bypass_enable = 0;
 
-    if (adev->bHDMIARCon && adev->bHDMIConnected && adev->speaker_mute) {
+    if (adev->bHDMIARCon) {
         is_arc_connected = 1;
     }
     /*
