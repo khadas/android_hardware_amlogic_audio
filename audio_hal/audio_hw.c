@@ -7713,6 +7713,7 @@ ssize_t mixer_main_buffer_write (struct audio_stream_out *stream, const void *bu
     size_t output_buffer_bytes = 0;
     bool need_reconfig_output = false;
     bool need_reset_decoder = true;
+    bool need_reconfig_samplerate = false;
     void   *write_buf = NULL;
     size_t  write_bytes = 0;
     size_t  hwsync_cost_bytes = 0;
@@ -8085,6 +8086,9 @@ hwsync_rewrite:
                     aml_out->spdifout_handle = NULL;
                     set_stream_dual_output(stream, false);
                 }
+                need_reconfig_samplerate = true;
+            } else {
+                need_reconfig_samplerate = false;
             }
 
             if (cur_aformat == AUDIO_FORMAT_INVALID) {
@@ -8198,8 +8202,9 @@ hwsync_rewrite:
 
     if (patch && (adev->dtslib_bypass_enable || adev->dcvlib_bypass_enable)) {
         int cur_samplerate = audio_parse_get_audio_samplerate(patch->audio_parse_para);
-        if (cur_samplerate != patch->input_sample_rate) {
-            ALOGI ("HDMI/SPDIF input samplerate from %d to %d\n", patch->input_sample_rate, cur_samplerate);
+        if (cur_samplerate != patch->input_sample_rate || need_reconfig_samplerate) {
+            ALOGI ("HDMI/SPDIF input samplerate from %d to %d, or need_reconfig_samplerate\n",
+                   patch->input_sample_rate, cur_samplerate);
             patch->input_sample_rate = cur_samplerate;
             if (patch->aformat == AUDIO_FORMAT_DTS ||  patch->aformat == AUDIO_FORMAT_DTS_HD) {
                 if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
