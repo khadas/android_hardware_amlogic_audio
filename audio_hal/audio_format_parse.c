@@ -12,7 +12,7 @@
  */
 
 #define LOG_TAG "audio_format_parse"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 
 #include <pthread.h>
 #include <stdio.h>
@@ -78,7 +78,6 @@ static int seek_dts_cd_sync_word(char *buffer, int size)
             return i;
         }
     }
-
     return -1;
 }
 
@@ -136,7 +135,6 @@ static int hdmiin_audio_format_detection(struct aml_mixer_handle *mixer_handle)
     } else {
         return LPCM;
     }
-
 }
 
 static int spdifin_audio_format_detection(struct aml_mixer_handle *mixer_handle)
@@ -316,7 +314,16 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size, audio_channe
     uint32_t tmp = 0;
 
     pos_sync_word = seek_61937_sync_word((char*)temp_buffer, bytes);
+    pos_dtscd_sync_word = seek_dts_cd_sync_word((char*)temp_buffer, bytes);
+
     DoDumpData(temp_buffer, bytes, CC_DUMP_SRC_TYPE_INPUT_PARSE);
+
+    if (pos_dtscd_sync_word >= 0) {
+        AudioType = DTSCD;
+        *package_size = DTSHD_PERIOD_SIZE * 2;
+        ALOGV("%s() %d data format: %d *package_size %d\n", __FUNCTION__, __LINE__, AudioType, *package_size);
+        return AudioType;
+    }
 
     if (pos_sync_word >= 0) {
         tmp_pc = (uint32_t*)(temp_buffer + pos_sync_word + 4);
@@ -362,9 +369,9 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size, audio_channe
             /*refer to IEC 61937-5 pdf, table 6*/
             *package_size = DTSHD_PERIOD_SIZE << tmp ;
             break;
-        case IEC61937_TRUEHD:
-            AudioType = TRUEHD;
-            *package_size = THD_PERIOD_SIZE;
+        case IEC61937_MAT:
+            AudioType = MAT;
+            *package_size = MAT_PERIOD_SIZE;
             break;
         case IEC61937_PAUSE:
             AudioType = PAUSE;
@@ -377,18 +384,7 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size, audio_channe
         }
         ALOGV("%s() data format: %d, *package_size %d, input size %zu\n",
               __FUNCTION__, AudioType, *package_size, bytes);
-        goto found;
     }
-
-    pos_dtscd_sync_word = seek_dts_cd_sync_word((char*)temp_buffer, bytes);
-    if (pos_dtscd_sync_word >= 0) {
-        AudioType = DTSCD;
-        *package_size = DTSHD_PERIOD_SIZE * 2;
-        ALOGV("%s() %d data format: %d *package_size %d\n", __FUNCTION__, __LINE__, AudioType, *package_size);
-        goto found;
-    }
-
-found:
     return AudioType;
 }
 
@@ -422,28 +418,24 @@ static int audio_type_parse_init(audio_type_parse_t *status)
     audio_type_status->period_bytes = bytes;
 
     /*malloc max audio type size, save last 3 byte*/
-    audio_type_status->parse_buffer = (char*) aml_audio_malloc(sizeof(char) * (bytes + 16) * 4);
+    audio_type_status->parse_buffer = (char*) aml_audio_malloc(sizeof(char) * (bytes + 16));
     if (NULL == audio_type_status->parse_buffer) {
         ALOGE("%s, no memory\n", __FUNCTION__);
         return -1;
     }
 
-    /* Only txlx using software parser */
-    if (check_chip_name("txlx", 4)) {
-        in = pcm_open(audio_type_status->card, audio_type_status->device,
-                      PCM_IN, &audio_type_status->config_in);
-        if (!pcm_is_ready(in)) {
-            ALOGE("open device failed: %s\n", pcm_get_error(in));
-            pcm_close(in);
-            goto error;
-        }
-        audio_type_status->in = in;
+    /*in = pcm_open(audio_type_status->card, audio_type_status->device,
+                  PCM_IN, &audio_type_status->config_in);
+    if (!pcm_is_ready(in)) {
+        ALOGE("open device failed: %s\n", pcm_get_error(in));
+        pcm_close(in);
+        goto error;
     }
+    audio_type_status->in = in;*/
     enable_HW_resample(mixer_handle, HW_RESAMPLE_48K);
 
     ALOGD("init parser success: (%d), (%d), (%p)",
-          audio_type_status->card, audio_type_status->device,
-          audio_type_status->in);
+          audio_type_status->card, audio_type_status->device, audio_type_status->in);
     return 0;
 error:
     aml_audio_free(audio_type_status->parse_buffer);
@@ -454,9 +446,7 @@ static int audio_type_parse_release(audio_type_parse_t *status)
 {
     audio_type_parse_t *audio_type_status = status;
 
-    if (check_chip_name("txlx", 4) && audio_type_status->in)
-        pcm_close(audio_type_status->in);
-
+    //pcm_close(audio_type_status->in);
     audio_type_status->in = NULL;
     aml_audio_free(audio_type_status->parse_buffer);
 
@@ -549,27 +539,28 @@ void* audio_type_parse_threadloop(void *data)
     ALOGV("Start thread loop for android audio data parse! data = %p, bytes = %d, in = %p\n",
           data, bytes, audio_type_status->in);
 
-    if (audio_type_status->input_src == AUDIO_DEVICE_IN_HDMI) {
+    if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
         cur_samplerate = set_resample_source(audio_type_status->mixer_handle, RESAMPLE_FROM_FRHDMIRX);
-    } else if (audio_type_status->input_src == AUDIO_DEVICE_IN_SPDIF) {
+    } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_SPDIF) {
         cur_samplerate = set_resample_source(audio_type_status->mixer_handle, RESAMPLE_FROM_SPDIFIN);
     }
 
     while (audio_type_status->running_flag) {
-        if (audio_type_status->input_src == AUDIO_DEVICE_IN_HDMI) {
+        if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
             cur_samplerate = get_hdmiin_samplerate(audio_type_status->mixer_handle);
             audio_type_status->audio_samplerate = audio_transer_samplerate(cur_samplerate);
-        } else if (audio_type_status->input_src == AUDIO_DEVICE_IN_SPDIF) {
+        } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_SPDIF) {
             cur_samplerate = get_spdifin_samplerate(audio_type_status->mixer_handle);
-        } else if (audio_type_status->input_src == AUDIO_DEVICE_IN_HDMI_ARC) {
+        } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI_ARC) {
             cur_samplerate = -1;//temp code
         }
 
         if (cur_samplerate == -1)
-            cur_samplerate = HW_RESAMPLE_DISABLE;
+            cur_samplerate = HW_RESAMPLE_48K;
 
         /*check hdmiin audio input sr and reset hw resample*/
-        if (cur_samplerate != last_cur_samplerate &&
+        if (cur_samplerate != HW_RESAMPLE_DISABLE &&
+                cur_samplerate != last_cur_samplerate &&
                 audio_type_status->audio_type == LPCM) {
             enable_HW_resample(audio_type_status->mixer_handle, cur_samplerate);
             ALOGD("Reset hdmiin/spdifin audio resample sr from %d to %d\n",
@@ -598,9 +589,9 @@ void* audio_type_parse_threadloop(void *data)
         } else {
             if (auge_chip) {
                 // get audio format from hw.
-                if (audio_type_status->input_src == AUDIO_DEVICE_IN_HDMI) {
+                if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
                     audio_type_status->cur_audio_type = hdmiin_audio_format_detection(audio_type_status->mixer_handle);
-                } else if (audio_type_status->input_src == AUDIO_DEVICE_IN_SPDIF) {
+                } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_SPDIF) {
                     audio_type_status->cur_audio_type = spdifin_audio_format_detection(audio_type_status->mixer_handle);
                 }
 
@@ -612,7 +603,7 @@ void* audio_type_parse_threadloop(void *data)
                 }
 
                 audio_type_status->audio_type = audio_type_status->cur_audio_type;
-            } else if (audio_type_status->input_src == AUDIO_DEVICE_IN_HDMI) {
+            } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
                 hdmiin_audio_packet_t audio_packet = get_hdmiin_audio_packet(audio_type_status->mixer_handle);
                 if (audio_packet == AUDIO_PACKET_HBR) {
                     enable_HW_resample(audio_type_status->mixer_handle, HW_RESAMPLE_DISABLE);
@@ -633,7 +624,7 @@ int audio_parse_get_audio_samplerate(audio_type_parse_t *status)
 {
     if (!status) {
         ALOGE("NULL pointer of audio_type_parse_t, return default samperate:48000\n");
-        return AML_DEFAULT_SAMPLE_RATE;
+        return 48000;
     }
     return status->audio_samplerate;
 }
@@ -642,7 +633,7 @@ int creat_pthread_for_audio_type_parse(
                      pthread_t *audio_type_parse_ThreadID,
                      void **status,
                      struct aml_mixer_handle *mixer,
-                     audio_devices_t input_src)
+                     audio_devices_t input_dev)
  {
     pthread_attr_t attr;
     struct sched_param param;
@@ -665,7 +656,7 @@ int creat_pthread_for_audio_type_parse(
     audio_type_status->audio_type = LPCM;
     audio_type_status->audio_ch_mask = AUDIO_CHANNEL_OUT_STEREO;
     audio_type_status->mixer_handle = mixer;
-    audio_type_status->input_src = input_src;
+    audio_type_status->input_dev = input_dev;
 
     pthread_attr_init(&attr);
     pthread_attr_setschedpolicy(&attr, SCHED_RR);
@@ -708,6 +699,8 @@ audio_format_t audio_type_convert_to_android_audio_format_t(int codec_type)
         return AUDIO_FORMAT_AC3;
     case EAC3:
         return AUDIO_FORMAT_E_AC3;
+    case MAT:
+        return AUDIO_FORMAT_MAT;
     case DTS:
     case DTSCD:
         return AUDIO_FORMAT_DTS;
@@ -716,7 +709,7 @@ audio_format_t audio_type_convert_to_android_audio_format_t(int codec_type)
     case TRUEHD:
         return AUDIO_FORMAT_DOLBY_TRUEHD;
     case LPCM:
-        return AUDIO_FORMAT_PCM_16_BIT;
+
     default:
         return AUDIO_FORMAT_PCM_16_BIT;
     }
@@ -732,6 +725,8 @@ int android_audio_format_t_convert_to_andio_type(audio_format_t format)
         return AC3;
     case AUDIO_FORMAT_E_AC3:
         return EAC3;
+    case AUDIO_FORMAT_MAT:
+        return MAT;
     case AUDIO_FORMAT_DTS:
         return  DTS;//DTSCD;
     case AUDIO_FORMAT_DTS_HD:
@@ -762,6 +757,8 @@ char* audio_type_convert_to_string(int s32AudioType)
         return "TRUEHD";
     case LPCM:
         return "LPCM";
+    case MAT:
+        return "MAT";
     default:
         return "UNKNOWN";
     }
@@ -782,10 +779,6 @@ audio_format_t audio_parse_get_audio_type(audio_type_parse_t *status)
         ALOGE("NULL pointer of audio_type_parse_t\n");
         return AUDIO_FORMAT_INVALID;
     }
-
-    if (status->audio_type == PAUSE || status->audio_type == MUTE) {
-        return AUDIO_FORMAT_INVALID;
-    }
     return audio_type_convert_to_android_audio_format_t(status->audio_type);
 }
 
@@ -797,110 +790,3 @@ audio_channel_mask_t audio_parse_get_audio_channel_mask(audio_type_parse_t *stat
     }
     return status->audio_ch_mask;
 }
-
-void feeddata_audio_type_parse(void **status, char * input, int size)
-{
-    audio_type_parse_t *audio_type_status = (audio_type_parse_t *)(*status);
-    int type = 0;
-
-    if (audio_type_status == NULL) {
-        ALOGD("parse is not existed\n");
-        return;
-    }
-    type = audio_type_parse(input, size, &(audio_type_status->package_size), &(audio_type_status->audio_ch_mask));
-    // if (type == TRUEHD)
-    //     ALOGI("parser audio type %s\n", AUDIO_FORMAT_STRING(type));
-    switch (audio_type_status->state) {
-    case IEC61937_UNSYNC: {
-        if (type == LPCM) {
-            if (audio_type_status->audio_type == MUTE) {
-                audio_type_status->parsed_size += size;
-                if (audio_type_status->parsed_size <= 32768) {
-                    // during IEC header finding,we mute it
-                    memset(input, 0, size);
-                    audio_type_status->audio_type = MUTE;
-                } else {
-                    // we alread checked some bytes, not found IEC header, we will treate it as PCM
-                    audio_type_status->audio_type = LPCM;
-                }
-            } else {
-                audio_type_status->parsed_size = 0;
-                audio_type_status->audio_type = LPCM;
-            }
-
-        } else if (type == PAUSE || type == MUTE) {
-            // set all the data as 0, keep the original data type
-            memset(input, 0, size);
-            audio_type_status->parsed_size = 0;
-            audio_type_status->audio_type = MUTE;
-
-        } else {
-            audio_type_status->state = IEC61937_SYNCING;
-            memset(input, 0, size);
-            audio_type_status->audio_type = type;
-            audio_type_status->parsed_size = 0;
-        }
-        break;
-    }
-    case IEC61937_SYNCING: {
-        if (type == LPCM) {
-            audio_type_status->parsed_size += size;
-            // during two package, we don't find a new IEC header
-            if (audio_type_status->parsed_size > audio_type_status->package_size * 2) {
-                // no found new IEC header, back to unsync state
-                audio_type_status->state = IEC61937_UNSYNC;
-                audio_type_status->audio_type = MUTE;
-                audio_type_status->parsed_size = 0;
-            }
-
-        } else if (type == PAUSE || type == MUTE) {
-            memset(input, 0, size);
-            audio_type_status->state = IEC61937_UNSYNC;
-            audio_type_status->audio_type = MUTE;
-            audio_type_status->parsed_size = 0;
-        } else {
-            // find a new IEC header, we set it as synced
-            audio_type_status->audio_type = type;
-            audio_type_status->state = IEC61937_SYNCED;
-            audio_type_status->parsed_size = 0;
-
-        }
-        // mute all the data during syncing
-        // memset(input, 0, size);
-        break;
-    }
-    case IEC61937_SYNCED: {
-        if (type == LPCM) {
-            audio_type_status->parsed_size += size;
-            // from raw to pcm, we check more data
-            if (audio_type_status->parsed_size > audio_type_status->package_size * 4) {
-                // no found new IEC header, back to unsync state
-                audio_type_status->state = IEC61937_UNSYNC;
-                audio_type_status->audio_type = MUTE;
-                audio_type_status->parsed_size = 0;
-            }
-
-        } else if (type == PAUSE || type == MUTE) {
-            memset(input, 0, size);
-            audio_type_status->state = IEC61937_UNSYNC;
-            audio_type_status->audio_type = MUTE;
-            audio_type_status->parsed_size = 0;
-
-        } else {
-            audio_type_status->audio_type = type;
-            audio_type_status->parsed_size = 0;
-        }
-        break;
-    }
-    default:
-        return;
-    }
-
-    if (audio_type_status->audio_type != audio_type_status->cur_audio_type) {
-        ALOGE("Parsing state=%d cur type=%d parse type=%d\n", audio_type_status->state, audio_type_status->audio_type, type);
-        audio_type_status->cur_audio_type = audio_type_status->audio_type;
-    }
-    return;
-}
-
-

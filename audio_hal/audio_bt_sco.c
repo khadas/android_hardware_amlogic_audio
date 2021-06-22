@@ -20,6 +20,7 @@
 #include <tinyalsa/asoundlib.h>
 #include <audio_utils/channels.h>
 #include "audio_bt_sco.h"
+#include "alsa_config_parameters.h"
 #include "alsa_device_parser.h"
 #include "aml_audio_timer.h"
 
@@ -122,13 +123,11 @@ void close_btSCO_device(struct aml_audio_device *adev)
     bt->active = false;
 }
 
-ssize_t write_to_sco(struct audio_stream_out *stream,
-        const void *buffer, size_t bytes)
+ssize_t write_to_sco(struct aml_audio_device *adev, audio_config_base_t *config,
+    const void *buffer, size_t bytes)
 {
-    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
-    struct aml_audio_device *adev = aml_out->dev;
     struct aml_bt_output *bt = &adev->bt_output;
-    size_t frame_size = audio_stream_out_frame_size(stream);
+    size_t frame_size = audio_channel_count_from_out_mask(config->channel_mask) * audio_bytes_per_sample(config->format);
     size_t in_frames = bytes / frame_size;
     size_t out_frames = in_frames * VX_NB_SAMPLING_RATE / MM_FULL_POWER_SAMPLING_RATE + 1;;
     int16_t *in_buffer = (int16_t *)buffer;
@@ -137,7 +136,7 @@ ssize_t write_to_sco(struct audio_stream_out *stream,
     int ret = 0;
 
     if (adev->debug_flag) {
-        ALOGI("[%s:%d] stream:%p bytes:%d, out_device:%#x", __func__, __LINE__, aml_out, bytes, adev->out_device);
+        ALOGI("[%s:%d] bytes:%zu, out_device:%#x", __func__, __LINE__, bytes, adev->out_device);
     }
 
     if (!bt->active) {
@@ -183,7 +182,7 @@ ssize_t write_to_sco(struct audio_stream_out *stream,
 
     if (bt->pcm_bt) {
         pcm_write(bt->pcm_bt, bt->bt_out_buffer, out_frames * frame_size);
-        if (getprop_bool("media.audiohal.btpcm"))
+        if (getprop_bool("vendor.media.audiohal.btpcm"))
             aml_audio_dump_audio_bitstreams("/data/audio/sco_8.raw", bt->bt_out_buffer, out_frames * frame_size);
     }
     return bytes;

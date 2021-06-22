@@ -71,7 +71,7 @@ void aml_hw_mixer_reset(struct aml_hw_mixer *mixer)
     pthread_mutex_unlock(&mixer->lock);
 }
 
-uint aml_hw_mixer_get_space(struct aml_hw_mixer *mixer)
+static uint aml_hw_mixer_get_space(struct aml_hw_mixer *mixer)
 {
     unsigned space;
     if (mixer->wp >= mixer->rp)
@@ -170,6 +170,7 @@ int aml_hw_mixer_mixing(struct aml_hw_mixer *mixer, void *buffer, int bytes, aud
         memset(buffer, 0, bytes);
     }
     cached_bytes = aml_hw_mixer_get_content_l(mixer);
+
     if (cached_bytes < bytes) {
         ALOGV("%s: no enough aux data for mixing, cached %d, need %d\n", __func__, cached_bytes, bytes);
         pthread_mutex_unlock(&mixer->lock);

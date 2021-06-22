@@ -7,22 +7,21 @@ include $(CLEAR_VARS)
 LOCAL_C_INCLUDES +=                           \
     hardware/libhardware/include              \
     $(TOPDIR)system/core/include              \
-    $(LOCAL_PATH)/include                     \
     $(TOPDIR)external/tinyalsa/include        \
     $(TOPDIR)system/media/audio_utils/include \
-    $(LOCAL_PATH)/ini/include                 \
-    $(TOPDIR)frameworks/av/media/libaudiohal/include \
-    $(TOPDIR)frameworks/av/include                   \
+    $(TOPDIR)frameworks/av/include            \
+    $(TOPDIR)system/media/audio/include       \
     $(TOPDIR)frameworks/native/libs/binder/include   \
-    $(TOPDIR)system/media/audio/include              \
-    $(TOPDIR)system/media/audio/include
+    $(TOPDIR)frameworks/av/media/libaudiohal/include \
+    $(LOCAL_PATH)/include                     \
+    $(LOCAL_PATH)/ini/include
 
 LOCAL_SRC_FILES  +=               \
     aml_buffer_provider.c         \
     aml_dump_debug.c              \
-    aml_audio_resampler.c         \
     aml_ringbuffer.c              \
     aml_alsa_mixer.c              \
+    aml_android_hidl_utils.cpp    \
     aml_android_utils.c           \
     aml_data_utils.c              \
     aml_configs/aml_conf_loader.c \
@@ -33,13 +32,10 @@ LOCAL_SRC_FILES  +=               \
     aml_volume_utils.c            \
     ini/ini.cpp                   \
     ini/IniParser.cpp             \
-    ac3_parser_utils.c            \
     alsa_device_parser.c          \
     aml_hw_mixer.c                \
-    aml_malloc_debug.c            \
-    earc_utils.c                  \
-    aml_android_hidl_utils.cpp    \
-    aml_echo_reference.c
+    audio_data_process.c          \
+    aml_malloc_debug.c
 
 LOCAL_MODULE := libamaudioutils
 
@@ -62,8 +58,6 @@ LOCAL_STATIC_LIBRARIES += \
     android.hardware.audio.common@4.0
 
 LOCAL_MODULE_TAGS := optional
-LOCAL_CFLAGS += -DBUILD_IN_ANDROID
+LOCAL_CFLAGS += -DBUILD_IN_ANDROID -Werror -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-sign-compare
 
 include $(BUILD_SHARED_LIBRARY)
-
-include $(LOCAL_PATH)/Reverb/Android.mk

@@ -20,7 +20,7 @@
 **  - 1 bluetooth rc audio stream in from hidraw node
 */
 
-#define LOG_TAG "AudioHAL:AudioHidrawStreamIn"
+#define LOG_TAG "AudioHAL:AudioStreamIn"
 #include <utils/Log.h>
 
 #include <assert.h>
@@ -36,6 +36,7 @@
 #include "AudioHardwareInput.h"
 #include "AudioHidrawStreamIn.h"
 #include "../../audio_hal/audio_hw.h"
+#include "../../audio_hal/alsa_config_parameters.h"
 #include "huitong_audio.h"
 
 namespace android {

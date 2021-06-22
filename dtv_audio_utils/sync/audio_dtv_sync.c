@@ -264,6 +264,7 @@ int aml_audio_swcheck_lookup_apts(int audio_path, size_t offset, unsigned long *
             if (pts_tab[i].offset == align) {
                 nearest_pts  = pts_tab[i].pts;
                 nearest_offset = pts_tab[i].offset;
+                pts_tab[i].valid = 0;
                 ret = 0;
                 if (p_swcheck->debug_enable) {
                     ALOGI("%s first flag %d,pts checkout done,offset %zu,align %zu,pts 0x%lx",
@@ -290,10 +291,8 @@ int aml_audio_swcheck_lookup_apts(int audio_path, size_t offset, unsigned long *
     if (nearest_offset) {
         ret = 0;
         *p_apts = nearest_pts;
-        if (p_swcheck->debug_enable) {
-            ALOGI("find nearest pts 0x%lx offset %zu align %zu offset %zu",
+        ALOGI("find nearest pts 0x%lx offset %zu align %zu offset %zu",
                 *p_apts, nearest_offset, align, offset);
-        }
     } else {
         ALOGE("%s,apts lookup failed,align %zu,offset %zu", __func__, align, offset);
     }

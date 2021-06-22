@@ -21,10 +21,12 @@
 #include <tinyalsa/asoundlib.h>
 #include "aml_ringbuffer.h"
 #include "audio_port.h"
-#include "karaoke_manager.h"
+
+
+#define MIXER_FRAME_COUNT                   (384)
+#define MIXER_OUT_FRAME_SIZE                (8)
 
 __BEGIN_DECLS
-
 /**
  * Audio mixer:
  * mixing two pcm streams with same configs(16-bits, 2-channels).
@@ -39,6 +41,7 @@ struct amlAudioMixer;
  * return NULL if no enough memory.
  */
 struct amlAudioMixer *newAmlAudioMixer(
+        struct pcm *pcm_handle,
         struct audioCfg cfg,
         struct aml_audio_device *adev);
 
@@ -68,15 +71,15 @@ int init_mixer_input_port(struct amlAudioMixer *audio_mixer,
         float volume);
 
 int delete_mixer_input_port(struct amlAudioMixer *audio_mixer,
-        aml_mixer_input_port_type_e port_index);
+        unsigned int port_index);
 int send_mixer_inport_message(struct amlAudioMixer *audio_mixer,
         aml_mixer_input_port_type_e port_index , enum PORT_MSG msg);
 
 int mixer_write_inport(struct amlAudioMixer *audio_mixer,
-        aml_mixer_input_port_type_e port_index, const void *buffer, int bytes);
+        unsigned int port_index, const void *buffer, int bytes);
 
 int mixer_read_inport(struct amlAudioMixer *audio_mixer,
-        aml_mixer_input_port_type_e port_index, void *buffer, int bytes);
+        unsigned int port_index, void *buffer, int bytes);
 int mixer_set_inport_state(struct amlAudioMixer *audio_mixer,
         aml_mixer_input_port_type_e port_index, enum port_state state);
 
@@ -100,16 +103,11 @@ int mixer_set_padding_size(
         int padding_bytes);
 
 int mixer_set_continuous_output(struct amlAudioMixer *audio_mixer,
-        bool continuous_output);
-int mixer_idle_sleep_time_us(struct amlAudioMixer *audio_mixer);
-int mixer_stop_outport_pcm(struct amlAudioMixer *audio_mixer);
-int mixer_output_standby(struct amlAudioMixer *audio_mixer);
-int mixer_output_dummy(struct amlAudioMixer *audio_mixer, bool en);
-struct pcm * get_mixer_output_pcm_handle(struct amlAudioMixer *audio_mixer, enum MIXER_OUTPUT_PORT enOutputIndex);
+    bool continuous_output);
+
+int mixer_outport_pcm_restart(struct amlAudioMixer *audio_mixer);
 void mixer_dump(int s32Fd, const struct aml_audio_device *pstAmlDev);
-/* usb karaoke for hal mixer */
-int mixer_set_karaoke(struct amlAudioMixer *audio_mixer, struct kara_manager *kara);
-int mixer_set_thread_priority(struct amlAudioMixer *audio_mixer, char *pName, int sched_type);
+bool has_hwsync_stream_running(struct audio_stream_out *stream);
 
 __END_DECLS
 

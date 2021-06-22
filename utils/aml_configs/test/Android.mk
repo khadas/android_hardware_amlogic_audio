@@ -4,20 +4,22 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_C_INCLUDES := \
-    hardware/$(PLATFORM_NAME)/audio/utils/include
+    $(LOCAL_PATH)/../../include \
 
 LOCAL_SRC_FILES:= \
     load.c
 
 LOCAL_MODULE:= loadconfig
 
-#LOCAL_FORCE_STATIC_EXECUTABLE := true
-#LOCAL_MODULE_PATH := $(TARGET_ROOT_OUT)
-#LOCAL_UNSTRIPPED_PATH := $(TARGET_ROOT_OUT_UNSTRIPPED)
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
+    LOCAL_PROPRIETARY_MODULE := true
+endif
 
 LOCAL_SHARED_LIBRARIES := \
         libcutils \
         libc \
         libamaudioutils
+
+LOCAL_CFLAGS += -Wno-error
 
 include $(BUILD_EXECUTABLE)

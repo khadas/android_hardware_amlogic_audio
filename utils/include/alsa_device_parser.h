@@ -49,6 +49,4 @@ int alsa_device_get_card_index();
 
 int alsa_device_update_pcm_index(int alsaPORT, int stream);
 
-int alsa_device_get_card_index_by_name(void *name);
-
 #endif

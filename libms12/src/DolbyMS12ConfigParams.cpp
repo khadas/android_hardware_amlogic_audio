@@ -424,7 +424,8 @@ int DolbyMS12ConfigParams::APPSoundChannelMaskConvertToChannelConfiguration(audi
 {
     ALOGV("+%s() line %d\n", __FUNCTION__, __LINE__);
     int ChannelConfiguration = 0;
-    switch (channel_mask) {
+    const uint32_t RawChannelMask = channel_mask;
+    switch (RawChannelMask) {
     case AUDIO_CHANNEL_OUT_MONO:
         ChannelConfiguration = 1;// L
         break;
@@ -462,7 +463,8 @@ int DolbyMS12ConfigParams::SystemSoundChannelMaskConvertToChannelConfiguration(a
 {
     ALOGV("+%s() line %d\n", __FUNCTION__, __LINE__);
     int ChannelConfiguration = 0;
-    switch (channel_mask) {
+    const uint32_t RawChannelMask = channel_mask;
+    switch (RawChannelMask) {
     case AUDIO_CHANNEL_OUT_MONO:
         ChannelConfiguration = 1;// L
         break;
@@ -1450,15 +1452,11 @@ char **DolbyMS12ConfigParams::UpdateDolbyMS12RuntimeConfigParams(int *argc, char
     char *opt = NULL;
 
     while (cmd_string >> token) {
-        if (mParamNum <= MAX_ARGC - 1) {
-            strncpy(mConfigParams[mParamNum], token.c_str(), MAX_ARGV_STRING_LEN);
-            mConfigParams[mParamNum][MAX_ARGV_STRING_LEN - 1] = '\0';
-            ALOGI("argv[%d] = %s", mParamNum, mConfigParams[mParamNum]);
-            mParamNum++;
-            (*argc)++;
-        } else {
-            break;
-        }
+        strncpy(mConfigParams[mParamNum], token.c_str(), MAX_ARGV_STRING_LEN);
+        mConfigParams[mParamNum][MAX_ARGV_STRING_LEN - 1] = '\0';
+        ALOGI("argv[%d] = %s", mParamNum, mConfigParams[mParamNum]);
+        mParamNum++;
+        (*argc)++;
     }
 
     while (index < *argc) {
@@ -1505,7 +1503,8 @@ char **DolbyMS12ConfigParams::UpdateDolbyMS12RuntimeConfigParams(int *argc, char
         } else if (strcmp(opt, "dmx") == 0) {
             val = atoi(mConfigParams[index]);
             if ((val >= 0) && (val <= 2)) {
-                ALOGI("-c DRCCutStereo: %d", val);
+                ALOGI("-c Downmix Mode: %d", val);
+                /* Fixme: [he-aac] 2 = ARIB is not used on AOSP */
                 mDownmixMode = val;
             }
         } else if (strcmp(opt, "drc") == 0) {

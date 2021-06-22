@@ -27,6 +27,8 @@
 #include <errno.h>
 #include <cutils/log.h>
 #include <fcntl.h>
+#include <pthread.h>
+#include <tinyalsa/asoundlib.h>
 #include <aml_alsa_mixer.h>
 #include "alsa_device_parser.h"
 
@@ -44,11 +46,6 @@ static struct aml_mixer_list gAmlMixerList[] = {
     /* for HDMI ARC status */
     {AML_MIXER_ID_HDMI_ARC_AUDIO_ENABLE, "HDMI ARC Switch"},
     {AML_MIXER_ID_HDMI_EARC_AUDIO_ENABLE, "eARC_RX attended type"},
-    /* eARC RX/TX latency and Capability Data Structure */
-    {AML_MIXER_ID_EARCRX_LATENCY, "eARC_RX Latency"},
-    {AML_MIXER_ID_EARCTX_LATENCY, "eARC_TX Latency"},
-    {AML_MIXER_ID_EARCRX_CDS, "eARC_RX CDS"},
-    {AML_MIXER_ID_EARCTX_CDS, "eARC_TX CDS"},
     {AML_MIXER_ID_AUDIO_IN_SRC,         "Audio In Source"},
     {AML_MIXER_ID_I2SIN_AUDIO_TYPE,     "I2SIN Audio Type"},
     {AML_MIXER_ID_SPDIFIN_AUDIO_TYPE,   "SPDIFIN Audio Type"},
@@ -63,13 +60,15 @@ static struct aml_mixer_list gAmlMixerList[] = {
     /* for ATV status */
     {AML_MIXER_ID_ATV_IN_AUDIO_STABLE,  "ATV audio stable"},
     {AML_MIXER_ID_SPDIF_FORMAT,         "Audio spdif format"},
+    {AML_MIXER_ID_SPDIF_B_FORMAT,       "Audio spdif_b format"},
+    {AML_MIXER_ID_SPDIF_TO_HDMI,        "Spdif to HDMITX Select"},
+
     /* for AV status */
     {AML_MIXER_ID_AV_IN_AUDIO_STABLE,   "AV audio stable"},
     /* for Speaker master volume */
     {AML_MIXER_ID_EQ_MASTER_VOLUME,     "EQ master volume"},
     /* ARCIN and SPDIFIN switch*/
     {AML_MIXER_ID_SPDIFIN_ARCIN_SWITCH, "AudioIn Switch"},
-
     {AML_MIXER_ID_SPDIFIN_PAO,          "SPDIFIN PAO"},
     /* HDMI IN audio format */
     {AML_MIXER_ID_HDMIIN_AUDIO_TYPE,    "HDMIIN Audio Type"},
@@ -77,14 +76,12 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_SPDIFIN_SRC,          "Audio spdifin source"},
     {AML_MIXER_ID_HDMIIN_AUDIO_PACKET,  "HDMIIN Audio Packet"},
     {AML_MIXER_ID_CHANGE_SPIDIF_PLL,    "SPDIF CLK Fine Setting"},
+    {AML_MIXER_ID_CHANGE_SPIDIFB_PLL,   "SPDIF_B CLK Fine Setting"},
     {AML_MIXER_ID_CHANGE_I2S_PLL,       "TDM MCLK Fine Setting"},
-    {AML_MIXER_ID_AED_EQ_ENABLE,        "AED EQ enable"},
-    {AML_MIXER_ID_AED_MULTI_DRC_ENABLE, "AED Multi-band DRC enable"},
-    {AML_MIXER_ID_AED_FULL_DRC_ENABLE,  "AED Full-band DRC enable"},
     {AML_MIXER_ID_SPDIF_IN_SAMPLERATE,  "SPDIFIN audio samplerate"},
     {AML_MIXER_ID_HW_RESAMPLE_SOURCE,   "Hw resample module"},
-    {AML_MIXER_ID_EARC_AUDIO_TYPE,      "eARC_TX Audio Codec Type"},
-    {AML_MIXER_ID_EARC_TX_ATTENDED_TYPE, "eARC_TX attended type"},
+    {AML_MIXER_ID_AUDIO_HAL_FORMAT,     "Audio HAL Format"},
+    {AML_MIXER_ID_HDMIIN_AUDIO_EDID,    "HDMIIN AUDIO EDID"},
 };
 
 static char *get_mixer_name_by_id(int mixer_id)
@@ -136,14 +133,40 @@ int close_mixer_handle(struct aml_mixer_handle *mixer_handle)
 
 static struct mixer_ctl *get_mixer_ctl_handle(struct mixer *pmixer, int mixer_id)
 {
-    char *name = get_mixer_name_by_id(mixer_id);
     struct mixer_ctl *pCtrl = NULL;
 
-    if (name)
-        pCtrl = mixer_get_ctl_by_name(pmixer, name);
+    if (get_mixer_name_by_id(mixer_id) != NULL) {
+        pCtrl = mixer_get_ctl_by_name(pmixer,
+                                      get_mixer_name_by_id(mixer_id));
+    }
 
     return pCtrl;
 }
+
+int aml_mixer_ctrl_get_array(struct aml_mixer_handle *mixer_handle, int mixer_id, void *array, int count)
+{
+    struct mixer *pMixer = mixer_handle->pMixer;
+    struct mixer_ctl *pCtrl;
+
+    if (pMixer == NULL) {
+        ALOGE("[%s:%d] pMixer is invalid!\n", __FUNCTION__, __LINE__);
+        return -1;
+    }
+
+    pthread_mutex_lock(&mixer_handle->lock);
+    pCtrl = get_mixer_ctl_handle(pMixer, mixer_id);
+    if (pCtrl == NULL) {
+        ALOGE("[%s:%d] Failed to open mixer %s\n", __FUNCTION__, __LINE__,
+              get_mixer_name_by_id(mixer_id));
+        pthread_mutex_unlock(&mixer_handle->lock);
+        return -1;
+    }
+    mixer_ctl_get_array(pCtrl, array, count);
+    pthread_mutex_unlock(&mixer_handle->lock);
+
+    return 0;
+}
+
 
 int aml_mixer_ctrl_get_int(struct aml_mixer_handle *mixer_handle, int mixer_id)
 {
@@ -203,6 +226,31 @@ int aml_mixer_ctrl_get_enum_str_to_int(struct aml_mixer_handle *mixer_handle, in
     }
 }
 
+int aml_mixer_ctrl_set_array(struct aml_mixer_handle *mixer_handle, int mixer_id, void *array, int count)
+{
+    struct mixer *pMixer = mixer_handle->pMixer;
+    struct mixer_ctl *pCtrl;
+
+    if (pMixer == NULL) {
+        ALOGE("[%s:%d] pMixer is invalid!\n", __FUNCTION__, __LINE__);
+        return -1;
+    }
+
+    pthread_mutex_lock(&mixer_handle->lock);
+    pCtrl = get_mixer_ctl_handle(pMixer, mixer_id);
+    if (pCtrl == NULL) {
+        ALOGE("[%s:%d] Failed to open mixer %s\n", __FUNCTION__, __LINE__,
+              get_mixer_name_by_id(mixer_id));
+        pthread_mutex_unlock(&mixer_handle->lock);
+        return -1;
+    }
+    mixer_ctl_set_array(pCtrl, array, count);
+    pthread_mutex_unlock(&mixer_handle->lock);
+
+    return 0;
+}
+
+
 int aml_mixer_ctrl_set_int(struct aml_mixer_handle *mixer_handle, int mixer_id, int value)
 {
     struct mixer *pMixer = mixer_handle->pMixer;
@@ -251,42 +299,4 @@ int aml_mixer_ctrl_set_str(struct aml_mixer_handle *mixer_handle, int mixer_id, 
     return 0;
 }
 
-int mixer_get_int(struct mixer *pMixer, int mixer_id)
-{
-    struct mixer_ctl *pCtrl = get_mixer_ctl_handle(pMixer, mixer_id);
 
-    if (!pCtrl)
-        return -EINVAL;
-
-    return mixer_ctl_get_value(pCtrl, mixer_id);
-}
-
-int mixer_set_int(struct mixer *pMixer, int mixer_id, int value)
-{
-    struct mixer_ctl *pCtrl = get_mixer_ctl_handle(pMixer, mixer_id);
-
-    if (!pCtrl)
-        return -EINVAL;
-
-    return mixer_ctl_set_value(pCtrl, mixer_id, value);
-}
-
-int mixer_get_array(struct mixer *pMixer, int mixer_id, void *array, int count)
-{
-    struct mixer_ctl *pCtrl = get_mixer_ctl_handle(pMixer, mixer_id);
-
-    if (!pCtrl)
-        return -EINVAL;
-
-    return mixer_ctl_get_array(pCtrl, array, count);
-}
-
-int mixer_set_array(struct mixer *pMixer, int mixer_id, void *array, int count)
-{
-    struct mixer_ctl *pCtrl = get_mixer_ctl_handle(pMixer, mixer_id);
-
-    if (!pCtrl)
-        return -EINVAL;
-
-    return mixer_ctl_set_array(pCtrl, array, count);
-}

@@ -28,6 +28,7 @@
 #include <pthread.h>
 
 #include "aml_audio_ease.h"
+#include "aml_malloc_debug.h"
 
 /*
     Robert Penner's Easing Equations v1.5  May 1, 2003

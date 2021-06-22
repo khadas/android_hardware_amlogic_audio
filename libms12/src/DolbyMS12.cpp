@@ -28,9 +28,6 @@
 #include "DolbyMS12.h"
 #include "DolbyMS12ConfigParams.h"
 
-#define DOLBY_MS12_LIB_PATH_A "/vendor/lib/libdolbyms12.so"
-#define DOLBY_MS12_LIB_PATH_B "/system/vendor/lib/libdolbyms12.so"
-
 namespace android
 {
 
@@ -94,19 +91,16 @@ DolbyMS12::~DolbyMS12()
 }
 
 
-int DolbyMS12::GetLibHandle(void)
+int DolbyMS12::GetLibHandle(char *dolby_ms12_path)
 {
     ALOGD("+%s()", __FUNCTION__);
     //ReleaseLibHandle();
 
     //here there are two paths, "the DOLBY_MS12_LIB_PATH_A/B", where could exit that dolby ms12 libary.
-    mDolbyMS12LibHanle = dlopen(DOLBY_MS12_LIB_PATH_A, RTLD_NOW);
+    mDolbyMS12LibHanle = dlopen(dolby_ms12_path, RTLD_NOW);
     if (!mDolbyMS12LibHanle) {
-        mDolbyMS12LibHanle = dlopen(DOLBY_MS12_LIB_PATH_B, RTLD_NOW);
-        if (!mDolbyMS12LibHanle) {
-            ALOGE("%s, failed to load libdolbyms12 lib %s\n", __FUNCTION__, dlerror());
-            goto ERROR;
-        }
+        ALOGE("%s, failed to load libdolbyms12 lib %s\n", __FUNCTION__, dlerror());
+        goto ERROR;
     }
 
     FuncGetMS12OutputMaxSize = (int (*)(void)) dlsym(mDolbyMS12LibHanle, "get_ms12_output_max_size");
@@ -819,7 +813,7 @@ int DolbyMS12::DolbyMS12GetSystemBufferAvail(int * max_size)
 
 unsigned long long DolbyMS12::DolbyMS12GetNBytesPcmOutOfUDC()
 {
-    unsigned long long  ret = 0;
+    unsigned long long ret = 0;
     ALOGV("+%s()", __FUNCTION__);
     if (!FuncDolbyMS12GetNBytesPcmOutOfUDC) {
         ALOGE("%s(), pls load lib first.\n", __FUNCTION__);

@@ -109,45 +109,6 @@ bool alsa_device_is_auge(void)
 
 	return false;
 }
-/** TODO: only for aloop test
- *    Suppose that aloop card id =0,
- *    if not, need way to parse.
- */
-int alsa_device_get_card_index_by_name(void *name)
-{
-	FILE *mCardFile = NULL;
-	int mCardIndex = -1;
-
-	if (!name)
-		return -1;
-
-	mCardFile = fopen(ALSASOUND_CARD_PATH, "r");
-	if (mCardFile) {
-		char tempbuffer[READ_BUFFER_SIZE];
-
-		while (!feof(mCardFile)) {
-			fgets(tempbuffer, READ_BUFFER_SIZE, mCardFile);
-
-			/* this line contain '[' character */
-			if (strchr(tempbuffer, '[')) {
-				char *Rch = strtok(tempbuffer, "[");
-				int id = atoi(Rch);
-				ALOGD("\tcurrent card id = %d, Rch = %s", id, Rch);
-				Rch = strtok(NULL, " ]");
-				ALOGD("\tcurrent sound card name = %s", Rch);
-				if (strcmp(Rch, name) == 0) {
-					ALOGD("\t sound cardIndex found = %d", id);
-					mCardIndex = id;
-					break;
-				}
-			}
-
-			memset((void *)tempbuffer, 0, READ_BUFFER_SIZE);
-		}
-	}
-
-	return mCardIndex;
-}
 
 /*
  * cat /proc/asound/cards
@@ -193,7 +154,7 @@ int alsa_device_get_card_index()
 					isCardIndexFound = true;
 					p_aml_alsa_info->is_auge = 1;
 					break;
-				} else if (strcmp(Rch, CARD_NAME_MESON) == 0) {
+				} else {
 					ALOGD("\t meson sound cardIndex found = %d", mCardIndex);
 					isCardIndexFound = true;
 					p_aml_alsa_info->is_auge = 0;
@@ -287,6 +248,23 @@ void alsa_device_parser_pcm_string(struct alsa_info *p_info, char *InputBuffer)
 	}
 }
 
+static void dump_alsa_device_desc(struct alsa_info *p_info)
+{
+	ALOGD("%s %s: %p", __func__, ALSAPORT_PCM, p_info->pcm_descrpt);
+	ALOGD("%s %s: %p", __func__, ALSAPORT_I2S, p_info->i2s_descrpt);
+	ALOGD("%s %s: %p", __func__, ALSAPORT_I2SPLAYPLAYBACK, p_info->i2s1_descrpt);
+	ALOGD("%s %s: %p", __func__, ALSAPORT_I2SCAPTURE, p_info->i2s2_descrpt);
+	ALOGD("%s %s: %p", __func__, ALSAPORT_TDM, p_info->tdm_descrpt);
+	ALOGD("%s %s: %p", __func__, ALSAPORT_PDM, p_info->pdm_descrpt);
+	ALOGD("%s %s: %p", __func__, ALSAPORT_SPDIF, p_info->spdif_descrpt);
+	ALOGD("%s %s: %p", __func__, ALSAPORT_SPDIFB, p_info->spdifb_descrpt);
+	ALOGD("%s %s: %p", __func__, ALSAPORT_I2S2HDMI, p_info->i2s2hdmi_descrpt);
+	ALOGD("%s %s: %p", __func__, ALSAPORT_TV, p_info->tvin_descrpt);
+	ALOGD("%s %s: %p", __func__, ALSAPORT_LPBK, p_info->lpbk_descrpt);
+	ALOGD("%s %s: %p", __func__, ALSAPORT_BUILTINMIC, p_info->builtinmic_descrpt);
+	ALOGD("%s %s: %p", __func__, ALSAPORT_EARC, p_info->earc_descrpt);
+}
+
 /*
  * alsaPORT is kept same with meson sound card
  * cat /proc/asound/pcm
@@ -304,6 +282,10 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 	struct AudioDeviceDescriptor *pADD = NULL;
 
 	if (!p_info || !p_info->is_auge) {
+		/* fix to spdif port */
+		if (alsaPORT >= 2)
+			alsaPORT = 1;
+
 		return alsaPORT;
 	}
 
@@ -321,6 +303,8 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 			}
 			ALOGD("reach EOF");
 			fclose(mPcmFile);
+			if (0)
+				dump_alsa_device_desc(p_info);
 			p_info->deviced_checked = 1;
 		} else
 			ALOGD("Pcm open fail");
@@ -372,9 +356,6 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 		break;
 	case PORT_BUILTINMIC:
 		pADD = p_info->builtinmic_descrpt;
-		if (!pADD) {
-			pADD = p_info->i2s_descrpt;
-		}
 		break;
 	case PORT_EARC:
 		pADD = p_info->earc_descrpt;
@@ -388,7 +369,7 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 	if (pADD)
 		new_port = pADD->mPcmIndex;
 
-	ALOGD("auge sound card, fix alsaPORT:%d to :%d\n", alsaPORT, new_port);
+	ALOGD("auge sound card, pAdd=%p fix alsaPORT:%d to :%d\n",pADD, alsaPORT, new_port);
 
 	return new_port;
 }

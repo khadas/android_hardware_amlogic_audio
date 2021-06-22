@@ -14,14 +14,26 @@
  * limitations under the License.
  */
 
-
-
 #ifndef _AUDIO_HW_PROFILE_H_
 #define _AUDIO_HW_PROFILE_H_
 
 int get_external_card(int type);
 char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_hdmi_desc *p_hdmi_descs);
-char*  get_hdmi_arc_cap(unsigned *ad, int maxsize, const char *keys);
+char*  get_hdmi_sink_cap_new(const char *keys,audio_format_t format,struct aml_arc_hdmi_desc *p_hdmi_descs);
+char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct aml_arc_hdmi_desc *p_hdmi_descs, int conv_support);
+char*  get_hdmi_sink_cap_dolby_ms12(const char *keys,audio_format_t format,struct aml_arc_hdmi_desc *p_hdmi_descs);
+char *get_hdmi_arc_cap(struct audio_hw_device *dev, const char *keys, audio_format_t format);
 char *strdup_hdmi_arc_cap_default(const char *keys, audio_format_t format);
 char *strdup_a2dp_cap_default(const char *keys, audio_format_t format);
+
+/*@ brief get the TV board inside capbility
+ * return the strdup.
+ */
+char *strdup_tv_platform_cap_default(const char *keys, audio_format_t format);
+
+/*@ brief out_get_parameters wrapper about the support sampling_rates/channels/formats
+ * return the strdup.
+ */
+char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(const struct audio_stream *stream, const char *keys);
+
 #endif

@@ -23,6 +23,7 @@ typedef struct {
     audio_format_t audio_format;
     audio_format_t sub_format;
     uint32_t      rate;
+    audio_channel_mask_t channel_mask;
 } spdif_config_t;
 
 int aml_audio_get_spdif_port(eMixerSpdif_Format spdif_format);
@@ -37,10 +38,12 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte);
 
 int aml_audio_spdifout_close(void *phandle);
 
-int aml_audio_spdifout_mute(void *phandle, bool bmute);
+int aml_audio_spdifout_mute(void *phandle, bool b_mute);
 
-int aml_dtv_spdif_output_new (struct audio_stream_out *stream,
-                                      void *buffer, size_t byte);
+int aml_audio_spdifout_pause(void *phandle);
 
+int aml_audio_spdifout_resume(void *phandle);
+
+int aml_audio_spdifout_get_delay(void *phandle);
 
 #endif

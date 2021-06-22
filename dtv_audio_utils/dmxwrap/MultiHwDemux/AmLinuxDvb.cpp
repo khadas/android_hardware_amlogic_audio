@@ -26,6 +26,9 @@
 #include <sys/eventfd.h>
 #include <dmx.h>
 #include <TSPHandler.h>
+
+#include <inttypes.h>
+
 #define UNUSED(x) (void)(x)
 AmLinuxDvd::AmLinuxDvd() {
     ALOGI("AmLinuxDvd\n");
@@ -319,8 +322,8 @@ int AmLinuxDvd::dvr_data_write(uint8_t *buf, int size,uint64_t timeout)
 
         left -= ret;
         p += ret;
-        if (TSPLooper::GetNowUs() - nowUs > (int64_t)timeout) {
-            ALOGE("dvr_data_write timeout(%lld) \n",timeout);
+        if (TSPLooper::GetNowUs() - nowUs > timeout) {
+            ALOGE("dvr_data_write timeout %" PRIu64 " \n",timeout);
             break;
         }
     }

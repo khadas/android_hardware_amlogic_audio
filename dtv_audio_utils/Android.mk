@@ -13,7 +13,12 @@ LOCAL_C_INCLUDES +=                      \
     $(LOCAL_PATH)/dmxwrap/HwDemux \
     $(LOCAL_PATH)/dmxwrap/MultiHwDemux \
     $(LOCAL_PATH)/audio_read_api \
-    $(LOCAL_PATH)/sync
+    $(LOCAL_PATH)/sync \
+    $(LOCAL_PATH)/../utils/include \
+    hardware/amlogic/media/amavutils/include/ \
+    vendor/amlogic/common/external/dvb/include/am_adp \
+    vendor/amlogic/common/mediahal_sdk/include 
+
 
 
 LOCAL_SRC_FILES  +=               \
@@ -36,8 +41,10 @@ LOCAL_SRC_FILES  +=               \
     dmxwrap/MultiHwDemux/AmLinuxDvb.cpp \
     dmxwrap/MultiHwDemux/AmDmx.cpp \
     dmxwrap/MultiHwDemux/AmHwMultiDemuxWrapper.cpp \
-    audio_read_api/dmx_audio_es.cpp \
-    sync/audio_dtv_sync.c
+    audio_data_read/dmx_audio_es.cpp \
+    audio_data_read/uio_audio_read.c \
+    audio_data_read/audio_dtv_ad.c \
+    sync/audio_dtv_sync.c \
 
 LOCAL_MODULE := libdvbaudioutils
 
@@ -50,9 +57,12 @@ LOCAL_SHARED_LIBRARIES += \
     libcutils             \
     libutils              \
     liblog                \
-    libaudioutils
+    libaudioutils         \
+    libamaudioutils       \
+    libamavutils          \
+    libam_adp
 
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS += -DBUILD_IN_ANDROID -Werror -Wno-deprecated-declarations -Wno-deprecated-register \
-                -Wno-unused-parameter -Wall
+                -Wno-unused-parameter -Wall -Wno-sign-compare
 include $(BUILD_SHARED_LIBRARY)

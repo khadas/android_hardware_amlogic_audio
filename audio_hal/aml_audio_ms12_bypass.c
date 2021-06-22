@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #define LOG_TAG "audio_ms12_bypass"
+//#define LOG_NDEBUG 0
 
 #include <cutils/log.h>
 #include <inttypes.h>
@@ -180,7 +181,6 @@ int aml_ms12_bypass_checkin_data(void *phandle, const void *buffer, int32_t numB
     struct bypass_frame_item * new_frame = NULL;
     struct bypass_frame_item * last_frame = NULL;
     struct listnode *item = NULL, *n = NULL;
-    bool need_new_frame = true;
     int frame_no = 0;
     struct aml_ms12_bypass_handle *bypass_handle = (struct aml_ms12_bypass_handle *)phandle;
     if ((bypass_handle == NULL) ||
@@ -190,7 +190,7 @@ int aml_ms12_bypass_checkin_data(void *phandle, const void *buffer, int32_t numB
         ALOGE("%s Invalid parameter", __FUNCTION__);
         return -1;
     }
-    ALOGV("frame info rate=%d dependency=%d numblks=%d", data_info->samplerate, data_info->dependency_frame, data_info->numblks);
+    ALOGV("size =%d frame info rate=%d dependency=%d numblks=%d", numBytes, data_info->samplerate, data_info->dependency_frame, data_info->numblks);
     pthread_mutex_lock(&bypass_handle->list_lock);
     list_for_each_safe(item, n, &bypass_handle->frame_list) {
         frame_no++;
@@ -202,46 +202,23 @@ int aml_ms12_bypass_checkin_data(void *phandle, const void *buffer, int32_t numB
     }
     ALOGV("%s frame_no =%d", __FUNCTION__, frame_no);
     pthread_mutex_lock(&bypass_handle->list_lock);
-    if (!data_info->dependency_frame) {
-        if (!list_empty(&bypass_handle->frame_list)) {
-            item      = list_tail(&bypass_handle->frame_list);
-            last_frame = node_to_item(item, struct bypass_frame_item, list);
-            /*add this buffer to last frame*/
-            if (last_frame->numblks < DDP_FRAME_BLK_NUM) {
-                modify_bypass_frame(last_frame, buffer, numBytes);
-                last_frame->offset_end   = bypass_handle->data_offset + numBytes;
-                last_frame->numblks     += data_info->numblks;
-                bypass_handle->data_offset += numBytes;
-                need_new_frame = false;
-            }
-        }
-        if (need_new_frame)
-        {
-            new_frame = new_bypass_frame(buffer, numBytes, data_info);
-            if (new_frame) {
-                new_frame->offset_start = bypass_handle->data_offset;
-                new_frame->offset_end   = bypass_handle->data_offset + numBytes;
-                new_frame->numblks      = data_info->numblks;
-                list_add_tail(&bypass_handle->frame_list, &new_frame->list);
-                bypass_handle->data_offset += numBytes;
-            } else {
-                ret = -1;
-            }
-        }
+
+    new_frame = new_bypass_frame(buffer, numBytes, data_info);
+    if (new_frame) {
+        new_frame->offset_start = bypass_handle->data_offset;
+        new_frame->offset_end   = bypass_handle->data_offset + numBytes;
+        new_frame->numblks      = data_info->numblks;
+        list_add_tail(&bypass_handle->frame_list, &new_frame->list);
+        bypass_handle->data_offset += numBytes;
     } else {
-        if (!list_empty(&bypass_handle->frame_list)) {
-            item      = list_tail(&bypass_handle->frame_list);
-            new_frame = node_to_item(item, struct bypass_frame_item, list);
-            modify_bypass_frame(new_frame, buffer, numBytes);
-            new_frame->offset_end   = bypass_handle->data_offset + numBytes;
-            new_frame->numblks      = data_info->numblks;
-            bypass_handle->data_offset += numBytes;
-        }
+        ret = -1;
     }
+
+
     pthread_mutex_unlock(&bypass_handle->list_lock);
 
     if (new_frame) {
-        ALOGV("check in bypass frame start=%lld end=%lld size=%d depedency=%d", new_frame->offset_start, new_frame->offset_end, numBytes, new_frame->info.dependency_frame);
+        ALOGV("check in bypass frame start=%" PRId64 " end=%" PRId64 " size=%d depedency=%d", new_frame->offset_start, new_frame->offset_end, numBytes, new_frame->info.dependency_frame);
     }
     return ret;
 }
@@ -251,36 +228,40 @@ int aml_ms12_bypass_checkout_data(void *phandle, void **output_buf, int32_t *out
 {
     struct aml_ms12_bypass_handle *bypass_handle = (struct aml_ms12_bypass_handle *)phandle;
     struct bypass_frame_item *frame_item = NULL;
-    struct listnode *item = NULL;
+    struct listnode *item = NULL, *n;
     uint32_t frame_size = 0;
     bool find_frame = false;
     if (bypass_handle == NULL) {
         return -1;
     }
-    ALOGV("check out bypass data =%lld", offset);
+    *out_size = 0;
+    ALOGV("check out bypass data =%" PRId64 "", offset);
     pthread_mutex_lock(&bypass_handle->list_lock);
-    list_for_each(item, &bypass_handle->frame_list) {
+    list_for_each_safe(item, n, &bypass_handle->frame_list) {
         frame_item = node_to_item(item, struct bypass_frame_item, list);
-        if ((frame_item->offset_start <= offset) && (offset <= frame_item->offset_end)) {
+        // LINUX change
+        // send all frames before/include the offset
+        if (frame_item->offset_start <= offset) {
             /*find the offset frame*/
             frame_size = frame_item->frame_size;
-            ALOGV("offset=%lld frame size=%d start=%lld end=%lld frame dependency=%d cnt=%d numblks=%d", offset, frame_size, frame_item->offset_start, frame_item->offset_end, frame_item->info.dependency_frame, frame_item->frame_cnt, frame_item->numblks);
-            if (frame_size > bypass_handle->buf_size) {
-                bypass_handle->buf = aml_audio_realloc(bypass_handle->buf, frame_size);
+            ALOGV("offset=%" PRId64 " frame size=%d start=%" PRId64 " end=%" PRId64 " frame dependency=%d cnt=%d numblks=%d", offset, frame_size, frame_item->offset_start, frame_item->offset_end, frame_item->info.dependency_frame, frame_item->frame_cnt, frame_item->numblks);
+            if (frame_size + *out_size > bypass_handle->buf_size) {
+                bypass_handle->buf = realloc(bypass_handle->buf, frame_size + *out_size);
                 if (bypass_handle->buf == NULL) {
                     ALOGE("%s realloc buf failed =%d", __FUNCTION__, frame_size);
                     goto error;
                 }
-                bypass_handle->buf_size = frame_size;
+                bypass_handle->buf_size = frame_size + *out_size;
             }
-            memcpy(bypass_handle->buf, frame_item->frame_buf, frame_size);
+            memcpy((char*)bypass_handle->buf + *out_size, frame_item->frame_buf, frame_size);
             memcpy(frame_info, &frame_item->info, sizeof(struct bypass_frame_info));
 
             *output_buf = bypass_handle->buf;
-            *out_size   = frame_size;
+            *out_size  += frame_size;
             find_frame = true;
             list_remove(&frame_item->list);
             delete_bypass_frame(frame_item);
+        } else {
             break;
         }
     }
@@ -295,5 +276,6 @@ error:
     *out_size   = 0;
     return -1;
 }
+
 
 

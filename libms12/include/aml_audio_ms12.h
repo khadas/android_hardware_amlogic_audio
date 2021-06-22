@@ -15,14 +15,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
+#include <system/audio.h>
+#include <cutils/list.h>
 #include "dolby_ms12.h"
 #include "dolby_ms12_config_params.h"
 #include "dolby_ms12_status.h"
 #include "aml_ringbuffer.h"
-#include <system/audio.h>
-#include <time.h>
-
-
 
 #define DOLBY_SAMPLE_SIZE 4//2ch x 2bytes(16bits) = 4 bytes
 
@@ -74,8 +73,11 @@ struct dolby_ms12_desc {
     bool dolby_ms12_thread_exit;
     bool is_continuous_paused;
     int device;//alsa_device_t
-    struct timespec timestamp; //zzz
+    struct timespec timestamp;
     uint64_t last_frames_postion;
+    uint64_t last_ms12_pcm_out_position;
+    bool     ms12_position_update;
+
     /*
     latency frame is maintained by the whole device output.
     whatever what bistream is outputed we need use this latency frames.
@@ -102,7 +104,11 @@ struct dolby_ms12_desc {
     struct timespec  sys_audio_timestamp;
     uint64_t  sys_audio_frame_pos;
     uint64_t  sys_audio_base_pos;
+    uint64_t  sys_audio_skip;
     uint64_t  last_sys_audio_cost_pos;
+    /*ms12 main input information */
+    audio_format_t main_input_fmt;
+    unsigned int   main_input_sr;
     void * ac3_parser_handle;
     void * spdif_dec_handle;
     audio_format_t sink_format;
@@ -110,8 +116,9 @@ struct dolby_ms12_desc {
     bool dual_decoder_support;
     void * ms12_bypass_handle;
     bool   is_bypass_ms12;
-    uint64_t main_input_us;
-    uint64_t main_output_us;
+    uint64_t main_input_start_offset_ns;
+    uint64_t main_input_ns;
+    uint64_t main_output_ns;
     uint32_t main_input_rate;  /*it is used to calculate the buffer duration*/
     uint32_t main_buffer_min_level;
     uint32_t main_buffer_max_level;
@@ -119,6 +126,22 @@ struct dolby_ms12_desc {
     unsigned char *lpcm_temp_buffer;
     int   dap_bypass_enable;
     float dap_bypassgain;
+    /*
+     *-ac4_de             * <int> [ac4] Dialogue Enhancement gain that will be applied in the decoder
+     *                      Range: 0 to 12 dB (in 1 dB steps, default is 0 dB)
+     */
+    int ac4_de;
+    /*
+     * these variables are used for ms12 message thread.
+     */
+    pthread_t ms12_mesg_threadID;
+    pthread_mutex_t mutex;
+    pthread_cond_t  cond;
+    bool CommThread_ExitFlag;
+    struct listnode mesg_list;
+    struct aml_stream_out *ms12_main_stream_out;
+    struct aml_stream_out *ms12_app_stream_out; /*Reserve for extension*/
+    float  main_volume;
 };
 
 /*
@@ -138,7 +161,7 @@ int get_dolby_ms12_output_details(struct dolby_ms12_desc *ms12_desc);
 /*
  *@brief init the dolby ms12
  */
-int get_dolby_ms12_init(struct dolby_ms12_desc *ms12_desc);
+int get_dolby_ms12_init(struct dolby_ms12_desc *ms12_desc, char *dolby_ms12_path);
 
 /*
  *@brief get the dolby ms12 config parameters
@@ -152,7 +175,8 @@ int aml_ms12_config(struct dolby_ms12_desc *ms12_desc
                     , audio_format_t config_format
                     , audio_channel_mask_t config_channel_mask
                     , int config_sample_rate
-                    , int output_config);
+                    , int output_config
+                    , char *dolby_ms12_path);
 /*
  *@brief cleanup the dolby ms12
  */
@@ -162,7 +186,7 @@ int aml_ms12_update_runtime_params(struct dolby_ms12_desc *ms12_desc, char *cmd)
 
 int aml_ms12_update_runtime_params_lite(struct dolby_ms12_desc *ms12_desc);
 
-int aml_ms12_lib_preload();
+int aml_ms12_lib_preload(char *dolby_ms12_path);
 
 int aml_ms12_lib_release();
 

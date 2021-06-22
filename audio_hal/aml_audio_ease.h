@@ -18,7 +18,6 @@
 
 #include <system/audio.h>
 #include <pthread.h>
-#include "aml_malloc_debug.h"
 
 typedef struct aml_data_format {
     audio_format_t format;

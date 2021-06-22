@@ -1,19 +1,9 @@
 /*
- * Copyright (C) 2019-2020 HAOBO Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+    write by HBG IC co.ltd
+    write by huajianwu 20180207
+    use for amlogic android8
+    ver 1.0
  */
- 
 #include <errno.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -99,6 +89,9 @@ static void* Monit_Mic_Thread(void* arg) {
     unsigned char found_mic_stop = 0;
     LOGD("---0223 monit_mic_Thread ---");
     running_m_flag = 1;
+
+    pthread_detach(pthread_self());
+
     while(running_m_flag) {
     //BLE 节点
         if(access(BLE_KEYDOWN_NAME, F_OK)== -1) {  //可以使用inotify_add_watch来优化监控！后续修改
@@ -132,8 +125,10 @@ static void* ReceiveAudioDataThread(void* arg)//2018.11.1
     unsigned char buf_r[4096];  //huajianwu
     int fd = -1;
     int  nread;
-     int i;
+    int i;
     //int position_flag = 0x0;
+
+    pthread_detach(pthread_self());
 
     LOGD("---0208 ReceiveAudioDataThread ---");
     running_flag = 1;
@@ -162,6 +157,17 @@ static void* ReceiveAudioDataThread(void* arg)//2018.11.1
         }
         usleep(200000);//200ms
     }
+
+    for(i =0;i < MAX_NUM_CALLBACK;i++) {
+        if(mRegAudioCB[i].in_use) {
+            mRegAudioCB[i].in_use = 0;
+            //mRegAudioCB[i].flag = 0;
+            DeInitRingBuffer(mRegAudioCB[i].ptr);
+            mRegAudioCB[i].ptr = NULL;
+        }
+    }
+    pthread_mutex_destroy(&lock);
+    hbg_stop_thread();
     LOGE("read thread out!");
     close(fd);
     return NULL;
@@ -274,25 +280,13 @@ void startReceiveAudioData()
 void stopReceiveAudioData()
 {
     //LOGD("0208stop rcv thread!");
-    int i ;
+    //int i ;
     running_flag = 0;
     start_audio_cmd = 0;
     running_m_flag = 0;
-    pthread_join(id,NULL);
-    pthread_join(monit_id,NULL);
-    for(i =0;i < MAX_NUM_CALLBACK;i++)
-    {
-        if(mRegAudioCB[i].in_use)
-        {
-            mRegAudioCB[i].in_use = 0;
-            //mRegAudioCB[i].flag = 0;
-            DeInitRingBuffer(mRegAudioCB[i].ptr);
-            mRegAudioCB[i].ptr = NULL;
-        }
-    }
-    pthread_mutex_destroy(&lock);
-    hbg_stop_thread();
-
+    //pthread_join(id,NULL);
+    //pthread_join(monit_id,NULL);
+	
 }
 
 //

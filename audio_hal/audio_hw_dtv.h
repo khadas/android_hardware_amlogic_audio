@@ -17,71 +17,55 @@
 #ifndef _AUDIO_HW_DTV_H_
 #define _AUDIO_HW_DTV_H_
 
-//{reference from " /amcodec/include/amports/aformat.h"
-#define ACODEC_FMT_NULL -1
-#define ACODEC_FMT_MPEG 0
-#define ACODEC_FMT_PCM_S16LE 1
-#define ACODEC_FMT_AAC 2
-#define ACODEC_FMT_AC3 3
-#define ACODEC_FMT_ALAW 4
-#define ACODEC_FMT_MULAW 5
-#define ACODEC_FMT_DTS 6
-#define ACODEC_FMT_PCM_S16BE 7
-#define ACODEC_FMT_FLAC 8
-#define ACODEC_FMT_COOK 9
-#define ACODEC_FMT_PCM_U8 10
-#define ACODEC_FMT_ADPCM 11
-#define ACODEC_FMT_AMR 12
-#define ACODEC_FMT_RAAC 13
-#define ACODEC_FMT_WMA 14
-#define ACODEC_FMT_WMAPRO 15
-#define ACODEC_FMT_PCM_BLURAY 16
-#define ACODEC_FMT_ALAC 17
-#define ACODEC_FMT_VORBIS 18
-#define ACODEC_FMT_AAC_LATM 19
-#define ACODEC_FMT_APE 20
-#define ACODEC_FMT_EAC3 21
-#define ACODEC_FMT_WIFIDISPLAY 22
-#define ACODEC_FMT_DRA 23
-#define ACODEC_FMT_TRUEHD 25
-#define ACODEC_FMT_MPEG1 26 // AFORMAT_MPEG-->mp3,AFORMAT_MPEG1-->mp1,AFROMAT_MPEG2-->mp2
-#define ACODEC_FMT_MPEG2 27
-#define ACODEC_FMT_WMAVOI 28
-
-//}
-#define DTV_AUDIO_JUMPED_DEFAULT_THRESHOLD   (400)  //ms
-#define DTV_AUDIO_RETUNE_DEFAULT_THRESHOLD   (200)  //ms
-#define DTV_AUDIO_DROP_HOLD_LEAST_MS         (32 * 4) //ms
-#define DTV_AV_DISCONTINUE_THREDHOLD         (3000 * 90)
-#define DTV_PCRSCR_DEFAULT_LATENCY           (1000 * 90)
-#define DTV_PCRSCR_MIN_LATENCY               (500 * 90)
-#define DEMUX_PCR_DEFAULT_LATENCY            (500 * 90)
-#define DEMUX_PCR_MIN_LATENCY                (300 * 90)
-#define TIME_UNIT90K                         (1000 * 90)
-#define DTV_AUDIO_MUTE_PRIOD_HTRESHOLD       (TIME_UNIT90K * 2)
-#define DTV_AUDIO_DROP_TIMEOUT_HTRESHOLD     (TIME_UNIT90K)
-
-#define DTV_AUDIO_JUMPED_THRESHOLD_PROPERTY   "vendor.media.audio.hal.dtv.jumped.threshold.ms"
-#define DTV_AUDIO_RETUNE_THRESHOLD_PROPERTY   "vendor.media.audio.hal.dtv.retune.threshold.ms"
-
 enum {
     AUDIO_DTV_PATCH_DECODER_STATE_INIT,
     AUDIO_DTV_PATCH_DECODER_STATE_START,
     AUDIO_DTV_PATCH_DECODER_STATE_RUNING,
     AUDIO_DTV_PATCH_DECODER_STATE_PAUSE,
     AUDIO_DTV_PATCH_DECODER_STATE_RESUME,
-    AUDIO_DTV_PATCH_DECODER_RELEASE,
+    AUDIO_DTV_PATCH_DECODER_STATE_RELEASE,
 };
+
+/* refer to AudioSystemCmdManager */
+typedef enum {
+    AUDIO_DTV_PATCH_CMD_NULL        = 0,
+    AUDIO_DTV_PATCH_CMD_START       = 1,    /* AUDIO_SERVICE_CMD_START_DECODE */
+    AUDIO_DTV_PATCH_CMD_PAUSE       = 2,    /* AUDIO_SERVICE_CMD_PAUSE_DECODE */
+    AUDIO_DTV_PATCH_CMD_RESUME      = 3,    /* AUDIO_SERVICE_CMD_RESUME_DECODE */
+    AUDIO_DTV_PATCH_CMD_STOP        = 4,    /* AUDIO_SERVICE_CMD_STOP_DECODE */
+    AUDIO_DTV_PATCH_CMD_SET_AD_SUPPORT  = 5,    /* AUDIO_SERVICE_CMD_SET_DECODE_AD */
+    AUDIO_DTV_PATCH_CMD_SET_VOLUME  = 6,    /*AUDIO_SERVICE_CMD_SET_VOLUME*/
+    AUDIO_DTV_PATCH_CMD_SET_MUTE    = 7,    /*AUDIO_SERVICE_CMD_SET_MUTE*/
+    AUDIO_DTV_PATCH_CMD_SET_OUTPUT_MODE = 8,/*AUDIO_SERVICE_CMD_SET_OUTPUT_MODE */
+    AUDIO_DTV_PATCH_CMD_SET_PRE_GAIN  = 9,    /*AUDIO_SERVICE_CMD_SET_PRE_GAIN */
+    AUDIO_DTV_PATCH_CMD_SET_PRE_MUTE  = 10,  /*AUDIO_SERVICE_CMD_SET_PRE_MUTE */
+    AUDIO_DTV_PATCH_CMD_OPEN        = 12,   /*AUDIO_SERVICE_CMD_OPEN_DECODER */
+    AUDIO_DTV_PATCH_CMD_CLOSE       = 13,   /*AUDIO_SERVICE_CMD_CLOSE_DECODER */
+    AUDIO_DTV_PATCH_CMD_SET_DEMUX_INFO = 14, /*AUDIO_SERVICE_CMD_SET_DEMUX_INFO ;*/
+    AUDIO_DTV_PATCH_CMD_SET_SECURITY_MEM_LEVEL = 15,/*AUDIO_SERVICE_CMD_SET_SECURITY_MEM_LEVEL*/
+    AUDIO_DTV_PATCH_CMD_SET_HAS_VIDEO   = 16,/*AUDIO_SERVICE_CMD_SET_HAS_VIDEO */
+    AUDIO_DTV_PATCH_CMD_CONTROL       = 17,
+    AUDIO_DTV_PATCH_CMD_SET_PID       = 18,
+    AUDIO_DTV_PATCH_CMD_SET_FMT        = 19,
+    AUDIO_DTV_PATCH_CMD_SET_AD_PID      = 20,
+    AUDIO_DTV_PATCH_CMD_SET_AD_FMT      = 21,
+    AUDIO_DTV_PATCH_CMD_SET_AD_ENABLE      = 22,
+    AUDIO_DTV_PATCH_CMD_SET_AD_MIX_LEVEL   = 23,
+    AUDIO_DTV_PATCH_CMD_SET_AD_VOL_LEVEL   = 24,
+    AUDIO_DTV_PATCH_CMD_SET_MEDIA_SYNC_ID   = 25,
+    AUDIO_DTV_PATCH_CMD_NUM             = 26,
+} AUDIO_DTV_PATCH_CMD_TYPE;
 
 enum {
-    AUDIO_DTV_PATCH_CMD_NULL,
-    AUDIO_DTV_PATCH_CMD_START,
-    AUDIO_DTV_PATCH_CMD_STOP,
-    AUDIO_DTV_PATCH_CMD_PAUSE,
-    AUDIO_DTV_PATCH_CMD_RESUME,
-    AUDIO_DTV_PATCH_CMD_NUM,
+    AVSYNC_ACTION_NORMAL,
+    AVSYNC_ACTION_DROP,
+    AVSYNC_ACTION_HOLD,
 };
-
+enum {
+    DIRECT_SPEED = 0, // DERIECT_SPEED
+    DIRECT_SLOW,
+    DIRECT_NORMAL,
+};
 enum {
     AUDIO_FREE = 0,
     AUDIO_BREAK,
@@ -91,57 +75,40 @@ enum {
     AUDIO_LATENCY,
     AUDIO_RUNNING,
 };
-
-/****below MS12 tunning is for dtv, ms*****/
-
-/*speaker raw/pcm input*/
-#define  DTV_AVSYNC_MS12_LATENCY_SPK_PCM             (50)
-#define  DTV_AVSYNC_MS12_LATENCY_SPK_RAW             (50)
-/*speaker dap enabled*/
-#define  DTV_AVSYNC_MS12_LATENCY_DOLBY_DAP           (0)
-/*atmos with arc*/
-#define  DTV_AVSYNC_MS12_LATENCY_ARC_ATMOS           (180)
-/*ddp sink with arc*/
-#define  DTV_AVSYNC_MS12_LATENCY_ARC_ATMOSTODDP      (100)
-#define  DTV_AVSYNC_MS12_LATENCY_ARC_RAWTODDP        (80)
-#define  DTV_AVSYNC_MS12_LATENCY_ARC_PCMTODDP        (80)
-/*dd sink with arc*/
-#define  DTV_AVSYNC_MS12_LATENCY_ARC_RAWTODD         (60)
-#define  DTV_AVSYNC_MS12_LATENCY_ARC_PCMTODD         (60)
-/*pcm sink with arc*/
-#define  DTV_AVSYNC_MS12_LATENCY_ARC_PCM              (30)
-/*atmos passthrough with arc*/
-#define  DTV_AVSYNC_MS12_LATENCY_ARC_ATMOS_PTH        (60)
-
-/*above default tunning value is based DENON-X2400H AVR and the sound mode is music,
- *if the avr or mode is changed, there may be some small gaps in avsync,
- *may set below these props to correct it*/
-
-/*speaker raw/pcm input*/
-#define  DTV_AVSYNC_MS12_LATENCY_SPK_PCM_PROPERTY    "vendor.media.audio.hal.dtv.spk.pcm"
-#define  DTV_AVSYNC_MS12_LATENCY_SPK_RAW_PROPERTY    "vendor.media.audio.hal.dtv.spk.raw"
-#define  DTV_AVSYNC_MS12_LATENCY_DOLBY_DAP_PROPERTY  "vendor.media.audio.hal.dtv.dolby.dap"
-/*atmos with arc*/
-#define  DTV_AVSYNC_MS12_LATENCY_ARC_ATMOS_PROPERTY    "vendor.media.audio.hal.dtv.arc.atmos"
-/*ddp sink with arc*/
-#define  DTV_AVSYNC_MS12_LATENCY_ARC_ATMOSTODDP_PROPERTY    "vendor.media.audio.hal.dtv.arc.atmostoddp"
-#define  DTV_AVSYNC_MS12_LATENCY_ARC_RAWTODDP_PROPERTY    "vendor.media.audio.hal.dtv.arc.rawtoddp"
-#define  DTV_AVSYNC_MS12_LATENCY_ARC_PCMTODDP_PROPERTY    "vendor.media.audio.hal.dtv.arc.pcmtoddp"
-/*dd sink with arc*/
-#define  DTV_AVSYNC_MS12_LATENCY_ARC_RAWTODD_PROPERTY      "vendor.media.audio.hal.dtv.arc.rawtodd"
-#define  DTV_AVSYNC_MS12_LATENCY_ARC_PCMTODD_PROPERTY      "vendor.media.audio.hal.dtv.arc.pcmtodd"
-/*pcm sink with arc*/
-#define  DTV_AVSYNC_MS12_LATENCY_ARC_PCM_PROPERTY      "vendor.media.audio.hal.dtv.arc.pcm"
-/*atmos passthrough with arc*/
-#define  DTV_AVSYNC_MS12_LATENCY_ARC_ATMOS_PTH_PROPERTY  "vendor.media.audio.hal.dtv.arc.pthatmos"
-/*****************end of dtv tunning*************/
+enum {
+    TSYNC_MODE_VMASTER = 0,
+    TSYNC_MODE_AMASTER,
+    TSYNC_MODE_PCRMASTER,
+};
 
 int create_dtv_patch(struct audio_hw_device *dev, audio_devices_t input, audio_devices_t output __unused);
 int release_dtv_patch(struct aml_audio_device *dev);
 int release_dtv_patch_l(struct aml_audio_device *dev);
-int dtv_patch_add_cmd(int cmd);
+//int dtv_patch_add_cmd(int cmd);
 int dtv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes);
 void dtv_in_write(struct audio_stream_out *stream, const void* buffer, size_t bytes);
 void save_latest_dtv_aformat(int afmt);
 int audio_set_spdif_clock(struct aml_stream_out *stream,int type);
+int dtv_get_syncmode(void);
+
+void clean_dtv_patch_pts(struct aml_audio_patch *patch);
+int audio_decoder_status(unsigned int *perror_count);
+extern size_t aml_alsa_output_write(struct audio_stream_out *stream, void *buffer, size_t bytes);
+
+extern int get_tsync_pcr_debug(void);
+extern int get_video_delay(void);
+extern void set_video_delay(int delay_ms);
+extern void dtv_do_process_pcm(int avail, struct aml_audio_patch *patch,
+                            struct audio_stream_out *stream_out);
+extern void dtv_do_insert_zero_pcm(struct aml_audio_patch *patch,
+                            struct audio_stream_out *stream_out);
+extern void dtv_do_drop_pcm(int avail, struct aml_audio_patch *patch);
+extern void dtv_adjust_output_clock(struct aml_audio_patch * patch, int direct, int step, bool is_dual);
+extern void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_out* stream_out);
+
+extern void decoder_set_pcrsrc(unsigned int pcrsrc);
+int get_audio_checkin_underrun(void);
+int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val);
+bool is_dtv_patch_alive(struct aml_audio_device *aml_dev);
+
 #endif

@@ -11,9 +11,9 @@ LOCAL_SRC_FILES:= \
 
 LOCAL_MODULE:= testamlconf
 
-#LOCAL_FORCE_STATIC_EXECUTABLE := true
-#LOCAL_MODULE_PATH := $(TARGET_ROOT_OUT)
-#LOCAL_UNSTRIPPED_PATH := $(TARGET_ROOT_OUT_UNSTRIPPED)
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
+    LOCAL_PROPRIETARY_MODULE := true
+endif
 
 LOCAL_SHARED_LIBRARIES := \
         libcutils \
@@ -35,6 +35,11 @@ LOCAL_SRC_FILES:= \
 
 LOCAL_MODULE:= testdatautils
 
-LOCAL_SHARED_LIBRARIES :=
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
+    LOCAL_PROPRIETARY_MODULE := true
+endif
+
+LOCAL_SHARED_LIBRARIES := \
+	libamaudioutils
 
 include $(BUILD_HOST_EXECUTABLE)

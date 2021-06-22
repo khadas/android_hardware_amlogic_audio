@@ -21,9 +21,6 @@
 extern "C" {
 #endif
 
-#include <pthread.h>
-#include <tinyalsa/asoundlib.h>
-
 /*
  *  Value of the Alsa Mixer Control Point
  **/
@@ -118,12 +115,7 @@ typedef enum AML_MIXER_CTRL_ID {
     AML_MIXER_ID_SPDIF_B_MUTE,
     AML_MIXER_ID_HDMI_OUT_AUDIO_MUTE,
     AML_MIXER_ID_HDMI_ARC_AUDIO_ENABLE,
-    /* eARC latency and CDS */
     AML_MIXER_ID_HDMI_EARC_AUDIO_ENABLE,
-    AML_MIXER_ID_EARCRX_LATENCY,
-    AML_MIXER_ID_EARCTX_LATENCY,
-    AML_MIXER_ID_EARCRX_CDS, /* Capability Data Structure */
-    AML_MIXER_ID_EARCTX_CDS,
     AML_MIXER_ID_AUDIO_IN_SRC,
     AML_MIXER_ID_I2SIN_AUDIO_TYPE,
     AML_MIXER_ID_SPDIFIN_AUDIO_TYPE,
@@ -146,14 +138,12 @@ typedef enum AML_MIXER_CTRL_ID {
     AML_MIXER_ID_SPDIFIN_SRC,
     AML_MIXER_ID_HDMIIN_AUDIO_PACKET,
     AML_MIXER_ID_CHANGE_SPIDIF_PLL,
+    AML_MIXER_ID_CHANGE_SPIDIFB_PLL,
     AML_MIXER_ID_CHANGE_I2S_PLL,
-    AML_MIXER_ID_AED_EQ_ENABLE,
-    AML_MIXER_ID_AED_MULTI_DRC_ENABLE,
-    AML_MIXER_ID_AED_FULL_DRC_ENABLE,
     AML_MIXER_ID_SPDIF_IN_SAMPLERATE,
     AML_MIXER_ID_HW_RESAMPLE_SOURCE,
-    AML_MIXER_ID_EARC_AUDIO_TYPE,
-    AML_MIXER_ID_EARC_TX_ATTENDED_TYPE,
+    AML_MIXER_ID_AUDIO_HAL_FORMAT,
+    AML_MIXER_ID_HDMIIN_AUDIO_EDID,
     AML_MIXER_ID_MAX,
 } eMixerCtrlID;
 
@@ -181,6 +171,7 @@ enum AML_SPDIF_TO_HDMITX {
     AML_SPDIF_B_TO_HDMITX,
 };
 
+
 struct aml_mixer_list {
     int  id;
     char mixer_name[50];
@@ -197,6 +188,7 @@ int close_mixer_handle(struct aml_mixer_handle *mixer_handle);
 /*
  * get interface
  **/
+int aml_mixer_ctrl_get_array(struct aml_mixer_handle *mixer_handle, int mixer_id, void *array, int count);
 int aml_mixer_ctrl_get_int(struct aml_mixer_handle *mixer_handle, int mixer_id);
 int aml_mixer_ctrl_get_enum_str_to_int(struct aml_mixer_handle *mixer_handle, int mixer_id, int *ret);
 
@@ -210,13 +202,9 @@ int aml_mixer_get_spdifin_type(int mixer_id);
 /*
  * set interface
  **/
+int aml_mixer_ctrl_set_array(struct aml_mixer_handle *mixer_handle, int mixer_id, void *array, int count);
 int aml_mixer_ctrl_set_int(struct aml_mixer_handle *mixer_handle, int mixer_id, int value);
 int aml_mixer_ctrl_set_str(struct aml_mixer_handle *mixer_handle, int mixer_id, char *value);
-
-int mixer_get_int(struct mixer *pMixer, int mixer_id);
-int mixer_set_int(struct mixer *pMixer, int mixer_id, int value);
-int mixer_get_array(struct mixer *pMixer, int mixer_id, void *array, int count);
-int mixer_set_array(struct mixer *pMixer, int mixer_id, void *array, int count);
 
 #ifdef __cplusplus
 }

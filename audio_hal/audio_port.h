@@ -20,11 +20,12 @@
 #include <system/audio.h>
 #include <tinyalsa/asoundlib.h>
 #include <cutils/list.h>
-#include <alsa_device_profile.h>
 
 #include "hw_avsync.h"
 #include "sub_mixing_factory.h"
-#include "karaoke_manager.h"
+
+/* Max number of pcm mixing ports */
+#define NR_INPORTS    8
 
 enum port_state {
     IDLE,
@@ -78,12 +79,15 @@ typedef int (*meta_data_cbk_t)(void *cookie,
 
 struct input_port {
     aml_mixer_input_port_type_e enInPortType;
+    // flags for extra mixing port which duplicates to the basic port type
+    unsigned int ID;
     struct audioCfg cfg;
 
     struct ring_buffer *r_buf;              /* input port ring buffer. */
     char *data;                             /* input port temp buffer. */
     size_t data_buf_frame_cnt;              /* input port temp buffer, data frames for one cycle. */
     size_t data_len_bytes;                  /* input port temp buffer, data size for one cycle. */
+    int64_t buffer_len_ns;                   /* input port temp buffer, input buffer size, the unit is ns. */
 
     int data_valid;
     size_t bytes_to_insert;                 /* insert 0 data count index. Units: Byte */
@@ -94,7 +98,7 @@ struct input_port {
     ssize_t (*write)(struct input_port *port, const void *buffer, int bytes);
     ssize_t (*read)(struct input_port *port, void *buffer, int bytes);
     uint32_t (*get_latency_frames)(struct input_port *port);
-    bool (*rbuf_ready)(struct input_port *port);
+    int (*rbuf_avail)(struct input_port *port);
     void *notify_cbk_data;
     int (*on_notify_cbk)(void *data);
     void *input_avail_cbk_data;
@@ -114,6 +118,9 @@ struct input_port {
     uint64_t presentation_frames;
     int padding_frames;
     bool pts_valid;
+    bool        first_write;
+    int         inport_start_threshold;
+    int64_t     last_write_time_ns;
 };
 
 enum MIXER_OUTPUT_PORT {
@@ -134,24 +141,23 @@ struct output_port {
     size_t data_buf_frame_cnt;
     size_t data_buf_len;
     struct pcm *pcm_handle;
-    struct pcm *loopback_handle;
     enum port_state port_status;
     pthread_mutex_t lock;
     pthread_cond_t cond;
     ssize_t (*write)(struct output_port *port, void *buffer, int bytes);
-    int (*start)(struct output_port *port);
-    int (*standby)(struct output_port *port);
     struct timespec tval_last;
     int sound_track_mode;
-    // not sending audio data to ALSA
-    bool dummy;
-    struct kara_manager *kara;
+    /* pcm device need to stop/start to enable same source */
+    bool pcm_restart;
+#ifdef ENABLE_AEC_APP
+    struct aec_t *aec;
+#endif
 };
 
 bool is_inport_valid(aml_mixer_input_port_type_e index);
 bool is_outport_valid(enum MIXER_OUTPUT_PORT index);
 
-aml_mixer_input_port_type_e get_input_port_index(struct audio_config *config,
+aml_mixer_input_port_type_e get_input_port_type(struct audio_config *config,
         audio_output_flags_t flags);
 
 struct input_port *new_input_port(
@@ -187,6 +193,7 @@ int inport_buffer_level(struct input_port *port);
 
 struct output_port *new_output_port(
         enum MIXER_OUTPUT_PORT port_index,
+        struct pcm *pcm_handle,
         struct audioCfg cfg,
         size_t buf_frames);
 
@@ -195,11 +202,6 @@ int resize_output_port_buffer(struct output_port *port, size_t buf_frames);
 int outport_get_latency_frames(struct output_port *port);
 int set_inport_pts_valid(struct input_port *in_port, bool valid);
 bool is_inport_pts_valid(struct input_port *in_port);
-int outport_stop_pcm(struct output_port *port);
-int outport_set_dummy(struct output_port *port, bool en);
-const char *inportType2Str(aml_mixer_input_port_type_e enInportType);
-
-/* set karaoke to audio port */
-int outport_set_karaoke(struct output_port *port, struct kara_manager *kara);
+void outport_pcm_restart(struct output_port *port);
 
 #endif /* _AUDIO_PORT_H_ */

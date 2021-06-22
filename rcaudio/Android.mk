@@ -42,9 +42,13 @@ LOCAL_SRC_FILES := \
     soundcard/AudioSoundCardStreamIn.cpp
 
 LOCAL_C_INCLUDES += \
+        external/tinyalsa/include \
+        hardware/amlogic/audio/aml_resampler/include \
+        hardware/amlogic/audio/aml_adecs/include \
+        hardware/amlogic/audio/aml_parser/include \
+        hardware/amlogic/audio/aml_speed/include \
         hardware/libhardware/include \
         hardware/libhardware_legacy/include \
-        external/tinyalsa/include \
         frameworks/av/media/libaudioclient/include \
         system/media/alsa_utils/include \
         $(call include-path-for, audio-utils) \
@@ -64,8 +68,8 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libutils \
     libtinyalsa \
-    libaudioutils
-
+    libaudioutils \
+    libamaudioutils
 
 LOCAL_MODULE_TAGS := optional
 #LOCAL_MODULE_CLASS := STATIC_LIBRARIES

@@ -17,6 +17,8 @@
 #ifndef _DOLBY_LIB_API_H_
 #define _DOLBY_LIB_API_H_
 
+#define DOLBY_MS12_LIB_PATH_A "/vendor/lib/ms12/libdolbyms12.so"
+#define DOLBY_TUNING_DAT "/vendor/etc/ms12_tuning.dat"
 
 /** Dolby Lib Type used in Current System */
 typedef enum eDolbyLibType {
@@ -28,6 +30,16 @@ typedef enum eDolbyLibType {
 
 enum eDolbyLibType detect_dolby_lib_type(void);
 int dolby_lib_decode_enable(eDolbyLibType_t lib_type);
+int dts_lib_decode_enable();
+char * get_ms12_path (void);
+/*
+ *@brief get ms12 dap init mode value
+ */
+int get_ms12_dap_init_mode(bool is_tv);
 
+/*
+ *@brief check that the MS12 Tuning dat is existing or not.
+ */
+bool is_ms12_tuning_dat_in_dut();
 
 #endif //_DOLBY_LIB_API_H_

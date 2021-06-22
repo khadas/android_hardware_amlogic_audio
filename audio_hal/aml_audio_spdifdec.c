@@ -233,9 +233,9 @@ static int get_iec61937_info(void *phandle, void * buf, int32_t size, int32_t *p
             spdif_dec_hanlde->format = AUDIO_FORMAT_DTS_HD;
             break;
         }
-        case IEC61937_TRUEHD:
+        case IEC61937_MAT:
         {
-            *package_size = THD_PERIOD_SIZE;
+            *package_size = MAT_PERIOD_SIZE;
             /*length code is in bytes*/
             *payload_size = pd;
             spdif_dec_hanlde->format = AUDIO_FORMAT_MAT;

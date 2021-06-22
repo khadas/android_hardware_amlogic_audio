@@ -17,7 +17,26 @@
 #ifndef _ALSA_MANAGER_H_
 #define _ALSA_MANAGER_H_
 
-#include "audio_hw.h"
+#include <hardware/audio.h>
+
+typedef enum info_type {
+    OUTPUT_INFO_STATUS,      // running or xrun etc..
+    OUTPUT_INFO_DELAYFRAME,  // the delay frames
+} alsa_info_type_t;
+
+typedef union output_info {
+    int delay_ms;
+} alsa_output_info_t;
+
+typedef struct aml_stream_config {
+    struct audio_config config;
+} aml_stream_config_t;
+
+typedef struct aml_device_config {
+    uint32_t device_port;
+
+} aml_device_config_t;
+
 /**
  * pcm open with configs in streams: card, device, pcm_config
  * If device has been opened, close it and reopen with new params
@@ -36,6 +55,15 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
                         void *buffer,
                         size_t bytes);
 /**
+ * pause the pcm handle saved in stream instance.
+ */
+int aml_alsa_output_pause(struct audio_stream_out *stream);
+/**
+ * resume the pcm handle saved in stream instance.
+ */
+int aml_alsa_output_resume(struct audio_stream_out *stream);
+
+/**
  * get the stream latency.
  */
 int aml_alsa_output_get_letancy(struct audio_stream_out *stream);
@@ -43,20 +71,22 @@ int aml_alsa_output_get_letancy(struct audio_stream_out *stream);
 /*
  *@brief close continuous audio device
  */
-void aml_close_continuous_audio_device(struct aml_audio_device *adev);
+void aml_close_continuous_audio_device(struct audio_hw_device *dev);
+
 /**
  * pcm_read to the pcm handle saved in stream instance.
  */
 size_t aml_alsa_input_read(struct audio_stream_in *stream,
-                        const void *buffer,
+                        void *buffer,
                         size_t bytes);
-
-
-int alsa_depop(int card);
 int aml_alsa_input_flush(struct audio_stream_in *stream);
 
 int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config, aml_device_config_t *device_config);
 void aml_alsa_output_close_new(void *handle);
 size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes);
-int aml_alsa_output_getinfo(void *handle, info_type_t type, output_info_t * info);
+int aml_alsa_output_getinfo(void *handle, alsa_info_type_t type, alsa_output_info_t * info);
+int aml_alsa_output_pause_new(void *handle);
+int aml_alsa_output_resume_new(void *handle);
+
+void alsa_out_reconfig_params(struct audio_stream_out *stream);
 #endif // _ALSA_MANAGER_H_

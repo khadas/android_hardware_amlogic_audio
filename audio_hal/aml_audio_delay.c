@@ -111,7 +111,7 @@ int aml_audio_delay_process(aml_audio_delay_type_e enAudioDelayType, void *pData
         return -1;
     }
 
-    unsigned int    u32OneMsSize = 0;
+    unsigned int    u32OneMsSize = 48 * 2 * 2;
     int             s32CurNeedDelaySize = 0;
     int             s32AvailDataSize = 0;
 
@@ -123,9 +123,13 @@ int aml_audio_delay_process(aml_audio_delay_type_e enAudioDelayType, void *pData
         } else {
             u32OneMsSize = 48 * 8 * 4; // 48k * 8ch * 4Byte
         }
-    } else if (AML_DELAY_OUTPORT_SPEAKER == enAudioDelayType){
-        u32OneMsSize = 48 * 2 * 2;  // 48k * 2ch * 2Byte
-    } else if (AML_DELAY_OUTPORT_SPDIF == enAudioDelayType){
+    } else if (AML_DELAY_OUTPORT_SPEAKER == enAudioDelayType) {
+        if (AUDIO_FORMAT_PCM_16_BIT == enFormat) {
+            u32OneMsSize = 48 * 2 * 2;  // 48k * 2ch * 2Byte
+        } else {
+            u32OneMsSize = 48 * 2 * 4;  // 48k * 2ch * 4Byte
+        }
+    } else if (AML_DELAY_OUTPORT_SPDIF == enAudioDelayType) {
         if (AUDIO_FORMAT_IEC61937 == enFormat) {
             u32OneMsSize = 48 * 2 * 2;  // 48k * 2ch * 2Byte
         } else {

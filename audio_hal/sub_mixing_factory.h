@@ -23,9 +23,7 @@
 #include <sound/asound.h>
 #include <tinyalsa/asoundlib.h>
 #include <hardware/audio.h>
-#include <alsa_device_profile.h>
-#include "aml_malloc_debug.h"
-
+#include "audio_data_process.h"
 enum MIXER_TYPE {
     MIXER_LPCM = 1,
     MIXER_MS12 = 2,
@@ -34,7 +32,6 @@ enum MIXER_TYPE {
 struct subMixing;
 struct aml_stream_out;
 struct aml_audio_device;
-struct kara_manager;
 
 typedef int (*writeSubMixing_t)(
             struct subMixing *sm,
@@ -48,15 +45,6 @@ typedef int (*writeSysBuf_t)(
             struct subMixing *sm,
             void *buffer,
             size_t bytes);
-
-struct audioCfg {
-    int card;
-    int device;
-    uint32_t sampleRate;
-    uint32_t channelCnt;
-    audio_format_t format;
-    uint32_t frame_size;
-};
 
 struct subMixing {
     enum MIXER_TYPE type;
@@ -74,6 +62,9 @@ struct subMixing {
     void *sysData;
     /* output device related */
     struct audioCfg outputCfg;
+    /* ALSA pcm configs */
+    struct pcm_config pcm_cfg;
+    struct pcm *pcmDev;
     // which mixer is using, ms12 or pcm mixer
     void *mixerData;
     struct aml_audio_device *adev;
@@ -89,14 +80,11 @@ int deleteHalSubMixing(struct subMixing *smixer);
 int initSubMixingInput(struct aml_stream_out *out,
         struct audio_config *config);
 int deleteSubMixingInput(struct aml_stream_out *out);
-int usecase_change_validate_l_sm(struct aml_stream_out *out, bool is_standby);
 int out_standby_subMixingPCM(struct audio_stream *stream);
 int switchNormalStream(struct aml_stream_out *aml_out, bool on);
-struct pcm * getSubMixingPCMdev(struct subMixing *sm);
-void subMixingDump(int s32Fd, const struct aml_audio_device *pstAmlDev);
+struct pcm *getSubMixingPCMdev(struct subMixing *sm);
+int subMixingOutputRestart(struct aml_audio_device *adev);
 
-/* set karaoke to submixer*/
-int subMixingSetKaraoke(struct aml_audio_device *adev, struct kara_manager *kara);
-int submixing_set_thread_priority(struct aml_audio_device *adev, char *pName, int sched_type);
+void subMixingDump(int s32Fd, const struct aml_audio_device *pstAmlDev);
 
 #endif /* _SUB_MIXING_FACTORY_H_ */

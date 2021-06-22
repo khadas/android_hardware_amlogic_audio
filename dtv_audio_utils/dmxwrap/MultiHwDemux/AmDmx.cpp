@@ -1,4 +1,4 @@
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 #define LOG_TAG "AM_DMX_Device"
 #include <utils/Log.h>
 #include <cutils/properties.h>
@@ -92,7 +92,6 @@ void* AM_DMX_Device::dmx_data_thread(void *arg)
                     continue;
                 if (!filter->enable || !filter->used)
                     continue;
-
                 sec_len = BUF_SIZE;
 
 #ifndef DMX_WAIT_CB
@@ -114,7 +113,7 @@ void* AM_DMX_Device::dmx_data_thread(void *arg)
                         if (ret == AM_SUCCESS) {
                             read_len += sec_len;
                         }
-                    } while (dev->enable_thread && read_len < (int)sizeof(struct dmx_non_sec_es_header));
+                    } while (dev->enable_thread && read_len < sizeof(struct dmx_non_sec_es_header));
 
                     /* 2 read data */
                     header_es = (struct dmx_non_sec_es_header *)sec_buf;
@@ -126,11 +125,11 @@ void* AM_DMX_Device::dmx_data_thread(void *arg)
                               read_len += sec_len;
                               sec_len = header_es->len - read_len;
                           }
-                          if (read_len < (int)header_es->len) {
+                          if (read_len < header_es->len) {
                             ALOGI("ret %d dvb_read audio len  %d frame len %d",ret, read_len ,header_es->len);
                             usleep (20000);
                           }
-                    } while (dev->enable_thread && !filter->to_be_stopped && read_len < (int)header_es->len);
+                    } while (dev->enable_thread && !filter->to_be_stopped && read_len < header_es->len);
                     sec_len = sizeof(struct dmx_non_sec_es_header) + header_es->len;
 
                 }

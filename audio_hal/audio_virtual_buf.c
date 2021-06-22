@@ -22,10 +22,11 @@
 #include <stdlib.h>
 #include <log/log.h>
 #include <string.h>
-
+#include <inttypes.h>
 
 #include "aml_audio_timer.h"
 #include "audio_virtual_buf.h"
+#include "aml_malloc_debug.h"
 
 #define MAX_NAME_LENGHT  128
 
@@ -54,7 +55,7 @@ int audio_virtual_buf_open(void ** pphandle, char * buf_name, uint64_t buf_ns_be
     int ret = -1;
     audio_virtual_buf_t * phandle = NULL;
     int name_length = 0;
-    phandle = calloc(1, sizeof(struct audio_virtual_buf));
+    phandle = aml_audio_calloc(1, sizeof(struct audio_virtual_buf));
     if (phandle == NULL) {
         ALOGE("malloc failed\n");
         return -1;
@@ -66,10 +67,12 @@ int audio_virtual_buf_open(void ** pphandle, char * buf_name, uint64_t buf_ns_be
         }
 
         strncpy(phandle->buf_name, buf_name, name_length);
-        phandle->buf_name[name_length + 1] = '\0';
+        phandle->buf_name[name_length] = '\0';
 
     } else {
         ALOGE("buf name is NULL\n");
+        aml_audio_free(phandle);
+        phandle = NULL;
         return -1;
     }
     phandle->state = VIRTUAL_BUF_IDLE;
@@ -81,7 +84,7 @@ int audio_virtual_buf_open(void ** pphandle, char * buf_name, uint64_t buf_ns_be
     phandle->buf_ns_target = buf_ns_target;
     phandle->ease_time_ns = (uint64_t)ease_time_ms * 1000000LL;
 
-    ALOGD("%s %s buf_begin=%lld buf_target=%lld time=%lld", __FUNCTION__ , phandle->buf_name,
+    ALOGD("%s %s buf_begin=%" PRId64 " buf_target=%" PRId64 " time=%" PRId64 "", __FUNCTION__ , phandle->buf_name,
           phandle->buf_ns_begin, phandle->buf_ns_target, phandle->ease_time_ns);
     * pphandle = (void*)phandle;
     return 0;
@@ -90,13 +93,12 @@ int audio_virtual_buf_open(void ** pphandle, char * buf_name, uint64_t buf_ns_be
 int audio_virtual_buf_close(void **pphandle)
 {
     if (*pphandle) {
-        free(*pphandle);
+        aml_audio_free(*pphandle);
         *pphandle = NULL;
     }
-
+    ALOGI("%s exit", __func__);
     return 0;
 }
-
 
 int audio_virtual_buf_process(void *phandle, uint64_t frame_ns)
 {
@@ -162,7 +164,7 @@ int audio_virtual_buf_process(void *phandle, uint64_t frame_ns)
         if (read_ns > write_ns) {
             virtual_handle->state = VIRTUAL_BUF_RESET;
             break_while = 0;
-            ALOGE("%s underrun happens read=%lld write=%lld diff=%lld", virtual_handle->buf_name, read_ns, write_ns, read_ns - write_ns);
+            ALOGE("%s underrun happens read=%" PRId64 " write=%" PRId64 " diff=%" PRId64 "", virtual_handle->buf_name, read_ns, write_ns, read_ns - write_ns);
         }
 
         if (break_while) {
