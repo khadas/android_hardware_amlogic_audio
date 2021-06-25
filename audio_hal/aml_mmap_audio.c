@@ -331,8 +331,6 @@ int outMmapInit(struct aml_stream_out *out)
 {
     ALOGI("[%s:%d] stream:%p", __func__, __LINE__, out);
     int                         ret = 0;
-    int                         num_heaps = 0;
-    unsigned int                heap_mask = 0;
     aml_mmap_audio_param_st     *pstParam = NULL;
 
     out->stream.start = outMmapStart;
@@ -341,61 +339,32 @@ int outMmapInit(struct aml_stream_out *out)
     out->stream.get_mmap_position = outMmapGetPosition;
 
     if (out->pstMmapAudioParam) {
-       ALOGW("[%s:%d] already init, can't again init", __func__, __LINE__);
-       return 0;
+        ALOGW("[%s:%d] already init, can't again init", __func__, __LINE__);
+        return 0;
     }
     out->pstMmapAudioParam = (aml_mmap_audio_param_st *)aml_audio_malloc(sizeof(aml_mmap_audio_param_st));
     pstParam = out->pstMmapAudioParam;
     if (pstParam == NULL) {
-       ALOGW("[%s:%d] mmap audio param memory malloc fail", __func__, __LINE__);
-       return -1;
+        ALOGW("[%s:%d] mmap audio param memory malloc fail", __func__, __LINE__);
+        return -1;
     }
     memset(pstParam, 0, sizeof(aml_mmap_audio_param_st));
 
     pstParam->s32IonFd = ion_open();
     if (pstParam->s32IonFd < 0) {
-       ALOGE("[%s:%d] ion_open fail! s32IonFd:%d", __func__, __LINE__, pstParam->s32IonFd);
-       return -1;
+        ALOGE("[%s:%d] ion_open fail! s32IonFd:%d", __func__, __LINE__, pstParam->s32IonFd);
+        return -1;
     }
-
-    ret = ion_query_heap_cnt(pstParam->s32IonFd, &num_heaps);
+    ret = ion_alloc(pstParam->s32IonFd, MMAP_BUFFER_SIZE_BYTE, 32, ION_HEAP_SYSTEM_MASK, 0,
+                        &pstParam->hIonHanndle);
     if (ret < 0) {
-        ALOGE("[%s:%d] ion_query_heap_cnt fail! no ion heaps for alloc!!! ret:%#x", __func__, __LINE__, ret);
-        return -ENOMEM;
+        ALOGE("[%s:%d] ion_alloc fail ret:%#x", __func__, __LINE__, ret);
+        return -1;
     }
-    struct ion_heap_data * const heaps = (struct ion_heap_data *) malloc (num_heaps * sizeof(struct ion_heap_data));
-    if (num_heaps <= 0 || heaps == NULL) {
-        ALOGE("[%s:%d] heaps is NULL or no heaps, num_heaps:%d", __func__, __LINE__, num_heaps);
-        return -ENOMEM;
-    }
-    ret = ion_query_get_heaps(pstParam->s32IonFd, num_heaps, heaps);
+    ret = ion_share(pstParam->s32IonFd, pstParam->hIonHanndle, &pstParam->s32IonShareFd);
     if (ret < 0) {
-        ALOGE("[%s:%d] ion_query_get_heaps fail! no ion heaps for alloc!!! ret:%#x", __func__, __LINE__, ret);
-        return -ENOMEM;
-    }
-    for (int i = 0; i != num_heaps; ++i) {
-        if (out->dev->debug_flag >= 100)  {
-            ALOGD("[%s:%d] heaps[%d].type:%d, heap_id:%d", __func__, __LINE__, i, heaps[i].type, heaps[i].heap_id);
-        }
-        if ((1 << heaps[i].type) == ION_HEAP_SYSTEM_MASK) {
-            heap_mask = 1 << heaps[i].heap_id;
-            if (out->dev->debug_flag >= 100)  {
-                ALOGD("[%s:%d] Got it name:%s, type:%#x, 1<<type:%#x, heap_id:%d, heap_mask:%#x", __func__, __LINE__,
-                    heaps[i].name, heaps[i].type, 1<<heaps[i].type, heaps[i].heap_id, heap_mask);
-            }
-            break;
-        }
-    }
-    free(heaps);
-    if (heap_mask == 0) {
-        ALOGE("[%s:%d] don't find match heap!!!", __func__, __LINE__);
-        return -ENOMEM;
-    }
-
-    ret = ion_alloc_fd(pstParam->s32IonFd, MMAP_BUFFER_SIZE_BYTE, 0, heap_mask, 0, &pstParam->s32IonShareFd);
-    if (ret < 0) {
-       ALOGE("[%s:%d] ion_alloc_fd failed, ret:%#x, errno:%d", __func__, __LINE__, ret, errno);
-       return -ENOMEM;
+        ALOGE("[%s:%d] ion_share fail ret:%#x", __func__, __LINE__, ret);
+        return -1;
     }
 
     pstParam->pu8MmapAddr = mmap(NULL, MMAP_BUFFER_SIZE_BYTE,  PROT_WRITE | PROT_READ,
@@ -423,7 +392,7 @@ int outMmapDeInit(struct aml_stream_out *out)
     }
 
     munmap(pstParam->pu8MmapAddr, MMAP_BUFFER_SIZE_BYTE);
-    close(pstParam->s32IonShareFd);
+    ion_free(pstParam->s32IonFd, pstParam->hIonHanndle);
     ion_close(pstParam->s32IonFd);
     aml_audio_free(pstParam);
     out->pstMmapAudioParam = NULL;
