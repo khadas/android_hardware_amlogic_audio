@@ -111,6 +111,7 @@ include $(BUILD_PREBUILT)
         hardware/amlogic/audio/dtv_audio_utils/audio_read_api \
         $(LOCAL_PATH)/../amlogic_AQ_tools \
         $(LOCAL_PATH)/../amlogic_AQ_tools/ini \
+        vendor/amlogic/common/frameworks/av/libaudioeffect/VirtualX \
         hardware/amlogic/audio/aml_adecs/include \
         hardware/amlogic/audio/aml_resampler/include \
         hardware/amlogic/audio/aml_parser/include \
