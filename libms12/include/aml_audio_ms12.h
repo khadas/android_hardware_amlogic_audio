@@ -34,7 +34,10 @@ enum {
 struct bitstream_out_desc {
     audio_format_t audio_format;
     void *spdifout_handle;
+    int  need_drop_frame;
+    bool is_bypass_ms12;
 };
+
 
 struct dolby_ms12_desc {
     bool dolby_ms12_enable;
@@ -94,7 +97,6 @@ struct dolby_ms12_desc {
     int is_dolby_atmos;
     int input_total_ms;
     int bitsteam_cnt;
-    void * main_virtual_buf_handle;
     void * system_virtual_buf_handle;
     int nbytes_of_dmx_output_pcm_frame;
     int need_resume;
@@ -111,6 +113,7 @@ struct dolby_ms12_desc {
     unsigned int   main_input_sr;
     void * ac3_parser_handle;
     void * spdif_dec_handle;
+    int hdmi_format;
     audio_format_t sink_format;
     audio_format_t optical_format;
     bool dual_decoder_support;
@@ -141,6 +144,11 @@ struct dolby_ms12_desc {
     struct listnode mesg_list;
     struct aml_stream_out *ms12_main_stream_out;
     struct aml_stream_out *ms12_app_stream_out; /*Reserve for extension*/
+    uint64_t dap_pcm_frames;
+    uint64_t stereo_pcm_frames;
+    uint64_t master_pcm_frames;
+    uint64_t ms12_main_input_size;
+    void *   iec61937_ddp_buf;
     float  main_volume;
 };
 

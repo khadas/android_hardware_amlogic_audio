@@ -28,6 +28,22 @@
 #define DDP_OUTPUT_SAMPLE_RATE (48000)
 #define SAMPLE_NUMS_IN_ONE_BLOCK (256)
 #define DDP_FRAME_DURATION(sample_nums, sample_rate) ((sample_nums) / (sample_rate))
+#define RESERVED_LENGTH 31
+
+enum MS12_PCM_TYPE {
+    NORMAL_LPCM = 0,
+    DAP_LPCM = 1,
+};
+
+typedef struct aml_ms12_dec_info {
+    int output_sr ;   /** the decoded data samplerate*/
+    int output_ch ;   /** the decoded data channels*/
+    int output_bitwidth; /**the decoded sample bit width*/
+    int data_type;
+    enum MS12_PCM_TYPE pcm_type;
+    int reserved[RESERVED_LENGTH];
+} aml_ms12_dec_info_t;
+
 
 /*
  *@brief get dolby ms12 prepared
@@ -111,12 +127,12 @@ int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_stat
 /*
  *@brief an callback for dolby ms12 pcm output
  */
-int dap_pcm_output(void *buffer, void *priv_data, size_t size,aml_ms12_dec_info_t *ms12_info);
+int dap_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info);
 
 /*
  *@brief an callback for dolby ms12 pcm output
  */
-int stereo_pcm_output(void *buffer, void *priv_data, size_t size,aml_ms12_dec_info_t *ms12_info);
+int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info);
 
 /*
  *@brief an callback for dolby ms12 bitstream output
@@ -129,14 +145,14 @@ int bitstream_output(void *buffer, void *priv_data, size_t size);
 int spdif_bitstream_output(void *buffer, void *priv_data, size_t size);
 
 /*
+ *@brief an callback for dolby ms12 bitstream mat output
+ */
+int mat_bitstream_output(void *buffer, void *priv_data, size_t size);
+
+/*
  *@brief dolby ms12 register the callback
  */
 int dolby_ms12_register_callback(struct aml_stream_out *aml_out);
-
-/*
- *@brief dolby ms12 downmix output, get the bytes of PCM frame
- */
-int nbytes_of_dolby_ms12_downmix_output_pcm_frame();
 
 void dolby_ms12_app_flush();
 

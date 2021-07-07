@@ -35,16 +35,16 @@ LOCAL_C_INCLUDES := \
     LOCAL_CFLAGS += -DREPLACE_OUTPUT_BUFFER_WITH_CALLBACK
 
 #by default, we compile V2,V1 is not used now. TBD
-#ifeq ($(TARGET_BUILD_DOLBY_MS12_V2), true)
+ifeq ($(TARGET_BUILD_DOLBY_MS12), true)
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include \
+                        hardmare/amlogic/audio/libms12/include
+    LOCAL_SHARED_LIBRARIES += libms12api
+else
     LOCAL_CFLAGS += -DMS12_V24_ENABLE
     LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12_v24/include \
                         hardmare/amlogic/audio/libms12_v24/include
     LOCAL_SHARED_LIBRARIES += libms12api_v24
-#else
-#    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include \
-#                        hardmare/amlogic/audio/libms12/include
-#    LOCAL_SHARED_LIBRARIES += libms12api
-#endif
+endif
 
 LOCAL_CFLAGS += -Werror -Wno-unused-label -Wno-unused-parameter
 LOCAL_MODULE := libamladecs
