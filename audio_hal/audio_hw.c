@@ -3470,7 +3470,7 @@ static int aml_audio_update_arc_status(struct aml_audio_device *adev, bool enabl
      */
     adev->arc_hdmi_updated = 1;
 
-    if (adev->bHDMIARCon && adev->bHDMIConnected && adev->speaker_mute) {
+    if (adev->bHDMIARCon) {
         is_arc_connected = 1;
     }
 
@@ -6420,6 +6420,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
     size_t output_buffer_bytes = 0;
     bool need_reconfig_output = false;
     bool need_reset_decoder = true;
+    bool need_reconfig_samplerate = false;
     void   *write_buf = NULL;
     size_t  write_bytes = 0;
     size_t  hwsync_cost_bytes = 0;
@@ -6822,6 +6823,9 @@ hwsync_rewrite:
             }
 
             adev->spdif_encoder_init_flag = false;
+            need_reconfig_samplerate = true;
+        } else {
+            need_reconfig_samplerate = false;
         }
     }
     /*dts cd process need to discuss here */
@@ -6948,8 +6952,9 @@ hwsync_rewrite:
     aml_out->input_bytes_size += write_bytes;
     if (patch && (adev->dtslib_bypass_enable || adev->dcvlib_bypass_enable)) {
         int cur_samplerate = audio_parse_get_audio_samplerate(patch->audio_parse_para);
-        if (cur_samplerate != patch->input_sample_rate) {
-            ALOGI ("HDMI/SPDIF input samplerate from %d to %d\n", patch->input_sample_rate, cur_samplerate);
+        if (cur_samplerate != patch->input_sample_rate || need_reconfig_samplerate) {
+            ALOGI ("HDMI/SPDIF input samplerate from %d to %d, or need_reconfig_samplerate\n",
+                    patch->input_sample_rate, cur_samplerate);
             patch->input_sample_rate = cur_samplerate;
             if (patch->aformat == AUDIO_FORMAT_DTS ||  patch->aformat == AUDIO_FORMAT_DTS_HD) {
                 if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
