@@ -6313,7 +6313,7 @@ hwsync_rewrite:
 
                 // missing code with aml_audio_hwsync_checkin_apts, need to add for netflix tunnel mode. zzz
                 aml_audio_hwsync_checkin_apts(aml_out->hwsync, aml_out->hwsync->payload_offset, cur_pts);
-                if (continous_mode(adev) && !audio_is_linear_pcm(aml_out->hal_internal_format) && adev->is_netflix) {
+                if ((BYPASS != adev->hdmi_format) && continous_mode(adev) && !audio_is_linear_pcm(aml_out->hal_internal_format) && adev->is_netflix) {
                     dolby_ms12_hwsync_checkin_pts(aml_out->hwsync->payload_offset, cur_pts);
                 }
                 aml_out->hwsync->payload_offset += outsize;
