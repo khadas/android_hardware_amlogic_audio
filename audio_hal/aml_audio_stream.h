@@ -341,6 +341,7 @@ struct aml_audio_patch {
     int dtv_apts_lookup;
     int dtv_audio_tune;
     int pll_state;
+    unsigned int last_chenkin_apts;
     unsigned int last_apts;
     unsigned int last_pcrpts;
     unsigned int cur_outapts;
@@ -455,6 +456,8 @@ int audio_route_set_spdif_mute(struct aml_mixer_handle *mixer_handle, int enable
 int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
                                        struct aml_stream_in *stream_in,
                                        ring_buffer_t *ringbuffer, int buffer_size);
+int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, size_t bytes);
+
 
 /*
  *@brief update the sink format after HDMI/HDMI-ARC hot pluged

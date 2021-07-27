@@ -26,7 +26,7 @@ extern "C" {
 #include <stddef.h>
 
 
-//get the handle of dlopen "/vendor/lib/libdolbyms12.so"
+//get the handle of dlopen "/odm/lib/ms12/libdolbyms12.so"
 int get_libdolbyms12_handle(char *dolby_ms12_path);
 
 //release the handle of dlopen
@@ -240,6 +240,11 @@ int dolby_ms12_set_main_volume(float volume);
     @brief set the mat stream profile
 */
 int dolby_ms12_set_mat_stream_profile(int stream_profile);
+
+/*@@
+    @brief enable the atmos drop
+*/
+int dolby_ms12_enable_atmos_drop(int atmos_drop);
 
 /*@@
     @brief get PCM's nframes which outputed by decoder

@@ -66,12 +66,28 @@
 #define AUDIO_RESAMPLE_MIN_THRESHOLD 50
 #define AUDIO_RESAMPLE_MIDDLE_THRESHOLD 100
 #define AUDIO_RESAMPLE_MAX_THRESHOLD 150
-#define AUDIO_FADEOUT_TV_SLEEP_US 80*1000
+#define AUDIO_FADEOUT_TV_DURATION_US 40 * 1000
 #define AUDIO_FADEOUT_STB_SLEEP_US 40*1000
 #define MAX_BUFF_LEN 36
 #define MAX(a, b) ((a) > (b)) ? (a) : (b)
 
 #define INPUT_PACKAGE_MAXCOUNT 40
+
+
+#define AD_PACK_STATUS_UNNORMAL_THRESHOLD_MS 4000
+
+#define AD_PACK_STATUS_DROP_THRESHOLD_MS 600
+#define AD_PACK_STATUS_DROP_START_THRESHOLD_MS 60
+
+#define AD_PACK_STATUS_HOLD_THRESHOLD_MS 400
+#define AD_PACK_STATUS_HOLD_START_THRESHOLD_MS 40
+
+typedef enum  {
+    AD_PACK_STATUS_NORMAL,
+    AD_PACK_STATUS_DROP,
+    AD_PACK_STATUS_HOLD,
+} AD_PACK_STATUS_T;
+
 struct cmd_list {
     struct cmd_list *next;
     int cmd;
@@ -97,6 +113,7 @@ struct package {
     int  ad_size;//apackage size
     struct package * next;//next ptr
     uint64_t pts;
+    uint64_t ad_pts;
 };
 
 typedef struct {
@@ -106,7 +123,7 @@ typedef struct {
     pthread_mutex_t tslock;
 } package_list;
 
-int dtv_package_list_free(package_list *list);
+int dtv_package_list_flush(package_list *list);
 
 
 int dtv_package_list_init(package_list *list);
@@ -122,6 +139,8 @@ int dtv_patch_add_cmd(struct cmd_node *dtv_cmd_list,int cmd, int path_id);
 
 int dtv_patch_get_cmd(struct cmd_node *dtv_cmd_list,int *cmd, int *path_id);
 int dtv_patch_cmd_is_empty(struct cmd_node *dtv_cmd_list);
+
+AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, AD_PACK_STATUS_T ad_status);
 
 
 #endif

@@ -17,6 +17,8 @@
 #ifndef _AUDIO_HW_DTV_H_
 #define _AUDIO_HW_DTV_H_
 
+#include <cutils/str_parms.h>
+
 enum {
     AUDIO_DTV_PATCH_DECODER_STATE_INIT,
     AUDIO_DTV_PATCH_DECODER_STATE_START,
@@ -84,6 +86,8 @@ enum {
 int create_dtv_patch(struct audio_hw_device *dev, audio_devices_t input, audio_devices_t output __unused);
 int release_dtv_patch(struct aml_audio_device *dev);
 int release_dtv_patch_l(struct aml_audio_device *dev);
+int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct audio_hw_device *dev);
+int disable_dtv_patch_for_tuner_framework(struct audio_hw_device *dev);
 //int dtv_patch_add_cmd(int cmd);
 int dtv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes);
 void dtv_in_write(struct audio_stream_out *stream, const void* buffer, size_t bytes);
@@ -108,7 +112,8 @@ extern void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_
 
 extern void decoder_set_pcrsrc(unsigned int pcrsrc);
 int get_audio_checkin_underrun(void);
-int dtv_patch_handle_event(struct audio_hw_device *dev,int cmd, int val);
+int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms);
 bool is_dtv_patch_alive(struct aml_audio_device *aml_dev);
+int dtv_patch_get_latency(struct aml_audio_device *aml_dev);
 
 #endif

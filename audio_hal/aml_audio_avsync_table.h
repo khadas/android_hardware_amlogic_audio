@@ -102,19 +102,33 @@
 
 
 /*netflix tunning part*/
-#define  AVSYNC_MS12_NETFLIX_NONTUNNEL_PCM_LATENCY       (10)
-#define  AVSYNC_MS12_NETFLIX_NONTUNNEL_DDP_LATENCY       (20)
-#define  AVSYNC_MS12_NETFLIX_NONTUNNEL_ATMOS_LATENCY     (15)
-#define  AVSYNC_MS12_NETFLIX_TUNNEL_PCM_LATENCY          (-10)
-#define  AVSYNC_MS12_NETFLIX_TUNNEL_DDP_LATENCY          (65)
+// right offset. 10-->30
+#define  AVSYNC_MS12_NETFLIX_NONTUNNEL_PCM_LATENCY       (30)
+// right offset. 20-->40
+#define  AVSYNC_MS12_NETFLIX_NONTUNNEL_DDP_LATENCY       (40)
+#define  AVSYNC_MS12_NETFLIX_NONTUNNEL_ATMOS_LATENCY     (-18) /*for atmos we remove 32ms at the beginning*/
+// right offset. -10-->20
+#define  AVSYNC_MS12_NETFLIX_TUNNEL_PCM_LATENCY          (20)
+// right offset. 65-->95-->75
+#define  AVSYNC_MS12_NETFLIX_TUNNEL_DDP_LATENCY          (75)
 #define  AVSYNC_MS12_NETFLIX_TUNNEL_ATMOS_LATENCY        (5)
 
 #define  AVSYNC_MS12_NETFLIX_PCM_OUT_LATENCY             (0)
 #define  AVSYNC_MS12_NETFLIX_DD_OUT_LATENCY              (0)
-#define  AVSYNC_MS12_NETFLIX_DDP_OUT_LATENCY             (40)
+// left offset. 40-->15
+#define  AVSYNC_MS12_NETFLIX_DDP_OUT_LATENCY             (15)
 #define  AVSYNC_MS12_NETFLIX_MAT_OUT_LATENCY             (0)
 #define  AVSYNC_MS12_NETFLIX_DDP_OUT_TUNNEL_TUNNING      (15)
 
+#define  AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_PCM_LATENCY    (0)
+#define  AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_DD_LATENCY     (0)
+#define  AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_DDP_LATENCY    (120)
+#define  AVSYNC_MS12_NETFLIX_HDMI_OUT_LATENCY            (10)
+#define  AVSYNC_MS12_NETFLIX_HDMI_SPEAKER_LATENCY        (-25)
+
+#define  AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_LATENCY_PROPERTY    "vendor.media.audio.hal.ms12.netflix.hdmiarcout"
+#define  AVSYNC_MS12_NETFLIX_HDMI_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.netflix.hdmiarcout"
+#define  AVSYNC_MS12_NETFLIX_HDMI_SPEAKER_LATENCY_PROPERTY    "vendor.media.audio.hal.ms12.netflix.hdmiarcout"
 
 #define  AVSYNC_MS12_NETFLIX_PCM_OUT_LATENCY_PROPERTY    "vendor.media.audio.hal.ms12.netflix.pcmout"
 #define  AVSYNC_MS12_NETFLIX_DDP_OUT_LATENCY_PROPERTY    "vendor.media.audio.hal.ms12.netflix.ddpout"
@@ -129,6 +143,14 @@
 #define  AVSYNC_MS12_NETFLIX_TUNNEL_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.netflix.tunnel.pcm"
 #define  AVSYNC_MS12_NETFLIX_TUNNEL_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.netflix.tunnel.ddp"
 #define  AVSYNC_MS12_NETFLIX_TUNNEL_ATMOS_LATENCY_PROPERTY       "vendor.media.audio.hal.ms12.netflix.tunnel.atmos"
+
+
+/*below DDP tunning is for NonMS12*/
+#define  AVSYNC_NONMS12_NETFLIX_TUNNEL_PCM_LATENCY          (0)
+#define  AVSYNC_NONMS12_NETFLIX_TUNNEL_DDP_LATENCY          (30)
+
+#define  AVSYNC_NONMS12_NETFLIX_TUNNEL_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.netflix.tunnel.pcm"
+#define  AVSYNC_NONMS12_NETFLIX_TUNNEL_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.netflix.tunnel.ddp"
 
 
 /*below DDP tunning is for roku tv*/

@@ -24,7 +24,7 @@
 #include "aml_audio_types_def.h"
 #include "aml_audio_stream.h"
 #include "MediaSyncInterface.h"
-
+#include "aml_dump_debug.h"
 #define ENUM_TYPE_STR_MAX_LEN                           (100)
 #define REPORT_DECODED_INFO  "/sys/class/amaudio/codec_report_info"
 
@@ -47,21 +47,38 @@
         break;                                              \
     }                                                       \
     return pStr;
-#define AM_LOGV(fmt, ...)  ALOGV("[%s:%d] "fmt, __func__,__LINE__, ##__VA_ARGS__)
-#define AM_LOGD(fmt, ...)  ALOGD("[%s:%d] "fmt, __func__,__LINE__, ##__VA_ARGS__)
-#define AM_LOGI(fmt, ...)  ALOGI("[%s:%d] "fmt, __func__,__LINE__, ##__VA_ARGS__)
-#define AM_LOGW(fmt, ...)  ALOGW("[%s:%d] "fmt, __func__,__LINE__, ##__VA_ARGS__)
-#define AM_LOGE(fmt, ...)  ALOGE("[%s:%d] "fmt, __func__,__LINE__, ##__VA_ARGS__)
+
+#define MIN(a,b) (((a) < (b)) ? (a) : (b))
+
+#define AM_LOGV(fmt, ...)  ALOGV("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define AM_LOGD(fmt, ...)  ALOGD("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define AM_LOGI(fmt, ...)  ALOGI("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define AM_LOGW(fmt, ...)  ALOGW("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define AM_LOGE(fmt, ...)  ALOGE("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
+
 #define R_CHECK_RET(ret, fmt, ...)                                                              \
-    if (ret < 0) {                                                                              \
-        AM_LOGE("ret:%d "fmt, ret, ##__VA_ARGS__);                                              \
+    if (ret != 0) {                                                                             \
+        AM_LOGE("ret:%d " fmt, ret, ##__VA_ARGS__);                                             \
         return ret;                                                                             \
     }
 
 #define NO_R_CHECK_RET(ret, fmt, ...)                                                           \
-    if (ret < 0) {                                                                              \
-        AM_LOGE("ret:%d "fmt, ret, ##__VA_ARGS__);                                              \
+    if (ret != 0) {                                                                             \
+        AM_LOGE("ret:%d " fmt, ret, ##__VA_ARGS__);                                             \
     }
+
+#define R_CHECK_PARAM_LEGAL(ret, param, min, max, fmt, ...)                                     \
+    if (param < min || param > max) {                                                           \
+        AM_LOGE("%s:%d is illegal, min:%d, max:%d " fmt, #param, param, min, max, ##__VA_ARGS__);\
+        return ret;                                                                             \
+    }
+
+#define R_CHECK_POINTER_LEGAL(ret, pointer, fmt, ...)                                           \
+    if (pointer == NULL) {                                                                      \
+        AM_LOGE("%s is null pointer " fmt, #pointer, ##__VA_ARGS__);                            \
+        return ret;                                                                             \
+    }
+
 
 
 int64_t aml_gettime(void);
@@ -125,6 +142,7 @@ bool is_disable_ms12_continuous(struct audio_stream_out *stream);
 int find_offset_in_file_strstr(char *mystr, char *substr);
 float aml_audio_get_s_gain_by_src(struct aml_audio_device *adev, enum patch_src_assortion type);
 int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_port);
+int android_fmt_convert_to_dmx_fmt(audio_format_t andorid_fmt);
 enum patch_src_assortion android_input_dev_convert_to_hal_patch_src(audio_devices_t android_dev);
 enum input_source android_input_dev_convert_to_hal_input_src(audio_devices_t android_dev);
 
@@ -137,6 +155,10 @@ const char* mediasyncAudiopolicyType2Str(audio_policy type);
 const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type);
 const char* hdmiFormat2Str(AML_HDMI_FORMAT_E type);
 bool aml_audio_check_sbr_product();
+void check_audio_level(const char *name, const void *buffer, size_t bytes);
+
+int aml_audio_trace_int(char *name, int value);
+int aml_audio_trace_debug_level(void);
 
 /** convert the audio input format to in buffer's period multi coefficient.
  * @return period multi coefficient(1/4/16)
@@ -151,6 +173,5 @@ static inline void endian16_convert(void *buf, int size)
         *p = ((*p & 0xff) << 8) | ((*p) >> 8);
     }
 }
-
 
 #endif

@@ -189,6 +189,10 @@ void set_ms12_ad_mixing_enable(struct dolby_ms12_desc *ms12, int ad_mixing_enabl
  *@brief set dolby ms12 mixing level
  */
 void set_ms12_ad_mixing_level(struct dolby_ms12_desc *ms12, int mixing_level);
+/*
+ *@brief set dolby ms12 ad volume
+ */
+void set_ms12_ad_vol(struct dolby_ms12_desc *ms12, int ad_vol);
 
 /*
  *@brief set dolby ms12 system mixing enable
@@ -273,5 +277,10 @@ int dap_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info
 int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info);
 
 int mat_bitstream_output(void *buffer, void *priv_data, size_t size);
+
+/*
+ *@brief set ms12 dap postgain
+ */
+void set_ms12_dap_postgain(struct dolby_ms12_desc *ms12, int postgain);
 
 #endif //end of _AUDIO_HW_MS12_H_

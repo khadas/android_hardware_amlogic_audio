@@ -174,6 +174,10 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream);
  *@brief set dolby ms12 mixing level
  */
 void set_ms12_ad_mixing_level(struct dolby_ms12_desc *ms12, int mixing_level);
+/*
+ *@brief set dolby ms12 ad volume
+ */
+void set_ms12_ad_vol(struct dolby_ms12_desc *ms12, int ad_vol);
 
 /*
  *@brief set dolby ms12 ad mixing enable
@@ -237,6 +241,11 @@ int dolby_ms12_main_pipeline_latency_frames(struct audio_stream_out *stream);
  *   false if DAP is not in MS12 pipline;
  */
 bool is_audio_postprocessing_add_dolbyms12_dap(struct aml_audio_device *adev);
+
+/*
+ *@brief set ms12 dap postgain
+ */
+void set_ms12_dap_postgain(struct dolby_ms12_desc *ms12, int postgain);
 
 #endif //end of _AUDIO_HW_MS12_H_
 

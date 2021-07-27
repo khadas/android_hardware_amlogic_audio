@@ -30,7 +30,11 @@ typedef struct aml_demux__audiopara {
     int ad_fmt;
     int ad_pid;
     int dual_decoder_support;
+    int associate_audio_mixing_enable;
     int media_sync_id;
+    int ad_package_status;
+    struct mAudioEsDataInfo *mEsData;
+    struct mAudioEsDataInfo *mADEsData;
 } aml_demux_audiopara_t;
 
 
@@ -63,6 +67,7 @@ typedef struct  aml_dtvsync {
     struct dtvsync_audio_policy apolicy;
     int pcm_dropping;
     int duration;
+    struct package *dtv_pacakge;
 } aml_dtvsync_t;
 
 
@@ -92,4 +97,6 @@ AM_Dmx_Audio_ErrorCode_t Destroy_Dmx_AD_Audio(void *demux_handle);
 AM_Dmx_Audio_ErrorCode_t Close_Dmx_Audio(void *demux_handle);
 AM_Dmx_Audio_ErrorCode_t Get_MainAudio_Es(void *demux_handle, struct mAudioEsDataInfo  **mAudioEsData);
 AM_Dmx_Audio_ErrorCode_t Get_ADAudio_Es(void *demux_handle, struct mAudioEsDataInfo  **mAudioEsData);
+AM_Dmx_Audio_ErrorCode_t Get_Audio_LastES_Apts(void *demux_handle , int64_t *last_queue_es_apts);
+
 #endif

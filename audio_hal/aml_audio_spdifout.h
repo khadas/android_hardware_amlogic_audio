@@ -18,12 +18,16 @@
 #define _SPDIF_OUT_API_H_
 
 #include "audio_hw.h"
+#define IEC_DD_FRAME_SIZE 1536
+#define IEC_DDP_FRAME_SIZE 6144
 
 typedef struct {
     audio_format_t audio_format;
     audio_format_t sub_format;
     uint32_t      rate;
     audio_channel_mask_t channel_mask;
+    bool          mute;
+    bool is_dtscd;
 } spdif_config_t;
 
 int aml_audio_get_spdif_port(eMixerSpdif_Format spdif_format);

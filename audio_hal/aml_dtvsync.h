@@ -42,7 +42,7 @@ bool aml_dtvsync_setParameter(aml_dtvsync_t *p_dtvsync, mediasync_parameter type
 
 bool aml_dtvsync_getParameter(aml_dtvsync_t *p_dtvsync, mediasync_parameter type, void* arg);
 
-bool aml_dtvsync_queue_audio_frame(aml_dtvsync_t *p_dtvsync, int64_t apts, int size, int duration, mediasync_time_unit tunit);
+bool aml_dtvsync_queue_audio_frame(aml_dtvsync_t *p_dtvsync, struct mediasync_audio_queue_info* info);
 
 bool aml_dtvsync_audioprocess(aml_dtvsync_t *p_dtvsync, int64_t apts, int64_t cur_apts,
                                 mediasync_time_unit tunit,
@@ -66,6 +66,8 @@ dtvsync_process_res aml_dtvsync_nonms12_process(struct audio_stream_out *stream,
 void aml_dtvsync_ms12_get_policy(struct audio_stream_out *stream);
 
 dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_dec_info_t *ms12_info);
+
+bool aml_dtvsync_setPause(aml_dtvsync_t *p_dtvsync, bool pause);
 
 bool aml_dtvsync_reset(aml_dtvsync_t *p_dtvsync);
 

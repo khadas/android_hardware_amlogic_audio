@@ -132,7 +132,10 @@ enum audio_hal_format {
     TYPE_MAT_ATMOS = 14,
     TYPE_AC4_ATMOS = 15,
     TYPE_DTS_HP = 16,
-    // TYPE_DTS_X = 17,
+    TYPE_DDP_ATMOS_PROMPT_ON_ATMOS = 17,
+    TYPE_TRUE_HD_ATMOS_PROMPT_ON_ATMOS = 18,
+    TYPE_MAT_ATMOS_PROMPT_ON_ATMOS = 19,
+    TYPE_AC4_ATMOS_PROMPT_ON_ATMOS = 20,
 };
 
 #define FRAMESIZE_16BIT_STEREO 4
@@ -204,6 +207,7 @@ typedef enum {
     TIF_HAL_PLAYBACK_AUDIO_SOURCE_CHANNEL_CONFIGURATION_L_C_R_SL_SR_RL_RR_LFE, /**< Left, center, right, surround left, surround right, rear left, rear right and lfe */
     TIF_HAL_PLAYBACK_AUDIO_SOURCE_CHANNEL_CONFIGURATION_7_1 = TIF_HAL_PLAYBACK_AUDIO_SOURCE_CHANNEL_CONFIGURATION_L_C_R_SL_SR_RL_RR_LFE
 } TIF_HAL_Playback_AudioSourceChannelConfiguration_t;
+
 enum OUT_PORT {
     OUTPORT_SPEAKER             = 0,
     OUTPORT_HDMI_ARC            = 1,
@@ -264,14 +268,6 @@ enum stream_status {
     STREAM_MIXING,
     STREAM_PAUSED
 };
-
-#if defined(IS_ATOM_PROJECT)
-typedef enum atom_stream_type {
-    STREAM_ANDROID = 0,
-    STREAM_HDMI,
-    STREAM_OPTAUX
-} atom_stream_type_t;
-#endif
 
 /* Base on user settings */
 typedef enum picture_mode {
@@ -351,14 +347,15 @@ struct aml_audio_device {
     int disable_pcm_mixing;
     /* mute/unmute for vchip  lock control */
     bool parental_control_av_mute;
-    int routing;
-    struct audio_config output_config;
     /* The HDMI ARC capability info currently set. */
     struct aml_arc_hdmi_desc hdmi_descs;
     /* Save the HDMI ARC actual capability info. */
     struct aml_arc_hdmi_desc hdmi_arc_capability_desc;
+    /* HDMIRX default EDID */
+    char default_EDID_array[EDID_ARRAY_MAX_LEN];
     int arc_hdmi_updated;
     int a2dp_updated;
+    bool need_reset_a2dp;
     void * a2dp_hal;
     int hdmi_format_updated;
     struct aml_native_postprocess native_postprocess;
@@ -422,15 +419,10 @@ struct aml_audio_device {
     bool bHDMIARCon;
     bool bHDMIConnected;
     bool bHDMIConnected_update;
-
-    /**
-     * buffer pointer whose data output to headphone
-     * buffer size equal to efect_buf_size
-     */
-    void *spk_output_buf;
-    void *spdif_output_buf;
-    void *effect_buf;
-    size_t effect_buf_size;
+    int16_t *out_16_buf;
+    size_t out_16_buf_size;
+    int32_t *out_32_buf;
+    size_t out_32_buf_size;
     size_t spk_tuning_lvl;
     /* ringbuffer for tuning latency total buf size */
     size_t spk_tuning_buf_size;
@@ -471,7 +463,6 @@ struct aml_audio_device {
     void* aml_ng_handle;
     int aml_ng_enable;
     float aml_ng_level;
-    int source_mute;
     int aml_ng_attack_time;
     int aml_ng_release_time;
     int system_app_mixing_status;
@@ -536,6 +527,7 @@ struct aml_audio_device {
     bool bt_wbs;
     int security_mem_level;
     void *aml_dtv_audio_instances;
+    pthread_mutex_t dtv_lock;
     /* display audio format on UI, both streaming and hdmiin*/
     audio_hal_info_t audio_hal_info;
     bool is_ms12_tuning_dat; /* a flag to determine the MS12 tuning data file is existing */
@@ -546,6 +538,7 @@ struct aml_audio_device {
     soundbar:depending on the prop defined by device
     */
     int  default_alsa_ch;
+    struct volume_ease volume_ease;
     /* -End- */
 };
 
@@ -727,6 +720,11 @@ struct aml_stream_out {
     uint16_t easing_time;
     float output_speed;
     int dtvsync_enable;
+    uint64_t write_time;
+    uint64_t pause_time;
+    int write_count;
+    bool is_dtscd;
+    bool dts_check;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
@@ -949,8 +947,6 @@ int dsp_process_output(struct aml_audio_device *adev, void *in_buffer,
 int release_patch_l(struct aml_audio_device *adev);
 enum hwsync_status check_hwsync_status (uint apts_gap);
 void config_output(struct audio_stream_out *stream, bool reset_decoder);
-int start_ease_in(struct aml_audio_device *adev);
-int start_ease_out(struct aml_audio_device *adev);
 int out_standby_direct (struct audio_stream *stream);
 
 void *adev_get_handle();

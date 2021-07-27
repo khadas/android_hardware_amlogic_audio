@@ -402,6 +402,22 @@ void set_ms12_ad_mixing_level(struct dolby_ms12_desc *ms12, int mixing_level)
         aml_ms12_update_runtime_params(ms12, parm);
 }
 
+void set_ms12_ad_vol(struct dolby_ms12_desc *ms12, int ad_vol)
+{
+    char parm[32] = "";
+    /*ad_vol is 0~100*/
+    float gain = (float)ad_vol / 100;
+    int gain_db = (int)(128 * AmplToDb(gain));
+    /*target gain at end of ramp in 1/128 dB (range: -12288..0)*/
+    gain_db = gain_db > 0 ? 0 : gain_db;
+    gain_db = gain_db < -12288 ? -12288 : gain_db;
+    sprintf(parm, "%s %d,%d,%d", "-main2_mixgain", gain_db , 10, 0);
+    ALOGI("%s %s", __func__, parm);
+    if (strlen(parm) > 0)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+
 void set_dolby_ms12_runtime_system_mixing_enable(struct dolby_ms12_desc *ms12, int system_mixing_enable)
 {
     char parm[12] = "";
@@ -490,6 +506,10 @@ void set_ms12_drc_cut_value(struct dolby_ms12_desc *ms12, int cut)
         aml_ms12_update_runtime_params(ms12, parm);
 }
 
+void set_ms12_dap_postgain(struct dolby_ms12_desc *ms12 __unused, int postgain __unused)
+{
+    return;
+}
 
 void set_ms12_drc_mode_for_multichannel_and_dap_output(struct dolby_ms12_desc *ms12, bool drc_mode)
 {

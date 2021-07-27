@@ -47,47 +47,22 @@
 
 #define ALSA_DELAY_THRESHOLD_MS    (32)
 
-#define ALSA_DUMP_PROPERTY       "vendor.media.audiohal.alsadump"
 #define ALSA_OUTPUT_PCM_FILE     "/data/vendor/audiohal/alsa_pcm_write.raw"
 #define ALSA_OUTPUT_SPDIF_FILE   "/data/vendor/audiohal/alsa_spdif_write"
 
 
+/* 0: alsa auge. 1: alsa non auge. */
+/* speaker, spdif, headphone, other. refer aml_audio_out_dev_type_e.*/
+aml_audio_out_dev_type_e alsa_out_ch_mask[2][AML_AUDIO_OUT_DEV_TYPE_BUTT] = {
+    {AML_AUDIO_OUT_DEV_TYPE_SPDIF, AML_AUDIO_OUT_DEV_TYPE_SPEAKER, AML_AUDIO_OUT_DEV_TYPE_HEADPHONE, AML_AUDIO_OUT_DEV_TYPE_OTHER},
+    {AML_AUDIO_OUT_DEV_TYPE_SPEAKER, AML_AUDIO_OUT_DEV_TYPE_SPDIF, AML_AUDIO_OUT_DEV_TYPE_HEADPHONE, AML_AUDIO_OUT_DEV_TYPE_OTHER},
+};
+
+
 static int aml_audio_get_alsa_debug() {
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
     int debug_flag = 0;
-    ret = property_get("vendor.media.audio.hal.alsa", buf, NULL);
-    if (ret > 0) {
-        debug_flag = atoi(buf);
-    }
+    debug_flag = get_debug_value(AML_DEBUG_AUDIOHAL_ALSA);
     return debug_flag;
-}
-
-/*
-insert bytes of into audio effect buffer to clear intermediate data when exit
-*/
-static int insert_eff_zero_bytes(struct aml_audio_device *adev, size_t size) {
-    int ret = 0;
-    size_t insert_size = size;
-    size_t once_write_size = 0;
-    size_t bytes_per_frame = audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT)
-                             * audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO);
-    int16_t *effect_tmp_buf = NULL;
-
-    if ((size % bytes_per_frame) != 0) {
-        ALOGE("%s, size= %zu , not bytes_per_frame muliplier\n", __FUNCTION__, size);
-        goto exit;
-    }
-
-    effect_tmp_buf = (int16_t *) adev->effect_buf;
-    while (insert_size > 0) {
-        once_write_size = insert_size > adev->effect_buf_size ? adev->effect_buf_size : insert_size;
-        memset(effect_tmp_buf, 0, once_write_size);
-        insert_size -= once_write_size;
-    }
-
-exit:
-    return 0;
 }
 
 static void alsa_write_rate_control(struct audio_stream_out *stream, size_t bytes  __unused, audio_format_t out_format) {
@@ -280,9 +255,6 @@ void aml_alsa_output_close(struct audio_stream_out *stream) {
     }
     if (pcm && (adev->pcm_refs[device] == 0)) {
         ALOGI("%s(), pcm_close audio device[%d] pcm handle %p", __func__, device, pcm);
-        // insert enough zero byte to clean audio processing buffer when exit
-        // after test 8192*2 bytes should be enough, that is DEFAULT_PLAYBACK_PERIOD_SIZE*32
-        insert_eff_zero_bytes(adev, DEFAULT_PLAYBACK_PERIOD_SIZE * 32);
         pcm_close(pcm);
         adev->pcm_handle[device] = NULL;
     }
@@ -476,7 +448,7 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
 
 write:
 
-    if (getprop_bool(ALSA_DUMP_PROPERTY)) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_ALSA)) {
         aml_audio_dump_audio_bitstreams(ALSA_OUTPUT_PCM_FILE, buffer, bytes);
     }
 
@@ -579,6 +551,9 @@ write:
         ALOGI("alsa format =0x%x delay frames =%ld total frames=%lld", aml_out->alsa_output_format, frames, aml_out->alsa_write_frames);
     }
 
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT) && (aml_out->is_tv_platform == false)) {
+        check_audio_level("alsa_write", buffer, bytes);
+    }
 
     ret = pcm_write(aml_out->pcm, buffer, bytes);
     if (ret < 0) {
@@ -911,6 +886,8 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
     struct pcm *dd_pcm = NULL,*ddp_pcm = NULL;
     alsa_handle = (alsa_handle_t *)handle;
     struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
+    char file_name[128] = { 0 };
+    char audio_type[32] = { 0 };
     int debug_enable = aml_audio_get_alsa_debug();
     if (alsa_handle->pcm == NULL || alsa_handle == NULL || buffer == NULL || bytes == 0) {
         ALOGW("[%s:%d] invalid param, pcm:%p, alsa_handle:%p, buffer:%p, bytes:%zu",
@@ -953,19 +930,24 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
             ALOGW("[%s:%d] format =0x%x alsa underrun", __func__, __LINE__, alsa_handle->format);
         }
     }
-    if (getprop_bool(ALSA_DUMP_PROPERTY)) {
-        char file_name[128] = { 0 };
+    if (get_debug_value(AML_DUMP_AUDIOHAL_ALSA) ||
+        get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
         if (alsa_handle->format == AUDIO_FORMAT_AC3) {
-            snprintf(file_name, 128, "%s.%s", ALSA_OUTPUT_SPDIF_FILE, "dd");
+            snprintf(audio_type, 32, "%s", "dd");
         } else if (alsa_handle->format == AUDIO_FORMAT_E_AC3) {
-            snprintf(file_name, 128, "%s.%s", ALSA_OUTPUT_SPDIF_FILE, "ddp");
+            snprintf(audio_type, 32, "%s", "ddp");
         } else if (alsa_handle->format == AUDIO_FORMAT_MAT) {
-            snprintf(file_name, 128, "%s.%s", ALSA_OUTPUT_SPDIF_FILE, "mat");
+            snprintf(audio_type, 32, "%s", "mat");
         } else if (alsa_handle->format == AUDIO_FORMAT_DTS) {
-            snprintf(file_name, 128, "%s.%s", ALSA_OUTPUT_SPDIF_FILE, "dts");
+            snprintf(audio_type, 32, "%s", "dts");
         } else {
-            snprintf(file_name, 128, "%s.%s", ALSA_OUTPUT_SPDIF_FILE, "pcm");
+            snprintf(audio_type, 32, "%s", "pcm");
         }
+        snprintf(file_name, 128, "%s.%s", ALSA_OUTPUT_SPDIF_FILE, audio_type);
+    }
+
+    if (get_debug_value(AML_DUMP_AUDIOHAL_ALSA)) {
+
         aml_audio_dump_audio_bitstreams(file_name, buffer, bytes);
     }
 
@@ -984,6 +966,11 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
         alsa_write_new_rate_control(alsa_handle);
     }
 #endif
+
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+        check_audio_level(audio_type, buffer, bytes);
+    }
+
 
     ret = pcm_write(alsa_handle->pcm, buffer, bytes);
     return ret;

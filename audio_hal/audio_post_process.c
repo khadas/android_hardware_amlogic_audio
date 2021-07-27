@@ -67,7 +67,7 @@ int audio_post_process(struct aml_native_postprocess *native_postprocess, int16_
 
     for (j = 0; j < native_postprocess->num_postprocessors; j++) {
         effect_handle_t effect = native_postprocess->postprocessors[j];
-        if (effect != NULL) {
+        if (effect && (*effect) && (*effect)->process && in_buffer) {
             if (native_postprocess->libvx_exist && native_postprocess->effect_in_ch == 6 && j == 0) {
                 /* skip multi channel processing for dts streaming in VX */
                 continue;
@@ -75,7 +75,8 @@ int audio_post_process(struct aml_native_postprocess *native_postprocess, int16_
                 /* do 2 channel processing */
                 in_buf.frameCount = out_buf.frameCount = frames;
                 in_buf.s16 = out_buf.s16 = in_buffer;
-                ret = (*effect)->process(effect, &in_buf, &out_buf);
+                if ((*effect)->process)
+                    ret = (*effect)->process(effect, &in_buf, &out_buf);
             }
         }
     }
@@ -94,7 +95,8 @@ int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int
     audio_buffer_t out_buf;
 
     effect_handle_t effect = native_postprocess->postprocessors[0];
-    if (effect != NULL && native_postprocess->libvx_exist && native_postprocess->effect_in_ch == 6) {
+    if (effect && (*effect) && (*effect)->process && in_buffer &&
+        native_postprocess->libvx_exist && native_postprocess->effect_in_ch == 6) {
         /* do multi channel processing for dts streaming in VX */
         in_buf.frameCount = bytes/12;
         out_buf.frameCount = bytes/12;
@@ -124,7 +126,7 @@ static int VirtualX_setparameter(struct aml_native_postprocess *native_postproce
     *(int32_t *)p->data = param;
     *((int32_t *)p->data + 1) = ch_num;
 
-    if (effect != NULL) {
+    if (effect && (*effect) && (*effect)->command) {
         (*effect)->command(effect, cmdCode, cmdSize, (void *)p, &replySize, &replyData);
     }
 

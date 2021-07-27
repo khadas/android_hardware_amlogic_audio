@@ -38,6 +38,7 @@
 
 extern unsigned long decoder_apts_lookup(unsigned int offset);
 
+/*now th latency api is just used for DTV doing avsync by useing mediasync */
 int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
 
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
@@ -47,18 +48,22 @@ int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
     aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     int ms12_latencyms = 0;
 
-    int inputnode_consumed = dolby_ms12_get_main_bytes_consumed(stream);
-    int frames_generated = dolby_ms12_get_main_pcm_generated(stream);
+    uint64_t inputnode_consumed = dolby_ms12_get_main_bytes_consumed(stream);
+    uint64_t frames_generated = dolby_ms12_get_main_pcm_generated(stream);
     if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)) {
-        if (demux_info->dual_decoder_support)
+        /*for ms12 dual_decoder_support input node latency can not be calculated, AC4 and MAT frame is not 32ms*/
+        if ((demux_info && demux_info->dual_decoder_support) ||
+            aml_out->hal_internal_format == AUDIO_FORMAT_AC4 ||
+            aml_out->hal_internal_format == AUDIO_FORMAT_MAT) {
             ms12_latencyms = (frames_generated - ms12->master_pcm_frames) / 48;
-        else
+       } else {
             ms12_latencyms = (ms12->ms12_main_input_size - inputnode_consumed) / aml_out->ddp_frame_size * 32 + (frames_generated - ms12->master_pcm_frames) / 48;
+       }
     } else {
         ms12_latencyms = ((ms12->ms12_main_input_size - inputnode_consumed ) / 4 + frames_generated - ms12->master_pcm_frames) / 48;
     }
     if (adev->debug_flag)
-        ALOGI("ms12_latencyms %d  ms12_main_input_size %lld inputnode_consumed %d frames_generated %d master_pcm_frames %lld",
+        ALOGI("ms12_latencyms %d  ms12_main_input_size %lld inputnode_consumed %lld frames_generated %lld master_pcm_frames %lld",
         ms12_latencyms, ms12->ms12_main_input_size, inputnode_consumed,frames_generated, ms12->master_pcm_frames);
     return ms12_latencyms;
 
@@ -89,13 +94,6 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
             __func__, __LINE__, aml_out->hal_format, output_format, adev->sink_format);
     }
 
-    //sync process here
-    /*if (adev->patch_src  == SRC_DTV ) {
-        if (adev->audio_patch && adev->audio_patch->avsync_callback)
-            adev->audio_patch->avsync_callback(adev->audio_patch,aml_out);
-    }*/
-
-
     remain_size = dolby_ms12_get_main_buffer_avail(NULL);
     dolby_ms12_get_pcm_output_size(&all_pcm_len1, &all_zero_len);
 
@@ -109,14 +107,20 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
     } else {
         /*not continuous mode, we use sink gain control the volume*/
         if (!continous_mode(adev)) {
-
             float out_gain = 1.0f;
             out_gain = adev->sink_gain[adev->active_outport];
             if (adev->tv_mute && adev->audio_patch) {
                 out_gain = 0.0f;
             }
-            dolby_ms12_set_main_volume(out_gain);
-            aml_out->ms12_vol_ctrl = true;
+            /*
+             * Because 32k/44.1kHz DDP local playback use the ms12 discontinuous mode. If call dolby_ms12_set_main_volume
+             * w/o any restrictions, will set the MS12 volume always 1.0 with HDMI gain(1.000000). So limit the AudioPatch
+             * source name to SRC_DTV/SRC_ATV/SRC_LINEIN.
+             */
+            if (adev->audio_patch && (adev->patch_src == SRC_DTV || adev->patch_src == SRC_ATV || adev->patch_src == SRC_LINEIN)) {
+                dolby_ms12_set_main_volume(out_gain);
+                aml_out->ms12_vol_ctrl = true;
+            }
             /*when it is non continuous mode, we bypass data here*/
             dolby_ms12_bypass_process(stream, write_buf, write_bytes);
         }

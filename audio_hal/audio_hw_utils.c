@@ -39,6 +39,9 @@
 #include <sound/asound.h>
 #include <tinyalsa/asoundlib.h>
 
+#define ATRACE_TAG ATRACE_TAG_AUDIO
+#include <cutils/trace.h>
+
 #include "audio_hw_utils.h"
 
 #include "audio_hwsync.h"
@@ -404,6 +407,8 @@ int get_codec_type(int format)
         return TYPE_TRUE_HD;
     case AUDIO_FORMAT_AC4:
         return TYPE_AC4;
+    case AUDIO_FORMAT_MAT:
+        return TYPE_MAT;
     case AUDIO_FORMAT_PCM:
     case AUDIO_FORMAT_PCM_16_BIT:
     case AUDIO_FORMAT_PCM_32_BIT:
@@ -612,13 +617,8 @@ int aml_audio_start_trigger(void *stream)
 
 int aml_audio_get_debug_flag()
 {
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
     int debug_flag = 0;
-    ret = property_get("vendor.media.audio.hal.debug", buf, NULL);
-    if (ret > 0) {
-        debug_flag = atoi(buf);
-    }
+    debug_flag = get_debug_value(AML_DEBUG_AUDIOHAL_DEBUG);
     return debug_flag;
 }
 
@@ -1626,6 +1626,31 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
     return 0;
 }
 
+int android_fmt_convert_to_dmx_fmt(audio_format_t andorid_fmt) {
+
+    if (andorid_fmt <= AUDIO_FORMAT_DEFAULT ||
+        andorid_fmt >= AUDIO_FORMAT_INVALID) {
+        return ACODEC_FMT_NULL;
+    }
+
+    switch (andorid_fmt) {
+        case AUDIO_FORMAT_AAC:
+        case AUDIO_FORMAT_AAC_MAIN:
+        case AUDIO_FORMAT_AAC_LC:
+            return ACODEC_FMT_AAC;
+
+        case AUDIO_FORMAT_AC3:
+            return ACODEC_FMT_AC3;
+
+        case AUDIO_FORMAT_E_AC3:
+            return ACODEC_FMT_EAC3;
+
+        case AUDIO_FORMAT_MP3:
+        default:
+            return ACODEC_FMT_MPEG;
+    }
+}
+
 enum patch_src_assortion android_input_dev_convert_to_hal_patch_src(audio_devices_t android_dev)
 {
     enum patch_src_assortion patch_src = SRC_INVAL;
@@ -1872,3 +1897,73 @@ int convert_audio_format_2_period_mul(audio_format_t format)
 
     return period_mul;
 }
+
+/*****************************************************************************
+*   Function Name:  aml_audio_trace_debug_level
+*   Description:    detect audio trace debug level.
+*   Parameters:     void.
+*   Return value:   0: debug is closed, or else debug is valid.
+******************************************************************************/
+int aml_audio_trace_debug_level(void)
+{
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
+    int ret = -1;
+    int debug_level = 0;
+    ret = property_get("vendor.audio.hal.trace.debug", buf, NULL);
+    if (ret > 0) {
+        debug_level = atoi(buf);
+    }
+
+    //ALOGV("%s:  debug_level:%d", __func__, debug_level);
+    return debug_level;
+}
+
+/*****************************************************************************
+*   Function Name:  aml_audio_trace_int
+*   Description:    trace's feature implement in audio hal.
+*   Parameters:     char *: trace name.
+*                   int: trace value.
+*   Return value:   0: just a return value, no real meaning.
+******************************************************************************/
+int aml_audio_trace_int(char *name, int value)
+{
+    int debug_level = aml_audio_trace_debug_level();
+
+    if (debug_level > 0) {
+        ATRACE_INT(name, value);
+    } else {
+        // do nothing.
+    }
+
+    return 0;
+}
+
+void check_audio_level(const char *name, const void *buffer, size_t bytes) {
+    int num_frame = bytes/4;
+    int i = 0;
+    short *p = (short *)buffer;
+    int silence = 0;
+    int silence_cnt = 0;
+    int max = 0;
+    int min = 0;
+    int max_pos = 0;
+
+    min = max = *p;
+    for (int i=0; i<num_frame;i++) {
+        if (max < *(p+2*i)) {
+            max = *(p+2*i);
+            max_pos = i;
+        }
+        if (min > *(p+2*i)) {
+            min = *(p+2*i);
+        }
+        if (*(p+2*i) == 0) {
+             silence_cnt ++;
+        }
+    }
+    if (max < 10) {
+        silence = 1;
+    }
+    ALOGI("%-24s data detect min=%8d max=%8d silence=%d silence_cnt=%5d frames=%5d", name, min, max, silence, silence_cnt, num_frame);
+}
+

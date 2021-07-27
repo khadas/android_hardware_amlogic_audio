@@ -19,6 +19,8 @@
 #include <cutils/log.h>
 #include <tinyalsa/asoundlib.h>
 #include <cutils/properties.h>
+#include <audio_utils/channels.h>
+
 
 #include "aml_alsa_mixer.h"
 #include "aml_audio_stream.h"
@@ -40,6 +42,18 @@
 #define FMT_UPDATE_THRESHOLD_MAX    (10)
 #define DOLBY_FMT_UPDATE_THRESHOLD  (5)
 #define DTS_FMT_UPDATE_THRESHOLD    (1)
+/*
+ * DAP Speaker Virtualizer
+ * -dap_surround_virtualizer    * <2 int> Virtualizer Parameter
+ *                                         - virtualizer_mode (0,1,2, def: 1)
+ *                                            0:OFF
+ *                                            1:ON
+ *                                            2:AUTO
+ *                                         - surround_boost (0...96, def: 96)
+ */
+#define MS12_DAP_SPEAKER_VIRTUALIZER_OFF  (0)//Disable Speaker Virtualizer(Disable Dolby Atmos Virtualization).
+#define MS12_DAP_SPEAKER_VIRTUALIZER_ON   (1)//Enable Speaker Virtualizer.
+#define MS12_DAP_SPEAKER_VIRTUALIZER_AUTO (2)//Enable Dolby Atmos Virtualization.
 
 
 static audio_format_t ms12_max_support_output_format() {
@@ -159,6 +173,39 @@ static audio_format_t get_sink_dts_capability (struct aml_audio_device *adev)
     return sink_capability;
 }
 
+static void get_sink_pcm_capability(struct aml_audio_device *adev)
+{
+    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+    char *cap = NULL;
+    hdmi_desc->pcm_fmt.sample_rate_mask = 0;
+
+    cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES, AUDIO_FORMAT_PCM_16_BIT,&(adev->hdmi_descs));
+    if (cap) {
+        /*
+         * bit:    6     5     4    3    2    1    0
+         * rate: 192  176.4   96  88.2  48  44.1   32
+         */
+        if (strstr(cap, "32000") != NULL)
+            hdmi_desc->pcm_fmt.sample_rate_mask |= (1<<0);
+        if (strstr(cap, "44100") != NULL)
+            hdmi_desc->pcm_fmt.sample_rate_mask |= (1<<1);
+        if (strstr(cap, "48000") != NULL)
+            hdmi_desc->pcm_fmt.sample_rate_mask |= (1<<2);
+        if (strstr(cap, "88200") != NULL)
+            hdmi_desc->pcm_fmt.sample_rate_mask |= (1<<3);
+        if (strstr(cap, "96000") != NULL)
+            hdmi_desc->pcm_fmt.sample_rate_mask |= (1<<4);
+        if (strstr(cap, "176400") != NULL)
+            hdmi_desc->pcm_fmt.sample_rate_mask |= (1<<5);
+        if (strstr(cap, "192000") != NULL)
+            hdmi_desc->pcm_fmt.sample_rate_mask |= (1<<6);
+
+        aml_audio_free(cap);
+        cap = NULL;
+    }
+
+    ALOGI("pcm_fmt support sample_rate_mask:0x%x", hdmi_desc->pcm_fmt.sample_rate_mask);
+}
 
 bool is_sink_support_dolby_passthrough(audio_format_t sink_capability)
 {
@@ -218,6 +265,8 @@ void get_sink_format(struct audio_stream_out *stream)
     audio_format_t sink_capability = get_sink_capability(adev);
     audio_format_t sink_dts_capability = get_sink_dts_capability(adev);
     audio_format_t source_format = aml_out->hal_internal_format;
+
+    get_sink_pcm_capability(adev);
 
     if (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
         ALOGD("get_sink_format: a2dp set to pcm");
@@ -894,15 +943,16 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
         }
     }
 
+    bool is_dolby_atmos_off = (MS12_DAP_SPEAKER_VIRTUALIZER_OFF == dolby_ms12_get_dap_surround_virtuallizer());
     if (atmos_flag == 1) {
         if (format == AUDIO_FORMAT_E_AC3)
-            update_type = TYPE_DDP_ATMOS;
+            update_type = (is_dolby_atmos_off) ? TYPE_DDP_ATMOS_PROMPT_ON_ATMOS : TYPE_DDP_ATMOS;
         else if (format == AUDIO_FORMAT_DOLBY_TRUEHD)
-            update_type = TYPE_TRUE_HD_ATMOS;
+            update_type = (is_dolby_atmos_off) ? TYPE_TRUE_HD_ATMOS_PROMPT_ON_ATMOS : TYPE_TRUE_HD_ATMOS;
         else if (format == AUDIO_FORMAT_MAT)
-            update_type = TYPE_MAT_ATMOS;
+            update_type = (is_dolby_atmos_off) ? TYPE_MAT_ATMOS_PROMPT_ON_ATMOS : TYPE_MAT_ATMOS;
         else if (format == AUDIO_FORMAT_AC4)
-            update_type = TYPE_AC4_ATMOS;
+            update_type = (is_dolby_atmos_off) ? TYPE_AC4_ATMOS_PROMPT_ON_ATMOS : TYPE_AC4_ATMOS;
     }
 
     ALOGV("%s() update_cnt %d format %#x vs hal_internal_format %#x  atmos_flag %d vs is_dolby_atmos %d update_type %d\n",
@@ -919,9 +969,9 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
             aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, TYPE_DTS_HP);
         }
         aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, update_type);
-        ALOGD("%s()audio hal format change to %x, atmos flag = %d, dts_hp_x = %d, update_type = %d\n",
+        ALOGD("%s()audio hal format change to %x, atmos flag = %d, dts_hp_x = %d, update_type = %d is_dolby_atmos_off = %d\n",
             __FUNCTION__, adev->audio_hal_info.format, adev->audio_hal_info.is_dolby_atmos,
-            adev->dts_hd.is_headphone_x, adev->audio_hal_info.update_type);
+            adev->dts_hd.is_headphone_x, adev->audio_hal_info.update_type, is_dolby_atmos_off);
     }
 
     return 0;
@@ -1161,5 +1211,37 @@ int update_sink_format_after_hotplug(struct aml_audio_device *adev)
     }
 
     return 0;
+}
+
+
+/* expand channels or contract channels*/
+int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, size_t bytes)
+{
+    struct aml_stream_in *in = (struct aml_stream_in *)stream;
+    int ret = -1;
+
+    if (!in || !bytes)
+        return ret;
+
+    int channel_count = audio_channel_count_from_in_mask(in->hal_channel_mask);
+
+    if (!channel_count)
+        return ret;
+
+    size_t read_bytes = in->config.channels * bytes / channel_count;
+    if (!in->input_tmp_buffer || in->input_tmp_buffer_size < read_bytes) {
+        in->input_tmp_buffer = aml_audio_realloc(in->input_tmp_buffer, read_bytes);
+        in->input_tmp_buffer_size = read_bytes;
+    }
+
+    ret = aml_alsa_input_read(stream, in->input_tmp_buffer, read_bytes);
+    if (in->config.format == PCM_FORMAT_S16_LE)
+        adjust_channels(in->input_tmp_buffer, in->config.channels,
+            buffer, channel_count, 2, read_bytes);
+    else if (in->config.format == PCM_FORMAT_S32_LE)
+        adjust_channels(in->input_tmp_buffer, in->config.channels,
+            buffer, channel_count, 4, read_bytes);
+
+   return ret;
 }
 

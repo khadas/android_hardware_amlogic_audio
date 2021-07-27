@@ -32,7 +32,6 @@
 #include "alsa_manager.h"
 #include "dolby_lib_api.h"
 
-
 typedef struct spdifout_handle {
     int device_id; /*used for refer aml_dev->alsa_handle*/
     int spdif_port;
@@ -41,6 +40,7 @@ typedef struct spdifout_handle {
     bool spdif_enc_init;
     void *spdif_enc_handle;
     bool b_mute;
+    audio_channel_mask_t channel_mask;
 } spdifout_handle_t;
 
 
@@ -69,7 +69,10 @@ static int select_digital_device(struct spdifout_handle *phandle) {
             device_id = DIGITAL_DEVICE;
         }
         if (audio_is_linear_pcm(phandle->audio_format)) {
-            device_id = TDM_DEVICE;
+            if (phandle->channel_mask == AUDIO_CHANNEL_OUT_5POINT1 || phandle->channel_mask == AUDIO_CHANNEL_OUT_7POINT1)
+                device_id = TDM_DEVICE; /* TDM_DEVICE <-> i2stohdmi only support multi-channel */
+            else
+                device_id = DIGITAL_DEVICE;
         }
     } else {
         if (aml_dev->dual_spdif_support) {
@@ -256,6 +259,8 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
         audio_format = spdif_config->audio_format;
     }
     phandle->audio_format = audio_format;
+    phandle->channel_mask = spdif_config->channel_mask;
+    phandle->b_mute = spdif_config->mute;
 
     if (!phandle->spdif_enc_init && phandle->need_spdif_enc) {
         ret = aml_spdif_encoder_open(&phandle->spdif_enc_handle, phandle->audio_format);
@@ -268,7 +273,6 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
 
     device_id = select_digital_device(phandle);
 
-
     alsa_handle = aml_dev->alsa_handle[device_id];
 
     if (!alsa_handle) {
@@ -277,7 +281,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
         memset(&stream_config, 0, sizeof(aml_stream_config_t));
         memset(&device_config, 0, sizeof(aml_device_config_t));
         /*config stream info*/
-        stream_config.config.channel_mask = spdif_config->channel_mask;;
+        stream_config.config.channel_mask = spdif_config->channel_mask;
         stream_config.config.sample_rate  = spdif_config->rate;
         stream_config.config.format       = AUDIO_FORMAT_IEC61937;
         stream_config.config.offload_info.format = audio_format;
@@ -286,6 +290,10 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
         phandle->spdif_port       = device_config.device_port;
 
         aml_spdif_format = halformat_convert_to_spdif(audio_format, stream_config.config.channel_mask);
+        /*for dts cd , we can't set the format as dts, we should set it as pcm*/
+        if (aml_spdif_format == AML_DTS && spdif_config->is_dtscd) {
+            aml_spdif_format = AML_STEREO_PCM;
+        }
         /*set spdif format*/
         if (phandle->spdif_port == PORT_SPDIF || phandle->spdif_port == PORT_I2S2HDMI) {
             aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, aml_spdif_format);
@@ -312,6 +320,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
     phandle->device_id = device_id;
 
     *pphandle = (void *)phandle;
+
     ALOGI("%s success ret=%d format =0x%x", __func__, ret, audio_format);
     return ret;
 
@@ -343,6 +352,7 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
     size_t output_buffer_bytes = 0;
     int device_id = -1;
     bool b_mute = false;
+    int return_size = 0;
 
     void *alsa_handle = NULL;
     if (phandle == NULL) {
@@ -370,18 +380,40 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
 
     }
 #endif
-    if (aml_dev->patch_src == SRC_DTV && (aml_dev->discontinue_mute_flag || aml_dev->start_mute_flag)) {
-        b_mute = true;
-    } else if (aml_dev->tv_mute) {
-        b_mute = true;
+    if (aml_dev->audio_patch) {
+        if (aml_dev->sink_gain[aml_dev->active_outport] < FLOAT_ZERO) {
+            b_mute = true;
+        } else {
+            if ((aml_dev->patch_src == SRC_DTV) &&
+                (aml_dev->discontinue_mute_flag ||
+                aml_dev->start_mute_flag ||
+                aml_dev->tv_mute)) {
+                b_mute = true;
+            }
+        }
     }
 
-    if (b_mute || spdifout_phandle->b_mute) {
-        memset(output_buffer, 0, output_buffer_bytes);
+    if (aml_dev->debug_flag) {
+        ALOGI("size =%zu format=%x mute =%d %d",
+            output_buffer_bytes, spdifout_phandle->audio_format, b_mute, spdifout_phandle->b_mute);
+    }
+
+    if (eDolbyDcvLib == aml_dev->dolby_lib_type || BYPASS == aml_dev->hdmi_format) {
+        if (spdifout_phandle->b_mute || b_mute) {
+            if (spdifout_phandle->audio_format == AUDIO_FORMAT_AC3) {
+                if (output_buffer_bytes == IEC_DD_FRAME_SIZE * 4) {
+                    output_buffer = aml_audio_get_muteframe(spdifout_phandle->audio_format, &return_size, 0);
+                }
+            } else if(spdifout_phandle->audio_format == AUDIO_FORMAT_E_AC3) {
+                if (output_buffer_bytes == IEC_DDP_FRAME_SIZE * 4)
+                    output_buffer = aml_audio_get_muteframe(spdifout_phandle->audio_format, &return_size, 0);
+            } else {
+                memset(output_buffer, 0, output_buffer_bytes);
+            }
+        }
     }
 
     if (output_buffer_bytes) {
-        ALOGV("size =%zu", output_buffer_bytes);
         ret = aml_alsa_output_write_new(alsa_handle, output_buffer, output_buffer_bytes);
     }
 
@@ -492,7 +524,6 @@ int aml_audio_spdifout_get_delay(void *phandle) {
     void *alsa_handle = NULL;
     int delay_ms = 0;
     if (phandle == NULL) {
-        ALOGE("[%s:%d] invalid param, phandle:%p", __func__, __LINE__, phandle);
         return -1;
     }
     device_id = spdifout_phandle->device_id;
