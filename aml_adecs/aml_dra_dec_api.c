@@ -323,8 +323,15 @@ static int dra_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
     ALOGV("++%s, remain_size %d in_bytes %d ad_supported %d ad_mixing %d",
           __FUNCTION__, dra_dec->remain_size , bytes, dra_dec->ad_decoder_supported, dra_dec->ad_mixing_enable);
     if (bytes > 0) {
-        memcpy(dra_dec->remain_data + dra_dec->remain_size, buffer, bytes);
-        dra_dec->remain_size += bytes;
+        if (dra_dec->remain_size + bytes > DRA_REMAIN_BUFFER_SIZE) {
+            memcpy(dra_dec->remain_data + dra_dec->remain_size, buffer, DRA_REMAIN_BUFFER_SIZE - dra_dec->remain_size);
+            used_size_return = DRA_REMAIN_BUFFER_SIZE -  dra_dec->remain_size;
+            dra_dec->remain_size = DRA_REMAIN_BUFFER_SIZE;
+        } else {
+            memcpy(dra_dec->remain_data + dra_dec->remain_size, buffer, bytes);
+            used_size_return = bytes;
+            dra_dec->remain_size += bytes;
+        }
     }
     mark_remain_size = dra_dec->remain_size;
     dec_pcm_data->data_len = 0;
@@ -339,6 +346,8 @@ static int dra_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
             dec_pcm_data->data_len += pcm_len;
             if (dec_pcm_data->data_len > dec_pcm_data->buf_size) {
                 ALOGE("decode len %d  > buf_size %d ", dec_pcm_data->data_len, dec_pcm_data->buf_size);
+                used_size_return = bytes;
+                dra_dec->remain_size = 0;
                 break;
             }
             ALOGV("decode_len %d in %d pcm_len %d used_size %d",
@@ -347,12 +356,12 @@ static int dra_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
             if (dec_pcm_data->data_len) {
                 dra_dec->remain_size = dra_dec->remain_size - used_size;
                 if (used_size >= mark_remain_size) {
+                    used_size_return = bytes;
                     dra_dec->remain_size = 0;
                 } else {
                     dra_dec->remain_size = mark_remain_size - used_size;
                     memmove(dra_dec->remain_data, dra_dec->remain_data + used_size, dra_dec->remain_size);
                 }
-                used_size_return = used_size;
                 break;
             } else if (used_size >= dra_dec->remain_size) {
                 used_size_return = bytes;
@@ -364,12 +373,15 @@ static int dra_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
                 dra_dec->remain_size = dra_dec->remain_size - used_size;
                 if (dra_dec->remain_size > DRA_REMAIN_BUFFER_SIZE) {
                     ALOGE("dra_dec->remain_size %d > %d  ,overflow", dra_dec->remain_size , DRA_REMAIN_BUFFER_SIZE);
+                    used_size_return = bytes;
                     dra_dec->remain_size = 0;
                 } else {
                     memmove(dra_dec->remain_data, dra_dec->remain_data + used_size, dra_dec->remain_size);
                 }
+            } else {
+                dra_dec->remain_size = 0;
+                used_size_return = bytes;
             }
-            used_size_return = bytes;
             ALOGV("decode_len==%d in %d pcm_len %d used_size %d dra_dec->remain_size %d",
                   decode_len,  bytes, pcm_len, used_size, dra_dec->remain_size);
             break;
