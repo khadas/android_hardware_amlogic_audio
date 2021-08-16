@@ -1447,6 +1447,38 @@ int halformat_convert_to_spdif(audio_format_t format, int ch_mask) {
     return aml_spdif_format;
 }
 
+int halformat_convert_to_arcformat(audio_format_t format, int ch_mask) {
+    int aml_spdif_format = AML_AUDIO_CODING_TYPE_STEREO_LPCM;
+    switch (format) {
+        case AUDIO_FORMAT_PCM_16_BIT:
+            aml_spdif_format = AML_AUDIO_CODING_TYPE_STEREO_LPCM;
+            if (audio_channel_count_from_out_mask(ch_mask) > 2) {
+                aml_spdif_format = AML_AUDIO_CODING_TYPE_MULTICH_8CH_LPCM;
+            }
+            break;
+        case AUDIO_FORMAT_AC3:
+            aml_spdif_format = AML_AUDIO_CODING_TYPE_AC3;
+            break;
+        case AUDIO_FORMAT_E_AC3:
+            aml_spdif_format = AML_AUDIO_CODING_TYPE_EAC3;
+            break;
+        case AUDIO_FORMAT_DTS:
+            aml_spdif_format = AML_AUDIO_CODING_TYPE_DTS;
+            break;
+        case AUDIO_FORMAT_DTS_HD:
+            aml_spdif_format = AML_AUDIO_CODING_TYPE_DTS_HD;
+            break;
+        case AUDIO_FORMAT_MAT:
+            aml_spdif_format = AML_AUDIO_CODING_TYPE_MLP;
+            break;
+        default:
+            aml_spdif_format = AML_AUDIO_CODING_TYPE_STEREO_LPCM;
+            break;
+    }
+    return aml_spdif_format;
+}
+
+
 /*
  * convert alsa_device_t to PORT***
  */
@@ -1461,6 +1493,8 @@ int alsa_device_get_port_index(alsa_device_t alsa_device)
         alsa_port = PORT_SPDIFB;
     } else if (alsa_device == TDM_DEVICE) {
         alsa_port = PORT_I2S2HDMI;
+    } else if (alsa_device == EARC_DEVICE) {
+        alsa_port = PORT_EARC;
     }
     return alsa_port;
 }
