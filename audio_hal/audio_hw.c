@@ -172,6 +172,8 @@
 #define MAX_INPUT_STREAM_CNT                            (3)
 
 #define NETFLIX_DDP_BUFSIZE                             (768)
+#define MS12_TRUNK_SIZE                                 (1024)
+
 
 /*Tunnel sync HEADER is 20 bytes*/
 #define TUNNEL_SYNC_HEADER_SIZE    (20)
@@ -6617,7 +6619,31 @@ hwsync_rewrite:
             __func__, __LINE__, aml_out->hal_format, output_format, adev->sink_format);
     }
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
-        ret = aml_audio_ms12_render(stream, write_buf, write_bytes);
+
+        /*for local ddp 44.1khz, now the input size is too big,
+         *the passthrough output will be blocked by the decoded pcm output,
+         *so we need feed it with small trunk to fix this issue
+         *todo, we need fix the big trunk issue for all the stream later
+         */
+        if (!adev->continuous_audio_mode && !patch) {
+            size_t left_bytes = write_bytes;
+            size_t used_bytes = 0;
+            int    process_size = 0;
+            while (1) {
+                process_size = left_bytes > MS12_TRUNK_SIZE ? MS12_TRUNK_SIZE : left_bytes;
+                ret = aml_audio_ms12_render(stream, (char *)write_buf + used_bytes, process_size);
+                if (ret <= 0) {
+                    break;
+                }
+                used_bytes += process_size;
+                left_bytes -= process_size;
+                if (left_bytes <= 0) {
+                    break;
+                }
+            }
+        } else {
+            ret = aml_audio_ms12_render(stream, write_buf, write_bytes);
+        }
     } else if (eDolbyDcvLib == adev->dolby_lib_type) {
         ret = aml_audio_nonms12_render(stream, write_buf, write_bytes);
     }
