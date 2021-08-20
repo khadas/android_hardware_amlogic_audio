@@ -245,7 +245,8 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
                     if (patch->skip_amadec_flag) {
                         alsa_latency = 90 *(out_get_alsa_latency_frames(stream)  * 1000) / aml_out->config.rate;;
-                        patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - decoder_latency - alsa_latency;
+                        patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - decoder_latency - alsa_latency -
+                        90 * aml_dtvsync_get_offset_latencyms(stream, false);
 
                     }
                     //sync process here

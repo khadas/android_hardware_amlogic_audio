@@ -73,4 +73,6 @@ bool aml_dtvsync_reset(aml_dtvsync_t *p_dtvsync);
 
 void aml_dtvsync_release(aml_dtvsync_t *p_dtvsync);
 
+int aml_dtvsync_get_offset_latencyms(struct audio_stream_out *stream, bool is_ms12);
+
 #endif

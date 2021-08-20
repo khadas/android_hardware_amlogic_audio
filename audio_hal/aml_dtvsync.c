@@ -182,6 +182,95 @@ static const unsigned int ms12_muted_mat_raw[MS12_MAT_RAW_LENGTH / 4 + 1] = {
             0,          0,          0,          0,          0,          0,          0,          0,          0,          0,          0,          0,          0, 0xc2c5c300, 0xc4c5c0c5,     0x8cba,
 };
 
+/* DTV avsync tunning part */
+
+/* default and video part */
+#define  DTV_AVSYNC_DEFAULT_LATENCY                  (0)
+#define  DTV_AVSYNC_VIDEO_MEMC_LATENCY                  (80)
+/* NONMS12 part, default ARC is DENON X200H */
+#define  DTV_AVSYNC_NONMS12_SPK_PCMOUT_LATENCY                  (0)
+#define  DTV_AVSYNC_NONMS12_ARC_PCMOUT_LATENCY                  (0)
+#define  DTV_AVSYNC_NONMS12_ARC_DDOUT_LATENCY                  (60)
+#define  DTV_AVSYNC_NONMS12_ARC_DDPOUT_LATENCY                  (120)
+/* MS12 part, default ARC is DENON X200H */
+#define  DTV_AVSYNC_MS12_SPK_PCMOUT_LATENCY                  (0)
+#define  DTV_AVSYNC_MS12_ARC_PCMOUT_LATENCY                  (0)
+#define  DTV_AVSYNC_MS12_ARC_DDOUT_LATENCY                  (60)
+#define  DTV_AVSYNC_MS12_ARC_DDPOUT_LATENCY                  (120)
+
+/* prop for dtv avsync tunning*/
+
+#define  DTV_AVSYNC_DEFAULT_LATENCY_PROP                    "vendor.media.dtv.default.latencyms"
+#define  DTV_AVSYNC_VIDEO_MEMC_LATENCY_PROP                 "vendor.media.dtv.video.memc.latencyms"
+
+#define  DTV_AVSYNC_NONMS12_SPK_PCMOUT_LATENCY_PROP         "vendor.media.dtv.nonms12.spk.pcmout.latencyms"
+#define  DTV_AVSYNC_NONMS12_ARC_PCMOUT_LATENCY_PROP         "vendor.media.dtv.nonms12.arc.pcmout.latencyms"
+#define  DTV_AVSYNC_NONMS12_ARC_DDOUT_LATENCY_PROP          "vendor.media.dtv.nonms12.arc.ddout.latencyms"
+#define  DTV_AVSYNC_NONMS12_ARC_DDPOUT_LATENCY_PROP         "vendor.media.dtv.nonms12.arc.ddpout.latencyms"
+
+#define  DTV_AVSYNC_MS12_SPK_PCMOUT_LATENCY_PROP            "vendor.media.dtv.ms12.spk.pcmout.latencyms"
+#define  DTV_AVSYNC_MS12_ARC_PCMOUT_LATENCY_PROP            "vendor.media.dtv.ms12.arc.pcmout.latencyms"
+#define  DTV_AVSYNC_MS12_ARC_DDOUT_LATENCY_PROP             "vendor.media.dtv.ms12.arc.ddout.latencyms"
+#define  DTV_AVSYNC_MS12_ARC_DDPOUT_LATENCY_PROP            "vendor.media.dtv.ms12.arc.ddpout.latencyms"
+
+int aml_dtvsync_get_offset_latencyms(struct audio_stream_out *stream, bool is_ms12)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct aml_audio_patch *patch = adev->audio_patch;
+    aml_dec_t *aml_dec = aml_out->aml_dec;
+    int latency_ms = 0, memc_prop = -1;
+
+    if (adev->is_TV) {
+        latency_ms += property_get_int32(DTV_AVSYNC_DEFAULT_LATENCY_PROP, DTV_AVSYNC_DEFAULT_LATENCY);
+        //memc_prop = property_get_int32("persist.vendor.sys.memc", -1);
+        if (memc_prop > -1 && memc_prop < 4) {
+            latency_ms -= property_get_int32(DTV_AVSYNC_VIDEO_MEMC_LATENCY_PROP, DTV_AVSYNC_VIDEO_MEMC_LATENCY);
+        }
+        if (is_ms12) {
+            switch (adev->active_outport) {
+            case OUTPORT_SPEAKER:
+                latency_ms += property_get_int32(DTV_AVSYNC_MS12_SPK_PCMOUT_LATENCY_PROP, DTV_AVSYNC_MS12_SPK_PCMOUT_LATENCY);
+                break;
+            case OUTPORT_HDMI_ARC:
+                if (adev->sink_format == AUDIO_FORMAT_E_AC3 || adev->sink_format == AUDIO_FORMAT_AC4) {
+                    latency_ms += property_get_int32(DTV_AVSYNC_MS12_ARC_DDPOUT_LATENCY_PROP, DTV_AVSYNC_MS12_ARC_DDPOUT_LATENCY);
+                } else if (adev->sink_format == AUDIO_FORMAT_AC3) {
+                    latency_ms += property_get_int32(DTV_AVSYNC_MS12_ARC_DDOUT_LATENCY_PROP, DTV_AVSYNC_MS12_ARC_DDOUT_LATENCY);
+                } else {
+                    latency_ms += property_get_int32(DTV_AVSYNC_MS12_ARC_PCMOUT_LATENCY_PROP, DTV_AVSYNC_MS12_ARC_PCMOUT_LATENCY);
+                }
+                break;
+            case OUTPORT_HDMI:
+            case OUTPORT_AUX_LINE:
+            default :
+                break;
+            }
+        } else {
+            switch (adev->active_outport) {
+            case OUTPORT_SPEAKER:
+                latency_ms += property_get_int32(DTV_AVSYNC_NONMS12_SPK_PCMOUT_LATENCY_PROP, DTV_AVSYNC_NONMS12_SPK_PCMOUT_LATENCY);
+                break;
+            case OUTPORT_HDMI_ARC:
+                if (adev->sink_format == AUDIO_FORMAT_E_AC3) {
+                    latency_ms += property_get_int32(DTV_AVSYNC_NONMS12_ARC_DDPOUT_LATENCY_PROP, DTV_AVSYNC_NONMS12_ARC_DDPOUT_LATENCY);
+                } else if (adev->sink_format == AUDIO_FORMAT_AC3) {
+                    latency_ms += property_get_int32(DTV_AVSYNC_NONMS12_ARC_DDOUT_LATENCY_PROP, DTV_AVSYNC_NONMS12_ARC_DDOUT_LATENCY);
+                } else {
+                    latency_ms += property_get_int32(DTV_AVSYNC_NONMS12_ARC_PCMOUT_LATENCY_PROP, DTV_AVSYNC_NONMS12_ARC_PCMOUT_LATENCY);
+                }
+                break;
+            case OUTPORT_HDMI:
+            case OUTPORT_AUX_LINE:
+            default :
+                break;
+            }
+        }
+        ALOGI("%s latency_ms %d ms, active_outport %d, sink_format %x, ms12 %d, memc %d", __func__,
+              latency_ms, adev->active_outport, adev->sink_format, is_ms12, memc_prop);
+    }
+    return latency_ms;
+}
 
 void* aml_dtvsync_create()
 {
