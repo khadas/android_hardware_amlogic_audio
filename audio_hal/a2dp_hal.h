@@ -46,7 +46,7 @@ typedef struct {
     void * vir_buf_handle;
     uint64_t last_write_time;
     char * buff_conv_format;
-    int buff_size_conv_format;
+    size_t buff_size_conv_format;
     uint64_t mute_time;
 } aml_a2dp_hal;
 

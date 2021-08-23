@@ -609,20 +609,46 @@ int a2dp_write_output_audio_config(void *hal, btav_a2dp_codec_config_t *codec_ca
         return -1;
     }
 
-    if (codec_capability->sample_rate & BTAV_A2DP_CODEC_SAMPLE_RATE_48000)
+    if (codec_capability->sample_rate & BTAV_A2DP_CODEC_SAMPLE_RATE_192000) {
+        config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_192000;
+    } else if (codec_capability->sample_rate & BTAV_A2DP_CODEC_SAMPLE_RATE_176400) {
+        config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_176400;
+    } else if (codec_capability->sample_rate & BTAV_A2DP_CODEC_SAMPLE_RATE_96000) {
+        config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_96000;
+    } else if (codec_capability->sample_rate & BTAV_A2DP_CODEC_SAMPLE_RATE_88200) {
+        config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_88200;
+    } else if (codec_capability->sample_rate & BTAV_A2DP_CODEC_SAMPLE_RATE_48000) {
         config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_48000;
-    else
+    } else if (codec_capability->sample_rate & BTAV_A2DP_CODEC_SAMPLE_RATE_44100) {
         config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
+    } else if (codec_capability->sample_rate & BTAV_A2DP_CODEC_SAMPLE_RATE_24000) {
+        config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_24000;
+    } else if (codec_capability->sample_rate & BTAV_A2DP_CODEC_SAMPLE_RATE_16000) {
+        config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_16000;
+    } else {
+        AM_LOGE("not find support sample_rate:%#x, set 44.1khz", codec_capability->sample_rate);
+        config.sample_rate = BTAV_A2DP_CODEC_SAMPLE_RATE_44100;
+    }
 
-    if (codec_capability->bits_per_sample & BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16)
-        config.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16;
-    else
+    if (codec_capability->bits_per_sample & BTAV_A2DP_CODEC_BITS_PER_SAMPLE_32) {
         config.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_32;
+    } else if (codec_capability->bits_per_sample & BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24) {
+        config.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24;
+    } else if (codec_capability->bits_per_sample & BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16) {
+        config.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16;
+    } else {
+        AM_LOGE("not find support bits_per_sample:%#x, set 16bit", codec_capability->bits_per_sample);
+        config.bits_per_sample = BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16;
+    }
 
-    if (codec_capability->channel_mode & BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO)
+    if (codec_capability->channel_mode & BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO) {
         config.channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO;
-    else
+    } else if (codec_capability->channel_mode & BTAV_A2DP_CODEC_CHANNEL_MODE_MONO){
         config.channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_MONO;
+    } else {
+        AM_LOGE("not find support channel_mode:%#x, set STEREO", codec_capability->channel_mode);
+        config.channel_mode = BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO;
+    }
 
     // Send the current codec config that has been selected by us
     if (a2dp_ctrl_send(a2dp_hal, &config.sample_rate,

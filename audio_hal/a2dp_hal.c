@@ -191,6 +191,17 @@ static char *a2dp_out_get_parameters(const struct audio_stream* stream, const ch
     return strdup(cap);
 }
 
+static void dump_a2dp_output_data(aml_a2dp_hal *hal, const void *buffer, uint32_t size)
+{
+    if (getprop_bool("vendor.media.audiohal.a2dpdump")) {
+        char acFilePathStr[ENUM_TYPE_STR_MAX_LEN];
+        size_t out_per_sample_byte = audio_bytes_per_sample(hal->a2dp_config.format);
+        size_t out_channel_byte = audio_channel_count_from_out_mask(hal->a2dp_config.channel_mask);
+        sprintf(acFilePathStr, "/data/audio/a2dp_%0.1fK_%dC_%dB.pcm", hal->a2dp_config.sample_rate/1000.0, out_channel_byte, out_per_sample_byte);
+        aml_audio_dump_audio_bitstreams(acFilePathStr, buffer, size);
+    }
+}
+
 uint32_t a2dp_out_get_latency(struct aml_audio_device *adev) {
     (void *)adev;
     return 200;
@@ -284,6 +295,7 @@ static bool a2dp_state_process(struct aml_audio_device *adev, size_t bytes) {
             prepared = true;
             AM_LOGI("start a2dp success");
         }
+        a2dp_hal->last_write_time = aml_audio_get_systime();
     } else if (a2dp_hal->state != AUDIO_A2DP_STATE_STARTED) {
         AM_LOGE("not in stopped or standby");
         prepared = false;
@@ -322,86 +334,83 @@ static ssize_t a2dp_in_data_process(aml_a2dp_hal *hal, audio_config_base_t *conf
     return frames;
 }
 
-static ssize_t a2dp_data_resample_process(aml_a2dp_hal *hal, audio_config_base_t *config,
+static ssize_t a2dp_data_resample_process(aml_a2dp_hal *hal, audio_config_base_t *input_cfg,
     const void *buffer, size_t in_frames, const void **output_buffer) {
     int out_frames = in_frames;
-    if (config->sample_rate != hal->a2dp_config.sample_rate) {
-        size_t in_frame_size = audio_channel_count_from_out_mask(config->channel_mask) * audio_bytes_per_sample(config->format);
+    *output_buffer = buffer;
+    if (input_cfg->sample_rate != hal->a2dp_config.sample_rate) {
+        size_t in_frame_size = audio_channel_count_from_out_mask(input_cfg->channel_mask) * audio_bytes_per_sample(input_cfg->format);
         /* The resampled frames may be large than the theoretical value.
          * So, there is an extra 32 bytes allocated to prevent overflows.
          */
-        if (hal->resample != NULL && hal->resample->resample_config.input_sr != config->sample_rate) {
-            free(hal->resample);
-            hal->resample = NULL;
-        }
-        if (hal->resample == NULL) {
-            audio_resample_config_t stResamplerConfig;
-            stResamplerConfig.aformat   = config->format;
-            stResamplerConfig.channels  = audio_channel_count_from_out_mask(config->channel_mask);
-            stResamplerConfig.input_sr  = config->sample_rate;
-            stResamplerConfig.output_sr = hal->a2dp_config.sample_rate;
-            int ret = aml_audio_resample_init(&hal->resample, AML_AUDIO_SIMPLE_RESAMPLE, &stResamplerConfig);
-            R_CHECK_RET(ret, "Resampler is failed initialization !!!");
+        int resample_out_buffer_size = in_frames * hal->a2dp_config.sample_rate * in_frame_size / input_cfg->sample_rate + 32;
+        if (hal->resample == NULL || hal->resample->resample_config.input_sr != input_cfg->sample_rate) {
+            audio_resample_config_t resample_cfg;
+            resample_cfg.aformat   = input_cfg->format;
+            resample_cfg.channels  = audio_channel_count_from_out_mask(input_cfg->channel_mask);
+            resample_cfg.input_sr  = input_cfg->sample_rate;
+            resample_cfg.output_sr = hal->a2dp_config.sample_rate;
+            if (hal->resample == NULL) {
+                AM_LOGI("resample init format:%#x, ch:%d", resample_cfg.aformat, resample_cfg.channels);
+                int ret = aml_audio_resample_init(&hal->resample, AML_AUDIO_SIMPLE_RESAMPLE, &resample_cfg);
+                R_CHECK_RET(ret, "Resampler is failed initialization !!!");
+            } else {
+                AM_LOGI("resample reconfig, input_sr changed %d -> %d", hal->resample->resample_config.input_sr, input_cfg->sample_rate);
+                memcpy(&hal->resample->resample_config, &resample_cfg, sizeof(audio_resample_config_t));
+                aml_audio_resample_reset(hal->resample);
+            }
         }
         aml_audio_resample_process(hal->resample, (void *)buffer, in_frames * in_frame_size);
+        out_frames = hal->resample->resample_size / in_frame_size;
         *output_buffer = hal->resample->resample_buffer;
-        int out_size = hal->resample->resample_size;
-        out_frames = out_size / 4;
-        AM_LOGV("in_size:%d, out_size:%d, inframe:%d, cal_out_f:%d, real_out_f:%d",
-            in_frames *in_frame_size, out_size,
-            in_frames, (in_frames * hal->resample->resample_config.output_sr) / hal->resample->resample_config.input_sr, out_frames);
     }
     return out_frames;
 }
 
 static ssize_t a2dp_out_data_process(aml_a2dp_hal *hal, audio_config_base_t *config,
     const void *buffer, size_t in_frames, const void **output_buffer) {
-    size_t in_ch = audio_channel_count_from_out_mask(config->channel_mask);
-    size_t in_frame_size = in_ch * audio_bytes_per_sample(config->format);
-    size_t out_ch = audio_channel_count_from_out_mask(hal->a2dp_config.channel_mask);
-    ssize_t out_size = in_frames * out_ch * audio_bytes_per_sample(hal->a2dp_config.format);
-
-    if (config->format == hal->a2dp_config.format && in_ch == out_ch) {
-        *output_buffer = buffer;
-        return out_size;
-    }
-
-    if (hal->buff_size_conv_format < out_size || hal->buff_conv_format == NULL) {
-        if (hal->buff_conv_format) {
-            free(hal->buff_conv_format);
-            hal->buff_conv_format = NULL;
+    size_t in_frame_size = audio_channel_count_from_out_mask(config->channel_mask) * audio_bytes_per_sample(config->format);
+    ssize_t out_size = in_frames * in_frame_size;
+    if (hal->a2dp_config.channel_mask == AUDIO_CHANNEL_OUT_MONO) {
+        int16_t *tmp_buffer = (int16_t *)buffer;
+        for (int i=0; i<in_frames; i++) {
+            tmp_buffer[i] = tmp_buffer[2 * i];
         }
-        hal->buff_conv_format = aml_audio_calloc(1, out_size);
-        if (hal->buff_conv_format == NULL) {
-            AM_LOGE("realloc hal->buff fail, out_size:%d", out_size);
-            *output_buffer = buffer;
-            return 0;
-        }
-    }
-
-    if (in_ch != 2 || config->format != AUDIO_FORMAT_PCM_16_BIT ||
-        (out_ch != 1 && out_ch != 2)) {
-        AM_LOGW("not support cfg ch:%d, a2dp ch:%d format:%#x", in_ch, out_ch, config->format);
+        out_size = in_frames * 1 * audio_bytes_per_sample(config->format);
+    } else if (hal->a2dp_config.channel_mask == AUDIO_CHANNEL_OUT_STEREO) {
+        /* 2channel do nothing*/
+    } else {
+        AM_LOGW("not support a2dp output channel_cnt:%#x",
+            audio_channel_count_from_out_mask(config->channel_mask));
         return 0;
     }
 
-    if (out_ch == 1) {
-        downmix_to_mono_i16_from_stereo_i16((int16_t *)hal->buff_conv_format, buffer, in_frames);
+    size_t out_per_sample_byte = audio_bytes_per_sample(hal->a2dp_config.format);
+    size_t out_channel_byte = audio_channel_count_from_out_mask(hal->a2dp_config.channel_mask);
+    out_size = out_per_sample_byte * out_channel_byte * in_frames;
+    if (hal->a2dp_config.format != AUDIO_FORMAT_PCM_16_BIT) {
+        aml_audio_check_and_realloc((void **)&hal->buff_conv_format, &hal->buff_size_conv_format, out_size);
+        R_CHECK_RET(0, "realloc buff_conv_format size:%d fail", out_size);
+        if (hal->a2dp_config.format == AUDIO_FORMAT_PCM_32_BIT) {
+            memcpy_to_i32_from_i16((int32_t *)hal->buff_conv_format, (int16_t *)buffer, in_frames * out_channel_byte);
+        } else if (hal->a2dp_config.format == AUDIO_FORMAT_PCM_24_BIT_PACKED) {
+            memcpy_to_p24_from_i16((uint8_t *)hal->buff_conv_format, (int16_t *)buffer, in_frames * out_channel_byte);
+        } else {
+            AM_LOGW("not support a2dp output format:%#x", hal->a2dp_config.format);
+            return 0;
+        }
+        *output_buffer = hal->buff_conv_format;
     }
-
-    memcpy_by_audio_format(hal->buff_conv_format, hal->a2dp_config.format, buffer, config->format, in_frames * in_ch);
-    *output_buffer = hal->buff_conv_format;
     return out_size;
 }
-
 
 ssize_t a2dp_out_write(struct aml_audio_device *adev, audio_config_base_t *config, const void *buffer, size_t bytes) {
     aml_a2dp_hal *a2dp_hal = adev->a2dp_hal;
     int sent = -1;
     const void *wr_buff = NULL;
     size_t in_frames = 0;
-    size_t out_frames = 0;
     size_t wr_size = 0;
+    size_t resample_frames = 0;
 
     if (a2dp_hal == NULL) {
         AM_LOGW("a2dp_hal is released");
@@ -419,43 +428,39 @@ ssize_t a2dp_out_write(struct aml_audio_device *adev, audio_config_base_t *confi
         goto finish;
     }
 
-    out_frames = a2dp_data_resample_process(a2dp_hal, config, buffer, in_frames, &wr_buff);
-    if (out_frames < 0) {
+    resample_frames = a2dp_data_resample_process(a2dp_hal, config, buffer, in_frames, &wr_buff);
+    if (resample_frames < 0) {
         goto finish;
     }
 
-    wr_size = a2dp_out_data_process(a2dp_hal, config, wr_buff, out_frames, &wr_buff);
+    wr_size = a2dp_out_data_process(a2dp_hal, config, wr_buff, resample_frames, &wr_buff);
     if (wr_size == 0) {
         goto finish;
     }
+    dump_a2dp_output_data(a2dp_hal, wr_buff, wr_size);
 
-    if (aml_getprop_bool("vendor.media.audiohal.a2dpdump")) {
-        aml_audio_dump_audio_bitstreams("/data/audio/a2dp.pcm",
-            wr_buff, wr_size);
-    }
-
-    size_t writed_bytes = 0;
-    while (writed_bytes < wr_size) {
-        size_t need_write = (wr_size - writed_bytes > a2dp_hal->buffer_sz)? a2dp_hal->buffer_sz : (wr_size - writed_bytes);
-        sent = skt_write(a2dp_hal, (char *)wr_buff + writed_bytes, need_write);
-        AM_LOGV("need_write:%zu, actual sent:%d, writed_bytes:%zu, total_size:%zu", need_write, sent, writed_bytes, wr_size);
+    size_t bytes_written = 0;
+    while (bytes_written < wr_size) {
+        size_t need_write = (wr_size - bytes_written > a2dp_hal->buffer_sz)? a2dp_hal->buffer_sz : (wr_size - bytes_written);
+        sent = skt_write(a2dp_hal, (char *)wr_buff + bytes_written, need_write);
+        AM_LOGV("need_write:%zu, actual sent:%d, writed_bytes:%zu, total_size:%zu", need_write, sent, bytes_written, wr_size);
         if (sent < 0) {
             break;
         } else if (sent > 0) {
             process_time(adev, sent);
         }
-        writed_bytes += sent;
+        bytes_written += sent;
     }
 
 finish:
     if (adev->debug_flag & DEBUG_LOG_MASK_A2DP) {
-        AM_LOGD("in:%zu, in_frames:%zu, out:%zu, out_frames:%zu", in_frames, bytes, out_frames, wr_size);
+        AM_LOGD("in_frames:%zu, in_bytes:%zu, out_frames:%zu, out_bytes:%zu", in_frames, bytes, resample_frames, wr_size);
     }
     pthread_mutex_unlock(&a2dp_hal->mutex);
     if (sent == -1) {
         // If send didn't work a2dp_hal, sleep to emulate write delay.
-        const int us_delay = (out_frames * USEC_PER_SEC) / a2dp_hal->a2dp_config.sample_rate;
-        AM_LOGW("frames:%zu, emulate a2dp write delay (%ld ms)", out_frames, us_delay / USEC_PER_MSEC);
+        const int us_delay = (resample_frames * USEC_PER_SEC) / a2dp_hal->a2dp_config.sample_rate;
+        AM_LOGW("frames:%zu, emulate a2dp write delay (%ld ms)", resample_frames, us_delay / USEC_PER_MSEC);
         usleep(us_delay);
     }
     return bytes;
@@ -512,6 +517,11 @@ int a2dp_out_close(struct aml_audio_device *adev) {
     AM_LOGD("state:%s", a2dpStatus2String(a2dp_hal->state));
     if ((a2dp_hal->state == AUDIO_A2DP_STATE_STARTED) || (a2dp_hal->state == AUDIO_A2DP_STATE_STOPPING)) {
         stop_audio_datapath(a2dp_hal);
+    }
+
+    if (a2dp_hal->resample) {
+        aml_audio_resample_close(a2dp_hal->resample);
+        a2dp_hal->resample = NULL;
     }
 
     if (a2dp_hal->buff_conv_format)
