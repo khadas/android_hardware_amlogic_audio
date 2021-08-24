@@ -468,8 +468,12 @@ int set_AQ_parameters(struct audio_hw_device *dev, struct str_parms *parms)
 
     ret = str_parms_get_str(parms, "POST_GAIN", value, sizeof(value));
     if (ret >= 0) {
-        sscanf(value,"%f %f %f", &adev->eq_data.p_gain.speaker, &adev->eq_data.p_gain.spdif_arc,
-                &adev->eq_data.p_gain.headphone);
+        float fspeakerGainDb = 0, fspdifGainDb = 0, fheadphoneGainDb = 0;
+        sscanf(value,"%f %f %f", &fspeakerGainDb, &fspdifGainDb,&fheadphoneGainDb);
+        adev->eq_data.p_gain.speaker = DbToAmpl(fspeakerGainDb);
+        adev->eq_data.p_gain.spdif_arc = DbToAmpl(fspdifGainDb);
+        adev->eq_data.p_gain.headphone = DbToAmpl(fheadphoneGainDb);
+
         ALOGI("%s() audio device gain: speaker:%f, spdif_arc:%f, headphone:%f", __func__,
         adev->eq_data.p_gain.speaker, adev->eq_data.p_gain.spdif_arc,
         adev->eq_data.p_gain.headphone);
