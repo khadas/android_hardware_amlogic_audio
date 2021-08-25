@@ -448,6 +448,14 @@ void set_ms12_main_volume(struct dolby_ms12_desc *ms12, float volume) {
     dolby_ms12_set_main_volume(volume);
 }
 
+void set_ms12_ac4_presentation_group_index(struct dolby_ms12_desc *ms12, int index)
+{
+    char parm[64] = "";
+    sprintf(parm, "%s %d", "-ac4_pres_group_idx", index);
+    (void *)ms12;
+
+}
+
 static inline alsa_device_t usecase_device_adapter_with_ms12(alsa_device_t usecase_device, audio_format_t output_format)
 {
     ALOGI("%s usecase_device %d output_format %#x", __func__, usecase_device, output_format);

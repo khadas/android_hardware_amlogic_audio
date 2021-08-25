@@ -1977,6 +1977,9 @@ int start_input_stream(struct aml_stream_in *in)
     unsigned int alsa_device = 0;
     int ret = 0;
 
+    if ((in->device | AUDIO_DEVICE_BIT_IN ) == AUDIO_DEVICE_IN_TV_TUNER && adev->patch_src == SRC_DTV)  {
+        return 0;
+    }
     ret = choose_stream_pcm_config(in);
     if (ret < 0)
         return -EINVAL;
@@ -2086,6 +2089,9 @@ int do_input_standby(struct aml_stream_in *in)
     struct aml_audio_device *adev = in->dev;
 
     ALOGD ("%s(%p) in->standby = %d", __FUNCTION__, in, in->standby);
+    if ((in->device | AUDIO_DEVICE_BIT_IN ) == AUDIO_DEVICE_IN_TV_TUNER &&  adev->patch_src == SRC_DTV)  {
+        return 0;
+    }
     if (!in->standby) {
         pcm_close (in->pcm);
         in->pcm = NULL;
@@ -2463,7 +2469,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     int in_mute = 0, parental_mute = 0;
     bool stable = true;
 
-    ALOGV("%s(): stream: %d, bytes %zu", __func__, in->source, bytes);
+    ALOGV("%s(): stream: %d, bytes %zu in->devices %0x", __func__, in->source, bytes, in->device);
 
 #ifdef ENABLE_AEC_APP
     /* Special handling for Echo Reference: simply get the reference from FIFO.
@@ -2849,12 +2855,17 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         ALOGE("%s malloc error", __func__);
         return -ENOMEM;
     }
+    if (pthread_mutex_init(&out->lock, NULL)) {
+        ALOGE("%s pthread_mutex_init failed", __func__);
+    }
 #ifdef TUNNER_FRAMEWORK_ENABLE
     if (config != NULL)
     {
         /*valid audio_config means enter in tuner framework case, then we need to create&start audio dtv patch*/
-        ALOGD("%s: dev:%p, fmt:%d, dmx fmt:%d,adev->patch_src %d, adev->audio_patching %d", __func__, dev, config->offload_info.format, android_fmt_convert_to_dmx_fmt(config->offload_info.format), adev->patch_src, adev->audio_patching);
+        ALOGD("%s: dev:%p, fmt:%d, dmx fmt:%d, content id:%d,sync id %d,adev->patch_src %d, adev->audio_patching %d", __func__, dev, config->offload_info.format, android_fmt_convert_to_dmx_fmt(config->offload_info.format), config->offload_info.content_id, config->offload_info.sync_id, adev->patch_src, adev->audio_patching);
         ret = enable_dtv_patch_for_tuner_framework(config, dev);
+        out->audioCfg.offload_info.content_id = config->offload_info.content_id;
+        out->audioCfg.offload_info.sync_id = config->offload_info.sync_id;
     }
 #endif
     if (address && !strncmp(address, "AML_", 4)) {
@@ -3102,6 +3113,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         memset(out->audioeffect_tmp_buffer, 0, out->config.period_size * 6);
     }
 
+    pthread_mutex_lock(&out->lock);
     out->hwsync =  aml_audio_calloc(1, sizeof(audio_hwsync_t));
     if (!out->hwsync) {
         ALOGE("%s,malloc hwsync failed", __func__);
@@ -3117,6 +3129,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->hwsync->tsync_fd = -1;
     // for every stream, init hwsync once. ready to use in hwsync mode
     aml_audio_hwsync_init(out->hwsync, out);
+    pthread_mutex_unlock(&out->lock);
 
     /*if tunnel mode pcm is not 48Khz, resample to 48K*/
     if (flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
@@ -3154,10 +3167,15 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
 
     return 0;
 err:
+    pthread_mutex_lock(&out->lock);
     if (out->audioeffect_tmp_buffer)
         aml_audio_free(out->audioeffect_tmp_buffer);
     if (out->tmp_buffer_8ch)
         aml_audio_free(out->tmp_buffer_8ch);
+
+    pthread_mutex_unlock(&out->lock);
+    pthread_mutex_destroy(&out->lock);
+
     aml_audio_free(out);
     ALOGE("%s exit failed =%d", __func__, ret);
     return ret;
@@ -3204,9 +3222,12 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         aml_audio_free(out->audioeffect_tmp_buffer);
         out->audioeffect_tmp_buffer = NULL;
     }
-
 #ifdef TUNNER_FRAMEWORK_ENABLE
-    if ((out->dev->patch_src == SRC_DTV) && out->dev->audio_patching && (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD)) {
+    if ((out->dev->patch_src == SRC_DTV) &&
+         out->dev->audio_patching &&
+        (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) &&
+        (out->audioCfg.offload_info.content_id != 0)&&
+        (out->audioCfg.offload_info.sync_id != 0)) {
         /*enter into tuner framework case, we need to stop&release audio dtv patch*/
         ALOGD("[audiohal_kpi] %s:patching %d, dev:%p, out->dev:%p, patch:%p", __func__, out->dev->audio_patching, dev, out->dev, ((struct aml_audio_device *)dev)->audio_patch);
         out->dev->audio_patching = 0;
@@ -3370,6 +3391,8 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     }
 
     pthread_mutex_unlock(&out->lock);
+
+    pthread_mutex_destroy(&out->lock);
 
     aml_audio_free(stream);
     ALOGD("%s: exit", __func__);
@@ -3561,6 +3584,8 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
             adev->a2dp_updated = 1;
             adev->out_device &= (~val);
             a2dp_out_close(adev);
+        } else if (val &  AUDIO_DEVICE_OUT_ALL_USB) {
+            adev->out_device &= (~val);
         }
         goto exit;
     }
@@ -3572,6 +3597,10 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 
         /*usb audio hot plug need delay some time wait alsa file create */
         if ((val & AUDIO_DEVICE_OUT_ALL_USB) || (val & AUDIO_DEVICE_IN_ALL_USB)) {
+
+           if (val &  AUDIO_DEVICE_OUT_ALL_USB) {
+                adev->out_device |= val;
+            }
             int card = 0, device = 0, status = 0;
             int retry;
             char fn[256];
@@ -4323,6 +4352,11 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
     } else if (strstr (keys, "hal_param_dtv_latencyms") ) {
         int latancyms = dtv_patch_get_latency(adev);
         sprintf(temp_buf, "hal_param_dtv_latencyms=%d", latancyms);
+        ALOGD("temp_buf %s", temp_buf);
+        return strdup(temp_buf);
+    } else if (strstr (keys, "hal_param_audio_output_mode") ) {
+        int audio_output_mode = adev->dtv_sound_mode;
+        sprintf(temp_buf, "hal_param_audio_output_mode=%d", audio_output_mode);
         ALOGD("temp_buf %s", temp_buf);
         return strdup(temp_buf);
     }
@@ -5413,6 +5447,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         }
     } else if (adev->patch_src == SRC_DTV && adev->tuner2mix_patch) {
         dtv_in_write(stream, buffer, bytes);
+        memset((char *)buffer, 0, bytes);
     }
     if (adev->audio_patching) {
         output_mute(stream,output_buffer,output_buffer_bytes);
@@ -5491,15 +5526,16 @@ ssize_t hw_write (struct audio_stream_out *stream
                 }
             }
         } else {
-            if (!adev->tuner2mix_patch) {
+            {
                 ret = aml_alsa_output_open(stream);
                 if (ret) {
                     ALOGE("%s() open failed", __func__);
                 }
             }
         }
-        if (is_dtv)
+        if (is_dtv) {
             audio_set_spdif_clock(aml_out, get_codec_type(output_format));
+        }
         aml_out->status = STREAM_HW_WRITING;
     }
 
@@ -8320,6 +8356,14 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
             if (AUDIO_DEVICE_IN_TV_TUNER == src_config->ext.device.type) {
                 aml_dev->tuner2mix_patch = true;
+                if (aml_dev->is_TV) {
+                // to do
+                } else {
+                   /*for stb ,AUDIO_DEVICE_IN_TV_TUNER is always DTV */
+                   if (input_src == ATV) {
+                       aml_dev->patch_src = SRC_DTV;
+                   }
+                }
             } else if (AUDIO_DEVICE_IN_ECHO_REFERENCE != src_config->ext.device.type) {
                 if (AUDIO_DEVICE_IN_BUILTIN_MIC != src_config->ext.device.type &&
                     AUDIO_DEVICE_IN_BACK_MIC != src_config->ext.device.type )
@@ -8339,7 +8383,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                     ALOGI("in tvview fast switch mode, no need re-create DTV patch 2\n");
                     return ret;
                 }
-                if (aml_dev->is_TV) {
+                if (/*aml_dev->is_TV*/1) {
                     if (aml_dev->audio_patching) {
                         ALOGI("%s,!!!now release the dtv patch now\n ", __func__);
                         ret = release_dtv_patch(aml_dev);
@@ -8529,6 +8573,7 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
             aml_stream_out_dump(aml_out, fd);
         }
     }
+
 #ifdef AML_MALLOC_DEBUG
     aml_audio_debug_malloc_showinfo(MEMINFO_SHOW_PRINT);
 #endif
@@ -8584,7 +8629,7 @@ static int adev_close(hw_device_t *device)
         aml_audio_free(adev->out_16_buf);
     }
     if (adev->out_32_buf) {
-        aml_audio_free(adev->out_16_buf);
+        aml_audio_free(adev->out_32_buf);
     }
     if (adev->aml_ng_handle) {
         release_noise_gate(adev->aml_ng_handle);
@@ -9000,6 +9045,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->audio_patch = NULL;
     memset(&adev->dts_hd, 0, sizeof(struct dca_dts_dec));
     adev->sound_track_mode = 0;
+    adev->dtv_sound_mode = 0;
     adev->mixing_level = 0;
     adev->advol_level = 100;
     adev->aml_dtv_audio_instances = aml_audio_calloc(1, sizeof(aml_dtv_audio_instances_t));

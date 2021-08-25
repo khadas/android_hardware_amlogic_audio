@@ -383,24 +383,25 @@ static int faad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int b
     }
     if (aac_dec->ad_decoder_supported ) {
         used_size = 0;
+        int ad_in_size = aml_dec->ad_size;
         if (aml_dec->ad_size > 0) {
             if ((aml_dec->ad_size + aac_dec->ad_remain_size) > AAC_REMAIN_BUFFER_SIZE) {
                  ALOGE("aac_dec->ad_remain_size %d > %d  ,overflow", aac_dec->ad_remain_size , AAC_REMAIN_BUFFER_SIZE );
                  aac_dec->ad_remain_size = 0;
                  memset(aac_dec->ad_remain_data , 0 , AAC_REMAIN_BUFFER_SIZE);
             }
-                
+
             memcpy(aac_dec->ad_remain_data + aac_dec->ad_remain_size, aml_dec->ad_data, aml_dec->ad_size);
             aac_dec->ad_remain_size += aml_dec->ad_size;
             aml_dec->ad_size = 0;
         }
 
-        if (aac_dec->ad_need_cache_frames && dec_pcm_data->data_len) {
+        if (ad_in_size && aac_dec->ad_need_cache_frames && dec_pcm_data->data_len) {
              aac_dec->ad_need_cache_frames--;
         }
 
         ad_dec_pcm_data->data_len = 0;
-        ALOGV("aac_dec->ad_remain_size %d", aac_dec->ad_remain_size);
+        ALOGV("aac_dec->ad_remain_size %d aac_dec->ad_need_cache_frames %d", aac_dec->ad_remain_size, aac_dec->ad_need_cache_frames);
         while (aac_dec->ad_remain_size > used_size &&  !aac_dec->ad_need_cache_frames && dec_pcm_data->data_len) {
             int pcm_len = AAC_MAX_LENGTH;
             int decode_len = ad_faad_op->decode(ad_faad_op, (char *)(ad_dec_pcm_data->buf + ad_dec_pcm_data->data_len), &pcm_len, (char *)aac_dec->ad_remain_data + used_size, aac_dec->ad_remain_size - used_size);
@@ -437,7 +438,15 @@ static int faad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int b
             }
         }
         ad_faad_op->getinfo(ad_faad_op,&pADAudioInfo);
-        dump_faad_data(ad_dec_pcm_data->buf, ad_dec_pcm_data->data_len, "/data/faad_ad.pcm");
+
+        if (ad_dec_pcm_data->data_len) {
+           dump_faad_data(ad_dec_pcm_data->buf, ad_dec_pcm_data->data_len, "/data/faad_ad.pcm");
+        } else {
+            if (ad_in_size == 0 && dec_pcm_data->data_len && aac_dec->ad_need_cache_frames == 0) {
+                aac_dec->ad_need_cache_frames = AAC_AD_NEED_CACHE_FRAME_COUNT;
+            }
+        }
+
         ALOGV("pADAudioInfo.channels %d pAudioInfo.channels %d",pADAudioInfo.channels, pAudioInfo.channels);
         if (pADAudioInfo.channels == 1 && pAudioInfo.channels == 2) {
             int16_t *samples_data = (int16_t *)ad_dec_pcm_data->buf;
@@ -450,7 +459,8 @@ static int faad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int b
             }
             ad_dec_pcm_data->data_len  = ad_dec_pcm_data->data_len * 2;
         }
-        if (aac_dec->ad_mixing_enable) {
+
+        if (aac_dec->ad_mixing_enable && ad_dec_pcm_data->data_len) {
             struct audioCfg data_cfg;
             int frames_written = 0;
             data_cfg.channelCnt = pAudioInfo.channels;

@@ -219,7 +219,8 @@ enum OUT_PORT {
     OUTPORT_A2DP                = 7,
     OUTPORT_BT_SCO              = 8,
     OUTPORT_BT_SCO_HEADSET      = 9,
-    OUTPORT_MAX                 = 10,
+    OUTPORT_USB_HEADSET         = 10,
+    OUTPORT_MAX                 = 11,
 };
 
 enum IN_PORT {
@@ -508,6 +509,7 @@ struct aml_audio_device {
     int ad_start_enable;
     int count;
     int sound_track_mode;
+    int dtv_sound_mode;
     void *alsa_handle[ALSA_DEVICE_CNT];
     int FactoryChannelReverse;
     bool dual_spdif_support; /*1 means supports spdif_a & spdif_b & spdif interface*/

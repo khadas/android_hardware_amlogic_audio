@@ -246,6 +246,7 @@ bool is_audio_postprocessing_add_dolbyms12_dap(struct aml_audio_device *adev);
  *@brief set ms12 dap postgain
  */
 void set_ms12_dap_postgain(struct dolby_ms12_desc *ms12, int postgain);
+void set_ms12_ac4_presentation_group_index(struct dolby_ms12_desc *ms12, int index);
 
 #endif //end of _AUDIO_HW_MS12_H_
 

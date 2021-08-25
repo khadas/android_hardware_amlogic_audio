@@ -32,9 +32,11 @@ typedef struct aml_demux__audiopara {
     int dual_decoder_support;
     int associate_audio_mixing_enable;
     int media_sync_id;
+    int media_presentation_id;
     int ad_package_status;
     struct mAudioEsDataInfo *mEsData;
     struct mAudioEsDataInfo *mADEsData;
+    struct package *dtv_pacakge;
 } aml_demux_audiopara_t;
 
 
@@ -67,7 +69,6 @@ typedef struct  aml_dtvsync {
     struct dtvsync_audio_policy apolicy;
     int pcm_dropping;
     int duration;
-    struct package *dtv_pacakge;
 } aml_dtvsync_t;
 
 
