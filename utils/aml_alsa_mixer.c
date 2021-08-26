@@ -85,6 +85,9 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_EARC_TX_ATTENDED_TYPE, "eARC_TX attended type"},
     {AML_MIXER_ID_EARC_TX_AUDIO_TYPE,   "eARC_TX Audio Coding Type"},
     {AML_MIXER_ID_AML_CHIP_ID,           "AML chip id"},
+    {AML_MIXER_ID_TVIN_VIDEO_DELAY,     "TVIN VIDEO DELAY"},
+    {AML_MIXER_ID_TVIN_VIDEO_MIN_DELAY, "TVIN VIDEO MIN DELAY"},
+    {AML_MIXER_ID_TVIN_VIDEO_MAX_DELAY, "TVIN VIDEO MAX DELAY"},
 };
 
 static char *get_mixer_name_by_id(int mixer_id)
