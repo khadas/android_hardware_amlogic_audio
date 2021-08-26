@@ -380,7 +380,8 @@ static audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format)
     } else if (hal_format == AUDIO_FORMAT_MP2 ||
                hal_format == AUDIO_FORMAT_MP3 ||
                hal_format == AUDIO_FORMAT_AAC ||
-               hal_format == AUDIO_FORMAT_AAC_LATM ) {
+               hal_format == AUDIO_FORMAT_AAC_LATM ||
+               hal_format == AUDIO_FORMAT_DRA) {
         return AUDIO_FORMAT_PCM_16_BIT;
     } else {
         return hal_format;
