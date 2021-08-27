@@ -457,6 +457,7 @@ finish:
         AM_LOGD("in_frames:%zu, in_bytes:%zu, out_frames:%zu, out_bytes:%zu", in_frames, bytes, resample_frames, wr_size);
     }
     pthread_mutex_unlock(&a2dp_hal->mutex);
+    a2dp_hal->last_write_time = aml_audio_get_systime();
     if (sent == -1) {
         // If send didn't work a2dp_hal, sleep to emulate write delay.
         const int us_delay = (resample_frames * USEC_PER_SEC) / a2dp_hal->a2dp_config.sample_rate;
