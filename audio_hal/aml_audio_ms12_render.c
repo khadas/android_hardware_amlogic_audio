@@ -208,9 +208,11 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
 
         ret = aml_audio_ms12_process_wrapper(stream, buffer, bytes);
         if (do_sync_flag) {
+            int alsa_latency = aml_alsa_output_get_latency(stream);
+            int offset_latency = aml_dtvsync_get_offset_latencyms(stream, true);
             ms12_delayms = aml_audio_get_cur_ms12_latency(stream);
             if(patch->skip_amadec_flag && aml_out->dtvsync_enable) {
-                patch->dtvsync->cur_outapts = patch->cur_package->pts - ms12_delayms * 90;
+                patch->dtvsync->cur_outapts = patch->cur_package->pts - (ms12_delayms + alsa_latency + offset_latency) * 90;
                 aml_dtvsync_ms12_get_policy(stream);
             }
         }

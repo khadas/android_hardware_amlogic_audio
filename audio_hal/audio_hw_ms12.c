@@ -293,6 +293,8 @@ static void *dolby_ms12_threadloop(void *data);
 
 int dap_pcm_output_l(void *buffer, void *priv_data, size_t size);
 int stereo_pcm_output_l(void *buffer, void *priv_data, size_t size);
+int bitstream_output_l(void *buffer, void *priv_data, size_t size);
+int spdif_bitstream_output_l(void *buffer, void *priv_data, size_t size);
 
 
 int dolby_ms12_register_callback(struct aml_stream_out *aml_out)
@@ -310,12 +312,12 @@ int dolby_ms12_register_callback(struct aml_stream_out *aml_out)
         ALOGI("%s() dolby_ms12_register_pcm_callback return %d", __FUNCTION__, ret);
     }
     if (ms12->output_config & MS12_OUTPUT_MASK_DDP) {
-        ret = dolby_ms12_register_bitstream_callback(bitstream_output, (void *)aml_out);
+        ret = dolby_ms12_register_bitstream_callback(bitstream_output_l, (void *)aml_out);
         ALOGI("%s() dolby_ms12_register_bitstream_callback return %d", __FUNCTION__, ret);
 
     }
     if (ms12->output_config & MS12_OUTPUT_MASK_DD) {
-        ret = dolby_ms12_register_spdif_bitstream_callback(spdif_bitstream_output, (void *)aml_out);
+        ret = dolby_ms12_register_spdif_bitstream_callback(spdif_bitstream_output_l, (void *)aml_out);
         ALOGI("%s() dolby_ms12_register_spdif_bitstream_callback return %d", __FUNCTION__, ret);
     }
     ALOGI("-%s() ret %d\n\n", __FUNCTION__, ret);
@@ -1820,7 +1822,6 @@ static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_
     }
 
     ms12->is_dolby_atmos = (dolby_ms12_get_input_atmos_info() == 1);
-    ms12->master_pcm_frames += size / (2 * 2);
 
     if (audio_hal_data_processing((struct audio_stream_out *)aml_out, buffer, size, &output_buffer, &output_buffer_bytes, output_format) == 0) {
         ret = hw_write((struct audio_stream_out *)aml_out, output_buffer, output_buffer_bytes, output_format);
@@ -1850,6 +1851,8 @@ int dap_pcm_output_l(void *buffer, void *priv_data, size_t size)
     }
     if (is_dolbyms12_dap_enable(aml_out)) {
         ms12_output_master(buffer, priv_data, size, output_format);
+        /* update the master pcm frame, which is used for av sync */
+        ms12->master_pcm_frames += size / (2 * 2);
     } else
         return ret;
     if (adev->debug_flag > 1) {
@@ -1861,6 +1864,38 @@ int dap_pcm_output_l(void *buffer, void *priv_data, size_t size)
 
 int stereo_pcm_output_l(void *buffer, void *priv_data, size_t size)
 {
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    struct aml_audio_patch *patch = adev->audio_patch;
+    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
+    int ret = 0;
+
+    /* dtv avsync prechecking and processing */
+    if (do_sync_flag && aml_out->dtvsync_enable) {
+        aml_ms12_dec_info_t ms12_info;
+        dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
+        ms12_info.data_type = AUDIO_FORMAT_PCM_16_BIT;
+        ms12_info.pcm_type = NORMAL_LPCM;
+        process_result = aml_dtvsync_ms12v1_process_policy(priv_data, &ms12_info);
+        if (process_result == DTVSYNC_AUDIO_DROP) {
+            ms12->master_pcm_frames += size / (2 * 2);
+            return ret;
+        }
+    }
+    ret = stereo_pcm_output(buffer, priv_data, size, NULL);
+    /* update the master pcm frame, which is used for av sync */
+    if (!is_dolbyms12_dap_enable(aml_out)) {
+        ms12->master_pcm_frames += size / (2 * 2);
+    }
+    return ret;
+}
+
+int dap_pcm_output(void *buffer, void *priv_data, size_t size,aml_ms12_dec_info_t *ms12_info __unused) {
+    return dap_pcm_output_l(buffer, priv_data, size);
+}
+
+int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info __unused) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
@@ -1896,12 +1931,25 @@ int stereo_pcm_output_l(void *buffer, void *priv_data, size_t size)
     return ret;
 }
 
-int dap_pcm_output(void *buffer, void *priv_data, size_t size,aml_ms12_dec_info_t *ms12_info __unused) {
-    return dap_pcm_output_l(buffer, priv_data, size);
-}
+int bitstream_output_l(void *buffer, void *priv_data, size_t size)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct aml_audio_patch *patch = adev->audio_patch;
+    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
+    int ret = 0;
 
-int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info __unused) {
-    return stereo_pcm_output_l(buffer, priv_data, size);
+    /* dtv avsync prechecking and processing */
+    if (do_sync_flag && aml_out->dtvsync_enable) {
+        aml_dtvsync_t *aml_dtvsync = patch->dtvsync;
+        struct dtvsync_audio_policy *async_policy = NULL;
+        async_policy = &(aml_dtvsync->apolicy);
+        if (async_policy->audiopolicy == MEDIASYNC_AUDIO_DROP_PCM) {
+            return DTVSYNC_AUDIO_DROP;
+        }
+    }
+    ret = bitstream_output(buffer, priv_data, size);
+    return ret;
 }
 
 
@@ -1967,6 +2015,27 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
     return ret;
 }
 
+int spdif_bitstream_output_l(void *buffer, void *priv_data, size_t size)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct aml_audio_patch *patch = adev->audio_patch;
+    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
+    int ret = 0;
+
+    /* dtv avsync prechecking and processing */
+    if (do_sync_flag && aml_out->dtvsync_enable) {
+        aml_dtvsync_t *aml_dtvsync = patch->dtvsync;
+        struct dtvsync_audio_policy *async_policy = NULL;
+        async_policy = &(aml_dtvsync->apolicy);
+        if (async_policy->audiopolicy == MEDIASYNC_AUDIO_DROP_PCM) {
+            return DTVSYNC_AUDIO_DROP;
+        }
+    }
+    ret = spdif_bitstream_output(buffer, priv_data, size);
+    return ret;
+}
+
 int spdif_bitstream_output(void *buffer, void *priv_data, size_t size)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
@@ -2028,7 +2097,9 @@ int spdif_bitstream_output(void *buffer, void *priv_data, size_t size)
     }
 
     ret = aml_ms12_spdif_output_new(stream_out, bitstream_out, output_format, output_format, buffer, size);
-
+    if (adev->debug_flag > 1) {
+        ALOGI("-%s() ret %d", __FUNCTION__, ret);
+    }
     return ret;
 }
 
