@@ -196,7 +196,7 @@ static const unsigned int ms12_muted_mat_raw[MS12_MAT_RAW_LENGTH / 4 + 1] = {
 #define  DTV_AVSYNC_MS12_SPK_PCMOUT_LATENCY                  (0)
 #define  DTV_AVSYNC_MS12_ARC_PCMOUT_LATENCY                  (0)
 #define  DTV_AVSYNC_MS12_ARC_DDOUT_LATENCY                  (30)
-#define  DTV_AVSYNC_MS12_ARC_DDPOUT_LATENCY                  (60)
+#define  DTV_AVSYNC_MS12_ARC_DDPOUT_LATENCY                  (50)
 #define  DTV_AVSYNC_MS12_ARC_ATMOSOUT_LATENCY                (100)
 
 /* prop for dtv avsync tunning*/
@@ -237,7 +237,7 @@ int aml_dtvsync_get_offset_latencyms(struct audio_stream_out *stream, bool is_ms
                 break;
             case OUTPORT_HDMI_ARC:
                 if (adev->sink_format == AUDIO_FORMAT_E_AC3 || adev->sink_format == AUDIO_FORMAT_AC4) {
-                    if (ms12->is_dolby_atmos)
+                    if (ms12->is_dolby_atmos && adev->hdmi_descs.ddp_fmt.atmos_supported)
                         latency_ms += property_get_int32(DTV_AVSYNC_MS12_ARC_ATMOSOUT_LATENCY_PROP, DTV_AVSYNC_MS12_ARC_ATMOSOUT_LATENCY);
                     else
                         latency_ms += property_get_int32(DTV_AVSYNC_MS12_ARC_DDPOUT_LATENCY_PROP, DTV_AVSYNC_MS12_ARC_DDPOUT_LATENCY);
