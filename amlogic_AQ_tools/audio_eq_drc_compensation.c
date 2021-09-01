@@ -30,7 +30,12 @@
 #undef  LOG_TAG
 #define LOG_TAG  "audio_hw_primary"
 
+#if ANDROID_PLATFORM_SDK_VERSION < 29
 #define MODEL_SUM_DEFAULT_PATH "/odm/etc/tvconfig/model/model_sum.ini"
+#elif ANDROID_PLATFORM_SDK_VERSION > 29
+#define MODEL_SUM_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/model/model_sum.ini"
+#endif
+
 
 static struct audio_file_config_s dev_cfg[2] = {
     {/*amlogic inner EQ & DRC*/
@@ -62,7 +67,7 @@ static int get_model_name(char *model_name, int size)
     int ret = -1;
     char node[PROPERTY_VALUE_MAX];
 
-    ret = property_get("vendor.tv.model_name", node, "");
+    ret = property_get("tv.model_name", node, "");
     if (ret <= 0) {
         snprintf(model_name, size, "FHD");
         ALOGD("%s: Can't get model name! use default model_name (%s)",
