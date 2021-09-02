@@ -422,7 +422,6 @@ int eq_drc_init(struct eq_drc_data *pdata)
             ext_drc_set(pdata, i);
         }
     }
-
     return 0;
 }
 

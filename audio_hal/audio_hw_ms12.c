@@ -667,6 +667,7 @@ int get_the_dolby_ms12_prepared(
     struct aml_stream_out *out;
     struct aml_audio_patch *patch = adev->audio_patch;
     aml_demux_audiopara_t *demux_info = NULL;
+    int  output_config;
     if (patch) {
         demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     }
@@ -776,8 +777,12 @@ int get_the_dolby_ms12_prepared(
 
     //init the dolby ms12
     ms12->dual_bitstream_support = adev->dual_spdif_support;
+    if (adev->aml_dap_v1_enable) {
+        output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_SPEAKER;
+    } else {
+        output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO;
+    }
 
-    int output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO;
     set_dolby_ms12_drc_parameters(input_format, output_config);
     aml_ms12_config(ms12, input_format, input_channel_mask, input_sample_rate, output_config, get_ms12_path());
 
@@ -2377,14 +2382,8 @@ bool is_audio_postprocessing_add_dolbyms12_dap(struct aml_audio_device *adev)
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     bool is_dap_enable = (adev->active_outport == OUTPORT_SPEAKER) && (!adev->ms12.dap_bypass_enable);
 
-    /* Dolby MS12 V2 uses DAP Tuning file */
-    if (adev->is_ms12_tuning_dat) {
-        if (ms12->dolby_ms12_enable && is_dap_enable && (ms12->output_config & MS12_OUTPUT_MASK_SPEAKER)) {
-            is_dap_enable =  true;
-        }
-        else {
-            is_dap_enable =  false;
-        }
+    if (ms12->dolby_ms12_enable && is_dap_enable && (ms12->output_config & MS12_OUTPUT_MASK_SPEAKER)) {
+        is_dap_enable =  true;
     }
     else {
         is_dap_enable =  false;

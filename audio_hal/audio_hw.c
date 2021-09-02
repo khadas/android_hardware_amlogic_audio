@@ -8968,6 +8968,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
            adev->eq_data.p_gain.speaker, adev->eq_data.p_gain.spdif_arc,
               adev->eq_data.p_gain.headphone);
         adev->aml_ng_enable = adev->eq_data.noise_gate.aml_ng_enable;
+        adev->aml_dap_v1_enable = adev->eq_data.aml_dap_v1_enable;
         adev->aml_ng_level = adev->eq_data.noise_gate.aml_ng_level;
         adev->aml_ng_attack_time = adev->eq_data.noise_gate.aml_ng_attack_time;
         adev->aml_ng_release_time = adev->eq_data.noise_gate.aml_ng_release_time;
