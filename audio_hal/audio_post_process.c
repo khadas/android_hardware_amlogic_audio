@@ -56,7 +56,7 @@ int audio_post_process(struct aml_native_postprocess *native_postprocess, int16_
     audio_buffer_t out_buf;
     int frames = in_frames;
 
-    if (native_postprocess == NULL &&
+    if (native_postprocess == NULL ||
         native_postprocess->num_postprocessors != native_postprocess->total_postprocessors) {
         return ret;
     }

@@ -1820,8 +1820,8 @@ static int out_get_next_write_timestamp (const struct audio_stream_out *stream _
     return ESRCH;
 }
 
-//actually maybe it be not useful now  except pass CTS_TEST:
-//  run cts -c android.media.cts.AudioTrackTest -m testGetTimestamp
+// actually maybe it be not useful now  except pass CTS_TEST:
+// run cts -c android.media.cts.AudioTrackTest -m testGetTimestamp
 static int out_get_presentation_position (const struct audio_stream_out *stream, uint64_t *frames, struct timespec *timestamp)
 {
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
@@ -2581,7 +2581,6 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
 
             if (ret < 0)
                 goto exit;
-            //DoDumpData(buffer, bytes, CC_DUMP_SRC_TYPE_INPUT);
         }
     }
 
@@ -5287,7 +5286,9 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     aml_audio_ease_process(adev->volume_ease.ease, adev->out_32_buf, bytes * 2);
                     float vol_now = aml_audio_ease_get_current_volume(adev->volume_ease.ease);
                     ALOGV("volume update %f, %f, %f", adev->volume_ease.vol_last, volume, vol_now);
-                    if (vol_now == volume) {
+                    /*do ease process when adjust vol,vol apply is handled by ease process,when ease process finished,
+                    vol apply need handled by apply volume function,vol is float type,use fadbs to compare*/
+                    if (fabs(vol_now - volume) < 0.000001) {
                         adev->volume_ease.do_easing = false;
                         ALOGD("easing finished, volume now %f", volume);
                         adev->volume_ease.vol_last = adev->volume_ease.vol_target;
@@ -8568,6 +8569,10 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
     dprintf(fd, "[AML_HAL]      SPEAKER gain    : %10f |  HDMI gain         :    %f\n",
         aml_dev->sink_gain[OUTPORT_SPEAKER], aml_dev->sink_gain[OUTPORT_HDMI]);
     dprintf(fd, "[AML_HAL]      ms12 main volume: %10f\n", aml_dev->ms12.main_volume);
+    aml_audio_ease_t *audio_ease = aml_dev->audio_ease;
+    if (audio_ease && fabs(audio_ease->current_volume) <= 1e-6) {
+        dprintf(fd, "[AML_HAL] ease out muted. start:%f target:%f\n", audio_ease->start_volume, audio_ease->target_volume);
+    }
     dprintf(fd, "[AML_HAL]      dolby_lib: %d\n", aml_dev->dolby_lib_type);
     dprintf(fd, "\n[AML_HAL]      usecase_masks: %#x\n", aml_dev->usecase_masks);
     dprintf(fd, "\nAML stream outs:\n");
