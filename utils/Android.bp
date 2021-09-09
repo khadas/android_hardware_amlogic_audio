@@ -52,6 +52,7 @@ cc_library_shared {
         "aml_echo_reference.c",
         "aml_hw_mixer.c",
         "aml_malloc_debug.c",
+        "earc_utils.c",
         "aml_ringbuffer.c",
         "aml_volume_utils.c",
         "ini/ini.cpp",

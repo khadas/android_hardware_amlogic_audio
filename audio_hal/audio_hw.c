@@ -76,6 +76,7 @@
 #include "aml_mmap_audio.h"
 // for invoke bluetooth rc hal
 #include "audio_hal_thunks.h"
+#include "earc_utils.h"
 
 #include <dolby_ms12_status.h>
 #include <SPDIFEncoderAD.h>
@@ -172,7 +173,7 @@
 
 #define DISABLE_CONTINUOUS_OUTPUT "persist.vendor.audio.continuous.disable"
 /* Maximum string length in audio hal. */
-#define AUDIO_HAL_CHAR_MAX_LEN                          (64)
+#define AUDIO_HAL_CHAR_MAX_LEN                          (256)
 
 static const struct pcm_config pcm_config_out = {
     .channels = 2,
@@ -4262,7 +4263,7 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
                                    const char *keys)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *) dev;
-    char temp_buf[64] = {0};
+    char temp_buf[AUDIO_HAL_CHAR_MAX_LEN] = {0};
 
     if (!strcmp (keys, AUDIO_PARAMETER_HW_AV_SYNC) ) {
         ALOGI ("get hw_av_sync id\n");
@@ -4406,6 +4407,12 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         int is_tv = adev->is_TV;
         sprintf(temp_buf, "hal_param_audio_is_tv=%d", adev->is_TV);
         ALOGD("temp_buf %s", temp_buf);
+        return strdup(temp_buf);
+    } else if (strstr (keys, "hal_param_get_earctx_cds") ) {
+        char cds[AUDIO_HAL_CHAR_MAX_LEN] = {0};
+
+        earctx_fetch_cds(&adev->alsa_mixer, cds, 0);
+        sprintf(temp_buf, "hal_param_get_earctx_cds=%s", cds);
         return strdup(temp_buf);
     }
 
