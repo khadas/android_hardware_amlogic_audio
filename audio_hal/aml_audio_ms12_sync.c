@@ -616,6 +616,13 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
 
     if (adev->is_TV) {
         video_delay = get_ms12_tunnel_video_delay() * 48;
+        // todo, need combine with video delay
+#if 0
+        int video_delay_frames = 0;
+        /*here we need add video delay*/
+        video_delay_frames = get_media_video_delay(&adev->alsa_mixer) * 48;
+        video_delay -= video_delay_frames;
+#endif
     }
 
     latency_frames = alsa_delay + tunning_delay + atmos_tunning_delay + ms12_pipeline_delay + bypass_delay + video_delay;

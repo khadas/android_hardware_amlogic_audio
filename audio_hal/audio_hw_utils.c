@@ -1113,7 +1113,8 @@ int aml_audio_get_speaker_latency_offset(int aformat ,int ms12_enable)
            latency_ms = 0;
     } else {
         prop_name = "vendor.media.audio.hal.speaker_latency.raw";
-        latency_ms = 80;
+        /*from 80->30 for tv speaker case*/
+        latency_ms = 30;
     }
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0)
@@ -2023,5 +2024,20 @@ void check_audio_level(const char *name, const void *buffer, size_t bytes) {
         silence = 1;
     }
     ALOGI("%-24s data detect min=%8d max=%8d silence=%d silence_cnt=%5d frames=%5d", name, min, max, silence, silence_cnt, num_frame);
+}
+
+/*****************************************************************************
+*   Function Name:  get_media_video_delay
+*   Description:    get the currently video delay
+*   Parameters:     aml_mixer_handle *mixer_handle
+*   Return value:   return the current video delay with ms
+******************************************************************************/
+int get_media_video_delay(struct aml_mixer_handle *mixer_handle)
+{
+    int delay = 0;
+
+    delay = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_MEDIA_VIDEO_DELAY);
+
+    return (delay > 0) ? delay : 0;
 }
 

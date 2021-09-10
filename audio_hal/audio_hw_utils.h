@@ -174,5 +174,6 @@ static inline void endian16_convert(void *buf, int size)
         *p = ((*p & 0xff) << 8) | ((*p) >> 8);
     }
 }
+int get_media_video_delay(struct aml_mixer_handle *mixer_handle);
 
 #endif
