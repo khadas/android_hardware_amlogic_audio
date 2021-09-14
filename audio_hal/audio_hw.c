@@ -1819,6 +1819,7 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
     bool b_raw_in = false;
     bool b_raw_out = false;
     int ret = 0;
+    int video_delay_frames = 0;
     if (!frames || !timestamp) {
         ALOGI("%s, !frames || !timestamp\n", __FUNCTION__);
         return -EINVAL;
@@ -1867,9 +1868,13 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         *timestamp = out->lasttimestamp;
     }
 
+    /*here we need add video delay*/
+    video_delay_frames = get_media_video_delay(&adev->alsa_mixer) * out->hal_rate / 1000;
+    *frames += video_delay_frames;
+
     if (adev->debug_flag) {
-        ALOGI("out_get_presentation_position out %p %"PRIu64", sec = %ld, nanosec = %ld tunned_latency_ms %d frame_latency %d\n",
-            out, *frames, timestamp->tv_sec, timestamp->tv_nsec, timems_latency, frame_latency);
+        ALOGI("out_get_presentation_position out %p %"PRIu64", sec = %ld, nanosec = %ld tunned_latency_ms %d frame_latency %d video delay=%d\n",
+            out, *frames, timestamp->tv_sec, timestamp->tv_nsec, timems_latency, frame_latency, video_delay_frames);
         int64_t  frame_diff_ms =  (*frames - out->last_frame_reported) * 1000 / out->hal_rate;
         int64_t  system_time_ms = 0;
         if (timestamp->tv_nsec < out->last_timestamp_reported.tv_nsec) {
@@ -6089,7 +6094,13 @@ hwsync_rewrite:
                         uint64_t apts;
                         uint32_t latency = out_get_latency(stream);
                         int tunning_latency = aml_audio_get_nonms12_tunnel_latency(stream) / 48;
-                        int latency_pts = (latency + tunning_latency) * 90; // latency ms-->pts
+                        int latency_pts = 0;
+                        int video_delay_ms = 0;
+                        /*here we need add video delay*/
+                        video_delay_ms = get_media_video_delay(&adev->alsa_mixer);
+                        if ((latency + tunning_latency) > video_delay_ms) {
+                            latency_pts = (latency + tunning_latency - video_delay_ms) * 90;
+                        }
                         // check PTS discontinue, which may happen when audio track switching
                         // discontinue means PTS calculated based on first_apts and frame_write_sum
                         // does not match the timestamp of next audio samples
