@@ -2493,7 +2493,7 @@ unsigned long long dolby_ms12_get_main_pcm_generated(struct audio_stream_out *st
 
     if (!audio_is_linear_pcm(hal_internal_format)) {
         decoded_frame = dolby_ms12_get_n_bytes_pcmout_of_udc() / adev->ms12.nbytes_of_dmx_output_pcm_frame;
-    } else if (aml_out->hw_sync_mode) {
+    } else {
         decoded_frame = dolby_ms12_get_consumed_payload() / 4;
     }
     return (main_input_offset_frame + decoded_frame);

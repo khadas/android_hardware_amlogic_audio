@@ -276,9 +276,11 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                     //aml_audio_dump_audio_bitstreams("/data/mixing_data.raw", dec_data, dec_pcm_data->data_len);
                     ret = aml_audio_ms12_process_wrapper(stream, dec_data, dec_pcm_data->data_len);
                     if (do_sync_flag) {
+                        int alsa_latency = aml_alsa_output_get_latency(stream);
+                        int offset_latency = aml_dtvsync_get_offset_latencyms(stream, true);
                         ms12_delayms = aml_audio_get_cur_ms12_latency(stream);
                         if(patch->skip_amadec_flag) {
-                            patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90;//need consider the alsa delay
+                            patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - (ms12_delayms + alsa_latency + offset_latency) * 90;
                             if (adev->debug_flag)
                                 ALOGI("patch->dtvsync->cur_outapts %lld", patch->dtvsync->cur_outapts);
                             if (aml_out->dtvsync_enable)
