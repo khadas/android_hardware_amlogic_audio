@@ -17,7 +17,7 @@
 
 
 #define LOG_TAG "aml_dtvsync"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 #include <errno.h>
 #include <pthread.h>
 #include <sys/time.h>
@@ -222,14 +222,11 @@ int aml_dtvsync_get_offset_latencyms(struct audio_stream_out *stream, bool is_ms
     struct aml_audio_patch *patch = adev->audio_patch;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     aml_dec_t *aml_dec = aml_out->aml_dec;
-    int latency_ms = 0, memc_prop = -1;
+    int latency_ms = 0;
 
     if (adev->is_TV) {
         latency_ms += property_get_int32(DTV_AVSYNC_DEFAULT_LATENCY_PROP, DTV_AVSYNC_DEFAULT_LATENCY);
-        //memc_prop = property_get_int32("persist.vendor.sys.memc", -1);
-        if (memc_prop > -1 && memc_prop < 4) {
-            latency_ms -= property_get_int32(DTV_AVSYNC_VIDEO_MEMC_LATENCY_PROP, DTV_AVSYNC_VIDEO_MEMC_LATENCY);
-        }
+        latency_ms -= get_media_video_delay(&adev->alsa_mixer);
         if (is_ms12) {
             switch (adev->active_outport) {
             case OUTPORT_SPEAKER:
@@ -272,8 +269,8 @@ int aml_dtvsync_get_offset_latencyms(struct audio_stream_out *stream, bool is_ms
                 break;
             }
         }
-        ALOGV("%s latency_ms %d ms, active_outport %d, sink_format %x, ms12 %d, memc %d, atmos %d", __func__,
-              latency_ms, adev->active_outport, adev->sink_format, is_ms12, memc_prop, ms12->is_dolby_atmos);
+        ALOGV("%s latency_ms %d ms, active_outport %d, sink_format %x, ms12 %d, atmos %d", __func__,
+              latency_ms, adev->active_outport, adev->sink_format, is_ms12, ms12->is_dolby_atmos);
     }
     return latency_ms;
 }
