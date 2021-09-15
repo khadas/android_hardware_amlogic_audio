@@ -188,10 +188,10 @@ static const unsigned int ms12_muted_mat_raw[MS12_MAT_RAW_LENGTH / 4 + 1] = {
 #define  DTV_AVSYNC_DEFAULT_LATENCY                  (0)
 #define  DTV_AVSYNC_VIDEO_MEMC_LATENCY                  (80)
 /* NONMS12 part, default ARC is DENON X200H */
-#define  DTV_AVSYNC_NONMS12_SPK_PCMOUT_LATENCY                  (0)
+#define  DTV_AVSYNC_NONMS12_SPK_PCMOUT_LATENCY                  (20)
 #define  DTV_AVSYNC_NONMS12_ARC_PCMOUT_LATENCY                  (0)
 #define  DTV_AVSYNC_NONMS12_ARC_DDOUT_LATENCY                  (60)
-#define  DTV_AVSYNC_NONMS12_ARC_DDPOUT_LATENCY                  (120)
+#define  DTV_AVSYNC_NONMS12_ARC_DDPOUT_LATENCY                  (90)
 /* MS12 part, default ARC is DENON X200H */
 #define  DTV_AVSYNC_MS12_SPK_PCMOUT_LATENCY                  (0)
 #define  DTV_AVSYNC_MS12_ARC_PCMOUT_LATENCY                  (0)
