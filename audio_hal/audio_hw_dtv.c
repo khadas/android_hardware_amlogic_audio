@@ -264,7 +264,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
     unsigned int path_id = val >> DVB_DEMUX_ID_BASE;
     struct mediasync_audio_format audio_format;
-    ALOGI("%s path_id %d cmd %d",__FUNCTION__,path_id, cmd);
+    //ALOGI("%s path_id %d cmd %d",__FUNCTION__,path_id, cmd);
     if (path_id < 0  ||  path_id >= DVB_DEMUX_SUPPORT_MAX_NUM) {
         ALOGI("path_id %d  is invalid ! ",path_id);
         goto exit;
@@ -2637,7 +2637,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
     void *demux_handle = patch->demux_handle;
     int read_bytes = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
     int ret = 0;
-    ALOGI("++%s create a input stream success now!!!\n ", __FUNCTION__);
+    //ALOGI("++%s create a input stream success now!!!\n ", __FUNCTION__);
     int nNextFrameSize = 0; //next read frame size
     int inlen = 0;//real data size in in_buf
     int nInBufferSize = read_bytes; //full buffer size
@@ -3118,25 +3118,25 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
         goto exit_open;
     }
     aml_out = (struct aml_stream_out *)stream_out;
-    ALOGI("++%s live create a output stream success now!!!\n ", __FUNCTION__);
     patch->out_buf_size = write_bytes * EAC3_MULTIPLIER;
+    ALOGI("++%s live create a output stream success now!!! patch->out_buf_size=%d\n ", __FUNCTION__, patch->out_buf_size);
     patch->out_buf = aml_audio_calloc(1, patch->out_buf_size);
     if (!patch->out_buf) {
         ret = -ENOMEM;
         goto exit_outbuf;
     }
-    ALOGI("patch->out_buf_size=%d\n", patch->out_buf_size);
+    //ALOGI("patch->out_buf_size=%d\n", patch->out_buf_size);
     //patch->dtv_audio_mode = get_dtv_audio_mode();
     patch->dtv_audio_tune = AUDIO_FREE;
     patch->first_apts_lookup_over = 0;
     aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
-    ALOGI("[audiohal_kpi]++%s live start output pcm now patch->output_thread_exit %d!!!\n ",
-          __FUNCTION__, patch->output_thread_exit);
-
     prctl(PR_SET_NAME, (unsigned long)"audio_output_patch");
     aml_out->output_speed = 1.0f;
     aml_out->dtvsync_enable =  property_get_int32("vendor.media.dtvsync.enable", 1);
-    ALOGI("output_speed=%f,dtvsync_enable=%d\n", aml_out->output_speed, aml_out->dtvsync_enable);
+    ALOGI("[audiohal_kpi]++%s live start output pcm now patch->output_thread_exit %d!!!output_speed=%f,dtvsync_enable=%d\n ",
+          __FUNCTION__, patch->output_thread_exit, aml_out->output_speed, aml_out->dtvsync_enable);
+
+    //ALOGI("output_speed=%f,dtvsync_enable=%d\n", aml_out->output_speed, aml_out->dtvsync_enable);
     while (!patch->output_thread_exit) {
 
         if (patch->dtv_decoder_state == AUDIO_DTV_PATCH_DECODER_STATE_PAUSE) {

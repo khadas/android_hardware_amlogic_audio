@@ -289,7 +289,7 @@ void get_sink_format(struct audio_stream_out *stream)
         (source_format != AUDIO_FORMAT_DTS) &&
         (source_format != AUDIO_FORMAT_DTS_HD)) {
         /*unsupport format [dts-hd/true-hd]*/
-        ALOGI("%s() source format %#x change to %#x", __FUNCTION__, source_format, AUDIO_FORMAT_PCM_16_BIT);
+        //ALOGI("%s() source format %#x change to %#x", __FUNCTION__, source_format, AUDIO_FORMAT_PCM_16_BIT);
         source_format = AUDIO_FORMAT_PCM_16_BIT;
     }
     adev->sink_capability = sink_capability;
@@ -299,7 +299,7 @@ void get_sink_format(struct audio_stream_out *stream)
     // condition 1: ARC port, single output.
     // condition 2: for STB case with dolby-ms12 libs
     if (adev->active_outport == OUTPORT_HDMI_ARC || !adev->is_TV) {
-        ALOGI("%s() HDMI ARC or mbox + dvb case", __FUNCTION__);
+        //ALOGI("%s() HDMI ARC or mbox + dvb case", __FUNCTION__);
         switch (adev->hdmi_format) {
         case PCM:
             sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
@@ -343,7 +343,7 @@ void get_sink_format(struct audio_stream_out *stream)
     }
     /*when device is SPEAKER/HEADPHONE*/
     else {
-        ALOGI("%s() SPEAKER/HEADPHONE case", __FUNCTION__);
+        //ALOGI("%s() SPEAKER/HEADPHONE case", __FUNCTION__);
         switch (adev->hdmi_format) {
         case PCM:
             sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
@@ -1407,18 +1407,18 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
                     adev->audio_patching = 0;
                 }
             }
-            ALOGI("%s, now the audio patch src is %s, the audio_patching is %d ", __func__,
+            ALOGI("[audiohal_kpi]%s, now the audio patch src is %s, the audio_patching is %d ", __func__,
                 patchSrc2Str(adev->patch_src), adev->audio_patching);
 
             if ((adev->patch_src == SRC_DTV) && adev->audio_patching) {
-                ALOGI("[audiohal_kpi] %s, now release the dtv patch now\n ", __func__);
+                //ALOGI("[audiohal_kpi] %s, now release the dtv patch now\n ", __func__);
                 ret = release_dtv_patch(adev);
                 if (!ret) {
                     adev->audio_patching = 0;
                 }
             }
-            ALOGI("[audiohal_kpi] %s, now end release dtv patch the audio_patching is %d ", __func__, adev->audio_patching);
-            ALOGI("[audiohal_kpi] %s, now create the dtv patch now\n ", __func__);
+            ALOGI("[audiohal_kpi] %s, now end release dtv patch the audio_patching is %d, now create the dtv patch now\n ", __func__, adev->audio_patching);
+            //ALOGI("[audiohal_kpi] %s, now create the dtv patch now\n ", __func__);
             adev->patch_src = SRC_DTV;
             if (eDolbyMS12Lib == adev->dolby_lib_type && adev->continuous_audio_mode)
             {

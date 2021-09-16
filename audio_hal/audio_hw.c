@@ -5947,7 +5947,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
     }
     case_cnt = popcount (adev->usecase_masks);
     if (adev->mix_init_flag == false) {
-        ALOGI ("%s mix init, mask %#x",__func__,adev->usecase_masks);
+        //ALOGI ("%s mix init, mask %#x",__func__,adev->usecase_masks);
         pthread_mutex_lock (&adev->lock);
         /* recovery from stanby case */
         if (aml_out->status == STREAM_STANDBY) {
@@ -8115,8 +8115,8 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                                  aml_dev->audio_patching = 0;
                              }
                          }
-                         ALOGI("%s, now end release dtv patch the audio_patching is %d ", __func__, aml_dev->audio_patching);
-                         ALOGI("%s, now create the dtv patch now\n ", __func__);
+                         ALOGI("%s, now end release dtv patch the audio_patching is %d ,now create the dtv patch", __func__, aml_dev->audio_patching);
+                         //ALOGI("%s, now create the dtv patch now\n ", __func__);
                      }
 
                      aml_dev->patch_src = SRC_DTV;

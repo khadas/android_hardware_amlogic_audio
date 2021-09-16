@@ -203,10 +203,9 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
             device_index = alsa_device_update_pcm_index(alsa_port, PLAYBACK);
         }
 
-        ALOGI("%s, audio open card(%d), device(%d)", __func__, card, device_index);
-        ALOGI("ALSA open configs: channels %d format %d period_count %d period_size %d rate %d",
-              config->channels, config->format, config->period_count, config->period_size, config->rate);
-        ALOGI("ALSA open configs: threshold start %u stop %u silence %u silence_size %d avail_min %d",
+        ALOGI("%s, audio open card(%d), device(%d), ALSA open configs: channels %d format %d period_count %d period_size %d rate %d, threshold start %u stop %u silence %u silence_size %d avail_min %d",
+              __func__, card, device_index,
+              config->channels, config->format, config->period_count, config->period_size, config->rate,
               config->start_threshold, config->stop_threshold, config->silence_threshold, config->silence_size, config->avail_min);
         pcm = pcm_open(card, device_index, PCM_OUT, config);
         if (!pcm || !pcm_is_ready(pcm)) {
@@ -220,15 +219,14 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
     aml_out->dropped_size = 0;
     aml_out->device = device;
     aml_out->alsa_write_frames = 0;
-    ALOGI("-%s, audio out(%p) device(%d) refs(%d) is_normal_pcm %d, handle %p\n\n",
-          __func__, aml_out, device, adev->pcm_refs[device], aml_out->is_normal_pcm, pcm);
-    ALOGI("+%s, adev->pcm_handle[%d] %p", __func__, device, adev->pcm_handle[device]);
+    ALOGI("-%s, audio out(%p) device(%d) refs(%d) is_normal_pcm %d, handle %p, adev->pcm_handle[%d] %p\n",
+          __func__, aml_out, device, adev->pcm_refs[device], aml_out->is_normal_pcm, pcm, device, adev->pcm_handle[device]);
 
     return 0;
 }
 
 void aml_alsa_output_close(struct audio_stream_out *stream) {
-    ALOGI("\n+%s() stream %p\n", __func__, stream);
+    //ALOGI("\n+%s() stream %p\n", __func__, stream);
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     unsigned int device = aml_out->device;
@@ -243,12 +241,11 @@ void aml_alsa_output_close(struct audio_stream_out *stream) {
     }
 
     struct pcm *pcm = adev->pcm_handle[device];
-    ALOGI("+%s, pcm handle %p aml_out->pcm %p", __func__, pcm, aml_out->pcm);
-    ALOGI("+%s, adev->pcm_handle[%d] %p", __func__, device, adev->pcm_handle[device]);
+    ALOGI("+%s, pcm handle %p aml_out->pcm %p adev->pcm_handle[%d] %p", __func__, pcm, aml_out->pcm, device, adev->pcm_handle[device]);
 
     adev->pcm_refs[device]--;
-    ALOGI("+%s, audio out(%p) device(%d), refs(%d) is_normal_pcm %d,handle %p",
-          __func__, aml_out, device, adev->pcm_refs[device], aml_out->is_normal_pcm, aml_out->pcm);
+    //ALOGI("+%s, audio out(%p) device(%d), refs(%d) is_normal_pcm %d,handle %p",
+    //      __func__, aml_out, device, adev->pcm_refs[device], aml_out->is_normal_pcm, aml_out->pcm);
     if (adev->pcm_refs[device] < 0) {
         adev->pcm_refs[device] = 0;
         ALOGI("%s, device(%d) refs(%d)\n", __func__, device, adev->pcm_refs[device]);
@@ -271,7 +268,7 @@ void aml_alsa_output_close(struct audio_stream_out *stream) {
             adev->pcm_handle[device] = NULL;
         }
     }
-    ALOGI("-%s()\n\n", __func__);
+    //ALOGI("-%s()\n", __func__);
 }
 
 static int aml_alsa_add_zero(struct aml_stream_out *stream, int size) {
