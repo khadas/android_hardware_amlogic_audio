@@ -580,9 +580,12 @@ void set_dolby_ms12_drc_parameters(audio_format_t input_format, int output_confi
     int drc_mode = 0;
     int drc_cut = 0;
     int drc_boost = 0;
-
+/* /
     if (0 == aml_audio_get_dolby_drc_mode(&drc_mode, &drc_cut, &drc_boost))
         dolby_ms12_drc_mode = (drc_mode == DDPI_UDC_COMP_LINE) ? DOLBY_DRC_LINE_MODE : DOLBY_DRC_RF_MODE;
+   */
+    dolby_ms12_drc_mode = DOLBY_DRC_LINE_MODE;
+
     //for mul-pcm
     dolby_ms12_set_drc_boost(drc_boost);
     dolby_ms12_set_drc_cut(drc_cut);
@@ -971,8 +974,6 @@ int dolby_ms12_main_process(
         if (!aml_out->is_ms12_main_decoder) {
             dolby_ms12_main_open(stream);
 
-            /* dynamicly set the drc parameters mode/cut/boost */
-            //dynamic_set_dolby_ms12_drc_parameters(ms12);
         }
 
         /*this status is only updated in hw_write, continuous mode also need it*/
@@ -2240,6 +2241,10 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
             , buf_ns_target
             , MS12_MAIN_BUF_INCREASE_TIME_MS);
     }
+    if (!audio_is_linear_pcm(aml_out->hal_internal_format)) {
+        dynamic_set_dolby_ms12_drc_parameters(ms12);
+    }
+
     return 0;
 }
 
@@ -2274,6 +2279,9 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
 
     if (aml_out->virtual_buf_handle) {
         audio_virtual_buf_close(&aml_out->virtual_buf_handle);
+    }
+    if (ms12->dolby_ms12_enable) {
+        set_ms12_drc_mode_for_2ch_downmixed_output(ms12, DOLBY_DRC_LINE_MODE);
     }
     return 0;
 }
