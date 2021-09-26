@@ -1416,8 +1416,7 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
             ALOGI("[audiohal_kpi] %s, now end release dtv patch the audio_patching is %d, now create the dtv patch now\n ", __func__, adev->audio_patching);
             //ALOGI("[audiohal_kpi] %s, now create the dtv patch now\n ", __func__);
             adev->patch_src = SRC_DTV;
-            if (eDolbyMS12Lib == adev->dolby_lib_type && adev->continuous_audio_mode)
-            {
+            if (eDolbyMS12Lib == adev->dolby_lib_type) {
                 bool set_ms12_non_continuous = true;
                 get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
                 adev->exiting_ms12 = 1;

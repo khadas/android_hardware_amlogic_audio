@@ -5738,7 +5738,9 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
 
             /*netflix always ddp 5.1 output, other case we need output ddp 2ch*/
             if (continous_mode(adev) && main1_dummy && !adev->is_netflix) {
+                pthread_mutex_lock(&ms12->lock);
                 set_ms12_acmod2ch_lock(&adev->ms12, true);
+                pthread_mutex_unlock(&ms12->lock);
             }
             if (adev->ms12_out != NULL && adev->ms12_out->hwsync) {
                 //aml_audio_hwsync_init(adev->ms12_out->hwsync, adev->ms12_out);
