@@ -590,8 +590,6 @@ static int check_input_parameters(uint32_t sample_rate, audio_format_t format, i
             ALOGD("%s: audio patch input device %x", __FUNCTION__, devices);
             return 0;
         } else {
-            if ((channel_count == 2) && ((sample_rate == 8000) || (sample_rate == 16000) || (sample_rate == 32000) || (sample_rate == 44100)))
-                return -ENOSYS;
             ALOGD("%s: unspported audio patch input device %x", __FUNCTION__, devices);
             return -EINVAL;
         }
@@ -4334,6 +4332,10 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
             config->format = AUDIO_FORMAT_PCM_16_BIT;
             config->channel_mask = AUDIO_CHANNEL_IN_STEREO;
         } else {
+            ALOGV("  check_input_parameters input config Not Supported, and set to Default config(48000,2,PCM_16_BIT)");
+            config->sample_rate = DEFAULT_OUT_SAMPLING_RATE;
+            config->format = AUDIO_FORMAT_PCM_16_BIT;
+            config->channel_mask = AUDIO_CHANNEL_IN_STEREO;
            return -EINVAL;
         }
     } else {
