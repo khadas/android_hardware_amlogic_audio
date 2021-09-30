@@ -1484,7 +1484,7 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     ms12->is_dolby_atmos = false;
     ms12->input_total_ms = 0;
     ms12->bitsteam_cnt = 0;
-    ms12->nbytes_of_dmx_output_pcm_frame = 0;
+    ms12->nbytes_of_dmx_output_pcm_frame = 4; //2ch * 16bit, set a default one
     ms12->dual_bitstream_support = 0;
     ms12->is_bypass_ms12 = false;
     ms12->last_frames_postion = 0;
@@ -1817,7 +1817,9 @@ static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_
         uint32_t sample_rate = ms12->main_input_rate ? ms12->main_input_rate : DDP_OUTPUT_SAMPLE_RATE;
         uint64_t ms12_dec_out_nframes = 0;
         if (!audio_is_linear_pcm(aml_out->hal_internal_format)) {
-            ms12_dec_out_nframes = dolby_ms12_get_n_bytes_pcmout_of_udc() / adev->ms12.nbytes_of_dmx_output_pcm_frame;
+            if (adev->ms12.nbytes_of_dmx_output_pcm_frame) {
+                ms12_dec_out_nframes = dolby_ms12_get_n_bytes_pcmout_of_udc() / adev->ms12.nbytes_of_dmx_output_pcm_frame;
+            }
         } else if (aml_out->hw_sync_mode) {
             ms12_dec_out_nframes = dolby_ms12_get_consumed_payload() / 4;
         } else {
@@ -2500,7 +2502,9 @@ unsigned long long dolby_ms12_get_main_pcm_generated(struct audio_stream_out *st
     main_input_offset_frame = CONVERT_NS_TO_48K_FRAME_NUM(ms12->main_input_start_offset_ns);
 
     if (!audio_is_linear_pcm(hal_internal_format)) {
-        decoded_frame = dolby_ms12_get_n_bytes_pcmout_of_udc() / adev->ms12.nbytes_of_dmx_output_pcm_frame;
+        if (adev->ms12.nbytes_of_dmx_output_pcm_frame) {
+            decoded_frame = dolby_ms12_get_n_bytes_pcmout_of_udc() / adev->ms12.nbytes_of_dmx_output_pcm_frame;
+        }
     } else {
         decoded_frame = dolby_ms12_get_consumed_payload() / 4;
     }
