@@ -60,6 +60,9 @@
 #define ALSAPORT_LPBK             "alsaPORT-loopback"
 #define ALSAPORT_BUILTINMIC       "builtinmic"
 #define ALSAPORT_EARC             "alsaPORT-earc"
+#define ALSAPORT_I2S4HDMIRX       "i2s4hdmirx"
+#define ALSAPORT_I2S4PARSER       "alsaPORT-i2s4parser"
+
 
 struct AudioDeviceDescriptor {
 	char name[NAME_LEN];
@@ -91,6 +94,8 @@ struct alsa_info {
 	struct AudioDeviceDescriptor *lpbk_descrpt;
 	struct AudioDeviceDescriptor *builtinmic_descrpt;
 	struct AudioDeviceDescriptor *earc_descrpt;
+	struct AudioDeviceDescriptor *i2s4hdmirx_descrpt;
+	struct AudioDeviceDescriptor *i2s4parser_descrpt;
 };
 
 static struct alsa_info *p_aml_alsa_info;
@@ -179,7 +184,7 @@ int alsa_device_get_card_index()
 	return mCardIndex;
 }
 
-void alsa_device_parser_pcm_string(struct alsa_info *p_info, char *InputBuffer)
+static void alsa_device_parser_pcm_string(struct alsa_info *p_info, char *InputBuffer)
 {
 	char *Rch;
 	char mStreamName[256];
@@ -219,9 +224,13 @@ void alsa_device_parser_pcm_string(struct alsa_info *p_info, char *InputBuffer)
 					p_info->i2s1_descrpt = mAudioDeviceDescriptor;
 				else if (!strncmp(PortName, ALSAPORT_I2SCAPTURE, strlen(ALSAPORT_I2SCAPTURE)))
 					p_info->i2s2_descrpt = mAudioDeviceDescriptor;
-				else if (!strncmp(PortName, ALSAPORT_I2S, strlen(ALSAPORT_I2S)))
+				else if (!strncmp(PortName, ALSAPORT_I2S4PARSER, strlen(ALSAPORT_I2S4PARSER)))
+					p_info->i2s4parser_descrpt = mAudioDeviceDescriptor;
+				else if (!strncmp(PortName, ALSAPORT_I2S, strlen(ALSAPORT_I2S))) {
 					p_info->i2s_descrpt = mAudioDeviceDescriptor;
-				else if (!strncmp(PortName, ALSAPORT_TDM, strlen(ALSAPORT_TDM)))
+					if  (strstr(PortName, ALSAPORT_I2S4HDMIRX))
+						p_info->i2s4hdmirx_descrpt = mAudioDeviceDescriptor;
+				} else if (!strncmp(PortName, ALSAPORT_TDM, strlen(ALSAPORT_TDM)))
 					p_info->tdm_descrpt = mAudioDeviceDescriptor;
 				else if (!strncmp(PortName, ALSAPORT_PDM, strlen(ALSAPORT_PDM)))
 					p_info->pdm_descrpt = mAudioDeviceDescriptor;
@@ -359,6 +368,12 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 		break;
 	case PORT_EARC:
 		pADD = p_info->earc_descrpt;
+		break;
+	case PORT_I2S4HDMIRX:
+		pADD = p_info->i2s4hdmirx_descrpt;
+		break;
+	case PORT_I2S4PARSER:
+		pADD = p_info->i2s4parser_descrpt;
 		break;
 	default:
 		pADD = p_info->i2s_descrpt;

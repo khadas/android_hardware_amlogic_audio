@@ -1899,7 +1899,8 @@ static void release_buffer (struct resampler_buffer_provider *buffer_provider,
                             struct resampler_buffer* buffer);
 
 /** audio_stream_in implementation **/
-static unsigned int select_port_by_device(audio_devices_t in_device)
+static unsigned int select_port_by_device(audio_devices_t in_device,
+        struct aml_mixer_handle *mixer_handle)
 {
     unsigned int inport = PORT_I2S;
 
@@ -1912,6 +1913,11 @@ static unsigned int select_port_by_device(audio_devices_t in_device)
         if (alsa_device_is_auge() &&
                 (in_device & AUDIO_DEVICE_IN_HDMI)) {
             inport = PORT_TV;
+            /* T3 needs I2S for HDMIRX due to HBR issue */
+            if (check_chip_name("t3", 2, mixer_handle) &&
+                get_hdmiin_audio_mode(mixer_handle) == HDMIIN_MODE_I2S) {
+                inport = PORT_I2S4HDMIRX;
+            }
         } else if ((access(SYS_NODE_EARC, F_OK) == 0) &&
                 (in_device & AUDIO_DEVICE_IN_HDMI_ARC)) {
             inport = PORT_EARC;
@@ -1978,7 +1984,7 @@ int start_input_stream(struct aml_stream_in *in)
     }
 
     card = alsa_device_get_card_index();
-    port = select_port_by_device(adev->in_device);
+    port = select_port_by_device(adev->in_device, &adev->alsa_mixer);
     /* check to update alsa device by port */
     alsa_device = alsa_device_update_pcm_index(port, CAPTURE);
     ALOGD("*%s, open alsa_card(%d %d) alsa_device(%d), in_device:0x%x\n",
@@ -3412,9 +3418,30 @@ static int aml_audio_output_routing(struct audio_hw_device *dev,
     return 0;
 }
 
-static int aml_audio_input_routing(struct audio_hw_device *dev __unused,
-                                    enum IN_PORT inport __unused)
+static int aml_audio_input_routing(struct audio_hw_device *dev,
+                                    enum IN_PORT inport)
 {
+    struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
+
+    if (aml_dev->active_inport != inport) {
+        ALOGI("%s: switch from %s to %s", __func__,
+            inputPort2Str(aml_dev->active_inport), inputPort2Str(inport));
+        switch (inport) {
+        case INPORT_HDMIIN:
+            audio_route_apply_path(aml_dev->ar, "hdmirx_in");
+            break;
+        case INPORT_LINEIN:
+            audio_route_apply_path(aml_dev->ar, "line_in");
+            break;
+        default:
+            ALOGW("%s: cur inport:%d unsupport", __func__, inport);
+            break;
+        }
+
+        audio_route_update_mixer(aml_dev->ar);
+        aml_dev->active_inport = inport;
+    }
+
     return 0;
 }
 
@@ -8010,6 +8037,8 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                 ret = -EINVAL;
                 unregister_audio_patch(dev, patch_set);
             }
+
+            aml_audio_input_routing(dev, inport);
             if (AUDIO_DEVICE_IN_ECHO_REFERENCE != src_config->ext.device.type &&
                 AUDIO_DEVICE_IN_TV_TUNER != src_config->ext.device.type) {
                 aml_dev->patch_src = android_input_dev_convert_to_hal_patch_src(src_config->ext.device.type);
@@ -8131,6 +8160,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                 ret = -EINVAL;
                 unregister_audio_patch(dev, patch_set);
             }
+            aml_audio_input_routing(dev, inport);
             input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
             if (AUDIO_DEVICE_IN_TV_TUNER == src_config->ext.device.type) {
                 aml_dev->dev2mix_patch = true;
@@ -8217,6 +8247,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                     }
                 }
             }
+            aml_audio_input_routing(dev, inport);
             ret = 0;
         } else {
             ALOGE("[%s:%d] invalid patch, source error, source:%d to sink MIX", __func__, __LINE__, src_config->type);
