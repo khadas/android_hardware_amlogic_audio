@@ -2504,6 +2504,11 @@ unsigned long long dolby_ms12_get_main_pcm_generated(struct audio_stream_out *st
     if (!audio_is_linear_pcm(hal_internal_format)) {
         if (adev->ms12.nbytes_of_dmx_output_pcm_frame) {
             decoded_frame = dolby_ms12_get_n_bytes_pcmout_of_udc() / adev->ms12.nbytes_of_dmx_output_pcm_frame;
+            if (!adev->continuous_audio_mode
+                && aml_out->hal_rate != DDP_OUTPUT_SAMPLE_RATE
+                && aml_out->hal_rate != 0) {
+                decoded_frame = decoded_frame * DDP_OUTPUT_SAMPLE_RATE / aml_out->hal_rate;
+            }
         }
     } else {
         decoded_frame = dolby_ms12_get_consumed_payload() / 4;
