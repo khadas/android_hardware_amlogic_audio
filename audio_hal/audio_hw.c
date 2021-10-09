@@ -5191,7 +5191,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         }
     } else if (adev->patch_src == SRC_HDMIIN ||
                 adev->patch_src == SRC_SPDIFIN ||
-                adev->patch_src == SRC_LINEIN) {
+                adev->patch_src == SRC_LINEIN ||
+                adev->patch_src == SRC_ATV) {
         if (adev->active_input != NULL &&
                 adev->spdif_fmt_hw != adev->active_input->spdif_fmt_hw) {
             clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
