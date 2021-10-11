@@ -234,7 +234,7 @@ AM_ErrorCode_t AmLinuxDvd::dvb_poll(AM_DMX_Device *dev, AM_DMX_FilterMask_t *mas
     ret = poll(fds, cnt, timeout);
     if (ret <= 0)
     {
-        ALOGI("timeout %d",timeout);
+        ALOGV("timeout %d",timeout);
         return AM_DMX_ERR_TIMEOUT;
     }
 
