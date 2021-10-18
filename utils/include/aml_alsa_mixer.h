@@ -102,6 +102,7 @@ struct aml_mixer_ctrl {
 
 /* the same as toddr source*/
 typedef enum ResampleSource {
+    RESAMPLE_FROM_TDMIN_B = 1,
     RESAMPLE_FROM_SPDIFIN = 3,
     RESAMPLE_FROM_FRHDMIRX = 8,
 } eMixerAudioResampleSource;

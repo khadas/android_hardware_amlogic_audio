@@ -603,7 +603,12 @@ static void* audio_type_parse_threadloop(void *data)
           data, bytes, audio_type_status->in);
 
     if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
-        cur_samplerate = set_resample_source(audio_type_status->mixer_handle, RESAMPLE_FROM_FRHDMIRX);
+        eMixerAudioResampleSource resample_src = RESAMPLE_FROM_FRHDMIRX;
+        if (check_chip_name("t3", 2, audio_type_status->mixer_handle) &&
+            get_hdmiin_audio_mode(audio_type_status->mixer_handle) == HDMIIN_MODE_I2S) {
+            resample_src = RESAMPLE_FROM_TDMIN_B;
+        }
+        cur_samplerate = set_resample_source(audio_type_status->mixer_handle, resample_src);
     } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_SPDIF) {
         cur_samplerate = set_resample_source(audio_type_status->mixer_handle, RESAMPLE_FROM_SPDIFIN);
     }
