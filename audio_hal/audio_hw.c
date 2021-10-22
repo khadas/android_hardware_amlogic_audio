@@ -5210,36 +5210,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
     }
 #endif
-    if (adev->dev2mix_patch) {
-        tv_in_write(stream, buffer, bytes);
-        memset((char *)buffer, 0, bytes);
-        if (aml_out->is_tv_platform == 1) {
-            memset(aml_out->tmp_buffer_8ch, 0, (*output_buffer_bytes));
-        }
-    } else if (adev->patch_src == SRC_HDMIIN ||
-                adev->patch_src == SRC_SPDIFIN ||
-                adev->patch_src == SRC_LINEIN ||
-                adev->patch_src == SRC_ATV) {
-        if (adev->active_input != NULL &&
-                adev->spdif_fmt_hw != adev->active_input->spdif_fmt_hw) {
-            clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
-            adev->spdif_fmt_hw = adev->active_input->spdif_fmt_hw;
-        }
-        if (patch && patch->need_do_avsync) {
-             memset(aml_out->tmp_buffer_8ch, 0, (*output_buffer_bytes));
-        } else {
-            if (adev->mute_start)  {
-                /* fade in start */
-                ALOGI("start fade in");
-                start_ease_in(adev->audio_ease);
-                adev->mute_start = false;
-            }
-        }
-    }
-    if (adev->audio_patching) {
-        /*ease in or ease out*/
-        aml_audio_ease_process(adev->audio_ease, *output_buffer, *output_buffer_bytes);
-    }
+
     return 0;
 }
 
@@ -7353,20 +7324,22 @@ void *audio_patch_input_threadloop(void *data)
             in->standby = 0;
         }
 
-        if (aml_dev->patch_src == SRC_HDMIIN && in->audio_packet_type == AUDIO_PACKET_AUDS && in->config.channels != 2) {
-            ret = input_stream_channels_adjust(&in->stream, patch->in_buf, read_bytes);
-        } else {
-            aml_alsa_input_read(&in->stream, patch->in_buf, read_bytes);
-            if (getprop_bool("vendor.media.audiohal.indump")) {
-                aml_audio_dump_audio_bitstreams("/data/audio/hdmi_read.raw",
-                patch->in_buf, read_bytes);
-            }
-        }
-
         bytes_avail = read_bytes;
+
+        /* if audio is unstable, don't read data from hardware */
         if (aml_dev->tv_mute || !check_tv_stream_signal(&in->stream)) {
             memset(patch->in_buf, 0, bytes_avail);
             ring_buffer_clear(ringbuffer);
+            usleep(20*1000);
+        } else {
+            if (aml_dev->patch_src == SRC_HDMIIN && in->audio_packet_type == AUDIO_PACKET_AUDS && in->config.channels != 2) {
+                ret = input_stream_channels_adjust(&in->stream, patch->in_buf, read_bytes);
+            } else {
+                aml_alsa_input_read(&in->stream, patch->in_buf, read_bytes);
+            }
+            if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
+                aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/tv_read.raw", patch->in_buf, read_bytes);
+            }
         }
 
         /*noise gate is only used in Linein for 16bit audio data*/

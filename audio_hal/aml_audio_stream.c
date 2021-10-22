@@ -702,6 +702,7 @@ bool check_tv_stream_signal(struct audio_stream_in *stream)
         if (patch && in_mute) {
             patch->need_do_avsync = true;
             patch->input_signal_stable = false;
+            adev->mute_start = true;
         }
         return false;
     } else {
