@@ -8146,6 +8146,12 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             aml_audio_input_routing(dev, inport);
             input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
             if (AUDIO_DEVICE_IN_TV_TUNER == src_config->ext.device.type) {
+                if ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_DTV)) {
+                   if (property_get_bool("tv.need.tvview.fast_switch", false)) {
+                     ALOGI("in tvview fast switch mode, no need re-create DTV patch 1\n");
+                     return ret;
+                   }
+                }
                 aml_dev->dev2mix_patch = true;
                 if (aml_dev->is_TV) {
                    if (input_src == ATV) {
@@ -8336,6 +8342,10 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
         if (aml_dev->patch_src == SRC_DTV &&
                 patch->sources[0].ext.device.type == AUDIO_DEVICE_IN_TV_TUNER) {
             ALOGI("patch src == DTV now line %d \n", __LINE__);
+            if (property_get_bool("tv.need.tvview.fast_switch", false)) {
+                ALOGI("intvview fast switch mode, no need release DTV patch\n");
+                return ret;
+            }
             release_dtv_patch(aml_dev);
             aml_dev->audio_patching = 0;
         } else {
