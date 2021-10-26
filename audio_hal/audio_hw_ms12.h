@@ -248,6 +248,14 @@ bool is_audio_postprocessing_add_dolbyms12_dap(struct aml_audio_device *adev);
 void set_ms12_dap_postgain(struct dolby_ms12_desc *ms12, int postgain);
 void set_ms12_ac4_presentation_group_index(struct dolby_ms12_desc *ms12, int index);
 
+/*
+ *@brief set ms12 main1 audio mute or non mute
+ * input parameters
+ *     struct dolby_ms12_desc *ms12: ms12 pointer
+ *     bool b_mute: 1 mute , 0 unmute
+ */
+void set_ms12_main1_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute);
+
 #endif //end of _AUDIO_HW_MS12_H_
 
 #else

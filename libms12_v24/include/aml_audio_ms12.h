@@ -155,6 +155,7 @@ struct dolby_ms12_desc {
     bool     b_legacy_ddpout;
     void *   iec61937_ddp_buf;
     float    main_volume;
+    bool     is_muted;
 };
 
 /*

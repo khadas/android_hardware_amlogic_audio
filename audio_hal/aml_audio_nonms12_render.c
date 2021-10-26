@@ -275,12 +275,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     check_audio_level("render pcm", dec_data, pcm_len);
                 }
 
-                if (adev->dev2mix_patch) {
-                    tv_in_write(stream, dec_data, pcm_len);
-                    if (aml_out->is_tv_platform == 1) {
-                        memset(dec_data, 0, pcm_len);
-                    }
-                } else if (adev->patch_src == SRC_HDMIIN ||
+                if (adev->patch_src == SRC_HDMIIN ||
                             adev->patch_src == SRC_SPDIFIN ||
                             adev->patch_src == SRC_LINEIN ||
                             adev->patch_src == SRC_ATV) {

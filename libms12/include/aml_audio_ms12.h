@@ -150,6 +150,7 @@ struct dolby_ms12_desc {
     uint64_t ms12_main_input_size;
     void *   iec61937_ddp_buf;
     float  main_volume;
+    bool     is_muted;
 };
 
 /*
