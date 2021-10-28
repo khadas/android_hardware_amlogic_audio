@@ -118,21 +118,6 @@ static void ts_wait_time(struct timespec *ts, uint32_t time)
     }
 }
 
-static void dtv_do_ease_out(struct aml_audio_device *aml_dev)
-{
-    int duration_ms = 0;
-    if (aml_dev && aml_dev->audio_ease) {
-        ALOGI("%s(), do fade out", __func__);
-        if (aml_dev->is_TV) {
-            duration_ms = property_get_int32("vendor.media.audio.dtv.fadeout.us", AUDIO_FADEOUT_TV_DURATION_US) / 1000;
-        } else {
-            duration_ms = property_get_int32("vendor.media.audio.dtv.fadeout.us", AUDIO_FADEOUT_STB_DURATION_US) / 1000;
-        }
-        start_ease_out(aml_dev->audio_ease, aml_dev->is_TV, duration_ms - 10);
-        usleep(duration_ms * 1000);
-    }
-}
-
 static void dtv_check_audio_reset()
 {
     ALOGI("reset dtv audio port\n");
@@ -481,6 +466,9 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                     ALOGI("demux_index_working %d handle %p",dtv_audio_instances->demux_index_working, dtv_audio_instances->demux_handle[path_id]);
                 }
                 if (path_id == dtv_audio_instances->demux_index_working) {
+                    if (val == AUDIO_DTV_PATCH_CMD_STOP) {
+                        tv_do_ease_out(adev);
+                    }
                     dtv_patch_add_cmd(patch->dtv_cmd_list, val, path_id);
                     pthread_cond_signal(&patch->dtv_cmd_process_cond);
                 } else {
@@ -1968,6 +1956,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
         ALOGI("++%s live cant get the aml_out now!!!\n ", __FUNCTION__);
     }
     aml_dev->mix_init_flag = false;
+    aml_dev->mute_start = true;
     pthread_mutex_unlock(&aml_dev->lock);
 #ifdef TV_AUDIO_OUTPUT
     patch->output_src = AUDIO_DEVICE_OUT_SPEAKER;
@@ -2336,7 +2325,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 ALOGI("[audiohal_kpi]++%s live now  stop  the audio decoder now \n",
                       __FUNCTION__);
                 dtv_patch_input_stop_dmx(adec_handle);
-                dtv_do_ease_out(aml_dev);
+                //tv_do_ease_out(aml_dev);
                 release_dtv_output_stream_thread(patch);
                 dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK, false);
                 dtv_patch_input_stop(adec_handle);
@@ -3100,6 +3089,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
         ALOGI("++%s live cant get the aml_out now!!!\n ", __FUNCTION__);
     }
     aml_dev->mix_init_flag = false;
+    aml_dev->mute_start = true;
     pthread_mutex_unlock(&aml_dev->lock);
 #ifdef TV_AUDIO_OUTPUT
     patch->output_src = AUDIO_DEVICE_OUT_SPEAKER;
@@ -3424,7 +3414,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 ALOGI("[audiohal_kpi]++%s live now  stop  the audio decoder now \n",
                       __FUNCTION__);
                 dtv_audio_instances->demux_index_working = -1;
-                dtv_do_ease_out(aml_dev);
+                //tv_do_ease_out(aml_dev);
                 dtv_package_list_flush(patch->dtv_package_list);
                 release_dtv_output_stream_thread(patch);
                 dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK, false);
@@ -3796,7 +3786,6 @@ int release_dtv_patch(struct aml_audio_device *aml_dev)
 {
     int ret = 0;
     aml_dtv_audio_instances_t *dtv_instances = (aml_dtv_audio_instances_t *)aml_dev->aml_dtv_audio_instances;
-    dtv_do_ease_out(aml_dev);
 
     pthread_mutex_lock(&aml_dev->patch_lock);
     if (dtv_instances->dvb_path_count) {
@@ -3804,6 +3793,7 @@ int release_dtv_patch(struct aml_audio_device *aml_dev)
             dtv_instances->dvb_path_count--;
         ALOGI("dtv_instances->dvb_path_count %d",dtv_instances->dvb_path_count);
         if (dtv_instances->dvb_path_count == 0) {
+            tv_do_ease_out(aml_dev);
             ret = release_dtv_patch_l(aml_dev);
         }
     }

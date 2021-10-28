@@ -7682,6 +7682,7 @@ int release_patch_l(struct aml_audio_device *aml_dev)
         ALOGD("%s(), no patch to release", __func__);
         goto exit;
     }
+    tv_do_ease_out(aml_dev);
     patch->output_thread_exit = 1;
     patch->input_thread_exit = 1;
     if (IS_HDMI_IN_HW(patch->input_src) ||
