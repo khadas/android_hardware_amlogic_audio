@@ -283,7 +283,7 @@ int start_ease_in(aml_audio_ease_t *audio_ease) {
     ease_setting_t ease_setting;
 
     audio_ease->data_format.format = AUDIO_FORMAT_PCM_16_BIT;
-    audio_ease->data_format.ch = 8;
+    audio_ease->data_format.ch = 2;
     audio_ease->data_format.sr = 48000;
     audio_ease->ease_type = EaseInCubic;
     ease_setting.duration = 200;
@@ -307,7 +307,7 @@ int start_ease_out(aml_audio_ease_t *audio_ease, bool is_TV, int duration_ms) {
         ease_setting.target_volume = 0.0;
         audio_ease->ease_type = EaseOutCubic;
         audio_ease->data_format.format = AUDIO_FORMAT_PCM_16_BIT;
-        audio_ease->data_format.ch = 8;
+        audio_ease->data_format.ch = 2;
         audio_ease->data_format.sr = 48000;
     } else {
         ease_setting.duration = 30;
