@@ -116,6 +116,11 @@ static audio_format_t get_sink_capability (struct aml_audio_device *adev)
             aml_audio_free(cap);
             cap = NULL;
         }
+
+        dd_is_support = hdmi_desc->dd_fmt.is_support;
+        ddp_is_support = hdmi_desc->ddp_fmt.is_support;
+        mat_is_support = hdmi_desc->mat_fmt.is_support;
+
     } else {
         /* TODO: NEED get from CDS by mixer */
         if (aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_ATTENDED_TYPE) == ATTEND_TYPE_EARC && adev->bHDMIARCon) {
