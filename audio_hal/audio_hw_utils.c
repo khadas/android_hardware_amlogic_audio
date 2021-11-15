@@ -441,6 +441,15 @@ int getprop_bool(const char *path)
 int check_chip_name(char *chip_name, unsigned int length,
                     struct aml_mixer_handle *mixer_handle)
 {
+    char buf[PROPERTY_VALUE_MAX];
+    int ret =-1;
+
+    ret = property_get("ro.board.platform", buf, NULL);
+    if (ret > 0) {
+        if (strncasecmp(buf, chip_name, length) == 0)
+            return true;
+    }
+
     if (alsa_device_is_auge()) {
         unsigned int chip_id = 0;
         chip_id = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_AML_CHIP_ID);
@@ -452,16 +461,9 @@ int check_chip_name(char *chip_name, unsigned int length,
             return true;
         else
             return false;
-    } else {
-        char buf[PROPERTY_VALUE_MAX];
-        int ret =-1;
-        ret = property_get("ro.board.platform", buf, NULL);
-        if (ret > 0) {
-            if (strncasecmp(buf, chip_name, length) == 0)
-                return true;
-        }
-        return false;
     }
+
+    return false;
 }
 
 int is_multi_demux()
