@@ -59,6 +59,7 @@
 #include "aml_dec_api.h"
 #include "aml_dts_dec_api.h"
 #include "audio_format_parse.h"
+#include "audio_usb_hal.h"
 
 /* number of frames per period */
 /*
@@ -90,6 +91,7 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 #define MM_FULL_POWER_SAMPLING_RATE 48000
 /* sampling rate when using VX port for narrow band */
 #define VX_NB_SAMPLING_RATE 8000
+#define VX_WB_SAMPLING_RATE 16000
 
 #define AUDIO_PARAMETER_STREAM_EQ "audioeffect_eq"
 #define AUDIO_PARAMETER_STREAM_SRS "audioeffect_srs_param"
@@ -112,6 +114,11 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 #define FLOAT_ZERO              (0.00002)   /* the APM mute volume is 0.00001, less than 0.00002 we think is mute. */
 #define TV_SPEAKER_OUTPUT_CH_NUM    10
 
+#ifdef USB_KARAOKE
+#ifndef AUDIO_SOURCE_KARAOKE_SPEAKER
+#define AUDIO_SOURCE_KARAOKE_SPEAKER 1001
+#endif
+#endif
 
 /*the same as "AUDIO HAL FORMAT" in kernel*/
 enum audio_hal_format {
@@ -185,10 +192,13 @@ enum patch_src_assortion {
     SRC_REMOTE_SUBMIXIN         = 5,
     SRC_WIRED_HEADSETIN         = 6,
     SRC_BUILTIN_MIC             = 7,
-    SRC_ECHO_REFERENCE          = 8,
-    SRC_ARCIN                   = 9,
-    SRC_OTHER                   = 10,
-    SRC_INVAL                   = 11,
+    SRC_BT_SCO_HEADSET_MIC      = 8,
+    SRC_ECHO_REFERENCE          = 9,
+    SRC_ARCIN                   = 10,
+    SRC_USB                     = 11,
+    SRC_LOOPBACK                = 12,
+    SRC_OTHER                   = 13,
+    SRC_INVAL                   = 14
 };
 
 typedef enum {
@@ -231,9 +241,12 @@ enum IN_PORT {
     INPORT_REMOTE_SUBMIXIN      = 4,
     INPORT_WIRED_HEADSETIN      = 5,
     INPORT_BUILTIN_MIC          = 6,
-    INPORT_ECHO_REFERENCE       = 7,
-    INPORT_ARCIN                = 8,
-    INPORT_MAX                  = 9,
+    INPORT_BT_SCO_HEADSET_MIC   = 7,
+    INPORT_ECHO_REFERENCE       = 8,
+    INPORT_ARCIN                = 9,
+    INPORT_USB                  = 10,
+    INPORT_LOOPBACK             = 11,
+    INPORT_MAX                  = 12
 };
 
 struct audio_patch_set {
@@ -297,8 +310,10 @@ typedef struct audio_hal_info{
 } audio_hal_info_t;
 
 struct aml_bt_output {
+    pthread_mutex_t lock;
     bool active;
     struct pcm *pcm_bt;
+    struct pcm_config cfg;
     char *bt_out_buffer;
     size_t bt_out_frames;
     struct resampler_itfe *resampler;
@@ -541,6 +556,8 @@ struct aml_audio_device {
     */
     int  default_alsa_ch;
     struct volume_ease volume_ease;
+    float last_sink_gain;
+    struct usb_audio_device usb_audio;
     /* -End- */
 };
 
@@ -653,7 +670,6 @@ struct aml_stream_out {
     bool normal_pcm_mixing_config;
     uint32_t latency_frames;
     unsigned int inputPortID;
-    int exiting;
     pthread_mutex_t cond_lock;
     pthread_cond_t cond;
     struct hw_avsync_header_extractor *hwsync_extractor;
@@ -728,6 +744,9 @@ struct aml_stream_out {
     bool is_dtscd;
     bool dts_check;
     bool alsa_running_status;
+    bool alsa_status_changed;
+    /*flag indicate the ms12 2ch lock is on*/
+    bool ms12_acmod2ch_lock_disable;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
@@ -751,7 +770,7 @@ struct aml_stream_in {
     unsigned int requested_rate;
     uint32_t main_channels;
     bool standby;
-    int source;
+    audio_source_t source;
     struct echo_reference_itfe *echo_reference;
     bool need_echo_reference;
     effect_handle_t preprocessors[MAX_PREPROCESSORS];

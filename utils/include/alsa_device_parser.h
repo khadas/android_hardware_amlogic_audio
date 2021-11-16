@@ -39,8 +39,9 @@
 #define PORT_LOOPBACK      10
 #define PORT_BUILTINMIC    11
 #define PORT_EARC          12
-#define PORT_I2S4HDMIRX    13
-#define PORT_I2S4PARSER    14
+#define PORT_ECHO_REFERENCE 13
+#define PORT_I2S4HDMIRX    14
+#define PORT_I2S4PARSER    15
 
 #define PLAYBACK           0
 #define CAPTURE            1
@@ -50,5 +51,7 @@ bool alsa_device_is_auge(void);
 int alsa_device_get_card_index();
 
 int alsa_device_update_pcm_index(int alsaPORT, int stream);
+
+int alsa_device_get_card_index_by_name(void *name);
 
 #endif

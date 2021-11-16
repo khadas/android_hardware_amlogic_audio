@@ -31,6 +31,8 @@
 #include "aml_ddp_dec_api.h"
 #include "aml_audio_spdifout.h"
 #include "alsa_config_parameters.h"
+#include "aml_data_utils.h"
+#include "aml_audio_ms12_sync.h"
 
 extern unsigned long decoder_apts_lookup(unsigned int offset);
 static void aml_audio_stream_volume_process(struct audio_stream_out *stream, void *buf, int sample_size, int channels, int bytes) {
@@ -96,6 +98,11 @@ ssize_t aml_audio_spdif_output(struct audio_stream_out *stream, void **spdifout_
         if (ret != 0) {
             return -1;
         }
+        ALOGI("%s, aml_out->offload_mute=%d, spdifout_handle:%p\n",
+                __FUNCTION__, aml_out->offload_mute, aml_out->spdifout_handle);
+        if (true == aml_out->offload_mute && aml_out->spdifout_handle) {
+            aml_audio_spdifout_mute(aml_out->spdifout_handle, aml_out->offload_mute);
+        }
     }
 
     ALOGV("[%s:%d] format =0x%x length =%d", __func__, __LINE__, data_info->data_format, data_info->data_len);
@@ -113,12 +120,13 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
     bool  try_again = false;
     int alsa_latency = 0;
     int decoder_latency = 0;
+    int decoder_remain_cache = 0;
 
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_audio_patch *patch = adev->audio_patch;
     struct aml_native_postprocess *VX_postprocess = &adev->native_postprocess;
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
+
     int return_bytes = bytes;
     int out_frames = 0;
     void *input_buffer = (void *)buffer;
@@ -127,13 +135,38 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
     int duration = 0;
     bool speed_enabled = false;
     bool dts_pcm_direct_output = false;
+    int decoder_remain_size = 0;
     dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
+
+    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->tv_src_stream;
+    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->tv_src_stream;
 
     if (aml_out->aml_dec == NULL) {
         config_output(stream, true);
+
     }
+
     aml_dec_t *aml_dec = aml_out->aml_dec;
+
+
     if (aml_dec) {
+
+        if (dtv_stream_flag  && patch->decoder_offset == 0) {
+            if (patch->cur_package) {
+                aml_dec->first_in_frame_pts = patch->cur_package->pts;
+            } else {
+                ALOGI("patch->cur_package NULL ");
+            }
+            aml_dec->last_synced_frame_pts = -1;
+            aml_dec->out_synced_frame_count = 0;
+            ALOGI("first_in_frame_pts  %lld ms" , aml_dec->first_in_frame_pts / 90);
+        }
+
+        if (is_dolby_ddp_support_compression_format(aml_out->hal_internal_format)) {
+            struct dolby_ddp_dec *ddp_dec = (struct dolby_ddp_dec *)aml_dec;
+            decoder_remain_size = ddp_dec->remain_size;
+        }
+
         dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
         dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
         dec_data_info_t * raw_in_data  = &aml_dec->raw_in_data;
@@ -186,13 +219,34 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
             // write pcm data
             if (dec_pcm_data->data_len > 0) {
                 // aml_audio_dump_audio_bitstreams("/data/dec_data.raw", dec_pcm_data->buf, dec_pcm_data->data_len);
-                out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
                 aml_dec->out_frame_pts = aml_dec->in_frame_pts + (90 * out_frames /(dec_pcm_data->data_sr / 1000));
+                out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
+                if (is_dolby_ddp_support_compression_format(aml_out->hal_internal_format)) {
+                    decoder_remain_cache = (decoder_remain_size > raw_in_data->data_len / 2) ? DDP_DECODER_CACHE : 0;
+                    decoder_latency = DDP_DECODER_CACHE + decoder_remain_cache;
+                }
+
+                if (do_sync_flag && aml_dec->debug_synced_frame_pts_flag) {
+                    int pre_zero_samples = 0;
+                    bool is_beep_frame = check_beep_frame(dec_pcm_data->buf, dec_pcm_data->data_len, &pre_zero_samples);
+                    if (is_beep_frame)  {
+                        int timems = (aml_dec->out_frame_pts - aml_out->aml_dec->first_in_frame_pts - decoder_latency) / 90;
+                        if ( aml_dec->last_synced_frame_pts != -1 && aml_dec->out_frame_pts - aml_dec->last_synced_frame_pts <= 90 * 80) {
+                            ALOGV("same beep frame ");
+                        } else {
+                           aml_dec->out_synced_frame_count++;
+                           int actual_synced_frame_ms = timems + pre_zero_samples / (2 * (dec_pcm_data->data_sr / 1000));
+                           ALOGI("count %d out_frame_pts %lld ms decoder out syned frame at %d ms pre_zero_samples %d actual_synced_frame %d ms",
+                               aml_dec->out_synced_frame_count, aml_dec->out_frame_pts / 90, timems, pre_zero_samples, actual_synced_frame_ms);
+                           aml_dec->last_synced_frame_pts = aml_dec->out_frame_pts;
+                        }
+                    }
+                }
 
                 audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
                 void  *dec_data = (void *)dec_pcm_data->buf;
                 int pcm_len = dec_pcm_data->data_len;
-                if (patch && adev->patch_src  == SRC_DTV &&
+                if (do_sync_flag &&
                     (adev->start_mute_flag == 1 || adev->tv_mute)) {
                     memset(dec_pcm_data->buf, 0, dec_pcm_data->data_len);
                 }
@@ -227,6 +281,9 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     if (dec_pcm_data->data_sr > 0)
                         aml_out->config.rate = dec_pcm_data->data_sr;
                 }
+                if (!adev->is_TV) {
+                    aml_out->config.channels = dec_pcm_data->data_ch;
+                }
 
                 /*process the stream volume before mix*/
                 aml_audio_stream_volume_process(stream, dec_data, sizeof(int16_t), dec_pcm_data->data_ch, pcm_len);
@@ -244,14 +301,17 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                         duration =  (pcm_len * 1000) / (2 * dec_pcm_data->data_ch * aml_out->config.rate);
 
                     if (patch->skip_amadec_flag) {
-                        alsa_latency = 90 *(out_get_alsa_latency_frames(stream)  * 1000) / aml_out->config.rate;;
-                        patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - decoder_latency - alsa_latency -
-                        90 * aml_dtvsync_get_offset_latencyms(stream, false);
+                        alsa_latency = 90 *(out_get_alsa_latency_frames(stream)  * 1000) / aml_out->config.rate;
+                        /* in aml_audio_dtv_get_nonms12_latency, it use 50(supposed tuning 50 ms)*48Khz as default, will return 50*48 */
+                        int ddp_tuning_latency = 90 * aml_audio_dtv_get_nonms12_latency(stream) / 48;
+                        patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - decoder_latency - alsa_latency + ddp_tuning_latency;
 
                     }
                     //sync process here
-                    if (adev->patch_src  == SRC_DTV && aml_out->dtvsync_enable) {
-
+                    if (aml_out->dtvsync_enable) {
+                        if (patch->output_thread_exit) {
+                            break;
+                        }
                         process_result = aml_dtvsync_nonms12_process(stream, duration, &speed_enabled);
                         if (process_result == DTVSYNC_AUDIO_DROP)
                             continue;
@@ -351,10 +411,14 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 try_again = true;
             }
 
+            /* DTS update audio format to display audio info banner.*/
+            if (is_dts_format(aml_out->hal_internal_format))
+                update_audio_format(adev, aml_out->hal_internal_format);
+
         } while ((left_bytes > 0) || aml_dec->fragment_left_size || try_again);
     }
 
-    if (patch && (adev->patch_src  == SRC_DTV)) {
+    if (dtv_stream_flag) {
         aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
         if (demux_info && demux_info->dual_decoder_support == 0)
             patch->decoder_offset +=return_bytes;

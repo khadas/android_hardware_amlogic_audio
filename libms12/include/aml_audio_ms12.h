@@ -53,11 +53,6 @@ struct dolby_ms12_desc {
     int dolby_ms12_init_argc;
     char **dolby_ms12_init_argv;
     void *dolby_ms12_ptr;
-#ifdef REPLACE_OUTPUT_BUFFER_WITH_CALLBACK
-
-#else
-    char *dolby_ms12_out_data;
-#endif
     int dolby_ms12_out_max_size;
     /*
     there are some risk when aux write thread and direct thread
@@ -150,6 +145,10 @@ struct dolby_ms12_desc {
     uint64_t ms12_main_input_size;
     void *   iec61937_ddp_buf;
     float  main_volume;
+    uint64_t first_in_frame_pts;
+    uint64_t last_synced_frame_pts;
+    uint64_t out_synced_frame_count;
+    bool debug_synced_frame_pts_flag;
     bool     is_muted;
 };
 

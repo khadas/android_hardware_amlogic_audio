@@ -6,15 +6,16 @@ LOCAL_SRC_FILES := \
     aml_dec_api.c        \
     aml_aac_dec_api.c   \
     aml_mpeg_dec_api.c    \
-    aml_dra_dec_api.c    \
-    aml_pcm_dec_api.c
+    aml_pcm_dec_api.c \
+    aml_dra_dec_api.c
 
 LOCAL_SHARED_LIBRARIES := \
     libcutils \
     liblog \
     libutils \
     libamaudioutils \
-    libamlparser
+    libamlparser \
+    libalsautils
 
 LOCAL_C_INCLUDES := \
    external/tinyalsa/include \
@@ -36,17 +37,18 @@ LOCAL_C_INCLUDES := \
     LOCAL_CFLAGS += -DREPLACE_OUTPUT_BUFFER_WITH_CALLBACK
 
 #by default, we compile V2,V1 is not used now. TBD
-ifeq ($(TARGET_BUILD_DOLBY_MS12), true)
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include \
-                        hardmare/amlogic/audio/libms12/include
-    LOCAL_SHARED_LIBRARIES += libms12api
-else
+ifneq ($(TARGET_BUILD_DOLBY_MS12_V1), true)
     LOCAL_CFLAGS += -DMS12_V24_ENABLE
     LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12_v24/include \
                         hardmare/amlogic/audio/libms12_v24/include
     LOCAL_SHARED_LIBRARIES += libms12api_v24
+else
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include \
+                        hardmare/amlogic/audio/libms12/include
+    LOCAL_SHARED_LIBRARIES += libms12api
 endif
 
+LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 LOCAL_CFLAGS += -Werror -Wno-unused-label -Wno-unused-parameter
 LOCAL_MODULE := libamladecs
 LOCAL_MODULE_TAGS := optional

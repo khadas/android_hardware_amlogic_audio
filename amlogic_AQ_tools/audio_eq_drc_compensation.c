@@ -67,7 +67,7 @@ static int get_model_name(char *model_name, int size)
     int ret = -1;
     char node[PROPERTY_VALUE_MAX];
 
-    ret = property_get("tv.model_name", node, "");
+    ret = property_get("vendor.tv.model_name", node, "");
     if (ret <= 0) {
         snprintf(model_name, size, "FHD");
         ALOGD("%s: Can't get model name! use default model_name (%s)",
@@ -422,6 +422,7 @@ int eq_drc_init(struct eq_drc_data *pdata)
             ext_drc_set(pdata, i);
         }
     }
+
     return 0;
 }
 

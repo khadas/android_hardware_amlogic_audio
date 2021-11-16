@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <unistd.h>
 #include <ctype.h>
 #include <cutils/log.h>
 #include <aml_conf_parser.h>

@@ -22,6 +22,7 @@
 #include <pthread.h>
 #include <sys/prctl.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <aml_audio_mixer.h>
 

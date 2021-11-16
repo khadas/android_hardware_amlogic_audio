@@ -61,8 +61,7 @@ enum {
 #define MAX_DDP_FRAME_LENGTH 2560
 #define MAX_DDP_BUFFER_SIZE (MAX_DECODER_FRAME_LENGTH * 4 + MAX_DECODER_FRAME_LENGTH + 8)
 
-
-#define DOLBY_DCV_LIB_PATH_A "/vendor/lib/libHwAudio_dcvdec.so"
+#define DOLBY_DCV_LIB_PATH_A "/odm/lib/libHwAudio_dcvdec.so"
 
 typedef struct {
     short       *buf;
@@ -915,6 +914,8 @@ int dcv_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, a
     switch (config_type) {
     case AML_DEC_CONFIG_MIXER_LEVEL: {
         int  mixer_level = dec_config->mixer_level;
+        if (!dec_config->ad_mixing_enable)
+            mixer_level = -32;
         ALOGI("dec_config->mixer_level %d", mixer_level);
         ret = (*ddp_decoder_config)(handle, DDP_CONFIG_MIXER_LEVEL, (ddp_config_t *)&mixer_level);
         break;

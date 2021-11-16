@@ -1,0 +1,100 @@
+bootstrap_go_package {
+    name: "soong-audio-hidl-6-0",
+    pkgPath: "android/soong/hardware/amlogic/audio/utils/hidl_interface_6_0",
+    deps: [
+        "blueprint",
+        "blueprint-pathtools",
+        "soong",
+        "soong-android",
+        "soong-cc",
+        "soong-genrule",
+    ],
+    srcs: [
+        "hidl_interface_default.go",
+    ],
+    pluginFor: ["soong_build"],
+}
+
+audio_hidl_6_0_go_defaults {
+    name: "audio_hidl_6_0_go_defaults",
+}
+
+cc_library_shared {
+    name: "libamlaudiohal.6.0",
+    defaults: ["audio_hidl_6_0_go_defaults"],
+    vendor: true,
+    proprietary: true,
+
+    srcs: [
+        "DevicesFactoryHalInterface.cpp",
+        "EffectsFactoryHalInterface.cpp",
+        "FactoryHalHidl.cpp",
+    ],
+
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+
+    shared_libs: [
+        "libdl",
+        "libhidlbase",
+        "liblog",
+        "libutils",
+        "libamlaudiohal@5.0",
+        "libamlaudiohal@6.0",
+    ],
+
+    header_libs: [
+        "libamlaudiohal_headers@6.0",
+    ],
+
+    include_dirs: [
+        "system/media/audio_utils/include",
+        "system/media/audio/include/",
+        "frameworks/av/include/",
+        "frameworks/av/media/libaudiohal/impl/",
+        "frameworks/av/media/libaudiohal/include/",
+        "frameworks/native/libs/binder/include/",
+    ],
+}
+
+cc_library_shared {
+    name: "libamlaudiohal_deathhandler@6.0",
+    vendor: true,
+    proprietary: true,
+
+    include_dirs: [
+        "frameworks/av/media/libaudiohal/include/",
+    ],
+
+    srcs: [
+        "HalDeathHandlerHidl.cpp",
+    ],
+
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+
+    shared_libs: [
+        "libhidlbase",
+        "libutils",
+        "liblog",
+    ],
+
+    header_libs: [
+        "libamlaudiohal_headers@6.0",
+    ],
+}
+
+cc_library_headers {
+    name: "libamlaudiohal_headers@6.0",
+    vendor: true,
+    proprietary: true,
+
+    include_dirs: [
+        "frameworks/av/media/libaudiohal/include/",
+    ],
+}

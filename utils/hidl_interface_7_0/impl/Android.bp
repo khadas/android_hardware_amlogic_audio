@@ -1,0 +1,90 @@
+bootstrap_go_package {
+    name: "soong-audio-hidl-interface-7.0",
+    pkgPath: "android/soong/hardware/amlogic/audio/utils/hidl_interface_7_0/impl",
+    deps: [
+        "blueprint",
+        "blueprint-pathtools",
+        "soong",
+        "soong-android",
+        "soong-cc",
+        "soong-genrule",
+    ],
+    srcs: [
+        "hidl_interface_7_0_default.go",
+    ],
+    pluginFor: ["soong_build"],
+}
+
+audio_hidl_7_0_go_defaults {
+    name: "audio_hidl_7_0_go_defaults",
+}
+
+cc_library_shared {
+    name: "libamlaudiohal@7.0",
+    defaults: ["audio_hidl_7_0_go_defaults"],
+    proprietary: true,
+    srcs: [
+        "DeviceHalLocal.cpp",
+        "DevicesFactoryHalHybrid.cpp",
+        "DevicesFactoryHalLocal.cpp",
+        "StreamHalLocal.cpp",
+        "ConversionHelperHidl.cpp",
+        "DeviceHalHidl.cpp",
+        "DevicesFactoryHalHidl.cpp",
+        "EffectBufferHalHidl.cpp",
+        "EffectHalHidl.cpp",
+        "EffectsFactoryHalHidl.cpp",
+        "StreamHalHidl.cpp",
+    ],
+
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-fvisibility=hidden",
+        "-include common/all-versions/VersionMacro.h",
+        "-DMAJOR_VERSION=7",
+        "-DMINOR_VERSION=0",
+    ],
+
+    shared_libs: [
+        "android.hardware.audio.common-util",
+        "av-types-aidl-cpp",
+        "libamlaudiohal_deathhandler@7.0",
+        "libaudiofoundation",
+        "libaudioutils",
+        "libbase",
+        "libbinder",
+        "libcutils",
+        "libfmq",
+        "libhardware",
+        "libhidlbase",
+        "libhidlmemory",
+        "liblog",
+        "libutils",
+        "android.hardware.audio@7.0",
+        "android.hardware.audio@7.0-util",
+        "android.hardware.audio.common-util",
+        "android.hardware.audio.common@7.0",
+        "android.hardware.audio.common@7.0-util",
+        "android.hardware.audio.effect@7.0",
+        "android.hardware.audio.effect@7.0-util",
+        "android.hidl.allocator@1.0",
+        "android.hidl.memory@1.0",
+        "libmedia_helper",
+        "libamlmediautils@7.0",
+    ],
+
+    header_libs: [
+        "android.hardware.audio.common.util@all-versions",
+        "av-headers",
+        "libamlaudiohal_headers@7.0",
+        "libaudioclient_headers",
+        "libaudio_system_headers",
+        "libmediautils_headers",
+    ],
+
+    export_shared_lib_headers: [
+        "libfmq",
+    ],
+}

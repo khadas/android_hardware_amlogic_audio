@@ -18,6 +18,7 @@
 
 #include <media/audiohal/DeviceHalInterface.h>
 #include <media/audiohal/DevicesFactoryHalInterface.h>
+#include <media/audiohal/FactoryHalHidl.h>
 #include "aml_android_hidl_utils.h"
 
 namespace android {

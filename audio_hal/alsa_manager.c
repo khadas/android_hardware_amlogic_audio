@@ -203,9 +203,10 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
             device_index = alsa_device_update_pcm_index(alsa_port, PLAYBACK);
         }
 
-        ALOGI("%s, audio open card(%d), device(%d), ALSA open configs: channels %d format %d period_count %d period_size %d rate %d, threshold start %u stop %u silence %u silence_size %d avail_min %d",
-              __func__, card, device_index,
-              config->channels, config->format, config->period_count, config->period_size, config->rate,
+        ALOGI("%s, audio open card(%d), device(%d)", __func__, card, device_index);
+        ALOGI("ALSA open configs: channels %d format %d period_count %d period_size %d rate %d",
+              config->channels, config->format, config->period_count, config->period_size, config->rate);
+        ALOGI("ALSA open configs: threshold start %u stop %u silence %u silence_size %d avail_min %d",
               config->start_threshold, config->stop_threshold, config->silence_threshold, config->silence_size, config->avail_min);
         pcm = pcm_open(card, device_index, PCM_OUT, config);
         if (!pcm || !pcm_is_ready(pcm)) {
@@ -219,14 +220,15 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
     aml_out->dropped_size = 0;
     aml_out->device = device;
     aml_out->alsa_write_frames = 0;
-    ALOGI("-%s, audio out(%p) device(%d) refs(%d) is_normal_pcm %d, handle %p, adev->pcm_handle[%d] %p\n",
-          __func__, aml_out, device, adev->pcm_refs[device], aml_out->is_normal_pcm, pcm, device, adev->pcm_handle[device]);
+    ALOGI("-%s, audio out(%p) device(%d) refs(%d) is_normal_pcm %d, handle %p\n\n",
+          __func__, aml_out, device, adev->pcm_refs[device], aml_out->is_normal_pcm, pcm);
+    ALOGI("+%s, adev->pcm_handle[%d] %p", __func__, device, adev->pcm_handle[device]);
 
     return 0;
 }
 
 void aml_alsa_output_close(struct audio_stream_out *stream) {
-    //ALOGI("\n+%s() stream %p\n", __func__, stream);
+    ALOGI("\n+%s() stream %p\n", __func__, stream);
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     unsigned int device = aml_out->device;
@@ -241,11 +243,12 @@ void aml_alsa_output_close(struct audio_stream_out *stream) {
     }
 
     struct pcm *pcm = adev->pcm_handle[device];
-    ALOGI("+%s, pcm handle %p aml_out->pcm %p adev->pcm_handle[%d] %p", __func__, pcm, aml_out->pcm, device, adev->pcm_handle[device]);
+    ALOGI("+%s, pcm handle %p aml_out->pcm %p", __func__, pcm, aml_out->pcm);
+    ALOGI("+%s, adev->pcm_handle[%d] %p", __func__, device, adev->pcm_handle[device]);
 
     adev->pcm_refs[device]--;
-    //ALOGI("+%s, audio out(%p) device(%d), refs(%d) is_normal_pcm %d,handle %p",
-    //      __func__, aml_out, device, adev->pcm_refs[device], aml_out->is_normal_pcm, aml_out->pcm);
+    ALOGI("+%s, audio out(%p) device(%d), refs(%d) is_normal_pcm %d,handle %p",
+          __func__, aml_out, device, adev->pcm_refs[device], aml_out->is_normal_pcm, aml_out->pcm);
     if (adev->pcm_refs[device] < 0) {
         adev->pcm_refs[device] = 0;
         ALOGI("%s, device(%d) refs(%d)\n", __func__, device, adev->pcm_refs[device]);
@@ -268,7 +271,7 @@ void aml_alsa_output_close(struct audio_stream_out *stream) {
             adev->pcm_handle[device] = NULL;
         }
     }
-    //ALOGI("-%s()\n", __func__);
+    ALOGI("-%s()\n\n", __func__);
 }
 
 static int aml_alsa_add_zero(struct aml_stream_out *stream, int size) {
@@ -320,7 +323,8 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
     unsigned int first_vpts = 0;
     unsigned int cur_apts = 0;
     unsigned int cur_vpts = 0;
-    unsigned int cur_pcr = 0;
+    uint64_t cur_pcr = 0;
+    uint64_t cur_pcr2 = 0;
     int av_diff = 0;
     int need_drop_inject = 0;
     int64_t pretime = 0;
@@ -368,7 +372,7 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
 
     cur_apts = (unsigned int)((int64_t)first_apts + (int64_t)(((int64_t)aml_out->dropped_size * 90) / (48 * frame_size)));
     av_diff = (int)((int64_t)cur_apts - (int64_t)cur_vpts);
-    ALOGI("[audio-startup] av both comming.fa:0x%x fv:0x%x ca:0x%x cv:0x%x cp:0x%x d:%d fs:%zu diff:%d ms\n",
+    ALOGI("[audio-startup] av both comming.fa:0x%x fv:0x%x ca:0x%x cv:0x%x cp:0x%llx d:%d fs:%zu diff:%d ms\n",
           first_apts, first_vpts, cur_apts, cur_vpts, cur_pcr, aml_out->dropped_size, frame_size, av_diff / 90);
 
     // Exception
@@ -428,8 +432,8 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
     pretime = aml_gettime();
     while (1) {
         usleep(MIN_WRITE_SLEEP_US);
-        aml_hwsync_get_tsync_pts(aml_out->hwsync, &cur_vpts);
-        if (cur_vpts > cur_apts - 10 * 90) {
+        aml_hwsync_get_tsync_pts(aml_out->hwsync, &cur_pcr2);
+        if (cur_pcr2 > cur_apts - 10 * 90) {
             break;
         }
         if (aml_gettime() - pretime >= MAX_AVSYNC_WAIT_TIME) {
@@ -488,8 +492,13 @@ write:
 
     {
         struct snd_pcm_status status;
+        bool alsa_status;
         pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
-        aml_out->alsa_running_status = (status.state == PCM_STATE_RUNNING);
+        alsa_status = (status.state == PCM_STATE_RUNNING);
+        if (alsa_status != aml_out->alsa_running_status) {
+            aml_out->alsa_running_status = alsa_status;
+            aml_out->alsa_status_changed = true;
+        }
         if (status.state == PCM_STATE_XRUN) {
             ALOGW("[%s:%d] alsa underrun", __func__, __LINE__);
             if (adev->audio_discontinue) {
@@ -607,9 +616,9 @@ int aml_alsa_output_get_latency(struct audio_stream_out *stream) {
     const struct aml_stream_out *aml_out = (const struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
+
     snd_pcm_sframes_t frames = 0;
     int start_threshold = aml_out->config.start_threshold;
-
     if (aml_out->pcm && pcm_is_ready(aml_out->pcm)) {
         pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
         ALOGV("aml_alsa_output_get_latency frames %ld start_threshold %d",frames, start_threshold);
@@ -628,6 +637,7 @@ int aml_alsa_output_get_latency(struct audio_stream_out *stream) {
              }
         }
     }
+
     return 0;
 }
 
@@ -668,6 +678,7 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
     int nodata_count = 0;
     struct pcm *pcm_handle = in->pcm;
     size_t frame_size = in->config.channels * pcm_format_to_bits(in->config.format) / 8;
+    bool hdmi_raw_in_flag = patch && (patch->input_src == AUDIO_DEVICE_IN_HDMI) && (!audio_is_linear_pcm(patch->aformat));
 
     while (read_bytes < bytes) {
         if (patch && patch->input_thread_exit) {
@@ -693,13 +704,21 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
             memset((void*)buffer,0,bytes);
             return ret;
         } else {
-             usleep( (bytes - read_bytes) * 1000000 / audio_stream_in_frame_size(stream) /
-                in->requested_rate / 2);
+            if (hdmi_raw_in_flag) {
+                usleep((bytes - read_bytes) * 1000000 / audio_stream_in_frame_size(stream) /
+                    in->config.rate);
+            } else {
+                usleep((bytes - read_bytes) * 1000000 / audio_stream_in_frame_size(stream) /
+                    in->config.rate / 2);
+
+            }
+
+             ALOGV("bytes %d bytes - read_bytes %d nodata_count %d",bytes, bytes - read_bytes, nodata_count);
              nodata_count++;
              if (nodata_count >= WAIT_COUNT_MAX) {
                  nodata_count = 0;
-                 ALOGV("aml_alsa_input_read immediate return");
-                 memset((void*)buffer,0,bytes);
+                 AM_LOGW("read timeout, in:%p read_bytes:%d need:%d", in, read_bytes, bytes);
+                 memset((void*)buffer, 0, bytes);
                  return 0;
              }
         }
@@ -732,6 +751,7 @@ typedef struct alsa_handle {
     audio_format_t  format;
     uint32_t write_cnt;
     uint64_t write_frames;
+    int pcm2_mute_cnt;
 } alsa_handle_t;
 
 static void alsa_write_new_rate_control(void *handle) {
@@ -800,27 +820,16 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
 
     config->channels = channels;
     config->rate     = rate;
-
     if (config->rate == 0 || config->channels == 0) {
 
         ALOGE("Invalid sampleate=%d channel=%d\n", config->rate, config->channels);
         goto exit;
     }
 
-    if (format == AUDIO_FORMAT_PCM_16_BIT) {
-        config->format = PCM_FORMAT_S16_LE;
-    } else if (format == AUDIO_FORMAT_PCM_32_BIT) {
-        config->format = PCM_FORMAT_S32_LE;
-    } else {
-        config->format = PCM_FORMAT_S16_LE;
-    }
-
+    config->format = convert_audio_format_2_alsa_format(format);
     config->avail_min = 0;
-
     card = alsa_device_get_card_index();
-
     alsa_port = device_config->device_port;
-
     if (alsa_port < 0) {
         ALOGE("Wrong alsa_device ID\n");
         return -1;
@@ -847,7 +856,6 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
     alsa_handle->format = format;
     alsa_handle->write_cnt = 0;
     alsa_handle->write_frames = 0;
-
 
     *handle = (void*)alsa_handle;
 
@@ -899,8 +907,8 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
     char audio_type[32] = { 0 };
     int debug_enable = aml_audio_get_alsa_debug();
     if (alsa_handle == NULL || alsa_handle->pcm == NULL || buffer == NULL || bytes == 0) {
-        ALOGW("[%s:%d] invalid param,bytes:%zu",
-            __func__, __LINE__, bytes);
+        ALOGW("[%s:%d] invalid param, pcm:%p, alsa_handle:%p, buffer:%p, bytes:%zu",
+            __func__, __LINE__, alsa_handle->pcm, alsa_handle, buffer, bytes);
         return -1;
     }
 #if 0
@@ -985,6 +993,34 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
     return ret;
 }
 
+int aml_alsa_output_data_handle(void *handle, void *output_buffer, size_t size, int vaule, bool is_mute)
+{
+    alsa_handle_t *alsa_handle = (alsa_handle_t *)handle;
+
+    if (is_mute) {
+        memset(output_buffer, 0, size);
+        return 0;
+    }
+
+    if (size && alsa_handle->format == AUDIO_FORMAT_E_AC3) {
+        struct snd_pcm_status status;
+        pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+        if (status.state == PCM_STATE_SETUP ||
+            status.state == PCM_STATE_PREPARED ||
+            status.state == PCM_STATE_XRUN) {
+            /*for sony tv, we need mute first 1 frames to avoid "ca" noise*/
+            alsa_handle->pcm2_mute_cnt = 1;
+            ALOGI("spdif b mute the data cnt =%d",alsa_handle->pcm2_mute_cnt);
+        }
+        if (alsa_handle->pcm2_mute_cnt) {
+            alsa_handle->pcm2_mute_cnt--;
+            memset(output_buffer, vaule, size);
+        }
+    }
+
+    return 0;
+}
+
 int aml_alsa_output_getinfo(void *handle, alsa_info_type_t type, alsa_output_info_t * info) {
     int ret = -1;
     alsa_handle_t * alsa_handle = NULL;
@@ -1054,5 +1090,24 @@ void alsa_out_reconfig_params(struct audio_stream_out *stream)
     ALOGD("%s()!", __func__);
     aml_alsa_output_close(stream);
     aml_alsa_output_open(stream);
+}
+
+enum pcm_format convert_audio_format_2_alsa_format(audio_format_t format)
+{
+    switch (format) {
+    case AUDIO_FORMAT_PCM_16_BIT:
+        return PCM_FORMAT_S16_LE;
+    case AUDIO_FORMAT_PCM_32_BIT:
+        return PCM_FORMAT_S32_LE;
+    case AUDIO_FORMAT_PCM_8_BIT:
+        return PCM_FORMAT_S8;
+    case AUDIO_FORMAT_PCM_8_24_BIT:
+        return PCM_FORMAT_S24_LE;
+    case AUDIO_FORMAT_PCM_24_BIT_PACKED:
+        return PCM_FORMAT_S24_3LE;
+    default:
+        AM_LOGE("invalid format:%#x, return 16bit format.", format);
+        return PCM_FORMAT_S16_LE;
+    }
 }
 

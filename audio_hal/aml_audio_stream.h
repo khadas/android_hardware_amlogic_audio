@@ -40,6 +40,7 @@
         (format == AUDIO_FORMAT_DTS) ||\
         (format == AUDIO_FORMAT_DTS_HD))
 
+
 typedef uint32_t usecase_mask_t;
 
 /* sync with tinymix before TXL */
@@ -161,7 +162,8 @@ static inline stream_usecase_t attr_to_usecase(uint32_t devices __unused,
         audio_format_t format, uint32_t flags)
 {
     // hwsync case
-    if ((flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) && (format != AUDIO_FORMAT_IEC61937)) {
+    if ((flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) && (format != AUDIO_FORMAT_IEC61937)
+        && !(flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ)) {
         if (audio_is_linear_pcm(format)) {
             return STREAM_PCM_HWSYNC;
         } else if (is_digital_raw_format(format)) {
@@ -445,6 +447,7 @@ int aml_dev_dump_latency(struct aml_audio_device *aml_dev, int fd);
 void audio_patch_dump(struct aml_audio_device* aml_dev, int fd);
 bool is_use_spdifb(struct aml_stream_out *out);
 bool is_dolby_ms12_support_compression_format(audio_format_t format);
+bool is_dolby_ddp_support_compression_format(audio_format_t format);
 bool is_direct_stream_and_pcm_format(struct aml_stream_out *out);
 bool is_mmap_stream_and_pcm_format(struct aml_stream_out *out);
 void get_audio_indicator(struct aml_audio_device *dev, char *temp_buf);

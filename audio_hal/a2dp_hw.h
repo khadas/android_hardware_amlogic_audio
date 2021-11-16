@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Amlogic Corporation.
+ * Copyright 2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,133 +14,114 @@
  * limitations under the License.
  */
 
-#ifndef _A2DP_HAL_H_
-#define _A2DP_HAL_H_
 
-#include "a2dp_hal.h"
+#include <android/hardware/bluetooth/audio/2.0/types.h>
+#include <hardware/audio.h>
+#include <condition_variable>
+#include <mutex>
+#include <unordered_map>
 
-/*****************************************************************************
- *  Constants & Macros
- *****************************************************************************/
+enum class BluetoothStreamState : uint8_t {
+  DISABLED = 0,  // This stream is closing or set param "suspend=true"
+  STANDBY,
+  STARTING,
+  STARTED,
+  SUSPENDING,
+  UNKNOWN,
+};
 
-#define A2DP_AUDIO_HARDWARE_INTERFACE "audio.a2dp"
-#define A2DP_CTRL_PATH "/data/misc/bluedroid/.a2dp_ctrl"
-#define A2DP_DATA_PATH "/data/misc/bluedroid/.a2dp_data"
+namespace android {
+namespace bluetooth {
+namespace audio {
 
-// AUDIO_STREAM_OUTPUT_BUFFER_SZ controls the size of the audio socket buffer.
-// If one assumes the write buffer is always full during normal BT playback,
-// then increasing this value increases our playback latency.
-//
-// FIXME: The BT HAL should consume data at a constant rate.
-// AudioFlinger assumes that the HAL draws data at a constant rate, which is
-// true for most audio devices; however, the BT engine reads data at a variable
-// rate (over the short term), which confuses both AudioFlinger as well as
-// applications which deliver data at a (generally) fixed rate.
-//
-// 20 * 512 is not sufficient to smooth the variability for some BT devices,
-// resulting in mixer sleep and throttling. We increase this to 28 * 512 to help
-// reduce the effect of variable data consumption.
-#define AUDIO_STREAM_OUTPUT_BUFFER_SZ (28 * 512)
-#define AUDIO_STREAM_CONTROL_OUTPUT_BUFFER_SZ 256
+constexpr unsigned int kBluetoothDefaultSampleRate = 44100;
+constexpr audio_format_t kBluetoothDefaultAudioFormatBitsPerSample =
+    AUDIO_FORMAT_PCM_16_BIT;
 
-// AUDIO_STREAM_OUTPUT_BUFFER_PERIODS controls how the socket buffer is divided
-// for AudioFlinger data delivery. The AudioFlinger mixer delivers data in
-// chunks of AUDIO_STREAM_OUTPUT_BUFFER_SZ / AUDIO_STREAM_OUTPUT_BUFFER_PERIODS.
-// If the number of periods is 2, the socket buffer represents "double
-// buffering" of the AudioFlinger mixer buffer.
-//
-// In general, AUDIO_STREAM_OUTPUT_BUFFER_PERIODS * 16 * 4 should be a divisor
-// of AUDIO_STREAM_OUTPUT_BUFFER_SZ.
-//
-// These values should be chosen such that
-//
-// AUDIO_STREAM_BUFFER_SIZE * 1000 / (AUDIO_STREAM_OUTPUT_BUFFER_PERIODS
-//         * AUDIO_STREAM_DEFAULT_RATE * 4) > 20 (ms)
-//
-// to avoid introducing the FastMixer in AudioFlinger. Using the FastMixer
-// results in unnecessary latency and CPU overhead for Bluetooth.
-#define AUDIO_STREAM_OUTPUT_BUFFER_PERIODS 2
+constexpr unsigned int kBluetoothDefaultInputBufferMs = 20;
 
-#define AUDIO_SKT_DISCONNECTED (-1)
+constexpr unsigned int kBluetoothDefaultOutputBufferMs = 10;
+constexpr audio_channel_mask_t kBluetoothDefaultOutputChannelModeMask =
+    AUDIO_CHANNEL_OUT_STEREO;
 
-typedef enum {
-    A2DP_CTRL_CMD_NONE,
-    A2DP_CTRL_CMD_CHECK_READY,
-    A2DP_CTRL_CMD_START,
-    A2DP_CTRL_CMD_STOP,
-    A2DP_CTRL_CMD_SUSPEND,
-    A2DP_CTRL_GET_INPUT_AUDIO_CONFIG,
-    A2DP_CTRL_GET_OUTPUT_AUDIO_CONFIG,
-    A2DP_CTRL_SET_OUTPUT_AUDIO_CONFIG,
-    A2DP_CTRL_CMD_OFFLOAD_START,
-    A2DP_CTRL_GET_PRESENTATION_POSITION,
-} tA2DP_CTRL_CMD;
+// Proxy for Bluetooth Audio HW Module to communicate with Bluetooth Audio
+// Session Control. All methods are not thread safe, so users must acquire a
+// lock. Note: currently, in stream_apis.cc, if GetState() is only used for
+// verbose logging, it is not locked, so the state may not be synchronized.
+class BluetoothAudioPortOut {
+ public:
+  BluetoothAudioPortOut();
+  ~BluetoothAudioPortOut() = default;
 
-typedef enum {
-    A2DP_CTRL_ACK_SUCCESS,
-    A2DP_CTRL_ACK_FAILURE,
-    A2DP_CTRL_ACK_INCALL_FAILURE, /* Failure when in Call*/
-    A2DP_CTRL_ACK_UNSUPPORTED,
-    A2DP_CTRL_ACK_PENDING,
-    A2DP_CTRL_ACK_DISCONNECT_IN_PROGRESS,
-} tA2DP_CTRL_ACK;
+  // Fetch output control / data path of BluetoothAudioPortOut and setup
+  // callbacks into BluetoothAudioProvider. If SetUp() returns false, the audio
+  // HAL must delete this BluetoothAudioPortOut and return EINVAL to caller
+  bool SetUp(audio_devices_t devices);
 
-typedef enum {
-    BTAV_A2DP_CODEC_SAMPLE_RATE_NONE = 0x0,
-    BTAV_A2DP_CODEC_SAMPLE_RATE_44100 = 0x1 << 0,
-    BTAV_A2DP_CODEC_SAMPLE_RATE_48000 = 0x1 << 1,
-    BTAV_A2DP_CODEC_SAMPLE_RATE_88200 = 0x1 << 2,
-    BTAV_A2DP_CODEC_SAMPLE_RATE_96000 = 0x1 << 3,
-    BTAV_A2DP_CODEC_SAMPLE_RATE_176400 = 0x1 << 4,
-    BTAV_A2DP_CODEC_SAMPLE_RATE_192000 = 0x1 << 5,
-    BTAV_A2DP_CODEC_SAMPLE_RATE_16000 = 0x1 << 6,
-    BTAV_A2DP_CODEC_SAMPLE_RATE_24000 = 0x1 << 7
-} btav_a2dp_codec_sample_rate_t;
+  // Unregister this BluetoothAudioPortOut from BluetoothAudioSessionControl.
+  // Audio HAL must delete this BluetoothAudioPortOut after calling this.
+  void TearDown();
 
-typedef enum {
-    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_NONE = 0x0,
-    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16 = 0x1 << 0,
-    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24 = 0x1 << 1,
-    BTAV_A2DP_CODEC_BITS_PER_SAMPLE_32 = 0x1 << 2
-} btav_a2dp_codec_bits_per_sample_t;
+  // When the Audio framework / HAL tries to query audio config about format,
+  // channel mask and sample rate, it uses this function to fetch from the
+  // Bluetooth stack
+  bool LoadAudioConfig(audio_config_t* audio_cfg) const;
 
-typedef enum {
-    BTAV_A2DP_CODEC_CHANNEL_MODE_NONE = 0x0,
-    BTAV_A2DP_CODEC_CHANNEL_MODE_MONO = 0x1 << 0,
-    BTAV_A2DP_CODEC_CHANNEL_MODE_STEREO = 0x1 << 1
-} btav_a2dp_codec_channel_mode_t;
+  // WAR to support Mono mode / 16 bits per sample
+  void ForcePcmStereoToMono(bool force) {
+    is_stereo_to_mono_ = force;
+  }
 
-typedef struct btav_a2dp_codec_config {
-    btav_a2dp_codec_sample_rate_t sample_rate;
-    btav_a2dp_codec_bits_per_sample_t bits_per_sample;
-    btav_a2dp_codec_channel_mode_t channel_mode;
-} btav_a2dp_codec_config_t;
+  // When the Audio framework / HAL wants to change the stream state, it invokes
+  // these 3 functions to control the Bluetooth stack (Audio Control Path).
+  // Note: Both Start() and Suspend() will return ture when there are no errors.
+  // Called by Audio framework / HAL to start the stream
+  bool Start();
+  // Called by Audio framework / HAL to suspend the stream
+  bool Suspend();
+  // Called by Audio framework / HAL to stop the stream
+  void Stop();
 
-typedef enum {
-    AUDIO_A2DP_STATE_STARTING           = 0,
-    AUDIO_A2DP_STATE_STARTED            = 1,
-    AUDIO_A2DP_STATE_STOPPING           = 2,
-    AUDIO_A2DP_STATE_STOPPED            = 3,
-    /* need explicit set param call to resume (suspend=false) */
-    AUDIO_A2DP_STATE_SUSPENDED          = 4,
-    AUDIO_A2DP_STATE_STANDBY            = 5,/* allows write to autoresume */
-} a2dp_state_t;
+  // The audio data path to the Bluetooth stack (Software encoding)
+  size_t WriteData(const void* buffer, size_t bytes) const;
 
-void a2dp_stream_common_init(void *hal);
-void a2dp_stream_common_destroy(void *hal);
-int a2dp_write_output_audio_config(void *hal, btav_a2dp_codec_config_t *codec_capability);
-int a2dp_read_output_audio_config(void *hal, btav_a2dp_codec_config_t *codec_capability);
-int a2dp_get_output_audio_config(void *hal, btav_a2dp_codec_config_t *codec_config,
-        btav_a2dp_codec_config_t *codec_capability);
-int start_audio_datapath(void *hal);
-int suspend_audio_datapath(void *hal, bool standby);
-int stop_audio_datapath(void *hal);
-int skt_write(void *hal, const void *buffer, size_t bytes);
+  // Called by the Audio framework / HAL to fetch informaiton about audio frames
+  // presented to an external sink.
+  bool GetPresentationPosition(uint64_t* delay_ns, uint64_t* bytes,
+                               timespec* timestamp) const;
 
-const char* a2dpStatus2String(a2dp_state_t type);
+  // Called by the Audio framework / HAL when the metadata of the stream's
+  // source has been changed.
+  void UpdateMetadata(const source_metadata* source_metadata) const;
 
-int a2dp_hw_dump(void *hal, int fd);
+  // Return the current BluetoothStreamState
+  BluetoothStreamState GetState() const;
 
+  // Set the current BluetoothStreamState
+  void SetState(BluetoothStreamState state);
 
-#endif
+ private:
+  BluetoothStreamState state_;
+  ::android::hardware::bluetooth::audio::V2_0::SessionType session_type_;
+  uint16_t cookie_;
+  mutable std::mutex cv_mutex_;
+  std::condition_variable internal_cv_;
+  // WR to support Mono: True if fetching Stereo and mixing into Mono
+  bool is_stereo_to_mono_ = false;
 
+  // Check and initialize session type for |devices| If failed, this
+  // BluetoothAudioPortOut is not initialized and must be deleted.
+  bool init_session_type(audio_devices_t device);
+
+  bool in_use() const;
+
+  bool CondwaitState(BluetoothStreamState state);
+
+  void ControlResultHandler(
+      const ::android::hardware::bluetooth::audio::V2_0::Status& status);
+  void SessionChangedHandler();
+};
+
+}  // namespace audio
+}  // namespace bluetooth
+}  // namespace android

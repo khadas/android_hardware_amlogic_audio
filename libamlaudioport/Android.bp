@@ -14,61 +14,70 @@
 // limitations under the License.
 //
 
+bootstrap_go_package {
+    name: "soong-audio-libamlaudioports",
+    pkgPath: "android/soong/hardware/amlogic/audio/libamlaudioports",
+    deps: [
+        "blueprint",
+        "blueprint-pathtools",
+        "soong",
+        "soong-android",
+        "soong-cc",
+        "soong-genrule",
+    ],
+    srcs: [
+        "audio_libamlaudioport_default.go",
+    ],
+    pluginFor: ["soong_build"],
+}
+
+audio_libamlaudioports_go_defaults {
+    name: "audio_libamlaudioports_go_defaults",
+}
 
 cc_library_shared {
     name: "libAmlAudioOutPort",
     proprietary: true,
-    include_dirs: [
-       "system/core/include",
-       "external/tinyalsa/include",
-       "system/media/audio_utils/include",
-       "frameworks/av/media/libaudiohal/include",
-       "frameworks/av/include",
-       "frameworks/native/libs/binder/include",
-       "system/media/audio/include",
-       "hardware/amlogic/audio/libamlaudioport/include/",
-    ],
+    defaults: ["audio_libamlaudioports_go_defaults"],
     srcs: [
         "AmlAudioOutPort.cpp",
-        "Aml_DVB_Audio.cpp"
+        "Aml_DVB_Audio.cpp",
     ],
     cflags: [
-         "-Werror",
-         "-Wno-error=deprecated-declarations",
-         "-Wall",
-         "-unresolved-symbols=ignore-all",
-    ],
-    static_libs: [
-        "android.hardware.audio@4.0",
-        "android.hardware.audio.common@4.0",
+        "-Werror",
+        "-Wno-error=deprecated-declarations",
+        "-Wall",
+        "-unresolved-symbols=ignore-all",
     ],
     shared_libs: [
-            "libamlaudiohal",
-            "libcutils",
-            "liblog",
-            "libutils",
+        "libcutils",
+        "liblog",
+        "libutils",
     ],
-    header_libs: ["libhardware_headers"],
+    header_libs: [
+        "libaudio_system_headers",
+        "libbinder_headers",
+        "libhardware_headers",
+    ],
+    export_include_dirs: ["include"],
 }
 
 cc_test {
     name: "AM_DVB_Audio_test",
     proprietary: true,
     srcs: [
-         "AmlAudioOutPort_test.cpp",
+        "AmlAudioOutPort_test.cpp",
     ],
-   include_dirs: [
-       "system/media/audio_utils/include",
-       "system/media/audio/include/",
-       "hardware/amlogic/audio/libamlaudioport/include/",
-   ],
-   cflags: [
-         "-Werror",
-         "-Wno-error=deprecated-declarations",
-         "-Wall",
-         "-unresolved-symbols=ignore-all",
+    header_libs: [
+        "libaudio_system_headers",
     ],
-   shared_libs: [
+    cflags: [
+        "-Werror",
+        "-Wno-error=deprecated-declarations",
+        "-Wall",
+        "-unresolved-symbols=ignore-all",
+    ],
+    shared_libs: [
         "libAmlAudioOutPort",
         "libcutils",
         "liblog",

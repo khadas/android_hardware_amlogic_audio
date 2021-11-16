@@ -38,7 +38,6 @@
 #ifdef MS12_V24_ENABLE
 #include "audio_hw_ms12_v2.h"
 #endif
-#define min(a,b)            (((a) < (b)) ? (a) : (b))
 #define FMT_UPDATE_THRESHOLD_MAX    (10)
 #define DOLBY_FMT_UPDATE_THRESHOLD  (5)
 #define DTS_FMT_UPDATE_THRESHOLD    (1)
@@ -84,11 +83,33 @@ static audio_format_t get_sink_capability (struct aml_audio_device *adev)
         char *cap = NULL;
         cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_FORMATS,0,&(adev->hdmi_descs));
         if (cap) {
+            /*
+             * Dolby MAT 2.0/2.1 has low latency vs Dolby MAT 1.0(TRUEHD inside)
+             * Dolby MS12 prefers to output MAT2.0/2.1.
+             */
             if ((strstr(cap, "AUDIO_FORMAT_MAT_2_0") != NULL) || (strstr(cap, "AUDIO_FORMAT_MAT_2_1") != NULL)) {
                 sink_capability = AUDIO_FORMAT_MAT;
-            } else if (strstr(cap, "AUDIO_FORMAT_E_AC3") != NULL) {
+            }
+            /*
+             * Dolby MAT 1.0(TRUEHD inside) vs DDP+DD
+             * Dolby MS12 prefers to output DDP.
+             * But set sink as TrueHD, then TrueHD can encoded with MAT encoder in Passthrough mode.
+             */
+            else if (strstr(cap, "AUDIO_FORMAT_MAT_1_0") != NULL) {
+                sink_capability = AUDIO_FORMAT_DOLBY_TRUEHD;
+            }
+            /*
+             * DDP vs DDP
+             * Dolby MS12 prefers to output DDP.
+             */
+            else if (strstr(cap, "AUDIO_FORMAT_E_AC3") != NULL) {
                 sink_capability = AUDIO_FORMAT_E_AC3;
-            } else if (strstr(cap, "AUDIO_FORMAT_AC3") != NULL) {
+            }
+            /*
+             * DD vs PCM
+             * Dolby MS12 prefers to output DD.
+             */
+            else if (strstr(cap, "AUDIO_FORMAT_AC3") != NULL) {
                 sink_capability = AUDIO_FORMAT_AC3;
             }
             ALOGI ("%s mbox+dvb case sink_capability =  %#x\n", __FUNCTION__, sink_capability);
@@ -142,12 +163,12 @@ static audio_format_t get_sink_dts_capability (struct aml_audio_device *adev)
         char *cap = NULL;
         cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_FORMATS,0,&(adev->hdmi_descs));
         if (cap) {
-            if (strstr(cap, "AUDIO_FORMAT_DTS") != NULL) {
+            if (adev->hdmi_descs.dts_fmt.is_support) {
                 sink_capability = AUDIO_FORMAT_DTS;
-            } else if (strstr(cap, "AUDIO_FORMAT_DTS_HD") != NULL) {
+            } else if (adev->hdmi_descs.dtshd_fmt.is_support) {
                 sink_capability = AUDIO_FORMAT_DTS_HD;
             }
-            ALOGI ("%s mbox+dvb case sink_capability =  %d\n", __FUNCTION__, sink_capability);
+            ALOGI("%s mbox+dvb case sink_capability %#x\n", __FUNCTION__, sink_capability);
             aml_audio_free(cap);
             cap = NULL;
         }
@@ -235,7 +256,12 @@ static audio_format_t get_suitable_output_format(struct aml_stream_out *out,
 {
     audio_format_t output_format;
     if (IS_EXTERNAL_DECODER_SUPPORT_FORMAT(source_format)) {
-        output_format = min(source_format, sink_format);
+        output_format = MIN(source_format, sink_format);
+        /*
+         * if source: AUDIO_FORMAT_DOLBY_TRUEHD and sink: AUDIO_FORMAT_MAT
+         * use the AUDIO_FORMAT_MAT as output format(from IEC 61937-1).
+         */
+        output_format = (output_format != AUDIO_FORMAT_DOLBY_TRUEHD) ? output_format: AUDIO_FORMAT_MAT;
     } else {
         output_format = sink_format;
     }
@@ -243,6 +269,27 @@ static audio_format_t get_suitable_output_format(struct aml_stream_out *out,
         output_format = AUDIO_FORMAT_AC3;
     }
     return output_format;
+}
+
+/*
+ * When turn on the Automatic function to play the dolby audio in low speed,the TV might
+ * can't decode.So if the play mode was Automatic and the output speed was in not equal
+ * 1.0f, set the ret_format to AUDIO_FORMAT_PCM_16_BIT to send the PCM data to spdif.
+ */
+static audio_format_t reconfig_optical_audio_format(struct aml_stream_out *aml_out,
+        audio_format_t org_optical_format)
+{
+    audio_format_t ret_format = org_optical_format;
+
+    if (aml_out == NULL)
+        return org_optical_format;
+
+    if (aml_out->output_speed != 1.0f && aml_out->output_speed != 0.0f) {
+        ALOGI("change to micro speed need reconfig optical audio format to PCM");
+        ret_format = AUDIO_FORMAT_PCM_16_BIT;
+    }
+
+    return ret_format;
 }
 
 /*
@@ -287,9 +334,10 @@ void get_sink_format(struct audio_stream_out *stream)
         (source_format != AUDIO_FORMAT_MAT) && \
         (source_format != AUDIO_FORMAT_AC4) && \
         (source_format != AUDIO_FORMAT_DTS) &&
-        (source_format != AUDIO_FORMAT_DTS_HD)) {
+        (source_format != AUDIO_FORMAT_DTS_HD) && \
+        (source_format != AUDIO_FORMAT_DOLBY_TRUEHD)) {
         /*unsupport format [dts-hd/true-hd]*/
-        //ALOGI("%s() source format %#x change to %#x", __FUNCTION__, source_format, AUDIO_FORMAT_PCM_16_BIT);
+        ALOGI("%s() source format %#x change to %#x", __FUNCTION__, source_format, AUDIO_FORMAT_PCM_16_BIT);
         source_format = AUDIO_FORMAT_PCM_16_BIT;
     }
     adev->sink_capability = sink_capability;
@@ -299,7 +347,7 @@ void get_sink_format(struct audio_stream_out *stream)
     // condition 1: ARC port, single output.
     // condition 2: for STB case with dolby-ms12 libs
     if (adev->active_outport == OUTPORT_HDMI_ARC || !adev->is_TV) {
-        //ALOGI("%s() HDMI ARC or mbox + dvb case", __FUNCTION__);
+        ALOGI("%s() HDMI ARC or mbox + dvb case", __FUNCTION__);
         switch (adev->hdmi_format) {
         case PCM:
             sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
@@ -318,18 +366,20 @@ void get_sink_format(struct audio_stream_out *stream)
             break;
         case AUTO:
             if (is_dts_format(source_format)) {
-                sink_audio_format = min(source_format, sink_dts_capability);
+                sink_audio_format = MIN(source_format, sink_dts_capability);
             } else {
                 sink_audio_format = get_suitable_output_format(aml_out, source_format, sink_capability);
             }
             if (eDolbyMS12Lib == adev->dolby_lib_type && !is_dts_format(source_format)) {
-                sink_audio_format = min(ms12_max_support_output_format(), sink_capability);
+                sink_audio_format = MIN(ms12_max_support_output_format(), sink_capability);
             }
             optical_audio_format = sink_audio_format;
+
+            optical_audio_format = reconfig_optical_audio_format(aml_out, optical_audio_format);
             break;
         case BYPASS:
             if (is_dts_format(source_format)) {
-                sink_audio_format = min(source_format, sink_dts_capability);
+                sink_audio_format = MIN(source_format, sink_dts_capability);
             } else {
                 sink_audio_format = get_suitable_output_format(aml_out, source_format, sink_capability);
             }
@@ -343,7 +393,7 @@ void get_sink_format(struct audio_stream_out *stream)
     }
     /*when device is SPEAKER/HEADPHONE*/
     else {
-        //ALOGI("%s() SPEAKER/HEADPHONE case", __FUNCTION__);
+        ALOGI("%s() SPEAKER/HEADPHONE case", __FUNCTION__);
         switch (adev->hdmi_format) {
         case PCM:
             sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
@@ -352,7 +402,7 @@ void get_sink_format(struct audio_stream_out *stream)
         case DD:
             if (adev->continuous_audio_mode == 0) {
                 sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
-                optical_audio_format = min(source_format, AUDIO_FORMAT_AC3);
+                optical_audio_format = MIN(source_format, AUDIO_FORMAT_AC3);
             } else {
                 sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
                 optical_audio_format = AUDIO_FORMAT_AC3;
@@ -361,19 +411,21 @@ void get_sink_format(struct audio_stream_out *stream)
         case AUTO:
             sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
             optical_audio_format = (source_format != AUDIO_FORMAT_DTS && source_format != AUDIO_FORMAT_DTS_HD)
-                                   ? min(source_format, AUDIO_FORMAT_AC3)
+                                   ? MIN(source_format, AUDIO_FORMAT_AC3)
                                    : AUDIO_FORMAT_DTS;
 
             if (eDolbyMS12Lib == adev->dolby_lib_type && !is_dts_format(source_format)) {
                 optical_audio_format = AUDIO_FORMAT_AC3;
             }
+
+            optical_audio_format = reconfig_optical_audio_format(aml_out, optical_audio_format);
             break;
         case BYPASS:
            sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
            if (is_dts_format(source_format)) {
-               optical_audio_format = min(source_format, AUDIO_FORMAT_DTS);
+               optical_audio_format = MIN(source_format, AUDIO_FORMAT_DTS);
            } else {
-               optical_audio_format = min(source_format, AUDIO_FORMAT_AC3);
+               optical_audio_format = MIN(source_format, AUDIO_FORMAT_AC3);
            }
            break;
         default:
@@ -633,9 +685,13 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
                         struct audio_stream_in *stream) {
 
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
+    struct aml_audio_device *adev = in->dev;
     if (in_device & AUDIO_DEVICE_IN_HDMI) {
         bool hw_stable = is_hdmi_in_stable_hw(stream);
         bool sw_stable = is_hdmi_in_stable_sw(stream);
+        int txlx_chip = check_chip_name("txlx", 4, &adev->alsa_mixer);
+        if (txlx_chip)
+            sw_stable = true;
         if (!hw_stable || !sw_stable) {
             ALOGV("%s() hw_stable %d sw_stable %d\n", __func__, hw_stable, sw_stable);
             *mute_time = 1000;
@@ -718,35 +774,6 @@ bool check_tv_stream_signal(struct audio_stream_in *stream)
     return true;
 }
 
-const char *audio_port_role[] = {
-    "AUDIO_PORT_ROLE_NONE",
-    "AUDIO_PORT_ROLE_SOURCE",
-    "AUDIO_PORT_ROLE_SINK",
-};
-
-const char *audio_port_role_to_str(audio_port_role_t role)
-{
-    if (role > AUDIO_PORT_ROLE_SINK)
-        return NULL;
-
-    return audio_port_role[role];
-}
-
-const char *audio_port_type[] = {
-    "AUDIO_PORT_TYPE_NONE",
-    "AUDIO_PORT_TYPE_DEVICE",
-    "AUDIO_PORT_TYPE_MIX",
-    "AUDIO_PORT_TYPE_SESSION",
-};
-
-const char *audio_port_type_to_str(audio_port_type_t type)
-{
-    if (type > AUDIO_PORT_TYPE_SESSION)
-        return NULL;
-
-    return audio_port_type[type];
-}
-
 const char *write_func_strs[MIXER_WRITE_FUNC_MAX] = {
     "OUT_WRITE_NEW",
     "MIXER_AUX_BUFFER_WRITE_SM",
@@ -783,7 +810,7 @@ void aml_audio_port_config_dump(struct audio_port_config *port_config, int fd)
     if (port_config == NULL)
         return;
 
-    dprintf(fd, "\t-id(%d), role(%s), type(%s)\n", port_config->id, audio_port_role[port_config->role], audio_port_type[port_config->type]);
+    dprintf(fd, "\t-id(%d), role(%s), type(%s)\n", port_config->id, audioPortRole2Str(port_config->role), audioPortType2Str(port_config->type));
     switch (port_config->type) {
     case AUDIO_PORT_TYPE_DEVICE:
         dprintf(fd, "\t-port device: type(%#x) addr(%s)\n",
@@ -897,7 +924,12 @@ void audio_patch_dump(struct aml_audio_device* aml_dev, int fd)
 
 bool is_use_spdifb(struct aml_stream_out *out) {
     struct aml_audio_device *adev = out->dev;
-    if (eDolbyDcvLib == adev->dolby_lib_type && adev->dolby_decode_enable &&
+    /*this patch is for DCV DDP noise.
+    **DCV have two kinds of mode, DCV decoder and passthrough.
+    **the dolby_decode_enable is 0 when DCV passthrough.
+    **so here should remove the dolby_decode_enable judgment.
+    */
+    if (eDolbyDcvLib == adev->dolby_lib_type /*&& adev->dolby_decode_enable*/ &&
         (out->hal_format == AUDIO_FORMAT_E_AC3 || out->hal_internal_format == AUDIO_FORMAT_E_AC3 ||
         (out->need_convert && out->hal_internal_format == AUDIO_FORMAT_AC3))) {
         /*dual spdif we need convert
@@ -923,6 +955,13 @@ bool is_dolby_ms12_support_compression_format(audio_format_t format)
             format == AUDIO_FORMAT_DOLBY_TRUEHD ||
             format == AUDIO_FORMAT_AC4 ||
             format == AUDIO_FORMAT_MAT);
+}
+
+bool is_dolby_ddp_support_compression_format(audio_format_t format)
+{
+    return (format == AUDIO_FORMAT_AC3 ||
+            format == AUDIO_FORMAT_E_AC3 ||
+            format == AUDIO_FORMAT_E_AC3_JOC);
 }
 
 bool is_direct_stream_and_pcm_format(struct aml_stream_out *out)
@@ -1369,8 +1408,8 @@ int tv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
     if (patch->tvin_buffer_inited == 1) {
         int abuf_level = get_buffer_read_space(&patch->tvin_ringbuffer);
         if (abuf_level <= (int)bytes) {
-            memset(buffer, 0, sizeof(unsigned char)* bytes);
-            ret = bytes;
+            bytes = ret = 0;
+            ALOGI("[%s] abuf_level =%d <  bytes =%d\n", __FUNCTION__,abuf_level,bytes);
         } else {
             ret = ring_buffer_read(&patch->tvin_ringbuffer, (unsigned char *)buffer, bytes);
             ALOGV("[%s] abuf_level =%d ret=%d\n", __FUNCTION__,abuf_level,ret);
@@ -1404,18 +1443,18 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
                     adev->audio_patching = 0;
                 }
             }
-            ALOGI("[audiohal_kpi]%s, now the audio patch src is %s, the audio_patching is %d ", __func__,
+            ALOGI("%s, now the audio patch src is %s, the audio_patching is %d ", __func__,
                 patchSrc2Str(adev->patch_src), adev->audio_patching);
 
             if ((adev->patch_src == SRC_DTV) && adev->audio_patching) {
-                //ALOGI("[audiohal_kpi] %s, now release the dtv patch now\n ", __func__);
+                ALOGI("[audiohal_kpi] %s, now release the dtv patch now\n ", __func__);
                 ret = release_dtv_patch(adev);
                 if (!ret) {
                     adev->audio_patching = 0;
                 }
             }
-            ALOGI("[audiohal_kpi] %s, now end release dtv patch the audio_patching is %d, now create the dtv patch now\n ", __func__, adev->audio_patching);
-            //ALOGI("[audiohal_kpi] %s, now create the dtv patch now\n ", __func__);
+            ALOGI("[audiohal_kpi] %s, now end release dtv patch the audio_patching is %d ", __func__, adev->audio_patching);
+            ALOGI("[audiohal_kpi] %s, now create the dtv patch now\n ", __func__);
             adev->patch_src = SRC_DTV;
             if (eDolbyMS12Lib == adev->dolby_lib_type) {
                 bool set_ms12_non_continuous = true;

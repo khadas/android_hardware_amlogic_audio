@@ -18,6 +18,8 @@ ifeq ($(strip $(BOARD_ALSA_AUDIO)),tiny)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libnano
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_SRC_FILES_arm := ../bt_voice/nano/32/libnano.so
 LOCAL_SRC_FILES_arm64 := ../bt_voice/nano/64/libnano.so
 LOCAL_MODULE_TAGS := optional
@@ -46,14 +48,14 @@ include $(BUILD_PREBUILT)
     LOCAL_MODULE_RELATIVE_PATH := hw
     LOCAL_SRC_FILES := \
         audio_hw.c \
-        a2dp_hal.c \
-        a2dp_hw.c \
         audio_hw_utils.c \
         audio_hwsync.c \
         audio_hw_profile.c \
         alsa_manager.c \
         audio_hw_dtv.c \
         audio_dtv_utils.c \
+        a2dp_hw.cpp \
+        a2dp_hal.cpp \
         audio_bt_sco.c \
         aml_audio_stream.c \
         alsa_config_parameters.c \
@@ -72,7 +74,6 @@ include $(BUILD_PREBUILT)
         aml_mmap_audio.c \
         aml_audio_ms12_bypass.c \
         aml_audio_delay.c \
-        aml_audio_spdifdec.c \
         aml_audio_spdifout.c \
         aml_audio_hal_avsync.c \
         aml_audio_ms12_sync.c \
@@ -85,7 +86,9 @@ include $(BUILD_PREBUILT)
         audio_hdmi_util.c  \
         aml_audio_ms12_render.c \
         aml_audio_nonms12_render.c \
-        aml_dtvsync.c
+        aml_dtvsync.c \
+        karaoke_manager.c \
+        audio_usb_hal.c
 
     LOCAL_C_INCLUDES += \
         hardware/amlogic/audio/aml_speed/include \
@@ -95,8 +98,8 @@ include $(BUILD_PREBUILT)
         system/memory/libion/kernel-headers/linux \
         system/core/libion/include \
         system/core/include \
-        system/core/libion \
         system/libfmq/include \
+        system/media/alsa_utils/include \
         hardware/libhardware/include \
         $(LOCAL_PATH)/../utils \
         $(LOCAL_PATH)/../utils/include \
@@ -106,7 +109,6 @@ include $(BUILD_PREBUILT)
         $(LOCAL_PATH)/../bt_voice/kehwin \
         $(LOCAL_PATH)/../utils/tinyalsa/include \
         vendor/amlogic/common/prebuilt/dvb/include/am_adp \
-        frameworks/av/include \
         hardware/amlogic/audio/dtv_audio_utils/sync \
         hardware/amlogic/audio/dtv_audio_utils/audio_read_api \
         $(LOCAL_PATH)/../amlogic_AQ_tools \
@@ -136,9 +138,13 @@ include $(BUILD_PREBUILT)
         libamlresampler \
         libamlparser \
         libdvbaudioutils \
-        libamlspeed
+        libamlspeed \
+        libalsautils
 
     LOCAL_SHARED_LIBRARIES += \
+        android.hardware.bluetooth.audio@2.0 \
+        android.hardware.bluetooth.audio@2.0-impl \
+        libbluetooth_audio_session \
         libbase \
         libfmq
 
@@ -149,7 +155,7 @@ LOCAL_SRC_FILES += \
 LOCAL_C_INCLUDES += \
         vendor/amlogic/common/mediahal_sdk/include
 
-
+LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 #/*[SEI-zhaopf-2018-12-18] add for HBG remote audio support { */
 ifeq ($(BOARD_ENABLE_HBG), true)
     LOCAL_SHARED_LIBRARIES += libhbg
@@ -158,7 +164,7 @@ endif
 
     LOCAL_MODULE_TAGS := optional
 
-    LOCAL_CFLAGS += -Werror -Wno-sign-compare
+    LOCAL_CFLAGS += -Werror
 ifneq ($(TARGET_BUILD_VARIANT),user)
     LOCAL_CFLAGS += -DDEBUG_VOLUME_CONTROL
 endif
@@ -173,6 +179,7 @@ LOCAL_CFLAGS += -DTV_AUDIO_OUTPUT
 else
 $(info "---------ott audio mode, compiler configure 2 channels output by default--------")
 LOCAL_CFLAGS += -DSUBMIXER_V1_1
+#LOCAL_CFLAGS += -DUSB_KARAOKE
 endif
     #LOCAL_CFLAGS += -Wall -Wunknown-pragmas
 
@@ -181,19 +188,19 @@ endif
     LOCAL_CFLAGS += -DREPLACE_OUTPUT_BUFFER_WITH_CALLBACK
 
 #by default, we compile V2,V1 is not used now. TBD
-ifeq ($(TARGET_BUILD_DOLBY_MS12), true)
-    LOCAL_SRC_FILES += audio_hw_ms12_common.c
-    LOCAL_SRC_FILES += audio_hw_ms12.c
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include \
-                        hardmare/amlogic/audio/libms12/include
-    LOCAL_SHARED_LIBRARIES += libms12api
-else
+ifneq ($(TARGET_BUILD_DOLBY_MS12_V1), true)
     LOCAL_SRC_FILES += audio_hw_ms12_common.c
     LOCAL_SRC_FILES += audio_hw_ms12_v2.c
     LOCAL_CFLAGS += -DMS12_V24_ENABLE
     LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12_v24/include \
                         hardmare/amlogic/audio/libms12_v24/include
     LOCAL_SHARED_LIBRARIES += libms12api_v24
+else
+    LOCAL_SRC_FILES += audio_hw_ms12_common.c
+    LOCAL_SRC_FILES += audio_hw_ms12.c
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include \
+                        hardmare/amlogic/audio/libms12/include
+    LOCAL_SHARED_LIBRARIES += libms12api
 endif
 
 #For atom project
@@ -225,44 +232,5 @@ endif
     include $(BUILD_SHARED_LIBRARY)
 
 endif # BOARD_ALSA_AUDIO
-
-
-#########################################################
-# Audio Policy Manager
-ifeq ($(USE_CUSTOM_AUDIO_POLICY),1)
-include $(CLEAR_VARS)
-
-LOCAL_SRC_FILES := \
-    DLGAudioPolicyManager.cpp
-
-LOCAL_SHARED_LIBRARIES := \
-    libcutils \
-    liblog \
-    libutils \
-    libmedia \
-    libbinder \
-    libaudiopolicymanagerdefault \
-    libutils \
-    libaudioclient \
-    libmedia_helper
-
-LOCAL_C_INCLUDES := \
-    external/tinyalsa/include \
-    hardware/libhardware/include \
-    $(TOPDIR)frameworks/av/services/audiopolicy \
-    $(TOPDIR)frameworks/av/services/audiopolicy/managerdefault \
-    $(TOPDIR)frameworks/av/services/audiopolicy/engine/interface \
-    $(TOPDIR)frameworks/av/services/audiopolicy/common/managerdefinitions/include \
-    $(TOPDIR)frameworks/av/services/audiopolicy/common/include \
-    $(TOPDIR)frameworks/av/media/libaudioclient/include
-
-LOCAL_MODULE := libaudiopolicymanager
-LOCAL_MODULE_TAGS := optional
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
-    LOCAL_PROPRIETARY_MODULE := true
-endif
-
-include $(BUILD_SHARED_LIBRARY)
-endif # USE_CUSTOM_AUDIO_POLICY
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

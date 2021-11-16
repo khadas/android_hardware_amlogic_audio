@@ -56,11 +56,6 @@ struct dolby_ms12_desc {
     int dolby_ms12_init_argc;
     char **dolby_ms12_init_argv;
     void *dolby_ms12_ptr;
-#ifdef REPLACE_OUTPUT_BUFFER_WITH_CALLBACK
-
-#else
-    char *dolby_ms12_out_data;
-#endif
     int dolby_ms12_out_max_size;
     /*
     there are some risk when aux write thread and direct thread
@@ -82,7 +77,7 @@ struct dolby_ms12_desc {
     struct timespec timestamp;
     uint64_t last_frames_postion;
     uint64_t last_ms12_pcm_out_position;
-    bool     ms12_position_update;
+    bool ms12_position_update;
     /*
     latency frame is maintained by the whole device output.
     whatever what bistream is outputed we need use this latency frames.
@@ -101,7 +96,6 @@ struct dolby_ms12_desc {
     int bitsteam_cnt;
     void * system_virtual_buf_handle;
     ring_buffer_t spdif_ring_buffer;
-    unsigned char *lpcm_temp_buffer;
 
     /*
      *-ac4_de             * <int> [ac4] Dialogue Enhancement gain that will be applied in the decoder
@@ -111,19 +105,19 @@ struct dolby_ms12_desc {
     int nbytes_of_dmx_output_pcm_frame;
     void * ac3_parser_handle;
     int hdmi_format;
-    audio_format_t  optical_format;
+    audio_format_t optical_format;
     audio_format_t sink_format;
     struct timespec  sys_audio_timestamp;
-    uint64_t  sys_audio_frame_pos;
-    uint64_t  sys_audio_base_pos;
-    uint64_t  sys_audio_skip;
-    uint64_t  last_sys_audio_cost_pos;
+    uint64_t sys_audio_frame_pos;
+    uint64_t sys_audio_base_pos;
+    uint64_t sys_audio_skip;
+    uint64_t last_sys_audio_cost_pos;
     /*ms12 main input information */
     audio_format_t main_input_fmt;
-    unsigned int   main_input_sr;
+    unsigned int main_input_sr;
     void * ms12_bypass_handle;
-    bool   is_bypass_ms12;
-    int    atmos_info_change_cnt;
+    bool is_bypass_ms12;
+    int atmos_info_change_cnt;
     int need_resume;
     int need_resync; /*handle from pause to resume sync*/
     bool dual_bitstream_support;
@@ -136,14 +130,14 @@ struct dolby_ms12_desc {
     uint32_t main_input_rate;  /*it is used to calculate the buffer duration*/
     uint32_t main_buffer_min_level;
     uint32_t main_buffer_max_level;
-    int   dap_bypass_enable;
+    int dap_bypass_enable;
     float dap_bypassgain;
     /*
      * these variables are used for ms12 message thread.
      */
     pthread_t ms12_mesg_threadID;
     pthread_mutex_t mutex;
-    pthread_cond_t  cond;
+    pthread_cond_t cond;
     bool CommThread_ExitFlag;
     struct listnode mesg_list;
     struct aml_stream_out *ms12_main_stream_out;
@@ -152,10 +146,22 @@ struct dolby_ms12_desc {
     uint64_t stereo_pcm_frames;
     uint64_t master_pcm_frames;
     uint64_t ms12_main_input_size;
-    bool     b_legacy_ddpout;
-    void *   iec61937_ddp_buf;
-    float    main_volume;
+    bool b_legacy_ddpout;
+    void *iec61937_ddp_buf;
+    float main_volume;
+    uint64_t first_in_frame_pts;
+    uint64_t last_synced_frame_pts;
+    uint64_t out_synced_frame_count;
+    bool debug_synced_frame_pts_flag;
     bool     is_muted;
+    /* MAT Encoder inside ms12, begin */
+    unsigned int matenc_maxoutbufsize;
+    int b_iec_header;
+    int mat_enc_debug_enable;
+    void *mat_enc_handle;
+    char *mat_enc_out_buffer;
+    int mat_enc_out_bytes;
+    /* MAT Encoder inside ms12, end */
 };
 
 /*

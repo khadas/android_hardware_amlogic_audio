@@ -213,6 +213,7 @@ int aml_audio_ease_process(aml_audio_ease_t * ease_handle, void * in_data, size_
     nframes  = size / (audio_bytes_per_sample(format) * ch);
 
     if (ease_handle->ease_frames_elapsed >= ease_handle->ease_frames && ease_handle->ease_status == EaseIn) {
+        ease_handle->do_easing = 0;
         pthread_mutex_unlock(&ease_handle->ease_lock);
         return 0;
     }
@@ -263,6 +264,11 @@ int aml_audio_ease_process(aml_audio_ease_t * ease_handle, void * in_data, size_
         default:
             break;
     }
+
+    if (ease_handle->ease_frames_elapsed >= ease_handle->ease_frames && (ease_handle->ease_status == EaseIn || ease_handle->ease_status == EaseOut)) {
+        ease_handle->do_easing = 0;
+    }
+
     pthread_mutex_unlock(&ease_handle->ease_lock);
     return 0;
 }

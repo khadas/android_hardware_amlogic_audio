@@ -249,13 +249,48 @@ void set_ms12_dap_postgain(struct dolby_ms12_desc *ms12, int postgain);
 void set_ms12_ac4_presentation_group_index(struct dolby_ms12_desc *ms12, int index);
 
 /*
+ *@brief set ms12 fade and pan parameter
+ * input parameters
+ *     struct dolby_ms12_desc *ms12: ms12 pointer
+ *     int fade_byte
+ *     int gain_byte_center
+ *     int gain_byte_front
+ *     int gain_byte_surround
+ *     int pan_byte
+ */
+void set_ms12_fade_pan
+    (struct dolby_ms12_desc *ms12
+    , int fade_byte
+    , int gain_byte_center
+    , int gain_byte_front
+    , int gain_byte_surround
+    , int pan_byte
+    );
+
+/*
+ *@brief set ms12 main audio pts
+ * input parameters
+ *     struct dolby_ms12_desc *ms12: ms12 pointer
+ *     uint64_t apts
+ *     unsigned int bytes_offset
+ */
+void set_ms12_main_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsigned int bytes_offset);
+/*
+ *@brief set ms12 main1 audio pts
+ * input parameters
+ *     struct dolby_ms12_desc *ms12: ms12 pointer
+ *     uint64_t apts
+ *     unsigned int bytes_offset
+ */
+void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsigned int bytes_offset);
+
+/*
  *@brief set ms12 main1 audio mute or non mute
  * input parameters
  *     struct dolby_ms12_desc *ms12: ms12 pointer
  *     bool b_mute: 1 mute , 0 unmute
  */
 void set_ms12_main1_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute);
-
 #endif //end of _AUDIO_HW_MS12_H_
 
 #else

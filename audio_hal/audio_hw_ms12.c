@@ -429,6 +429,23 @@ void set_dolby_ms12_runtime_system_mixing_enable(struct dolby_ms12_desc *ms12, i
         aml_ms12_update_runtime_params(ms12, parm);
     }
 }
+void set_ms12_main1_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute)
+{
+    char parm[64] = "";
+    /*
+    - target gain at end of ramp in dB (range: -96 * 128..0), the step is 1/128 db, so the range is (-96,0)
+    - duration of ramp in milliseconds (range: 0..60000)
+    - shape of the ramp (0: linear, 1: in cube, 2: out cube)
+    */
+    if (b_mute) {
+        sprintf(parm, "%s %d,%d,%d", "-main1_mixgain", -96 * 128, 0, 0);
+    } else {
+        sprintf(parm, "%s %d,%d,%d", "-main1_mixgain", 0, 0, 0);
+    }
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+    ms12->is_muted = b_mute;
+}
 
 void set_ms12_atmos_lock(struct dolby_ms12_desc *ms12, bool is_atmos_lock_on)
 {
@@ -530,6 +547,45 @@ void set_ms12_drc_mode_for_multichannel_and_dap_output(struct dolby_ms12_desc *m
         aml_ms12_update_runtime_params(ms12, parm);
 }
 
+void set_ms12_fade_pan
+    (struct dolby_ms12_desc *ms12
+    , int fade_byte
+    , int gain_byte_center
+    , int gain_byte_front
+    , int gain_byte_surround
+    , int pan_byte
+    )
+{
+    char parm[64] = "";
+
+    sprintf(parm, "%s %d,%d,%d,%d,%d", "-ad_fade_pan",
+        fade_byte, gain_byte_center, gain_byte_front, gain_byte_surround, pan_byte);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+
+void set_ms12_main_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsigned int bytes_offset)
+{
+    char parm[64] = "";
+    uint32_t apts_high32b = (uint32_t)(apts>>32);
+    uint32_t apts_low32b = (uint32_t)(apts&UINT_MAX);
+    sprintf(parm, "%s %u,%u,%u", "-main_audio_pts", apts_high32b, apts_low32b, bytes_offset);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsigned int bytes_offset)
+{
+    char parm[64] = "";
+    uint32_t apts_high32b = (uint32_t)(apts>>32);
+    uint32_t apts_low32b = (uint32_t)(apts&UINT_MAX);
+    sprintf(parm, "%s %u,%u,%u", "-main1_audio_pts", apts_high32b,apts_low32b, bytes_offset);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+
 void dynamic_set_dolby_ms12_drc_parameters(struct dolby_ms12_desc *ms12)
 {
     int drc_mode = 0;
@@ -571,24 +627,6 @@ void dynamic_set_dolby_ms12_drc_parameters(struct dolby_ms12_desc *ms12)
             __FUNCTION__, (dolby_ms12_dap_drc_mode == DOLBY_DRC_RF_MODE) ? "RF MODE" : "LINE MODE");
     }
 
-}
-
-void set_ms12_main1_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute)
-{
-    char parm[64] = "";
-    /*
-    - target gain at end of ramp in dB (range: -96 * 128..0), the step is 1/128 db, so the range is (-96,0)
-    - duration of ramp in milliseconds (range: 0..60000)
-    - shape of the ramp (0: linear, 1: in cube, 2: out cube)
-    */
-    if (b_mute) {
-        sprintf(parm, "%s %d,%d,%d", "-main1_mixgain", -96 * 128, 0, 0);
-    } else {
-        sprintf(parm, "%s %d,%d,%d", "-main1_mixgain", 0, 0, 0);
-    }
-    if ((strlen(parm)) > 0 && ms12)
-        aml_ms12_update_runtime_params(ms12, parm);
-    ms12->is_muted = b_mute;
 }
 
 void set_dolby_ms12_drc_parameters(audio_format_t input_format, int output_config_mask)
@@ -852,7 +890,6 @@ int get_the_dolby_ms12_prepared(
     ms12->master_pcm_frames  = 0;
     ms12->ms12_main_input_size = 0;
     ms12->main_volume        = 1.0f;
-    ms12->is_muted           = false;
     ALOGI("set ms12 sys pos =%" PRId64 "", ms12->sys_audio_base_pos);
 
     ms12->iec61937_ddp_buf = aml_audio_calloc(1, MS12_DDP_FRAME_SIZE);
@@ -985,6 +1022,10 @@ int dolby_ms12_main_process(
     }
 
     pthread_mutex_lock(&ms12->main_lock);
+
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT) && audio_is_linear_pcm(aml_out->hal_internal_format)) {
+        check_audio_level("ms12_main", buffer, bytes);
+    }
 
     if (ms12->dolby_ms12_enable) {
         //ms12 input main
@@ -1359,6 +1400,10 @@ int dolby_ms12_system_process(
     int ms12_output_size = 0;
     int ret = -1;
 
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+        check_audio_level("ms12_system", buffer, bytes);
+    }
+
     pthread_mutex_lock(&ms12->lock);
     if (ms12->dolby_ms12_enable) {
         //Dual input, here get the system data
@@ -1425,6 +1470,10 @@ int dolby_ms12_app_process(
     int dolby_ms12_input_bytes = 0;
     int ms12_output_size = 0;
     int ret = 0;
+
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+        check_audio_level("ms12_app", buffer, bytes);
+    }
 
     pthread_mutex_lock(&ms12->lock);
     if (ms12->dolby_ms12_enable) {
@@ -1876,6 +1925,10 @@ int dap_pcm_output_l(void *buffer, void *priv_data, size_t size)
     if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_SPEAKER_PCM)) {
         dump_ms12_output_data(buffer, size, MS12_OUTPUT_SPEAKER_PCM_FILE);
     }
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+        check_audio_level("ms12_dap_pcm", buffer, size);
+    }
+
     if (is_dolbyms12_dap_enable(aml_out)) {
         ms12_output_master(buffer, priv_data, size, output_format);
         /* update the master pcm frame, which is used for av sync */
@@ -1904,7 +1957,7 @@ int stereo_pcm_output_l(void *buffer, void *priv_data, size_t size)
         dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
         ms12_info.data_type = AUDIO_FORMAT_PCM_16_BIT;
         ms12_info.pcm_type = NORMAL_LPCM;
-        process_result = aml_dtvsync_ms12v1_process_policy(priv_data, &ms12_info);
+        process_result = aml_dtvsync_ms12_process_policy(priv_data, &ms12_info);
         if (process_result == DTVSYNC_AUDIO_DROP) {
             ms12->master_pcm_frames += size / (2 * 2);
             return ret;
@@ -1941,6 +1994,11 @@ int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_i
     if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_SPDIF_PCM)) {
         dump_ms12_output_data(buffer, size, MS12_OUTPUT_SPDIF_PCM_FILE);
     }
+
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+        check_audio_level("ms12_stereo_pcm", buffer, size);
+    }
+
 
     /*it has dap output, then this will be used for spdif output*/
     if (is_dolbyms12_dap_enable(aml_out)) {
@@ -2403,7 +2461,7 @@ bool is_support_ms12_reset(struct audio_stream_out *stream) {
 
     return (is_dts
             || is_high_rate_pcm(stream)
-            || is_multi_channel_pcm(stream));
+            || (is_multi_channel_pcm(stream) && (adev->hdmi_format == BYPASS)));
 }
 
 bool is_audio_postprocessing_add_dolbyms12_dap(struct aml_audio_device *adev)

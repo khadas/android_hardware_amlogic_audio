@@ -23,9 +23,9 @@
 #include "aml_malloc_debug.h"
 #include "audio_simple_resample_api.h"
 #include "audio_android_resample_api.h"
-#include "alsa_config_parameters.h"
 
 #define RESAMPLE_FRAME_NUM (1024)  // One period, Unit: frame
+#define OUTPUT_ALSA_SAMPLERATE (48000)
 
 /* VirtualX requires an aligned block(256) as a processing unit. */
 #define ALIGN_FRAME_NUM (256) // Unit: frame

@@ -88,6 +88,7 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_TVIN_VIDEO_DELAY,     "TVIN VIDEO DELAY"},
     {AML_MIXER_ID_TVIN_VIDEO_MIN_DELAY, "TVIN VIDEO MIN DELAY"},
     {AML_MIXER_ID_TVIN_VIDEO_MAX_DELAY, "TVIN VIDEO MAX DELAY"},
+    {AML_MIXER_ID_SPDIF_B_OUT_CHANNEL_STATUS, "spdif_b out channel status"},
     {AML_MIXER_ID_MEDIA_VIDEO_DELAY,    "Media Video Delay"},
     {AML_MIXER_ID_HDMIIN_AUDIO_MODE,    "HDMIIN Audio output mode"}
 };
@@ -190,7 +191,7 @@ int aml_mixer_ctrl_get_int(struct aml_mixer_handle *mixer_handle, int mixer_id)
     pthread_mutex_lock(&mixer_handle->lock);
     pCtrl = get_mixer_ctl_handle(pMixer, mixer_id);
     if (pCtrl == NULL) {
-        ALOGE("[%s:%d] Failed to open mixer %s\n", __FUNCTION__, __LINE__,
+        ALOGV("[%s:%d] Failed to open mixer %s\n", __FUNCTION__, __LINE__,
               get_mixer_name_by_id(mixer_id));
         pthread_mutex_unlock(&mixer_handle->lock);
         return -1;

@@ -25,13 +25,14 @@
 #include "audio_hw.h"
 
 #define DDP_OUTPUT_SAMPLE_RATE (48000)
+#define TRUEHD_OUTPUT_SAMPLE_RATE (48000)
 #define SAMPLE_NUMS_IN_ONE_BLOCK (256)
 #define DDP_FRAME_DURATION(sample_nums, sample_rate) ((sample_nums) / (sample_rate))
 
 #define MAIN_INPUT_STREAM 1
 #define ASSOC_INPUT_STREAM 0
 #define SYSTEM_INPUT_STREAM 0
-#define RESERVED_LENGTH 31
+#define RESERVED_LENGTH 27
 
 #define AUDIO_2MAIN_MIXER_NODE           0xFF000001UL
 #define AUDIO_2MAIN_MIXER_NODE_PRIMARY   0xFF000002UL
@@ -100,6 +101,10 @@ typedef struct aml_ms12_dec_info {
     int output_bitwidth; /**the decoded sample bit width*/
     int data_type;
     enum MS12_PCM_TYPE pcm_type;
+    unsigned int main_apts_high32b;
+    unsigned int main_apts_low32b;
+    unsigned int main1_apts_high32b;
+    unsigned int main1_apts_low32b;
     int reserved[RESERVED_LENGTH];
 } aml_ms12_dec_info_t;
 
@@ -282,8 +287,43 @@ int mat_bitstream_output(void *buffer, void *priv_data, size_t size);
  *@brief set ms12 dap postgain
  */
 void set_ms12_dap_postgain(struct dolby_ms12_desc *ms12, int postgain);
-
 void set_ms12_ac4_presentation_group_index(struct dolby_ms12_desc *ms12, int index);
+
+/*
+ *@brief set ms12 fade and pan parameter
+ * input parameters
+ *     struct dolby_ms12_desc *ms12: ms12 pointer
+ *     int fade_byte
+ *     int gain_byte_center
+ *     int gain_byte_front
+ *     int gain_byte_surround
+ *     int pan_byte
+ */
+void set_ms12_fade_pan
+    (struct dolby_ms12_desc *ms12
+    , int fade_byte
+    , int gain_byte_center
+    , int gain_byte_front
+    , int gain_byte_surround
+    , int pan_byte
+    );
+
+/*
+ *@brief set ms12 main audio pts
+ * input parameters
+ *     struct dolby_ms12_desc *ms12: ms12 pointer
+ *     uint64_t apts
+ *     unsigned int bytes_offset
+ */
+void set_ms12_main_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsigned int bytes_offset);
+/*
+ *@brief set ms12 main1 audio pts
+ * input parameters
+ *     struct dolby_ms12_desc *ms12: ms12 pointer
+ *     uint64_t apts
+ *     unsigned int bytes_offset
+ */
+void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsigned int bytes_offset);
 
 /*
  *@brief set ms12 main1 audio mute or non mute
@@ -292,5 +332,6 @@ void set_ms12_ac4_presentation_group_index(struct dolby_ms12_desc *ms12, int ind
  *     bool b_mute: 1 mute , 0 unmute
  */
 void set_ms12_main1_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute);
+
 
 #endif //end of _AUDIO_HW_MS12_H_

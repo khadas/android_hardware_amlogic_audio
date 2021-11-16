@@ -143,7 +143,9 @@ bool is_disable_ms12_continuous(struct audio_stream_out *stream);
 int find_offset_in_file_strstr(char *mystr, char *substr);
 float aml_audio_get_s_gain_by_src(struct aml_audio_device *adev, enum patch_src_assortion type);
 int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_port);
+#if ANDROID_PLATFORM_SDK_VERSION > 29
 int android_fmt_convert_to_dmx_fmt(audio_format_t andorid_fmt);
+#endif
 enum patch_src_assortion android_input_dev_convert_to_hal_patch_src(audio_devices_t android_dev);
 enum input_source android_input_dev_convert_to_hal_input_src(audio_devices_t android_dev);
 
@@ -152,9 +154,13 @@ const char* usecase2Str(stream_usecase_t type);
 const char* outputPort2Str(enum OUT_PORT type);
 const char* inputPort2Str(enum IN_PORT type);
 const char* mixerInputType2Str(aml_mixer_input_port_type_e type);
+const char* mixerOutputType2Str(MIXER_OUTPUT_PORT type);
+uint8_t get_bit_position_in_mask(uint8_t max_position, uint32_t *p_mask);
 const char* mediasyncAudiopolicyType2Str(audio_policy type);
 const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type);
 const char* hdmiFormat2Str(AML_HDMI_FORMAT_E type);
+const char* audioPortRole2Str(audio_port_role_t type);
+const char* audioPortType2Str(audio_port_type_t type);
 bool aml_audio_check_sbr_product();
 void check_audio_level(const char *name, const void *buffer, size_t bytes);
 

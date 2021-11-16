@@ -36,9 +36,6 @@
 #define RET_FAIL -1
 #endif
 
-#define DOLBY_DCV_LIB_PATH_A "/vendor/lib/libHwAudio_dcvdec.so"
-#define DTS_DCA_LIB_PATH_A "/vendor/lib/libHwAudio_dtshd.so"
-
 #ifndef MS12_V24_ENABLE
     #define MS12_VERSION    "1.3"
 #else
@@ -61,6 +58,7 @@ static int file_accessible(char *path)
 
 char * get_ms12_path (void)
 {
+    ALOGI("%s return lib %s", __func__, DOLBY_MS12_LIB_PATH_A);
     return DOLBY_MS12_LIB_PATH_A;
 
 }
@@ -100,7 +98,9 @@ enum eDolbyLibType detect_dolby_lib_type(void) {
     void *hDolbyDcvLibHanle = NULL;
 
     // the priority would be "MS12 > DCV" lib
+    ALOGI("%s return lib %s", __func__, DOLBY_MS12_LIB_PATH_A);
     if (RET_OK == file_accessible(DOLBY_MS12_LIB_PATH_A)) {
+        ALOGI("%s file_accessible got ok", __func__);
         retVal = eDolbyMS12Lib;
     }
 
@@ -120,6 +120,9 @@ enum eDolbyLibType detect_dolby_lib_type(void) {
                 ALOGI("%s,FOUND libdolbyms12 lib\n", __FUNCTION__);
                 return eDolbyMS12Lib;
             }
+        }
+        else {
+            ALOGE("%s, failed to FIND libdolbyms12.so, %s\n", __FUNCTION__, dlerror());
         }
     }
 

@@ -22,8 +22,6 @@ LOCAL_C_INCLUDES := \
    $(TOPDIR)system/media/audio/include \
    $(TOPDIR)system/core/libion/include \
    $(TOPDIR)system/core/include \
-   $(TOPDIR)frameworks/av/media/libaudioclient/include \
-   $(TOPDIR)frameworks/av/media/libaudioprocessing/include \
    $(TOPDIR)hardware/libhardware/include \
    $(TOPDIR)external/tinyalsa/include \
    $(LOCAL_PATH)/../utils/include

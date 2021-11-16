@@ -132,7 +132,7 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mCompressorProfile(0)
 
     //HE-AAC SWITCHES
-    , mAssocInstanse(2)
+    , mAssocInstanse(1)/* Error restricting associated instance to 2 channels (-as: 0,1) */
     , mDefDialnormVal(108)
     , mDualMonoreproductionMode(0)
     , mAribChannelMappingFlag(0)
@@ -417,7 +417,7 @@ int DolbyMS12ConfigParams::SetInputOutputFileName(char **ConfigParams, int *row_
             (*row_index)++;
             sprintf(ConfigParams[*row_index], "%s", mDolbyMain2FileName);
             (*row_index)++;
-            ALOGD("%s() main1 %s main2 %s", __FUNCTION__, mDolbyMain1FileName, mDolbyMain2FileName);
+            ALOGD("%s() line %d main1 %s main2 %s", __FUNCTION__, __LINE__, mDolbyMain1FileName, mDolbyMain2FileName);
         } else if (mAudioStreamOutFormat == AUDIO_FORMAT_MAT) {
             sprintf(ConfigParams[*row_index], "%s", "-im");
             setInputCMDMask("-immat");
@@ -430,7 +430,7 @@ int DolbyMS12ConfigParams::SetInputOutputFileName(char **ConfigParams, int *row_
             (*row_index)++;
             sprintf(ConfigParams[*row_index], "%s", mDolbyMain2FileName);
             (*row_index)++;
-            ALOGD("%s() main1 %s main2 %s", __FUNCTION__, mDolbyMain1FileName, mDolbyMain2FileName);
+            ALOGD("%s() line %d main1 %s main2 %s", __FUNCTION__, __LINE__, mDolbyMain1FileName, mDolbyMain2FileName);
         } else if (mAudioStreamOutFormat == AUDIO_FORMAT_DOLBY_TRUEHD) {
             sprintf(ConfigParams[*row_index], "%s", "-im");
             setInputCMDMask("-immlp");
@@ -438,19 +438,14 @@ int DolbyMS12ConfigParams::SetInputOutputFileName(char **ConfigParams, int *row_
             sprintf(ConfigParams[*row_index], "%s", DEFAULT_MAIN_MLP_FILE_NAME);
             (*row_index)++;
 
-            sprintf(ConfigParams[*row_index], "%s", "-im2");
-            setInputCMDMask("-im2");
-            (*row_index)++;
-            sprintf(ConfigParams[*row_index], "%s", mDolbyMain2FileName);
-            (*row_index)++;
-            ALOGD("%s() main1 %s main2 %s", __FUNCTION__, mDolbyMain1FileName, mDolbyMain2FileName);
+            ALOGD("%s() line %d main1 %s", __FUNCTION__, __LINE__,  DEFAULT_MAIN_MLP_FILE_NAME);
         } else if (mAudioStreamOutFormat == AUDIO_FORMAT_AC4) {
             sprintf(ConfigParams[*row_index], "%s", "-im");
             setInputCMDMask("-imac4");
             (*row_index)++;
             sprintf(ConfigParams[*row_index], "%s", DEFAULT_MAIN_AC4_FILE_NAME);
             (*row_index)++;
-            ALOGD("%s() main1 %s", __FUNCTION__, mDolbyMain1FileName);
+            ALOGD("%s() line %d main1 %s", __FUNCTION__, __LINE__, mDolbyMain1FileName);
         }
         if (mOTTSoundInputEnable == true && mAudioStreamOutFormat != AUDIO_FORMAT_AC4) {
             sprintf(ConfigParams[*row_index], "%s", "-iui");
@@ -548,6 +543,9 @@ int DolbyMS12ConfigParams::ChannelMask2ChannelConfig(audio_channel_mask_t channe
         break;
     case (AUDIO_CHANNEL_OUT_FRONT_LEFT | AUDIO_CHANNEL_OUT_FRONT_RIGHT | AUDIO_CHANNEL_OUT_FRONT_CENTER | AUDIO_CHANNEL_OUT_BACK_LEFT | AUDIO_CHANNEL_OUT_BACK_RIGHT):// L, R, C, LS, RS
         ChannelConfiguration = 7;
+        break;
+    case (AUDIO_CHANNEL_OUT_7POINT1 & ~AUDIO_CHANNEL_OUT_LOW_FREQUENCY):
+        ChannelConfiguration = 21;
         break;
     default:
         ChannelConfiguration = DEFAULT_SOUNDS_CHANNEL_CONFIGURATION;
@@ -1623,8 +1621,8 @@ char **DolbyMS12ConfigParams::GetDolbyMS12RuntimeConfigParams(int *argc, char *c
 
 char **DolbyMS12ConfigParams::UpdateDolbyMS12RuntimeConfigParams(int *argc, char *cmd)
 {
-    ALOGD("+%s()", __FUNCTION__);
-    ALOGD("ms12 runtime cmd: %s", cmd);
+    ALOGV("+%s()", __FUNCTION__);
+    ALOGV("ms12 runtime cmd: %s", cmd);
 
     strcpy(mConfigParams[0], "ms12_runtime");
 
@@ -1639,7 +1637,7 @@ char **DolbyMS12ConfigParams::UpdateDolbyMS12RuntimeConfigParams(int *argc, char
     while (cmd_string >> token) {
         strncpy(mConfigParams[mParamNum], token.c_str(), MAX_ARGV_STRING_LEN);
         mConfigParams[mParamNum][MAX_ARGV_STRING_LEN - 1] = '\0';
-        ALOGI("argv[%d] = %s", mParamNum, mConfigParams[mParamNum]);
+        ALOGV("argv[%d] = %s", mParamNum, mConfigParams[mParamNum]);
         mParamNum++;
         (*argc)++;
     }
@@ -1860,7 +1858,7 @@ eq_error:
         opt = NULL;
     }
 
-    ALOGD("-%s()", __FUNCTION__);
+    ALOGV("-%s()", __FUNCTION__);
     return mConfigParams;
 }
 
@@ -1944,7 +1942,7 @@ void DolbyMS12ConfigParams::CleanupConfigParams(char **ConfigParams, int max_raw
 
 void DolbyMS12ConfigParams::ResetConfigParams(void)
 {
-    ALOGD("+%s() line %d\n", __FUNCTION__, __LINE__);
+    ALOGV("+%s() line %d\n", __FUNCTION__, __LINE__);
     int i = 0;
     if (mConfigParams) {
         for (i = 0; i < MAX_ARGC; i++) {
@@ -1957,8 +1955,8 @@ void DolbyMS12ConfigParams::ResetConfigParams(void)
     mHasAssociateInput = false;
     mHasSystemInput = false;
     mMainFlags = 1;
-    ALOGD("%s() mHasAssociateInput %d mHasSystemInput %d\n", __FUNCTION__, mHasAssociateInput, mHasSystemInput);
-    ALOGD("-%s() line %d\n", __FUNCTION__, __LINE__);
+    ALOGV("%s() mHasAssociateInput %d mHasSystemInput %d\n", __FUNCTION__, mHasAssociateInput, mHasSystemInput);
+    ALOGV("-%s() line %d\n", __FUNCTION__, __LINE__);
     return ;
 }
 

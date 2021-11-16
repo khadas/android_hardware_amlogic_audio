@@ -599,7 +599,7 @@ int pcm_read(struct pcm *pcm, void *data, unsigned int count)
             return 0;
         }
         return x.result * (pcm->config.channels *
-            pcm_format_to_bits(pcm->config.format) / 8);
+                    pcm_format_to_bits(pcm->config.format) / 8);
     }
 }
 

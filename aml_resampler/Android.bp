@@ -1,0 +1,37 @@
+cc_library_shared {
+    name: "libamlresampler",
+
+    srcs: [
+        "audio_android_resample_api.c",
+        "audio_simple_resample_api.c",
+        "aml_audio_resampler.c",
+        "aml_audio_resample_manager.c",
+        "aml_resample_wrap.cpp",
+    ],
+
+    header_libs: [
+        "libaudioclient_headers",
+        "libaudioutils_headers",
+        "libaudio_system_headers",
+    ],
+    shared_libs: [
+        "libamaudioutils",
+        "libaudioutils",
+        "libcutils",
+        "liblog",
+        "libutils",
+    ],
+    static_libs: [
+        "libaudioprocessing_base",
+    ],
+
+    cflags: [
+        "-Werror",
+        "-Wno-unused-label",
+        "-Wno-unused-parameter",
+    ],
+
+    proprietary: true,
+
+    export_include_dirs: ["include"],
+}

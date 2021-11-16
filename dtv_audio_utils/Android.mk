@@ -64,5 +64,5 @@ LOCAL_SHARED_LIBRARIES += \
 
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS += -DBUILD_IN_ANDROID -Werror -Wno-deprecated-declarations -Wno-deprecated-register \
-                -Wno-unused-parameter -Wall -Wno-sign-compare
+                -Wno-unused-parameter -Wall
 include $(BUILD_SHARED_LIBRARY)

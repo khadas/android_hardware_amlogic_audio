@@ -1,0 +1,35 @@
+cc_library_shared {
+
+    name: "libamlspeed",
+
+    proprietary: true,
+
+    srcs: [
+        "aml_audio_speed_manager.c",
+        "audio_sonic_speed_api.c",
+        "sonic_speed_wrapper.c",
+    ],
+
+    export_include_dirs: ["include"],
+
+    header_libs: [
+        "libaudio_system_headers",
+    ],
+
+    arch: {
+        x86: {
+            enabled: false,
+        },
+        x86_64: {
+            enabled: false,
+        },
+    },
+
+    shared_libs: [
+        "libcutils",
+        "liblog",
+        "libutils",
+        "libamaudioutils",
+        "libsonic_ext",
+    ],
+}

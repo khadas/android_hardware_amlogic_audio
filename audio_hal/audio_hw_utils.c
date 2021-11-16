@@ -57,12 +57,6 @@
 #define LOGFUNC(...) (ALOGD(__VA_ARGS__))
 #endif
 
-#ifndef FALLTHROUGH_INTENDED
-#define FALLTHROUGH_INTENDED \
-    do {                     \
-    } while (0)
-#endif
-
 //DRC Mode
 #define DDPI_UDC_COMP_LINE 2
 #define DRC_MODE_BIT  0
@@ -817,11 +811,6 @@ int aml_audio_get_ddp_frame_size()
     return frame_size;
 }
 
-bool is_stream_using_mixer(struct aml_stream_out *out)
-{
-    return is_inport_valid(out->inputPortID);
-}
-
 uint32_t out_get_outport_latency(const struct audio_stream_out *stream)
 {
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
@@ -834,7 +823,7 @@ uint32_t out_get_outport_latency(const struct audio_stream_out *stream)
         return a2dp_out_get_latency(adev);
     }
 
-    if (is_stream_using_mixer(out)) {
+    if (out->inputPortID >=0 && out->inputPortID < NR_INPORTS) {
         int outport_latency_frames = mixer_get_outport_latency_frames(audio_mixer);
 
         if (outport_latency_frames <= 0)
@@ -891,10 +880,6 @@ uint32_t out_get_alsa_latency_frames(const struct audio_stream_out *stream)
     snd_pcm_sframes_t frames = 0;
     uint32_t whole_latency_frames;
     int ret = 0;
-    int mul = 1;
-
-    if (is_4x_rate_fmt(afmt))
-        mul = 4;
 
     if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
         return a2dp_out_get_latency(adev) * out->hal_rate / 1000;
@@ -902,13 +887,13 @@ uint32_t out_get_alsa_latency_frames(const struct audio_stream_out *stream)
 
     whole_latency_frames = out->config.period_size * out->config.period_count / 2;
     if (!out->pcm || !pcm_is_ready(out->pcm)) {
-        return whole_latency_frames / mul;
+        return whole_latency_frames ;
     }
     ret = pcm_ioctl(out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
     if (ret < 0) {
-        return whole_latency_frames / mul;
+        return whole_latency_frames;
     }
-    return frames / mul;
+    return frames;
 }
 
 
@@ -1113,8 +1098,7 @@ int aml_audio_get_speaker_latency_offset(int aformat ,int ms12_enable)
            latency_ms = 0;
     } else {
         prop_name = "vendor.media.audio.hal.speaker_latency.raw";
-        /*from 80->30 for tv speaker case*/
-        latency_ms = 30;
+        latency_ms = 80;
     }
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0)
@@ -1272,13 +1256,14 @@ bool aml_audio_data_detect(int16_t *buf, size_t bytes, int detect_value)
     int ret = false;
     uint64_t buf_value = 0;
     uint32_t i = 0;
+    int8_t *temp_buf = (int8_t *)buf;
 
-    while (i <= bytes/2) {
-        buf_value +=  abs(buf[i++]);
+    while (i < bytes) {
+        buf_value +=  abs(temp_buf[i++]);
     };
 
-    ALOGV("%s  i:%u  buf_value:%lld (%#llx),  sizeof(uint64_t):%u sizeof(size_t):%u", __func__,
-                i, buf_value, buf_value,  sizeof(uint64_t), sizeof(size_t));
+    ALOGV("%s bytes:%zu i:%u  buf_value:%llu (%#llx),  sizeof(uint64_t):%u sizeof(size_t):%u", __func__,
+                bytes, i, buf_value, buf_value,  sizeof(uint64_t), sizeof(size_t));
     if (buf_value <= detect_value) {
         ret = true;
     } else {
@@ -1462,6 +1447,7 @@ int halformat_convert_to_spdif(audio_format_t format, int ch_mask) {
         case AUDIO_FORMAT_DTS_HD:
             aml_spdif_format = AML_DTS_HD;
             break;
+        case AUDIO_FORMAT_DOLBY_TRUEHD:
         case AUDIO_FORMAT_MAT:
             aml_spdif_format = AML_TRUE_HD;
             break;
@@ -1559,7 +1545,8 @@ bool is_disable_ms12_continuous(struct audio_stream_out *stream) {
     struct aml_audio_device *adev = aml_out->dev;
 
     if ((aml_out->hal_internal_format == AUDIO_FORMAT_DTS)
-        || (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
+        || (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD)
+        || (aml_out->hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD)) {
         /*dts case, we need disable ms12 continuous mode*/
         return true;
     } else if (is_high_rate_pcm(stream) || is_multi_channel_pcm(stream)) {
@@ -1653,6 +1640,9 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
     case AUDIO_DEVICE_IN_WIRED_HEADSET:
         *hal_dev_port = INPORT_WIRED_HEADSETIN;
         break;
+    case AUDIO_DEVICE_IN_BUS:
+        *hal_dev_port = INPORT_LOOPBACK;
+        break;
 
     case AUDIO_DEVICE_IN_BUILTIN_MIC:/* fallthrough */
     case AUDIO_DEVICE_IN_BACK_MIC:
@@ -1661,17 +1651,12 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
     case AUDIO_DEVICE_IN_ECHO_REFERENCE:
         *hal_dev_port = INPORT_ECHO_REFERENCE;
         break;
-/*
     case AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
         *hal_dev_port = INPORT_BT_SCO_HEADSET_MIC;
         break;
     case AUDIO_DEVICE_IN_USB_DEVICE:
         *hal_dev_port = INPORT_USB;
         break;
-    case AUDIO_DEVICE_IN_BUS:
-        *hal_dev_port = INPORT_LOOPBACK;
-        break;
-*/
     default:
         if (AUDIO_DEVICE_BIT_IN & android_dev) {
             *hal_dev_port = INPORT_HDMIIN;
@@ -1685,6 +1670,7 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
     return 0;
 }
 
+#if ANDROID_PLATFORM_SDK_VERSION > 29
 int android_fmt_convert_to_dmx_fmt(audio_format_t andorid_fmt) {
 
     if (andorid_fmt <= AUDIO_FORMAT_DEFAULT ||
@@ -1709,6 +1695,7 @@ int android_fmt_convert_to_dmx_fmt(audio_format_t andorid_fmt) {
             return ACODEC_FMT_MPEG;
     }
 }
+#endif
 
 enum patch_src_assortion android_input_dev_convert_to_hal_patch_src(audio_devices_t android_dev)
 {
@@ -1742,7 +1729,6 @@ enum patch_src_assortion android_input_dev_convert_to_hal_patch_src(audio_device
     case AUDIO_DEVICE_IN_ECHO_REFERENCE:
         patch_src = SRC_ECHO_REFERENCE;
         break;
-/*
     case AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
         patch_src = SRC_BT_SCO_HEADSET_MIC;
         break;
@@ -1752,7 +1738,7 @@ enum patch_src_assortion android_input_dev_convert_to_hal_patch_src(audio_device
     case AUDIO_DEVICE_IN_BUS:
         patch_src = SRC_LOOPBACK;
         break;
-*/
+
     default:
         ALOGW("[%s:%d] unsupport input dev:%#x, return SRC_INVAL.", __func__, __LINE__, android_dev);
     }
@@ -1804,8 +1790,11 @@ const char* patchSrc2Str(enum patch_src_assortion type)
     ENUM_TYPE_TO_STR(SRC_REMOTE_SUBMIXIN)
     ENUM_TYPE_TO_STR(SRC_WIRED_HEADSETIN)
     ENUM_TYPE_TO_STR(SRC_BUILTIN_MIC)
+    ENUM_TYPE_TO_STR(SRC_BT_SCO_HEADSET_MIC)
     ENUM_TYPE_TO_STR(SRC_ECHO_REFERENCE)
     ENUM_TYPE_TO_STR(SRC_ARCIN)
+    ENUM_TYPE_TO_STR(SRC_USB)
+    ENUM_TYPE_TO_STR(SRC_LOOPBACK)
     ENUM_TYPE_TO_STR(SRC_OTHER)
     ENUM_TYPE_TO_STR(SRC_INVAL)
     ENUM_TYPE_TO_STR_END
@@ -1853,8 +1842,11 @@ const char* inputPort2Str(enum IN_PORT type)
     ENUM_TYPE_TO_STR(INPORT_REMOTE_SUBMIXIN)
     ENUM_TYPE_TO_STR(INPORT_WIRED_HEADSETIN)
     ENUM_TYPE_TO_STR(INPORT_BUILTIN_MIC)
+    ENUM_TYPE_TO_STR(INPORT_BT_SCO_HEADSET_MIC)
     ENUM_TYPE_TO_STR(INPORT_ECHO_REFERENCE)
     ENUM_TYPE_TO_STR(INPORT_ARCIN)
+    ENUM_TYPE_TO_STR(INPORT_USB)
+    ENUM_TYPE_TO_STR(INPORT_LOOPBACK)
     ENUM_TYPE_TO_STR(INPORT_MAX)
     ENUM_TYPE_TO_STR_END
 }
@@ -1869,6 +1861,16 @@ const char* mixerInputType2Str(aml_mixer_input_port_type_e type)
     ENUM_TYPE_TO_STR(AML_MIXER_INPUT_PORT_BUTT)
     ENUM_TYPE_TO_STR_END
 }
+
+const char* mixerOutputType2Str(MIXER_OUTPUT_PORT type)
+{
+    ENUM_TYPE_TO_STR_START("MIXER_OUTPUT_PORT_");
+    ENUM_TYPE_TO_STR(MIXER_OUTPUT_PORT_INVAL)
+    ENUM_TYPE_TO_STR(MIXER_OUTPUT_PORT_STEREO_PCM)
+    ENUM_TYPE_TO_STR(MIXER_OUTPUT_PORT_MULTI_PCM)
+    ENUM_TYPE_TO_STR_END
+}
+
 const char* mediasyncAudiopolicyType2Str(audio_policy type)
 {
     ENUM_TYPE_TO_STR_START("MEDIASYNC_AUDIO_");
@@ -1910,6 +1912,7 @@ const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type)
     ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_SET_AD_MIX_LEVEL)
     ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_SET_AD_VOL_LEVEL)
     ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_SET_MEDIA_SYNC_ID)
+    ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_SET_MEDIA_PRESENTATION_ID)
     ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_NUM)
     ENUM_TYPE_TO_STR_END
 }
@@ -1932,6 +1935,36 @@ const char* hdmiFormat2Str(AML_HDMI_FORMAT_E type)
     ENUM_TYPE_TO_STR(AML_HDMI_FORMAT_DST)
     ENUM_TYPE_TO_STR(AML_HDMI_FORMAT_WMAPRO)
     ENUM_TYPE_TO_STR_END
+}
+
+const char* audioPortRole2Str(audio_port_role_t type)
+{
+    ENUM_TYPE_TO_STR_START("AUDIO_PORT_ROLE_");
+    ENUM_TYPE_TO_STR(AUDIO_PORT_ROLE_NONE)
+    ENUM_TYPE_TO_STR(AUDIO_PORT_ROLE_SOURCE)
+    ENUM_TYPE_TO_STR(AUDIO_PORT_ROLE_SINK)
+    ENUM_TYPE_TO_STR_END
+}
+
+const char* audioPortType2Str(audio_port_type_t type)
+{
+    ENUM_TYPE_TO_STR_START("AUDIO_PORT_TYPE_");
+    ENUM_TYPE_TO_STR(AUDIO_PORT_TYPE_NONE)
+    ENUM_TYPE_TO_STR(AUDIO_PORT_TYPE_DEVICE)
+    ENUM_TYPE_TO_STR(AUDIO_PORT_TYPE_MIX)
+    ENUM_TYPE_TO_STR(AUDIO_PORT_TYPE_SESSION)
+    ENUM_TYPE_TO_STR_END
+}
+
+/* Returns the position of each bit, counting from right to left.
+ * Can be called repeatedly to iterate over.
+ */
+uint8_t get_bit_position_in_mask(uint8_t max_position, uint32_t *p_mask)
+{
+    uint32_t right_zeros = __builtin_ctz(*p_mask);
+    R_CHECK_PARAM_LEGAL(0, right_zeros, 0, max_position, "max_position:%d, mask:%#x", max_position, *p_mask);
+    *p_mask &= ~(1 << right_zeros);
+    return right_zeros;
 }
 
 int convert_audio_format_2_period_mul(audio_format_t format)

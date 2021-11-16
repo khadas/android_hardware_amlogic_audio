@@ -90,6 +90,8 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
     unsigned long long all_zero_len = 0;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     audio_format_t output_format = get_output_format (stream);
+    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->tv_src_stream;
+
     if (adev->debug_flag) {
         ALOGD("%s:%d hal_format:%#x, output_format:0x%x, sink_format:0x%x",
             __func__, __LINE__, aml_out->hal_format, output_format, adev->sink_format);
@@ -151,6 +153,9 @@ re_write:
             ALOGI("%s dolby_ms12_main_process before write_bytes %zu!\n", __func__, write_bytes);
         }
 
+        if (dtv_stream_flag && patch->output_thread_exit) {
+            return return_bytes;
+        }
         used_size = 0;
         ret = dolby_ms12_main_process(stream, (char*)write_buf + total_write, write_bytes, &used_size);
         if (ret == 0) {
@@ -187,11 +192,25 @@ re_write:
 
     int size = dolby_ms12_get_main_buffer_avail(NULL);
     dolby_ms12_get_pcm_output_size(&all_pcm_len2, &all_zero_len);
-    if (patch && patch->skip_amadec_flag)
-        patch->decoder_offset += remain_size + write_bytes - size;
+    /*
+     *if main&associate dolby input, decoder_offset should only add main data size.
+     *if main dolby input, decoder_offset should add main data size.
+     */
+    if (patch && patch->cur_package && patch->skip_amadec_flag)
+        patch->decoder_offset += patch->cur_package->size;
 
     return return_bytes;
 
+}
+
+static void aml_audio_ms12_init_pts_param(struct dolby_ms12_desc *ms12, uint64_t first_pts)
+{
+    if (ms12) {
+        ms12->first_in_frame_pts = first_pts;
+        ms12->last_synced_frame_pts = -1;
+        ms12->out_synced_frame_count = 0;
+    }
+    ALOGI("first_in_frame_pts  %llu ms" , ms12->first_in_frame_pts / 90);
 }
 int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, size_t bytes)
 {
@@ -208,31 +227,38 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     int out_frames = 0;
     int ms12_delayms = 0;
     bool bypass_aml_dec = false;
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
-    if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)) {
+    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->tv_src_stream;
+    bool dtv_stream_flag = patch && (adev->patch_src == SRC_DTV) && aml_out->tv_src_stream;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+
+    if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)
+        || is_multi_channel_pcm(stream)) {
         bypass_aml_dec = true;
     }
 
     if (bypass_aml_dec) {
         if (do_sync_flag) {
-            if(patch->skip_amadec_flag) {
-                if (patch->cur_package->pts == 0) {
-                    patch->cur_package->pts = decoder_apts_lookup(patch->decoder_offset);
+            if (patch->skip_amadec_flag) {
+                if (patch->cur_package) {
+                    if (patch->cur_package->pts == 0) {
+                        patch->cur_package->pts = decoder_apts_lookup(patch->decoder_offset);
+                    }
                 }
             }
         }
 
-
-        ret = aml_audio_ms12_process_wrapper(stream, buffer, bytes);
-        if (do_sync_flag) {
-            int alsa_latency = aml_alsa_output_get_latency(stream);
-            int offset_latency = aml_dtvsync_get_offset_latencyms(stream, true);
-            ms12_delayms = aml_audio_get_cur_ms12_latency(stream);
-            if(patch->skip_amadec_flag && aml_out->dtvsync_enable) {
-                patch->dtvsync->cur_outapts = patch->cur_package->pts - (ms12_delayms + alsa_latency + offset_latency) * 90;
-                aml_dtvsync_ms12_get_policy(stream);
+        /* audio data/apts, we send the APTS at first*/
+        if (ms12 && patch && patch->cur_package) {
+            ALOGV("%s dolby pts %llu decoder_offset %u", __func__, patch->cur_package->pts, patch->decoder_offset);
+            set_ms12_main_audio_pts(ms12, patch->cur_package->pts, patch->decoder_offset);
+            /* to init the pts information */
+            if (patch->decoder_offset == 0) {
+                aml_audio_ms12_init_pts_param(ms12, patch->cur_package->pts);
             }
         }
+
+        /* audio data/apts, then we send the audio data*/
+        ret = aml_audio_ms12_process_wrapper(stream, buffer, bytes);
     } else {
         if (aml_out->aml_dec == NULL) {
             config_output(stream, true);
@@ -268,7 +294,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                 // write pcm data
                 if (dec_pcm_data->data_len > 0) {
                     void  *dec_data = (void *)dec_pcm_data->buf;
-                    if (adev->patch_src  == SRC_DTV && adev->start_mute_flag == 1) {
+                    if (dtv_stream_flag && adev->start_mute_flag == 1) {
                         memset(dec_pcm_data->buf, 0, dec_pcm_data->data_len);
                     }
                     if (dec_pcm_data->data_sr > 0) {
@@ -287,17 +313,25 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                          }
                     }
                     out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
-                    if (patch && (adev->patch_src  == SRC_DTV))
+                    if (dtv_stream_flag)
                         patch->dtv_pcm_writed += dec_pcm_data->data_len;
                     aml_dec->out_frame_pts = aml_dec->in_frame_pts + (90 * out_frames /(dec_pcm_data->data_sr / 1000));
                     //aml_audio_dump_audio_bitstreams("/data/mixing_data.raw", dec_data, dec_pcm_data->data_len);
+                    /* audio data/apts, we send the APTS at first*/
+                    if (ms12 && aml_dec) {
+                        /*Fixme, how to get the right apts(long long unsigned int) and bytes_offset*/
+                        //ALOGV("%s non-dolby pts %llu decoder_offset %llu", __func__, ms12->ms12_main_input_size/4/48, ms12->ms12_main_input_size);
+                        //set_ms12_main_audio_pts(ms12, ms12->ms12_main_input_size * 90000 / 192 /* bytes_per_sample(4) plus sr(48 kHz)*/, ms12->ms12_main_input_size);
+                    }
+                    /* audio data/apts, then we send the audio data*/
                     ret = aml_audio_ms12_process_wrapper(stream, dec_data, dec_pcm_data->data_len);
                     if (do_sync_flag) {
-                        int alsa_latency = aml_alsa_output_get_latency(stream);
-                        int offset_latency = aml_dtvsync_get_offset_latencyms(stream, true);
+                        if (patch->output_thread_exit) {
+                            break;
+                        }
                         ms12_delayms = aml_audio_get_cur_ms12_latency(stream);
                         if(patch->skip_amadec_flag) {
-                            patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - (ms12_delayms + alsa_latency + offset_latency) * 90;
+                            patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90;//need consider the alsa delay
                             if (adev->debug_flag)
                                 ALOGI("patch->dtvsync->cur_outapts %lld", patch->dtvsync->cur_outapts);
                             if (aml_out->dtvsync_enable)

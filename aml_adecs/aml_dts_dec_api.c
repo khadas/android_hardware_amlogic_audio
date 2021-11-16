@@ -39,7 +39,7 @@
 
 
 
-#define DOLBY_DTSHD_LIB_PATH     "/vendor/lib/libHwAudio_dtshd.so"
+#define DOLBY_DTSHD_LIB_PATH     "/odm/lib/libHwAudio_dtshd.so"
 
 #define MAX_DCA_FRAME_LENGTH 32768
 #define READ_PERIOD_LENGTH 2048 * 4
@@ -129,7 +129,7 @@ static void endian16_convert(void *buf, int size)
     for (i = 0; i < size / 2; i++, p++) {
       *p = ((*p & 0xff) << 8) | ((*p) >> 8);
     }
- }
+}
 
 static int _dts_syncword_scan(unsigned char *read_pointer, unsigned int *pTemp0)
 {

@@ -23,6 +23,7 @@
 #include <sys/prctl.h>
 #include <cutils/log.h>
 
+#include "aml_audio_spdifdec.h"
 #include "aml_audio_stream.h"
 #include "audio_format_parse.h"
 #include "aml_dump_debug.h"
@@ -708,7 +709,7 @@ static void* audio_type_parse_threadloop(void *data)
                 usleep(10 * 1000);
             }
         } else {
-            if (auge_chip) {
+            if (auge_chip || txlx_chip) {
                 // get audio format from hw.
                 if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
                     audio_type_status->cur_audio_type = hdmiin_audio_format_detection(audio_type_status->mixer_handle);
@@ -835,7 +836,6 @@ audio_format_t audio_type_convert_to_android_audio_format_t(int codec_type)
         AM_LOGW("invalid codec_type:%d, return PCM.", codec_type);
         return AUDIO_FORMAT_PCM_16_BIT;
     }
-
 }
 
 /*

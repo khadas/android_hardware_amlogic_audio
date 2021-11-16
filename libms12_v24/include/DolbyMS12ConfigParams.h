@@ -128,37 +128,37 @@ public:
     //associate flags
     virtual void setAssociateFlag(bool flag)
     {
-        ALOGI("%s() Associate flag %d\n", __FUNCTION__, flag);
+        ALOGV("%s() Associate flag %d\n", __FUNCTION__, flag);
         mHasAssociateInput = flag;
     }
     virtual int getAssociateFlag(void)
     {
-        ALOGI("%s() mHasAssociateInput %d\n", __FUNCTION__, mHasAssociateInput);
+        ALOGV("%s() mHasAssociateInput %d\n", __FUNCTION__, mHasAssociateInput);
         return mHasAssociateInput;
     }
     //system flags
     virtual void setSystemFlag(bool flag)
     {
-        ALOGI("%s() System flag %d\n", __FUNCTION__, flag);
+        ALOGV("%s() System flag %d\n", __FUNCTION__, flag);
         mHasSystemInput = flag;
         mSystemSoundFlags = flag;
     }
     virtual int getSystemFlag(void)
     {
-        ALOGI("%s() mHasSystemInput %d\n", __FUNCTION__, mHasSystemInput);
+        ALOGV("%s() mHasSystemInput %d\n", __FUNCTION__, mHasSystemInput);
         return mHasSystemInput;
     }
 
     //app flags
     virtual void setAppFlag(bool flag)
     {
-        ALOGI("%s() App flag %d\n", __FUNCTION__, flag);
+        ALOGV("%s() App flag %d\n", __FUNCTION__, flag);
         mHasAppInput = flag;
         mAppSoundFlags = flag;
     }
     virtual int getAppFlag(void)
     {
-        ALOGI("%s() mHasAppInput %d\n", __FUNCTION__, mHasAppInput);
+        ALOGV("%s() mHasAppInput %d\n", __FUNCTION__, mHasAppInput);
         return mHasAppInput;
     }
 
@@ -219,10 +219,6 @@ public:
     virtual void setEvalutionMode(int val)
     {
         mEvaluationMode = val;    // 0 or 1
-    }
-    virtual void setLFEpresetInSystemSoundsIn(int val)
-    {
-        mLFEPresentInSystemSoundIn = val;    // 0 or 1
     }
     virtual void setDownmix71PCMto51OnMultiOutputs(int val)
     {
@@ -609,7 +605,6 @@ private:
     int mDAPDRCMode;//for multi-ch and dap output[default is 0]
     int mDownmixMode;//Lt/Rt[val=0, default] or Lo/Ro
     int mEvaluationMode;//default is 0
-    int mLFEPresentInSystemSoundIn;//default is 0[means off]
     int mDonwnmix71PCMto51;//default 0[means off]
     int mLockingChannelModeENC;//0 default, auto; 1 locked as 5.1 channel mode.
     int mRISCPrecisionFlag;//0 less&16bits for 16x32;1 high&32bits for 16x32
