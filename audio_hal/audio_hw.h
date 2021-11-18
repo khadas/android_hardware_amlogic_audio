@@ -559,6 +559,9 @@ struct aml_audio_device {
     struct volume_ease volume_ease;
     float last_sink_gain;
     struct usb_audio_device usb_audio;
+    /* mute flag after insert policy */
+    bool insert_mute_flag;
+    struct timespec mute_start_ts;
     /* -End- */
 };
 

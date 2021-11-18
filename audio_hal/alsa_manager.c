@@ -521,8 +521,9 @@ write:
             }
         }
 
+        /* add mute after insert policy */
         if (adev->patch_src == SRC_DTV && (adev->discontinue_mute_flag ||
-            adev->underrun_mute_flag)) {
+            adev->underrun_mute_flag || adev->insert_mute_flag)) {
             memset(buffer, 0x0, bytes);
         }
 

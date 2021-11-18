@@ -416,7 +416,8 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
             if ((aml_dev->patch_src == SRC_DTV) &&
                 (aml_dev->discontinue_mute_flag ||
                 aml_dev->start_mute_flag ||
-                aml_dev->tv_mute)) {
+                aml_dev->tv_mute ||
+                aml_dev->insert_mute_flag)) {
                 b_mute = true;
             }
         }

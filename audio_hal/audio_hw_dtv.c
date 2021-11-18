@@ -3309,6 +3309,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 sysfs_set_sysfs_str(VIDEO_SHOW_FIRST_FRAME, "1");
                 ALOGI("show_first_frame_nosync set 1\n");
             }
+            aml_dev->insert_mute_flag = false;
         }
         break;
         case AUDIO_DTV_PATCH_DECODER_STATE_START:
@@ -3808,6 +3809,7 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
     if (aml_dev->start_mute_flag != 0)
         aml_dev->start_mute_flag = 0;
     aml_dev->underrun_mute_flag = 0;
+    aml_dev->insert_mute_flag = false;
     aml_dev->audio_patch = NULL;
     ALOGI("[audiohal_kpi]--%s Exit", __FUNCTION__);
 

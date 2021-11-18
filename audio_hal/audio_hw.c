@@ -9379,6 +9379,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 
     /* get default edid of hdmirx */
     get_current_edid(adev, adev->default_EDID_array, EDID_ARRAY_MAX_LEN);
+    adev->insert_mute_flag = false;
 
     ALOGD("%s: exit", __func__);
     return 0;

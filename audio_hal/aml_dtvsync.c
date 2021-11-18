@@ -35,9 +35,11 @@
 #include "audio_hw_utils.h"
 #include "aml_audio_spdifout.h"
 #include "audio_hw_ms12_v2.h"
+#include "aml_audio_stream.h"
 #define DD_MUTE_FRAME_SIZE 1536
 #define EAC3_IEC61937_FRAME_SIZE 24576
 #define MS12_MAT_RAW_LENGTH                 (0x0f7e)
+#define MS12_MUTE_TIME_AFTER_INSERT  80
 
 extern int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *write_buf, size_t write_bytes);
 
@@ -720,6 +722,16 @@ dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_de
 
             aml_dtvsync_ms12_process_insert(priv_data, async_policy->param1/1000, ms12_info);
 
+            /* stream beginning with silence frame, discontinue case,
+             * after discontinue end, first audio policy is insert,
+             * not silence frame from decoder, need mute.
+             * */
+            if (async_policy->param2 == 0) {
+                ALOGI("discontinue audio insert");
+                adev->insert_mute_flag = true;
+                clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
+            }
+
         } else if (async_policy->audiopolicy == MEDIASYNC_AUDIO_ADJUST_CLOCK) {
 
             aml_dtvsync_ms12_adjust_clock(stream_out, async_policy->param1);
@@ -735,6 +747,15 @@ dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_de
 
         } else if (async_policy->audiopolicy == MEDIASYNC_AUDIO_NORMAL_OUTPUT) {
             adev->underrun_mute_flag = false;
+        }
+
+        /* stream beginning with silence frame, discontinue case,
+         * after discontinue end, first audio policy is insert,
+         * not silence frame from decoder, need mute.
+         * */
+        int duration_mute = property_get_int32("vendor.media.audio.hal.ms12.dtv.insert_mute", MS12_MUTE_TIME_AFTER_INSERT);
+        if (adev->insert_mute_flag && !Stop_watch(adev->mute_start_ts, duration_mute)) {
+            adev->insert_mute_flag = false;
         }
     }
 
