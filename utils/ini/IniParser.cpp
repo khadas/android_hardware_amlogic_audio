@@ -260,8 +260,10 @@ INI_LINE* IniParser::newLine(const char* name, const char* value) {
     pLine = new INI_LINE();
     if (pLine != NULL) {
         pLine->pNext = NULL;
-        strcpy(pLine->Name, name);
-        strcpy(pLine->Value, value);
+        strncpy(pLine->Name, name, sizeof(pLine->Name) - 1);
+        pLine->Name[sizeof(pLine->Name) - 1] = '\0';
+        strncpy(pLine->Value, value, sizeof(pLine->Value) - 1);
+        pLine->Value[sizeof(pLine->Value) - 1] = '\0';
 
 #if CC_MEMORY_NEW_DEL_TRACE == 1
         new_mem(__FUNCTION__, "pLine", pLine);
@@ -278,7 +280,8 @@ INI_SECTION* IniParser::newSection(const char* section, INI_LINE* pLine) {
     if (pSec != NULL) {
         pSec->pLine = pLine;
         pSec->pNext = NULL;
-        strcpy(pSec->Name, section);
+        strncpy(pSec->Name, section, sizeof(pSec->Name) - 1);
+        pSec->Name[sizeof(pSec->Name) - 1] = '\0';
 
 #if CC_MEMORY_NEW_DEL_TRACE == 1
         new_mem(__FUNCTION__, "pSec", pSec);
@@ -331,9 +334,11 @@ int IniParser::setKeyValue(void* user, const char* section, const char* key, con
                 pSec->pCurLine = pLine;
             } else {
                 if (set_mode == 1) {
-                    strcpy(pLine->Value, value);
+                    strncpy(pLine->Value, value, sizeof(pLine->Value) - 1);
+                    pLine->Value[sizeof(pLine->Value) - 1] = '\0';
                 } else {
-                    strcat(pLine->Value, value);
+                    strncat(pLine->Value, value, sizeof(value));
+                    pLine->Value[sizeof(pLine->Value) - 1] = '\0';
                 }
             }
         }

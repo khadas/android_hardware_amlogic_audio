@@ -254,7 +254,7 @@ void alsa_device_parser_pcm_string(struct alsa_info *p_info, char *InputBuffer)
 			memcpy(mStreamName, Rch, 256);
 			PortName = strstr(mStreamName, "alsaPORT-");
 			if (PortName) {
-				memcpy(mAudioDeviceDescriptor->name, PortName, strlen(PortName));
+				memcpy(mAudioDeviceDescriptor->name, PortName, sizeof(mAudioDeviceDescriptor->name));
 
 				if (!strncmp(PortName, ALSAPORT_PCM, strlen(ALSAPORT_PCM)) &&
 					p_info->pcm_descrpt == NULL) {
@@ -300,6 +300,7 @@ void alsa_device_parser_pcm_string(struct alsa_info *p_info, char *InputBuffer)
 				} else {
 					ALOGD("%s(), port:%s, not used for any desc", __func__, PortName);
 					free(mAudioDeviceDescriptor);
+					mAudioDeviceDescriptor = NULL;
 				}
 
 				if (strstr(PortName, ALSAPORT_BUILTINMIC) != NULL)

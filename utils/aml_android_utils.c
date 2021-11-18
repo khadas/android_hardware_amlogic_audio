@@ -95,10 +95,10 @@ int aml_sysfs_get_int16(const char *path,unsigned *value)
 
 	fd = open(path, O_RDONLY);
 	if (fd >= 0) {
-		memset(valstr, 0, 64);
-		read(fd, valstr, 64 - 1);
-		valstr[strlen(valstr)] = '\0';
-		close(fd);
+	    memset(valstr, 0, 64);
+	    valstr[sizeof(valstr) - 1] = '\0';
+	    read(fd, valstr, 64 - 1);
+	    close(fd);
 	} else {
 		ALOGE("%s: unable to open file %s, err: %s\n", __func__, path, strerror(errno));
 		return -1;

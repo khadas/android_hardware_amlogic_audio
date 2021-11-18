@@ -203,8 +203,8 @@ int aml_hwsync_get_tsync_pts_by_handle(int fd, uint64_t *pts)
     if (fd >= 0) {
         memset(valstr, 0, 64);
         lseek(fd, 0, SEEK_SET);
+        valstr[sizeof(valstr) - 1] = '\0';
         read(fd, valstr, 64 - 1);
-        valstr[strlen(valstr)] = '\0';
     } else {
         ALOGE("invalid fd\n");
         return -EINVAL;
@@ -238,8 +238,8 @@ static int aml_audio_hwsync_get_pcr(audio_hwsync_t *p_hwsync, uint64_t *value)
     if (fd >= 0) {
         memset(valstr, 0, 64);
         offset = lseek(fd, 0, SEEK_SET);
+        valstr[sizeof(valstr) - 1] = '\0';
         read(fd, valstr, 64 - 1);
-        valstr[strlen(valstr)] = '\0';
     } else {
         ALOGE("%s unable to open file %s\n", __func__, TSYNC_PCRSCR);
         return -1;
@@ -338,7 +338,7 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                 if (!hwsync_header_valid(&p_hwsync->hw_sync_header[0])) {
                     //ALOGE("!!!!!!hwsync header out of sync! Resync.should not happen????");
                     p_hwsync->hw_sync_state = HW_SYNC_STATE_HEADER;
-                    memcpy(p_hwsync->hw_sync_header, p_hwsync->hw_sync_header + 1, HW_SYNC_VERSION_SIZE - 1);
+                    memmove(p_hwsync->hw_sync_header, p_hwsync->hw_sync_header + 1, HW_SYNC_VERSION_SIZE - 1);
                     p_hwsync->hw_sync_header_cnt--;
                     continue;
                 }

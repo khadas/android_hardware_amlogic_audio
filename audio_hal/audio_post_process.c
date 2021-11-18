@@ -161,12 +161,10 @@ void VirtualX_Channel_reconfig(struct aml_native_postprocess *native_postprocess
 bool Check_VX_lib(void)
 {
     void *h_libvx_hanle = NULL;
-
-    if (access(VIRTUALX_LICENSE_LIB_PATH, R_OK) != 0) {
-        ALOGI("%s, %s does not exist", __func__, VIRTUALX_LICENSE_LIB_PATH);
-        return false;
+    int fd = open(VIRTUALX_LICENSE_LIB_PATH, O_CREAT | O_EXCL | O_WRONLY,  S_IRUSR | S_IWUSR);
+    if (-1 != fd) {
+        h_libvx_hanle = dlopen(VIRTUALX_LICENSE_LIB_PATH, RTLD_NOW);
     }
-    h_libvx_hanle = dlopen(VIRTUALX_LICENSE_LIB_PATH, RTLD_NOW);
     if (!h_libvx_hanle) {
         ALOGE("%s, fail to dlopen %s(%s)", __func__, VIRTUALX_LICENSE_LIB_PATH, dlerror());
         return false;

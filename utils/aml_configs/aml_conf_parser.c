@@ -213,7 +213,8 @@ int parser_load_from_file(struct parser *pParser, const char *filename)
         ALOGE("[%s:%d]\n", __func__, __LINE__);
         return -1;
     }
-    strcpy(pParser->mpFileName, filename);
+    strncpy(pParser->mpFileName, filename, sizeof(pParser->mpFileName) - 1);
+    pParser->mpFileName[sizeof(pParser->mpFileName) - 1] = '\0';
     pParser->m_pIniFile = fopen(pParser->mpFileName, "r");
     if (pParser->m_pIniFile == NULL) {
         // open default config file

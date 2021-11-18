@@ -1958,7 +1958,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
     ring_buffer_t *ringbuffer = &(patch->aml_ringbuffer);
     struct audio_stream_out *stream_out = NULL;
     struct aml_stream_out *aml_out = NULL;
-    struct audio_config stream_config;
+    struct audio_config stream_config = AUDIO_CONFIG_INITIALIZER;
     int write_bytes = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
     int ret;
     int apts_diff = 0;
@@ -2698,7 +2698,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
         if (!aml_dev->is_multi_demux) {
             pthread_mutex_lock(&patch->mutex);
             if (dtv_pacakge == NULL) {
-                dtv_pacakge = aml_audio_malloc(sizeof(struct package));
+                dtv_pacakge = aml_audio_calloc(1, sizeof(struct package));
                 if (!dtv_pacakge) {
                     ALOGI("dtv_pacakge malloc failed ");
                     pthread_mutex_unlock(&patch->mutex);
@@ -3104,7 +3104,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
     package_list *list = patch->dtv_package_list;
     struct audio_stream_out *stream_out = NULL;
     struct aml_stream_out *aml_out = NULL;
-    struct audio_config stream_config;
+    struct audio_config stream_config = AUDIO_CONFIG_INITIALIZER;
     int write_bytes = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
     int ret;
     float last_out_speed = 1.0f;

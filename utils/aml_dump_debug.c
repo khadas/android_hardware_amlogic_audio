@@ -74,7 +74,8 @@ void DoDumpData(const void *data_buf, int size, int aud_src_type) {
     }
 
     if (gDumpDataFd < 0 && file_path[0] != '\0') {
-        if (access(file_path, 0) == 0) {
+        int fd = open(file_path, O_CREAT | O_EXCL | O_WRONLY,  S_IRUSR | S_IWUSR);
+        if (-1 != fd) {
             gDumpDataFd = open(file_path, O_RDWR | O_SYNC);
             if (gDumpDataFd < 0) {
                 ALOGE("%s, Open device file \"%s\" error: %s.\n",

@@ -318,7 +318,7 @@ static int Get_Parameters(void *buf, int *sample_rate, int *frame_size, int *ChN
     if ((ptr8[0] == 0x0b) && (ptr8[1] == 0x77)) {
         int i;
         uint8_t tmp;
-        for (i = 0; i < PTR_HEAD_SIZE; i += 2) {
+        for (i = 0; i < PTR_HEAD_SIZE - 1; i += 2) {
             tmp = ptr8[i];
             ptr8[i] = ptr8[i + 1];
             ptr8[i + 1] = tmp;

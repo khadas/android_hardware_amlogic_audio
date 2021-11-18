@@ -889,6 +889,7 @@ status_t StreamInHalHidl::getActiveMicrophones(
         retval = r;
         for (size_t k = 0; k < micArrayHal.size(); k++) {
             audio_microphone_characteristic_t dst;
+            memset(&dst, 0, sizeof(dst));
             // convert
             microphoneInfoToHal(micArrayHal[k], &dst);
             media::MicrophoneInfo microphone = media::MicrophoneInfo(dst);

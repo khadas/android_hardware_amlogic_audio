@@ -131,7 +131,7 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
                               unsigned int lantcy)
 {
     unsigned long val;
-    unsigned long pts;
+    unsigned long pts = 0;
     unsigned long long frame_nums;
     unsigned long delay_pts;
     unsigned int checkin_firstapts;

@@ -463,6 +463,7 @@ AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperSetSubtitleParam(int sid,
 AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperSetVideoParam(int vid, AM_AV_VFormat_t vfmt) {
     ALOGI("AmDemuxWrapperSetVideoParam \n");
     struct dmx_pes_filter_params vparam;
+    memset(&vparam, 0, sizeof(vparam));
     int fid_video = 0;
     mDemuxPara.vid_id = vid;
     mDemuxPara.vid_fmt = vfmt;

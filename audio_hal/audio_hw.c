@@ -1748,7 +1748,7 @@ static int out_add_audio_effect(const struct audio_stream *stream, effect_handle
             (dev->native_postprocess.libvx_exist) ? "true" : "false");
         /* specify effect order for virtualx. VX does downmix from 5.1 to 2.0 */
         i = dev->native_postprocess.num_postprocessors;
-        if (dev->native_postprocess.num_postprocessors > 1) {
+        if (dev->native_postprocess.num_postprocessors > 1 && dev->native_postprocess.num_postprocessors < MAX_POSTPROCESSORS) {
             effect_handle_t tmp;
             tmp = dev->native_postprocess.postprocessors[i];
             dev->native_postprocess.postprocessors[i] = dev->native_postprocess.postprocessors[0];
@@ -4820,8 +4820,8 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
 
     if (stream == adev->usb_audio.stream) {
         struct stream_in *usb_in = (struct stream_in *)stream;
-        adev_close_usb_input_stream(stream);
         adev->in_device &= ~usb_in->device;
+        adev_close_usb_input_stream(stream);
         ALOGD("%s: adev->in_device = %x", __func__, adev->in_device);
         return;
     }
@@ -5956,7 +5956,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                 pcm_close(pcm);
                 adev->pcm_handle[DIGITAL_DEVICE] = NULL;
                 //aml_out->dual_output_flag = 0;
-                ALOGI("------%s close pcm handle %p", __func__, pcm);
+                //ALOGI("------%s close pcm handle %p", __func__, pcm);
                 aml_audio_set_spdif_format(PORT_SPDIF, AML_STEREO_PCM,aml_out);
             }
             if (adev->dual_spdifenc_inited) {
@@ -7797,7 +7797,7 @@ void *audio_patch_output_threadloop(void *data)
     ring_buffer_t *ringbuffer = & (patch->aml_ringbuffer);
     struct audio_stream_out *stream_out = NULL;
     struct aml_stream_out *aml_out = NULL,*out;
-    struct audio_config stream_config;
+    struct audio_config stream_config = AUDIO_CONFIG_INITIALIZER;
     struct timespec ts;
     int write_bytes = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
     int txlx_chip = check_chip_name("txlx", 4, &aml_dev->alsa_mixer);
@@ -8378,6 +8378,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                 ALOGE("[%s:%d] device->device patch: unsupport input dev:%#x.", __func__, __LINE__, src_config->ext.device.type);
                 ret = -EINVAL;
                 unregister_audio_patch(dev, patch_set);
+                patch_set = NULL;
             }
 
             aml_audio_input_routing(dev, inport);
@@ -8422,6 +8423,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                     ALOGE("[%s:%d] create patch failed, all out dev:%#x.", __func__, __LINE__, aml_dev->out_device);
                     ret = -EINVAL;
                     unregister_audio_patch(dev, patch_set);
+                    patch_set = NULL;
                 }
                 aml_dev->audio_patching = 1;
                 if (inport == INPORT_HDMIIN ||
@@ -8495,6 +8497,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                 ALOGE("[%s:%d] device->mix patch: unsupport input dev:%#x.", __func__, __LINE__, src_config->ext.device.type);
                 ret = -EINVAL;
                 unregister_audio_patch(dev, patch_set);
+                patch_set = NULL;
             }
             aml_audio_input_routing(dev, inport);
             input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
@@ -8547,6 +8550,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                     ALOGE("[%s:%d] create patch failed, all out dev:%#x.", __func__, __LINE__, aml_dev->out_device);
                     ret = -EINVAL;
                     unregister_audio_patch(dev, patch_set);
+                    patch_set = NULL;
                 }
                 aml_dev->audio_patching = 1;
                 if (inport == INPORT_HDMIIN ||

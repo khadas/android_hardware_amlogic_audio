@@ -275,15 +275,13 @@ bool AudioHotplugThread::getDeviceInfo(const unsigned int hidrawIndex,
     sprintf(devicePath, "/dev/hidraw%d", hidrawIndex);
 
     //check hidraw
-    if (0 != access(devicePath, F_OK)) {
-        //ALOGE("%s could not access %s, %s\n", __FUNCTION__, devicePath, strerror(errno));
-        goto done;
-    }
-
-    fd = open(devicePath, O_RDWR|O_NONBLOCK);
-    if (fd <= 0) {
-        //ALOGE("%s could not open %s, %s\n", __FUNCTION__, devicePath, strerror(errno));
-        goto done;
+    int fd_temp = open(devicePath, O_CREAT | O_EXCL | O_WRONLY,  S_IRUSR | S_IWUSR);
+    if (-1 != fd_temp) {
+        fd = open(devicePath, O_RDWR|O_NONBLOCK);
+        if (fd <= 0) {
+            //ALOGE("%s could not open %s, %s\n", __FUNCTION__, devicePath, strerror(errno));
+            goto done;
+        }
     }
     memset(&devInfo, 0, sizeof(struct hidraw_devinfo));
     if (ioctl(fd, HIDIOCGRAWINFO, &devInfo)) {

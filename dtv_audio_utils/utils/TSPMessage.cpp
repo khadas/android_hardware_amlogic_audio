@@ -461,7 +461,7 @@ sp<TSPMessage> TSPMessage::dup() const {
         switch (from->mType) {
             case kTypeString:
             {
-                to->u.stringValue = (char *)malloc(strlen(from->u.stringValue));
+                to->u.stringValue = (char *)malloc(strlen(from->u.stringValue) + 1);
 	            strncpy(to->u.stringValue, from->u.stringValue, strlen(from->u.stringValue));
                 break;
             }
@@ -690,7 +690,7 @@ dp_state TSPMessage::setEntryAt(size_t index, const ItemData &item) {
     } else if (item.find(&dst->u.rectValue)) {
         dst->mType = kTypeRect;
     } else if (item.find(&stringValue)) {
-        dst->u.stringValue = (char*) malloc(strlen(stringValue));
+        dst->u.stringValue = (char*) malloc(strlen(stringValue) + 1);
 		strncpy(dst->u.stringValue, stringValue, strlen(stringValue));
         dst->mType = kTypeString;
     } else if (item.find(&refValue)) {

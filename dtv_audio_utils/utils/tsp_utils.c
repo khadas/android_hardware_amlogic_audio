@@ -90,8 +90,10 @@ int is_ultra()
 {
     char buf[32];
     int ret = 0;
+    memset(buf, 0, sizeof(buf));
     if (!file_read("/sys/class/tee_info/os_version", buf, sizeof(buf)))
     {
+        buf[sizeof(buf) - 1] = '\0';
         if (strstr(buf, "2.4"))
         {
             DRMPTRACE("is ultra\n");

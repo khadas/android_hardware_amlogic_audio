@@ -281,7 +281,6 @@ int AudioStreamIn::openRemoteService()
     int ret = -1;
     int fd = m_fd;
     socklen_t alen;
-    size_t namelen;
     struct sockaddr_un addr;
 
     if (fd > 0) return fd;
@@ -290,17 +289,16 @@ int AudioStreamIn::openRemoteService()
 
     fd = socket(AF_LOCAL, SOCK_STREAM, 0);
 
-    namelen = strlen(kRemoteSocketPath);
-    if ((namelen + 1) > sizeof(addr.sun_path))
+    if ((strlen(kRemoteSocketPath) + 1) > sizeof(addr.sun_path))
         goto done;
 
     /*
     * Note: The path in this case is *not* supposed to be
     */
     addr.sun_path[0] = 0;
-    memcpy(addr.sun_path + 1, kRemoteSocketPath, namelen);
+    memcpy(addr.sun_path + 1, kRemoteSocketPath, strlen(kRemoteSocketPath));
     addr.sun_family = AF_LOCAL;
-    alen = namelen + offsetof(struct sockaddr_un, sun_path) + 1;
+    alen = strlen(kRemoteSocketPath) + offsetof(struct sockaddr_un, sun_path) + 1;
     ret = connect(fd, (struct sockaddr *)&addr, alen);
     if (ret < 0) {
         ALOGE("connect failed:%d", errno);

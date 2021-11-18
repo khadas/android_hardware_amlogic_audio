@@ -244,8 +244,8 @@ int get_sysfs_uint(const char *path, uint *value)
     fd = open(path, O_RDONLY);
     if (fd >= 0) {
         memset(valstr, 0, 64);
+        valstr[sizeof(valstr) - 1] = '\0';
         read(fd, valstr, 64 - 1);
-        valstr[strlen(valstr)] = '\0';
         close(fd);
     } else {
         ALOGE("unable to open file %s\n", path);
@@ -282,8 +282,8 @@ int sysfs_get_sysfs_str(const char *path, char *valstr, int size)
     fd = open(path, O_RDONLY);
     if (fd >= 0) {
         memset(valstr,0,size);
+        valstr[sizeof(valstr) - 1] = '\0';
         read(fd, valstr, size - 1);
-        valstr[strlen(valstr)] = '\0';
         close(fd);
     } else {
         ALOGE("unable to open file %s,err: %s", path, strerror(errno));
@@ -448,7 +448,7 @@ int check_chip_name(char *chip_name, unsigned int length,
             ALOGE("chip_id:%u out of array range\n", chip_id);
             return false;
         }
-        if (strncasecmp(aml_chip_name[chip_id], chip_name, length) == 0)
+        if (chip_id < sizeof(aml_chip_name) / sizeof(aml_chip_name[0]) && strncasecmp(aml_chip_name[chip_id], chip_name, length) == 0)
             return true;
         else
             return false;

@@ -247,7 +247,9 @@ Repop_Mesg:
             ALOGE("%s wrong message type =%d", __func__, mesg_p->mesg_type);
             mesg_p->mesg_type = MS12_MESG_TYPE_NONE;
         }
-        ALOGD("%s(), msg type: %s", __func__, mesg_type_2_string[mesg_p->mesg_type]);
+        if (mesg_p->mesg_type < MS12_MESG_TYPE_MAX) {
+            ALOGD("%s(), msg type: %s", __func__, mesg_type_2_string[mesg_p->mesg_type]);
+        }
         pthread_mutex_unlock(&ms12->mutex);
 
         while (NULL == ms12->ms12_main_stream_out && true != ms12->CommThread_ExitFlag) {
@@ -332,13 +334,13 @@ int ms12_mesg_thread_destroy(struct dolby_ms12_desc *ms12)
         if (!list_empty(&ms12->mesg_list)) {
             struct ms12_mesg_desc *mesg_p = NULL;
             struct listnode *item = NULL;
+            struct listnode *temp = NULL;
 
-            list_for_each(item, &ms12->mesg_list){
+            list_for_each_safe(item, temp, &ms12->mesg_list){
                 item = list_head(&ms12->mesg_list);
                 mesg_p = (struct ms12_mesg_desc *)item;
-
-               list_remove(&mesg_p->list);
-               free(mesg_p);
+                list_remove(&mesg_p->list);
+                free(mesg_p);
             }
         }
 

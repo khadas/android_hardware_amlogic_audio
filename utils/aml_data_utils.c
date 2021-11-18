@@ -260,12 +260,13 @@ struct aml_channel_map *data_load_product_config(void)
 	if (gParser != NULL) {
 		// loop of i2s channel [0, 8]
 		for (i=0; i<AML_CH_IDX_MAX; i++) {
-			strcpy(chname, aml_config_get_str(gParser, AML_SECTION_AUDIO_HAL,
-						_get_ch_conf_name(eAmlConfTypeChMap, i), NULL));
+			strncpy(chname, aml_config_get_str(gParser, AML_SECTION_AUDIO_HAL,
+				_get_ch_conf_name(eAmlConfTypeChMap, i), NULL), sizeof(chname) - 1);
+			chname[sizeof(chname) - 1] = '\0';
 			invert   = aml_config_get_int(gParser, AML_SECTION_AUDIO_HAL,
-						_get_ch_conf_name(eAmlConfTypeChInv, i), 0);
+				_get_ch_conf_name(eAmlConfTypeChInv, i), 0);
 			ditter   = aml_config_get_int(gParser, AML_SECTION_AUDIO_HAL,
-						_get_ch_conf_name(eAmlConfTypeChDit, i), 0);
+				_get_ch_conf_name(eAmlConfTypeChDit, i), 0);
 			find_idx = _name_trans_to_i2s_chidx(chname);
 			_save_conf_to_maps(maps, find_idx, i, invert, ditter);
 		}
@@ -610,8 +611,8 @@ int data_replace_lfe_data(
 	int32_t *buf_out32 = (int32_t *)out_buf;
 	int16_t *buf_in16  = (int16_t *)input_lfe_buffer;
 	int32_t *buf_in32  = (int32_t *)input_lfe_buffer;
-	int     lfe_base;
-	int     lfe_cnt;
+	int     lfe_base = 0;
+	int     lfe_cnt = 0;
 
 	//TODO:
 	if (out_channels != 6) {
