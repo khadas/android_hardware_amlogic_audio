@@ -93,22 +93,32 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
     bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->tv_src_stream;
 
     if (adev->debug_flag) {
-        ALOGD("%s:%d hal_format:%#x, output_format:0x%x, sink_format:0x%x",
-            __func__, __LINE__, aml_out->hal_format, output_format, adev->sink_format);
+        ALOGD("%s:%d hal_format:%#x, output_format:0x%x, sink_format:0x%x do_easing %d",
+            __func__, __LINE__, aml_out->hal_format, output_format, adev->sink_format,ms12->do_easing);
     }
 
     if (adev->patch_src == SRC_HDMIIN ||
             adev->patch_src == SRC_SPDIFIN ||
             adev->patch_src == SRC_LINEIN ||
-            adev->patch_src == SRC_ATV) {
+            adev->patch_src == SRC_ATV ||
+            adev->patch_src == SRC_DTV) {
 
         if (patch && patch->need_do_avsync) {
             if (!ms12->is_muted) {
-                set_ms12_main1_audio_mute(ms12, true);
+                set_ms12_main_audio_mute(ms12, true, 0);
             }
         } else {
-            if (ms12->is_muted) {
-                set_ms12_main1_audio_mute(ms12, false);
+            if (adev->tv_mute) {
+                if (!ms12->is_muted) {
+                    set_ms12_main_audio_mute(ms12, true, 0);
+                }
+            } else {
+                if (!ms12->do_easing) {
+                    if (ms12->is_muted) {
+                        ALOGI("ms12 render easing in using %d ms ",MS12_AUDIO_FADEIN_TV_DURATION_US / 1000);
+                        set_ms12_main_audio_mute(ms12, false, MS12_AUDIO_FADEIN_TV_DURATION_US / 1000);
+                    }
+                }
             }
         }
     }

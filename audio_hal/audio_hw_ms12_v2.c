@@ -654,18 +654,19 @@ void dynamic_set_dolby_ms12_drc_parameters(struct dolby_ms12_desc *ms12)
 
 }
 
-void set_ms12_main1_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute)
+void set_ms12_main_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute, unsigned int duration)
 {
     char parm[64] = "";
     /*
+    -sys_prim_mixgain can be used to control the main input to system mixer
     - target gain at end of ramp in dB (range: -96 * 128..0), the step is 1/128 db, so the range is (-96,0)
     - duration of ramp in milliseconds (range: 0..60000)
     - shape of the ramp (0: linear, 1: in cube, 2: out cube)
     */
     if (b_mute) {
-        sprintf(parm, "%s %d,%d,%d", "-main1_mixgain", -96 * 128, 10, 0);
+        sprintf(parm, "%s %d,%d,%d", "-sys_prim_mixgain", -96 * 128, duration, 0);
     } else {
-        sprintf(parm, "%s %d,%d,%d", "-main1_mixgain", 0, 10, 0);
+        sprintf(parm, "%s %d,%d,%d", "-sys_prim_mixgain", 0, duration, 0);
     }
     if ((strlen(parm)) > 0 && ms12)
         aml_ms12_update_runtime_params(ms12, parm);
@@ -974,6 +975,8 @@ int get_the_dolby_ms12_prepared(
     ms12->stereo_pcm_frames  = 0;
     ms12->master_pcm_frames  = 0;
     ms12->ms12_main_input_size = 0;
+    ms12->do_easing = false;
+    ms12->is_muted = false;
     ms12->b_legacy_ddpout    = dolby_ms12_get_ddp_5_1_out();
     ms12->main_volume        = 1.0f;
     ALOGI("set ms12 sys pos =%" PRId64 "", ms12->sys_audio_base_pos);

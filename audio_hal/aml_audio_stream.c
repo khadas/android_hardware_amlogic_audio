@@ -1620,12 +1620,24 @@ void tv_do_ease_out(struct aml_audio_device *aml_dev)
         } else {
             ALOGI("%s(), vol_now %f do fade out", __func__, vol_now);
             if (aml_dev->is_TV) {
-                duration_ms = property_get_int32("vendor.media.audio.dtv.fadeout.us", AUDIO_FADEOUT_TV_DURATION_US) / 1000;
+                if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
+                    duration_ms = property_get_int32("vendor.media.audio.dtv.fadeout.us", MS12_AUDIO_FADEOUT_TV_DURATION_US) / 1000;
+                } else {
+                    duration_ms = property_get_int32("vendor.media.audio.dtv.fadeout.us", AUDIO_FADEOUT_TV_DURATION_US) / 1000;
+                }
             } else {
                 duration_ms = property_get_int32("vendor.media.audio.dtv.fadeout.us", AUDIO_FADEOUT_STB_DURATION_US) / 1000;
             }
-            start_ease_out(aml_dev->audio_ease, aml_dev->is_TV, duration_ms / 2);
-            usleep(duration_ms * 1000);
+            if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
+                aml_dev->ms12.do_easing = true;
+                ALOGI("%s()  %d ms doing easing out", __func__, duration_ms);
+                set_ms12_main_audio_mute(&aml_dev->ms12, true, duration_ms);
+                usleep(2 * duration_ms * 1000);
+                aml_dev->ms12.do_easing = false;
+            } else {
+                start_ease_out(aml_dev->audio_ease, aml_dev->is_TV, duration_ms / 2);
+                usleep(duration_ms * 1000);
+            }
         }
     }
 }

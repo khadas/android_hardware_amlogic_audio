@@ -154,6 +154,7 @@ struct dolby_ms12_desc {
     uint64_t out_synced_frame_count;
     bool debug_synced_frame_pts_flag;
     bool     is_muted;
+    bool     do_easing;
     /* MAT Encoder inside ms12, begin */
     unsigned int matenc_maxoutbufsize;
     int b_iec_header;
