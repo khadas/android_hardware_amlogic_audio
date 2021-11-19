@@ -155,7 +155,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
             if (patch->cur_package) {
                 aml_dec->first_in_frame_pts = patch->cur_package->pts;
             } else {
-                ALOGI("patch->cur_package NULL ");
+                ALOGW("patch->cur_package NULL ");
             }
             aml_dec->last_synced_frame_pts = -1;
             aml_dec->out_synced_frame_count = 0;
@@ -174,7 +174,11 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
         if (do_sync_flag) {
             if(patch->skip_amadec_flag) {
-                aml_dec->in_frame_pts = patch->cur_package->pts;
+                if (patch->cur_package) {
+                     aml_dec->in_frame_pts = patch->cur_package->pts;
+                } else {
+                    ALOGW("cur_package null !!!");
+                }
             } else {
                 aml_dec->in_frame_pts = decoder_apts_lookup(patch->decoder_offset);
             }
