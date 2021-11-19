@@ -37,6 +37,7 @@
 #include "aml_data_utils.h"
 #include "aml_audio_ms12_sync.h"
 #include "aml_audio_output.h"
+#include "dolby_lib_api.h"
 
 extern unsigned long decoder_apts_lookup(unsigned int offset);
 static void aml_audio_stream_volume_process(struct audio_stream_out *stream, void *buf, int sample_size, int channels, int bytes) {
@@ -474,12 +475,20 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     }
                 }
 
-                aml_hw_mixer_mixing(&adev->hw_mixer, dec_data, pcm_len, output_format);
+                /* For MS12 lib with DTS output, no submixer exists */
+                if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
+                    aml_hw_mixer_mixing(&adev->hw_mixer, dec_data, pcm_len, output_format);
 
-                data_info.audio_format = output_format;
-                data_info.channel_mask = audio_channel_out_mask_from_count(dec_pcm_data->data_ch);
-                ret = aml_audio_pcm_output((struct audio_stream_out *)aml_out, dec_data, pcm_len, &data_info);
-
+                    data_info.audio_format = output_format;
+                    data_info.channel_mask = audio_channel_out_mask_from_count(dec_pcm_data->data_ch);
+                    ret = aml_audio_pcm_output((struct audio_stream_out *)aml_out, dec_data, pcm_len, &data_info);
+                } else {
+                    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+                        check_audio_level("after process", dec_data, pcm_len);
+                    }
+                    aml_out->hwsync_header_stripped = true;
+                    mixer_main_buffer_write_sm(stream, dec_data, pcm_len);
+                }
             }
 
             // write raw data

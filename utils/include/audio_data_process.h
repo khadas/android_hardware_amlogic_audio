@@ -23,6 +23,7 @@
 struct audioCfg {
     int card;
     int device;
+    int is_tv;
     uint32_t sampleRate;
     uint32_t channelCnt;
     audio_format_t format;

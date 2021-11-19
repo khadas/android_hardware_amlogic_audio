@@ -34,6 +34,7 @@
 #include "audio_hwsync_wrap.h"
 #include "aml_malloc_debug.h"
 #include "karaoke_manager.h"
+#include "aml_dump_debug.h"
 
 #ifdef ENABLE_AEC_APP
 #include "audio_aec.h"
@@ -103,6 +104,7 @@ aml_mixer_input_port_type_e get_input_port_type(struct audio_config *config,
 
     channel_cnt = audio_channel_count_from_out_mask(config->channel_mask);
     switch (config->format) {
+        case AUDIO_FORMAT_DEFAULT:
         case AUDIO_FORMAT_PCM_16_BIT:
         case AUDIO_FORMAT_PCM_32_BIT:
             //if (config->sample_rate == 48000) {
@@ -151,10 +153,32 @@ int send_inport_message(input_port *port, PORT_MSG msg)
     return 0;
 }
 
+int send_outport_message(output_port *port, PORT_MSG msg, void *info, int info_len)
+{
+    port_message *p_msg = aml_audio_calloc(1, sizeof(port_message) + info_len);
+    R_CHECK_POINTER_LEGAL(-ENOMEM, p_msg, "no memory, size:%zu", sizeof(port_message));
+
+    p_msg->msg_what = msg;
+    if (info_len > 0) {
+        p_msg->info_length = info_len;
+        memcpy(p_msg->info, info, info_len);
+        //ALOGD("", p_msg->info);
+    }
+    pthread_mutex_lock(&port->msg_lock);
+    list_add_tail(&port->msg_list, &p_msg->list);
+    pthread_mutex_unlock(&port->msg_lock);
+
+    return 0;
+}
+
 const char *str_port_msg[MSG_CNT] = {
     "MSG_PAUSE",
     "MSG_FLUSH",
-    "MSG_RESUME"
+    "MSG_RESUME",
+    "MSG_SINK_GAIN",
+    "MSG_EQ_DATA",
+    "MSG_SRC_GAIN",
+    "MSG_EFFECT"
 };
 
 const char *port_msg_to_str(PORT_MSG msg)
@@ -206,10 +230,61 @@ int remove_all_inport_messages(input_port *port)
     return 0;
 }
 
+port_message *get_outport_message(output_port *port)
+{
+    port_message *p_msg = NULL;
+    struct listnode *item = NULL;
+
+    pthread_mutex_lock(&port->msg_lock);
+    if (!list_empty(&port->msg_list)) {
+        item = list_head(&port->msg_list);
+        p_msg = node_to_item(item, port_message, list);
+        AM_LOGI("msg: %s", port_msg_to_str(p_msg->msg_what));
+    }
+    pthread_mutex_unlock(&port->msg_lock);
+    return p_msg;
+}
+
+int remove_outport_message(output_port *port, port_message *p_msg)
+{
+    R_CHECK_POINTER_LEGAL(-EINVAL, port, "");
+    R_CHECK_POINTER_LEGAL(-EINVAL, p_msg, "");
+    pthread_mutex_lock(&port->msg_lock);
+    list_remove(&p_msg->list);
+    pthread_mutex_unlock(&port->msg_lock);
+    aml_audio_free(p_msg);
+
+    return 0;
+}
+
+int remove_all_outport_messages(output_port *port)
+{
+    port_message *p_msg = NULL;
+    struct listnode *node = NULL, *n = NULL;
+    pthread_mutex_lock(&port->msg_lock);
+    list_for_each_safe(node, n, &port->msg_list) {
+        p_msg = node_to_item(node, port_message, list);
+        AM_LOGI("msg what %s", port_msg_to_str(p_msg->msg_what));
+        if (p_msg->msg_what == MSG_PAUSE)
+            aml_hwsync_wrap_set_pause(NULL);
+        list_remove(&p_msg->list);
+        aml_audio_free(p_msg);
+    }
+    pthread_mutex_unlock(&port->msg_lock);
+    return 0;
+}
+
 static int setPortConfig(struct audioCfg *cfg, struct audio_config *config)
 {
     R_CHECK_POINTER_LEGAL(-EINVAL, cfg, "");
     R_CHECK_POINTER_LEGAL(-EINVAL, config, "");
+    AM_LOGD("+++ch mask = %#x, fmt %#x, samplerate %d",
+        config->channel_mask, config->format, config->sample_rate);
+    if (config->channel_mask == 0)
+        config->channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+    if (config->format == 0)
+        config->format = AUDIO_FORMAT_PCM_16_BIT;
+
     cfg->channelCnt = audio_channel_count_from_out_mask(config->channel_mask);
     cfg->format = config->format;
     cfg->sampleRate = config->sample_rate;
@@ -458,6 +533,10 @@ static int output_port_start(output_port *port)
     struct pcm *pcm = NULL;
 
     memset(&pcm_cfg, 0, sizeof(struct pcm_config));
+    if (cfg.is_tv) {
+        cfg.channelCnt = 8;
+        cfg.format = AUDIO_FORMAT_PCM_32_BIT;
+    }
     pcm_cfg.channels = cfg.channelCnt;
     pcm_cfg.rate = cfg.sampleRate;
     pcm_cfg.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
@@ -475,7 +554,8 @@ static int output_port_start(output_port *port)
         ALOGE("%s(), unsupport", __func__);
         pcm_cfg.format = PCM_FORMAT_S16_LE;
     }
-    ALOGI("%s(), open ALSA hw:%d,%d", __func__, card, device);
+    ALOGI("%s(), open ALSA hw:%d,%d, channels:%d, format:%d",
+            __func__, card, device, pcm_cfg.channels, pcm_cfg.format);
     pcm = pcm_open(card, device, PCM_OUT | PCM_MONOTONIC, &pcm_cfg);
     if ((pcm == NULL) || !pcm_is_ready(pcm)) {
         ALOGE("cannot open pcm_out driver: %s", pcm_get_error(pcm));
@@ -553,6 +633,87 @@ static ssize_t output_port_write(output_port *port, void *buffer, int bytes)
     return bytes;
 }
 
+static void process_outport_msg(output_port *out_port)
+{
+    port_message *msg = get_outport_message(out_port);
+    if (msg) {
+        AM_LOGI("msg: %s", port_msg_to_str(msg->msg_what));
+        switch (msg->msg_what) {
+        case MSG_SINK_GAIN: {
+            memcpy(&out_port->sink_gain, msg->info, msg->info_length);
+            ALOGD("%s(), sink_gain = %p", __func__, out_port->sink_gain);
+            break;
+        }
+        case MSG_EQ_DATA: {
+            memcpy(&out_port->eq_data, msg->info, msg->info_length);
+            ALOGD("%s(), eq data = %p", __func__, out_port->eq_data);
+            break;
+        }
+        case MSG_SRC_GAIN: {
+            memcpy(&out_port->src_gain, msg->info, msg->info_length);
+            ALOGD("%s(), src gain = %f", __func__, out_port->src_gain);
+            break;
+        }
+        case MSG_EFFECT: {
+            memcpy(&out_port->postprocess, msg->info, msg->info_length);
+            ALOGD("%s() MSG_EFFECT postprocess->%p", __func__, out_port->postprocess);
+            break;
+        }
+        default:
+            AM_LOGE("msg:%d not support", msg->msg_what);
+        }
+
+        remove_outport_message(out_port, msg);
+    }
+}
+
+#define STEREO_16BIT_TO_8CH_32BIT   8
+#define STEREO_16BIT_TO_2CH_32BIT   2
+
+static ssize_t output_port_post_process(output_port *port, void *buffer, int bytes)
+{
+    int32_t *buf_proc = port->processed_buf;
+    int16_t *vol_buf = port->vol_buf;
+    int16_t *buf16 = buffer;
+    int32_t *buf32 = (int32_t *)vol_buf;
+    int frames = bytes / FRAMESIZE_16BIT_STEREO;
+    float vol = 1.0;
+    int i = 0;
+
+    process_outport_msg(port);
+    if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
+        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/port_befor_postprocess.raw", buf16, bytes);
+    }
+
+    for (int dev = AML_AUDIO_OUT_DEV_TYPE_SPEAKER; dev < AML_AUDIO_OUT_DEV_TYPE_BUTT; dev++) {
+        vol = port->src_gain;
+        memcpy(vol_buf, buffer, bytes);
+
+        if (port->eq_data && port->sink_gain) {
+            if (dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) {
+                vol *= port->eq_data->p_gain.headphone * port->sink_gain[OUTPORT_HEADPHONE];
+            } else if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
+                vol *= port->eq_data->p_gain.speaker * port->sink_gain[OUTPORT_SPEAKER];
+                if (port->postprocess)
+                    audio_post_process(port->postprocess, vol_buf, frames);
+            }
+        }
+
+        apply_volume_16to32(vol, vol_buf, buf32, bytes);
+        for (i = 0; i < frames; i++) {
+            buf_proc[8 * i + 2 * dev] = buf32[i * 2];
+            buf_proc[8 * i + 2 * dev + 1] = buf32[i * 2 + 1];
+        }
+    }
+
+    port->processed_bytes = bytes * STEREO_16BIT_TO_8CH_32BIT;
+    if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
+        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/port_processed.raw",
+            port->processed_buf, port->processed_bytes);
+    }
+    return 0;
+}
+
 static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes)
 {
     int bytes_to_write = bytes;
@@ -565,7 +726,7 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
         return bytes;
     }
 
-    {
+    if (pcm_is_ready(port->pcm_handle)) {
         struct snd_pcm_status status;
 
         pcm_ioctl(port->pcm_handle, SNDRV_PCM_IOCTL_STATUS, &status);
@@ -574,7 +735,7 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
         }
     }
 
-    aml_audio_switch_output_mode((int16_t *)buffer, bytes, port->sound_track_mode);
+    //aml_audio_switch_output_mode((int16_t *)buffer, bytes, port->sound_track_mode);
 #ifdef USB_KARAOKE
     struct kara_manager *karaoke = port->kara;
     if (karaoke) {
@@ -690,7 +851,13 @@ static struct pcm *output_open_alsa(struct audioCfg *config, int alsa_port)
     return pcm;
 }
 
-int output_get_default_config(struct audioCfg *cfg)
+static int output_close_alsa(struct pcm *pcm)
+{
+    pcm_close(pcm);
+    return 0;
+}
+
+int output_get_default_config(struct audioCfg *cfg, bool is_tv)
 {
     int card = alsa_device_get_card_index();
     int device = alsa_device_update_pcm_index(PORT_I2S, PLAYBACK);
@@ -698,9 +865,10 @@ int output_get_default_config(struct audioCfg *cfg)
     R_CHECK_POINTER_LEGAL(-1, cfg, "");
     cfg->card = card;
     cfg->device = device;
+    cfg->is_tv = is_tv;
     cfg->channelCnt = 2;
-    cfg->sampleRate = 48000;
     cfg->format = AUDIO_FORMAT_PCM_16_BIT;
+    cfg->sampleRate = 48000;
     cfg->frame_size = cfg->channelCnt * audio_bytes_per_sample(cfg->format);
     return 0;
 }
@@ -725,7 +893,6 @@ output_port *new_output_port(
 {
     output_port *port = NULL;
     char *data = NULL;
-    config->frame_size = config->channelCnt * audio_bytes_per_sample(config->format);
     int rbuf_size = buf_frames * config->frame_size;
     int alsa_port = PORT_I2S;
 
@@ -733,7 +900,9 @@ output_port *new_output_port(
         AM_LOGE("port_index:%d invalid", port_index);
         return NULL;
     }
-
+    ALOGI("%s(), config channels %d, rate %d, bytes per frame %zu",
+            __func__, config->channelCnt, config->sampleRate,
+            audio_bytes_per_sample(config->format));
     port = aml_audio_calloc(1, sizeof(output_port));
     R_CHECK_POINTER_LEGAL(NULL, port, "no memory, size:%zu", sizeof(output_port));
 
@@ -754,14 +923,48 @@ output_port *new_output_port(
     port->data_buf_frame_cnt = buf_frames;
     port->data_buf_len = rbuf_size;
     port->data_buf = data;
-    port->write = output_port_write_alsa;
     port->start = output_port_start;
     port->standby = output_port_standby;
+    port->write = output_port_write_alsa;
+    port->port_status = STOPPED;
+    list_init(&port->msg_list);
 
+    if (config->is_tv) {
+        /* only TV platform need 2->8 process */
+        char *proc_buf = NULL, *vol_buf = NULL;
+
+        AM_LOGI("init TV postprocess handler");
+        port->process = output_port_post_process;
+        proc_buf = aml_audio_calloc(1, rbuf_size * STEREO_16BIT_TO_8CH_32BIT);
+        if (!proc_buf) {
+            AM_LOGE("allocate output_port proc_buf, no memory");
+            goto err_proc_buf;
+        }
+        port->processed_buf = proc_buf;
+        vol_buf = aml_audio_calloc(1, rbuf_size * STEREO_16BIT_TO_2CH_32BIT);
+        if (!vol_buf) {
+            AM_LOGE("allocate output_port vol_buf, no memory");
+            goto err_vol_buf;
+        }
+        port->vol_buf = vol_buf;
+        port->volume = 1.0;
+        port->eq_gain = 1.0;
+        port->src_gain = 1.0;
+
+        ALOGI("%s(), rbuf bytes %d", __func__, rbuf_size * STEREO_16BIT_TO_2CH_32BIT);
+    }
     return port;
 
+err_vol_buf:
+    aml_audio_free(port->processed_buf);
+    port->processed_buf = NULL;
+err_proc_buf:
+    aml_audio_free(data);
+    data = NULL;
 err_data:
     aml_audio_free(port);
+    port = NULL;
+
     return NULL;
 }
 
@@ -773,7 +976,18 @@ int free_output_port(output_port *port)
         pcm_close(port->pcm_handle);
     }
     port->pcm_handle = NULL;
+
+    output_port_standby(port);
     aml_audio_free(port->data_buf);
+    port->data_buf = NULL;
+
+    if (port->cfg.is_tv) {
+        aml_audio_free(port->processed_buf);
+        port->processed_buf = NULL;
+        aml_audio_free(port->vol_buf);
+        port->vol_buf = NULL;
+    }
+
     aml_audio_free(port);
     return 0;
 }

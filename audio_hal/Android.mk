@@ -202,7 +202,6 @@ $(info "---------tv audio mode, compiler configured 8 channels output by default
 LOCAL_CFLAGS += -DTV_AUDIO_OUTPUT
 else
 $(info "---------ott audio mode, compiler configure 2 channels output by default--------")
-LOCAL_CFLAGS += -DSUBMIXER_V1_1
 #LOCAL_CFLAGS += -DUSB_KARAOKE
 endif
     #LOCAL_CFLAGS += -Wall -Wunknown-pragmas

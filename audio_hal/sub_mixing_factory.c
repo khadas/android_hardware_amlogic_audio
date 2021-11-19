@@ -62,9 +62,20 @@ static int initSubMixingOutput(
 {
     R_CHECK_POINTER_LEGAL(-EINVAL, sm, "");
     if (sm->type == MIXER_LPCM) {
-        struct amlAudioMixer *amixer = newAmlAudioMixer(adev);
+        struct audioCfg cfg;
+        output_get_default_config(&cfg, adev->is_TV);
+        struct amlAudioMixer *amixer = newAmlAudioMixer(adev, cfg);
         R_CHECK_POINTER_LEGAL(-ENOMEM, amixer, "newAmlAudioMixer failed");
         sm->mixerData = amixer;
+        /* TV product has EQ DRC and sink gain */
+        if (adev->eq_drc_inited) {
+            ALOGI("%s(), eq data addr %p", __func__, &adev->eq_data);
+            subMixingSetEQData(adev, &adev->eq_data);
+        }
+        if (adev->is_TV) {
+            ALOGI("%s(), sink gain addr %p", __func__, adev->sink_gain);
+            subMixingSetSinkGain(adev, adev->sink_gain);
+        }
         startMixingThread(sm);
     } else if (sm->type == MIXER_MS12) {
         //TODO
@@ -611,7 +622,7 @@ exit:
     out->lasttimestamp.tv_nsec = out->timestamp.tv_nsec;
     if (written >= 0) {
         uint32_t latency_frames = mixer_get_inport_latency_frames(audio_mixer, out->inputPortID);
-                //+ mixer_get_outport_latency_frames(audio_mixer);
+                + mixer_get_outport_latency_frames(audio_mixer);
         if (out->frame_write_sum > latency_frames)
             out->last_frames_position = out->frame_write_sum - latency_frames;
         else
@@ -784,6 +795,7 @@ static int out_get_presentation_position_port(
     return ret;
 }
 
+static int out_standby_subMixingPCM(struct audio_stream *stream);
 static int initSubMixingInputPcm(
         struct audio_config *config,
         struct aml_stream_out *out)
@@ -798,15 +810,19 @@ static int initSubMixingInputPcm(
                audio_is_linear_pcm(config->format) && channel_count <= 2);
     AM_LOGI("++out %p, flags %#x, hwsync lpcm %d", out, flags, hwsync_lpcm);
     out->audioCfg = *config;
-    out->stream.write = out_write_subMixingPCM;
-    out->stream.pause = out_pause_subMixingPCM;
-    out->stream.resume = out_resume_subMixingPCM;
-    out->stream.flush = out_flush_subMixingPCM;
-    out->stream.common.standby = out_standby_subMixingPCM;
-    if (flags & AUDIO_OUTPUT_FLAG_PRIMARY || flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
-        AM_LOGI("primary/tunnel stream presentation");
-        out->stream.get_presentation_position = out_get_presentation_position_port;
+
+    if (!out->is_tv_src_stream) {
+        out->stream.write = out_write_subMixingPCM;
+        out->stream.pause = out_pause_subMixingPCM;
+        out->stream.resume = out_resume_subMixingPCM;
+        out->stream.flush = out_flush_subMixingPCM;
+        out->stream.common.standby = out_standby_subMixingPCM;
+        if (flags & AUDIO_OUTPUT_FLAG_PRIMARY || flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
+            AM_LOGI("primary/tunnel stream presentation");
+            out->stream.get_presentation_position = out_get_presentation_position_port;
+        }
     }
+
     list_init(&out->mdata_list);
     if (hwsync_lpcm) {
         AM_LOGI("lpcm case");
@@ -1076,7 +1092,8 @@ ssize_t mixer_main_buffer_write_sm (struct audio_stream_out *stream, const void 
     }
 
     /* handle HWSYNC audio data*/
-    if (aml_out->hw_sync_mode) {
+    /* tv ddp hwsync : hwsync header had been removed by "mixer_main_buffer_write" */
+    if (aml_out->hw_sync_mode && !aml_out->hwsync_header_stripped) {
         write_bytes = out_write_hwsync_lpcm(stream, buffer, bytes);
     } else {
         write_bytes = out_write_direct_pcm(stream, buffer, bytes);
@@ -1085,6 +1102,11 @@ ssize_t mixer_main_buffer_write_sm (struct audio_stream_out *stream, const void 
     if (write_bytes > 0) {
         aml_out->input_bytes_size += write_bytes;
     }
+
+    if (aml_out->stream_status == STREAM_STANDBY) {
+        aml_out->stream_status = STREAM_HW_WRITING;
+    }
+
     return bytes;
 }
 
@@ -1315,15 +1337,9 @@ static int usecase_change_validate_l_sm(struct aml_stream_out *aml_out, bool is_
     }
 
     if (STREAM_PCM_NORMAL == aml_out->usecase) {
-        if (aml_dev->audio_patching) {
-            AM_LOGV("tv patching, mixer_aux_buffer_write!");
-            aml_out->write = mixer_aux_buffer_write;
-            aml_out->write_func = MIXER_AUX_BUFFER_WRITE;
-        } else {
-            aml_out->write = mixer_aux_buffer_write_sm;
-            aml_out->write_func = MIXER_AUX_BUFFER_WRITE_SM;
-            AM_LOGV("mixer_aux_buffer_write_sm !");
-        }
+        aml_out->write = mixer_aux_buffer_write_sm;
+        aml_out->write_func = MIXER_AUX_BUFFER_WRITE_SM;
+        AM_LOGV("mixer_aux_buffer_write_sm !");
     } else if (STREAM_PCM_MMAP == aml_out->usecase) {
         aml_out->write = mixer_mmap_buffer_write_sm;
         aml_out->write_func = MIXER_MMAP_BUFFER_WRITE_SM;
@@ -1407,6 +1423,33 @@ static ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
     return ret;
 }
 
+int out_standby_subMixingPCM_l(struct audio_stream *stream)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct subMixing *sm = adev->sm;
+    struct amlAudioMixer *audio_mixer = sm->mixerData;
+    ssize_t ret = 0;
+
+#ifdef ENABLE_AEC_APP
+    aec_set_spk_running(adev->aec, false);
+#endif
+    if (aml_out->inputPortID != -1) {
+        delete_mixer_input_port(audio_mixer, aml_out->inputPortID);
+        aml_out->inputPortID = -1;
+    }
+
+    if (aml_out->hwsync_extractor) {
+        delete_hw_avsync_header_extractor(aml_out->hwsync_extractor);
+        aml_out->hwsync_extractor = NULL;
+    }
+
+    if (adev->debug_flag > 1) {
+        AM_LOGI("-ret %zd,%p %"PRIu64"\n", ret, stream, aml_out->total_write_size);
+    }
+    return 0;
+}
+
 int out_standby_subMixingPCM(struct audio_stream *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
@@ -1435,6 +1478,7 @@ int out_standby_subMixingPCM(struct audio_stream *stream)
         goto exit;
     }
 
+    out_standby_subMixingPCM_l(stream);
     aml_out->stream_status = STREAM_STANDBY;
     aml_out->standby = true;
 #ifdef ENABLE_AEC_APP
@@ -1651,5 +1695,37 @@ int subMixingSetKaraoke(struct aml_audio_device *adev, struct kara_manager *kara
     struct amlAudioMixer *audio_mixer = sm->mixerData;
 
     return mixer_set_karaoke(audio_mixer, kara);
+}
+
+static int subMixingOutMsg(struct aml_audio_device *adev, PORT_MSG msg, void *info, int info_len)
+{
+    struct subMixing *sm = adev->sm;
+    struct amlAudioMixer *audio_mixer = NULL;
+    int ret = 0;
+
+    audio_mixer = sm->mixerData;
+    send_mixer_outport_message(audio_mixer, MIXER_OUTPUT_PORT_STEREO_PCM, msg, info, info_len);
+
+    return 0;
+}
+
+int subMixingSetSinkGain(struct aml_audio_device *adev, void *sink_gain)
+{
+    return subMixingOutMsg(adev, MSG_SINK_GAIN, &sink_gain, sizeof(sink_gain));
+}
+
+int subMixingSetEQData(struct aml_audio_device *adev, void *eq_data)
+{
+    return subMixingOutMsg(adev, MSG_EQ_DATA, &eq_data, sizeof(eq_data));
+}
+
+int subMixingSetSrcGain(struct aml_audio_device *adev, float gain)
+{
+    return subMixingOutMsg(adev, MSG_SRC_GAIN, &gain, sizeof(gain));
+}
+
+int subMixingSetAudioPostprocess(struct aml_audio_device *adev, void **postprocess)
+{
+    return subMixingOutMsg(adev, MSG_EFFECT, postprocess, sizeof(void *));
 }
 

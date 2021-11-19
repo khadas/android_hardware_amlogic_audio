@@ -51,7 +51,7 @@ typedef enum {
  * constructor with mixer output pcm configs
  * return NULL if no enough memory.
  */
-struct amlAudioMixer *newAmlAudioMixer(struct aml_audio_device *adev);
+struct amlAudioMixer *newAmlAudioMixer(struct aml_audio_device *adev, struct audioCfg cfg);
 
 /**
  * destructor to free the mixer
@@ -76,6 +76,8 @@ int init_mixer_input_port(struct amlAudioMixer *audio_mixer,
 uint32_t get_mixer_inport_count(struct amlAudioMixer *audio_mixer);
 int delete_mixer_input_port(struct amlAudioMixer *audio_mixer, uint8_t port_index);
 int send_mixer_inport_message(struct amlAudioMixer *audio_mixer, uint8_t port_index, PORT_MSG msg);
+int send_mixer_outport_message(struct amlAudioMixer *audio_mixer, uint8_t port_index,
+        PORT_MSG msg, void *info, int info_len);
 int mixer_write_inport(struct amlAudioMixer *audio_mixer, uint8_t port_index, const void *buffer, int bytes);
 int mixer_read_inport(struct amlAudioMixer *audio_mixer, uint8_t port_index, void *buffer, int bytes);
 int mixer_set_inport_state(struct amlAudioMixer *audio_mixer, uint8_t port_index, port_state state);

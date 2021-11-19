@@ -45,6 +45,10 @@ typedef enum {
     MSG_PAUSE,
     MSG_FLUSH,
     MSG_RESUME,
+    MSG_SINK_GAIN,
+    MSG_EQ_DATA,
+    MSG_SRC_GAIN,
+    MSG_EFFECT,
     MSG_CNT
 } PORT_MSG;
 const char *port_msg_to_str(PORT_MSG msg);
@@ -72,6 +76,8 @@ struct fade_out {
 typedef struct {
     PORT_MSG msg_what;
     struct listnode list;
+    int info_length;
+    char info[0];
 } port_message;
 
 typedef int (*meta_data_cbk_t)(void *cookie,
@@ -142,12 +148,21 @@ typedef struct OUTPUT_PORT {
     size_t bytes_avail;
     size_t data_buf_frame_cnt;
     size_t data_buf_len;
+    void *processed_buf;
+    size_t processed_bytes;
+    void *vol_buf;
+    float *sink_gain;
+    float volume;
+    float eq_gain;
+    float src_gain;
+    struct eq_drc_data *eq_data;
     struct pcm *pcm_handle;
     port_state port_status;
     struct pcm *loopback_handle;
     pthread_mutex_t lock;
     pthread_cond_t cond;
     ssize_t (*write)(struct OUTPUT_PORT *port, void *buffer, int bytes);
+    ssize_t (*process)(struct OUTPUT_PORT *port, void *buffer, int bytes);
     int (*start)(struct OUTPUT_PORT *port);
     int (*standby)(struct OUTPUT_PORT *port);
     struct timespec tval_last;
@@ -155,6 +170,9 @@ typedef struct OUTPUT_PORT {
     /* pcm device need to stop/start to enable same source */
     bool pcm_restart;
     int dummy;
+    struct listnode msg_list;
+    pthread_mutex_t msg_lock;
+    struct aml_native_postprocess *postprocess;
 #ifdef ENABLE_AEC_APP
     struct aec_t *aec;
 #endif
@@ -185,9 +203,13 @@ int set_port_meta_data_cbk(input_port *port,
         meta_data_cbk_t meta_data_cbk,
         void *data);
 int send_inport_message(input_port *port, PORT_MSG msg);
+int send_outport_message(output_port *port, PORT_MSG msg, void *info, int info_len);
 port_message *get_inport_message(input_port *port);
 int remove_inport_message(input_port *port, port_message *p_msg);
 int remove_all_inport_messages(input_port *port);
+port_message *get_outport_message(output_port *port);
+int remove_outport_message(output_port *port, port_message *p_msg);
+int remove_all_outport_messages(output_port *port);
 
 int set_inport_state(input_port *port, port_state status);
 port_state get_inport_state(input_port *port);
@@ -197,7 +219,7 @@ void set_inport_volume(input_port *port, float vol);
 float get_inport_volume(input_port *port);
 size_t get_inport_consumed_size(input_port *port);
 int inport_buffer_level(input_port *port);
-int output_get_default_config(struct audioCfg *cfg);
+int output_get_default_config(struct audioCfg *cfg, bool is_tv);
 int output_get_alsa_config(output_port *out_port, struct pcm_config *alsa_config);
 
 output_port *new_output_port(

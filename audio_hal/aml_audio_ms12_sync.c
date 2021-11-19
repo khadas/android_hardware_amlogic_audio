@@ -1033,7 +1033,7 @@ int get_nonms12_port_latency(enum OUT_PORT port, audio_format_t output_format, b
 }
 
 
-static int get_nonms12_netflix_tunnel_input_latency(audio_format_t input_format) {
+static int get_nonms12_netflix_tunnel_input_latency(audio_format_t input_format, device_type_t platform_type) {
     char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
@@ -1041,15 +1041,25 @@ static int get_nonms12_netflix_tunnel_input_latency(audio_format_t input_format)
     switch (input_format) {
     case AUDIO_FORMAT_PCM_16_BIT: {
         /*for tunnel ddp2h/heaac case:netflix AL1 case */
-        prop_name = AVSYNC_NONMS12_NETFLIX_TUNNEL_PCM_LATENCY_PROPERTY;
-        latency_ms = AVSYNC_NONMS12_NETFLIX_TUNNEL_PCM_LATENCY;
+        if (platform_type == TV) {
+            prop_name = AVSYNC_NONMS12_TV_NETFLIX_TUNNEL_PCM_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_NONMS12_TV_NETFLIX_TUNNEL_PCM_LATENCY;
+        } else {
+            prop_name = AVSYNC_NONMS12_NETFLIX_TUNNEL_PCM_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_NONMS12_NETFLIX_TUNNEL_PCM_LATENCY;
+        }
         break;
     }
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3: {
         /*for tunnel dolby ddp5.1 case:netflix AV1/HDR10/HEVC case*/
-        prop_name = AVSYNC_NONMS12_NETFLIX_TUNNEL_DDP_LATENCY_PROPERTY;
-        latency_ms = AVSYNC_NONMS12_NETFLIX_TUNNEL_DDP_LATENCY;
+        if (platform_type == TV) {
+            prop_name = AVSYNC_NONMS12_TV_NETFLIX_TUNNEL_DDP_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_NONMS12_TV_NETFLIX_TUNNEL_DDP_LATENCY;
+        } else {
+            prop_name = AVSYNC_NONMS12_NETFLIX_TUNNEL_DDP_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_NONMS12_NETFLIX_TUNNEL_DDP_LATENCY;
+        }
         break;
     }
     default:
@@ -1178,7 +1188,7 @@ static int get_nonms12_tunnel_latency_offset(enum OUT_PORT port
     struct aml_audio_device *adev = adev_get_handle();
 
     if (is_netflix) {
-        input_latency_ms  = get_nonms12_netflix_tunnel_input_latency(input_format);
+        input_latency_ms  = get_nonms12_netflix_tunnel_input_latency(input_format, platform_type);
         if (adev->is_TV) {
             output_latency_ms = aml_audio_get_netflix_port_latency(port, output_format);
         }

@@ -4644,11 +4644,6 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
         goto err;
     }
 
-    if (aml_dev->useSubMix) {
-        // switch normal stream to old tv mode writing
-        switchNormalStream(aml_dev->active_outputs[STREAM_PCM_NORMAL], 0);
-    }
-
     /* now  only sc2 can use new dtv path */
     if (property_get_bool("vendor.dtv.audio.skipamadec",true) && aml_dev->is_multi_demux) {
         dtv_audio_instances->skip_amadec_flag = patch->skip_amadec_flag = true;
@@ -4772,12 +4767,8 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
     aml_dev->audio_patch = NULL;
     aml_dev->patch_src = SRC_INVAL;
     ALOGI("[audiohal_kpi]--%s Exit", __FUNCTION__);
-
-    if (aml_dev->useSubMix) {
-        switchNormalStream(aml_dev->active_outputs[STREAM_PCM_NORMAL], 1);
-    }
-
     set_dtv_audio_clk_tuning(dev, 0);
+
     return 0;
 }
 

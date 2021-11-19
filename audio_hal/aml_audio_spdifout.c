@@ -673,7 +673,11 @@ int aml_audio_spdifout_close(void *phandle)
         /*when spdif is closed, we need set raw to pcm flag, other spdif pcm may have problem*/
         aml_alsa_output_close_new(alsa_handle);
         aml_dev->alsa_handle[device_id] = NULL;
-        aml_dev->raw_to_pcm_flag        = true;
+        if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
+            aml_dev->raw_to_pcm_flag = true;
+        } else {
+            subMixingOutputRestart(aml_dev);
+        }
     }
 
     /*it is spdif a output*/

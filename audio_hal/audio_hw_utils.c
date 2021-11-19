@@ -949,7 +949,7 @@ uint32_t out_get_alsa_latency_frames(const struct audio_stream_out *stream)
     struct aml_audio_device *adev = out->dev;
     audio_format_t afmt = get_output_format((struct audio_stream_out *)stream);
     snd_pcm_sframes_t frames = 0;
-    uint32_t whole_latency_frames;
+    uint32_t whole_latency_frames = 0;
     int ret = 0;
 
     if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
@@ -957,13 +957,24 @@ uint32_t out_get_alsa_latency_frames(const struct audio_stream_out *stream)
     }
 
     whole_latency_frames = out->config.period_size * out->config.period_count / 2;
-    if (!out->pcm || !pcm_is_ready(out->pcm)) {
-        return whole_latency_frames ;
+    if (adev->useSubMix) {
+        struct subMixing *sm = adev->sm;
+        struct amlAudioMixer *audio_mixer = sm->mixerData;
+        if (out->standby)
+            return whole_latency_frames;
+
+        frames = mixer_get_inport_latency_frames(audio_mixer, out->inputPortID)
+                    + mixer_get_outport_latency_frames(audio_mixer);
+    } else {
+        if (!out->pcm || !pcm_is_ready(out->pcm)) {
+            return whole_latency_frames;
+        }
+        ret = pcm_ioctl(out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+        if (ret < 0) {
+            return whole_latency_frames;
+        }
     }
-    ret = pcm_ioctl(out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
-    if (ret < 0) {
-        return whole_latency_frames;
-    }
+
     return frames;
 }
 

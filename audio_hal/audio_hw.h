@@ -458,6 +458,7 @@ struct aml_audio_device {
     ring_buffer_t spk_tuning_rbuf;
     bool mix_init_flag;
     struct eq_drc_data eq_data;
+    bool eq_drc_inited;
     int aml_dap_v1_enable;
     /*used for high precision A/V from amlogic amadec decoder*/
     unsigned first_apts;
@@ -802,6 +803,7 @@ struct aml_stream_out {
     char stream_dump_file[128];
     bool frame_write_sum_updated;
     bool is_insert_zero_data;
+    bool hwsync_header_stripped;
     uint32_t insert_zero_data_ms;
     uint32_t timer_id;
     uint64_t hwsync_parsed_frames_sum;

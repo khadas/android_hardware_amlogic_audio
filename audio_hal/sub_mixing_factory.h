@@ -77,12 +77,21 @@ int deleteHalSubMixing(struct subMixing *smixer);
 int initSubMixingInput(struct aml_stream_out *out,
         struct audio_config *config);
 int deleteSubMixingInput(struct aml_stream_out *out);
-int out_standby_subMixingPCM(struct audio_stream *stream);
+int out_standby_subMixingPCM_l(struct audio_stream *stream);
 int switchNormalStream(struct aml_stream_out *aml_out, bool on);
 struct pcm *getSubMixingPCMdev(struct subMixing *sm);
 int subMixingOutputRestart(struct aml_audio_device *adev);
 
 void subMixingDump(int s32Fd, const struct aml_audio_device *pstAmlDev);
+ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *buffer,
+                               size_t bytes);
+ssize_t mixer_main_buffer_write_sm(struct audio_stream_out *stream, const void *buffer,
+                               size_t bytes);
+
+int subMixingSetSinkGain(struct aml_audio_device *adev, void *sink_gain);
+int subMixingSetEQData(struct aml_audio_device *adev, void *eq_data);
+int subMixingSetSrcGain(struct aml_audio_device *adev, float gain);
+int subMixingSetAudioPostprocess(struct aml_audio_device *adev, void **postprocess);
 
 /* set karaoke to submixer*/
 int subMixingSetKaraoke(struct aml_audio_device *adev, struct kara_manager *kara);
