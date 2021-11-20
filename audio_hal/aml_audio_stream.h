@@ -375,6 +375,8 @@ struct aml_audio_patch {
     bool pcm_inserting;
     int tsync_pcr_debug;
     int pre_latency;
+    int  video_valid_time;//Effective time of video
+    bool video_invalid; //Used to determine whether the video is valid
     bool ad_substream_checked_flag;
     int a_discontinue_threshold;
     struct avsync_para  sync_para;

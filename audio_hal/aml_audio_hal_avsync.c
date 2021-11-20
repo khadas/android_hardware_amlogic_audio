@@ -787,7 +787,7 @@ static int dtv_audio_tune_check(struct aml_audio_patch *patch, int cur_pts_diff,
             return 1;
         }
     }
-    if (patch->dtv_audio_tune == AUDIO_LOOKUP) {
+    if (patch->dtv_audio_tune == AUDIO_LOOKUP && patch->video_invalid != true) {
         if (abs(last_pts_diff - cur_pts_diff) < DTV_PTS_CORRECTION_THRESHOLD) {
             patch->dtv_apts_lookup = (last_pts_diff + cur_pts_diff) / 2;
             patch->dtv_audio_tune = AUDIO_DROP;

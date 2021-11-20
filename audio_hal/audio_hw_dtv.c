@@ -1285,21 +1285,38 @@ int audio_dtv_patch_output_default(struct aml_audio_patch *patch,
     ring_buffer_t *ringbuffer = &(patch->aml_ringbuffer);
     //int apts_diff = 0;
     int ret = 0;
-
+    int period_size = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
     char buff[32];
     int write_len;
     struct aml_stream_out *aml_out;
     aml_out = (struct aml_stream_out *)stream_out;
     int avail = get_buffer_read_space(ringbuffer);
+    int video_valid_lantency = property_get_int32("vendor.media.audiohal.video.validtime",3);
+    bool invalid_flag = property_get_bool("vendor.media.audiohal.video.invalidflag",0);
     if (avail >= (int)patch->out_buf_size) {
         write_len = (int)patch->out_buf_size;
         if (!patch->first_apts_lookup_over) {
             *apts_diff = dtv_set_audio_latency(0);
-            if (!dtv_firstapts_lookup_over(patch, aml_dev, false, apts_diff) || avail < 48 * 4 * 50) {
-                ALOGI("[%d]hold the aduio for cache data, avail %d", __LINE__, avail);
-                pthread_mutex_unlock(&(patch->dtv_output_mutex));
-                usleep(5000);
-                return -EAGAIN;
+            if (invalid_flag) {
+                if ((!dtv_firstapts_lookup_over(patch, aml_dev, false, apts_diff) || avail < 48 * 4 * 50) && (patch->video_valid_time < video_valid_lantency * DEFAULT_VIDEO_VAILD_LANTENCY )) {
+                    pthread_mutex_unlock(&(patch->dtv_output_mutex));
+                    patch->video_valid_time += 5000;
+                    usleep(5000);
+                    return -EAGAIN;
+                }
+                ALOGI("[audiohal_k patch->video_vaild_time  %d", patch->video_valid_time);
+                if ((patch->video_valid_time >= video_valid_lantency * DEFAULT_VIDEO_VAILD_LANTENCY)|| patch->video_invalid == 1 ) {
+                    patch->dtv_has_video = 0;
+                    patch->video_invalid = true;
+                }
+            }
+            else {
+                if (!dtv_firstapts_lookup_over(patch, aml_dev, false, apts_diff) || avail < 48 * 4 * 50) {
+                    ALOGI("[%d]hold the aduio for cache data, avail %d", __LINE__, avail);
+                    pthread_mutex_unlock(&(patch->dtv_output_mutex));
+                    usleep(5000);
+                    return -EAGAIN;
+                }
             }
             patch->first_apts_lookup_over = 1;
             ALOGI("[audiohal_kpi][%s,%d] dtv_audio_tune %d-> AUDIO_LOOKUP\n",
