@@ -2704,6 +2704,15 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
             ms12->bitsteam_cnt, ms12->input_total_ms);
     }
 
+    /*when arc is connected, we need reset all the spdif output,
+      because earc port to be reopened.
+    */
+    if (adev->arc_connected_reconfig) {
+        ALOGI("arc is reconnected, reset spdif output");
+        ms12_close_all_spdifout(ms12);
+        adev->arc_connected_reconfig = false;
+    }
+
     /*update the master pcm frame, which is used for av sync*/
     if (audio_is_linear_pcm(output_format)) {
         if (ms12_info->pcm_type == DAP_LPCM) {

@@ -563,6 +563,7 @@ struct aml_audio_device {
     bool insert_mute_flag;
     struct timespec mute_start_ts;
     /* -End- */
+    bool arc_connected_reconfig;  /*when arc conncted, set it as to true*/
 };
 
 struct meta_data {
