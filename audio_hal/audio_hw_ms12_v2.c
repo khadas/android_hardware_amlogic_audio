@@ -610,6 +610,17 @@ void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsig
         aml_ms12_update_runtime_params(ms12, parm);
 }
 
+static void ms12_close_all_spdifout(struct dolby_ms12_desc *ms12) {
+    int i = 0;
+    for (i = 0; i < BITSTREAM_OUTPUT_CNT; i++) {
+        struct bitstream_out_desc * bitstream_out = &ms12->bitstream_out[i];
+        if (bitstream_out->spdifout_handle) {
+            ALOGI("%s id=%d spdif handle =%p", __func__, i, bitstream_out->spdifout_handle);
+            aml_audio_spdifout_close(bitstream_out->spdifout_handle);
+            bitstream_out->spdifout_handle = NULL;
+        }
+    }
+}
 
 void dynamic_set_dolby_ms12_drc_parameters(struct dolby_ms12_desc *ms12)
 {
@@ -1700,13 +1711,7 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
         ms12->mat_enc_handle = NULL;
     }
     ms12->ms12_bypass_handle = NULL;
-    for (i = 0; i < BITSTREAM_OUTPUT_CNT; i++) {
-        struct bitstream_out_desc * bitstream_out = &ms12->bitstream_out[i];
-        if (bitstream_out->spdifout_handle) {
-            aml_audio_spdifout_close(bitstream_out->spdifout_handle);
-            bitstream_out->spdifout_handle = NULL;
-        }
-    }
+    ms12_close_all_spdifout(ms12);
     if (ms12->iec61937_ddp_buf) {
         aml_audio_free(ms12->iec61937_ddp_buf);
         ms12->iec61937_ddp_buf = NULL;
@@ -2164,10 +2169,7 @@ int ms12_passthrough_output(struct aml_stream_out *aml_out) {
     }
     if (ms12->is_bypass_ms12 != bitstream_out->is_bypass_ms12) {
         ALOGI("change to bypass mode from =%d to %d", bitstream_out->is_bypass_ms12, ms12->is_bypass_ms12);
-        if (bitstream_out->spdifout_handle) {
-            aml_audio_spdifout_close(bitstream_out->spdifout_handle);
-        }
-        memset(bitstream_out, 0, sizeof(struct bitstream_out_desc));
+        ms12_close_all_spdifout(ms12);
     }
 
 
@@ -2176,13 +2178,7 @@ int ms12_passthrough_output(struct aml_stream_out *aml_out) {
         output_format = hal_internal_format;
         /*nts have one test case, when passthrough and pause, we should close spdif output*/
         if (ms12->is_continuous_paused) {
-            for (i = 0; i < BITSTREAM_OUTPUT_CNT; i++) {
-                struct bitstream_out_desc * bitstream_out = &ms12->bitstream_out[i];
-                if (bitstream_out->spdifout_handle) {
-                    aml_audio_spdifout_close(bitstream_out->spdifout_handle);
-                    bitstream_out->spdifout_handle = NULL;
-                }
-            }
+            ms12_close_all_spdifout(ms12);
             out_size = 0;
         }
 
@@ -2210,15 +2206,9 @@ static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_
 
     /*we update the optical format in pcm, because it is always output*/
     if (ms12->optical_format != adev->optical_format) {
-         ALOGI("ms12 optical format change from 0x%x to  0x%x\n",adev->ms12.optical_format,adev->optical_format);
-         ms12->optical_format= adev->optical_format;
-         for (i = 0; i < BITSTREAM_OUTPUT_CNT; i++) {
-             struct bitstream_out_desc * bitstream_out = &ms12->bitstream_out[i];
-             if (bitstream_out->spdifout_handle) {
-                 aml_audio_spdifout_close(bitstream_out->spdifout_handle);
-                 bitstream_out->spdifout_handle = NULL;
-             }
-         }
+        ALOGI("ms12 optical format change from 0x%x to  0x%x\n",adev->ms12.optical_format,adev->optical_format);
+        ms12->optical_format= adev->optical_format;
+        ms12_close_all_spdifout(ms12);
     }
 
     if (adev->continuous_audio_mode) {

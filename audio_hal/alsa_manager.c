@@ -998,6 +998,10 @@ int aml_alsa_output_data_handle(void *handle, void *output_buffer, size_t size, 
 {
     alsa_handle_t *alsa_handle = (alsa_handle_t *)handle;
 
+    if (alsa_handle == NULL) {
+        return 0;
+    }
+
     if (is_mute) {
         memset(output_buffer, 0, size);
         return 0;
