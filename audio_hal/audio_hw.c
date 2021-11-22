@@ -7297,6 +7297,21 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     if (adev->debug_flag > 1) {
         ALOGI("+<IN>%s: out_stream(%p) position(%zu)", __func__, stream, bytes);
     }
+#if ANDROID_PLATFORM_SDK_VERSION > 29
+    if (aml_out && adev &&
+        (aml_out->dev->patch_src == SRC_DTV) &&
+        aml_out->dev->audio_patching &&
+        (aml_out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) &&
+        (aml_out->audioCfg.offload_info.content_id != 0)&&
+        (aml_out->audioCfg.offload_info.sync_id != 0)) {
+        /*enter into tuner framework case, this data is from framework.
+        we need to make its write dummy*/
+        if (adev->debug_flag > 1) {
+            ALOGD("%s:patching %d, adev:%p, out->dev:%p, patch:%p.finish write", __func__, aml_out->dev->audio_patching, adev, aml_out->dev, adev->audio_patch);
+        }
+        return bytes;
+    }
+#endif
 
     if (aml_audio_trace_debug_level() > 0) {
         if (false == aml_out->pause_status  &&  aml_out->write_count < 1) {
