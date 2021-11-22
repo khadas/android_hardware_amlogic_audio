@@ -83,7 +83,8 @@ static int select_digital_device(struct spdifout_handle *phandle) {
                 /*TV spdif_a support arc/spdif, spdif_b only support spdif
                  *ddp always used spdif_a
                  */
-                if (phandle->audio_format == AUDIO_FORMAT_E_AC3) {
+                if (phandle->audio_format == AUDIO_FORMAT_E_AC3 ||
+                    phandle->audio_format == AUDIO_FORMAT_MAT) {
                     device_id = EARC_DEVICE;
                 } else if (phandle->audio_format == AUDIO_FORMAT_AC3) {
                     if (aml_dev->optical_format == AUDIO_FORMAT_E_AC3) {
