@@ -1452,17 +1452,15 @@ int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, s
    return ret;
 }
 
-
 void create_tvin_buffer(struct aml_audio_patch *patch)
 {
-    int ret = ring_buffer_init(&patch->tvin_ringbuffer, 512 * 1024);
-    ALOGI("[%s] aring_buffer_init ret=%d\n", __FUNCTION__, ret);
+    int ret = ring_buffer_init(&patch->tvin_ringbuffer, 4 * 48 * 64);
+    AM_LOGI("aring_buffer_init size:%d, ret=%d", 4 * 48 * 64, ret);
     if (ret == 0) {
         patch->tvin_buffer_inited = 1;
     }
 
 }
-
 
 void release_tvin_buffer(struct aml_audio_patch *patch)
 {
@@ -1472,61 +1470,76 @@ void release_tvin_buffer(struct aml_audio_patch *patch)
     }
 }
 
-void tv_in_write(struct audio_stream_out *stream, const void* buffer, size_t bytes)
+uint32_t tv_in_write(struct audio_stream_out *stream, const void* buffer, size_t bytes)
 {
+    R_CHECK_POINTER_LEGAL(bytes, stream, "");
+    R_CHECK_POINTER_LEGAL(bytes, buffer, "");
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = out->dev;
     struct aml_audio_patch *patch = adev->audio_patch;
-    int abuf_level = 0;
-
-    if (stream == NULL || buffer == NULL || bytes == 0 || patch == NULL) {
-        ALOGW("[%s:%d] stream:%p or buffer:%p is null, or bytes:%d = 0 patch:%p.", __func__, __LINE__, stream, buffer, bytes, patch);
-        return;
+    R_CHECK_POINTER_LEGAL(bytes, patch, "");
+    if (bytes == 0 || patch->tvin_buffer_inited != 1) {
+        return bytes;
     }
-    if (patch->tvin_buffer_inited == 1) {
-        abuf_level = get_buffer_write_space(&patch->tvin_ringbuffer);
-        if (abuf_level <= (int)bytes) {
-            ALOGI("[%s] dtvin ringbuffer is full,reset  ringbuffer", __FUNCTION__);
-            ring_buffer_reset(&patch->tvin_ringbuffer);
-            return;
+
+    uint32_t bytes_written = 0;
+    uint32_t wr_size = bytes;
+    uint32_t full_count = 0;
+    while (bytes_written < bytes) {
+        uint32_t sent = ring_buffer_write(&patch->tvin_ringbuffer, (uint8_t *)buffer + bytes_written, bytes - bytes_written, UNCOVER_WRITE);
+        AM_LOGV("need_write:%d, actual sent:%d, bytes:%d", (bytes - bytes_written), sent, bytes);
+        bytes_written += sent;
+        if (bytes_written == bytes) {
+            if (adev->debug_flag) {
+                AM_LOGD("write finished, bytes:%d, timeout:%d ms", bytes, 5 * full_count);
+            }
+            return bytes;
         }
-
-        ring_buffer_write(&patch->tvin_ringbuffer, (unsigned char *)buffer, bytes, UNCOVER_WRITE);
+        full_count++;
+        if (full_count >= 20) {
+            AM_LOGW("write data timeout 100ms, need write:%d, bytes_written:%d, reset buffer", bytes, bytes_written);
+            ring_buffer_reset(&patch->tvin_ringbuffer);
+            return bytes_written;
+        }
+        usleep(5000);
     }
-    ALOGV("[%s] dtvin write ringbuffer successfully,abuf_level=%d", __FUNCTION__,abuf_level);
+    return bytes;
 }
 
-int tv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
+uint32_t tv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
 {
-    int ret = 0;
-    unsigned int es_length = 0;
+    R_CHECK_POINTER_LEGAL(bytes, stream, "");
+    R_CHECK_POINTER_LEGAL(bytes, buffer, "");
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
     struct aml_audio_device *adev = in->dev;
-
-    if (stream == NULL || buffer == NULL || bytes == 0 || adev->audio_patch == NULL) {
-        ALOGW("[%s:%d] stream:%p or buffer:%p is null, or bytes:%d = 0. adev->audio_patch %p", __func__, __LINE__, stream, buffer, bytes, adev->audio_patch );
-        return bytes;
-    }
-
     struct aml_audio_patch *patch = adev->audio_patch;
-    ALOGV("[%s] patch->aformat=0x%x patch->dtv_decoder_ready=%d bytes:%d\n", __FUNCTION__,patch->aformat,patch->dtv_decoder_ready,bytes);
-
-    if (patch->tvin_buffer_inited == 1) {
-        int abuf_level = get_buffer_read_space(&patch->tvin_ringbuffer);
-        if (abuf_level <= (int)bytes) {
-            bytes = ret = 0;
-            ALOGI("[%s] abuf_level =%d <  bytes =%d\n", __FUNCTION__,abuf_level,bytes);
-        } else {
-            ret = ring_buffer_read(&patch->tvin_ringbuffer, (unsigned char *)buffer, bytes);
-            ALOGV("[%s] abuf_level =%d ret=%d\n", __FUNCTION__,abuf_level,ret);
-        }
+    R_CHECK_POINTER_LEGAL(bytes, patch, "");
+    if (bytes == 0 || patch->tvin_buffer_inited != 1) {
+        memset(buffer, 0, bytes);
         return bytes;
-    } else {
-        memset(buffer, 0, sizeof(unsigned char)* bytes);
-        ret = bytes;
-        return ret;
     }
-    return ret;
+
+    uint32_t read_bytes = 0;
+    uint32_t nodata_count = 0;
+    while (read_bytes < bytes) {
+        uint32_t ret = ring_buffer_read(&patch->tvin_ringbuffer, (uint8_t *)buffer + read_bytes, bytes - read_bytes);
+        AM_LOGV("need_write:%d, actual sent:%d, bytes:%d", (bytes - read_bytes), ret, bytes);
+        read_bytes += ret;
+        if (read_bytes == bytes) {
+            if (adev->debug_flag) {
+                int available = get_buffer_read_space(&patch->tvin_ringbuffer);
+                AM_LOGD("read finished, bytes:%d, timeout:%d ms, available:%d", bytes, 5 * nodata_count, available);
+            }
+            return bytes;
+        }
+        nodata_count++;
+        if (nodata_count >= 20) {
+            AM_LOGW("read data timeout 100ms, need:%d, read_bytes:%d", bytes, read_bytes);
+            return read_bytes;
+        }
+        usleep(5000);
+    }
+    return bytes;
 }
 
 int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parms *parms)
