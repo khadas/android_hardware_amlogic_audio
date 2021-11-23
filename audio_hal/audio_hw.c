@@ -6943,10 +6943,11 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
                 }
             }
 
-            /*for ms12 system input, we need do track switch before enter ms12*/
+            /*No need here, We do track switch in audio_hal_data_processing()*/
+            /*
             {
                 aml_audio_switch_output_mode((int16_t *)buffer, bytes, adev->sound_track_mode);
-            }
+            }*/
 
             /* audio zero data detect, and do fade in */
             if (adev->is_netflix && STREAM_PCM_NORMAL == aml_out->usecase) {
