@@ -4268,19 +4268,36 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
 
     if (!strcmp (keys, AUDIO_PARAMETER_HW_AV_SYNC) ) {
         ALOGI ("get hw_av_sync id\n");
-        if (adev->hw_mediasync == NULL) {
-            adev->hw_mediasync = aml_hwsync_mediasync_create();
-        }
-        if (adev->hw_mediasync != NULL) {
-            int32_t id = -1;
-            bool ret = aml_audio_hwsync_get_id(adev->hw_mediasync, &id);
-            ALOGI ("ret: %d, id:%d\n", ret, id);
-            if(ret && id != -1) {
-                sprintf (temp_buf, "hw_av_sync=%d", id);
-                return strdup (temp_buf);
+        if (adev->patch_src == SRC_DTV && adev->audio_patching ==1) {
+            unsigned int path_id = 0;
+            aml_dtv_audio_instances_t *dtv_audio_instances = (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
+            if (dtv_audio_instances) {
+                aml_dtvsync_t *dtvsync = &dtv_audio_instances->dtvsync[path_id];
+                if (dtvsync) {
+                    int32_t id = dtvsync->mediasync_id;
+                    ALOGI ("%s,id:%d\n", __func__, id);
+                    if (id != 0) {
+                        sprintf (temp_buf, "hw_av_sync=%d", id);
+                        return strdup (temp_buf);
+                    }
+                    return strdup ("hw_av_sync=12345678");
+                }
             }
+        } else {
+            if (adev->hw_mediasync == NULL) {
+                adev->hw_mediasync = aml_hwsync_mediasync_create();
+            }
+            if (adev->hw_mediasync != NULL) {
+                int32_t id = -1;
+                bool ret = aml_audio_hwsync_get_id(adev->hw_mediasync, &id);
+                ALOGI ("ret: %d, id:%d\n", ret, id);
+                if (ret && id != -1) {
+                    sprintf (temp_buf, "hw_av_sync=%d", id);
+                    return strdup (temp_buf);
+                }
+            }
+            return strdup ("hw_av_sync=12345678");
         }
-        return strdup ("hw_av_sync=12345678");
     } else if (strstr (keys, AUDIO_PARAMETER_HW_AV_EAC3_SYNC) ) {
         return strdup ("HwAvSyncEAC3Supported=true");
     } else if (strstr (keys, "hdmi_format") ) {
