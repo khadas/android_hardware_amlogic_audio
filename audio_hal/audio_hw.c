@@ -9394,6 +9394,9 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
             goto Err_MS12_MesgThreadCreate;
         }
     }
+
+    /* dtv_volume init , range [0, 1]*/
+    adev->dtv_volume = 1.0;
     pthread_mutex_unlock(&adev_mutex);
 
     /* get default edid of hdmirx */

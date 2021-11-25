@@ -260,6 +260,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     int has_audio = 1;
     int audio_sync_mode = 0;
+    float dtv_volume_switch = 1.0;
     pthread_mutex_lock(&adev->dtv_lock);
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
     unsigned int path_id = val >> DVB_DEMUX_ID_BASE;
@@ -289,6 +290,15 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
         case AUDIO_DTV_PATCH_CMD_SET_MUTE:
             ALOGE ("Amlogic_HAL - %s: TV-Mute:%d.", __FUNCTION__,val);
             adev->tv_mute = val;
+            break;
+        case AUDIO_DTV_PATCH_CMD_SET_VOLUME:
+            dtv_volume_switch = (float)val / 100; // val range is [0, 100], conversion range is [0, 1]
+            if (adev->dtv_volume != dtv_volume_switch && dtv_volume_switch >= 0.0f && dtv_volume_switch <= 1.0f) {
+                adev->dtv_volume = dtv_volume_switch;
+                ALOGI ("dtv set volume:%f", adev->dtv_volume);
+            } else {
+                ALOGE("[%s:%d] dtv set volume error! volume:%f", __func__, __LINE__, dtv_volume_switch);
+            }
             break;
         case AUDIO_DTV_PATCH_CMD_SET_HAS_VIDEO:
             demux_info->has_video = val;
@@ -3848,6 +3858,7 @@ int release_dtv_patch(struct aml_audio_device *aml_dev)
         if (dtv_instances->dvb_path_count == 0) {
             tv_do_ease_out(aml_dev);
             ret = release_dtv_patch_l(aml_dev);
+            aml_dev->dtv_volume = 1.0;
         }
     }
 
@@ -4080,6 +4091,11 @@ int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms)
         goto exit;
     }
 
+    ret = str_parms_get_int(parms, "hal_param_dtv_audio_volume", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_VOLUME, val);
+        goto exit;
+    }
     /* dvb cmd deal with end */
 exit:
     return ret;

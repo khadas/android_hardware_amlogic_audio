@@ -562,6 +562,11 @@ struct aml_audio_device {
     /* mute flag after insert policy */
     bool insert_mute_flag;
     struct timespec mute_start_ts;
+    /*
+    AudioHalWrapper set volume , dtv_volume range [0, 1]
+    set process: TsPlayer::SetAudioVolume(volume) -> dtv_volume
+    */
+    float dtv_volume; // Todo: This parameter is not used yet
     /* -End- */
     bool arc_connected_reconfig;  /*when arc conncted, set it as to true*/
 };
