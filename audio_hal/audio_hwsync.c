@@ -351,6 +351,7 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
             if ((p_hwsync->version_num  == 1 && p_hwsync->hw_sync_header_cnt == HW_AVSYNC_HEADER_SIZE_V1 ) ||
                 (p_hwsync->version_num  == 2 && p_hwsync->hw_sync_header_cnt == v2_hwsync_header )) {
                 uint64_t pts = 0;
+                uint64_t pts_us = 0;
 
                 if (p_hwsync->version_num  == 2 && p_hwsync->hw_sync_header_cnt == HW_AVSYNC_HEADER_SIZE_V2 ) {
                     v2_hwsync_header = hwsync_header_get_offset(&p_hwsync->hw_sync_header[0]);
@@ -384,7 +385,10 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                 p_hwsync->body_align_cnt = 0; //  alisan zz
                 p_hwsync->hw_sync_header_cnt = 0; //8.1
                 pts = hwsync_header_get_pts(&p_hwsync->hw_sync_header[0]);
-                pts = pts * 90 / 1000000;
+                /*convert ns to us*/
+                pts_us = pts / 1000;
+                /*convert us to 90k*/
+                pts = pts_us * 9 / 100;
                 time_diff = get_pts_gap(pts, p_hwsync->last_apts_from_header) / 90;
                 if (debug_enable) {
                     ALOGI("pts 0x%"PRIx64",frame len %u\n", pts, p_hwsync->hw_sync_body_cnt);
