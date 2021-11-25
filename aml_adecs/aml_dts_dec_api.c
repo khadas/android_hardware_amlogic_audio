@@ -75,6 +75,10 @@
 
 
 #define DCA_CHECK_NULL_STR(x)     (NULL == x ? #x : "")
+#define DCA_CHECK_STATUS(status, state_code)       (status & state_code)
+#define DCA_ADD_STATUS(status, state_code)       (status |= state_code)
+#define DCA_CLEAR_STATUS(status, state_code)       (status &= ~state_code)
+
 
 enum
 {
@@ -584,12 +588,12 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
     dts_dec->stream_type = 0;
     dts_dec->is_headphone_x = false;
 
-    dts_dec->status = dca_decoder_init(dts_dec->digital_raw);
-    if (dts_dec->status < 0) {
+    if (dca_decoder_init(dts_dec->digital_raw) < 0) {
         goto error;
     }
-    dts_dec->status = 1;
+    dts_dec->status |= DCA_INITED;
     dts_dec->remain_size = 0;
+    dts_dec->half_frame_remain_size = 0;
     dts_dec->decoder_process = dca_decode_process;
 
     dts_dec->frame_info.syncword = 0;
@@ -602,7 +606,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
     dts_dec->inbuf = (unsigned char*) aml_audio_malloc(MAX_DCA_FRAME_LENGTH);  ///< same as dca decoder
     dec_pcm_data->buf_size = MAX_DCA_FRAME_LENGTH * 2;
     dec_pcm_data->buf = (unsigned char *)aml_audio_malloc(dec_pcm_data->buf_size);
-    dec_raw_data->buf_size = MAX_DCA_FRAME_LENGTH;
+    dec_raw_data->buf_size = MAX_DCA_FRAME_LENGTH * 2;
     dec_raw_data->buf = (unsigned char *)aml_audio_malloc(dec_raw_data->buf_size);
     if (!dec_pcm_data->buf || !dec_raw_data->buf || !dts_dec->inbuf) {
         ALOGE("%s malloc memory failed!", __func__);
@@ -782,15 +786,22 @@ int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int byt
         }
     }
 
-    frame_size = _dts_frame_scan(dts_dec);
-    if (frame_size > 0) {
-        ring_buffer_read(input_rbuffer, dts_dec->inbuf, frame_size);
-        dts_dec->remain_size -= frame_size;
-        if (dts_dec->is_iec61937 && !dts_dec->frame_info.is_little_endian) {
-            endian16_convert(dts_dec->inbuf, frame_size);
+    if (DCA_CHECK_STATUS(dts_dec->status, DCA_PROCESS_HALF_FRAME)) {
+        frame_size = dts_dec->half_frame_remain_size;
+        ALOGI("half_frame_decode frame_size:%d\n", frame_size);
+    } else {
+        frame_size = _dts_frame_scan(dts_dec);
+        if (frame_size > 0) {
+            ring_buffer_read(input_rbuffer, dts_dec->inbuf, frame_size);
+            dts_dec->remain_size -= frame_size;
+            if (dts_dec->is_iec61937 && !dts_dec->frame_info.is_little_endian) {
+                endian16_convert(dts_dec->inbuf, frame_size);
+            }
         }
+    }
 
-        used_size = dts_dec->decoder_process(dts_dec->inbuf,
+    if (frame_size) {
+        used_size = dts_dec->decoder_process(dts_dec->inbuf + dts_dec->half_frame_used_size,
                                 frame_size,
                                 dec_pcm_data->buf,
                                 &dts_dec->outlen_pcm,
@@ -801,6 +812,17 @@ int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int byt
             ALOGD("%s: used_size:%d, pcm(len:%d, sr:%d, ch:%d), raw len:%d\n"
                 , __func__, used_size, dts_dec->outlen_pcm, dts_dec->pcm_out_info.sample_rate
                 , dts_dec->pcm_out_info.channel_num, dts_dec->outlen_raw);
+        }
+
+        if (used_size < frame_size) {
+            DCA_ADD_STATUS(dts_dec->status, DCA_PROCESS_HALF_FRAME);
+            dts_dec->half_frame_remain_size = frame_size - used_size;
+            dts_dec->half_frame_used_size = used_size;
+            ALOGI("half_frame_decode remain_size:%d used_size:%d\n", dts_dec->half_frame_remain_size, dts_dec->half_frame_used_size);
+        } else {
+            DCA_CLEAR_STATUS(dts_dec->status, DCA_PROCESS_HALF_FRAME);
+            dts_dec->half_frame_remain_size = 0;
+            dts_dec->half_frame_used_size = 0;
         }
 
         if ((dts_dec->outlen_pcm > 0) && (used_size > 0)) {
@@ -872,7 +894,7 @@ int dca_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, a
         return ret;
     }
 
-    if (dts_dec->status != 1) {
+    if (!DCA_CHECK_STATUS(dts_dec->status, DCA_INITED)) {
         return ret;
     }
 
@@ -903,7 +925,7 @@ int dca_decoder_getinfo(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_d
         return ret;
     }
 
-    if (dts_dec->status != 1) {
+    if (!DCA_CHECK_STATUS(dts_dec->status, DCA_INITED)) {
         return ret;
     }
 
