@@ -80,6 +80,7 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_CHANGE_I2S_PLL,       "TDM MCLK Fine Setting"},
     {AML_MIXER_ID_SPDIF_IN_SAMPLERATE,  "SPDIFIN audio samplerate"},
     {AML_MIXER_ID_HW_RESAMPLE_SOURCE,   "Hw resample module"},
+    {AML_MIXER_ID_EARCRX_AUDIO_CODING_TYPE,   "eARC_RX Audio Coding Type"},
     {AML_MIXER_ID_AUDIO_HAL_FORMAT,     "Audio HAL Format"},
     {AML_MIXER_ID_HDMIIN_AUDIO_EDID,    "HDMIIN AUDIO EDID"},
     {AML_MIXER_ID_EARC_TX_ATTENDED_TYPE, "eARC_TX attended type"},

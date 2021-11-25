@@ -1939,8 +1939,8 @@ static unsigned int select_port_by_device(struct aml_stream_in *in)
             if (get_hdmiin_audio_mode(&adev->alsa_mixer) == HDMIIN_MODE_I2S) {
                 inport = PORT_I2S4HDMIRX;
             }
-        } else if ((access(SYS_NODE_EARC, F_OK) == 0) &&
-                (in_device & AUDIO_DEVICE_IN_HDMI_ARC)) {
+        } else if ((is_earc_descrpt()) &&
+                   (in_device & AUDIO_DEVICE_IN_HDMI_ARC)) {
             inport = PORT_EARC;
         } else {
             inport = PORT_SPDIF;
@@ -8601,6 +8601,9 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
     R_CHECK_POINTER_LEGAL(-EINVAL, patch_set, "Can't get patch in list");
     R_CHECK_POINTER_LEGAL(-EINVAL, patch, "Can't get patch in list");
 
+    /* aml_dev patch is not the release patch */
+    if (aml_dev->audio_patch && aml_dev->audio_patch->input_src != patch->sources[0].ext.device.type)
+        goto exit_unregister;
     AM_LOGI("id:%d %s->%s patch_src:%s", handle, audioPortType2Str(patch->sources[0].type),
         audioPortType2Str(patch->sinks[0].type), patchSrc2Str(aml_dev->patch_src));
     if (patch->sources[0].type == AUDIO_PORT_TYPE_DEVICE
@@ -8692,7 +8695,6 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
         }
         aml_dev->dev2mix_patch = false;
     }
-    unregister_audio_patch(dev, patch_set);
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, TYPE_PCM);
     //dump_aml_audio_patch_sets(dev);
 #ifdef ADD_AUDIO_DELAY_INTERFACE
@@ -8701,6 +8703,8 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
     aml_audio_delay_clear(AML_DELAY_OUTPORT_ALL);
 #endif
 
+exit_unregister:
+    unregister_audio_patch(dev, patch_set);
 exit:
     return ret;
 }

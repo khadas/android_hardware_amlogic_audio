@@ -101,7 +101,8 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
             adev->patch_src == SRC_SPDIFIN ||
             adev->patch_src == SRC_LINEIN ||
             adev->patch_src == SRC_ATV ||
-            adev->patch_src == SRC_DTV) {
+            adev->patch_src == SRC_DTV ||
+            adev->patch_src == SRC_ARCIN) {
 
         if (patch && patch->need_do_avsync) {
             if (!ms12->is_muted) {

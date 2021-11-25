@@ -449,3 +449,8 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 
 	return new_port;
 }
+
+bool is_earc_descrpt(void)
+{
+	return p_aml_alsa_info->earc_descrpt ? 1 : 0;
+}

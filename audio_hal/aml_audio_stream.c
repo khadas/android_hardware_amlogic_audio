@@ -553,7 +553,10 @@ bool is_spdif_in_stable_hw (struct audio_stream_in *stream)
     struct aml_audio_device *aml_dev = in->dev;
     int type = 0;
 
-    type = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIFIN_AUDIO_TYPE);
+    if (is_earc_descrpt())
+        type = eArcIn_audio_format_detection(&aml_dev->alsa_mixer);
+    else
+        type = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIFIN_AUDIO_TYPE);
     if (type != in->spdif_fmt_hw) {
         ALOGV ("%s(), in type changed from %d to %d", __func__, in->spdif_fmt_hw, type);
         in->spdif_fmt_hw = type;
