@@ -34,6 +34,13 @@
 
 #include "alsa_device_parser.h"
 
+#define AML_DCA_SW_CORE_16M             0x7ffe8001  ///< dts-cd 16bit 1024 framesize
+#define AML_DCA_SW_CORE_14M             0x1fffe800  ///< dts-cd 14bit 1024 or 512 framesize
+#define AML_DCA_SW_CORE_16              0xfe7f0180  ///< dts-cd 16bit 1024 framesize
+#define AML_DCA_SW_CORE_14              0xff1f00e8  ///< dts-cd 14bit 1024 or 512 framesize
+#define DTSCD_FRAMESIZE1                2048    // Bytes
+#define DTSCD_FRAMESIZE2                4096    // Bytes
+
 /*Find the position of 61937 sync word in the buffer*/
 static int seek_61937_sync_word(char *buffer, int size)
 {
@@ -49,7 +56,7 @@ static int seek_61937_sync_word(char *buffer, int size)
         if (buffer[i + 0] == 0x72 && buffer[i + 1] == 0xf8 && buffer[i + 2] == 0x1f && buffer[i + 3] == 0x4e) {
             return i;
         }
-        if (buffer[i + 0] == 0x4e && buffer[i + 1] == 0x1f && buffer[i + 2] == 0xf8 && buffer[i + 3] == 0x72) {
+        if (buffer[i + 0] == 0xf8 && buffer[i + 1] == 0x72 && buffer[i + 2] == 0x4e && buffer[i + 3] == 0x1f) {
             return i;
         }
     }
@@ -57,25 +64,30 @@ static int seek_61937_sync_word(char *buffer, int size)
 }
 
 /*DTSCD format is a special dts format without 61937 header*/
-static int seek_dts_cd_sync_word(char *buffer, int size)
+static int seek_dts_cd_sync_word(unsigned char *buffer, int size)
 {
-    int i = -1;
-    if (size < 6) {
-        return i;
+    int i = 0;
+    unsigned int u32Temp = 0;
+
+    if (size < 4) {
+        return -1;
     }
 
-    for (i = 0; i < (size - 5); i++) {
-        if ((buffer[i + 0] == 0xFF && buffer[i + 1] == 0x1F
-             && buffer[i + 2] == 0x00 && buffer[i + 3] == 0xE8
-             && buffer[i + 4] == 0xF0 && buffer[i + 5] == 0x07) ||
-            (buffer[i + 0] == 0xE8 && buffer[i + 1] == 0x00
-             && buffer[i + 2] == 0x1F && buffer[i + 3] == 0xFF
-             && buffer[i + 6] == 0x07 && buffer[i + 7] == 0xF1) ||
-             (buffer[i + 0] == 0xFF && buffer[i + 1] == 0x1F
-             && buffer[i + 2] == 0x00 && buffer[i + 3] == 0xE8
-             && buffer[i + 4] == 0xF1 && buffer[i + 5] == 0x07) ||
-             (buffer[i + 0] == 0xFE && buffer[i + 1] == 0x7F
-             && buffer[i + 2] == 0x01 && buffer[i + 3] == 0x80)) {
+    for (i = 0; i < (size - 3); i++) {
+        u32Temp = 0;
+
+        u32Temp  = buffer[i + 0];
+        u32Temp <<= 8;
+        u32Temp |= buffer[i + 1];
+        u32Temp <<= 8;
+        u32Temp |= buffer[i + 2];
+        u32Temp <<= 8;
+        u32Temp |= buffer[i + 3];
+
+        /* 16-bit core stream*/
+        if ( u32Temp == AML_DCA_SW_CORE_16M || u32Temp == AML_DCA_SW_CORE_14M
+            || u32Temp == AML_DCA_SW_CORE_16 || u32Temp == AML_DCA_SW_CORE_14) {
+
             return i;
         }
     }
@@ -367,7 +379,8 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size,
     uint32_t *tmp_pc;
     uint32_t pc = 0;
     uint32_t tmp = 0;
-    static int dts_cd_sync_count = 0;
+    static unsigned int _dts_cd_sync_count = 0;
+    static unsigned int _dtscd_checked_bytes = 0;
 
     DoDumpData(temp_buffer, bytes, CC_DUMP_SRC_TYPE_INPUT_PARSE);
     pos_sync_word = seek_61937_sync_word((char*)temp_buffer, bytes);
@@ -428,24 +441,44 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size,
             AudioType = LPCM;
             break;
         }
-        dts_cd_sync_count = 0;
+        _dts_cd_sync_count = 0;
+        _dtscd_checked_bytes = 0;
         ALOGV("%s() data format: %d, *package_size %d, input size %zu\n",
               __FUNCTION__, AudioType, *package_size, bytes);
     } else {
-        pos_dtscd_sync_word = seek_dts_cd_sync_word((char*)temp_buffer, bytes);
+        pos_dtscd_sync_word = seek_dts_cd_sync_word((unsigned char*)temp_buffer, bytes);
         if (pos_dtscd_sync_word >= 0) {
-            dts_cd_sync_count++;
-            if (dts_cd_sync_count < DTSCD_VALID_COUNT) {
-                    AudioType = LPCM;
-            } else {
-                *package_size = DTSHD_PERIOD_SIZE * 2;
-                ALOGV("%s() %d data format: %d *package_size %d\n", __FUNCTION__, __LINE__, AudioType, *package_size);
-                AudioType = DTSCD;
-            }
-            return AudioType;
+            do {
+                ///< Check it was found the first time
+                if (_dts_cd_sync_count < 1) {
+                    _dtscd_checked_bytes += (bytes - pos_dtscd_sync_word);
+                    _dts_cd_sync_count++;
+                    break;
+                }
+
+                ///< Check if the framesize of dtscd is aligned.
+                _dtscd_checked_bytes += pos_dtscd_sync_word;
+                if (_dtscd_checked_bytes == DTSCD_FRAMESIZE1 || _dtscd_checked_bytes == DTSCD_FRAMESIZE2) {
+                    AudioType = DTSCD;
+                    *package_size = DTSHD_PERIOD_SIZE * 2;
+                    ALOGV("%s() %d data format: %d *package_size %d\n", __FUNCTION__, __LINE__, AudioType, *package_size);
+                    return AudioType;
+                } else {
+                    _dtscd_checked_bytes = 0;   // Invalid dtscd framesize, clear
+                    _dts_cd_sync_count = 0;
+                }
+
+            } while (0);
+
         } else {
-            dts_cd_sync_count = 0;
-       }
+            if (_dts_cd_sync_count > 0) { // Incoming dtscd frames may be truncated, need to accumulate.
+                _dtscd_checked_bytes += bytes;
+                if (_dtscd_checked_bytes > DTSCD_FRAMESIZE2) {
+                    _dtscd_checked_bytes = 0;   // Invalid dtscd framesize, clear
+                    _dts_cd_sync_count = 0;
+                }
+            }
+        }
     }
     return AudioType;
 }
