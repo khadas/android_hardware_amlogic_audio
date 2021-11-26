@@ -515,12 +515,12 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dca_
     adev->dtslib_bypass_enable = 0;
 
     dts_config->digital_raw = AML_DEC_CONTROL_CONVERT;
-    if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+    dts_config->is_dtscd = aml_out->is_dtscd;
+    if (aml_out->hal_format == AUDIO_FORMAT_IEC61937 && !dts_config->is_dtscd) {
         dts_config->is_iec61937 = true;
     } else {
         dts_config->is_iec61937 = false;
     }
-    dts_config->is_dtscd = aml_out->is_dtscd;
 
     dts_config->dev = (void *)adev;
     ALOGI("%s digital_raw:%d, dual_output_flag:%d, is_iec61937:%d, is_dtscd:%d"

@@ -6522,6 +6522,12 @@ hwsync_rewrite:
                     aml_out->config.start_threshold =
                         aml_out->config.period_size * aml_out->config.period_count;
                 }
+
+                if (audio_parse_get_audio_type_direct(patch->audio_parse_para) == DTSCD ) {
+                    aml_out->is_dtscd = true;
+                } else {
+                    aml_out->is_dtscd = false;
+                }
             } else {
                 adev->dolby_lib_type = adev->dolby_lib_type_last;
             }
