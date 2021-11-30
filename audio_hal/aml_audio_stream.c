@@ -566,6 +566,31 @@ bool is_spdif_in_stable_hw (struct audio_stream_in *stream)
     return true;
 }
 
+bool check_digital_in_stream_signal(struct audio_stream_in *stream)
+{
+    struct aml_stream_in *in = (struct aml_stream_in *) stream;
+    struct aml_audio_device *aml_dev = in->dev;
+    struct aml_audio_patch *patch = aml_dev->audio_patch;
+    audio_type_parse_t *audio_type_status = (audio_type_parse_t *)patch->audio_parse_para;
+    enum audio_type cur_audio_type = LPCM;
+
+    if (audio_type_status->soft_parser != 1) {
+        if (in->spdif_fmt_hw == SPDIFIN_AUDIO_TYPE_PAUSE) {
+            ALOGV("%s(), hw detect iec61937 PAUSE packet, mute input", __func__);
+            return false;
+        }
+    } else {
+        cur_audio_type = audio_parse_get_audio_type_direct(patch->audio_parse_para);
+        if (cur_audio_type == PAUSE || cur_audio_type == MUTE) {
+            ALOGV("%s(), soft parser iec61937 %s packet, mute input", __func__,
+                cur_audio_type == PAUSE ? "PAUSE" : "MUTE");
+            return false;
+        }
+    }
+
+    return true;
+}
+
 int set_audio_source(struct aml_mixer_handle *mixer_handle,
         enum input_source audio_source, bool is_auge)
 {
@@ -698,12 +723,8 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
     struct aml_audio_device *adev = in->dev;
     if (in_device & AUDIO_DEVICE_IN_HDMI) {
         bool hw_stable = is_hdmi_in_stable_hw(stream);
-        bool sw_stable = is_hdmi_in_stable_sw(stream);
-        int txlx_chip = check_chip_name("txlx", 4, &adev->alsa_mixer);
-        if (txlx_chip)
-            sw_stable = true;
-        if (!hw_stable || !sw_stable) {
-            ALOGV("%s() hw_stable %d sw_stable %d\n", __func__, hw_stable, sw_stable);
+        if (!hw_stable) {
+            ALOGV("%s() hdmi in hw unstable\n", __func__);
             *mute_time = 1000;
             return false;
         }
@@ -772,11 +793,6 @@ bool check_tv_stream_signal(struct audio_stream_in *stream)
     } else {
         if (patch) {
             patch->input_signal_stable = true;
-        }
-
-        /* Audio should be read from DDR to drive HW format changed,  */
-        if (in->spdif_fmt_hw == SPDIFIN_AUDIO_TYPE_PAUSE) {
-            return false;
         }
     }
     return true;

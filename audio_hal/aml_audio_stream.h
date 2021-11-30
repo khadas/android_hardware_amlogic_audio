@@ -40,6 +40,9 @@
         (format == AUDIO_FORMAT_DTS) ||\
         (format == AUDIO_FORMAT_DTS_HD))
 
+#define IS_DIGITAL_IN_HW(device) ((device) == AUDIO_DEVICE_IN_HDMI ||\
+                             (device) == AUDIO_DEVICE_IN_HDMI_ARC ||\
+                             (device) == AUDIO_DEVICE_IN_SPDIF)
 
 typedef uint32_t usecase_mask_t;
 
@@ -481,6 +484,12 @@ void tv_do_ease_out(struct aml_audio_device *aml_dev);
 * return false if signal need to mute
 */
 bool check_tv_stream_signal (struct audio_stream_in *stream);
+
+/*
+*@breif check digital-in signal need to mute(PAUSE/MUTE) or not
+* return false if signal need to mute
+*/
+bool check_digital_in_stream_signal(struct audio_stream_in *stream);
 
 /*
  * @breif set HDMIIN audio mode: "SPDIF", "I2S", "TDM"

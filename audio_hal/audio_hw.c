@@ -145,9 +145,6 @@
 /*Google Voice Assistant channel_mask */
 #define BUILT_IN_MIC 12
 
-#define IS_HDMI_IN_HW(device) ((device) == AUDIO_DEVICE_IN_HDMI ||\
-                             (device) == AUDIO_DEVICE_IN_HDMI_ARC)
-
 /* minimum sleep time in out_write() when write threshold is not reached */
 #define MIN_WRITE_SLEEP_US 5000
 #undef RESAMPLER_BUFFER_FRAMES
@@ -6492,8 +6489,7 @@ hwsync_rewrite:
 
     /* here to check if the audio input format changed. */
     audio_format_t cur_aformat;
-    if (adev->audio_patch && aml_out->tv_src_stream &&
-            (IS_HDMI_IN_HW(patch->input_src) || patch->input_src == AUDIO_DEVICE_IN_SPDIF)) {
+    if (adev->audio_patch && aml_out->tv_src_stream && IS_DIGITAL_IN_HW(patch->input_src)) {
         cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
         if (cur_aformat != patch->aformat) {
             ALOGI ("HDMI/SPDIF input format changed from %#x to %#x\n", patch->aformat, cur_aformat);
@@ -7698,6 +7694,9 @@ void *audio_patch_input_threadloop(void *data)
                 ret = input_stream_channels_adjust(&in->stream, patch->in_buf, read_bytes);
             } else {
                 aml_alsa_input_read(&in->stream, patch->in_buf, read_bytes);
+                if (IS_DIGITAL_IN_HW(patch->input_src) && !check_digital_in_stream_signal(&in->stream)) {
+                    memset(patch->in_buf, 0, bytes_avail);
+                }
             }
             if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
                 aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/tv_read.raw", patch->in_buf, read_bytes);
@@ -7998,7 +7997,7 @@ static int create_patch_l(struct audio_hw_device *dev,
         goto err_out_thread;
     }
 
-    if (IS_HDMI_IN_HW(patch->input_src) || patch->input_src == AUDIO_DEVICE_IN_SPDIF) {
+    if (IS_DIGITAL_IN_HW(patch->input_src)) {
         //TODO add sample rate and channel information
         ret = creat_pthread_for_audio_type_parse(&patch->audio_parse_threadID,
                 &patch->audio_parse_para, &aml_dev->alsa_mixer, patch->input_src);
@@ -8037,8 +8036,7 @@ int release_patch_l(struct aml_audio_device *aml_dev)
     tv_do_ease_out(aml_dev);
     patch->output_thread_exit = 1;
     patch->input_thread_exit = 1;
-    if (IS_HDMI_IN_HW(patch->input_src) ||
-            patch->input_src == AUDIO_DEVICE_IN_SPDIF)
+    if (IS_DIGITAL_IN_HW(patch->input_src))
         exit_pthread_for_audio_type_parse(patch->audio_parse_threadID,&patch->audio_parse_para);
     patch->input_thread_exit = 1;
     pthread_join(patch->audio_input_threadID, NULL);
