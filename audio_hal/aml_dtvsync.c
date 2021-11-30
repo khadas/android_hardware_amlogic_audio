@@ -711,7 +711,8 @@ dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_de
 
     if (aml_dtvsync != NULL) {
         async_policy = &(aml_dtvsync->apolicy);
-        if (async_policy->audiopolicy != MEDIASYNC_AUDIO_NORMAL_OUTPUT)
+        if (async_policy->audiopolicy != MEDIASYNC_AUDIO_NORMAL_OUTPUT &&
+            async_policy->audiopolicy != MEDIASYNC_AUDIO_UNKNOWN)
             ALOGI("cur policy:%d, prm1:%d, prm2:%d\n", async_policy->audiopolicy,
                 async_policy->param1, async_policy->param2);
 

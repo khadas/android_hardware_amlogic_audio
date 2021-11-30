@@ -654,7 +654,7 @@ int is_ad_substream_supported(unsigned char *buffer,int write_len) {
         if ((read_pointer[0] == 0x0b && read_pointer[1] == 0x77) || \
                     (read_pointer[0] == 0x77 && read_pointer[1] == 0x0b)) {
             Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChNum,&is_eac3, &ad_substream_supported);
-            ALOGI("%s ad_substream_supported %d offset %d\n", __FUNCTION__, ad_substream_supported, offset);
+            ALOGV("%s ad_substream_supported %d offset %d\n", __FUNCTION__, ad_substream_supported, offset);
             if (ad_substream_supported)
                return ad_substream_supported;
         }

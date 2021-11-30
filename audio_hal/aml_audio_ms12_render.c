@@ -32,6 +32,7 @@
 #include "audio_hw_ms12.h"
 #include "aml_audio_timer.h"
 #include "alsa_config_parameters.h"
+#include <aml_android_utils.h>
 
 #define MS12_MAIN_WRITE_LOOP_THRESHOLD                  (2000)
 #define AUDIO_IEC61937_FRAME_SIZE 4
@@ -237,6 +238,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     size_t output_buffer_bytes = 0;
     int out_frames = 0;
     int ms12_delayms = 0;
+    int force_setting_delayms = 0;
     bool bypass_aml_dec = false;
     bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->tv_src_stream;
     bool dtv_stream_flag = patch && (adev->patch_src == SRC_DTV) && aml_out->tv_src_stream;
@@ -341,8 +343,12 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                             break;
                         }
                         ms12_delayms = aml_audio_get_cur_ms12_latency(stream);
+                        if (adev->bHDMIARCon) {
+                            force_setting_delayms = aml_getprop_int(PROPERTY_LOCAL_PASSTHROUGH_LATENCY);
+                        }
+
                         if(patch->skip_amadec_flag) {
-                            patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90;//need consider the alsa delay
+                            patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90 + force_setting_delayms * 90;//need consider the alsa delay
                             if (adev->debug_flag)
                                 ALOGI("patch->dtvsync->cur_outapts %lld", patch->dtvsync->cur_outapts);
                             if (aml_out->dtvsync_enable)

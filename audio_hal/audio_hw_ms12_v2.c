@@ -28,6 +28,7 @@
 #include <inttypes.h>
 #include <sound/asound.h>
 #include <tinyalsa/asoundlib.h>
+#include <aml_android_utils.h>
 
 #include "audio_hw_ms12.h"
 #include "alsa_config_parameters.h"
@@ -2637,6 +2638,10 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
 
         /* ms12 tuning latency which is determined by different input-format/output-format/end-port */
         int ms12_tuing_delay_pts = aml_audio_dtv_get_ms12_latency(stream) * 1000 * MILLISECOND_2_PTS / sample_rate;
+        int force_setting_delay_pts = 0;
+        if (adev->bHDMIARCon) {
+           force_setting_delay_pts = aml_getprop_int(PROPERTY_LOCAL_PASSTHROUGH_LATENCY)  * MILLISECOND_2_PTS;
+        }
 
         /* alsa latency for pcm/spdif device */
         int alsa_latency = 0;
@@ -2660,7 +2665,7 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
             aml_dtvsync->cur_outapts = DTVSYNC_INIT_PTS;
         } else {
             aml_dtvsync->out_end_apts = aml_dtvsync->out_start_apts + cur_pcm_pts;
-            aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_tuing_delay_pts;
+            aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_tuing_delay_pts + force_setting_delay_pts;
         }
         if (patch->cur_package && adev->debug_flag) {
             ALOGI("%s package pts(ms) %llu ms12_main_apts(ms) %llu pcm-duration(ms)%u cur_outapts(ms) %llu, alsa_latency(ms) %d ms12_tuing_delay_pts(ms) %d\n",

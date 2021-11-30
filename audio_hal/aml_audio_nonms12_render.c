@@ -22,7 +22,7 @@
 #include <pthread.h>
 #include <cutils/log.h>
 #include <aml_volume_utils.h>
-
+#include <aml_android_utils.h>
 
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
@@ -308,7 +308,12 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                         alsa_latency = 90 *(out_get_alsa_latency_frames(stream)  * 1000) / aml_out->config.rate;
                         /* in aml_audio_dtv_get_nonms12_latency, it use 50(supposed tuning 50 ms)*48Khz as default, will return 50*48 */
                         int ddp_tuning_latency = 90 * aml_audio_dtv_get_nonms12_latency(stream) / 48;
-                        patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - decoder_latency - alsa_latency + ddp_tuning_latency;
+                        int force_setting_delay = 0;
+                        if (adev->bHDMIARCon) {
+                            force_setting_delay = 90 * aml_getprop_int(PROPERTY_LOCAL_PASSTHROUGH_LATENCY);
+                        }
+
+                        patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - decoder_latency - alsa_latency + ddp_tuning_latency + force_setting_delay;
 
                     }
                     //sync process here
