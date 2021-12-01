@@ -839,6 +839,19 @@ inline bool primary_continous(struct audio_stream_out *stream)
         return false;
     }
 }
+
+inline bool dtv_tuner_framework(struct audio_stream_out *stream)
+{
+    struct aml_stream_out *out = (struct aml_stream_out *)stream;
+    if ((out->dev->patch_src == SRC_DTV) &&
+         out->dev->audio_patching &&
+        (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) &&
+        (out->audioCfg.offload_info.content_id != 0)&&
+        (out->audioCfg.offload_info.sync_id != 0)) {
+        return true;
+   }
+   return false;
+}
 /* called when adev locked */
 inline int dolby_stream_active(struct aml_audio_device *adev)
 {

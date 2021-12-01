@@ -37,8 +37,17 @@
 extern unsigned long decoder_apts_lookup(unsigned int offset);
 static void aml_audio_stream_volume_process(struct audio_stream_out *stream, void *buf, int sample_size, int channels, int bytes) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
-    apply_volume_fade(aml_out->last_volume_l, aml_out->volume_l, buf, sample_size, channels, bytes);
-    aml_out->last_volume_l = aml_out->volume_l;
+    struct aml_audio_device *aml_dev = aml_out->dev;
+    float volume_l = aml_out->volume_l;
+    /*
+    Indeed,all the input source main need to be applied before the mixer
+    need hdmi/av.. source gain here also.now only DTV available.
+    */
+    if (aml_dev->patch_src ==  SRC_DTV)
+        volume_l *= aml_dev->dtv_volume;
+    apply_volume_fade(aml_out->last_volume_l, volume_l, buf, sample_size, channels, bytes);
+    aml_out->last_volume_l = volume_l;
+    /*volume R is not used during this processing TBD*/
     aml_out->last_volume_r = aml_out->volume_r;
     return;
 }

@@ -395,6 +395,8 @@ struct aml_audio_patch {
     void *dtv_package_list;
     struct package *cur_package;
     bool skip_amadec_flag;
+    /*add a new flag to check the patch is created from tuner framework*/
+    bool cbs_patch;
 };
 
 struct audio_stream_out;

@@ -1227,7 +1227,7 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
     bool is_mmap_pcm = is_mmap_stream_and_pcm_format(out);
     bool is_ms12_pcm_volume_control = (is_direct_pcm && !is_mmap_pcm);
     bool is_dts = is_dts_format(out->hal_internal_format);
-
+    bool is_cbs_dtv_audio = dtv_tuner_framework(stream);
 
     ALOGI("%s(), stream(%p), left:%f right:%f, continous_mode(%d), hal_internal_format:%x, is dolby %d is direct pcm %d is_mmap_pcm %d\n",
         __func__, stream, left, right, continous_mode(adev), out->hal_internal_format, is_dolby_format, is_direct_pcm, is_mmap_pcm);
@@ -1258,7 +1258,7 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
      *use set_ms12_main_volume to control it.
      *The volume about mixer-PCM is controled by AudioFlinger
      */
-    if ((eDolbyMS12Lib == adev->dolby_lib_type) && (is_dolby_format || is_ms12_pcm_volume_control)) {
+    if ((eDolbyMS12Lib == adev->dolby_lib_type) && !is_cbs_dtv_audio && (is_dolby_format || is_ms12_pcm_volume_control)) {
         if (out->volume_l != out->volume_r) {
             ALOGW("%s, left:%f right:%f NOT match", __FUNCTION__, left, right);
         }
@@ -1277,6 +1277,15 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
          */
         int dap_postgain = volume2Ms12DapPostgain(out->volume_l);
         set_ms12_dap_postgain(&adev->ms12, dap_postgain);
+    } else if (is_cbs_dtv_audio) {
+        /*
+            for none-ms12 case, as tunner framework passthrough mode will use this stream to
+            control the dtv status such as volume,pause,resume,we need check if this direct stream
+            is used in this case.in current design, dtv audio patch is maintained inside HAL,
+            it will use a seperated output stream to store all the input information,
+            such as format,ch,sr and pts info.
+        */
+        adev->dtv_volume =  left;
     }
     return 0;
 }
@@ -3316,11 +3325,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     }
 
 #if ANDROID_PLATFORM_SDK_VERSION > 29
-    if ((out->dev->patch_src == SRC_DTV) &&
-         out->dev->audio_patching &&
-        (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) &&
-        (out->audioCfg.offload_info.content_id != 0)&&
-        (out->audioCfg.offload_info.sync_id != 0)) {
+    if (dtv_tuner_framework(stream)) {
         /*enter into tuner framework case, we need to stop&release audio dtv patch*/
         ALOGD("[audiohal_kpi] %s:patching %d, dev:%p, out->dev:%p, patch:%p", __func__, out->dev->audio_patching, dev, out->dev, ((struct aml_audio_device *)dev)->audio_patch);
         out->dev->audio_patching = 0;

@@ -3906,6 +3906,9 @@ int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct aud
         ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER, AUDIO_DEVICE_OUT_SPEAKER);
         if (ret == 0) {
             adev->audio_patching = 1;
+            if (adev->audio_patch) {
+                adev->audio_patch->cbs_patch = true;
+            }
         }
 
         /*4.parser demux id from offload_info, then set it. tuner/filter.cpp for reference.*/

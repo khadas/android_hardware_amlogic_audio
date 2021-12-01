@@ -150,8 +150,13 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
                  * Because 32k/44.1kHz DDP local playback use the ms12 discontinuous mode. If call dolby_ms12_set_main_volume
                  * w/o any restrictions, will set the MS12 volume always 1.0 with HDMI gain(1.000000). So limit the AudioPatch
                  * source name to SRC_DTV/SRC_ATV/SRC_LINEIN.
+                 * for tuner framework patch,volume will configure through out_set_volume
                  */
-                if (adev->audio_patch && (adev->patch_src == SRC_DTV || adev->patch_src == SRC_ATV || adev->patch_src == SRC_LINEIN)) {
+                if (adev->audio_patch &&  \
+                   (adev->patch_src == SRC_DTV || adev->patch_src == SRC_ATV || adev->patch_src == SRC_LINEIN)) {
+                    if (adev->audio_patch->cbs_patch) {
+                        out_gain *= adev->dtv_volume;
+                    }
                     dolby_ms12_set_main_volume(out_gain);
                     aml_out->ms12_vol_ctrl = true;
                 }
