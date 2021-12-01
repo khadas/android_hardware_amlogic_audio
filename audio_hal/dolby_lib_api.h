@@ -40,6 +40,11 @@ typedef enum eDolbyLibType {
     eDolbyMS12Lib = 2,
 } eDolbyLibType_t;
 
+/** ms12 version used in Current System */
+typedef enum eDolbyMS12Version {
+    eDolbyMS12_V1  = 1,
+    eDolbyMS12_V2  = 2,
+} eDolbyMS12Version_t;
 
 enum eDolbyLibType detect_dolby_lib_type(void);
 int dolby_lib_decode_enable(eDolbyLibType_t lib_type);

@@ -5993,6 +5993,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
 
             if (is_dolby_ms12_main_stream(stream) && continous_mode(adev)) {
                 adev->ms12.main_input_start_offset_ns = aml_out->main_input_ns;
+                adev->ms12.main_input_bytes_offset    = aml_out->input_bytes_size;
                 ALOGI("main start offset ns =%lld", adev->ms12.main_input_start_offset_ns);
             }
 
@@ -6235,7 +6236,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         in order to get a low cpu loading, we enabled less ms12 modules in each
         hdmi in user case, we need reset the pipeline to get proper one.
         */
-        need_reset_decoder = digital_input_src ? true: false;
+        need_reset_decoder = true;//digital_input_src ? true: false;
         adev->arc_hdmi_updated = 0;
     }
     /* here to check if the hdmi audio output format dynamic changed. */
@@ -6605,6 +6606,7 @@ hwsync_rewrite:
             need_reset_decoder = true;
         }
     }
+
     if (need_reconfig_output) {
         config_output (stream,need_reset_decoder);
         need_reconfig_output = false;
@@ -8754,6 +8756,7 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
         dprintf(fd, "[AML_HAL] ease out muted. start:%f target:%f\n", audio_ease->start_volume, audio_ease->target_volume);
     }
     dprintf(fd, "[AML_HAL]      dolby_lib: %d\n", aml_dev->dolby_lib_type);
+    dprintf(fd, "[AML_HAL]      build ms12 version: %d\n", aml_dev->support_ms12_version);
     dprintf(fd, "\n[AML_HAL]      usecase_masks: %#x\n", aml_dev->usecase_masks);
     dprintf(fd, "\nAML stream outs:\n");
 
@@ -9223,6 +9226,12 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->dolby_decode_enable = dolby_lib_decode_enable(adev->dolby_lib_type_last);
     adev->dts_decode_enable = dts_lib_decode_enable();
     adev->is_ms12_tuning_dat = is_ms12_tuning_dat_in_dut();
+
+#ifdef MS12_V24_ENABLE
+    adev->support_ms12_version = eDolbyMS12_V2;
+#else
+    adev->support_ms12_version = eDolbyMS12_V1;
+#endif
 
     /* convert MS to data buffer length need to cache */
     adev->spk_tuning_lvl = (spdif_tuning_latency * bytes_per_frame * MM_FULL_POWER_SAMPLING_RATE) / 1000;

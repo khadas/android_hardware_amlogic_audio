@@ -988,6 +988,7 @@ int get_the_dolby_ms12_prepared(
     ms12->stereo_pcm_frames  = 0;
     ms12->master_pcm_frames  = 0;
     ms12->ms12_main_input_size = 0;
+    ms12->main_input_ns      = 0;
     ms12->do_easing = false;
     ms12->is_muted = false;
     ms12->b_legacy_ddpout    = dolby_ms12_get_ddp_5_1_out();
@@ -2950,6 +2951,7 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream) {
     ms12->last_ms12_pcm_out_position = 0;
     adev->ms12.ms12_position_update = false;
     adev->ms12.main_input_start_offset_ns = 0;
+    adev->ms12.main_input_bytes_offset = 0;
     aml_out->main_input_ns = 0;
 
     if (aml_out->hal_internal_format == AUDIO_FORMAT_AC4) {
@@ -3158,7 +3160,13 @@ unsigned long long dolby_ms12_get_main_bytes_consumed(struct audio_stream_out *s
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
-    return dolby_ms12_get_decoder_n_bytes_consumed(ms12->dolby_ms12_ptr, hal_internal_format, MAIN_INPUT_STREAM);
+    uint64_t main_bytes_offset = ms12->main_input_bytes_offset;
+    uint64_t main_bytes_consumed = dolby_ms12_get_decoder_n_bytes_consumed(ms12->dolby_ms12_ptr, hal_internal_format, MAIN_INPUT_STREAM);
+    if (adev->debug_flag > 1) {
+        ALOGI("%s main bytes offset =%lld consued =%lld total =%lld",
+            __func__, main_bytes_offset, main_bytes_consumed, (main_bytes_offset + main_bytes_consumed));
+    }
+    return (main_bytes_offset + main_bytes_consumed);
 }
 
 unsigned long long dolby_ms12_get_main_pcm_generated(struct audio_stream_out *stream) {

@@ -461,6 +461,8 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
             hdmiFormat2Str(fmt_desc->fmt),fmt_desc->is_support, fmt_desc->max_channels,
             fmt_desc->sample_rate_mask, fmt_desc->max_bit_rate, fmt_desc->atmos_supported);
     }
+    /*when arc format is chaged, we need update it, then new output can be confguried*/
+    adev->arc_hdmi_updated = 1;
 
     return 0;
 }

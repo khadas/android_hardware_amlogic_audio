@@ -116,6 +116,7 @@ struct dolby_ms12_desc {
     bool   is_bypass_ms12;
     uint64_t main_input_start_offset_ns;
     uint64_t main_input_ns;
+    uint64_t main_input_bytes_offset;
     uint64_t main_output_ns;
     uint32_t main_input_rate;  /*it is used to calculate the buffer duration*/
     uint32_t main_buffer_min_level;

@@ -430,6 +430,7 @@ struct aml_audio_device {
     int dolby_lib_type_last;
     int dolby_decode_enable;   /*it can decode dolby, not passthrough lib*/
     int dts_decode_enable;
+    int support_ms12_version;
 
     /*used for dts decoder*/
     struct dca_dts_dec dts_hd;

@@ -2380,6 +2380,7 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream) {
     ms12->last_ms12_pcm_out_position = 0;
     adev->ms12.ms12_position_update = false;
     adev->ms12.main_input_start_offset_ns = 0;
+    adev->ms12.main_input_bytes_offset = 0;
     aml_out->main_input_ns = 0;
 
     if (aml_out->hal_internal_format == AUDIO_FORMAT_AC4) {
@@ -2566,8 +2567,14 @@ unsigned long long dolby_ms12_get_main_bytes_consumed(struct audio_stream_out *s
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    uint64_t main_bytes_offset = ms12->main_input_bytes_offset;
+    uint64_t main_bytes_consumed = dolby_ms12_get_consumed_payload();
+    if (adev->debug_flag > 1) {
+        ALOGI("%s main bytes offset =%lld consued =%lld total =%lld",
+            __func__, main_bytes_offset, main_bytes_consumed, (main_bytes_offset + main_bytes_consumed));
+    }
 
-    return dolby_ms12_get_consumed_payload();
+    return (main_bytes_offset + main_bytes_consumed);
 }
 
 unsigned long long dolby_ms12_get_main_pcm_generated(struct audio_stream_out *stream) {
