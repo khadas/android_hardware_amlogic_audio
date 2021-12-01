@@ -6492,7 +6492,7 @@ hwsync_rewrite:
 
     /* here to check if the audio input format changed. */
     audio_format_t cur_aformat;
-    if (adev->audio_patch &&
+    if (adev->audio_patch && aml_out->tv_src_stream &&
             (IS_HDMI_IN_HW(patch->input_src) || patch->input_src == AUDIO_DEVICE_IN_SPDIF)) {
         cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
         if (cur_aformat != patch->aformat) {
