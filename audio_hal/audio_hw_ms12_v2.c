@@ -620,6 +620,7 @@ static void ms12_close_all_spdifout(struct dolby_ms12_desc *ms12) {
             aml_audio_spdifout_close(bitstream_out->spdifout_handle);
             bitstream_out->spdifout_handle = NULL;
         }
+        memset(bitstream_out, 0, sizeof(struct bitstream_out_desc));
     }
 }
 
