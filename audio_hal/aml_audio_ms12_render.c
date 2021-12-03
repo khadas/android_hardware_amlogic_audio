@@ -305,12 +305,21 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     bool dtv_stream_flag = patch && (adev->patch_src == SRC_DTV) && aml_out->tv_src_stream;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
+    /*
+     * define the bypass_aml_dec by audio format
+     * 1. AC3/E-AC3/E-AC3_JOC/AC4/TrueHD/MAT
+     * 2. multi-pcm(5.1 or 7.1 but not stereo)
+     * 1+2, can go through ms12 processing
+     */
     if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)
         || is_multi_channel_pcm(stream)) {
         bypass_aml_dec = true;
     }
 
     if (bypass_aml_dec) {
+        /*
+         * DTV instance, should get the APTS and send the APTS + Audio Data together.
+         */
         if (do_sync_flag) {
             if (patch->skip_amadec_flag) {
                 if (patch->cur_package) {
