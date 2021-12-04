@@ -547,7 +547,7 @@ int dtv_patch_get_latency(struct aml_audio_device *aml_dev)
              ALOGI("last_queue_es_apts %lld",last_queue_es_apts);
              patch->last_chenkin_apts = last_queue_es_apts;
         }
-        ALOGI("lastcheckinapts %d patch->cur_outapts %d ", patch->last_chenkin_apts, patch->cur_outapts);
+        ALOGV("lastcheckinapts %d patch->cur_outapts %d ", patch->last_chenkin_apts, patch->cur_outapts);
         if (patch->last_chenkin_apts != 0xffffffff) {
             if (patch->skip_amadec_flag) {
                 if (patch->dtvsync->cur_outapts > 0 && patch->last_chenkin_apts - patch->dtvsync->cur_outapts)
@@ -560,13 +560,12 @@ int dtv_patch_get_latency(struct aml_audio_device *aml_dev)
     } else {
         uint lastcheckinapts = 0;
         get_sysfs_uint(TSYNC_LAST_CHECKIN_APTS, &lastcheckinapts);
-        ALOGI("lastcheckinapts %d patch->cur_outapts %d", lastcheckinapts, patch->cur_outapts);
+        ALOGV("lastcheckinapts %d patch->cur_outapts %d", lastcheckinapts, patch->cur_outapts);
         patch->last_chenkin_apts = lastcheckinapts;
         if (patch->last_chenkin_apts != 0xffffffff) {
             if (patch->last_chenkin_apts > patch->cur_outapts && patch->cur_outapts > 0)
                 latencyms = (patch->last_chenkin_apts - patch->cur_outapts) / 90;
         }
-
     }
     return latencyms;
 }

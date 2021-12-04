@@ -557,6 +557,11 @@ bool check_digital_in_stream_signal(struct audio_stream_in *stream)
     audio_type_parse_t *audio_type_status = (audio_type_parse_t *)patch->audio_parse_para;
     enum audio_type cur_audio_type = LPCM;
 
+    /* paser thread may have exited ,add the code to avoid NULL point visit*/
+    if (audio_type_status == NULL)  {
+        return true;
+    }
+
     if (audio_type_status->soft_parser != 1) {
         if (in->spdif_fmt_hw == SPDIFIN_AUDIO_TYPE_PAUSE) {
             ALOGV("%s(), hw detect iec61937 PAUSE packet, mute input", __func__);
@@ -1465,30 +1470,25 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
                 patchSrc2Str(adev->patch_src), adev->audio_patching);
 
             if ((adev->patch_src == SRC_DTV) && adev->audio_patching) {
-                ALOGI("[audiohal_kpi] %s, now release the dtv patch now\n ", __func__);
-                ret = release_dtv_patch(adev);
-                if (!ret) {
-                    adev->audio_patching = 0;
+                ALOGI("[audiohal_kpi] %s dtv patch exit do nothing\n ", __func__);
+            } else {
+                ALOGI("[audiohal_kpi] %s, now create the dtv patch now\n ", __func__);
+                adev->patch_src = SRC_DTV;
+                if (eDolbyMS12Lib == adev->dolby_lib_type) {
+                    bool set_ms12_non_continuous = true;
+                    get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
+                    adev->exiting_ms12 = 1;
+                    clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
+                    if (adev->active_outputs[STREAM_PCM_NORMAL] != NULL)
+                        usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
                 }
-            }
-            ALOGI("[audiohal_kpi] %s, now end release dtv patch the audio_patching is %d ", __func__, adev->audio_patching);
-            ALOGI("[audiohal_kpi] %s, now create the dtv patch now\n ", __func__);
-            adev->patch_src = SRC_DTV;
-            if (eDolbyMS12Lib == adev->dolby_lib_type) {
-                bool set_ms12_non_continuous = true;
-                get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
-                adev->exiting_ms12 = 1;
-                clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
-                if (adev->active_outputs[STREAM_PCM_NORMAL] != NULL)
-                    usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
-            }
 
-            ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER, AUDIO_DEVICE_OUT_SPEAKER);
-            if (ret == 0) {
-                adev->audio_patching = 1;
+                ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER, AUDIO_DEVICE_OUT_SPEAKER);
+                if (ret == 0) {
+                    adev->audio_patching = 1;
+                }
+                ALOGI("[audiohal_kpi] %s, now end create dtv patch the audio_patching is %d ", __func__, adev->audio_patching);
             }
-            ALOGI("[audiohal_kpi] %s, now end create dtv patch the audio_patching is %d ", __func__, adev->audio_patching);
-
         } else if (strncmp(value, "atv", 3) == 0) {
 
             // need create patching

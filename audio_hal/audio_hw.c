@@ -4396,7 +4396,7 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
     } else if (strstr (keys, "hal_param_dtv_latencyms") ) {
         int latancyms = dtv_patch_get_latency(adev);
         sprintf(temp_buf, "hal_param_dtv_latencyms=%d", latancyms);
-        ALOGD("temp_buf %s", temp_buf);
+        ALOGV("temp_buf %s", temp_buf);
         return strdup(temp_buf);
     } else if (strstr (keys, "hal_param_audio_output_mode") ) {
         int audio_output_mode = adev->dtv_sound_mode;
