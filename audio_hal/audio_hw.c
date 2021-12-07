@@ -1747,8 +1747,8 @@ static int out_add_audio_effect(const struct audio_stream *stream, effect_handle
         ALOGI("%s, add audio effect: '%s' exist flag : %s", __FUNCTION__, VIRTUALX_LICENSE_LIB_PATH,
             (dev->native_postprocess.libvx_exist) ? "true" : "false");
         /* specify effect order for virtualx. VX does downmix from 5.1 to 2.0 */
-        i = dev->native_postprocess.num_postprocessors;
         if (dev->native_postprocess.num_postprocessors > 1 && dev->native_postprocess.num_postprocessors < MAX_POSTPROCESSORS) {
+            i = dev->native_postprocess.num_postprocessors - 1;
             effect_handle_t tmp;
             tmp = dev->native_postprocess.postprocessors[i];
             dev->native_postprocess.postprocessors[i] = dev->native_postprocess.postprocessors[0];
