@@ -2567,7 +2567,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     int in_mute = 0, parental_mute = 0;
     bool stable = true;
 
-    ALOGV("%s(): stream: %d, bytes %zu in->devices %0x", __func__, in->source, bytes, in->device);
+    ALOGV("%s(): stream: %p, source: %d, bytes %zu in->devices %0x", __func__, in, in->source, bytes, in->device);
 
 #ifdef ENABLE_AEC_APP
     /* Special handling for Echo Reference: simply get the reference from FIFO.
@@ -2715,19 +2715,16 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
         inread_proc_aec(stream, buffer, bytes);
     }
-#if defined(ENABLE_AEC_APP)
-    struct aec_info info;
-    get_pcm_timestamp(in->pcm, in->config.rate, &info, false /*isOutput*/);
+
     if (ret >= 0) {
         in->frames_read += in_frames;
-        in->timestamp_nsec = audio_utils_ns_from_timespec(&info.timestamp);
+        in->timestamp_nsec = pcm_get_timestamp(in->pcm, in->config.rate, 0 /*isOutput*/);
     }
     bool mic_muted = false;
     adev_get_mic_mute((struct audio_hw_device*)adev, &mic_muted);
     if (mic_muted) {
         memset(buffer, 0, bytes);
     }
-#endif
 
 exit:
     if (ret < 0) {

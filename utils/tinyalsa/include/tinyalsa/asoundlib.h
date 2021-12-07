@@ -213,6 +213,11 @@ unsigned int pcm_bytes_to_frames(struct pcm *pcm, unsigned int bytes);
 /* Returns the pcm latency in ms */
 unsigned int pcm_get_latency(struct pcm *pcm);
 
+/* Returns pcm time stamp in nanoseconds.
+ * wrapper and adjust of pcm_get_htimestamp.
+*/
+uint64_t pcm_get_timestamp(struct pcm* pcm, uint32_t sample_rate, unsigned int isOutput);
+
 /* Returns available frames in pcm buffer and corresponding time stamp.
  * The clock is CLOCK_MONOTONIC if flag PCM_MONOTONIC was specified in pcm_open,
  * otherwise the clock is CLOCK_REALTIME.

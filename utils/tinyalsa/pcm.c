@@ -450,6 +450,44 @@ static int pcm_mmap_transfer_areas(struct pcm *pcm, char *buf,
     return count;
 }
 
+/* Helper function to get PCM hardware timestamp.*/
+uint64_t pcm_get_timestamp(struct pcm* pcm, uint32_t sample_rate, unsigned int isOutput) {
+    struct timespec timestamp;
+    unsigned int available;
+    if (pcm == NULL) {
+        ALOGE("Error getting PCM timestamp, pcm is null");
+        return 0;
+    }
+    if (pcm_get_htimestamp(pcm, &available, &timestamp) < 0) {
+        ALOGE("Error getting PCM timestamp!");
+        return 0;
+    }
+    ssize_t frames;
+    if (isOutput) {
+        frames = pcm_get_buffer_size(pcm) -available;
+    } else {
+        frames = -available; /* rewind timestamp */
+    }
+
+    /* assumes the adjustment (in nsec) is less than the max value of long,
+     * which for 32-bit long this is 2^31 * 1e-9 seconds, slightly over 2 seconds.
+     * For 64-bit long it is  9e+9 seconds. */
+    if (sample_rate > 0) {
+        long adj_nsec = (frames / (float) sample_rate) * 1E9L;
+        timestamp.tv_nsec += adj_nsec;
+        while (timestamp.tv_nsec > 1E9L) {
+            timestamp.tv_sec++;
+            timestamp.tv_nsec -= 1E9L;
+        }
+        if (timestamp.tv_nsec < 0) {
+            timestamp.tv_sec--;
+            timestamp.tv_nsec += 1E9L;
+        }
+    }
+    /*Converts a timespec to nanoseconds*/
+    return timestamp.tv_sec * 1000000000LL + timestamp.tv_nsec;
+}
+
 int pcm_get_htimestamp(struct pcm *pcm, unsigned int *avail,
                        struct timespec *tstamp)
 {
