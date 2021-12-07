@@ -93,6 +93,7 @@
 #include "dmx_audio_es.h"
 #include "aml_audio_ms12_render.h"
 #include "aml_audio_nonms12_render.h"
+#include "aml_vad_wakeup.h"
 
 #define ENABLE_NANO_NEW_PATH 1
 #if ENABLE_NANO_NEW_PATH
@@ -4320,6 +4321,17 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         goto exit;
     }
 #endif
+    ret = str_parms_get_str(parms, "hal_param_vad_wakeup", value, sizeof(value));
+    if (ret >= 0) {
+        if (strncmp(value, "suspend", 7) == 0) {
+            aml_vad_suspend(&adev->alsa_mixer);
+        } else if (strncmp(value, "resume", 7) == 0) {
+            aml_vad_resume(&adev->alsa_mixer);
+        } else {
+            AM_LOGI("not supported param:%s", value);
+        }
+        goto exit;
+    }
 
     ret = str_parms_get_str(parms, "direct-mode", value, sizeof(value));
     if (ret >= 0) {

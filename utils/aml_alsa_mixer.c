@@ -94,7 +94,10 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_TVIN_VIDEO_MAX_DELAY, "TVIN VIDEO MAX DELAY"},
     {AML_MIXER_ID_SPDIF_B_OUT_CHANNEL_STATUS, "spdif_b out channel status"},
     {AML_MIXER_ID_MEDIA_VIDEO_DELAY,    "Media Video Delay"},
-    {AML_MIXER_ID_HDMIIN_AUDIO_MODE,    "HDMIIN Audio output mode"}
+    {AML_MIXER_ID_HDMIIN_AUDIO_MODE,    "HDMIIN Audio output mode"},
+    {AML_MIXER_ID_VAD_ENABLE,           "VAD enable"},
+    {AML_MIXER_ID_VAD_SOURCE_SEL,       "VAD Source sel"},
+    {AML_MIXER_ID_VAD_SWITCH,           "VAD Switch"},
 };
 
 static char *get_mixer_name_by_id(int mixer_id)
