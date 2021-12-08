@@ -5263,7 +5263,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_audio_patch *patch = adev->audio_patch;
-    int out_frames = bytes / 4;
+    size_t out_frames = bytes / 4;
+    size_t buffer_need_size = bytes + EFFECT_PROCESS_BLOCK_SIZE;
     size_t i, j;
     int ret;
     uint32_t latency_frames = 0;
@@ -5334,14 +5335,14 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         *output_buffer_bytes = FRAMESIZE_32BIT_8ch * out_frames;
     } else {
         if (aml_out->is_tv_platform == 1) {
-            ret = aml_audio_check_and_realloc((void **)&adev->out_16_buf, &adev->out_16_buf_size, bytes);
+            ret = aml_audio_check_and_realloc((void **)&adev->out_16_buf, &adev->out_16_buf_size, buffer_need_size);
             R_CHECK_RET(ret, "alloc out_16_buf size:%d fail", bytes);
 
-            ret = aml_audio_check_and_realloc((void **)&adev->out_32_buf, &adev->out_32_buf_size, 2 * bytes);
+            ret = aml_audio_check_and_realloc((void **)&adev->out_32_buf, &adev->out_32_buf_size, 2 * buffer_need_size);
             R_CHECK_RET(ret, "alloc out_32_buf size:%d fail", 2 * bytes);
 
             /* 2 ch 16 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
-            ret = aml_audio_check_and_realloc((void **)&aml_out->tmp_buffer_8ch, &aml_out->tmp_buffer_8ch_size, 8 * bytes);
+            ret = aml_audio_check_and_realloc((void **)&aml_out->tmp_buffer_8ch, &aml_out->tmp_buffer_8ch_size, 8 * buffer_need_size);
             R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%d fail", 8 * bytes);
 
             for (int dev = AML_AUDIO_OUT_DEV_TYPE_SPEAKER; dev < AML_AUDIO_OUT_DEV_TYPE_BUTT; dev++) {
@@ -5376,7 +5377,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     }
 
                     if (adev->active_outport != OUTPORT_A2DP) {
-                        audio_post_process(&adev->native_postprocess, adev->out_16_buf, out_frames);
+                        out_frames = audio_post_process(&adev->native_postprocess, adev->out_16_buf, out_frames);
+                        bytes = out_frames * 4;
                     }
                     if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
                         aml_audio_dump_audio_bitstreams("/data/audio/audio_spk.pcm", adev->out_16_buf, bytes);

@@ -49,7 +49,7 @@ static int check_dts_config(struct aml_native_postprocess *native_postprocess) {
     return 0;
 }
 
-int audio_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t in_frames)
+size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t in_frames)
 {
     int ret = 0, j = 0;
     audio_buffer_t in_buf;
@@ -73,19 +73,19 @@ int audio_post_process(struct aml_native_postprocess *native_postprocess, int16_
                 continue;
             } else {
                 /* do 2 channel processing */
-                in_buf.frameCount = out_buf.frameCount = frames;
+                in_buf.frameCount =  out_buf.frameCount = frames;
                 in_buf.s16 = out_buf.s16 = in_buffer;
                 if ((*effect)->process)
                     ret = (*effect)->process(effect, &in_buf, &out_buf);
             }
+            frames = out_buf.frameCount;
         }
     }
 
     if (ret < 0) {
         ALOGE("postprocess failed\n");
     }
-
-    return ret;
+    return frames;
 }
 
 int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t bytes)

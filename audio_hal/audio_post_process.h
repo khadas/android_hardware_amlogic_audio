@@ -20,7 +20,11 @@
 #include <hardware/audio_effect.h>
 
 #define MAX_POSTPROCESSORS 10
-
+/*now audio_post_process  support 2ch 16bit data
+*vx process 256 as a block(256 *  4 bytes)
+* 32bit multich  case need to do
+*/
+#define EFFECT_PROCESS_BLOCK_SIZE (256 *  4)
 struct aml_native_postprocess {
     int num_postprocessors;
     effect_handle_t postprocessors[MAX_POSTPROCESSORS];
@@ -34,7 +38,19 @@ struct aml_native_postprocess {
     int effect_in_ch;
 };
 
-int audio_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t in_frames);
+/*
+ *@brief audio_post_process
+ * native_postprocess:
+ *     effect process handles
+ * in_buffer:
+ *     input data
+ * in_frames:
+ *    input data frames
+ * return
+ *    output data frames
+ *
+ */
+size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t in_frames);
 int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t bytes);
 
 /* VirtualX: */
