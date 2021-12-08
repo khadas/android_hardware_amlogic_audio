@@ -36,6 +36,7 @@
 
 #define MS12_MAIN_WRITE_LOOP_THRESHOLD                  (2000)
 #define AUDIO_IEC61937_FRAME_SIZE 4
+#define MS12_TRUNK_SIZE                                 (1024)
 
 extern unsigned long decoder_apts_lookup(unsigned int offset);
 
@@ -204,12 +205,6 @@ re_write:
 
     int size = dolby_ms12_get_main_buffer_avail(NULL);
     dolby_ms12_get_pcm_output_size(&all_pcm_len2, &all_zero_len);
-    /*
-     *if main&associate dolby input, decoder_offset should only add main data size.
-     *if main dolby input, decoder_offset should add main data size.
-     */
-    if (patch && patch->cur_package && patch->skip_amadec_flag)
-        patch->decoder_offset += patch->cur_package->size;
 
     return return_bytes;
 
@@ -224,6 +219,67 @@ static void aml_audio_ms12_init_pts_param(struct dolby_ms12_desc *ms12, uint64_t
     }
     ALOGI("first_in_frame_pts  %llu ms" , ms12->first_in_frame_pts / 90);
 }
+
+static int aml_audio_ms12_process(struct audio_stream_out *stream, const void *write_buf, size_t write_bytes) {
+    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    int return_bytes = write_bytes;
+    struct aml_audio_patch *patch = adev->audio_patch;
+    bool need_separate_frame  = false;
+    int ret = 0;
+
+    /*
+     * case 1 for local ddp 44.1khz, now the input size is too big,
+     * the passthrough output will be blocked by the decoded pcm output,
+     * so we need feed it with small trunk to fix this issue
+     *
+     *
+     * case 2 SWPL-66107
+     * for dtv passthrough case, sometimes it has big input size,
+     * we need separate it to small trunk
+     *
+     * todo, we need add a parser for such case
+     */
+    if (!adev->continuous_audio_mode && !patch) {
+        need_separate_frame = true;
+    } else if (patch && (adev->patch_src == SRC_DTV) && (BYPASS == adev->hdmi_format)) {
+        need_separate_frame = true;
+    }
+    if (need_separate_frame) {
+        size_t left_bytes = write_bytes;
+        size_t used_bytes = 0;
+        int process_size = 0;
+        /*
+         * Reason:
+         * After enable the amlogic_truehd encoded by the dolby mat encoder, passthrough the Dolby MS12 pipeline.
+         * Found the process_bytes(MS12_TRUNK_SIZE 1024Bytes) can lead the alsa underrun.
+         *
+         * Solution:
+         * After send all the truehd to ms12, sound is smooth. If dolby truehd occur underrun in passthrough mode,
+         * please take care of the value of process_size(aml_audio_ms12_render: bytes).
+         *
+         * Issue:
+         * SWPL-60957: passthrough TrueHD format in Movieplayer.
+         */
+        int process_bytes = (aml_out->hal_format == AUDIO_FORMAT_DOLBY_TRUEHD) ? (write_bytes) : MS12_TRUNK_SIZE;
+        while (1) {
+            process_size = left_bytes > process_bytes ? process_bytes : left_bytes;
+            ret = aml_audio_ms12_process_wrapper(stream, (char *)write_buf + used_bytes, process_size);
+            if (ret <= 0) {
+                break;
+            }
+            used_bytes += process_size;
+            left_bytes -= process_size;
+            if (left_bytes <= 0) {
+                break;
+            }
+        }
+    } else {
+        ret = aml_audio_ms12_process_wrapper(stream, write_buf, write_bytes);
+    }
+    return return_bytes;
+}
+
 int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, size_t bytes)
 {
     int ret = -1;
@@ -271,7 +327,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
         }
 
         /* audio data/apts, then we send the audio data*/
-        ret = aml_audio_ms12_process_wrapper(stream, buffer, bytes);
+        ret = aml_audio_ms12_process(stream, buffer, bytes);
     } else {
         if (aml_out->aml_dec == NULL) {
             config_output(stream, true);
@@ -361,6 +417,13 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
         }
 
     }
+
+    /*
+     *if main&associate dolby input, decoder_offset should only add main data size.
+     *if main dolby input, decoder_offset should add main data size.
+     */
+    if (patch && patch->cur_package && patch->skip_amadec_flag)
+        patch->decoder_offset += patch->cur_package->size;
 
     return return_bytes;
 }

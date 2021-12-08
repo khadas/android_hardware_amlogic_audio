@@ -2711,6 +2711,11 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
             ms12->bitsteam_cnt, ms12->input_total_ms);
     }
 
+    if (output_format == 0) {
+        ALOGE("%s output format error", __func__);
+        return 0;
+    }
+
     /*when arc is connected, we need reset all the spdif output,
       because earc port to be reopened.
     */

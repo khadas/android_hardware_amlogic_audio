@@ -167,8 +167,6 @@
 #define NETFLIX_DDP_BUFSIZE                             (768)
 #define OUTPUT_PORT_MAX_COEXIST_NUM                     (3)
 
-#define MS12_TRUNK_SIZE                                 (1024)
-
 /*Tunnel sync HEADER is 20 bytes*/
 #define TUNNEL_SYNC_HEADER_SIZE    (20)
 
@@ -6739,44 +6737,7 @@ hwsync_rewrite:
             __func__, __LINE__, aml_out->hal_format, output_format, adev->sink_format);
     }
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
-
-        /*for local ddp 44.1khz, now the input size is too big,
-         *the passthrough output will be blocked by the decoded pcm output,
-         *so we need feed it with small trunk to fix this issue
-         *todo, we need fix the big trunk issue for all the stream later
-         */
-        if (!adev->continuous_audio_mode && !patch) {
-            size_t left_bytes = write_bytes;
-            size_t used_bytes = 0;
-            int process_size = 0;
-            /*
-             * Reason:
-             * After enable the amlogic_truehd encoded by the dolby mat encoder, passthrough the Dolby MS12 pipeline.
-             * Found the process_bytes(MS12_TRUNK_SIZE 1024Bytes) can lead the alsa underrun.
-             *
-             * Solution:
-             * After send all the truehd to ms12, sound is smooth. If dolby truehd occur underrun in passthrough mode,
-             * please take care of the value of process_size(aml_audio_ms12_render: bytes).
-             *
-             * Issue:
-             * SWPL-60957: passthrough TrueHD format in Movieplayer.
-             */
-            int process_bytes = (aml_out->hal_format == AUDIO_FORMAT_DOLBY_TRUEHD) ? (write_bytes) : MS12_TRUNK_SIZE;
-            while (1) {
-                process_size = left_bytes > process_bytes ? process_bytes : left_bytes;
-                ret = aml_audio_ms12_render(stream, (char *)write_buf + used_bytes, process_size);
-                if (ret <= 0) {
-                    break;
-                }
-                used_bytes += process_size;
-                left_bytes -= process_size;
-                if (left_bytes <= 0) {
-                    break;
-                }
-            }
-        } else {
-            ret = aml_audio_ms12_render(stream, write_buf, write_bytes);
-        }
+        ret = aml_audio_ms12_render(stream, write_buf, write_bytes);
     } else if (eDolbyDcvLib == adev->dolby_lib_type) {
         ret = aml_audio_nonms12_render(stream, write_buf, write_bytes);
     }
