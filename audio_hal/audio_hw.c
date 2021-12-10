@@ -4243,24 +4243,32 @@ exit:
     return 0;
 }
 
-static void adev_get_cec_control_object(struct aml_audio_device *adev, char *temp_buf)
+static void adev_get_hal_control_volume_en(struct aml_audio_device *adev, char *temp_buf)
 {
-    int cec_control_tv = 0;
-    if (!adev->is_TV && adev->dolby_lib_type != eDolbyMS12Lib) {
-        enum AML_SPDIF_FORMAT format = AML_STEREO_PCM;
-        enum AML_SPDIF_TO_HDMITX spdif_index = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_TO_HDMI);
-        if (spdif_index == AML_SPDIF_A_TO_HDMITX) {
-            format = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT);
-        } else if (spdif_index == AML_SPDIF_B_TO_HDMITX) {
-            format = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT);
-        } else {
-            ALOGW("[%s:%d] unsupported spdif index:%d, use the 2ch PCM.", __func__, __LINE__, spdif_index);
+    bool hal_control_vol_en = true;
+    /* For STB product.*/
+    if (!adev->is_TV) {
+        /*  Audio_hal has no ability to control volume at the following scence:
+         *    1. non-ms12, output non-pcm, cec closed.
+         *    2. ms12, ouput non-pcm, cec closed, passthrough.
+         */
+        if (adev->dolby_lib_type != eDolbyMS12Lib ||
+            (adev->dolby_lib_type == eDolbyMS12Lib && adev->hdmi_format == BYPASS)) {
+            enum AML_SPDIF_FORMAT format = AML_STEREO_PCM;
+            enum AML_SPDIF_TO_HDMITX spdif_index = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_TO_HDMI);
+            if (spdif_index == AML_SPDIF_A_TO_HDMITX) {
+                format = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT);
+            } else if (spdif_index == AML_SPDIF_B_TO_HDMITX) {
+                format = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT);
+            } else {
+                AM_LOGW("unsupported spdif index:%d, use the 2ch PCM.", spdif_index);
+            }
+            hal_control_vol_en = (format == AML_STEREO_PCM) ? true : false;
         }
-        cec_control_tv = (format == AML_STEREO_PCM) ? 0 : 1;
     }
-    sprintf (temp_buf, "hal_param_cec_control_tv=%d", cec_control_tv);
+    sprintf (temp_buf, "hal_param_hal_control_vol_en=%d", hal_control_vol_en);
     if (adev->debug_flag) {
-        ALOGD("[%s:%d] hal_param_cec_control_tv:%d", __func__, __LINE__, cec_control_tv);
+        AM_LOGD("can hal control the platform volume, en:%d", hal_control_vol_en);
     }
 }
 
@@ -4354,8 +4362,8 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         pthread_mutex_unlock (&adev->lock);
         sprintf (temp_buf, "is_passthrough_active=%d",active);
         return  strdup (temp_buf);
-    } else if (strstr(keys, "hal_param_cec_control_tv")) {
-        adev_get_cec_control_object(adev, temp_buf);
+    } else if (strstr(keys, "hal_param_hal_control_vol_en")) {
+        adev_get_hal_control_volume_en(adev, temp_buf);
         return  strdup (temp_buf);
     } else if (!strcmp(keys, "SOURCE_GAIN")) {
         sprintf(temp_buf, "source_gain = %f %f %f %f %f", adev->eq_data.s_gain.atv, adev->eq_data.s_gain.dtv,
