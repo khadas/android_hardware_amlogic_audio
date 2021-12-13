@@ -53,6 +53,7 @@
 #include "audio_hdmi_util.h"
 #include "aml_alsa_mixer.h"
 #include "aml_audio_stream.h"
+#include "dolby_lib_api.h"
 
 struct audio_format_code_list {
     AML_HDMI_FORMAT_E  id;
@@ -310,6 +311,13 @@ int update_edid_after_edited_audio_sad(struct aml_audio_device *adev, struct for
         ALOGD("Update [%s] support:%d, ch:%d, sample_mask:%#x, bit_rate:%d, atmos:%d",
             hdmiFormat2Str(fmt_desc->fmt), fmt_desc->is_support, fmt_desc->max_channels,
             fmt_desc->sample_rate_mask, fmt_desc->max_bit_rate, fmt_desc->atmos_supported);
+    }
+
+    /*
+     * avoid to update the EDID with DCV decoder, this feature only enable in Dolby MS12 SDK v1&v2.
+     */
+    if (adev->dolby_lib_type != eDolbyMS12Lib) {
+        return 0;
     }
 
     if (BYPASS == adev->hdmi_format) {
