@@ -437,6 +437,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
             } else if (val == AUDIO_DTV_PATCH_CMD_CLOSE) {
                 if (adev->is_multi_demux) {
                     if (demux_handle) {
+                        dtv_patch_input_stop(patch->adec_handle);
                         Stop_Dmx_Main_Audio(demux_handle);
                         if (adev->dual_decoder_support)
                             Stop_Dmx_AD_Audio(demux_handle);
@@ -2174,6 +2175,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
             dtv_patch_input_open(&adec_handle, dtv_patch_pcm_write,
                                  dtv_patch_status_info,
                                  dtv_patch_audio_info,patch);
+            patch->adec_handle = adec_handle;
             patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_START;
             /* +[SE] [BUG][SWPL-21070][yinli.xia] added: turn channel mute audio*/
             if (switch_flag) {
