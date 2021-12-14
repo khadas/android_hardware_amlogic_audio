@@ -51,6 +51,7 @@
 #define AUDIO_PTS_DISCONTINUE_THRESHOLD (90000 * 5)
 #define AC3_IEC61937_FRAME_SIZE 6144
 #define EAC3_IEC61937_FRAME_SIZE 24576
+#define DOLBY_FRAME_PTS_DURATION (32 * 90)
 #define DECODER_PTS_DEFAULT_LATENCY (200 * 90)
 #define DEMUX_PCR_APTS_LATENCY (300 * 90)
 
@@ -127,6 +128,7 @@ struct package {
     struct package * next;//next ptr
     uint64_t pts;
     uint64_t ad_pts;
+    int split_frame_size;
 };
 
 typedef struct {

@@ -398,6 +398,8 @@ struct aml_audio_patch {
     /*add a new flag to check the patch is created from tuner framework*/
     bool cbs_patch;
     int adec_handle;
+    void * ac3_parser_handle;
+    void * ad_ac3_parser_handle;
 };
 
 struct audio_stream_out;

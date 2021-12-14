@@ -69,6 +69,7 @@
 #include "aml_ddp_dec_api.h"
 #include "aml_dts_dec_api.h"
 #include "audio_dtv_utils.h"
+#include "aml_audio_ac3parser.h"
 
 static struct timespec start_time;
 const unsigned int mute_dd_frame[] = {
@@ -2547,24 +2548,22 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
 {
     struct audio_hw_device *dev = patch->dev;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
-    ring_buffer_t *ringbuffer = &(patch->aml_ringbuffer);
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream_out;
     aml_dec_t *aml_dec = aml_out->aml_dec;
     package_list *list = patch->dtv_package_list;
-    //int apts_diff = 0;
 
     unsigned char mixbuffer[EAC3_IEC61937_FRAME_SIZE];
-    unsigned char ad_buffer[EAC3_IEC61937_FRAME_SIZE];
     uint16_t *p16_mixbuff = NULL;
-    uint32_t *p32_mixbuff = NULL;
     int main_size = 0, ad_size = 0, mix_size = 0 , dd_bsmod = 0;
     int ret = 0;
 
     struct package *p_package = NULL;
     p_package = patch->cur_package;
+    patch->cur_package->split_frame_size = 0;
 
     if (patch->aformat == AUDIO_FORMAT_AC3 ||
         patch->aformat == AUDIO_FORMAT_E_AC3) {
+        struct ac3_parser_info ac3_info = { 0 };
        //package iec61937
         memset(mixbuffer, 0, sizeof(mixbuffer));
         //papbpcpd
@@ -2572,52 +2571,86 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
         p16_mixbuff[0] = 0xf872;
         p16_mixbuff[1] = 0x4e1f;
 
-        mix_size += 8;
-        main_size = p_package->size;
-        ALOGV("main mEsData->size %d",p_package->size);
-        if (p_package->size + p_package->ad_size + mix_size > EAC3_IEC61937_FRAME_SIZE) {
-            ALOGE("pakage size too large, main_size %d ad_size %d", main_size, p_package->ad_size);
-            return ret;
-        }
-        if (p_package->data)
-            memcpy(mixbuffer + mix_size, p_package->data, p_package->size);
-        ad_size = p_package->ad_size;
-        ALOGV("ad mEsData->size %d",p_package->ad_size);
-        if (p_package->ad_data)
-            memcpy(mixbuffer + mix_size + main_size,p_package->ad_data, p_package->ad_size);
+        int parser_used_size = 0;
+        int used_size = 0;
+        int ad_parser_used_size = 0;
+        int ad_used_size = 0;
+        char *main_frame_buffer = p_package->data + used_size;
+        char *ad_frame_buffer = p_package->ad_data + ad_used_size;
+        while (p_package->size > used_size && !patch->input_thread_exit) {
+            int main_frame_size = 0;
+            int ad_frame_size = 0;
+            mix_size = 0;
+            aml_ac3_parser_process(patch->ac3_parser_handle,
+                                   p_package->data + used_size,
+                                   p_package->size - used_size,
+                                   &parser_used_size,
+                                   (void *)&main_frame_buffer,
+                                   &main_frame_size, &ac3_info);
+            if (main_frame_size <= 0) {
+                ALOGW("do not get main dolby frames !!!");
+                break;
+            }
+            used_size += main_frame_size;
+            main_size = main_frame_size;
+            if (p_package->ad_size) {
+                aml_ac3_parser_process(patch->ad_ac3_parser_handle,
+                                       p_package->ad_data + ad_used_size,
+                                       p_package->ad_size - ad_used_size,
+                                       &ad_parser_used_size,
+                                       (void *)&ad_frame_buffer,
+                                       &ad_frame_size, &ac3_info);
+                ad_used_size += ad_frame_size;
+            }
+            mix_size += 8;
+            ALOGV("main size %d p_package->size %d used_size %d",main_frame_size, p_package->size, used_size);
+            if (main_frame_size + ad_frame_size + mix_size > EAC3_IEC61937_FRAME_SIZE) {
+                ALOGE("pakage size too large, main_size %d ad_size %d", main_frame_size, ad_frame_size);
+                return ret;
+            }
+            if (main_frame_buffer) {
+                memcpy(mixbuffer + mix_size, main_frame_buffer, main_frame_size);
+            }
 
-        if (patch->aformat == AUDIO_FORMAT_AC3) {
-            dd_bsmod = 6;
-            p16_mixbuff[2] = ((dd_bsmod & 7) << 8) | 1;
-            if (ad_size == 0) {
-                p16_mixbuff[3] = (main_size + sizeof(mute_dd_frame)) * 8;
-                memcpy(mixbuffer + mix_size + main_size,mute_dd_frame, sizeof(mute_dd_frame));
+            ad_size = ad_frame_size;
+            ALOGV("ad size %d p_package->ad_size %d ad_used_size %d",ad_frame_size,p_package->ad_size,ad_used_size);
+            if (ad_frame_buffer)
+                memcpy(mixbuffer + mix_size + main_size,ad_frame_buffer, ad_frame_size);
+
+            if (patch->aformat == AUDIO_FORMAT_AC3) {
+                dd_bsmod = 6;
+                p16_mixbuff[2] = ((dd_bsmod & 7) << 8) | 1;
+                if (ad_size == 0) {
+                    p16_mixbuff[3] = (main_size + sizeof(mute_dd_frame)) * 8;
+                    memcpy(mixbuffer + mix_size + main_size,mute_dd_frame, sizeof(mute_dd_frame));
+                } else {
+                    p16_mixbuff[3] = (main_size + ad_size) * 8;
+                }
+                 ret = out_write_new(stream_out, mixbuffer, AC3_IEC61937_FRAME_SIZE);//ac3 iec61937 package size 6144
             } else {
-                p16_mixbuff[3] = (main_size + ad_size) * 8;
+                dd_bsmod = 12;
+                p16_mixbuff[2] = ((dd_bsmod & 7) << 8) | 21;
+                if (ad_size == 0) {
+                    p16_mixbuff[3] = main_size + sizeof(mute_ddp_frame);
+                    memcpy(mixbuffer + mix_size + main_size,mute_ddp_frame, sizeof(mute_ddp_frame));
+                } else {
+                    p16_mixbuff[3] = main_size + ad_size;
+                }
+                ret = out_write_new(stream_out, mixbuffer, EAC3_IEC61937_FRAME_SIZE);//eac3 iec61937 package size 6144*4
             }
-        } else {
-            dd_bsmod = 12;
-            p16_mixbuff[2] = ((dd_bsmod & 7) << 8) | 21;
-            if (ad_size == 0) {
-                p16_mixbuff[3] = main_size + sizeof(mute_ddp_frame);
-                memcpy(mixbuffer + mix_size + main_size,mute_ddp_frame, sizeof(mute_ddp_frame));
-            } else {
-                p16_mixbuff[3] = main_size + ad_size;
-            }
+            p_package->pts += DOLBY_FRAME_PTS_DURATION;
+            patch->cur_package->split_frame_size = main_frame_size;
+            ALOGV("p_package->pts %0llx",p_package->pts);
+        }
+        if (p_package->ad_size > ad_used_size)  {
+            ALOGW("p_package->ad_size %d >  ad_used_size %d", p_package->ad_size, ad_used_size);
         }
     } else {
          if (aml_dec) {
              aml_dec->ad_data = p_package->ad_data;
              aml_dec->ad_size = p_package->ad_size;
          }
-    }
-
-    if (patch->aformat == AUDIO_FORMAT_AC3) {//ac3 iec61937 package size 6144
-        ret = out_write_new(stream_out, mixbuffer, AC3_IEC61937_FRAME_SIZE);
-    } else if (patch->aformat == AUDIO_FORMAT_E_AC3) {//eac3 iec61937 package size 6144*4
-        ret = out_write_new(stream_out, mixbuffer, EAC3_IEC61937_FRAME_SIZE);
-    } else {
-        ret = out_write_new(stream_out, p_package->data, p_package->size);
+         ret = out_write_new(stream_out, p_package->data, p_package->size);
     }
 
     if (p_package) {
@@ -3176,6 +3209,12 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
     //patch->dtv_audio_mode = get_dtv_audio_mode();
     patch->dtv_audio_tune = AUDIO_FREE;
     patch->first_apts_lookup_over = 0;
+    if (patch->ac3_parser_handle) {
+        aml_ac3_parser_reset(patch->ac3_parser_handle);
+    }
+    if (patch->ad_ac3_parser_handle) {
+        aml_ac3_parser_reset(patch->ad_ac3_parser_handle);
+    }
     aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     ALOGI("[audiohal_kpi]++%s live start output pcm now patch->output_thread_exit %d!!!\n ",
           __FUNCTION__, patch->output_thread_exit);
@@ -3758,6 +3797,8 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
             ALOGE("%s, Create process thread fail!\n", __FUNCTION__);
             goto err_in_thread;
         }
+        aml_ac3_parser_open(&patch->ac3_parser_handle);
+        aml_ac3_parser_open(&patch->ad_ac3_parser_handle);
     } else {
         ret = pthread_create(&(patch->audio_cmd_process_threadID), NULL,
                              audio_dtv_patch_process_threadloop, patch);
@@ -3832,6 +3873,8 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
     deinit_cmd_list(patch->dtv_cmd_list);
     patch->dtv_cmd_list = NULL;
     dtv_assoc_deinit();
+    aml_ac3_parser_close(patch->ac3_parser_handle);
+    aml_ac3_parser_close(patch->ad_ac3_parser_handle);
     ring_buffer_release(&(patch->aml_ringbuffer));
 
     aml_audio_free(patch);

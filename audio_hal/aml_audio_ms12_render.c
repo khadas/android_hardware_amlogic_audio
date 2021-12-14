@@ -434,8 +434,13 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
      *if main&associate dolby input, decoder_offset should only add main data size.
      *if main dolby input, decoder_offset should add main data size.
      */
-    if (patch && patch->cur_package && patch->skip_amadec_flag)
-        patch->decoder_offset += patch->cur_package->size;
+    if (patch && patch->cur_package && patch->skip_amadec_flag) {
+        if (!adev->dual_decoder_support) {
+             patch->decoder_offset += patch->cur_package->size;
+        } else {
+             patch->decoder_offset += patch->cur_package->split_frame_size;
+        }
+    }
 
     return return_bytes;
 }
