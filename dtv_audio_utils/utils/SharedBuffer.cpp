@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include "tsp_platform.h"
+#include "aml_malloc_debug.h"
 
 SharedBuffer* SharedBuffer::alloc(size_t size)
 {
@@ -30,7 +31,7 @@ SharedBuffer* SharedBuffer::alloc(size_t size)
     LOG_ALWAYS_FATAL_IF((size >= (SIZE_MAX - sizeof(SharedBuffer))),
                         "Invalid buffer size %zu", size);
 
-    SharedBuffer* sb = static_cast<SharedBuffer *>(malloc(sizeof(SharedBuffer) + size));
+    SharedBuffer* sb = static_cast<SharedBuffer *>(aml_audio_malloc(sizeof(SharedBuffer) + size));
     if (sb) {
         // Should be std::atomic_init(&sb->mRefs, 1);
         // But that generates a warning with some compilers.
@@ -44,7 +45,7 @@ SharedBuffer* SharedBuffer::alloc(size_t size)
 
 void SharedBuffer::dealloc(const SharedBuffer* released)
 {
-    free(const_cast<SharedBuffer*>(released));
+    aml_audio_free(const_cast<SharedBuffer*>(released));
 }
 
 SharedBuffer* SharedBuffer::edit() const
@@ -70,7 +71,7 @@ SharedBuffer* SharedBuffer::editResize(size_t newSize) const
         LOG_ALWAYS_FATAL_IF((newSize >= (SIZE_MAX - sizeof(SharedBuffer))),
                             "Invalid buffer size %zu", newSize);
 
-        buf = (SharedBuffer*)realloc(buf, sizeof(SharedBuffer) + newSize);
+        buf = (SharedBuffer*)aml_audio_realloc(buf, sizeof(SharedBuffer) + newSize);
         if (buf != NULL) {
             buf->mSize = newSize;
             return buf;

@@ -43,6 +43,7 @@
 #include "audio_usb_hal.h"
 //#include "audio_hw.h"
 #include "sub_mixing_factory.h"
+#include "aml_malloc_debug.h"
 
 static void stream_lock_init(struct stream_lock *lock) {
     pthread_mutex_init(&lock->lock, (const pthread_mutexattr_t *) NULL);
@@ -142,7 +143,7 @@ static char *device_get_parameters(const alsa_device_profile *profile, const cha
         char* rates_list = profile_get_sample_rate_strs(profile);
         str_parms_add_str(result, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES,
                           rates_list);
-        free(rates_list);
+        aml_audio_free(rates_list);
     }
 
     /* supported channel counts */
@@ -150,7 +151,7 @@ static char *device_get_parameters(const alsa_device_profile *profile, const cha
         char* channels_list = profile_get_channel_count_strs(profile);
         str_parms_add_str(result, AUDIO_PARAMETER_STREAM_SUP_CHANNELS,
                           channels_list);
-        free(channels_list);
+        aml_audio_free(channels_list);
     }
 
     /* supported sample formats */
@@ -158,7 +159,7 @@ static char *device_get_parameters(const alsa_device_profile *profile, const cha
         char * format_params = profile_get_format_strs(profile);
         str_parms_add_str(result, AUDIO_PARAMETER_STREAM_SUP_FORMATS,
                           format_params);
-        free(format_params);
+        aml_audio_free(format_params);
     }
     str_parms_destroy(query);
 
@@ -422,7 +423,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             /*TODO Remove this when AudioPolicyManger/AudioFlinger support arbitrary formats
               (and do these conversions themselves) */
             in->conversion_buffer_size = num_read_buff_bytes;
-            in->conversion_buffer = realloc(in->conversion_buffer, in->conversion_buffer_size);
+            in->conversion_buffer = aml_audio_realloc(in->conversion_buffer, in->conversion_buffer_size);
         }
         read_buff = in->conversion_buffer;
     }
@@ -484,7 +485,7 @@ int adev_open_usb_input_stream(struct usb_audio_device *hw_dev,
             karaoke->close(karaoke);
     }
 
-    struct stream_in * const in = (struct stream_in *)calloc(1, sizeof(struct stream_in));
+    struct stream_in * const in = (struct stream_in *)aml_audio_calloc(1, sizeof(struct stream_in));
     if (in == NULL) {
         *stream_in = NULL;
         return -ENOMEM;
@@ -534,7 +535,7 @@ int adev_open_usb_input_stream(struct usb_audio_device *hw_dev,
     }
     if (ret != 0) {
         device_unlock(in->adev);
-        free(in);
+        aml_audio_free(in);
         *stream_in = NULL;
         return ret;
     }
@@ -639,7 +640,7 @@ int adev_open_usb_input_stream(struct usb_audio_device *hw_dev,
         // Deallocate this stream on error, because AudioFlinger won't call
         // adev_close_input_stream() in this case.
         *stream_in = NULL;
-        free(in);
+        aml_audio_free(in);
         goto Exit;
     }
 
@@ -673,11 +674,11 @@ void adev_close_usb_input_stream(struct audio_stream_in *stream)
     /* Close the pcm device */
     in_standby(&stream->common);
 
-    free(in->conversion_buffer);
+    aml_audio_free(in->conversion_buffer);
 
     in->adev->stream = NULL;
 
-    free(stream);
+    aml_audio_free(stream);
 
     ALOGV("--adev_close_usb_input_stream exit");
 

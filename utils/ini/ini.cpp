@@ -27,6 +27,8 @@
 #include <stdlib.h>
 #endif
 
+#include "aml_malloc_debug.h"
+
 #define MAX_SECTION 50
 #define MAX_NAME 50
 
@@ -85,7 +87,7 @@ int ini_parse_file(FILE* file,
     int error = 0;
 
 #if !INI_USE_STACK
-    line = (char*) malloc(INI_MAX_LINE);
+    line = (char*) aml_audio_malloc(INI_MAX_LINE);
     if (!line) {
         return -2;
     }
@@ -155,7 +157,7 @@ int ini_parse_file(FILE* file,
     }
 
 #if !INI_USE_STACK
-    free(line);
+    aml_audio_free(line);
 #endif
 
     return error;
@@ -183,7 +185,7 @@ int ini_parse_mem(const char* buf,
     int error = 0;
 
 #if !INI_USE_STACK
-    line = (char*) malloc(INI_MAX_LINE);
+    line = (char*) aml_audio_malloc(INI_MAX_LINE);
     if (!line) {
         return -2;
     }
@@ -268,7 +270,7 @@ int ini_parse_mem(const char* buf,
     }
 
 #if !INI_USE_STACK
-    free(line);
+    aml_audio_free(line);
 #endif
 
     return error;

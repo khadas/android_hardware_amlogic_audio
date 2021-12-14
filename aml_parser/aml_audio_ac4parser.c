@@ -57,17 +57,17 @@ int aml_ac4_parser_open(void **pparser_handle)
 {
     struct aml_ac4_parser *parser_hanlde = NULL;
 
-    parser_hanlde = (struct aml_ac4_parser *)calloc(1, sizeof(struct aml_ac4_parser));
+    parser_hanlde = (struct aml_ac4_parser *)aml_audio_calloc(1, sizeof(struct aml_ac4_parser));
     if (parser_hanlde == NULL) {
         ALOGE("%s handle error", __func__);
         goto error;
     }
 
     parser_hanlde->buf_size   = DOLBY_AC4_MAX_FRAMESIZE;
-    parser_hanlde->buf        = calloc(1, DOLBY_AC4_MAX_FRAMESIZE);
+    parser_hanlde->buf        = aml_audio_calloc(1, DOLBY_AC4_MAX_FRAMESIZE);
     if (parser_hanlde->buf == NULL) {
         ALOGE("%s data buffer error", __func__);
-        free(parser_hanlde);
+        aml_audio_free(parser_hanlde);
         parser_hanlde = NULL;
         goto error;
     }
@@ -87,9 +87,9 @@ int aml_ac4_parser_close(void *parser_handle)
 
     if (parser_hanlde) {
         if (parser_hanlde->buf) {
-            free(parser_hanlde->buf);
+            aml_audio_free(parser_hanlde->buf);
         }
-        free(parser_hanlde);
+        aml_audio_free(parser_hanlde);
     }
     ALOGI("%s exit", __func__);
     return 0;
@@ -408,7 +408,7 @@ int aml_ac4_parser_process(void *parser_handle, const void *in_buffer, int32_t n
         if (need_size >= 0) {
             new_buf_size = parser_hanlde->buf_remain + need_size;
             if (new_buf_size > parser_hanlde->buf_size) {
-                void * new_buf = realloc(parser_hanlde->buf, new_buf_size);
+                void * new_buf = aml_audio_realloc(parser_hanlde->buf, new_buf_size);
                 if (new_buf == NULL) {
                     ALOGE("%s realloc buf failed =%d", __func__, new_buf_size);
                     parser_hanlde->buf_remain = 0;
@@ -453,7 +453,7 @@ int aml_ac4_parser_process(void *parser_handle, const void *in_buffer, int32_t n
         /*check whether the input buf size is big enough*/
         new_buf_size = parser_hanlde->buf_remain + buf_left;
         if (new_buf_size > parser_hanlde->buf_size) {
-            void * new_buf = realloc(parser_hanlde->buf, new_buf_size);
+            void * new_buf = aml_audio_realloc(parser_hanlde->buf, new_buf_size);
             if (new_buf == NULL) {
                 ALOGE("%s realloc buf failed =%d", __func__, new_buf_size);
                 parser_hanlde->buf_remain = 0;

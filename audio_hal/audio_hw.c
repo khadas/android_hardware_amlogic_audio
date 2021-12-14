@@ -1671,7 +1671,7 @@ static int insert_output_bytes_direct (struct aml_stream_out *out, size_t size)
     int ret = 0;
     size_t insert_size = size;
     size_t once_write_size = 0;
-    char *insert_buf = (char*) malloc (8192);
+    char *insert_buf = (char*) aml_audio_malloc (8192);
 
     if (insert_buf == NULL) {
         ALOGE ("malloc size failed \n");
@@ -1696,7 +1696,7 @@ static int insert_output_bytes_direct (struct aml_stream_out *out, size_t size)
     }
 
 exit:
-    free (insert_buf);
+    aml_audio_free (insert_buf);
     return ret;
 }
 
@@ -3426,7 +3426,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         if (adev->hw_mediasync && (adev->hw_mediasync == out->hwsync->mediasync))
             aml_audio_hwsync_release(out->hwsync);
         if (out->hwsync->mediasync) {
-            //free(out->hwsync->mediasync);
+            //aml_audio_free(out->hwsync->mediasync);
             out->hwsync->mediasync = NULL;
             if (adev->hw_mediasync) {
                 adev->hw_mediasync = NULL;

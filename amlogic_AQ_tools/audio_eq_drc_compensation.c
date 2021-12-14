@@ -26,6 +26,7 @@
 #include "audio_hw.h"
 #include "audio_eq_drc_compensation.h"
 #include "aml_volume_utils.h"
+#include "aml_malloc_debug.h"
 
 #undef  LOG_TAG
 #define LOG_TAG  "audio_hw_primary"
@@ -286,7 +287,7 @@ static int ext_table_set(struct audio_data_s *table, int card, char *name)
         tlv_header_size = TLV_HEADER_SIZE;
     }
 
-    param_buf = (char *)calloc(1, (MAX_STRING_TABLE_MAX * sizeof(char)));
+    param_buf = (char *)aml_audio_calloc(1, (MAX_STRING_TABLE_MAX * sizeof(char)));
     if (param_buf == NULL) {
         goto ERROR;
     }
@@ -314,7 +315,7 @@ static int ext_table_set(struct audio_data_s *table, int card, char *name)
         ALOGE("[%s:%d] failed to set array, error: %d\n",
                 __FUNCTION__, __LINE__, ret);
 
-    free(param_buf);
+    aml_audio_free(param_buf);
 ERROR:
     mixer_close(mixer);
     return 0;
@@ -388,7 +389,7 @@ int eq_drc_init(struct eq_drc_data *pdata)
             }
         }
 
-        pdata->aml_attr = (struct audio_eq_drc_info_s *)calloc(1, sizeof(struct audio_eq_drc_info_s));
+        pdata->aml_attr = (struct audio_eq_drc_info_s *)aml_audio_calloc(1, sizeof(struct audio_eq_drc_info_s));
         if (!pdata->aml_attr) {
             ALOGE("%s: calloc amlogic audio_eq_drc_info_s failed", __FUNCTION__);
             return -1;
@@ -407,7 +408,7 @@ int eq_drc_init(struct eq_drc_data *pdata)
     if (ret == 0) {
         parse_AMP_num(dev_cfg[1].ini_file, pdata);
         for (int i = 0; i < pdata->ext_amp_num; i++) {
-            pdata->ext_attr[i] = (struct audio_eq_drc_info_s *)calloc(1, sizeof(struct audio_eq_drc_info_s));
+            pdata->ext_attr[i] = (struct audio_eq_drc_info_s *)aml_audio_calloc(1, sizeof(struct audio_eq_drc_info_s));
             if (!pdata->ext_attr[i]) {
                 ALOGE("%s: calloc amlogic audio_eq_drc_info_s failed", __FUNCTION__);
                 return -1;
@@ -430,14 +431,14 @@ int eq_drc_release(struct eq_drc_data *pdata)
 {
     if (pdata->aml_attr) {
         free_eq_drc_table(pdata->aml_attr);
-        free(pdata->aml_attr);
+        aml_audio_free(pdata->aml_attr);
         pdata->aml_attr = NULL;
     }
 
     for (int i = 0; i < pdata->ext_amp_num; i++) {
         if (pdata->ext_attr[i]) {
             free_eq_drc_table(pdata->ext_attr[i]);
-            free(pdata->ext_attr[i]);
+            aml_audio_free(pdata->ext_attr[i]);
             pdata->ext_attr[i]= NULL;
         }
     }

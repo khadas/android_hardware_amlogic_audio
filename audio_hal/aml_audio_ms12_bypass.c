@@ -20,6 +20,7 @@
 #include <inttypes.h>
 #include "audio_hw.h"
 #include "aml_audio_ms12_bypass.h"
+#include "aml_malloc_debug.h"
 
 #define BYPASS_MS12_MAX_FRAME_SIZE (32768)
 #define DDP_FRAME_BLK_NUM          (6)
@@ -246,7 +247,7 @@ int aml_ms12_bypass_checkout_data(void *phandle, void **output_buf, int32_t *out
             frame_size = frame_item->frame_size;
             ALOGV("offset=%" PRId64 " frame size=%d start=%" PRId64 " end=%" PRId64 " frame dependency=%d cnt=%d numblks=%d", offset, frame_size, frame_item->offset_start, frame_item->offset_end, frame_item->info.dependency_frame, frame_item->frame_cnt, frame_item->numblks);
             if (frame_size + *out_size > bypass_handle->buf_size) {
-                bypass_handle->buf = realloc(bypass_handle->buf, frame_size + *out_size);
+                bypass_handle->buf = aml_audio_realloc(bypass_handle->buf, frame_size + *out_size);
                 if (bypass_handle->buf == NULL) {
                     ALOGE("%s realloc buf failed =%d", __FUNCTION__, frame_size);
                     goto error;

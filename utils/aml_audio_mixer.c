@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include <aml_audio_mixer.h>
+#include "aml_malloc_debug.h"
 
 struct ring_buf_desc {
     struct ring_buffer *buffer;
@@ -101,7 +102,7 @@ struct aml_audio_mixer *new_aml_audio_mixer (struct pcm_config out_config)
 {
     struct aml_audio_mixer *audio_mixer = NULL;
 
-    audio_mixer = calloc (1, sizeof (*audio_mixer) );
+    audio_mixer = aml_audio_calloc (1, sizeof (*audio_mixer) );
     if (!audio_mixer)
         return NULL;
 
@@ -117,7 +118,7 @@ void aml_delete_audio_mixer (struct aml_audio_mixer *audio_mixer)
     if (audio_mixer) {
         //pthread_mutex_destroy(&audio_mixer->lock);
         //pthread_cond_destroy(&audio_mixer->cond);
-        free (audio_mixer);
+        aml_audio_free (audio_mixer);
     }
 }
 
@@ -181,13 +182,13 @@ int aml_start_audio_mixer (struct aml_audio_mixer *audio_mixer)
     main_desc = &audio_mixer->main_in_buf;
     period_byte = main_desc->cfg.period_size * calc_config_frame_size (main_desc->cfg);
 
-    audio_mixer->out_buffer = malloc (period_byte);
+    audio_mixer->out_buffer = aml_audio_malloc (period_byte);
     if (!audio_mixer->out_buffer)
         return -ENOMEM;
 
-    audio_mixer->aux_buffer = malloc (period_byte);
+    audio_mixer->aux_buffer = aml_audio_malloc (period_byte);
     if (!audio_mixer->aux_buffer) {
-        free (audio_mixer->out_buffer);
+        aml_audio_free (audio_mixer->out_buffer);
         return -EINVAL;
     }
     audio_mixer->out_buffer_size = period_byte;
@@ -205,7 +206,7 @@ int aml_stop_audio_mixer (struct aml_audio_mixer *audio_mixer)
     pthread_join (audio_mixer->out_mixer_tid, NULL);
     ALOGI ("%s", __func__);
     if (audio_mixer->out_buffer) {
-        free (audio_mixer->out_buffer);
+        aml_audio_free (audio_mixer->out_buffer);
         audio_mixer->out_buffer = NULL;
     }
 
@@ -221,7 +222,7 @@ static int aml_malloc_internal_ring_buffer (struct ring_buf_desc *buf_desc,
 
     frame_size = calc_config_frame_size (cfg);
     buffer_size = cfg.period_size * cfg.period_count * frame_size;
-    ringbuf = calloc (1, sizeof (*ringbuf) );
+    ringbuf = aml_audio_calloc (1, sizeof (*ringbuf) );
     if (!ringbuf) {
         ALOGE ("no memory");
         return -ENOMEM ;
@@ -237,14 +238,14 @@ static int aml_malloc_internal_ring_buffer (struct ring_buf_desc *buf_desc,
     return 0;
 
 exit:
-    free (ringbuf);
+    aml_audio_free (ringbuf);
     return -EINVAL;
 }
 
 static void aml_free_internal_ring_buffer (struct ring_buf_desc *buf_desc)
 {
     ring_buffer_release (buf_desc->buffer);
-    free (buf_desc->buffer);
+    aml_audio_free (buf_desc->buffer);
     buf_desc->buffer = NULL;
     buf_desc->valid = 0;
 }

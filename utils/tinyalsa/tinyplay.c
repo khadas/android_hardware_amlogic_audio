@@ -33,6 +33,7 @@
 #include <string.h>
 #include <signal.h>
 #include <endian.h>
+#include "aml_malloc_debug.h"
 
 #define ID_RIFF 0x46464952
 #define ID_WAVE 0x45564157
@@ -247,10 +248,10 @@ void play_sample(FILE *file, unsigned int card, unsigned int device, unsigned in
     }
 
     size = pcm_frames_to_bytes(pcm, pcm_get_buffer_size(pcm));
-    buffer = malloc(size);
+    buffer = aml_audio_malloc(size);
     if (!buffer) {
         fprintf(stderr, "Unable to allocate %d bytes\n", size);
-        free(buffer);
+        aml_audio_free(buffer);
         pcm_close(pcm);
         return;
     }
@@ -272,7 +273,7 @@ void play_sample(FILE *file, unsigned int card, unsigned int device, unsigned in
         }
     } while (!close && num_read > 0 && data_sz > 0);
 
-    free(buffer);
+    aml_audio_free(buffer);
     pcm_close(pcm);
 }
 

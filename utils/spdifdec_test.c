@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <cutils/log.h>
 #include <aml_audio_spdifdec.h>
+#include "aml_malloc_debug.h"
 
 #define BI_SIZE 6144
 #define BO_SIZE 0x2000
@@ -55,7 +56,7 @@ int main(int argc, char * argv[])
         goto ERROR;
     }
 
-    bitstream_in = (char *)malloc(bi_size);
+    bitstream_in = (char *)aml_audio_malloc(bi_size);
     if (bitstream_in == NULL) {
         fprintf(stderr, "%s line %d mem!!\n", __FUNCTION__, __LINE__);
         ALOGE("Failed to malloc bitstream_in!");
@@ -96,7 +97,7 @@ int main(int argc, char * argv[])
 
 ERROR:
     if (bitstream_in) {
-        free(bitstream_in);
+        aml_audio_free(bitstream_in);
         bitstream_in = NULL;
     }
 

@@ -33,6 +33,7 @@
 #include "aml_audio_timer.h"
 #include "aml_mmap_audio.h"
 #include "aml_volume_utils.h"
+#include "aml_malloc_debug.h"
 
 #define MMAP_SAMPLE_RATE_HZ             (48000)
 #define MMAP_BUFFER_BURSTS_NUM          (4)
@@ -292,7 +293,7 @@ static int ion_buffer_allocate_new (aml_mmap_audio_param_st     *pstParam) {
         AM_LOGE("ion_query_heap_cnt fail! no ion heaps for alloc!!! ret:%#x", ret);
         return -ENOMEM;
     }
-    struct ion_heap_data * const heaps = (struct ion_heap_data *) malloc (num_heaps * sizeof(struct ion_heap_data));
+    struct ion_heap_data * const heaps = (struct ion_heap_data *) aml_audio_malloc (num_heaps * sizeof(struct ion_heap_data));
     if (num_heaps <= 0 || heaps == NULL) {
         AM_LOGE("heaps is NULL or no heaps, num_heaps:%d", num_heaps);
         return -ENOMEM;
@@ -308,7 +309,7 @@ static int ion_buffer_allocate_new (aml_mmap_audio_param_st     *pstParam) {
             break;
         }
     }
-    free(heaps);
+    aml_audio_free(heaps);
     if (heap_mask == 0) {
         AM_LOGE("don't find match heap!!!");
         return -ENOMEM;

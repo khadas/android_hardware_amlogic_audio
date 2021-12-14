@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include "audio_simple_resample_api.h"
 #include "aml_audio_resampler.h"
+#include "aml_malloc_debug.h"
 
 
 int simple_resample_open(void **handle, audio_resample_config_t *resample_config)
@@ -31,7 +32,7 @@ int simple_resample_open(void **handle, audio_resample_config_t *resample_config
         return -1;
     }
 
-    resample = (struct resample_para *)calloc(1, sizeof(struct resample_para));
+    resample = (struct resample_para *)aml_audio_calloc(1, sizeof(struct resample_para));
 
     if (resample == NULL) {
         ALOGE("malloc resample_para failed\n");
@@ -53,7 +54,7 @@ void simple_resample_close(void *handle)
     struct resample_para *resample = NULL;
     resample = (struct resample_para *)handle;
     if (resample) {
-        free(resample);
+        aml_audio_free(resample);
     }
     return;
 }

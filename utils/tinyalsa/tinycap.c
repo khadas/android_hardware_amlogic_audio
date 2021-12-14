@@ -33,6 +33,7 @@
 #include <signal.h>
 #include <string.h>
 #include <time.h>
+#include "aml_malloc_debug.h"
 
 #define ID_RIFF 0x46464952
 #define ID_WAVE 0x45564157
@@ -222,10 +223,10 @@ unsigned int capture_sample(FILE *file, unsigned int card, unsigned int device,
     }
 
     size = pcm_frames_to_bytes(pcm, pcm_get_buffer_size(pcm));
-    buffer = malloc(size);
+    buffer = aml_audio_malloc(size);
     if (!buffer) {
         fprintf(stderr, "Unable to allocate %u bytes\n", size);
-        free(buffer);
+        aml_audio_free(buffer);
         pcm_close(pcm);
         return 0;
     }
@@ -252,7 +253,7 @@ unsigned int capture_sample(FILE *file, unsigned int card, unsigned int device,
     }
 
     frames = pcm_bytes_to_frames(pcm, bytes_read);
-    free(buffer);
+    aml_audio_free(buffer);
     pcm_close(pcm);
     return frames;
 }

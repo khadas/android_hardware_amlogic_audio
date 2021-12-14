@@ -19,6 +19,7 @@
 #include <string.h>
 #include "am_util.h"
 //#include <memwatch.h>
+#include "aml_malloc_debug.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -38,7 +39,7 @@ extern "C"
 /**\brief 内存缓冲区分配*/
 #define AM_MEM_Alloc(_size) \
     ({\
-    void *_ptr = malloc(_size);\
+    void *_ptr = aml_audio_malloc(_size);\
     if (!_ptr) {\
         AM_MEM_ERROR_DEBUG(_size);\
     }\
@@ -48,7 +49,7 @@ extern "C"
 /**\brief 重新设定缓冲区大小*/
 #define AM_MEM_Realloc(_old,_size) \
     ({\
-    void *_ptr=realloc(_old,_size);\
+    void *_ptr=aml_audio_realloc(_old,_size);\
     if (!_ptr) {\
         AM_MEM_ERROR_DEBUG(_size);\
     }\
@@ -58,7 +59,7 @@ extern "C"
 /**\brief 内存缓冲区释放*/
 #define AM_MEM_Free(_ptr) \
     AM_MACRO_BEGIN\
-    if (_ptr) free(_ptr);\
+    if (_ptr) aml_audio_free(_ptr);\
     AM_MACRO_END
 
 /**\brief 分配内存并复制字符串*/

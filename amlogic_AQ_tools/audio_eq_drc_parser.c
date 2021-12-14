@@ -25,6 +25,7 @@
 
 #include "audio_eq_drc_parser.h"
 #include "iniparser.h"
+#include "aml_malloc_debug.h"
 
 #undef  LOG_TAG
 #define LOG_TAG "audio_hw_primary"
@@ -372,7 +373,7 @@ static int transBufferData(const char *data_str, unsigned int *data_buf)
     if (data_str == NULL)
         return 0;
 
-    tmp_buf = (char *)calloc(1, (MAX_STRING_TABLE_MAX * sizeof(char)));
+    tmp_buf = (char *)aml_audio_calloc(1, (MAX_STRING_TABLE_MAX * sizeof(char)));
     if (tmp_buf == NULL)
         return 0;
 
@@ -384,7 +385,7 @@ static int transBufferData(const char *data_str, unsigned int *data_buf)
         token = strtok_r(NULL, ",", &pSave);
     }
 
-    free(tmp_buf);
+    aml_audio_free(tmp_buf);
     return item_ind;
 }
 
@@ -398,7 +399,7 @@ static int parse_audio_table_data(dictionary *pIniParser, struct audio_data_s *t
     if (str == NULL)
         return -1;
 
-    tmp_buf = (unsigned int *)calloc(1, (MAX_INT_TABLE_MAX * sizeof(unsigned int)));
+    tmp_buf = (unsigned int *)aml_audio_calloc(1, (MAX_INT_TABLE_MAX * sizeof(unsigned int)));
     if (tmp_buf == NULL)
         return -1;
 
@@ -425,7 +426,7 @@ static int parse_audio_table_data(dictionary *pIniParser, struct audio_data_s *t
     }
 
     table->reg_cnt = j;
-    free(tmp_buf);
+    aml_audio_free(tmp_buf);
     return 0;
 }
 
@@ -468,7 +469,7 @@ static int parse_audio_eq_data(dictionary *pIniParser, struct audio_eq_drc_info_
     char buf_section_name[64];
 
     for (i = 0; i < eq_tabel_num; i++) {
-        table = (struct audio_data_s *)calloc(1, sizeof(struct audio_data_s));
+        table = (struct audio_data_s *)aml_audio_calloc(1, sizeof(struct audio_data_s));
         if (!table) {
             ITEM_LOGE("%s: calloc audio_data_s failed!", __FUNCTION__);
         } else {
@@ -491,7 +492,7 @@ static int parse_audio_fdrc_data(dictionary *pIniParser, struct audio_eq_drc_inf
     struct audio_data_s *table;
     char buf_section_name[64];
 
-    table = (struct audio_data_s *)calloc(1, sizeof(struct audio_data_s));
+    table = (struct audio_data_s *)aml_audio_calloc(1, sizeof(struct audio_data_s));
     if (!table) {
         ITEM_LOGE("%s: calloc audio_data_s failed!", __FUNCTION__);
     } else {
@@ -513,7 +514,7 @@ static int parse_audio_mdrc_data(dictionary *pIniParser, struct audio_eq_drc_inf
     struct audio_data_s *table;
     char buf_section_name[64];
 
-    table = (struct audio_data_s *)calloc(1, sizeof(struct audio_data_s));
+    table = (struct audio_data_s *)aml_audio_calloc(1, sizeof(struct audio_data_s));
     if (!table) {
         ITEM_LOGE("%s: calloc audio_data_s failed!", __FUNCTION__);
     } else {
@@ -527,7 +528,7 @@ static int parse_audio_mdrc_data(dictionary *pIniParser, struct audio_eq_drc_inf
         PrintRegData(p_attr->mdrc.drc_byte_mode, table);
     }
 
-    table = (struct audio_data_s *)calloc(1, sizeof(struct audio_data_s));
+    table = (struct audio_data_s *)aml_audio_calloc(1, sizeof(struct audio_data_s));
     if (!table) {
         ITEM_LOGE("%s: calloc audio_data_s failed!", __FUNCTION__);
     } else {
@@ -670,13 +671,13 @@ void free_eq_drc_table(struct audio_eq_drc_info_s *p_attr)
 
     for (i = 0; i < p_attr->eq.eq_table_num; i++) {
         if (p_attr->eq.eq_table[i])
-            free(p_attr->eq.eq_table[i]);
+            aml_audio_free(p_attr->eq.eq_table[i]);
     }
     if (p_attr->fdrc.fdrc_table)
-        free(p_attr->fdrc.fdrc_table);
+        aml_audio_free(p_attr->fdrc.fdrc_table);
     if (p_attr->mdrc.mdrc_table)
-        free(p_attr->mdrc.mdrc_table);
+        aml_audio_free(p_attr->mdrc.mdrc_table);
     if (p_attr->mdrc.crossover_table)
-        free(p_attr->mdrc.crossover_table);
+        aml_audio_free(p_attr->mdrc.crossover_table);
 }
 

@@ -38,6 +38,7 @@
 #include <poll.h>
 
 #include <sys/ioctl.h>
+#include "aml_malloc_debug.h"
 
 #include <linux/ioctl.h>
 #define __force
@@ -81,17 +82,17 @@ void mixer_close(struct mixer *mixer)
             if (mixer->ctl[n].ename) {
                 unsigned int max = mixer->ctl[n].info->value.enumerated.items;
                 for (m = 0; m < max; m++)
-                    free(mixer->ctl[n].ename[m]);
-                free(mixer->ctl[n].ename);
+                    aml_audio_free(mixer->ctl[n].ename[m]);
+                aml_audio_free(mixer->ctl[n].ename);
             }
         }
-        free(mixer->ctl);
+        aml_audio_free(mixer->ctl);
     }
 
     if (mixer->elem_info)
-        free(mixer->elem_info);
+        aml_audio_free(mixer->elem_info);
 
-    free(mixer);
+    aml_audio_free(mixer);
 
     /* TODO: verify frees */
 }
@@ -114,19 +115,19 @@ struct mixer *mixer_open(unsigned int card)
     if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_LIST, &elist) < 0)
         goto fail;
 
-    mixer = calloc(1, sizeof(*mixer));
+    mixer = aml_audio_calloc(1, sizeof(*mixer));
     if (!mixer)
         goto fail;
 
-    mixer->ctl = calloc(elist.count, sizeof(struct mixer_ctl));
-    mixer->elem_info = calloc(elist.count, sizeof(struct snd_ctl_elem_info));
+    mixer->ctl = aml_audio_calloc(elist.count, sizeof(struct mixer_ctl));
+    mixer->elem_info = aml_audio_calloc(elist.count, sizeof(struct snd_ctl_elem_info));
     if (!mixer->ctl || !mixer->elem_info)
         goto fail;
 
     if (ioctl(fd, SNDRV_CTL_IOCTL_CARD_INFO, &mixer->card_info) < 0)
         goto fail;
 
-    eid = calloc(elist.count, sizeof(struct snd_ctl_elem_id));
+    eid = aml_audio_calloc(elist.count, sizeof(struct snd_ctl_elem_id));
     if (!eid)
         goto fail;
 
@@ -148,13 +149,13 @@ struct mixer *mixer_open(unsigned int card)
         ctl->info->id.name[SNDRV_CTL_ELEM_ID_NAME_MAXLEN - 1] = 0;
     }
 
-    free(eid);
+    aml_audio_free(eid);
     return mixer;
 
 fail:
     /* TODO: verify frees in failure case */
     if (eid)
-        free(eid);
+        aml_audio_free(eid);
     if (mixer)
         mixer_close(mixer);
     else if (fd >= 0)
@@ -174,7 +175,7 @@ static bool mixer_ctl_get_elem_info(struct mixer_ctl* ctl)
         return true;
 
     struct snd_ctl_elem_info tmp;
-    char** enames = calloc(ctl->info->value.enumerated.items, sizeof(char*));
+    char** enames = aml_audio_calloc(ctl->info->value.enumerated.items, sizeof(char*));
     if (!enames)
         return false;
 
@@ -192,7 +193,7 @@ static bool mixer_ctl_get_elem_info(struct mixer_ctl* ctl)
     return true;
 
 fail:
-    free(enames);
+    aml_audio_free(enames);
     return false;
 }
 
@@ -412,7 +413,7 @@ int mixer_ctl_get_array(struct mixer_ctl *ctl, void *array, size_t count)
 
             if (count > SIZE_MAX - sizeof(*tlv))
                 return -EINVAL;
-            tlv = calloc(1, sizeof(*tlv) + count);
+            tlv = aml_audio_calloc(1, sizeof(*tlv) + count);
             if (!tlv)
                 return -ENOMEM;
             tlv->numid = ctl->info->id.numid;
@@ -422,7 +423,7 @@ int mixer_ctl_get_array(struct mixer_ctl *ctl, void *array, size_t count)
             source = tlv->tlv;
             memcpy(array, source, count);
 
-            free(tlv);
+            aml_audio_free(tlv);
 
             return ret;
         } else {
@@ -524,7 +525,7 @@ int mixer_ctl_set_array(struct mixer_ctl *ctl, const void *array, size_t count)
             int ret = 0;
             if (count > SIZE_MAX - sizeof(*tlv))
                 return -EINVAL;
-            tlv = calloc(1, sizeof(*tlv) + count);
+            tlv = aml_audio_calloc(1, sizeof(*tlv) + count);
             if (!tlv)
                 return -ENOMEM;
             tlv->numid = ctl->info->id.numid;
@@ -532,7 +533,7 @@ int mixer_ctl_set_array(struct mixer_ctl *ctl, const void *array, size_t count)
             memcpy(tlv->tlv, array, count);
 
             ret = ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_TLV_WRITE, tlv);
-            free(tlv);
+            aml_audio_free(tlv);
 
             return ret;
         } else {

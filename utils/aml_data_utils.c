@@ -34,6 +34,7 @@
 #include <aml_audio_hal_conf.h>
 #include <aml_conf_parser.h>
 #include <aml_conf_loader.h>
+#include "aml_malloc_debug.h"
 
 #if defined (BUILDHOSTEXE)
 //#define DEBUG
@@ -242,7 +243,7 @@ struct aml_channel_map *data_load_product_config(void)
 	int i = 0;
 	int find_idx, invert, ditter;
 
-	maps = malloc(sizeof(struct aml_channel_map)*AML_I2S_CHANNEL_COUNT);
+	maps = aml_audio_malloc(sizeof(struct aml_channel_map)*AML_I2S_CHANNEL_COUNT);
 	if (!maps) {
 		return NULL;
 	} else {

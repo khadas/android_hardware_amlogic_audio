@@ -34,6 +34,7 @@
 //#include <media/AudioSystem.h>
 
 #include "DolbyMS12ConfigParams.h"
+#include "aml_malloc_debug.h"
 
 
 namespace android
@@ -1894,21 +1895,21 @@ char **DolbyMS12ConfigParams::PrepareConfigParams(int max_raw_size, int max_colu
     ALOGD("+%s() line %d\n", __FUNCTION__, __LINE__);
     int i = 0;
     int cnt = 0;
-    char **ConfigParams = (char **)malloc(sizeof(char *)*max_raw_size);
+    char **ConfigParams = (char **)aml_audio_malloc(sizeof(char *)*max_raw_size);
     if (ConfigParams == NULL) {
         ALOGE("%s::%d, malloc error\n", __FUNCTION__, __LINE__);
         goto Error_Prepare;
     }
 
     for (i = 0; i < MAX_ARGC; i++) {
-        ConfigParams[i] = (char *)malloc(max_column_size);
+        ConfigParams[i] = (char *)aml_audio_malloc(max_column_size);
         if (ConfigParams[i] == NULL) {
             ALOGE("%s() line %d, malloc error\n", __FUNCTION__, __LINE__);
             for (cnt = 0; cnt < i; cnt++) {
-                free(ConfigParams[cnt]);
+                aml_audio_free(ConfigParams[cnt]);
                 ConfigParams[cnt] = NULL;
             }
-            free(ConfigParams);
+            aml_audio_free(ConfigParams);
             ConfigParams = NULL;
             goto Error_Prepare;
         }
@@ -1926,13 +1927,13 @@ void DolbyMS12ConfigParams::CleanupConfigParams(char **ConfigParams, int max_raw
     int i = 0;
     for (i = 0; i < max_raw_size; i++) {
         if (ConfigParams[i]) {
-            free(ConfigParams[i]);
+            aml_audio_free(ConfigParams[i]);
             ConfigParams[i] = NULL;
         }
     }
 
     if (ConfigParams) {
-        free(ConfigParams);
+        aml_audio_free(ConfigParams);
         ConfigParams = NULL;
     }
 

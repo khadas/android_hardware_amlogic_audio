@@ -86,7 +86,7 @@ extern "C"
 #define AM_TOKEN_PARSE_END(_str, _delim, _token) \
         _token = strtok(NULL, _delim);\
         }\
-        free(_strb);\
+        aml_audio_free(_strb);\
     }\
     }
 
@@ -106,7 +106,7 @@ extern "C"
                 }\
                 counter++;\
             AM_TOKEN_PARSE_END(_strbak, _delim, token)\
-            free(_strbak);\
+            aml_audio_free(_strbak);\
         }\
         val;\
     })

@@ -38,6 +38,7 @@
 #include <signal.h>
 #include <time.h>
 #include <unistd.h>
+#include "aml_malloc_debug.h"
 
 /* Used when that particular device isn't opened. */
 #define TINYHOSTLESS_DEVICE_UNDEFINED 255
@@ -276,7 +277,7 @@ int play_sample(unsigned int card, unsigned int p_device,
 
     if (do_loopback) {
         size = pcm_frames_to_bytes(pcm_cap, pcm_get_buffer_size(pcm_cap));
-        buffer = malloc(size);
+        buffer = aml_audio_malloc(size);
         if (!buffer) {
             fprintf(stderr, "Unable to allocate %d bytes\n", size);
             pcm_close(pcm_play);
@@ -322,7 +323,7 @@ int play_sample(unsigned int card, unsigned int p_device,
     } while(!close_h);
 
     if (buffer)
-        free(buffer);
+        aml_audio_free(buffer);
     if (pcm_play != NULL)
         pcm_close(pcm_play);
     if (pcm_cap != NULL)

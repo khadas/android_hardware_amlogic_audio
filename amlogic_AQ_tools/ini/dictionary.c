@@ -36,6 +36,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "aml_malloc_debug.h"
+
 /** Maximum value size for integers and doubles. */
 #define MAXVALSZ    1024
 
@@ -53,7 +55,7 @@
 /**
   @brief    Duplicate a string
   @param    s String to duplicate
-  @return   Pointer to a newly allocated string, to be freed with free()
+  @return   Pointer to a newly allocated string, to be freed with aml_audio_free()
 
   This is a replacement for strdup(). This implementation is provided
   for systems that do not have it.
@@ -68,7 +70,7 @@ static char *xstrdup(const char *s)
         return NULL;
 
     len = strlen(s) + 1;
-    t = (char*) malloc(len);
+    t = (char*) aml_audio_malloc(len);
 
     if (t) {
         memcpy(t, s, len);
@@ -90,18 +92,18 @@ static int dictionary_grow(dictionary *d)
     char **new_key;
     unsigned *new_hash;
 
-    new_val  = (char**) calloc(d->size * 2, sizeof *d->val);
-    new_key  = (char**) calloc(d->size * 2, sizeof *d->key);
-    new_hash = (unsigned*) calloc(d->size * 2, sizeof *d->hash);
+    new_val  = (char**) aml_audio_calloc(d->size * 2, sizeof *d->val);
+    new_key  = (char**) aml_audio_calloc(d->size * 2, sizeof *d->key);
+    new_hash = (unsigned*) aml_audio_calloc(d->size * 2, sizeof *d->hash);
 
     if (!new_val || !new_key || !new_hash) {
         /* An allocation failed, leave the dictionary unchanged */
         if (new_val)
-            free(new_val);
+            aml_audio_free(new_val);
         if (new_key)
-            free(new_key);
+            aml_audio_free(new_key);
         if (new_hash)
-            free(new_hash);
+            aml_audio_free(new_hash);
         return -1;
     }
 
@@ -111,9 +113,9 @@ static int dictionary_grow(dictionary *d)
     memcpy(new_hash, d->hash, d->size * sizeof(unsigned));
 
     /* Delete previous data */
-    free(d->val);
-    free(d->key);
-    free(d->hash);
+    aml_audio_free(d->val);
+    aml_audio_free(d->key);
+    aml_audio_free(d->hash);
 
     /* Actually update the dictionary */
     d->size *= 2;
@@ -181,13 +183,13 @@ dictionary *dictionary_new(size_t size)
     if (size < DICTMINSZ)
         size = DICTMINSZ;
 
-    d = (dictionary*) calloc(1, sizeof *d);
+    d = (dictionary*) aml_audio_calloc(1, sizeof *d);
 
     if (d) {
         d->size = size;
-        d->val  = (char**) calloc(size, sizeof *d->val);
-        d->key  = (char**) calloc(size, sizeof *d->key);
-        d->hash = (unsigned*) calloc(size, sizeof *d->hash);
+        d->val  = (char**) aml_audio_calloc(size, sizeof *d->val);
+        d->key  = (char**) aml_audio_calloc(size, sizeof *d->key);
+        d->hash = (unsigned*) aml_audio_calloc(size, sizeof *d->hash);
     }
     return d;
 }
@@ -210,14 +212,14 @@ void dictionary_del(dictionary *d)
 
     for (i = 0; i < d->size; i++) {
         if (d->key[i] != NULL)
-            free(d->key[i]);
+            aml_audio_free(d->key[i]);
         if (d->val[i] != NULL)
-            free(d->val[i]);
+            aml_audio_free(d->val[i]);
     }
-    free(d->val);
-    free(d->key);
-    free(d->hash);
-    free(d);
+    aml_audio_free(d->val);
+    aml_audio_free(d->key);
+    aml_audio_free(d->hash);
+    aml_audio_free(d);
     return;
 }
 
@@ -302,7 +304,7 @@ int dictionary_set(dictionary *d, const char *key, const char *val)
                 if (!strcmp(key, d->key[i])) {   /* Same key */
                     /* Found a value: modify and return */
                     if (d->val[i] != NULL)
-                        free(d->val[i]);
+                        aml_audio_free(d->val[i]);
                     d->val[i] = (val ? xstrdup(val) : NULL);
                     /* Value has been modified: return */
                     return 0;
@@ -369,10 +371,10 @@ void dictionary_unset(dictionary *d, const char *key)
         /* Key not found */
         return;
 
-    free(d->key[i]);
+    aml_audio_free(d->key[i]);
     d->key[i] = NULL;
     if (d->val[i] != NULL) {
-        free(d->val[i]);
+        aml_audio_free(d->val[i]);
         d->val[i] = NULL;
     }
     d->hash[i] = 0;

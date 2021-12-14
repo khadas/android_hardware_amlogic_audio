@@ -25,6 +25,7 @@
 #include "karaoke_manager.h"
 #include "aml_volume_utils.h"
 //#include "EffectReverb.h"
+#include "aml_malloc_debug.h"
 
 #define USB_DEFAULT_PERIOD_SIZE 512
 #define USB_DEFAULT_PERIOD_COUNT 2
@@ -50,7 +51,7 @@ static ssize_t voice_in_read(struct voice_in *in, void *buffer, size_t bytes)
             ALOGV("num_read_buff_bytes:%d conversion_buffer_size:%d",
                 num_read_buff_bytes, in->conversion_buffer_size);
             in->conversion_buffer_size = num_read_buff_bytes;
-            in->conversion_buffer = realloc(in->conversion_buffer, in->conversion_buffer_size);
+            in->conversion_buffer = aml_audio_realloc(in->conversion_buffer, in->conversion_buffer_size);
         }
         read_buff = in->conversion_buffer;
     }
@@ -185,10 +186,10 @@ static int kara_close_micphone(struct kara_manager *kara)
         return 0;
     }
     proxy_close(&in->proxy);
-    free(in->conversion_buffer);
+    aml_audio_free(in->conversion_buffer);
     in->conversion_buffer = NULL;
     in->conversion_buffer_size = 0;
-    free(kara->buf);
+    aml_audio_free(kara->buf);
     kara->buf = NULL;
     kara->buf_len = 0;
     ring_buffer_release(&kara->mic_buffer);
@@ -207,7 +208,7 @@ static int kara_mix_micphone(struct kara_manager *kara, void *buf, size_t bytes)
 
     pthread_mutex_lock(&kara->lock);
     if (bytes > kara->buf_len) {
-        kara->buf = realloc(kara->buf, bytes);
+        kara->buf = aml_audio_realloc(kara->buf, bytes);
         kara->buf_len = bytes;
     }
 

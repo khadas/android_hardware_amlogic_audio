@@ -32,6 +32,7 @@
 #include <cutils/log.h>
 #include <aml_conf_loader.h>
 #include <aml_conf_parser.h>
+#include "aml_malloc_debug.h"
 
 /*************************************************
 * TODO: this lib will be used in tvserver or
@@ -53,7 +54,7 @@ struct parser *aml_config_load(const char *file_name)
     struct parser *pParser = NULL;
     int ret = 0;
 
-    pParser = malloc(sizeof(struct parser));
+    pParser = aml_audio_malloc(sizeof(struct parser));
     ret = parser_init(pParser);
     if (ret) {
        ALOGD("%s: parser_init fail\n", __func__);
@@ -68,7 +69,7 @@ struct parser *aml_config_load(const char *file_name)
 
 init_fail:
     if (pParser)
-        free(pParser);
+        aml_audio_free(pParser);
     return NULL;
 }
 
@@ -83,7 +84,7 @@ int aml_config_unload(struct parser *pParser)
 {
     if (pParser != NULL) {
         parser_delete(pParser);
-        free(pParser);
+        aml_audio_free(pParser);
     }
     return 0;
 }

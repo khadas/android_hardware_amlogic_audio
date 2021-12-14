@@ -10,11 +10,13 @@ LOCAL_SRC_FILES += \
 LOCAL_C_INCLUDES +=                      \
     hardware/libhardware/include \
     $(TOPDIR)system/core/include        \
-    $(TOPDIR)system/media/audio/include
+    $(TOPDIR)system/media/audio/include \
+    $(LOCAL_PATH)/../utils/include
 
 LOCAL_SHARED_LIBRARIES := \
     liblog \
-    libhbgdecode
+    libhbgdecode \
+    libamaudioutils
 
 LOCAL_MODULE := libhbg
 

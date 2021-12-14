@@ -4,23 +4,25 @@
 #include <android/log.h>
 #include <stdlib.h>
 #include <string.h>
+#include "aml_malloc_debug.h"
+
 #define LOGD(fmt, args...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, fmt, ##args)
 #define LOGE(fmt, args...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, fmt, ##args)
 
 struct RingBuffer* InitRingBuffer(int len)
 {
-    struct RingBuffer * ptr = malloc(sizeof(struct RingBuffer));
+    struct RingBuffer * ptr = aml_audio_malloc(sizeof(struct RingBuffer));
     if(ptr!=NULL)
     {
         memset(ptr,0, sizeof(struct RingBuffer));
-        ptr->buf = malloc(len);
+        ptr->buf = aml_audio_malloc(len);
         if(ptr->buf!=NULL)
         {
             ptr->len = len;
             pthread_mutex_init(&(ptr->mutex),NULL);
         }else
         {
-            free(ptr);
+            aml_audio_free(ptr);
             ptr = NULL;
         }
     }
@@ -31,8 +33,8 @@ struct RingBuffer* InitRingBuffer(int len)
 void DeInitRingBuffer(struct RingBuffer* ptr)
 {
     pthread_mutex_destroy(&(ptr->mutex));
-    free(ptr->buf);
-    free(ptr);
+    aml_audio_free(ptr->buf);
+    aml_audio_free(ptr);
 }
 
 int ReadRingBuffer(struct RingBuffer* ptr, unsigned char *data,int len)

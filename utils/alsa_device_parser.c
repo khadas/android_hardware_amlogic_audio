@@ -29,6 +29,7 @@
 #include <string.h>
 
 #include "alsa_device_parser.h"
+#include "aml_malloc_debug.h"
 
 #define READ_BUFFER_SIZE     (512)
 #define NAME_LEN             (128)
@@ -177,7 +178,7 @@ int alsa_device_get_card_index()
 
 		ALOGD("card open success");
 		if (!p_aml_alsa_info) {
-			p_aml_alsa_info = calloc(1, sizeof(struct alsa_info));
+			p_aml_alsa_info = aml_audio_calloc(1, sizeof(struct alsa_info));
 			if (!p_aml_alsa_info) {
 				ALOGE ("NOMEM for alsa info\n");
 				return -1;
@@ -240,7 +241,7 @@ void alsa_device_parser_pcm_string(struct alsa_info *p_info, char *InputBuffer)
 	/* parse for stream name */
 	if (Rch  != NULL) {
 		struct AudioDeviceDescriptor *mAudioDeviceDescriptor =
-			calloc(1, sizeof(struct AudioDeviceDescriptor));
+			aml_audio_calloc(1, sizeof(struct AudioDeviceDescriptor));
 		if (!mAudioDeviceDescriptor) {
 			ALOGE("%s no memory for device descriptor\n", __FUNCTION__);
 			return;
@@ -299,7 +300,7 @@ void alsa_device_parser_pcm_string(struct alsa_info *p_info, char *InputBuffer)
 					p_info->earc_descrpt = mAudioDeviceDescriptor;
 				} else {
 					ALOGD("%s(), port:%s, not used for any desc", __func__, PortName);
-					free(mAudioDeviceDescriptor);
+					aml_audio_free(mAudioDeviceDescriptor);
 					mAudioDeviceDescriptor = NULL;
 				}
 

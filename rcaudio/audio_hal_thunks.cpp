@@ -31,6 +31,7 @@
 #include "AudioHardwareInput.h"
 #include "AudioStreamIn.h"
 #include "audio_hal_thunks.h"
+#include "aml_malloc_debug.h"
 
 using namespace android;
 
@@ -242,7 +243,7 @@ int rc_open_input_stream(struct aml_stream_in **stream,
     struct atv_stream_in* in = NULL;
     int ret = 0;
 
-    in = (struct atv_stream_in*)realloc(*stream, sizeof(struct atv_stream_in));
+    in = (struct atv_stream_in*)aml_audio_realloc(*stream, sizeof(struct atv_stream_in));
     if (in == NULL) return -ENOMEM;
 
     *stream = &(in->stream);

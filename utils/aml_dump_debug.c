@@ -28,6 +28,7 @@
 
 #include <aml_dump_debug.h>
 #include <aml_android_utils.h>
+#include "aml_malloc_debug.h"
 
 #undef  LOG_TAG
 #define LOG_TAG "aml_dump_debug"
@@ -153,7 +154,7 @@ static void *aml_debug_Thread(void *pArg)
 void aml_audio_debug_open(void)
 {
     if (g_debug_handle == NULL) {
-        g_debug_handle = calloc(1, sizeof(aml_dump_debug_t));
+        g_debug_handle = aml_audio_calloc(1, sizeof(aml_dump_debug_t));
         if (g_debug_handle) {
             if (pthread_create(&g_debug_handle->threadid, NULL, &aml_debug_Thread, (void *)g_debug_handle)) {
                 ALOGE("%s create thread failed", __FUNCTION__);
@@ -178,7 +179,7 @@ void aml_audio_debug_close(void)
         if (p_handle->threadid != 0) {
             pthread_join(p_handle->threadid, NULL);
         }
-        free(p_handle);
+        aml_audio_free(p_handle);
         g_debug_handle = NULL;
     }
     ALOGI("%s exit", __FUNCTION__);

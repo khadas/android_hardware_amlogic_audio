@@ -14,6 +14,8 @@
 #include <string.h>
 #include <utils/RefBase.h>
 #include "AmSwDemuxWrapper.h"
+#include "aml_malloc_debug.h"
+
 using ::android::Am_SwDemuxWrapper;
 
 #define INPUT_SIZE (32*1024)
@@ -71,7 +73,7 @@ int32_t main(int argc, char **argv)
     uint8_t *ptr = NULL;
 
     Am_TsPlayer_Input_buffer_t* buffer;
-    buffer = (Am_TsPlayer_Input_buffer_t*)malloc(sizeof(Am_TsPlayer_Input_buffer_t));
+    buffer = (Am_TsPlayer_Input_buffer_t*)aml_audio_malloc(sizeof(Am_TsPlayer_Input_buffer_t));
     if (buffer)
         memset(buffer,0,sizeof(Am_TsPlayer_Input_buffer_t));
 

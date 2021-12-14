@@ -26,6 +26,10 @@
 #include <cutils/log.h>
 #include "aml_malloc_debug.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MEMINFO_SHOW_FILENAME  "/data/audio_meminfo"
 
 struct aml_malloc_node {
@@ -266,4 +270,8 @@ int aml_audio_check_and_realloc(void** pointer, size_t* cur_size, size_t need_si
     }
     return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif
 

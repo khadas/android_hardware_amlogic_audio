@@ -36,7 +36,8 @@ LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libutils \
     libdl \
-    liblog
+    liblog \
+    libamaudioutils
 
 LOCAL_MODULE := libms12api_v24
 

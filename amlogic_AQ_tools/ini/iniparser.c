@@ -26,6 +26,8 @@
 #include <stdarg.h>
 #include "iniparser.h"
 
+#include "aml_malloc_debug.h"
+
 /*---------------------------- Defines -------------------------------------*/
 #define ASCIILINESZ         (8192)
 #define INI_INVALID_KEY     ((char*)-1)
@@ -76,7 +78,7 @@ static const char *strlwc(const char *in, char *out, unsigned len)
 /**
   @brief    Duplicate a string
   @param    s String to duplicate
-  @return   Pointer to a newly allocated string, to be freed with free()
+  @return   Pointer to a newly allocated string, to be freed with aml_audio_free()
 
   This is a replacement for strdup(). This implementation is provided
   for systems that do not have it.
@@ -91,7 +93,7 @@ static char *xstrdup(const char *s)
         return NULL;
 
     len = strlen(s) + 1;
-    t = (char*) malloc(len);
+    t = (char*) aml_audio_malloc(len);
     if (t) {
         memcpy(t, s, len);
     }
@@ -738,7 +740,7 @@ static line_status iniparser_line(
         sta = LINE_ERROR;
     }
 
-    free(line);
+    aml_audio_free(line);
     return sta;
 }
 

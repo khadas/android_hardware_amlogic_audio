@@ -23,6 +23,7 @@
 #include <cutils/log.h>
 
 #include "aml_hw_mixer.h"
+#include "aml_malloc_debug.h"
 
 //code here for audio hw mixer when hwsync with af mixer output stream output
 //at the same,need do a software mixer in audio hw c.
@@ -35,7 +36,7 @@ int aml_hw_mixer_init(struct aml_hw_mixer *mixer)
     mixer->rp = 0;
     if (mixer->buf_size == 0)
         mixer->buf_size = AML_HW_MIXER_BUF_SIZE;
-    mixer->start_buf = calloc(1, mixer->buf_size);
+    mixer->start_buf = aml_audio_calloc(1, mixer->buf_size);
     if (!mixer->start_buf) {
         ALOGE("%s(), no mem", __func__);
         ret = -ENOMEM;
@@ -52,7 +53,7 @@ exit:
 void aml_hw_mixer_deinit(struct aml_hw_mixer *mixer)
 {
     pthread_mutex_lock(&mixer->lock);
-    free(mixer->start_buf);
+    aml_audio_free(mixer->start_buf);
     mixer->start_buf = NULL;
     mixer->wp = 0;
     mixer->rp = 0;

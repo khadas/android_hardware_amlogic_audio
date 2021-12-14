@@ -27,6 +27,7 @@
 //#include <safe_iop.h>
 
 #include "SharedBuffer.h"
+#include "aml_malloc_debug.h"
 
 // ----------------------------------------------------------------------------
 
@@ -183,7 +184,7 @@ dp_state VectorImpl::sort(VectorImpl::compar_r_t cmp, void* state)
                     // we're going to have to modify the array...
                     array = editArrayImpl();
                     if (!array) return NO_MEMORY;
-                    temp = malloc(mItemSize);
+                    temp = aml_audio_malloc(mItemSize);
                     if (!temp) return NO_MEMORY;
                     item = reinterpret_cast<char*>(array) + mItemSize*(i);
                     curr = reinterpret_cast<char*>(array) + mItemSize*(i-1);
@@ -214,7 +215,7 @@ dp_state VectorImpl::sort(VectorImpl::compar_r_t cmp, void* state)
 
         if (temp) {
             _do_destroy(temp, 1);
-            free(temp);
+            aml_audio_free(temp);
         }
     }
     return NO_ERROR;

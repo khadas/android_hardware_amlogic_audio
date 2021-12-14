@@ -11,6 +11,7 @@
 #include <AmDmx.h>
 #include <dmx.h>
 #include <AmHwMultiDemuxWrapper.h>
+#include "aml_malloc_debug.h"
 
 
 AM_DMX_Device::AM_DMX_Device(AmHwMultiDemuxWrapper* DemuxWrapper) :
@@ -64,7 +65,7 @@ void* AM_DMX_Device::dmx_data_thread(void *arg)
 
 #define BUF_SIZE (4096 * 10)
 
-    sec_buf = (uint8_t*)malloc(BUF_SIZE);
+    sec_buf = (uint8_t*)aml_audio_malloc(BUF_SIZE);
     struct dmx_non_sec_es_header *header_es;
     while (dev->enable_thread)
     {
@@ -194,7 +195,7 @@ void* AM_DMX_Device::dmx_data_thread(void *arg)
 
     if (sec_buf)
     {
-        free(sec_buf);
+        aml_audio_free(sec_buf);
     }
 
     return NULL;

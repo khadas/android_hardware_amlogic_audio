@@ -29,6 +29,7 @@
 #include "tsp_platform.h"
 #include "TSPLooperRoster.h"
 #include "TSPHandler.h"
+#include "aml_malloc_debug.h"
 
 extern TSPLooperRoster gTsPlayerLooperRoster;
 
@@ -96,7 +97,7 @@ void TSPMessage::freeItemValue(Item *item) {
     switch (item->mType) {
         case kTypeString:
         {
-            free(item->u.stringValue);
+            aml_audio_free(item->u.stringValue);
             break;
         }
 
@@ -292,7 +293,7 @@ void TSPMessage::setString(
         const char *name, const char *s, ssize_t len) {
     Item *item = allocateItem(name);
     item->mType = kTypeString;
-    item->u.stringValue = (char *)malloc(sizeof(char) * len);
+    item->u.stringValue = (char *)aml_audio_malloc(sizeof(char) * len);
 	strncpy(item->u.stringValue, s, len);
 }
 
@@ -461,7 +462,7 @@ sp<TSPMessage> TSPMessage::dup() const {
         switch (from->mType) {
             case kTypeString:
             {
-                to->u.stringValue = (char *)malloc(strlen(from->u.stringValue) + 1);
+                to->u.stringValue = (char *)aml_audio_malloc(strlen(from->u.stringValue) + 1);
 	            strncpy(to->u.stringValue, from->u.stringValue, strlen(from->u.stringValue));
                 break;
             }
@@ -690,7 +691,7 @@ dp_state TSPMessage::setEntryAt(size_t index, const ItemData &item) {
     } else if (item.find(&dst->u.rectValue)) {
         dst->mType = kTypeRect;
     } else if (item.find(&stringValue)) {
-        dst->u.stringValue = (char*) malloc(strlen(stringValue) + 1);
+        dst->u.stringValue = (char*) aml_audio_malloc(strlen(stringValue) + 1);
 		strncpy(dst->u.stringValue, stringValue, strlen(stringValue));
         dst->mType = kTypeString;
     } else if (item.find(&refValue)) {

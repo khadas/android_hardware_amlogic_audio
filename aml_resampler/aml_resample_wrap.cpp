@@ -32,6 +32,7 @@
 #include <media/AudioResampler.h>
 #include <aml_resample_wrap.h>
 #include <utils/Log.h>
+#include "aml_malloc_debug.h"
 #undef LOG_TAG
 #define LOG_TAG "audio_resample_wrap"
 
@@ -46,7 +47,7 @@ public:
     : mFrameSize(frameSize),
     mRead(read),
     mHandle(handle) {
-        mWorkBuf = (unsigned char*)malloc (16384);
+        mWorkBuf = (unsigned char*)aml_audio_malloc (16384);
         if (!mWorkBuf) {
             ALOGE("fail failed check!!!\n");
         } else {
@@ -60,7 +61,7 @@ public:
         size_t input_size = requestedFrames * mFrameSize;
 
         if (input_size > mWorkBufSize) {
-            mWorkBuf = (unsigned char *)realloc(mWorkBuf, input_size);
+            mWorkBuf = (unsigned char *)aml_audio_realloc(mWorkBuf, input_size);
             if (!mWorkBuf) {
                 ALOGE("malloc %zu fail\n",input_size);
             } else {
@@ -91,7 +92,7 @@ public:
 
     ~Provider() {
         if (mWorkBuf) {
-            free(mWorkBuf);
+            aml_audio_free(mWorkBuf);
             mWorkBuf = NULL;
         }
     }

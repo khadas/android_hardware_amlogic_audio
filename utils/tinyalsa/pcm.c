@@ -42,6 +42,7 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <limits.h>
+#include "aml_malloc_debug.h"
 
 #include <linux/ioctl.h>
 #define __force
@@ -376,7 +377,7 @@ static int pcm_hw_mmap_status(struct pcm *pcm) {
 
 mmap_error:
 
-    pcm->sync_ptr = calloc(1, sizeof(*pcm->sync_ptr));
+    pcm->sync_ptr = aml_audio_calloc(1, sizeof(*pcm->sync_ptr));
     if (!pcm->sync_ptr)
         return -ENOMEM;
     pcm->mmap_status = &pcm->sync_ptr->s.status;
@@ -393,7 +394,7 @@ mmap_error:
 
 static void pcm_hw_munmap_status(struct pcm *pcm) {
     if (pcm->sync_ptr) {
-        free(pcm->sync_ptr);
+        aml_audio_free(pcm->sync_ptr);
         pcm->sync_ptr = NULL;
     } else {
         int page_size = sysconf(_SC_PAGE_SIZE);
@@ -661,7 +662,7 @@ struct pcm_params *pcm_params_get(unsigned int card, unsigned int device,
         goto err_open;
     }
 
-    params = calloc(1, sizeof(struct snd_pcm_hw_params));
+    params = aml_audio_calloc(1, sizeof(struct snd_pcm_hw_params));
     if (!params)
         goto err_calloc;
 
@@ -676,7 +677,7 @@ struct pcm_params *pcm_params_get(unsigned int card, unsigned int device,
     return (struct pcm_params *)params;
 
 err_hw_refine:
-    free(params);
+    aml_audio_free(params);
 err_calloc:
     close(fd);
 err_open:
@@ -688,7 +689,7 @@ void pcm_params_free(struct pcm_params *pcm_params)
     struct snd_pcm_hw_params *params = (struct snd_pcm_hw_params *)pcm_params;
 
     if (params)
-        free(params);
+        aml_audio_free(params);
 }
 
 static int pcm_param_to_alsa(enum pcm_param param)
@@ -922,7 +923,7 @@ int pcm_close(struct pcm *pcm)
     pcm->running = 0;
     pcm->buffer_size = 0;
     pcm->fd = -1;
-    free(pcm);
+    aml_audio_free(pcm);
     return 0;
 }
 
@@ -939,7 +940,7 @@ struct pcm *pcm_open(unsigned int card, unsigned int device,
     if (!config) {
         return &bad_pcm; /* TODO: could support default config here */
     }
-    pcm = calloc(1, sizeof(struct pcm));
+    pcm = aml_audio_calloc(1, sizeof(struct pcm));
     if (!pcm)
         return &bad_pcm; /* TODO: could support default config here */
 

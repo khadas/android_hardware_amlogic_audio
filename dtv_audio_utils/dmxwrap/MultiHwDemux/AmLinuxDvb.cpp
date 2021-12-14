@@ -28,6 +28,7 @@
 #include <TSPHandler.h>
 
 #include <inttypes.h>
+#include "aml_malloc_debug.h"
 
 #define UNUSED(x) (void)(x)
 AmLinuxDvd::AmLinuxDvd() {
@@ -45,7 +46,7 @@ AM_ErrorCode_t AmLinuxDvd::dvb_open(AM_DMX_Device *dev) {
 
     //UNUSED(para);
 
-    dmx = (DVBDmx_t*)malloc(sizeof(DVBDmx_t));
+    dmx = (DVBDmx_t*)aml_audio_malloc(sizeof(DVBDmx_t));
     if (!dmx)
     {
         ALOGE("not enough memory");
@@ -66,7 +67,7 @@ AM_ErrorCode_t AmLinuxDvd::dvb_open(AM_DMX_Device *dev) {
 AM_ErrorCode_t AmLinuxDvd::dvb_close(AM_DMX_Device *dev) {
     DVBDmx_t *dmx = (DVBDmx_t*)dev->drv_data;
     close(dmx->evtfd);
-    free(dmx);
+    aml_audio_free(dmx);
     return AM_SUCCESS;
 }
 

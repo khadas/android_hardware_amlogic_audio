@@ -170,7 +170,7 @@ int audiohal_send_msg_2_ms12(struct dolby_ms12_desc *ms12, ms12_mesg_type_t mesg
 {
     int ret = -1;
     if (0 != ms12->ms12_mesg_threadID) {
-        struct ms12_mesg_desc *mesg_p = calloc(1, sizeof(struct ms12_mesg_desc));
+        struct ms12_mesg_desc *mesg_p = aml_audio_calloc(1, sizeof(struct ms12_mesg_desc));
 
         if (NULL == mesg_p) {
             ALOGE("%s calloc fail, errno:%s", __func__, strerror(errno));
@@ -280,7 +280,7 @@ Repop_Mesg:
 
         pthread_mutex_lock(&ms12->mutex);
         list_remove(&mesg_p->list);
-        free(mesg_p);
+        aml_audio_free(mesg_p);
         if (!list_empty(&ms12->mesg_list)) {
             ALOGD("%s  list no empty and Repop_Mesg again.", __func__);
             goto Repop_Mesg;
@@ -340,7 +340,7 @@ int ms12_mesg_thread_destroy(struct dolby_ms12_desc *ms12)
                 item = list_head(&ms12->mesg_list);
                 mesg_p = (struct ms12_mesg_desc *)item;
                 list_remove(&mesg_p->list);
-                free(mesg_p);
+                aml_audio_free(mesg_p);
             }
         }
 

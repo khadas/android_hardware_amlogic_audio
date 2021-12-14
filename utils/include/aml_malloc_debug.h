@@ -17,12 +17,18 @@
 
 #ifndef _AML_MALLOC_DEBUG_H
 #define _AML_MALLOC_DEBUG_H
+
 #include <stdlib.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 enum {
     MEMINFO_SHOW_PRINT,
     MEMINFO_SHOW_FILE
 };
+
 //#define AML_MALLOC_DEBUG
 
 #ifdef AML_MALLOC_DEBUG
@@ -45,5 +51,9 @@ void* aml_audio_debug_calloc(size_t nmemb, size_t bytes, const char * file_name,
 void aml_audio_debug_free(void* pointer);
 void aml_audio_debug_malloc_showinfo(uint32_t level);
 int aml_audio_check_and_realloc(void** pointer, size_t* cur_size, size_t need_size);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

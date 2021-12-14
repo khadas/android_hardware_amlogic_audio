@@ -34,6 +34,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <errno.h>
+#include "aml_malloc_debug.h"
 
 static void tinymix_list_controls(struct mixer *mixer);
 static int tinymix_detail_control(struct mixer *mixer, const char *control,
@@ -222,7 +223,7 @@ static int tinymix_detail_control(struct mixer *mixer, const char *control,
         if (mixer_ctl_is_access_tlv_rw(ctl)) {
             tlv_header_size = TLV_HEADER_SIZE;
         }
-        buf = calloc(1, num_values + tlv_header_size);
+        buf = aml_audio_calloc(1, num_values + tlv_header_size);
         if (buf == NULL) {
             fprintf(stderr, "Failed to alloc mem for bytes %d\n", num_values);
             return ENOENT;
@@ -232,7 +233,7 @@ static int tinymix_detail_control(struct mixer *mixer, const char *control,
         ret = mixer_ctl_get_array(ctl, buf, len + tlv_header_size);
         if (ret < 0) {
             fprintf(stderr, "Failed to mixer_ctl_get_array\n");
-            free(buf);
+            aml_audio_free(buf);
             return ENOENT;
         }
     }
@@ -273,7 +274,7 @@ static int tinymix_detail_control(struct mixer *mixer, const char *control,
         }
     }
 
-    free(buf);
+    aml_audio_free(buf);
 
     printf("\n");
     return 0;
@@ -296,7 +297,7 @@ static void tinymix_set_byte_ctl(struct mixer_ctl *ctl,
 
     tlv_size = num_values + tlv_header_size;
 
-    buf = calloc(1, tlv_size);
+    buf = aml_audio_calloc(1, tlv_size);
     if (buf == NULL) {
         fprintf(stderr, "set_byte_ctl: Failed to alloc mem for bytes %d\n", num_values);
         exit(EXIT_FAILURE);
@@ -333,11 +334,11 @@ static void tinymix_set_byte_ctl(struct mixer_ctl *ctl,
         goto fail;
     }
 
-    free(buf);
+    aml_audio_free(buf);
     return;
 
 fail:
-    free(buf);
+    aml_audio_free(buf);
     exit(EXIT_FAILURE);
 }
 

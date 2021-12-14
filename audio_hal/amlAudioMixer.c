@@ -475,11 +475,11 @@ int init_mixer_temp_buffer(struct amlAudioMixer *audio_mixer)
 void deinit_mixer_temp_buffer(struct amlAudioMixer *audio_mixer)
 {
     if (audio_mixer->in_tmp_buffer) {
-        free(audio_mixer->in_tmp_buffer);
+        aml_audio_free(audio_mixer->in_tmp_buffer);
         audio_mixer->in_tmp_buffer = NULL;
     }
     if (audio_mixer->out_tmp_buffer) {
-        free(audio_mixer->out_tmp_buffer);
+        aml_audio_free(audio_mixer->out_tmp_buffer);
         audio_mixer->out_tmp_buffer = NULL;
     }
 }
@@ -1372,7 +1372,7 @@ void freeAmlAudioMixer(struct amlAudioMixer *audio_mixer)
         delete_mixer_output_port(audio_mixer, audio_mixer->cur_output_port_type);
     }
     deinit_mixer_temp_buffer(audio_mixer);
-    free(audio_mixer);
+    aml_audio_free(audio_mixer);
 }
 
 int mixer_get_presentation_position(
