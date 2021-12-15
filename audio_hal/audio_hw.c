@@ -6004,10 +6004,23 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             pthread_mutex_unlock(&adev->alsa_pcm_lock);
             //FIXME. also need check the sample rate and channel num.
             audio_format_t aformat = aml_out->hal_internal_format;
-            if (continous_mode(adev) && !dolby_stream_active(adev)) {
-                /*dummy we support it is  DD+*/
-                aformat = AUDIO_FORMAT_E_AC3;
-                main1_dummy = true;
+            if (continous_mode(adev)) {
+                if (!dolby_stream_active(adev)) {
+                    /*dummy we support it is  DD+*/
+                    aformat = AUDIO_FORMAT_E_AC3;
+                    main1_dummy = true;
+                } else {
+                    /*there is some dolby stream active and this stream is not the same one with current one*/
+                    struct aml_stream_out *aml_active_out = direct_active(adev);
+                    if (audio_is_linear_pcm(aformat)
+                        && aml_active_out
+                        && (aml_active_out->hal_internal_format == AUDIO_FORMAT_AC4)) {
+                        /*we use ac4 as the main input, otherwise it may causes ms12 init fail*/
+                        aformat = AUDIO_FORMAT_AC4;
+                        ALOGI("use ac4 as the main input type");
+                    }
+
+                }
             }
             if (continous_mode(adev) && hwsync_lpcm_active(adev)) {
                 ott_input = true;
