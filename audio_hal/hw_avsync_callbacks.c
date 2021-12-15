@@ -107,7 +107,7 @@ int on_meta_data_cbk(void *cookie,
         list_remove(&mdata_list->list);
         aml_audio_free(mdata_list);
         ALOGV("head pts =%" PRId64 " delta =%" PRId64 " pts =%" PRId64 " ",header->pts, pts_delta, pts);
-    } else if (offset > out->last_payload_offset) {
+    } else if ((offset > out->last_payload_offset) && out->last_pts != 0) {
         pts_delta = (offset - out->last_payload_offset) * 1000000000LL/(frame_size * sample_rate);
         pts = out->last_pts + pts_delta;
         ALOGV("last pts=%" PRId64 " delat=%" PRId64 " pts=%" PRId64 " ", out->last_pts, pts_delta, pts);
