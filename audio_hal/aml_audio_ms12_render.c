@@ -323,8 +323,15 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
 
         /* audio data/apts, we send the APTS at first*/
         if (ms12 && patch && patch->cur_package) {
-            ALOGV("%s dolby pts %llu decoder_offset %u", __func__, patch->cur_package->pts, patch->decoder_offset);
-            set_ms12_main_audio_pts(ms12, patch->cur_package->pts, patch->decoder_offset);
+            uint32_t  decoder_base = ms12->dtv_decoder_offset_base;
+            uint32_t  decoder_offset = patch->decoder_offset;
+            if (decoder_base != 0 && decoder_offset >= decoder_base) {
+                decoder_offset -= decoder_base;
+            }
+            if (adev->debug_flag) {
+                ALOGI("%s dolby pts %llu decoder_base =%u decoder_offset =%u", __func__, patch->cur_package->pts, decoder_base, decoder_offset);
+            }
+            set_ms12_main_audio_pts(ms12, patch->cur_package->pts, decoder_offset);
             /* to init the pts information */
             if (patch->decoder_offset == 0) {
                 aml_audio_ms12_init_pts_param(ms12, patch->cur_package->pts);

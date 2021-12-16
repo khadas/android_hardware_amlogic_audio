@@ -728,6 +728,7 @@ int get_the_dolby_ms12_prepared(
     struct aml_stream_out *out;
     struct aml_audio_patch *patch = adev->audio_patch;
     aml_demux_audiopara_t *demux_info = NULL;
+    uint32_t dtv_decoder_offset_base = 0;
     int  output_config;
     if (patch) {
         demux_info = (aml_demux_audiopara_t *)patch->demux_info;
@@ -755,6 +756,7 @@ int get_the_dolby_ms12_prepared(
         if (patch && demux_info) {
             ms12->dual_decoder_support = demux_info->dual_decoder_support;
             associate_audio_mixing_enable = adev->associate_audio_mixing_enable;
+            dtv_decoder_offset_base = patch->decoder_offset;
        } else {
             ms12->dual_decoder_support = 0;
             associate_audio_mixing_enable = 0;
@@ -892,6 +894,7 @@ int get_the_dolby_ms12_prepared(
     ms12->master_pcm_frames  = 0;
     ms12->ms12_main_input_size = 0;
     ms12->main_volume        = 1.0f;
+    ms12->dtv_decoder_offset_base = dtv_decoder_offset_base;
     ALOGI("set ms12 sys pos =%" PRId64 "", ms12->sys_audio_base_pos);
 
     ms12->iec61937_ddp_buf = aml_audio_calloc(1, MS12_DDP_FRAME_SIZE);
@@ -1563,7 +1566,8 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     ms12->main_input_rate = DDP_OUTPUT_SAMPLE_RATE;
     ms12->main_buffer_min_level = 0xFFFFFFFF;
     ms12->main_buffer_max_level = 0;
-	ms12->dolby_ms12_init_flags = false;
+    ms12->dolby_ms12_init_flags = false;
+    ms12->dtv_decoder_offset_base = 0;
     audio_virtual_buf_close(&ms12->system_virtual_buf_handle);
     aml_ac3_parser_close(ms12->ac3_parser_handle);
     ms12->ac3_parser_handle = NULL;
