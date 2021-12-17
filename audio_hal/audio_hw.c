@@ -3423,14 +3423,15 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         dolby_ms12_main_close(stream);
     }
     if (out->hwsync) {
-        if (adev->hw_mediasync && (adev->hw_mediasync == out->hwsync->mediasync))
+        if (adev->hw_mediasync && (adev->hw_mediasync == out->hwsync->mediasync)) {
             aml_audio_hwsync_release(out->hwsync);
+            adev->hw_mediasync = NULL;
+            adev->hw_mediasync_id = -1;
+        }
+
         if (out->hwsync->mediasync) {
             //aml_audio_free(out->hwsync->mediasync);
             out->hwsync->mediasync = NULL;
-            if (adev->hw_mediasync) {
-                adev->hw_mediasync = NULL;
-            }
 
         }
         aml_audio_free(out->hwsync);
@@ -4300,12 +4301,20 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
                 adev->hw_mediasync = aml_hwsync_mediasync_create();
             }
             if (adev->hw_mediasync != NULL) {
-                int32_t id = -1;
-                bool ret = aml_audio_hwsync_get_id(adev->hw_mediasync, &id);
-                ALOGI ("ret: %d, id:%d\n", ret, id);
-                if (ret && id != -1) {
-                    sprintf (temp_buf, "hw_av_sync=%d", id);
+            /* if hw_mediasync already be alloced, we only get mediasync id from local */
+                if (adev->hw_mediasync_id != -1) {
+                    ALOGI ("get hw_av_sync id hw_mediasync_id=%d\n", adev->hw_mediasync_id);
+                    sprintf (temp_buf, "hw_av_sync=%d", adev->hw_mediasync_id);
                     return strdup (temp_buf);
+                } else {
+                    int32_t id = -1;
+                    bool ret = aml_audio_hwsync_get_id(adev->hw_mediasync, &id);
+                    ALOGI ("ret: %d, id:%d\n", ret, id);
+                    if (ret && id != -1) {
+                        adev->hw_mediasync_id = id;
+                        sprintf (temp_buf, "hw_av_sync=%d", id);
+                        return strdup (temp_buf);
+                    }
                 }
             }
             return strdup ("hw_av_sync=12345678");
@@ -9437,6 +9446,10 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
             goto Err_MS12_MesgThreadCreate;
         }
     }
+
+    // init hw_mediasync
+    adev->hw_mediasync = NULL;
+    adev->hw_mediasync_id = -1;
 
     /* dtv_volume init , range [0, 1]*/
     adev->dtv_volume = 1.0;
