@@ -31,6 +31,13 @@
 #include "dolby_lib_api.h"
 #include "aml_alsa_mixer.h"
 
+enum error_status {
+    INPUT_ERROR = 1,
+    OUTPUT_I2S_ERROR = 2,
+    OUTPUT_SPDIF_ERROR = 3,
+    VIDEO_ERROR = 4,
+};
+
 static int get_tvin_delay(struct aml_mixer_handle *mixer_handle)
 {
     int delay = 0;
@@ -225,6 +232,7 @@ int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *la
         patch->audio_latency.alsa_i2s_out_latency = alsa_out_i2s_ltcy;
         ALOGV("  audio_hw_primary audio i2s latency = %d", alsa_out_i2s_ltcy);
     } else {
+        alsa_out_i2s_ltcy = 40;
         patch->audio_latency.alsa_i2s_out_latency = 0;
     }
 
@@ -235,6 +243,7 @@ int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *la
         patch->audio_latency.alsa_spdif_out_latency = alsa_out_spdif_ltcy;
         ALOGV("  audio spdif latency = %d", alsa_out_spdif_ltcy);
     } else {
+        alsa_out_spdif_ltcy = 40;
         patch->audio_latency.alsa_spdif_out_latency = 0;
     }
 
@@ -325,14 +334,8 @@ int aml_dev_avsync_diff_in_path(struct aml_audio_patch *patch, int *Vltcy, int *
     struct aml_stream_in *in = aml_dev->active_input;
     void *pcm_handle_spdif = aml_dev->alsa_handle[DIGITAL_DEVICE];
 
-    if (!pcm_handle_i2s || !in->pcm) {
-        ret = -EINVAL;
-        goto err;
-    }
-
-    if (!pcm_handle_spdif && aml_dev->bHDMIARCon == 1 &&
-        !audio_is_linear_pcm(aml_dev->optical_format)) {
-        ret = -EINVAL;
+    if (!in->pcm) {
+        ret = -INPUT_ERROR;
         goto err;
     }
 
@@ -340,14 +343,10 @@ int aml_dev_avsync_diff_in_path(struct aml_audio_patch *patch, int *Vltcy, int *
 
     vltcy = aml_dev_sample_video_path_latency(patch);
     if (vltcy < 0) {
-        ret = -EINVAL;
+        ret = -VIDEO_ERROR;
         goto err;
     }
     *Vltcy = vltcy;
-
-    if (patch->input_src == AUDIO_DEVICE_IN_LINE) {
-        src_diff_err = -30;
-    }
 
     altcy = aml_dev_sample_audio_path_latency(aml_dev, latency_details);
     *Altcy = altcy + src_diff_err;
@@ -398,21 +397,6 @@ static inline void aml_dev_avsync_reset(struct aml_audio_patch *patch)
     patch->min_video_latency = 0;
 }
 
-static void aml_check_pic_mode(struct aml_audio_patch *patch)
-{
-    struct aml_audio_device *aml_dev = (struct aml_audio_device *)patch->dev;;
-
-    /* picture mode setting changed */
-    if (patch->game_mode != aml_dev->game_mode) {
-        ALOGD("%s(), pic mode changes from %d to %d",
-            __func__, patch->game_mode, aml_dev->game_mode);
-        aml_dev->mode_reconfig_in = true;
-        aml_dev->mode_reconfig_out = true;
-
-        patch->game_mode = aml_dev->game_mode;
-    }
-}
-
 int aml_dev_try_avsync(struct aml_audio_patch *patch)
 {
     int vltcy = 0, factor, altcy = 0;
@@ -427,8 +411,6 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
     in = (struct audio_stream_in *)aml_dev->active_input;
     factor = (patch->aformat == AUDIO_FORMAT_E_AC3) ? 2 : 1;
 
-    aml_check_pic_mode(patch);
-
     char latency_details[256] = {0};
     ret = aml_dev_avsync_diff_in_path(patch, &vltcy, &altcy, latency_details);
     if (ret < 0) {
@@ -436,7 +418,7 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
         /* timeout to wait video stability, don't do avsync */
         if (patch->timeout_avsync_cnt > AVSYNC_TIMEOUT_CNT) {
             aml_dev_avsync_reset(patch);
-            ALOGI(" timeout to tune avsync! ");
+            ALOGI(" timeout to tune avsync! error statrus = %d", ret);
         }
         return 0;
     }
@@ -451,7 +433,7 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
     aml_dev_accumulate_avsync_diff(patch, vltcy, altcy);
 
     int tune_val = patch->average_altcy;
-    int user_tune_val = aml_audio_get_src_tune_latency(aml_dev->patch_src);
+    int user_tune_val = 0;//aml_audio_get_src_tune_latency(aml_dev->patch_src);
     int seek_duration_ret = 0;
     int seek_duration = tune_val;
     int avDiff = 0;
@@ -467,10 +449,10 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
         /* if min video latency is larger than audio latency, seek audio buffer to enlarge the audio delay */
         if (avDiff < 0) {
             seek_duration_ret = ringbuffer_seek(patch, avDiff);
-            ring_buffer_clear(&patch->aml_ringbuffer);
         } else if (patch->audio_latency.ringbuffer_latency > AVSYNC_RINGBUFFER_MIN_LATENCY) {
             /* if it need reduce audio latency, first do ringbuffer seek */
-            seek_duration = patch->audio_latency.ringbuffer_latency - AVSYNC_RINGBUFFER_MIN_LATENCY;
+            int valid_tune_space = patch->audio_latency.ringbuffer_latency - AVSYNC_RINGBUFFER_MIN_LATENCY;
+            seek_duration = (avDiff < valid_tune_space) ? avDiff : valid_tune_space;
             seek_duration_ret = ringbuffer_seek(patch, seek_duration);
         }
 
