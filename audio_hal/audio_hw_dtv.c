@@ -437,7 +437,9 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
             } else if (val == AUDIO_DTV_PATCH_CMD_CLOSE) {
                 if (adev->is_multi_demux) {
                     if (demux_handle) {
-                        dtv_patch_input_stop(patch->adec_handle);
+                        if (patch && !patch->skip_amadec_flag) {
+                            dtv_patch_input_stop(patch->adec_handle);
+                        }
                         Stop_Dmx_Main_Audio(demux_handle);
                         if (adev->dual_decoder_support)
                             Stop_Dmx_AD_Audio(demux_handle);
