@@ -90,6 +90,8 @@ int release_dtv_patch_l(struct aml_audio_device *dev);
 #if ANDROID_PLATFORM_SDK_VERSION > 29
 int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct audio_hw_device *dev);
 int disable_dtv_patch_for_tuner_framework(struct audio_hw_device *dev);
+int out_pause_dtv_patch_for_tunerframework(struct audio_stream_out *stream);
+int out_resume_dtv_patch_for_tunerframework(struct audio_stream_out *stream);
 #endif
 //int dtv_patch_add_cmd(int cmd);
 void save_latest_dtv_aformat(int afmt);

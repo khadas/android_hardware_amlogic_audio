@@ -2971,17 +2971,6 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         ALOGE("%s pthread_mutex_init failed", __func__);
     }
 
-#if ANDROID_PLATFORM_SDK_VERSION > 29
-    if (config != NULL)
-    {
-        /*valid audio_config means enter in tuner framework case, then we need to create&start audio dtv patch*/
-        ALOGD("%s: dev:%p, fmt:%d, dmx fmt:%d, content id:%d,sync id %d,adev->patch_src %d, adev->audio_patching %d", __func__, dev, config->offload_info.format, android_fmt_convert_to_dmx_fmt(config->offload_info.format), config->offload_info.content_id, config->offload_info.sync_id, adev->patch_src, adev->audio_patching);
-        ret = enable_dtv_patch_for_tuner_framework(config, dev);
-        out->audioCfg.offload_info.content_id = config->offload_info.content_id;
-        out->audioCfg.offload_info.sync_id = config->offload_info.sync_id;
-    }
-#endif
-
     if (address && !strncmp(address, "AML_", 4)) {
         ALOGI("%s(): aml TV source stream", __func__);
         out->tv_src_stream = true;
@@ -7556,6 +7545,21 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
             aml_out->stream.flush = out_flush_new;
         }
     }
+#if ANDROID_PLATFORM_SDK_VERSION > 29
+    if (config != NULL) {
+        /*valid audio_config means enter in tuner framework case, then we need to create&start audio dtv patch*/
+        ALOGD("%s: dev:%p, fmt:%d, dmx fmt:%d, content id:%d,sync id %d,adev->patch_src %d, adev->audio_patching %d", __func__, dev, config->offload_info.format, android_fmt_convert_to_dmx_fmt(config->offload_info.format), config->offload_info.content_id, config->offload_info.sync_id, adev->patch_src, adev->audio_patching);
+        ret = enable_dtv_patch_for_tuner_framework(config, dev);
+        aml_out->audioCfg.offload_info.content_id = config->offload_info.content_id;
+        aml_out->audioCfg.offload_info.sync_id = config->offload_info.sync_id;
+        if ((*stream_out) && dtv_tuner_framework(*stream_out)) {
+            /*assign pause/resume api for tuner framework output stream.
+              application scenarios like: timeshift pause/resume*/
+            aml_out->stream.pause = out_pause_dtv_patch_for_tunerframework;
+            aml_out->stream.resume = out_resume_dtv_patch_for_tunerframework;
+        }
+    }
+#endif
     aml_out->codec_type = get_codec_type(aml_out->hal_internal_format);
     aml_out->continuous_mode_check = true;
 

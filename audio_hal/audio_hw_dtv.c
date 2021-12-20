@@ -3935,7 +3935,7 @@ int release_dtv_patch(struct aml_audio_device *aml_dev)
 int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct audio_hw_device *dev)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
-    int ret = 0, val=0;
+    int ret = 0, val = 0;
 
     /*1.only when config has valid content id and sync id*/
     if (config->offload_info.content_id != 0 && config->offload_info.sync_id != 0)
@@ -3982,7 +3982,7 @@ int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct aud
         ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, AUDIO_DTV_PATCH_CMD_OPEN);
         ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, AUDIO_DTV_PATCH_CMD_START);
 
-        ALOGD("%s[%d]:the audio_patching is %d, ret:%d", __func__, __LINE__,adev->audio_patching, ret);
+        ALOGD("%s[%d]:the audio_patching: %d, patch: %p, ret: %d", __func__, __LINE__, adev->audio_patching, adev->audio_patch, ret);
     }
     return ret;
 }
@@ -3992,13 +3992,52 @@ int disable_dtv_patch_for_tuner_framework(struct audio_hw_device *dev)
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     int ret = 0;
 
-    /*1.make dtv patch stop via cmds*/
-    ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, AUDIO_DTV_PATCH_CMD_STOP);
-    ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, AUDIO_DTV_PATCH_CMD_CLOSE);
+    if (adev && adev->audio_patch) {
+        /*1.make dtv patch stop via cmds*/
+        ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, AUDIO_DTV_PATCH_CMD_STOP);
+        ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, AUDIO_DTV_PATCH_CMD_CLOSE);
 
-    /*2.release dtv patch*/
-    ret = release_dtv_patch(adev);
-    ALOGD("%s[%d]:the audio_patching is %d, ret:%d", __func__, __LINE__,adev->audio_patching, ret);
+        /*2.release dtv patch*/
+        ret = release_dtv_patch(adev);
+        ALOGD("%s[%d]:the audio_patching: %d, patch: %p, ret: %d", __func__, __LINE__, adev->audio_patching, adev->audio_patch, ret);
+    } else {
+        ALOGE("%s[%d]:adev %p, patch %p", __func__, __LINE__, adev, adev->audio_patch);
+    }
+    return ret;
+}
+
+int out_pause_dtv_patch_for_tunerframework(struct audio_stream_out *stream)
+{
+    int ret = 0;
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    /*make dtv patch pause via cmds*/
+    if (adev && adev->audio_patch) {
+        ALOGD("%s[%d]:the audio_patching: %d, patch: %p. decoder state: %d", __func__, __LINE__, adev->audio_patching, adev->audio_patch, adev->audio_patch->dtv_decoder_state);
+        if (dtv_tuner_framework(stream)) {
+            ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, AUDIO_DTV_PATCH_CMD_PAUSE);
+        }
+    } else {
+        ALOGE("%s[%d]:adev %p, patch %p", __func__, __LINE__, adev, adev->audio_patch);
+    }
+    return ret;
+}
+int out_resume_dtv_patch_for_tunerframework(struct audio_stream_out *stream)
+{
+    int ret = 0;
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    /*make dtv patch resume via cmds*/
+    if (adev && adev->audio_patch) {
+        ALOGD("%s[%d]:the audio_patching: %d, patch: %p. decoder state: %d", __func__, __LINE__, adev->audio_patching, adev->audio_patch, adev->audio_patch->dtv_decoder_state);
+        if (dtv_tuner_framework(stream)) {
+            ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, AUDIO_DTV_PATCH_CMD_RESUME);
+        }
+    } else {
+        ALOGE("%s[%d]:adev %p, patch %p", __func__, __LINE__, adev, adev->audio_patch);
+    }
     return ret;
 }
 #endif

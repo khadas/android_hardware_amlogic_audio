@@ -846,7 +846,7 @@ inline bool primary_continous(struct audio_stream_out *stream)
 inline bool dtv_tuner_framework(struct audio_stream_out *stream)
 {
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
-    if ((out->dev->patch_src == SRC_DTV) &&
+    if (out && (out->dev) && (out->dev->patch_src == SRC_DTV) &&
          out->dev->audio_patching &&
         (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) &&
         (out->audioCfg.offload_info.content_id != 0)&&
