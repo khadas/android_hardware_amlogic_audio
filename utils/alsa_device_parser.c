@@ -302,6 +302,7 @@ void alsa_device_parser_pcm_string(struct alsa_info *p_info, char *InputBuffer)
 					ALOGD("%s(), port:%s, not used for any desc", __func__, PortName);
 					aml_audio_free(mAudioDeviceDescriptor);
 					mAudioDeviceDescriptor = NULL;
+					return;
 				}
 
 				if (strstr(PortName, ALSAPORT_BUILTINMIC) != NULL)
