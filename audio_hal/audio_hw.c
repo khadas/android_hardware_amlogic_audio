@@ -3810,6 +3810,12 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         goto exit;
     }
 
+    ret = str_parms_get_int(parms, "hal_param_bt_avrcp_supported", &val);
+    if (ret >= 0) {
+        adev->bt_avrcp_supported = (val != 0);
+        goto exit;
+    }
+
     //  HDMI plug in and UI [Sound Output Device] set to "ARC" will recieve HDMI ARC Switch = 1
     //  HDMI plug off and UI [Sound Output Device] set to "speaker" will recieve HDMI ARC Switch = 0
     ret = str_parms_get_int(parms, "HDMI ARC Switch", &val);
@@ -9043,20 +9049,29 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
             if (patch->sinks[0].type == AUDIO_PORT_TYPE_DEVICE) {
                 if (patch->num_sinks == 2 || patch->num_sinks == 3) {
                     outport = get_output_dev_for_strategy(aml_dev, sink_devs, patch->num_sinks);
+                    float volume = DbToAmpl(config->gain.values[0] / 100.0);
                     switch (outport) {
                         case OUTPORT_HDMI_ARC:
-                        case OUTPORT_A2DP:
                             aml_dev->sink_gain[outport] = 1.0;
                             break;
+                        case OUTPORT_A2DP:
+                            /* For scenarios that do not support AVRCP, audio_hal control is required. */
+                            if (aml_dev->bt_avrcp_supported) {
+                                aml_dev->sink_gain[outport] = 1.0;
+                            } else {
+                                aml_dev->sink_gain[outport] = volume;
+                            }
+                            break;
                         case OUTPORT_SPEAKER:
-                            aml_dev->sink_gain[outport] = DbToAmpl(config->gain.values[0] / 100.0);
+                            aml_dev->sink_gain[outport] = volume;
                             break;
                         default:
                             ALOGW("[%s:%d] invalid out device type:%s", __func__, __LINE__, outputPort2Str(outport));
                     }
                 } else if (patch->num_sinks == 1) {
                     outport = sink_devs[0];
-                    if (OUTPORT_HDMI_ARC == outport || OUTPORT_SPDIF == outport || OUTPORT_A2DP == outport) {
+                    if (OUTPORT_HDMI_ARC == outport || OUTPORT_SPDIF == outport ||
+                        (OUTPORT_A2DP == outport && aml_dev->bt_avrcp_supported)) {
                         aml_dev->sink_gain[outport] =  1.0;
                     } else {
                         aml_dev->sink_gain[outport] = DbToAmpl(config->gain.values[0] / 100.0);
