@@ -547,6 +547,7 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
 {
     int bytes_to_write = bytes;
     int ret = 0;
+    uint32_t timeout_cnt = 0;
 
     // dummy means we abandon the data.
     if (port->dummy) {
@@ -607,17 +608,27 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
 #endif
         if (ret == 0) {
             written += bytes;
+            timeout_cnt = 0;
 #ifdef USB_KARAOKE
             if (port->loopback_handle)
                 pcm_write(port->loopback_handle, (void *)buffer, bytes);
 #endif
         } else {
-           const char *err_str = pcm_get_error(port->pcm_handle);
-           AM_LOGE("pcm_write failed ret = %d, pcm_get_error(port->pcm):%s",
-                ret, err_str);
-           if (strstr(err_str, "initial") > 0)
+            const char *err_str = pcm_get_error(port->pcm_handle);
+            AM_LOGE("pcm_write failed ret = %d, pcm_get_error(port->pcm):%s", ret, err_str);
+            /* Sometimes pcm_write will fail to write, makeing it impossible to exit the loop.
+             * So, when the write times out by 30ms, exit loop.
+             */
+            if (timeout_cnt > 30) {
+                break;
+            } else {
+                timeout_cnt++;
+                usleep(1000);
+            }
+            if (strstr(err_str, "initial") > 0) {
                pcm_ioctl(port->pcm_handle, SNDRV_PCM_IOCTL_PREPARE);
-           usleep(1000);
+            }
+
         }
         if (written > 0 && getprop_bool("vendor.media.audiohal.inport")) {
             aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audioOutPort.raw", buffer, written);
