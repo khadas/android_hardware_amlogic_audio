@@ -17,7 +17,7 @@
 
 
 #define LOG_TAG "audio_mediasync"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 #include <errno.h>
 #include <pthread.h>
 #include <sys/time.h>
