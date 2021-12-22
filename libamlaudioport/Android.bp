@@ -47,7 +47,6 @@ cc_library_shared {
         "-Werror",
         "-Wno-error=deprecated-declarations",
         "-Wall",
-        "-unresolved-symbols=ignore-all",
     ],
     shared_libs: [
         "libcutils",
@@ -75,7 +74,6 @@ cc_test {
         "-Werror",
         "-Wno-error=deprecated-declarations",
         "-Wall",
-        "-unresolved-symbols=ignore-all",
     ],
     shared_libs: [
         "libAmlAudioOutPort",

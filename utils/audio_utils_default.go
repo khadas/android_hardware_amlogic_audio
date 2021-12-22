@@ -1,13 +1,13 @@
 package audio_hidl
 
 import (
-    "fmt"
-    _"reflect"
+    //"fmt"
+    //"reflect"
     "android/soong/android"
     "android/soong/cc"
     //"github.com/google/blueprint/proptools"
-    _ "runtime/debug"
-    "strconv"
+    //"runtime/debug"
+    //"strconv"
 )
 
 func init() {
@@ -15,14 +15,6 @@ func init() {
 }
 
 func audio_hidl_Defaults(ctx android.LoadHookContext) {
-    sdkVersion := ctx.DeviceConfig().PlatformVndkVersion()
-    sdkVersionInt,err := strconv.Atoi(sdkVersion)
-    if err != nil {
-        fmt.Printf("%v fail to convert", sdkVersionInt)
-    } else {
-        fmt.Println("Audio HIDL sdkVersion:", sdkVersionInt)
-    }
-
     type propsE struct {
         Shared_libs  []string
         Header_libs  []string
@@ -30,20 +22,25 @@ func audio_hidl_Defaults(ctx android.LoadHookContext) {
     }
     p := &propsE{}
 
-    if sdkVersionInt > 30 {
-        p.Shared_libs =  append(p.Shared_libs, "libamlaudiohal.7.0")
-                p.Header_libs =  append(p.Header_libs, "libamlaudiohal_headers@7.0")
-                p.Header_libs =  append(p.Header_libs, "av-headers")
-    } else if sdkVersionInt > 29 {
-                p.Shared_libs =  append(p.Shared_libs, "libamlaudiohal.6.0")
-                p.Header_libs =  append(p.Header_libs, "libamlaudiohal_headers@6.0")
-                p.Include_dirs =  append(p.Include_dirs, "frameworks/av/include")
+    // After Andriod T, PlatformVndkVersion return string like "Tiramisu", not string number like "32"
+    PlatformVndkVersion := ctx.DeviceConfig().PlatformVndkVersion()
+    //fmt.Println("PlatformVndkVersion:", PlatformVndkVersion)
+
+    if PlatformVndkVersion == "30" {
+        //fmt.Println("Add lib&inclue dir for HIDL 6.0")
+        p.Shared_libs =  append(p.Shared_libs, "libamlaudiohal.6.0")
+        p.Header_libs =  append(p.Header_libs, "libamlaudiohal_headers@6.0")
+        p.Include_dirs =  append(p.Include_dirs, "frameworks/av/include")
         p.Include_dirs =  append(p.Include_dirs, "frameworks/av/media/libaudiohal/include")
+    } else {
+        //fmt.Println("Add lib&inclue dir for HIDL 7.0")
+        p.Shared_libs =  append(p.Shared_libs, "libamlaudiohal.7.0")
+        p.Header_libs =  append(p.Header_libs, "libamlaudiohal_headers@7.0")
+        p.Header_libs =  append(p.Header_libs, "av-headers")
     }
+
     ctx.AppendProperties(p)
 }
-
-
 
 func audio_hidl_DefaultsFactory() (android.Module) {
     module := cc.DefaultsFactory()

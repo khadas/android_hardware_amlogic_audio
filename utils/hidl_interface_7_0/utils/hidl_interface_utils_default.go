@@ -2,12 +2,12 @@ package audio_hidl
 
 import (
     //"fmt"
-    _"reflect"
+    //"reflect"
     "android/soong/android"
     "android/soong/cc"
     "github.com/google/blueprint/proptools"
-    _ "runtime/debug"
-    "strconv"
+    //"runtime/debug"
+    //"strconv"
 )
 
 func init() {
@@ -15,29 +15,26 @@ func init() {
 }
 
 func audio_hidl_Defaults(ctx android.LoadHookContext) {
-    sdkVersion := ctx.DeviceConfig().PlatformVndkVersion()
-    sdkVersionInt,err := strconv.Atoi(sdkVersion)
-
-    if err != nil {
-        //fmt.Printf("%v fail to convert", sdkVersionInt)
-    } else {
-        //fmt.Println("Audio HIDL sdkVersion:", sdkVersionInt)
-    }
     type propsE struct {
         Shared_libs  []string
         Enabled *bool
     }
     p := &propsE{}
 
-    if sdkVersionInt > 30 {
-        p.Enabled = proptools.BoolPtr(true)
-    } else if sdkVersionInt > 29 {
+    // After Andriod T, PlatformVndkVersion return string like "Tiramisu", not string number like "32"
+    PlatformVndkVersion := ctx.DeviceConfig().PlatformVndkVersion()
+    //fmt.Println("PlatformVndkVersion:", PlatformVndkVersion)
+
+    if PlatformVndkVersion == "30" {
+        //fmt.Println("Disable HIDL 7.0")
         p.Enabled = proptools.BoolPtr(false)
+    } else {
+        //fmt.Println("Enable HIDL 7.0")
+        p.Enabled = proptools.BoolPtr(true)
     }
+
     ctx.AppendProperties(p)
 }
-
-
 
 func audio_hidl_DefaultsFactory() (android.Module) {
     module := cc.DefaultsFactory()
