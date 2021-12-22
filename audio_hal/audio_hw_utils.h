@@ -131,7 +131,7 @@ bool aml_audio_data_detect(int16_t *buf, size_t bytes, int detect_value);
 int aml_audio_data_handle(struct audio_stream_out *stream, const void* buffer, size_t bytes);
 int aml_audio_compensate_video_delay( int enable);
 int aml_audio_get_ms12_timestamp_offset(void);
-int aml_audio_delay_timestamp(struct timespec *timestamp, int delay_time_ms);
+int aml_audio_delay_timestamp(struct timespec *timestamp, int delay_time_us);
 int halformat_convert_to_spdif(audio_format_t format, int ch_mask);
 int halformat_convert_to_arcformat(audio_format_t format, int ch_mask);
 int alsa_device_get_port_index(alsa_device_t alsa_device);

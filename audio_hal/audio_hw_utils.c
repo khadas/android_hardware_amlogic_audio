@@ -1412,14 +1412,14 @@ int aml_audio_get_ms12_timestamp_offset(void)
 }
 
 
-int aml_audio_delay_timestamp(struct timespec *timestamp, int delay_time_ms) {
+int aml_audio_delay_timestamp(struct timespec *timestamp, int delay_time_us) {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
     char *prop_name = NULL;
     uint64_t new_time_ns;
 
 
-    new_time_ns = timestamp->tv_sec * 1000000000LL + timestamp->tv_nsec + delay_time_ms * 1000000LL;
+    new_time_ns = timestamp->tv_sec * 1000000000LL + timestamp->tv_nsec + delay_time_us * 1000LL;
     timestamp->tv_sec = new_time_ns/1000000000LL;
     timestamp->tv_nsec = new_time_ns - timestamp->tv_sec*1000000000LL;
 

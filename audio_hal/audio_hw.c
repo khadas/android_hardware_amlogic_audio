@@ -1844,6 +1844,8 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
     bool b_raw_out = false;
     int ret = 0;
     int video_delay_frames = 0;
+    int64_t origin_tv_nsec = 0;
+    int origin_vdelay_frames = 0;
     if (!frames || !timestamp) {
         ALOGI("%s, !frames || !timestamp\n", __FUNCTION__);
         return -EINVAL;
@@ -1894,11 +1896,31 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
 
     /*here we need add video delay*/
     video_delay_frames = get_media_video_delay(&adev->alsa_mixer) * out->hal_rate / 1000;
+    origin_tv_nsec = timestamp->tv_nsec;
+    origin_vdelay_frames = video_delay_frames;
+
+    if (out->is_normal_pcm) {
+        //  AF::Track's Position should larger than hal, so minus DEFAULT_PLAYBACK_PERIOD_SIZE
+        int max_delay_frames = adev->sys_audio_frame_written - *frames - DEFAULT_PLAYBACK_PERIOD_SIZE;
+        max_delay_frames = (max_delay_frames < 0 ? 0 : max_delay_frames);
+
+        if (video_delay_frames > max_delay_frames) {
+            int offset_frames = video_delay_frames - max_delay_frames;
+            int offset_us = -(offset_frames * 1000 / (out->hal_rate/1000));
+
+            aml_audio_delay_timestamp(timestamp, offset_us);
+            video_delay_frames = max_delay_frames;
+            if (adev->debug_flag) {
+                ALOGI("%s sys_audio_frame_written:%lld frames:%lld max_delay_frames:%d offset_frames:%d offset_us:%d", __func__,
+                    adev->sys_audio_frame_written, *frames, max_delay_frames, offset_frames, offset_us);
+            }
+        }
+    }
     *frames += video_delay_frames;
 
     if (adev->debug_flag) {
-        ALOGI("out_get_presentation_position out %p %"PRIu64", sec = %ld, nanosec = %ld tunned_latency_ms %d frame_latency %d video delay=%d\n",
-            out, *frames, timestamp->tv_sec, timestamp->tv_nsec, timems_latency, frame_latency, video_delay_frames);
+        ALOGI("out_get_presentation_position out %p %"PRIu64", sec = %ld, nanosec = %ld(origin:%lld) tunned_latency_ms %d frame_latency %d video delay=%d(origin:%d)\n",
+            out, *frames, timestamp->tv_sec, timestamp->tv_nsec, origin_tv_nsec, timems_latency, frame_latency, video_delay_frames, origin_vdelay_frames);
         int64_t  frame_diff_ms =  (*frames - out->last_frame_reported) * 1000 / out->hal_rate;
         int64_t  system_time_ms = 0;
         if (timestamp->tv_nsec < out->last_timestamp_reported.tv_nsec) {
