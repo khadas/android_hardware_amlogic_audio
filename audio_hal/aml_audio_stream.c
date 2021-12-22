@@ -445,13 +445,15 @@ bool is_hdmi_in_stable_hw (struct audio_stream_in *stream)
     audio_type_parse_t *audio_type_status = (audio_type_parse_t *)audio_patch->audio_parse_para;
     int type = 0;
     int stable = 0;
+    int tl1_chip = check_chip_name("tl1", 3, &aml_dev->alsa_mixer);
 
     stable = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_HDMI_IN_AUDIO_STABLE);
     if (!stable) {
         ALOGV("%s() amixer %s get %d\n", __func__, "HDMIIN audio stable", stable);
         return false;
     }
-    if (audio_type_status->soft_parser != 1) {
+    /* TL1 do not use HDMIIN_AUDIO_TYPE */
+    if (audio_type_status->soft_parser != 1 && !tl1_chip) {
         type = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_HDMIIN_AUDIO_TYPE);
         if (type != in->spdif_fmt_hw) {
             ALOGD ("%s(), in type changed from %d to %d", __func__, in->spdif_fmt_hw, type);
