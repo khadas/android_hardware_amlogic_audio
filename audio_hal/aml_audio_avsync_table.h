@@ -36,6 +36,7 @@
 #define  AVSYNC_MS12_NONTUNNEL_DDP_LATENCY               (20)
 #define  AVSYNC_MS12_NONTUNNEL_ATMOS_LATENCY             (15)
 #define  AVSYNC_MS12_TUNNEL_PCM_LATENCY                  (-30)
+#define  AVSYNC_MS12_TUNNEL_DD_LATENCY                   (0) //TODO, no case for ac3
 
 /*
  *First version, the value of "vendor.media.audio.hal.ms12.tunnel.ddp" is 90.
@@ -48,14 +49,25 @@
  *so, change the value from 90 to 40ms.
  *The result is about +9ms.
  */
-#define  AVSYNC_MS12_TUNNEL_DDP_LATENCY                  (40)
+#define  AVSYNC_MS12_TUNNEL_DDP_CVBS_LATENCY                  (40)
+/*
+ *AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY works in HDMI port:
+ *      For DDP source under HDMI output,
+ *      40->90, the result change from +25ms to -25ms
+ */
+#define  AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY                  (90)
 #define  AVSYNC_MS12_TUNNEL_ATMOS_LATENCY                (20)
 
 #define  AVSYNC_MS12_NONTUNNEL_AC4_LATENCY               (70)
 #define  AVSYNC_MS12_TUNNEL_AC4_LATENCY                  (50)
 
 #define  AVSYNC_MS12_NONTUNNEL_BYPASS_LATENCY            (-130)
-#define  AVSYNC_MS12_TUNNEL_BYPASS_LATENCY               (-220)
+
+/*
+ * -220 -> -250 for result as +35 -> +60
+ * -220 -> -180 for result as +35 -> -5
+ */
+#define  AVSYNC_MS12_TUNNEL_BYPASS_LATENCY               (-180)
 
 
 #define  AVSYNC_MS12_NETFLIX_NONTUNNEL_BYPASS_LATENCY            (-130)
@@ -63,14 +75,27 @@
 
 #define  AVSYNC_MS12_PCM_OUT_LATENCY                     (0)
 #define  AVSYNC_MS12_DD_OUT_LATENCY                      (50)
+/*
+ * 75 -> 35 for result as +20 -> +40
+ * 75 -> 115 for result as +20 -> -20
+ */
 #define  AVSYNC_MS12_DDP_OUT_LATENCY                     (75)
-#define  AVSYNC_MS12_MAT_OUT_LATENCY                     (10)
+
+/*
+ * 10 -> -20 for result as +20 -> +50
+ * 10 -> 30 for result as +20 -> -10
+ */
+#define  AVSYNC_MS12_MAT_OUT_LATENCY                     (30)
 
 #define  AVSYNC_MS12_HDMI_ARC_OUT_PCM_LATENCY            (0)
 #define  AVSYNC_MS12_HDMI_ARC_OUT_DD_LATENCY             (0)
 #define  AVSYNC_MS12_HDMI_ARC_OUT_DDP_LATENCY            (120)
-#define  AVSYNC_MS12_HDMI_OUT_LATENCY                    (10)
-#define  AVSYNC_MS12_HDMI_SPEAKER_LATENCY                (-25)
+#define  AVSYNC_MS12_HDMI_OUT_LATENCY                    (0)
+#define  AVSYNC_MS12_SPEAKER_LATENCY                     (-25)
+#define  AVSYNC_MS12_HDMI_ARC_OUT_LATENCY_PROPERTY    "vendor.media.audio.hal.ms12.hdmiarcout"
+#define  AVSYNC_MS12_HDMI_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.hdmiout"
+#define  AVSYNC_MS12_SPEAKER_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.speaker"
+
 
 #define  AVSYNC_MS12_NONTUNNEL_PCM_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.nontunnel.pcm"
 #define  AVSYNC_MS12_NONTUNNEL_DDP_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.nontunnel.ddp"
@@ -80,7 +105,16 @@
 #define  AVSYNC_MS12_NETFLIX_NONTUNNEL_BYPASS_LATENCY_PROPERTY   "vendor.media.audio.hal.ms12.netflix.nontunnel.bypass"
 
 #define  AVSYNC_MS12_TUNNEL_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.pcm"
-#define  AVSYNC_MS12_TUNNEL_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.ddp"
+#define  AVSYNC_MS12_TUNNEL_DD_LATENCY_PROPERTY          "vendor.media.audio.hal.ms12.tunnel.dd"
+
+/*
+ * For DDP output, same source but through CVBS vs HDMI, the Dolby Certification Target is different.
+ *    1. CVBS: [-45, +125], set the AVSYNC_MS12_TUNNEL_DDP_CVBS_LATENCY_PROPERTY as 40, then get the +25ms.
+ *    2. HDMI: [-45, 0], set the AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY_PROPERTY as 90, then get the -25ms.
+ */
+#define  AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.ddp_hdmi"
+#define  AVSYNC_MS12_TUNNEL_DDP_CVBS_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.ddp_cvbs"
+
 #define  AVSYNC_MS12_TUNNEL_ATMOS_LATENCY_PROPERTY       "vendor.media.audio.hal.ms12.tunnel.atmos"
 #define  AVSYNC_MS12_TUNNEL_AC4_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.ac4"
 #define  AVSYNC_MS12_TUNNEL_BYPASS_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.tunnel.bypass"
@@ -108,7 +142,9 @@
 #define  AVSYNC_NONMS12_HDMI_SPEAKER_LATENCY                (0)
 
 
+/******************************************************************************************************/
 /* MS12 and Dolby Vision tunning part*/
+/******************************************************************************************************/
 
 #define  AVSYNC_MS12_DV_TUNNEL_PCM_LATENCY                  (0)//won't change it
 #define  AVSYNC_MS12_DV_TUNNEL_DDP_LATENCY                  (30)
@@ -119,8 +155,9 @@
 //#define  AVSYNC_MS12_DV_TUNNEL_ATMOS_LATENCY_PROPERTY       "vendor.media.audio.hal.ms12_dv.tunnel.atmos"
 #define  AVSYNC_MS12_DV_TUNNEL_AC4_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12_dv.tunnel.ac4"
 
-
-/*netflix tunning part*/
+/******************************************************************************************************/
+/* NETFLIX tunning part*/
+/******************************************************************************************************/
 // right offset. 10-->30
 #define  AVSYNC_MS12_NETFLIX_NONTUNNEL_PCM_LATENCY       (20)
 // right offset. 20-->40-->30
@@ -142,12 +179,12 @@
 #define  AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_PCM_LATENCY    (0)
 #define  AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_DD_LATENCY     (0)
 #define  AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_DDP_LATENCY    (120)
-#define  AVSYNC_MS12_NETFLIX_HDMI_OUT_LATENCY            (10)
-#define  AVSYNC_MS12_NETFLIX_HDMI_SPEAKER_LATENCY        (-25)
+#define  AVSYNC_MS12_NETFLIX_HDMI_OUT_LATENCY            (0)
+#define  AVSYNC_MS12_NETFLIX_SPEAKER_LATENCY             (-25)
 
 #define  AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_LATENCY_PROPERTY    "vendor.media.audio.hal.ms12.netflix.hdmiarcout"
-#define  AVSYNC_MS12_NETFLIX_HDMI_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.netflix.hdmiarcout"
-#define  AVSYNC_MS12_NETFLIX_HDMI_SPEAKER_LATENCY_PROPERTY    "vendor.media.audio.hal.ms12.netflix.hdmiarcout"
+#define  AVSYNC_MS12_NETFLIX_HDMI_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.netflix.hdmiout"
+#define  AVSYNC_MS12_NETFLIX_SPEAKER_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.netflix.speaker"
 
 #define  AVSYNC_MS12_NETFLIX_PCM_OUT_LATENCY_PROPERTY    "vendor.media.audio.hal.ms12.netflix.pcmout"
 #define  AVSYNC_MS12_NETFLIX_DDP_OUT_LATENCY_PROPERTY    "vendor.media.audio.hal.ms12.netflix.ddpout"

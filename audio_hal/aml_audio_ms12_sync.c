@@ -102,7 +102,7 @@ static int get_ms12_nontunnel_input_latency(audio_format_t input_format) {
 }
 
 
-static int get_ms12_tunnel_input_latency(audio_format_t input_format) {
+static int get_ms12_tunnel_input_latency(audio_format_t input_format, enum OUT_PORT port) {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
     int latency_ms = 0;
@@ -115,10 +115,24 @@ static int get_ms12_tunnel_input_latency(audio_format_t input_format) {
         break;
     }
     case AUDIO_FORMAT_AC3:
+    #if 0
+    {
+       prop_name = AVSYNC_MS12_TUNNEL_DD_LATENCY_PROPERTY;
+       latency_ms = AVSYNC_MS12_TUNNEL_DD_LATENCY;
+       break;
+    }
+    #endif
     case AUDIO_FORMAT_E_AC3: {
-        /*for non tunnel dolby ddp5.1 case:netlfix AL1 case*/
-        prop_name = AVSYNC_MS12_TUNNEL_DDP_LATENCY_PROPERTY;
-        latency_ms = AVSYNC_MS12_TUNNEL_DDP_LATENCY;
+        /* CVBS output DDP target is [-45, +125]*/
+        if ((port == OUTPORT_SPEAKER) || (port == OUTPORT_AUX_LINE)) {
+            prop_name = AVSYNC_MS12_TUNNEL_DDP_CVBS_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_MS12_TUNNEL_DDP_CVBS_LATENCY;
+        }
+        /* HDMI or other output, DDP HDMI target is [-45, 0] */
+        else {
+            prop_name = AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY;
+        }
         break;
     }
     case AUDIO_FORMAT_AC4: {
@@ -299,22 +313,22 @@ int get_ms12_netflix_port_latency( enum OUT_PORT port, audio_format_t output_for
     switch (port)  {
         case OUTPORT_HDMI_ARC:
             if (output_format == AUDIO_FORMAT_AC3)
-                latency_ms = AVSYNC_MS12_HDMI_ARC_OUT_DD_LATENCY;
+                latency_ms = AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_DD_LATENCY;
             else if (output_format == AUDIO_FORMAT_E_AC3)
-                latency_ms = AVSYNC_MS12_HDMI_ARC_OUT_DDP_LATENCY;
+                latency_ms = AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_DDP_LATENCY;
             else
-                latency_ms = AVSYNC_MS12_HDMI_ARC_OUT_PCM_LATENCY;
+                latency_ms = AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_PCM_LATENCY;
 
             prop_name = AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_LATENCY_PROPERTY;
             break;
         case OUTPORT_HDMI:
-            //latency_ms = AVSYNC_MS12_HDMI_OUT_LATENCY;
-            //prop_name = AVSYNC_MS12_NETFLIX_HDMI_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_MS12_NETFLIX_HDMI_OUT_LATENCY; //default value as 0
+            prop_name = AVSYNC_MS12_NETFLIX_HDMI_LATENCY_PROPERTY;
             break;
         case OUTPORT_SPEAKER:
         case OUTPORT_AUX_LINE:
-            latency_ms = AVSYNC_MS12_HDMI_SPEAKER_LATENCY;
-            prop_name = AVSYNC_MS12_NETFLIX_HDMI_SPEAKER_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_MS12_NETFLIX_SPEAKER_LATENCY;
+            prop_name = AVSYNC_MS12_NETFLIX_SPEAKER_LATENCY_PROPERTY;
             break;
         default :
             break;
@@ -334,6 +348,10 @@ int get_ms12_netflix_port_latency( enum OUT_PORT port, audio_format_t output_for
 int get_ms12_port_latency( enum OUT_PORT port, audio_format_t output_format)
 {
     int latency_ms = 0;
+    int ret = 0;
+    char *prop_name = NULL;
+    char buf[PROPERTY_VALUE_MAX];
+
     switch (port)  {
         case OUTPORT_HDMI_ARC:
             if (output_format == AUDIO_FORMAT_AC3)
@@ -342,17 +360,29 @@ int get_ms12_port_latency( enum OUT_PORT port, audio_format_t output_format)
                 latency_ms = AVSYNC_MS12_HDMI_ARC_OUT_DDP_LATENCY;
             else
                 latency_ms = AVSYNC_MS12_HDMI_ARC_OUT_PCM_LATENCY;
+
+            prop_name = AVSYNC_MS12_HDMI_ARC_OUT_LATENCY_PROPERTY;
             break;
         case OUTPORT_HDMI:
-            latency_ms = AVSYNC_MS12_HDMI_OUT_LATENCY;
+            latency_ms = AVSYNC_MS12_HDMI_OUT_LATENCY; //default value as 0
+            prop_name = AVSYNC_MS12_HDMI_LATENCY_PROPERTY;
             break;
         case OUTPORT_SPEAKER:
         case OUTPORT_AUX_LINE:
-            latency_ms = AVSYNC_MS12_HDMI_SPEAKER_LATENCY;
-            break;
+            latency_ms = AVSYNC_MS12_SPEAKER_LATENCY;
+            prop_name = AVSYNC_MS12_SPEAKER_LATENCY_PROPERTY;
         default :
             break;
     }
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+    ALOGV("%s output format =0x%x latency ms =%d", __func__, output_format, latency_ms);
+
     return latency_ms;
 }
 
@@ -405,7 +435,7 @@ static int get_ms12_tunnel_latency_offset(enum OUT_PORT port
          * and one 32ms in SPDIF Encoder delay for DDP_JOC, but test result is 16ms.
          * so, better to dig into this hard coding part.
          */
-        input_latency_ms  = get_ms12_tunnel_input_latency(input_format)
+        input_latency_ms  = get_ms12_tunnel_input_latency(input_format, port)
                             + is_output_ddp_atmos * AVSYNC_MS12_TUNNEL_DIFF_DDP_JOC_VS_DDP_LATENCY;
         if (is_dv) {
             input_latency_ms += get_ms12_dv_tunnel_input_latency(input_format);
