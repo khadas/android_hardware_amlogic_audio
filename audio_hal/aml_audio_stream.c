@@ -467,6 +467,9 @@ bool is_hdmi_in_stable_hw (struct audio_stream_in *stream)
 bool is_dual_output_stream(struct audio_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    if (aml_out == NULL)
+        return 0;
+
     return aml_out->dual_output_flag;
 }
 
