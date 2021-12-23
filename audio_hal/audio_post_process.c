@@ -18,6 +18,7 @@
 #include "Virtualx.h"
 #include "aml_dec_api.h"
 #include "aml_dts_dec_api.h"
+#include "aml_effects_util.h"
 
 static int check_dts_config(struct aml_native_postprocess *native_postprocess) {
     int cur_channels = dca_get_out_ch_internal();
@@ -67,6 +68,9 @@ size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int
 
     for (j = 0; j < native_postprocess->num_postprocessors; j++) {
         effect_handle_t effect = native_postprocess->postprocessors[j];
+        if (!getEffectStatus(effect)) {
+             continue;
+        }
         if (effect && (*effect) && (*effect)->process && in_buffer) {
             if (native_postprocess->libvx_exist && native_postprocess->effect_in_ch == 6 && j == 0) {
                 /* skip multi channel processing for dts streaming in VX */
