@@ -129,10 +129,10 @@ err:
 void close_btSCO_device(struct aml_audio_device *adev)
 {
     struct aml_bt_output *bt = &adev->bt_output;
-    struct pcm *pcm = bt->pcm_bt;
 
     AM_LOGI("+++");
     pthread_mutex_lock(&bt->lock);
+    struct pcm *pcm = bt->pcm_bt;
     if (!bt->active) {
         AM_LOGW("Alread has been closed.");
         goto exit;
@@ -213,7 +213,9 @@ ssize_t write_to_sco(struct aml_audio_device *adev, audio_config_base_t *config,
     }
 
     if (bt->pcm_bt) {
+        pthread_mutex_lock(&bt->lock);
         pcm_write(bt->pcm_bt, bt->bt_out_buffer, out_frames * frame_size);
+        pthread_mutex_unlock(&bt->lock);
         dump_output_data(bt, bt->bt_out_buffer, out_frames * frame_size);
     }
     return bytes;
