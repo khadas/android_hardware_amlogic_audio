@@ -251,6 +251,11 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
         return -EINVAL;
     }
 
+    /* There is no dolby lib in system, don't update EDID */
+    if (adev->dolby_lib_type == eDolbyNull) {
+        return 0;
+    }
+
     memset(hdmi_desc->target_EDID_array, 0, EDID_ARRAY_MAX_LEN);
 
     pt = strtok_r (value, "[], ", &tmp);
@@ -275,6 +280,9 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
         adev->arc_hdmi_updated = 0;
         update_edid(adev, true, (void *)&hdmi_desc->target_EDID_array[0], hdmi_desc->EDID_length);
     } else {
+        /* get default edid of hdmirx */
+        get_current_edid(adev, adev->default_EDID_array, EDID_ARRAY_MAX_LEN);
+
         ALOGI("ARC is connected, EDID_length = [%d], ARC HDMI AVR port = [%d]",
             hdmi_desc->EDID_length, hdmi_desc->avr_port);
         /*for (i = 0; i < hdmi_desc->EDID_length/3; i++) {
@@ -314,15 +322,16 @@ int update_edid_after_edited_audio_sad(struct aml_audio_device *adev, struct for
     }
 
     /*
-     * avoid to update the EDID with DCV decoder, this feature only enable in Dolby MS12 SDK v1&v2.
+     * if there is no ddp/ms12 lib, don't update edid.
      */
-    if (adev->dolby_lib_type != eDolbyMS12Lib) {
+    if (adev->dolby_lib_type == eDolbyNull) {
         return 0;
     }
 
     if (BYPASS == adev->hdmi_format) {
         /* update the AVR's EDID */
         update_edid(adev, false, (void *)&hdmi_desc->target_EDID_array[0], hdmi_desc->EDID_length);
+        ALOGI("Bypass mode!, update AVR EDID.");
     }
     else if (AUTO == adev->hdmi_format) {
         if (!fmt_desc->is_support) {

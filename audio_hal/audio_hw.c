@@ -3789,8 +3789,6 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
             if (val & AUDIO_DEVICE_OUT_HDMI_ARC) {
                 aml_audio_set_speaker_mute(adev, "true");
                 aml_audio_update_arc_status(adev, true);
-                /* get default edid of hdmirx */
-                get_current_edid(adev, adev->default_EDID_array, EDID_ARRAY_MAX_LEN);
             }
             update_sink_format_after_hotplug(adev);
         } else if (val & AUDIO_DEVICE_OUT_ALL_A2DP) {
@@ -3844,8 +3842,11 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
             adev->hdmi_format_updated = 1;
         adev->hdmi_format = val;
 
-        /* update the DUT's EDID */
-        update_edid_after_edited_audio_sad(adev, &adev->hdmi_descs.ddp_fmt);
+        /* only switch from/to bypass mode, update the DUT's EDID */
+        if (adev->hdmi_format == BYPASS || adev->hdmi_format_last == BYPASS)
+            update_edid_after_edited_audio_sad(adev, &adev->hdmi_descs.ddp_fmt);
+
+        adev->hdmi_format_last = adev->hdmi_format;
 
         //sysfs_set_sysfs_str(REPORT_DECODED_INFO, kvpairs);
         if ((eDolbyMS12Lib == adev->dolby_lib_type) && (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP))
@@ -9476,8 +9477,6 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->dtv_volume = 1.0;
     pthread_mutex_unlock(&adev_mutex);
 
-    /* get default edid of hdmirx */
-    get_current_edid(adev, adev->default_EDID_array, EDID_ARRAY_MAX_LEN);
     adev->insert_mute_flag = false;
 
     ALOGD("%s: exit", __func__);
