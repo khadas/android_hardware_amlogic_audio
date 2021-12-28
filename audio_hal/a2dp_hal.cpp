@@ -163,15 +163,18 @@ int a2dp_out_open(struct aml_audio_device *adev) {
         audio_bytes_per_sample(hal->config.format), audio_channel_count_from_out_mask(hal->config.channel_mask));
     return 0;
 }
+
 int a2dp_out_close(struct aml_audio_device *adev) {
     pthread_mutex_lock(&adev->a2dp_lock);
     struct aml_a2dp_hal *hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
-
-    R_CHECK_POINTER_LEGAL(-1, hal, "a2dp hw is released");
-    adev->a2dp_hal = NULL;
-    if (adev->debug_flag & DEBUG_LOG_MASK_A2DP) {
-        AM_LOGD("");
+    if (hal == NULL) {
+        AM_LOGW("a2dp hw is already closed.");
+        pthread_mutex_unlock(&adev->a2dp_lock);
+        return -1;
     }
+
+    adev->a2dp_hal = NULL;
+    AM_LOGI("");
     a2dp_wait_status(&hal->a2dphw);
     hal->a2dphw.Stop();
     hal->a2dphw.TearDown();
@@ -207,8 +210,11 @@ static int a2dp_out_resume_l(aml_audio_device *adev) {
 int a2dp_out_resume(struct aml_audio_device *adev) {
     pthread_mutex_lock(&adev->a2dp_lock);
     struct aml_a2dp_hal *hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
-    BluetoothStreamState state;
-    R_CHECK_POINTER_LEGAL(-1, hal, "a2dp hw is released");
+    if (hal == NULL) {
+        AM_LOGW("a2dp has been released.");
+        pthread_mutex_unlock(&adev->a2dp_lock);
+        return -1;
+    }
     int32_t ret = a2dp_out_resume_l(adev);
     pthread_mutex_unlock(&adev->a2dp_lock);
     return ret;
@@ -235,7 +241,11 @@ static int a2dp_out_standby_l(struct aml_audio_device *adev) {
 int a2dp_out_standby(struct aml_audio_device *adev) {
     pthread_mutex_lock(&adev->a2dp_lock);
     struct aml_a2dp_hal *hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
-    R_CHECK_POINTER_LEGAL(-1, hal, "a2dp hw is released");
+    if (hal == NULL) {
+        AM_LOGW("a2dp has been released.");
+        pthread_mutex_unlock(&adev->a2dp_lock);
+        return -1;
+    }
     int32_t ret = a2dp_out_standby_l(adev);
     pthread_mutex_unlock(&adev->a2dp_lock);
     return ret;
@@ -417,6 +427,7 @@ static ssize_t a2dp_out_write_l(struct aml_audio_device *adev, audio_config_base
     size_t cur_frames = 0;
     size_t resample_frames = 0;
     uint32_t bytes_written = 0;
+    uint64_t pre_time_us = 0;
     size_t sent = 0;
 
     if (adev->a2dp_hal == NULL) {
@@ -449,10 +460,16 @@ static ssize_t a2dp_out_write_l(struct aml_audio_device *adev, audio_config_base
         memset((void*)wr_buff, 0, wr_size);
     }
     dump_a2dp_output_data(hal, wr_buff, wr_size);
+    pre_time_us = aml_audio_get_systime();
     while (bytes_written < wr_size) {
         sent = hal->a2dphw.WriteData((char *)wr_buff + bytes_written, wr_size - bytes_written);
-        AM_LOGV("need_write:%d, actual sent:%d, wr_size:%d", (wr_size - bytes_written), sent, wr_size);
         bytes_written += sent;
+        /* The cache of BT stack is about 40ms data, and exit from writing data
+         * after timeout of 64ms here. */
+        if (bytes_written < wr_size && (aml_audio_get_systime() - pre_time_us) > 64 * USEC_PER_MSEC) {
+            AM_LOGW("WriteData timeout 100 ms, quit now.");
+            break;
+        }
     }
 
 exit:
