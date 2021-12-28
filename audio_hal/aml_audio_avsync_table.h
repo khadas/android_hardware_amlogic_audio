@@ -145,15 +145,39 @@
 /******************************************************************************************************/
 /* MS12 and Dolby Vision tunning part*/
 /******************************************************************************************************/
-
+/* different input formats: PCM/DDP/AC4 */
 #define  AVSYNC_MS12_DV_TUNNEL_PCM_LATENCY                  (0)//won't change it
 #define  AVSYNC_MS12_DV_TUNNEL_DDP_LATENCY                  (30)
 #define  AVSYNC_MS12_DV_TUNNEL_AC4_LATENCY                  (0)//todo
 
 #define  AVSYNC_MS12_DV_TUNNEL_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12_dv.tunnel.pcm"
 #define  AVSYNC_MS12_DV_TUNNEL_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12_dv.tunnel.ddp"
-//#define  AVSYNC_MS12_DV_TUNNEL_ATMOS_LATENCY_PROPERTY       "vendor.media.audio.hal.ms12_dv.tunnel.atmos"
 #define  AVSYNC_MS12_DV_TUNNEL_AC4_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12_dv.tunnel.ac4"
+
+/* different output formats: PCM/DDP/MAT */
+
+/*
+ *MS12 HDMI+PCM, target is [-45,   0]
+ *DV HDMI+PCM,   target is [-20, +30]
+ */
+#define  AVSYNC_MS12_DV_TUNNEL_PCMOUT_LATENCY                  (0)
+/*
+ * MS12 HDMI+PCM, target is [-100,   0]
+ * DV HDMI+PCM,   target is [-20,  +30]
+ *
+ * MS12+DV result is [-38, 0] for Bitstream.
+ *
+ * 0 -> -25 wish the result change as [-38, 0] -> [-13,  25]
+ * 0 ->  25 wish the result change as [-38, 0] -> [-63, -25]
+ */
+
+#define  AVSYNC_MS12_DV_TUNNEL_DDPOUT_LATENCY                  (-25)
+#define  AVSYNC_MS12_DV_TUNNEL_MATOUT_LATENCY                  (0)//todo
+
+#define  AVSYNC_MS12_DV_TUNNEL_PCMOUT_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12_dv.tunnel.pcmout"
+#define  AVSYNC_MS12_DV_TUNNEL_DDPOUT_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12_dv.tunnel.ddpout"
+#define  AVSYNC_MS12_DV_TUNNEL_MATOUT_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12_dv.tunnel.matout"
+
 
 /******************************************************************************************************/
 /* NETFLIX tunning part*/

@@ -65,6 +65,43 @@ static int get_ms12_dv_tunnel_input_latency(audio_format_t input_format) {
     return latency_ms;
 }
 
+static int get_ms12_dv_tunnel_output_latency(audio_format_t output_format) {
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+
+    switch (output_format) {
+    case AUDIO_FORMAT_PCM_16_BIT: {
+        prop_name = AVSYNC_MS12_DV_TUNNEL_PCMOUT_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_DV_TUNNEL_PCMOUT_LATENCY;
+        break;
+    }
+    case AUDIO_FORMAT_AC3:
+    case AUDIO_FORMAT_E_AC3: {
+        prop_name = AVSYNC_MS12_DV_TUNNEL_DDPOUT_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_DV_TUNNEL_DDPOUT_LATENCY;
+        break;
+    }
+    case AUDIO_FORMAT_MAT: {
+        prop_name = AVSYNC_MS12_DV_TUNNEL_MATOUT_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_DV_TUNNEL_MATOUT_LATENCY;
+        break;
+    }
+    default:
+        break;
+    }
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+
+    return latency_ms;
+}
+
 static int get_ms12_nontunnel_input_latency(audio_format_t input_format) {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
@@ -441,6 +478,9 @@ static int get_ms12_tunnel_latency_offset(enum OUT_PORT port
             input_latency_ms += get_ms12_dv_tunnel_input_latency(input_format);
         }
         output_latency_ms = get_ms12_output_latency(output_format);
+        if (is_dv) {
+            output_latency_ms += get_ms12_dv_tunnel_output_latency(output_format);
+        }
         port_latency_ms   = get_ms12_port_latency(port, output_format);
     }
     latency_ms = input_latency_ms + output_latency_ms + port_latency_ms;
