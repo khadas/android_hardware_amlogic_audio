@@ -24,6 +24,7 @@
 #include "audio_data_process.h"
 #include "aml_malloc_debug.h"
 
+
 #define MAD_LIB_PATH "/vendor/lib/libmad.so"
 
 #define MAD_MAX_LENGTH (1024 * 64)
@@ -37,7 +38,9 @@ typedef struct _audio_info {
     int samplerate;
     int channels;
     int file_profile;
-    int error_num;
+    unsigned int error_num; // decode error frames
+    unsigned int drop_num; // drop frames
+    unsigned int decode_num; //decode success frames
 } AudioInfo;
 
 typedef struct mad_decoder_operations {
@@ -67,6 +70,7 @@ struct mad_dec_t {
     aml_mad_config_t mad_config;
     mad_decoder_operations_t mad_op;
     mad_decoder_operations_t ad_mad_op;
+    aml_dec_stream_info_t stream_info;
     void *pdecoder;
     char remain_data[MAD_REMAIN_BUFFER_SIZE];
     int remain_size;
@@ -355,6 +359,12 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
       }
     }
     mad_op->getinfo(mad_op,&pAudioInfo);
+    mad_dec->stream_info.stream_sr = pAudioInfo.samplerate;
+    mad_dec->stream_info.stream_ch = pAudioInfo.channels;
+    mad_dec->stream_info.stream_bitrate = pAudioInfo.bitrate;
+    mad_dec->stream_info.stream_error_num = pAudioInfo.error_num;
+    mad_dec->stream_info.stream_drop_num = pAudioInfo.drop_num;
+    mad_dec->stream_info.stream_decode_num = pAudioInfo.decode_num;
 
     if (pAudioInfo.channels == 1 && dec_pcm_data->data_len) {
             int16_t *samples_data = (int16_t *)dec_pcm_data->buf;
@@ -481,6 +491,10 @@ static int mad_decoder_getinfo(aml_dec_t *aml_dec, aml_dec_info_type_t info_type
     switch (info_type) {
     case AML_DEC_REMAIN_SIZE:
         //dec_info->remain_size = ddp_dec->remain_size;
+        return 0;
+    case AML_DEC_STREMAM_INFO:
+        memset(&dec_info->dec_info, 0x00, sizeof(aml_dec_stream_info_t));
+        memcpy(&dec_info->dec_info, &mad_dec->stream_info, sizeof(aml_dec_stream_info_t));
         return 0;
     default:
         break;

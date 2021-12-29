@@ -62,6 +62,8 @@
 #include "alsa_device_parser.h"
 #include "aml_audio_hal_avsync.h"
 #include <audio_dtv_sync.h>
+#include "aml_audio_report.h"
+#include "aml_audio_sysfs.h"
 
 unsigned long decoder_apts_lookup(unsigned int offset)
 {

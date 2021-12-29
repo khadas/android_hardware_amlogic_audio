@@ -34,14 +34,28 @@
 #include <cutils/log.h>
 #include <tinyalsa/asoundlib.h>
 #include <cutils/properties.h>
-
 #include "aml_ddp_dec_api.h"
 #include "aml_ac3_parser.h"
+#include "aml_audio_report.h"
 
 enum {
     EXITING_STATUS = -1001,
     NO_ENOUGH_DATA = -1002,
 };
+typedef enum ERROR_CODE
+{
+   AML_DDP_AUDEC_SUCCESS            =  0,
+   AML_DDP_AUDEC_OPEN_FAILURE       = 10,
+   AML_DDP_AUDEC_INIT_FAILURE       = 20,
+   AML_DDP_AUDEC_INVALID_HDR        = 30,
+   AML_DDP_AUDEC_FRM_PARAM_ERROR    = 40,
+   AML_DDP_AUDEC_INVALID_FRAME      = 50,
+   AML_DDP_AUDEC_INCOMPLETE_FRAME   = 60,
+   AML_DDP_AUDEC_FRM_CLEAN_FAILURE  = 70,
+   AML_DDP_AUDEC_FRM_CLOSE_FAILURE  = 80,
+   AML_DDP_AUDEC_QUITONERR          = 90,
+} ERROR_CODE;
+
 
 #define     BYTESPERWRD         2
 #define     BITSPERWRD          (BYTESPERWRD*8)
@@ -54,7 +68,16 @@ enum {
 #define     BS_AXE              16
 #define     ISDDP(bsid)         ((bsid) <= BS_AXE && (bsid) > 10)
 #define     BS_BITOFFSET        40
-#define     PTR_HEAD_SIZE       7//20
+#define     PTR_HEAD_SIZE       12
+
+#define AML_AC3_STREAM_TYPE_0       0
+#define AML_AC3_STREAM_TYPE_1       1
+#define AML_AC3_STREAM_TYPE_2       2
+#define AML_AC3_STREAM_TYPE_3       3
+
+#define UPDATE_THRESHOLD_MAX    (10)
+#define UPDATE_THRESHOLD  (2)
+
 
 #define MAX_DECODER_FRAME_LENGTH 6144
 #define READ_PERIOD_LENGTH 2048
@@ -62,6 +85,7 @@ enum {
 #define MAX_DDP_BUFFER_SIZE (MAX_DECODER_FRAME_LENGTH * 4 + MAX_DECODER_FRAME_LENGTH + 8)
 
 #define DOLBY_DCV_LIB_PATH_A "/odm/lib/libHwAudio_dcvdec.so"
+#define CALCULATE_BITRATE_NEED_TIME 300 //calculate bitrate in the first 300 seconds
 
 typedef struct {
     short       *buf;
@@ -157,7 +181,7 @@ static short bitstream_unprj(BITSTREAM *p_bstrm, short *p_data,  short numbits)
     return 0;
 }
 
-static int Get_DD_Parameters(void *buf, int *sample_rate, int *frame_size, int *ChNum)
+static int Get_DD_Parameters(void *buf, int *sample_rate, int *frame_size, int *ChMask)
 {
     int numch = 0;
     BITSTREAM bstrm = {NULL, 0, 0};
@@ -214,67 +238,89 @@ static int Get_DD_Parameters(void *buf, int *sample_rate, int *frame_size, int *
     }
     bitstream_unprj(p_bstrm, &lfeon, 1);
 
-
+    *ChMask = IndependentFrame_Acmod_Lfeon_to_ChannelMask(acmod, lfeon);
     numch = chanary[acmod];
-    if (0) {
-        if (numch >= 3) {
-            numch = 8;
-        } else {
-            numch = 2;
-        }
-    } else {
-        numch = 2;
-    }
-    *ChNum = numch + lfeon;
+
+    //*ChNum = numch + lfeon;
     //ALOGI("DEBUG:numch=%d sample_rate=%d %p [%s %d]",ChNum,sample_rate,this,__FUNCTION__,__LINE__);
     return numch;
 }
 
-static int Get_DDP_Parameters(void *buf, int *sample_rate, int *frame_size, int *ChNum,int *ad_substream_supported)
+static int Get_DDP_Parameters(void *buf, int *sample_rate, int *frame_size, int *ChMask, int *isDependentFrame,int *ad_substream_supported)
 {
     int numch = 0;
     BITSTREAM bstrm = {NULL, 0, 0};
     BITSTREAM *p_bstrm = &bstrm;
-    short tmp = 0, acmod, lfeon, strmtyp,bsid;
+    short tmp = 0;
+    short strmtyp, substreamid, frmsiz, fscod, acmod , lfeon ;
+    short acmod_d, lfeon_d , compre, compr2e, chanmape, chanmap ;
     bitstream_init((short*) buf, 0, p_bstrm);
     bitstream_unprj(p_bstrm, &tmp, 16);
     if (tmp != SYNCWRD) {
-        ALOGW("[%s:%d] Invalid synchronization word", __func__, __LINE__);
+        ALOGV("Invalid synchronization word");
         return -1;
+    } else {
+        ALOGV("valid synchronization word");
     }
 
     bitstream_unprj(p_bstrm, &strmtyp, 2);
-    bitstream_unprj(p_bstrm, &bsid, 3);
-    bitstream_unprj(p_bstrm, &tmp, 11);
-    if (strmtyp == 0 && bsid != 0) {
+    bitstream_unprj(p_bstrm, &substreamid, 3);
+
+    if (strmtyp == 0 && substreamid != 0) {
        *ad_substream_supported = 1;
     }
-    *frame_size = 2 * (tmp + 1);
-    if (strmtyp != 0 && strmtyp != 1 && strmtyp != 2) {
-        return -1;
-    }
-    bitstream_unprj(p_bstrm, &tmp, 2);
 
-    if (tmp == 0x3) {
+    bitstream_unprj(p_bstrm, &frmsiz, 11);
+    *frame_size = 2 * (frmsiz + 1);
+
+    bitstream_unprj(p_bstrm, &fscod, 2);
+    if (fscod == 0x3) {
         ALOGI("Half sample rate unsupported");
         return -1;
     } else {
-        if (tmp == 0) {
+        if (fscod == 0) {
             *sample_rate = 48000;
-        } else if (tmp == 1) {
+        } else if (fscod == 1) {
             *sample_rate = 44100;
-        } else if (tmp == 2) {
+        } else if (fscod == 2) {
             *sample_rate = 32000;
         }
-
-        bitstream_unprj(p_bstrm, &tmp, 2);
+        bitstream_unprj(p_bstrm, &tmp, 2); //numblkscod 2bit
     }
-    bitstream_unprj(p_bstrm, &acmod, 3);
-    bitstream_unprj(p_bstrm, &lfeon, 1);
-    numch = chanary[acmod];
-    //numch = 2;
-    *ChNum = numch + lfeon;
-    //ALOGI("DEBUG[%s %d]:numch=%d,sr=%d,frs=%d",__FUNCTION__,__LINE__,*ChNum,*sample_rate,*frame_size);
+
+    if (strmtyp == AML_AC3_STREAM_TYPE_3) {
+        return -1;
+    } else if ((strmtyp == AML_AC3_STREAM_TYPE_0) || (strmtyp == AML_AC3_STREAM_TYPE_2)) {
+        bitstream_unprj(p_bstrm, &acmod, 3);
+        bitstream_unprj(p_bstrm, &lfeon, 1);
+        *ChMask = IndependentFrame_Acmod_Lfeon_to_ChannelMask(acmod, lfeon);
+        *isDependentFrame = 0;
+    } else {
+        *isDependentFrame = 1;
+    }
+
+    if (*isDependentFrame == 1) {
+        bitstream_unprj(p_bstrm, &acmod_d, 3);
+        bitstream_unprj(p_bstrm, &lfeon_d, 1);
+
+        bitstream_unprj(p_bstrm, &tmp, 10); // bsid 5bit, dialnorm 5bit
+        bitstream_unprj(p_bstrm, &compre, 1);
+        if (compre == 0x1) {
+            bitstream_unprj(p_bstrm, &tmp, 8); //compr 8bit
+        }
+        if (acmod_d == 0x0) {
+            bitstream_unprj(p_bstrm, &tmp, 5); //dialnorm2 5bit
+            bitstream_unprj(p_bstrm, &compr2e, 1);
+            if (compr2e == 0x1) {
+                bitstream_unprj(p_bstrm, &tmp, 8); //compr2 8bit
+            }
+        }
+        bitstream_unprj(p_bstrm, &chanmape, 1);
+        if (chanmape == 0x1) {
+            bitstream_unprj(p_bstrm, &chanmap, 16);
+            *ChMask = DependentFrame_Chanmap_to_ChannelMask(chanmap);
+        }
+    }
     return 0;
 }
 
@@ -303,7 +349,7 @@ static short bitstream_getbsid(BITSTREAM *p_inbstrm,    short *p_bsid)
     return 0;
 }
 
-static int Get_Parameters(void *buf, int *sample_rate, int *frame_size, int *ChNum, int *is_eac3,int *ad_substream_supported)
+static int  Get_Parameters(void *buf, int *sample_rate, int *frame_size, int *ChMask, int *is_aml_eac3, int *isDependentFrame, int *ad_substream_supported)
 {
     BITSTREAM bstrm = {NULL, 0, 0};
     BITSTREAM *p_bstrm = &bstrm;
@@ -313,8 +359,6 @@ static int Get_Parameters(void *buf, int *sample_rate, int *frame_size, int *ChN
 
     memcpy(ptr8, buf, PTR_HEAD_SIZE);
 
-    //ALOGI("LZG->ptr_head:0x%x 0x%x 0x%x 0x%x 0x%x 0x%x \n",
-    //     ptr8[0],ptr8[1],ptr8[2], ptr8[3],ptr8[4],ptr8[5] );
     if ((ptr8[0] == 0x0b) && (ptr8[1] == 0x77)) {
         int i;
         uint8_t tmp;
@@ -331,11 +375,11 @@ static int Get_Parameters(void *buf, int *sample_rate, int *frame_size, int *ChN
         return -1;
     }
     if (ISDDP(bsid)) {
-        Get_DDP_Parameters(ptr8, sample_rate, frame_size, ChNum, ad_substream_supported);
-        *is_eac3 = 1;
+        Get_DDP_Parameters(ptr8, sample_rate, frame_size, ChMask, isDependentFrame, ad_substream_supported);
+        *is_aml_eac3 = 1;
     } else if (ISDD(bsid)) {
-        Get_DD_Parameters(ptr8, sample_rate, frame_size, ChNum);
-        *is_eac3 = 0;
+        Get_DD_Parameters(ptr8, sample_rate, frame_size, ChMask);
+        *is_aml_eac3 = 0;
     }
     return 0;
 }
@@ -497,6 +541,10 @@ int dcv_decoder_init_patch(aml_dec_t ** ppaml_dec, aml_dec_config_t * dec_config
         goto error;
     }
 
+    ddp_dec->total_raw_size = 0;
+    ddp_dec->total_time = 0;
+    ddp_dec->bit_rate = 0;
+    memset(&(ddp_dec->stream_info), 0x00, sizeof(aml_dec_stream_info_t));
     dec_pcm_data->buf_size = MAX_DECODER_FRAME_LENGTH;
     dec_pcm_data->buf = (unsigned char*) aml_audio_calloc(1, dec_pcm_data->buf_size);
     if (!dec_pcm_data->buf) {
@@ -622,14 +670,17 @@ int dcv_decoder_get_framesize(unsigned char*buffer, int bytes, int* p_head_offse
     int mSample_rate = 0;
     int mFrame_size = 0;
     int mChNum = 0;
-    int is_eac3 = 0;
+    int mChMask = 0;
+    int isDependentFrame = 0;
+    int is__aml_eac3 = 0;
     int ad_substream_supported = 0;
     ALOGV("%s %x %x\n", __FUNCTION__, read_pointer[0], read_pointer[1]);
 
     while (offset <  bytes -1) {
         if ((read_pointer[0] == 0x0b && read_pointer[1] == 0x77) || \
                     (read_pointer[0] == 0x77 && read_pointer[1] == 0x0b)) {
-            Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChNum,&is_eac3, &ad_substream_supported);
+            Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChMask, &is__aml_eac3, &isDependentFrame, &ad_substream_supported);
+            mChNum = popcount(mChMask);
             *p_head_offset = offset;
             ALOGV("%s mFrame_size %d offset %d\n", __FUNCTION__, mFrame_size, offset);
             return mFrame_size;
@@ -646,14 +697,17 @@ int is_ad_substream_supported(unsigned char *buffer,int write_len) {
     int mSample_rate = 0;
     int mFrame_size = 0;
     int mChNum = 0;
-    int is_eac3 = 0;
+    int is__aml_eac3 = 0;
+    int mChMask = 0;
+    int isDependentFrame = 0;
     int ad_substream_supported = 0;
     ALOGV("%s %x %x\n", __FUNCTION__, read_pointer[0], read_pointer[1]);
 
     while (offset <  write_len -1) {
         if ((read_pointer[0] == 0x0b && read_pointer[1] == 0x77) || \
                     (read_pointer[0] == 0x77 && read_pointer[1] == 0x0b)) {
-            Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChNum,&is_eac3, &ad_substream_supported);
+            Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChMask, &is__aml_eac3, &isDependentFrame, &ad_substream_supported);
+            mChNum = popcount(mChMask);
             ALOGV("%s ad_substream_supported %d offset %d\n", __FUNCTION__, ad_substream_supported, offset);
             if (ad_substream_supported)
                return ad_substream_supported;
@@ -669,7 +723,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
     int mSample_rate = 0;
     int mFrame_size = 0;
     int mChNum = 0;
-    int is_eac3 = 0;
+    int is__aml_eac3 = 0;
     int in_sync = 0;
     int used_size = 0;
     int i = 0;
@@ -682,10 +736,12 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
     int total_size = 0;
     int read_offset = 0;
     int total_used_size = 0;
+    int mChMask = 0;
+    int isDependentFrame = 0;
     int ad_substream_supported = 0;
     struct dolby_ddp_dec *ddp_dec = (struct dolby_ddp_dec *)aml_dec;
     int last_remain_size = ddp_dec->remain_size;
-
+    int decoder_frame = 0;
     ddp_dec->outlen_pcm = 0;
     ddp_dec->outlen_raw = 0;
     int bit_width = 16;
@@ -752,13 +808,12 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
             while (ddp_dec->remain_size > 16) {
                 if ((read_pointer[0] == 0x0b && read_pointer[1] == 0x77) || \
                     (read_pointer[0] == 0x77 && read_pointer[1] == 0x0b)) {
-                    Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChNum, &is_eac3, &ad_substream_supported);
+                    Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChMask, &is__aml_eac3, &isDependentFrame, &ad_substream_supported);
+                    mChNum = popcount(mChMask);
                     if ((mFrame_size == 0) || (mFrame_size < PTR_HEAD_SIZE) || \
                         (mChNum == 0) || (mSample_rate == 0)) {
                     } else {
                         in_sync = 1;
-                        ddp_dec->sourcesr = mSample_rate;
-                        ddp_dec->sourcechnum = mChNum;
                         break;
                     }
                 }
@@ -767,8 +822,8 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
                 total_used_size++;
             }
         } else {
-            while (ddp_dec->remain_size > 16) {
-                if ((read_pointer[0] == 0x72 && read_pointer[1] == 0xf8 && read_pointer[2] == 0x1f && read_pointer[3] == 0x4e) ||
+           while (ddp_dec->remain_size > 16) {
+                if ((read_pointer[0] == 0x72 && read_pointer[1] == 0xf8 && read_pointer[2] == 0x1f && read_pointer[3] == 0x4e)||
                     (read_pointer[0] == 0x4e && read_pointer[1] == 0x1f && read_pointer[2] == 0xf8 && read_pointer[3] == 0x72)) {
                     unsigned int pcpd = *(uint32_t*)(read_pointer  + 4);
                     int pc = (pcpd & 0x1f);
@@ -791,8 +846,8 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
                 int frame_size = 0;
                 /* this 'frame_size' is the size of one frame. but In a IEC61937 package,
                    sometimes there are multi frames in one package */
-                Get_Parameters(read_pointer + read_offset, &mSample_rate, &frame_size,
-                    &mChNum, &is_eac3, &ad_substream_supported);
+                Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChMask, &is__aml_eac3, &isDependentFrame, &ad_substream_supported);
+                mChNum = popcount(mChMask);
             }
         }
     }
@@ -818,6 +873,8 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
         }
     }
 
+    parse_report_info_samplerate_channelnum(read_pointer, ddp_dec, mFrame_size);
+
     if (raw_in_data->buf_size >= mFrame_size) {
         raw_in_data->data_len = mFrame_size;
         memcpy(raw_in_data->buf, read_pointer, mFrame_size);
@@ -832,7 +889,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
         int current_size = 0;
         ALOGV("ddp_dec->outlen_pcm=%d raw len=%d in =%p dec_pcm_data->buf=%p dec_raw_data->buf=%p",
             ddp_dec->outlen_pcm, ddp_dec->outlen_raw, read_pointer, dec_pcm_data->buf, dec_raw_data->buf);
-        current_size = dcv_decode_process((unsigned char*)read_pointer + used_size,
+        decoder_frame = current_size = dcv_decode_process((unsigned char*)read_pointer + used_size,
                                              mFrame_size,
                                              (unsigned char *)dec_pcm_data->buf + ddp_dec->outlen_pcm,
                                              &outPCMLen,
@@ -840,6 +897,12 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
                                              &outRAWLen,
                                              ddp_dec->nIsEc3,
                                              &ddp_dec->pcm_out_info);
+        if (AML_DDP_AUDEC_SUCCESS == decoder_frame) {
+            ddp_dec->stream_info.stream_decode_num++;
+        } else if (AML_DDP_AUDEC_INVALID_FRAME == decoder_frame) {
+            ddp_dec->stream_info.stream_error_num++;
+            ddp_dec->stream_info.stream_drop_num++;
+        }
         used_size += current_size;
         ddp_dec->outlen_pcm += outPCMLen;
         ddp_dec->outlen_raw += outRAWLen;
@@ -892,8 +955,10 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
     ddp_dec->dcv_pcm_writed += ddp_dec->outlen_pcm;
     ddp_dec->dcv_decoded_samples = (ddp_dec->dcv_pcm_writed * 8 ) / (2 * bit_width);
 
-    //sprintf(ddp_dec->sysfs_buf, "decoded_frames %d", ddp_dec->dcv_decoded_samples);
+    //sprintf(ddp_dec->sysfs_buf, "decoded_frames %llu", ddp_dec->dcv_decoded_samples);
     //sysfs_set_sysfs_str(REPORT_DECODED_INFO, ddp_dec->sysfs_buf);
+    int use_raw_size = ((total_used_size - last_remain_size) > bytes) ? bytes : (total_used_size - last_remain_size);
+    ddp_dec->total_raw_size += use_raw_size;
 
     ddp_dec->remain_size = 0;
     /* Fixme: sometimes here total_used_size - last_remain_size is larger than bytes about 8bytes. */
@@ -951,11 +1016,190 @@ int dcv_decoder_info(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_dec_
     case AML_DEC_REMAIN_SIZE:
         dec_info->remain_size = ddp_dec->remain_size;
         return 0;
+    case AML_DEC_STREMAM_INFO:
+        memset(&dec_info->dec_info, 0x00, sizeof(aml_dec_stream_info_t));
+        memcpy(&dec_info->dec_info, &ddp_dec->stream_info, sizeof(aml_dec_stream_info_t));
+        if (ddp_dec->stream_info.stream_sr != 0 && ddp_dec->total_time < CALCULATE_BITRATE_NEED_TIME) { //we only calculate bitrate in the first five minutes
+            ddp_dec->total_time = ddp_dec->dcv_decoded_samples/ddp_dec->stream_info.stream_sr;
+            if (ddp_dec->total_time != 0) {
+                ddp_dec->bit_rate = (int)(ddp_dec->total_raw_size/ddp_dec->total_time);
+            }
+        }
+        dec_info->dec_info.stream_bitrate = ddp_dec->bit_rate;
+        return 0;
     default:
         break;
     }
     return ret;
 }
+
+int IndependentFrame_Acmod_Lfeon_to_ChannelMask(short Acmod, short Lfeon) {
+    int Channel_mask = 0;
+    switch (Acmod) {
+        case 0:
+            Channel_mask = AUDIO_CHANNEL_MONO_1 | AUDIO_CHANNEL_MONO_2;
+            break;
+        case 1:
+            Channel_mask = AUDIO_CHANNEL_C;
+            break;
+        case 2:
+            Channel_mask = AUDIO_CHANNEL_L | AUDIO_CHANNEL_R;
+            break;
+        case 3:
+            Channel_mask = AUDIO_CHANNEL_L | AUDIO_CHANNEL_C | AUDIO_CHANNEL_R;
+            break;
+        case 4:
+            Channel_mask = AUDIO_CHANNEL_L | AUDIO_CHANNEL_R | AUDIO_CHANNEL_S;
+            break;
+        case 5:
+            Channel_mask = AUDIO_CHANNEL_L | AUDIO_CHANNEL_C | AUDIO_CHANNEL_R | AUDIO_CHANNEL_S;
+            break;
+        case 6:
+            Channel_mask = AUDIO_CHANNEL_L | AUDIO_CHANNEL_R | AUDIO_CHANNEL_LS | AUDIO_CHANNEL_RS;
+            break;
+        case 7:
+            Channel_mask = AUDIO_CHANNEL_L | AUDIO_CHANNEL_C | AUDIO_CHANNEL_R | AUDIO_CHANNEL_LS | AUDIO_CHANNEL_RS;
+            break;
+        default:
+            ALOGE("error");
+            break;
+    }
+    if (Lfeon == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_LFE;
+    }
+    return Channel_mask;
+}
+
+int DependentFrame_Chanmap_to_ChannelMask(short Chanmap) {
+    int Channel_mask = 0;
+    if (((Chanmap >> 15) & 0x1) == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_L;
+    }
+    if (((Chanmap >> 14) & 0x1) == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_C;
+    }
+    if (((Chanmap >> 13) & 0x1) == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_R;
+    }
+    if (((Chanmap >> 12) & 0x1) == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_LS;
+    }
+    if (((Chanmap >> 11) & 0x1) == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_RS;
+    }
+    if (((Chanmap >> 10) & 0x1) == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_Lc | AUDIO_CHANNEL_Rc;
+    }
+    if (((Chanmap >> 9) & 0x1) == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_Lrs | AUDIO_CHANNEL_Rrs;
+    }
+    if (((Chanmap >> 8) & 0x1) == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_Cs;
+    }
+    if (((Chanmap >> 7) & 0x1) == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_Ts;
+    }
+    if (((Chanmap >> 6) & 0x1) == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_Lsd | AUDIO_CHANNEL_Rsd;
+    }
+    if (((Chanmap >> 5) & 0x1) == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_Lw | AUDIO_CHANNEL_Rw;
+    }
+    if (((Chanmap >> 4) & 0x1) == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_Vhl | AUDIO_CHANNEL_Vhr;
+    }
+    if (((Chanmap >> 3) & 0x1) == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_Vhc;
+    }
+    if (((Chanmap >> 2) & 0x1) == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_Lts | AUDIO_CHANNEL_Rts;
+    }
+    if (((Chanmap >> 1) & 0x1) == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_LFE2;
+    }
+    if ((Chanmap & 0x1) == 1) {
+        Channel_mask = Channel_mask | AUDIO_CHANNEL_LFE;
+    }
+    return Channel_mask;
+}
+
+int parse_report_info_samplerate_channelnum (unsigned char *read_pointer, struct dolby_ddp_dec *ddp_dec, int mFrame_size) {
+    int ChannelNum_temp = 0;
+    int SampleRate = 0;
+    int SampleRate_temp = 0;
+    int channel_mask_temp = 0;
+    int FrameSize = 0;
+    int is_DependentFrame = 0;
+    int is__aml_eac3 = 0;
+    int isAdStream = 0;
+    unsigned char *ReadPointer = NULL;
+    ReadPointer = (unsigned char *)malloc(PTR_HEAD_SIZE);
+    if (ReadPointer == NULL) {
+        ALOGE("Failed to malloc ReadPointer");
+        return -1;
+    }
+    for (int i = 0; i < mFrame_size - PTR_HEAD_SIZE - 1; i++) {
+        if ((read_pointer[i] == 0x0b && read_pointer[i + 1] == 0x77) || (read_pointer[i] == 0x77 && read_pointer[i + 1] == 0x0b)) {
+            int offset_temp = i;
+            for (int j = 0; j < PTR_HEAD_SIZE; j++) {
+                ReadPointer[j] = read_pointer[offset_temp];
+                offset_temp = offset_temp + 1;
+            }
+            Get_Parameters(ReadPointer, &SampleRate, &FrameSize, &channel_mask_temp, &is__aml_eac3, &is_DependentFrame, &isAdStream);
+
+            SampleRate_temp = ddp_dec->Sample_Rate;
+            ddp_dec->Sample_Rate = SampleRate;
+            if (SampleRate_temp != ddp_dec->Sample_Rate) {
+                ddp_dec->Same_SampleRate_Count = 0;
+            }
+            if ((SampleRate_temp == ddp_dec->Sample_Rate) && (ddp_dec->Same_SampleRate_Count < UPDATE_THRESHOLD_MAX)) {
+                ddp_dec->Same_SampleRate_Count ++;
+            }
+
+            if (is_DependentFrame == 0) {
+                ddp_dec->channel_mask_independent_frame = channel_mask_temp;
+            } else {
+                ddp_dec->channel_mask_dependent_frame = channel_mask_temp;
+            }
+
+            ddp_dec->Frame_Count ++;
+            if (ddp_dec->Frame_Count == 2) {
+                ddp_dec->channel_mask_all = ddp_dec->channel_mask_independent_frame | ddp_dec->channel_mask_dependent_frame;
+                ChannelNum_temp = ddp_dec->ChannelNum;
+                ddp_dec->ChannelNum = popcount(ddp_dec->channel_mask_all);
+
+                if ((ChannelNum_temp != ddp_dec->ChannelNum) ) {
+                    ddp_dec->Same_ChNum_Count = 0;
+                }
+
+                if ((ChannelNum_temp == ddp_dec->ChannelNum) && (ddp_dec->Same_ChNum_Count < UPDATE_THRESHOLD_MAX)) {
+                    ddp_dec->Same_ChNum_Count++;
+                }
+
+                if ((ddp_dec->Same_ChNum_Count > UPDATE_THRESHOLD) && (ddp_dec->Same_SampleRate_Count > UPDATE_THRESHOLD) ) {
+                    ddp_dec->stream_info.stream_ch = ddp_dec->ChannelNum;
+                    ddp_dec->stream_info.stream_sr = ddp_dec->Sample_Rate;
+                    ALOGI("ddp_dec->ChannelNum = %d, ddp_dec->Sample_Rate = %d", ddp_dec->ChannelNum, ddp_dec->Sample_Rate);
+                }
+
+                ddp_dec->Frame_Count = 0;
+                ddp_dec->channel_mask_independent_frame = 0;
+                ddp_dec->channel_mask_dependent_frame = 0;
+            }
+
+        }
+
+    }
+
+    if (ReadPointer) {
+        free(ReadPointer);
+        ReadPointer = NULL;
+    }
+
+    return 0;
+
+}
+
 
 aml_dec_func_t aml_dcv_func = {
     .f_init                 = dcv_decoder_init_patch,
@@ -964,4 +1208,5 @@ aml_dec_func_t aml_dcv_func = {
     .f_config               = dcv_decoder_config,
     .f_info                 = dcv_decoder_info,
 };
+
 

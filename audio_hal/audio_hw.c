@@ -60,6 +60,8 @@
 #include "audio_hw.h"
 #include "spdif_encoder_api.h"
 #include "audio_hw_utils.h"
+#include "aml_audio_report.h"
+#include "aml_audio_sysfs.h"
 #include "audio_hw_profile.h"
 #include "aml_dump_debug.h"
 #include "alsa_manager.h"
@@ -127,7 +129,6 @@
 #include "a2dp_hal.h"
 #include "audio_bt_sco.h"
 #include "aml_malloc_debug.h"
-
 #ifdef ENABLE_AEC_APP
 #include "audio_aec.h"
 #endif
@@ -5553,39 +5554,11 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         }
     }
     /*when REPORT_DECODED_INFO is added, we will enable it*/
-#if 0
-    if (adev->audio_patch != NULL && adev->patch_src == SRC_DTV) {
-        int sample_rate = 0, pch = 0, lfepresent;
-        char sysfs_buf[AUDIO_HAL_CHAR_MAX_LEN] = {0};
-        if (adev->audio_patch->aformat != AUDIO_FORMAT_E_AC3
-            && adev->audio_patch->aformat != AUDIO_FORMAT_AC3 &&
-            adev->audio_patch->aformat != AUDIO_FORMAT_DTS) {
-            unsigned int errcount;
-            char sysfs_buf[AUDIO_HAL_CHAR_MAX_LEN] = {0};
-            audio_decoder_status(&errcount);
-            sprintf(sysfs_buf, "decoded_err %d", errcount);
-            sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
-            dtv_audio_decpara_get(&sample_rate, &pch, &lfepresent);
-            pch = pch + lfepresent;
-        } else if (adev->audio_patch->aformat == AUDIO_FORMAT_AC3 ||
-            adev->audio_patch->aformat == AUDIO_FORMAT_E_AC3) {
-            pch = adev->ddp.sourcechnum;
-            sample_rate = adev->ddp.sourcesr;
-        }
-        sprintf(sysfs_buf, "ch_num %d", pch);
-        sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
-        sprintf(sysfs_buf, "samplerate %d", sample_rate);
-        sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
-        if (pch == 2) {
-            sprintf (sysfs_buf, "ch_configuration %d", TIF_HAL_PLAYBACK_AUDIO_SOURCE_CHANNEL_CONFIGURATION_STEREO);
-        } else if (pch == 6) {
-            sprintf (sysfs_buf, "ch_configuration %d", TIF_HAL_PLAYBACK_AUDIO_SOURCE_CHANNEL_CONFIGURATION_5_1);
-        } else {
-            ALOGV("unsupport yet");
-        }
-        sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
+
+    if (get_audio_info_enable(DUMP_AUDIO_INFO_DECODE)) {
+        get_dtv_amadec_audio_info(adev);
     }
-#endif
+
     if (adev->dev2mix_patch) {
         tv_in_write(stream, buffer, bytes);
         memset((char *)buffer, 0, bytes);

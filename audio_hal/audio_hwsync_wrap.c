@@ -36,6 +36,8 @@
 #include "audio_hw.h"
 #include "audio_hwsync_wrap.h"
 #include "audio_mediasync_wrap.h"
+#include "aml_audio_sysfs.h"
+
 
 #define NEW_MEDIASYNC
 

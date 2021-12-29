@@ -24,18 +24,21 @@
 #include "audio_data_process.h"
 #include "aml_malloc_debug.h"
 
+
 #define FAAD_LIB_PATH "/vendor/lib/libfaad.so"
 
 #define AAC_MAX_LENGTH (1024 * 64)
 #define AAC_REMAIN_BUFFER_SIZE (4096 * 10)
 #define AAC_AD_NEED_CACHE_FRAME_COUNT  2
-
+#define CALCULATE_BITRATE_NEED_TIME 300 //calculate bitrate in the first 300 seconds
 typedef struct _audio_info {
     int bitrate;
     int samplerate;
     int channels;
     int file_profile;
-    int error_num;
+    unsigned int error_num; // decode error frames
+    unsigned int drop_num; // drop frames
+    unsigned int decode_num; //decode success frames
 } AudioInfo;
 
 typedef struct faad_decoder_operations {
@@ -65,6 +68,11 @@ struct aac_dec_t {
     aml_faad_config_t aac_config;
     faad_decoder_operations_t faad_op;
     faad_decoder_operations_t ad_faad_op;
+    aml_dec_stream_info_t stream_info;
+    unsigned long total_raw_size;
+    unsigned long total_pcm_size;
+    unsigned long total_time; // second
+    int bit_rate; // average bit rate in the first five minutes
     void *pdecoder;
     char remain_data[AAC_REMAIN_BUFFER_SIZE];
     int remain_size;
@@ -183,6 +191,10 @@ static int faad_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_confi
     }
 
     aml_dec = &aac_dec->aml_dec;
+    aac_dec->total_pcm_size = 0;
+    aac_dec->total_raw_size = 0;
+    aac_dec->total_time = 0;
+    aac_dec->bit_rate = 0;
 
     memcpy(&aac_dec->aac_config, aac_config, sizeof(aml_faad_config_t));
     ALOGI("AAC format=%d samplerate =%d ch=%d\n", aac_config->aac_format,
@@ -368,7 +380,15 @@ static int faad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int b
           break;
       }
     }
+    aac_dec->total_raw_size += used_size_return;
+    aac_dec->total_pcm_size += dec_pcm_data->data_len;
     faad_op->getinfo(faad_op,&pAudioInfo);
+    aac_dec->stream_info.stream_sr = pAudioInfo.samplerate;
+    aac_dec->stream_info.stream_ch = pAudioInfo.channels;
+    aac_dec->stream_info.stream_error_num = pAudioInfo.error_num;
+    aac_dec->stream_info.stream_drop_num = pAudioInfo.drop_num;
+    aac_dec->stream_info.stream_decode_num = pAudioInfo.decode_num;
+
     if (pAudioInfo.channels == 1 && dec_pcm_data->data_len) {
             int16_t *samples_data = (int16_t *)dec_pcm_data->buf;
             int i = 0, samples_num,samples;
@@ -498,6 +518,17 @@ static int faad_decoder_getinfo(aml_dec_t *aml_dec, aml_dec_info_type_t info_typ
     switch (info_type) {
     case AML_DEC_REMAIN_SIZE:
         //dec_info->remain_size = ddp_dec->remain_size;
+        return 0;
+    case AML_DEC_STREMAM_INFO:
+        memset(&dec_info->dec_info, 0x00, sizeof(aml_dec_stream_info_t));
+        memcpy(&dec_info->dec_info, &aac_dec->stream_info, sizeof(aml_dec_stream_info_t));
+        if (aac_dec->stream_info.stream_ch != 0 && aac_dec->stream_info.stream_sr != 0 && aac_dec->total_time < CALCULATE_BITRATE_NEED_TIME) { //we only calculate bitrate in the first five minutes
+            aac_dec->total_time = aac_dec->total_pcm_size/(aac_dec->stream_info.stream_ch*2*(aac_dec->stream_info.stream_sr));
+            if (aac_dec->total_time != 0) {
+                aac_dec->bit_rate = (int)(aac_dec->total_raw_size/aac_dec->total_time);
+            }
+        }
+        dec_info->dec_info.stream_bitrate = aac_dec->bit_rate;
         return 0;
     default:
         break;

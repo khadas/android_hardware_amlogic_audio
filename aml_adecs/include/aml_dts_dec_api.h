@@ -73,6 +73,10 @@ typedef union dca_info_s {
         uint32_t stream_ch; ///< bitstream origin channels
         uint32_t stream_sr; ///< bitstream origin sample rate
         uint32_t stream_type; ///< bitstream origin stream type
+        uint32_t stream_bitrate;///< bitstream average bit rate
+        uint32_t decode_frames; ///< total decode frame
+        uint32_t dropped_frames;///< total dropped frame
+        uint32_t error_frames;///< total error frame
     } stream_info;  ///< DCA_GET_STREAM_INFO
 } dca_info_t;
 

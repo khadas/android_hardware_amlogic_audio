@@ -39,6 +39,10 @@
 #include "aml_aac_dec_api.h"
 #include "aml_dra_dec_api.h"
 #include "aml_dump_debug.h"
+#include "aml_audio_report.h"
+#include "aml_audio_sysfs.h"
+
+
 
 #define AML_DEC_FRAGMENT_FRAMES     (512)
 #define AML_DEC_MAX_FRAMES          (AML_DEC_FRAGMENT_FRAMES * 4)
@@ -190,7 +194,31 @@ int aml_decoder_get_info(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_
     return ret;
 }
 
+void get_audio_decoder_info (aml_dec_info_t dec_info, aml_dec_t *aml_dec) {
 
+    char sysfs_buf[MAX_BUFF_LEN] = {0};
+    memset(sysfs_buf, 0x00, MAX_BUFF_LEN);
+    aml_decoder_get_info(aml_dec, AML_DEC_STREMAM_INFO, &dec_info);
+    sprintf(sysfs_buf, "bitrate %d", dec_info.dec_info.stream_bitrate);
+    sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
+    memset(sysfs_buf, 0x00, MAX_BUFF_LEN);
+    sprintf(sysfs_buf, "ch_num %d", dec_info.dec_info.stream_ch);
+    sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
+    memset(sysfs_buf, 0x00, MAX_BUFF_LEN);
+    sprintf(sysfs_buf, "samplerate %d", dec_info.dec_info.stream_sr);
+    sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
+    memset(sysfs_buf, 0x00, MAX_BUFF_LEN);
+    sprintf(sysfs_buf, "decoded_frames %d", dec_info.dec_info.stream_decode_num);
+    sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
+    memset(sysfs_buf, 0x00, MAX_BUFF_LEN);
+    sprintf(sysfs_buf, "decoded_err %d", dec_info.dec_info.stream_error_num);
+    sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
+    memset(sysfs_buf, 0x00, MAX_BUFF_LEN);
+    sprintf(sysfs_buf, "decoded_drop %d", dec_info.dec_info.stream_drop_num);
+    sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
+    memset(sysfs_buf, 0x00, MAX_BUFF_LEN);
+    UpdateDecodeInfo_ChannelConfiguration(sysfs_buf,dec_info.dec_info.stream_ch);
+}
 int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int *used_bytes)
 {
     int ret = -1;
@@ -251,16 +279,19 @@ int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int
         ALOGE("[%s:%d] f_process is null", __func__, __LINE__);
         return -1;
     }
-
-    frame_size = audio_bytes_per_sample(dec_pcm_data->data_format) * dec_pcm_data->data_ch;
-    /*one decoded frame length is too big, we need seprate it*/
-    if ((dec_pcm_data->data_len >= AML_DEC_MAX_FRAMES * frame_size) &&
-        (dec_raw_data->data_format == AUDIO_FORMAT_IEC61937) &&
-        (dec_raw_data->data_len == dec_pcm_data->data_len)) {
-        fragment_size = AML_DEC_FRAGMENT_FRAMES * frame_size;
-        aml_dec->fragment_left_size = dec_pcm_data->data_len - fragment_size;
-        dec_pcm_data->data_len = fragment_size;
-        dec_raw_data->data_len = fragment_size;
+    if (get_audio_info_enable(DUMP_AUDIO_INFO_DECODE)) {
+        aml_dec_info_t dec_info = {0};
+        get_audio_decoder_info(dec_info, aml_dec);
+        frame_size = audio_bytes_per_sample(dec_pcm_data->data_format) * dec_pcm_data->data_ch;
+        /*one decoded frame length is too big, we need seprate it*/
+        if ((dec_pcm_data->data_len >= AML_DEC_MAX_FRAMES * frame_size) &&
+            (dec_raw_data->data_format == AUDIO_FORMAT_IEC61937) &&
+            (dec_raw_data->data_len == dec_pcm_data->data_len)) {
+            fragment_size = AML_DEC_FRAGMENT_FRAMES * frame_size;
+            aml_dec->fragment_left_size = dec_pcm_data->data_len - fragment_size;
+            dec_pcm_data->data_len = fragment_size;
+            dec_raw_data->data_len = fragment_size;
+        }
     }
 
     if (ret >= 0 ) {
@@ -272,3 +303,4 @@ int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int
     }
 
 }
+

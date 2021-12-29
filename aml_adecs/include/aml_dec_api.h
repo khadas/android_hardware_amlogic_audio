@@ -90,6 +90,10 @@ typedef struct aml_dec_stream_info {
     int stream_sr;    /** the sample rate in stream*/
     int stream_ch;    /** the original channels in stream*/
     int output_bLFE;
+    int stream_bitrate;
+    unsigned int stream_error_num; // decode error frames
+    unsigned int stream_drop_num; // drop frames
+    unsigned int stream_decode_num; //decode success frames
 
 } aml_dec_stream_info_t;
 
@@ -221,7 +225,6 @@ int aml_decoder_release(aml_dec_t *aml_dec);
 int aml_decoder_info(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_dec_info_t * dec_info);
 int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int * used_bytes);
 int aml_decoder_set_config(aml_dec_t *aml_dec, aml_dec_config_type_t config_type, aml_dec_config_t * dec_config);
-
-
+void get_audio_decoder_info (aml_dec_info_t dec_info, aml_dec_t *aml_dec);
 
 #endif

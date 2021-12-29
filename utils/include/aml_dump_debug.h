@@ -41,8 +41,10 @@ typedef enum AML_DUMP_DEBUG_INFO {
     AML_DUMP_AUDIOHAL_TV,
     AML_DEBUG_AUDIOHAL_MATENC,
     AML_DEBUG_AUDIOHAL_TRACE,
+    AML_DEBUG_AUDIOINFO_REPORT,
     AML_DEBUG_DUMP_MAX,
 } AML_DUMP_DEBUG_INFO_T;
+
 
 /*
  * Define the mask for AML_DEBUG_AUDIOHAL_DEBUG_PROPERTY("vendor.media.audio.hal.debug")
@@ -62,6 +64,7 @@ typedef enum AML_DUMP_DEBUG_INFO {
 #define AUDIO_HAL_DEBUG_ALSA                (0x10)
 #define AUDIO_HAL_DEBUG_AVSYNC              (0x20)
 #define AUDIO_HAL_DEBUG_PASSTHROUGH         (0x40)
+#define DUMP_AUDIO_INFO_DECODE              (0x1000)  //use to enable the audio_report_info prop
 
 
 
@@ -75,10 +78,13 @@ typedef enum AML_DUMP_DEBUG_INFO {
 #define AML_DUMP_AUDIOHAL_TV_PROPERTY               "vendor.media.audiohal.tvdump"
 #define AML_DEBUG_AUDIOHAL_MATENC_PROPERTY          "vendor.media.audiohal.matenc.debug"
 #define AML_DEBUG_AUDIOHAL_TRACE_PROPERTY           "vendor.media.audiohal.trace.debug"
+#define AML_DEBUG_AUDIOINFO_REPORT_PROPERTY         "vendor.media.audio.info.report.debug"
+
 
 
 void aml_audio_debug_open(void);
 void aml_audio_debug_close(void);
+
 static inline int  get_debug_value(AML_DUMP_DEBUG_INFO_T info_id) {
     return aml_debug_items[info_id].value;
 }

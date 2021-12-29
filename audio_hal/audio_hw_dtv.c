@@ -70,6 +70,9 @@
 #include "aml_dts_dec_api.h"
 #include "audio_dtv_utils.h"
 #include "aml_audio_ac3parser.h"
+#include "aml_audio_report.h"
+#include "aml_audio_sysfs.h"
+
 
 static struct timespec start_time;
 const unsigned int mute_dd_frame[] = {
@@ -1157,8 +1160,7 @@ static int dtv_patch_pcm_write(unsigned char *pcm_data, int size,
          patch->aformat != AUDIO_FORMAT_AC3 &&
          patch->aformat != AUDIO_FORMAT_DTS && (channel != 0) && (data_width != 0)) {
             patch->numDecodedSamples = patch->dtv_pcm_writed * 8 / (channel * data_width);
-            sprintf(info_buf, "decoded_frames %d", patch->numDecodedSamples);
-            //sysfs_set_sysfs_str(REPORT_DECODED_INFO, info_buf);
+            UpdateDecodedInfo_DecodedFrames(patch->numDecodedSamples);
     }
     pthread_cond_signal(&patch->cond);
     return return_size;
@@ -3541,7 +3543,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                       __FUNCTION__);
                // tv_do_ease_out(aml_dev);
                 release_dtv_output_stream_thread(patch);
-                dtv_package_list_flush(patch->dtv_package_list);
+                dtv_package_list_flush(patch->dtv_package_list);//free the data
                 dtv_audio_instances->demux_index_working = -1;
                 dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK, false);
                 dtv_assoc_audio_stop(1);
@@ -4088,6 +4090,37 @@ int audio_decoder_status(unsigned int *perror_count)
     return ret;
 }
 
+int audio_get_sample_rate_channles(int *sample_rate, int *channles, int *lfepresent)
+{
+    int ret = 0;
+    if (sample_rate == NULL && channles == NULL && lfepresent == NULL) {
+        return -1;
+    }
+    ret = dtv_audio_decpara_get(sample_rate, channles, lfepresent);
+    return ret;
+}
+
+//if dtv decoder use amadec, get the audio_decoder_info
+
+void get_dtv_amadec_audio_info (struct aml_audio_device *aml_dev ) {
+
+    if (aml_dev->audio_patch != NULL && aml_dev->patch_src == SRC_DTV) {
+            int sample_rate = 0, pch = 0, lfepresent;
+            if (aml_dev->audio_patch->aformat != AUDIO_FORMAT_E_AC3
+                && aml_dev->audio_patch->aformat != AUDIO_FORMAT_AC3 &&
+                aml_dev->audio_patch->aformat != AUDIO_FORMAT_DTS) {
+                   unsigned int errcount;
+                   audio_decoder_status(&errcount);
+                   UpdateDecodedInfo_DecodedErr(errcount);
+                   audio_get_sample_rate_channles(&sample_rate, &pch, &lfepresent);
+                   pch = pch + lfepresent;
+               }
+               if (pch != 0 && sample_rate != 0) {
+                   UpdateDecodedInfo_SampleRate_ChannelNum_ChannelConfiguration(sample_rate, pch);
+               }
+           }
+
+}
 
 int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms)
 {

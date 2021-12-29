@@ -31,7 +31,6 @@ LOCAL_C_INCLUDES := \
    $(LOCAL_PATH)/../audio_hal \
    $(LOCAL_PATH)/../aml_parser/include
 
-
 #add dolby ms12support
     LOCAL_CFLAGS += -DDOLBY_MS12_ENABLE
     LOCAL_CFLAGS += -DREPLACE_OUTPUT_BUFFER_WITH_CALLBACK

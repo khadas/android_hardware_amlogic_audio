@@ -53,6 +53,7 @@
 #include "aml_audio_ms12_sync.h"
 #include "aml_malloc_debug.h"
 #include "audio_hw_ms12_common.h"
+#include "aml_audio_report.h"
 
 #define DOLBY_DRC_LINE_MODE 0
 #define DOLBY_DRC_RF_MODE   1
@@ -134,6 +135,7 @@
 
 #define DOLBY_MS12_AVSYNC_BEEP_DURATION (360)//ms, every 3s one beep
 #define MILLISECOND_2_PTS (90) // 1ms = 90 (pts)
+static int ms12_update_decoded_info_process(struct audio_stream_out *stream, void *input_buffer, size_t input_bytes);
 
 
 static const unsigned int ms12_muted_dd_raw[] = {
@@ -1366,8 +1368,8 @@ int dolby_ms12_main_process(
         */
         else if (is_iec61937_format(stream)) {
             struct ac3_parser_info ac3_info = { 0 };
-            void * dolby_inbuf = NULL;
-            int32_t dolby_buf_size = 0;
+            void * inbuf = NULL;
+            int32_t buf_size = 0;
             int temp_used_size = 0;
             void * temp_main_frame_buffer = NULL;
             int temp_main_frame_size = 0;
@@ -1384,9 +1386,9 @@ int dolby_ms12_main_process(
             output_format = aml_spdif_decoder_getformat(ms12->spdif_dec_handle);
             if (output_format == AUDIO_FORMAT_E_AC3
                 || output_format == AUDIO_FORMAT_AC3) {
-                dolby_inbuf = main_frame_buffer;
-                dolby_buf_size = main_frame_size;
-                aml_ac3_parser_process(ms12->ac3_parser_handle, dolby_inbuf, dolby_buf_size, &temp_used_size, &temp_main_frame_buffer, &temp_main_frame_size, &ac3_info);
+                inbuf = main_frame_buffer;
+                buf_size = main_frame_size;
+                aml_ac3_parser_process(ms12->ac3_parser_handle, inbuf, buf_size, &temp_used_size, &temp_main_frame_buffer, &temp_main_frame_size, &ac3_info);
                 if (ac3_info.sample_rate != 0) {
                     sample_rate = ac3_info.sample_rate;
                 }
@@ -1458,7 +1460,9 @@ int dolby_ms12_main_process(
                 }
 
             }
-        }
+        } else {
+              ms12_update_decoded_info_process(stream, input_buffer, input_bytes);
+          }
 
         /* Passthrough Mode, only get the MAIN data as the single input */
         if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->digital_audio_format)) {
@@ -3812,6 +3816,63 @@ int dolby_ms12_main_pipeline_latency_frames(struct audio_stream_out *stream) {
     }
     ALOGV("%s latency_frames=%d %d ms", __func__, latency_frames, latency_frames / 48);
     return latency_frames;
+}
+
+static int ms12_update_decoded_info_process(struct audio_stream_out *stream, void *input_buffer, size_t input_bytes) {
+
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    int32_t temp_spdif_dec_used_size = 0;
+    void *main_frames_buffer = input_buffer;
+    int main_frames_size = input_bytes;
+    int temp_used_size = 0;
+    void * temp_main_frame_buffer = NULL;
+    int temp_main_frame_size = 0;
+    struct ac3_parser_info ac3_info = { 0 };
+    uint64_t decoded_frames = 0;
+    unsigned int decoded_err = 0;
+    int sample_rate = 0;
+    int ch_num = 0;
+
+    if ((aml_out->hal_format == AUDIO_FORMAT_AC3) ||
+        (aml_out->hal_format == AUDIO_FORMAT_E_AC3) ||
+        (aml_out->hal_format == AUDIO_FORMAT_IEC61937)) {
+
+        if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+            void * inbuf = NULL;
+            int32_t buf_size = 0;
+            aml_spdif_decoder_process(ms12->spdif_dec_handle, input_buffer, input_bytes, &temp_spdif_dec_used_size, &main_frames_buffer, &main_frames_size);
+            if (main_frames_size == 0) {
+                return -1;
+            }
+            inbuf = main_frames_buffer;
+            buf_size = main_frames_size;
+            aml_ac3_parser_process(ms12->ac3_parser_handle, inbuf, buf_size, &temp_used_size, &temp_main_frame_buffer, &temp_main_frame_size, &ac3_info);
+        } else {
+            aml_ac3_parser_process(ms12->ac3_parser_handle, input_buffer, input_bytes, &temp_used_size, &temp_main_frame_buffer, &temp_main_frame_size, &ac3_info);
+        }
+
+        if (temp_main_frame_size != 0) {
+            aml_out->ddp_frame_nblks = ac3_info.numblks;
+            aml_out->total_ddp_frame_nblks += aml_out->ddp_frame_nblks;
+            decoded_frames = aml_out->total_ddp_frame_nblks * SAMPLE_NUMS_IN_ONE_BLOCK;
+            sample_rate = ac3_info.sample_rate;
+            ch_num = ac3_info.channel_num;
+            //Fixme: errcount is temporarily unavailable when using MS12
+            decoded_err = 0;
+            if (get_audio_info_enable(DUMP_AUDIO_INFO_DECODE)) {
+            UpdateDecodedInfo_DecodedFrames(decoded_frames);
+            UpdateDecodedInfo_DecodedErr(decoded_err);
+            UpdateDecodedInfo_SampleRate_ChannelNum_ChannelConfiguration(sample_rate, ch_num);
+            }
+
+        }
+
+    }
+
+    return 0;
+
 }
 
 

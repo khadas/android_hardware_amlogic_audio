@@ -61,6 +61,8 @@ cc_library_shared {
         "spdifenc_wrap.cpp",
         "SPDIFEncoderAD.cpp",
         "aml_effects_util.cpp",
+        "aml_audio_report.c",
+        "aml_audio_sysfs.c"
     ],
 
     shared_libs: [

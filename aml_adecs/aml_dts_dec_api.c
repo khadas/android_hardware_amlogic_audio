@@ -939,6 +939,10 @@ int dca_decoder_getinfo(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_d
             if (ret >= 0) {
                 aml_dec_info->dec_info.stream_ch = dca_info.stream_info.stream_ch;
                 aml_dec_info->dec_info.stream_sr = dca_info.stream_info.stream_sr;
+                aml_dec_info->dec_info.stream_bitrate = dca_info.stream_info.stream_bitrate;
+                aml_dec_info->dec_info.stream_error_num = dca_info.stream_info.error_frames;
+                aml_dec_info->dec_info.stream_drop_num = dca_info.stream_info.dropped_frames;
+                aml_dec_info->dec_info.stream_decode_num = dca_info.stream_info.decode_frames;
                 dts_dec->stream_type = _dts_stream_type_mapping(dca_info.stream_info.stream_type);
                 dts_dec->is_headphone_x = !!(dca_info.stream_info.stream_type & DTSSTRMTYPE_DTS_HEADPHONE);
                 ///< aml_dec_info->dec_info.output_bLFE = // not support yet
