@@ -6414,6 +6414,7 @@ hwsync_rewrite:
                 //this can fix the seek discontinue,we got a fake frame,which maybe cached before the seek
                 if (hw_sync->use_mediasync) {
                     uint64_t apts;
+                    int debug_enable = get_debug_value(AML_DEBUG_AUDIOHAL_HW_SYNC);
                     uint32_t latency = out_get_latency(stream);
                     int tunning_latency = aml_audio_get_nonms12_tunnel_latency(stream) / 48;
                     int latency_pts = 0;
@@ -6423,6 +6424,11 @@ hwsync_rewrite:
                     if ((latency + tunning_latency) > video_delay_ms) {
                         latency_pts = (latency + tunning_latency - video_delay_ms) * 90;
                     }
+                    if (debug_enable) {
+                        ALOGI("total latency =%d ms alsa =%d video delay=%d tunning latency=%d",
+                        latency_pts / 90, latency, video_delay_ms, tunning_latency);
+                    }
+
                     // check PTS discontinue, which may happen when audio track switching
                     // discontinue means PTS calculated based on first_apts and frame_write_sum
                     // does not match the timestamp of next audio samples
@@ -6437,6 +6443,12 @@ hwsync_rewrite:
                         apts64 = 1 * 90;
                     }
 
+                    if (hw_sync->wait_video_done == false) {
+                        aml_hwsync_wait_video_start(hw_sync);
+                        aml_hwsync_wait_video_drop(hw_sync, apts64);
+                        hw_sync->wait_video_done = true;
+                    }
+
                     /* video will drop frames from HEAAC to DDP51 in NTS fly audio cases,
                     ** the reason is that alsa threshold is emplty,
                     ** so pts update too quickly the first four times.
@@ -6449,11 +6461,10 @@ hwsync_rewrite:
                     } else {
                         write_drop_threshold = 0;
                     }
-                    if (aml_out->write_count > write_drop_threshold) {
+
+                    if (aml_out->alsa_running_status == true) {
                         if (hw_sync->first_apts_flag == false) {
                             aml_audio_hwsync_set_first_pts(aml_out->hwsync, apts64);
-                            aml_hwsync_wait_video_start(aml_out->hwsync);
-                            aml_hwsync_wait_video_drop(aml_out->hwsync, apts64);
                         }
 
                         uint64_t pcr = 0;
@@ -6461,7 +6472,7 @@ hwsync_rewrite:
                         ret = aml_hwsync_get_tsync_pts(aml_out->hwsync, &pcr);
                         aml_hwsync_reset_tsync_pcrscr(aml_out->hwsync, apts64);
                         pcr_pts_gap = ((int)(apts64 - pcr)) / 90;
-                        if (abs(pcr_pts_gap) > 50) {
+                        if (abs(pcr_pts_gap) > 50 || debug_enable) {
                             ALOGI("%s pcr =%llu pts =%llu,  diff =%d ms", __func__, pcr/90, apts64/90, pcr_pts_gap);
                         }
                     } else {

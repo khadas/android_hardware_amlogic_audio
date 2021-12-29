@@ -356,7 +356,6 @@ int get_ms12_port_latency( enum OUT_PORT port, audio_format_t output_format)
     return latency_ms;
 }
 
-
 static int get_ms12_nontunnel_latency_offset(enum OUT_PORT port, audio_format_t input_format, audio_format_t output_format, bool is_netflix)
 {
     int latency_ms = 0;
@@ -638,6 +637,30 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
     return latency_frames;
 }
 
+int get_nonms12_port_latency( enum OUT_PORT port, audio_format_t output_format)
+{
+    int latency_ms = 0;
+    switch (port)  {
+        case OUTPORT_HDMI_ARC:
+            if (output_format == AUDIO_FORMAT_AC3)
+                latency_ms = AVSYNC_NONMS12_HDMI_ARC_OUT_DD_LATENCY;
+            else if (output_format == AUDIO_FORMAT_E_AC3)
+                latency_ms = AVSYNC_NONMS12_HDMI_ARC_OUT_DDP_LATENCY;
+            else
+                latency_ms = AVSYNC_NONMS12_HDMI_ARC_OUT_PCM_LATENCY;
+            break;
+        case OUTPORT_HDMI:
+            latency_ms = AVSYNC_NONMS12_HDMI_OUT_LATENCY;
+            break;
+        case OUTPORT_SPEAKER:
+        case OUTPORT_AUX_LINE:
+            latency_ms = AVSYNC_NONMS12_HDMI_SPEAKER_LATENCY;
+            break;
+        default :
+            break;
+    }
+    return latency_ms;
+}
 
 static int get_nonms12_netflix_tunnel_input_latency(audio_format_t input_format) {
     char buf[PROPERTY_VALUE_MAX];
@@ -672,10 +695,41 @@ static int get_nonms12_netflix_tunnel_input_latency(audio_format_t input_format)
     return latency_ms;
 }
 
+static int get_nonms12_tunnel_input_latency(audio_format_t input_format) {
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    switch (input_format) {
+    case AUDIO_FORMAT_PCM_16_BIT: {
+        prop_name = AVSYNC_NONMS12_TUNNEL_PCM_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_NONMS12_TUNNEL_PCM_LATENCY;
+        break;
+    }
+    case AUDIO_FORMAT_AC3:
+    case AUDIO_FORMAT_E_AC3: {
+        prop_name = AVSYNC_NONMS12_TUNNEL_DDP_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_NONMS12_TUNNEL_DDP_LATENCY;
+        break;
+    }
+    default:
+        break;
+    }
 
-static int get_nonms12_tunnel_latency_offset(enum OUT_PORT port __unused
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+
+    return latency_ms;
+}
+
+
+static int get_nonms12_tunnel_latency_offset(enum OUT_PORT port
     , audio_format_t input_format
-    , audio_format_t output_format __unused
+    , audio_format_t output_format
     , bool is_netflix
     , bool is_output_ddp_atmos)
 {
@@ -688,7 +742,8 @@ static int get_nonms12_tunnel_latency_offset(enum OUT_PORT port __unused
         input_latency_ms  = get_nonms12_netflix_tunnel_input_latency(input_format);
         //output_latency_ms = get_nonms12_netflix_output_latency(output_format);
     } else {
-        // to do.
+        input_latency_ms  = get_nonms12_tunnel_input_latency(input_format);
+        port_latency_ms   = get_nonms12_port_latency(port, output_format);
     }
 
     latency_ms = input_latency_ms + output_latency_ms + port_latency_ms;
@@ -711,7 +766,7 @@ int aml_audio_get_nonms12_tunnel_latency(struct audio_stream_out * stream)
     //ALOGI("latency_frames =%d", latency_frames);
     tunning_delay = get_nonms12_tunnel_latency_offset(adev->active_outport,
                                                       out->hal_internal_format,
-                                                      adev->ms12.optical_format,
+                                                      adev->sink_format,
                                                       adev->is_netflix,
                                                       is_output_ddp_atmos) * 48;
 

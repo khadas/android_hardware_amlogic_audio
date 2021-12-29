@@ -93,6 +93,21 @@
 #define  AVSYNC_MS12_DD_OUT_LATENCY_PROPERTY             "vendor.media.audio.hal.ms12.ddout"
 #define  AVSYNC_MS12_MAT_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.matout"
 
+
+/*below DDP tunning is for NonMS12*/
+#define  AVSYNC_NONMS12_TUNNEL_PCM_LATENCY                  (0)
+#define  AVSYNC_NONMS12_TUNNEL_DDP_LATENCY                  (-32)
+
+#define  AVSYNC_NONMS12_TUNNEL_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.tunnel.pcm"
+#define  AVSYNC_NONMS12_TUNNEL_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.tunnel.ddp"
+
+#define  AVSYNC_NONMS12_HDMI_ARC_OUT_PCM_LATENCY            (0)
+#define  AVSYNC_NONMS12_HDMI_ARC_OUT_DD_LATENCY             (50)
+#define  AVSYNC_NONMS12_HDMI_ARC_OUT_DDP_LATENCY            (50)
+#define  AVSYNC_NONMS12_HDMI_OUT_LATENCY                    (0)
+#define  AVSYNC_NONMS12_HDMI_SPEAKER_LATENCY                (0)
+
+
 /* MS12 and Dolby Vision tunning part*/
 
 #define  AVSYNC_MS12_DV_TUNNEL_PCM_LATENCY                  (0)//won't change it
