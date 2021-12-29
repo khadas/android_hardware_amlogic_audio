@@ -350,6 +350,10 @@
 
 #define  AVSYNC_MS12_DTV_BYPASS_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.dtv.bypass"
 
+/* DTV is_TV mode, for offset latency */
+#define  AVSYNC_DTV_TV_MODE_LATENCY                   (30)
+#define  AVSYNC_DTV_TV_MODE_LATENCY_PROPERTY          "vendor.media.audio.hal.dtv.tv.latency"
+
 /* following property, used for DTV avsync with DDP(nonms12) processing */
 /* for different port and different format */
 #define  AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_PCM_LATENCY            (0)

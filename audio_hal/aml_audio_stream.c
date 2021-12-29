@@ -1614,6 +1614,22 @@ enum hdmiin_audio_mode get_hdmiin_audio_mode(struct aml_mixer_handle *mixer_hand
             AML_MIXER_ID_HDMIIN_AUDIO_MODE);
 }
 
+int aml_audio_earc_get_type(struct aml_audio_device *adev)
+{
+    int attend_type = 0;
+
+    attend_type = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_ATTENDED_TYPE);
+    return attend_type;
+}
+
+int aml_audio_earc_get_latency(struct aml_audio_device *adev)
+{
+    int latency = 0;
+
+    latency = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_LATENCY);
+    return latency;
+}
+
 void tv_do_ease_out(struct aml_audio_device *aml_dev)
 {
     int duration_ms = 0;

@@ -1210,6 +1210,9 @@ int aml_audio_dtv_get_ms12_latency(struct audio_stream_out *stream)
         adev->active_outport, out->hal_internal_format, adev->ms12.optical_format);
 
     latency_frames = tunning_frame_delay;
+    if (adev->is_TV) {
+        latency_frames += get_media_video_delay(&adev->alsa_mixer) * out->hal_rate / 1000;
+    }
 
     ALOGV("latency frames =%d tunning delay=%d ms", latency_frames, tunning_frame_delay / 48);
     return latency_frames;
@@ -1287,8 +1290,11 @@ static int dtv_get_nonms12_output_latency(audio_format_t output_format) {
     return latency_ms;
 }
 
-int dtv_get_nonms12_port_latency(enum OUT_PORT port, audio_format_t output_format)
+int dtv_get_nonms12_port_latency(struct audio_stream_out * stream, enum OUT_PORT port, audio_format_t output_format)
 {
+    struct aml_stream_out *out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = out->dev;
+    int attend_type, earc_latency;
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
     int latency_ms = 0;
@@ -1307,6 +1313,13 @@ int dtv_get_nonms12_port_latency(enum OUT_PORT port, audio_format_t output_forma
             else {
                 latency_ms = AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_PCM_LATENCY;
                 prop_name = AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_PCM_LATENCY_PROPERTY;
+            }
+            // get earc latency from alsa driver;
+            attend_type = aml_audio_earc_get_type(adev);
+            if (attend_type == 2) {
+                earc_latency = aml_audio_earc_get_latency(adev);
+                latency_ms = 0 - earc_latency;
+                return latency_ms;
             }
             break;
         }
@@ -1349,7 +1362,8 @@ int dtv_get_nonms12_port_latency(enum OUT_PORT port, audio_format_t output_forma
 
 
 static int dtv_get_nonms12_latency_offset(
-    enum OUT_PORT port
+    struct audio_stream_out * stream
+    ,enum OUT_PORT port
     , audio_format_t input_format
     , audio_format_t output_format
     )
@@ -1364,7 +1378,7 @@ static int dtv_get_nonms12_latency_offset(
     //            port, is_netflix, input_format, output_format);
     input_latency_ms  = dtv_get_nonms12_input_latency(input_format);
     output_latency_ms = dtv_get_nonms12_output_latency(output_format);
-    port_latency_ms   = dtv_get_nonms12_port_latency(port, output_format);
+    port_latency_ms   = dtv_get_nonms12_port_latency(stream, port, output_format);
 
     latency_ms = input_latency_ms + output_latency_ms + port_latency_ms;
     ALOGV("%s total latency %d ms input %d ms output %d ms port %d ms",
@@ -1379,10 +1393,14 @@ int aml_audio_dtv_get_nonms12_latency(struct audio_stream_out * stream)
     int32_t tunning_delay = 0;
     int latency_frames = 0;
 
-    tunning_delay = 48 * dtv_get_nonms12_latency_offset(
+    tunning_delay = 48 * dtv_get_nonms12_latency_offset(stream,
         adev->active_outport, out->hal_internal_format, adev->sink_format);
 
     latency_frames = tunning_delay;
+    if (adev->is_TV) {
+        latency_frames += get_media_video_delay(&adev->alsa_mixer) * out->hal_rate / 1000;
+        latency_frames += property_get_int32(AVSYNC_DTV_TV_MODE_LATENCY_PROPERTY, AVSYNC_DTV_TV_MODE_LATENCY) * out->hal_rate / 1000;
+    }
 
     ALOGV("latency frames =%d tunning delay=%d ms", latency_frames, tunning_delay / 48);
 
