@@ -9035,19 +9035,6 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
                     config->ext.device.type, outputPort2Str(outport),
                     config->gain.values[0], aml_dev->sink_gain[outport]);
 
-            if ((outport == OUTPORT_SPEAKER) && (eDolbyMS12Lib == aml_dev->dolby_lib_type)) {
-                /*
-                 * The postgain value has an impact on the Volume Modeler and the Audio Regulator:
-                 * Volume Modeler: Uses the postgain value to select the appropriate frequency response curve
-                 * to maintain a consistent perceived timbre at different listening levels.
-                 * SP45: Postgain
-                 * Sets the amount of gain that is to be applied to the signal after exiting MS12.
-                 * Settings From -130 to +30 dB, in 0.0625 dB steps
-                 */
-                int dap_postgain = volume2Ms12DapPostgain(aml_dev->sink_gain[OUTPORT_SPEAKER]);
-                set_ms12_dap_postgain(&aml_dev->ms12, dap_postgain);
-            }
-
             ALOGI(" - now the sink gains are:");
             ALOGI("\t- OUTPORT_SPEAKER->gain[%f]", aml_dev->sink_gain[OUTPORT_SPEAKER]);
             ALOGI("\t- OUTPORT_HDMI_ARC->gain[%f]", aml_dev->sink_gain[OUTPORT_HDMI_ARC]);
@@ -9127,6 +9114,19 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
             aml_dev->volume_ease.vol_target = aml_dev->sink_gain[OUTPORT_SPEAKER];
             aml_dev->volume_ease.config_easing = true;
             aml_dev->last_sink_gain = aml_dev->sink_gain[OUTPORT_SPEAKER];
+
+            if ((eDolbyMS12Lib == aml_dev->dolby_lib_type)) {
+                /*
+                 * The postgain value has an impact on the Volume Modeler and the Audio Regulator:
+                 * Volume Modeler: Uses the postgain value to select the appropriate frequency response curve
+                 * to maintain a consistent perceived timbre at different listening levels.
+                 * SP45: Postgain
+                 * Sets the amount of gain that is to be applied to the signal after exiting MS12.
+                 * Settings From -130 to +30 dB, in 0.0625 dB steps
+                 */
+                int dap_postgain = volume2Ms12DapPostgain(aml_dev->sink_gain[OUTPORT_SPEAKER]);
+                set_ms12_dap_postgain(&aml_dev->ms12, dap_postgain);
+            }
         }
     }
 
