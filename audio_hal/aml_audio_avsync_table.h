@@ -127,19 +127,39 @@
 #define  AVSYNC_MS12_DD_OUT_LATENCY_PROPERTY             "vendor.media.audio.hal.ms12.ddout"
 #define  AVSYNC_MS12_MAT_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.matout"
 
-
+/******************************************************************************************************/
 /*below DDP tunning is for NonMS12*/
-#define  AVSYNC_NONMS12_TUNNEL_PCM_LATENCY                  (0)
-#define  AVSYNC_NONMS12_TUNNEL_DDP_LATENCY                  (-32)
+/******************************************************************************************************/
+#define  AVSYNC_NONMS12_TUNNEL_TV_PCM_LATENCY                  (0)
+#define  AVSYNC_NONMS12_TUNNEL_TV_DDP_LATENCY                  (-32)
 
-#define  AVSYNC_NONMS12_TUNNEL_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.tunnel.pcm"
-#define  AVSYNC_NONMS12_TUNNEL_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.tunnel.ddp"
+#define  AVSYNC_NONMS12_TUNNEL_TV_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.tunnel.tv.pcm"
+#define  AVSYNC_NONMS12_TUNNEL_TV_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.tunnel.tv.ddp"
+
+#define  AVSYNC_NONMS12_TUNNEL_STB_PCM_LATENCY                          (0)
+#define  AVSYNC_NONMS12_TUNNEL_STB_DDP_CVBS_LATENCY                     (0)//through CVBS, target is  [-30, 100]
+#define  AVSYNC_NONMS12_TUNNEL_STB_DDP_HDMI_LATENCY                     (60)//through HDMI,  target is [-45, 0]
+
+#define  AVSYNC_NONMS12_TUNNEL_STB_PCM_LATENCY_PROPERTY             "vendor.media.audio.hal.nonms12.tunnel.stb.pcm"
+#define  AVSYNC_NONMS12_TUNNEL_STB_DDP_CVBS_LATENCY_PROPERTY        "vendor.media.audio.hal.nonms12.tunnel.stb.ddp_cvbs"
+#define  AVSYNC_NONMS12_TUNNEL_STB_DDP_HDMI_LATENCY_PROPERTY        "vendor.media.audio.hal.nonms12.tunnel.stb.ddp_hdmi"
+
 
 #define  AVSYNC_NONMS12_HDMI_ARC_OUT_PCM_LATENCY            (0)
 #define  AVSYNC_NONMS12_HDMI_ARC_OUT_DD_LATENCY             (50)
 #define  AVSYNC_NONMS12_HDMI_ARC_OUT_DDP_LATENCY            (50)
 #define  AVSYNC_NONMS12_HDMI_OUT_LATENCY                    (0)
 #define  AVSYNC_NONMS12_HDMI_SPEAKER_LATENCY                (0)
+
+/* for different output format */
+#define  AVSYNC_NONMS12_STB_PCMOUT_LATENCY                     (0)
+#define  AVSYNC_NONMS12_STB_DDOUT_LATENCY                      (0)
+#define  AVSYNC_NONMS12_STB_DDPOUT_LATENCY                     (50)
+
+#define  AVSYNC_NONMS12_STB_PCMOUT_LATENCY_PROPERTY            "vendor.media.audio.hal.nonms12.stb.pcmout"
+#define  AVSYNC_NONMS12_STB_DDOUT_LATENCY_PROPERTY             "vendor.media.audio.hal.nonms12.stb.ddout"
+#define  AVSYNC_NONMS12_STB_DDPOUT_LATENCY_PROPERTY            "vendor.media.audio.hal.nonms12.stb.ddpout"
+
 
 
 /******************************************************************************************************/

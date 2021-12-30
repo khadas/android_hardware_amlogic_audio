@@ -27,6 +27,12 @@
 
 #define MS12_OUTPUT_5_1_DDP "vendor.media.audio.ms12.output.5_1_ddp"
 
+typedef enum DEVICE_TPYE {
+STB = 0,
+TV = 1,
+SBR = 2
+}device_type_t;
+
 static int get_ms12_dv_tunnel_input_latency(audio_format_t input_format) {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
@@ -765,25 +771,54 @@ static int get_nonms12_netflix_tunnel_input_latency(audio_format_t input_format)
     return latency_ms;
 }
 
-static int get_nonms12_tunnel_input_latency(audio_format_t input_format) {
+static int get_nonms12_tunnel_input_latency(audio_format_t input_format, device_type_t platform_type, enum OUT_PORT port) {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
-    switch (input_format) {
-    case AUDIO_FORMAT_PCM_16_BIT: {
-        prop_name = AVSYNC_NONMS12_TUNNEL_PCM_LATENCY_PROPERTY;
-        latency_ms = AVSYNC_NONMS12_TUNNEL_PCM_LATENCY;
-        break;
+    if (platform_type == STB) {
+        switch (input_format) {
+        case AUDIO_FORMAT_PCM_16_BIT: {
+            prop_name = AVSYNC_NONMS12_TUNNEL_STB_PCM_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_NONMS12_TUNNEL_STB_PCM_LATENCY;
+            break;
+        }
+        case AUDIO_FORMAT_AC3:
+        case AUDIO_FORMAT_E_AC3:
+        /* CVBS output DDP target is [-30, +100]*/
+        if ((port == OUTPORT_SPEAKER) || (port == OUTPORT_AUX_LINE)) {
+            prop_name = AVSYNC_NONMS12_TUNNEL_STB_DDP_CVBS_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_NONMS12_TUNNEL_STB_DDP_CVBS_LATENCY;
+        }
+        /* HDMI or other output, DDP HDMI target is [-45, 0] */
+        else {
+            prop_name = AVSYNC_NONMS12_TUNNEL_STB_DDP_HDMI_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_NONMS12_TUNNEL_STB_DDP_HDMI_LATENCY;
+        }
+
+        default:
+            break;
+        }
     }
-    case AUDIO_FORMAT_AC3:
-    case AUDIO_FORMAT_E_AC3: {
-        prop_name = AVSYNC_NONMS12_TUNNEL_DDP_LATENCY_PROPERTY;
-        latency_ms = AVSYNC_NONMS12_TUNNEL_DDP_LATENCY;
-        break;
+    else if (platform_type == TV) {
+        switch (input_format) {
+        case AUDIO_FORMAT_PCM_16_BIT: {
+            prop_name = AVSYNC_NONMS12_TUNNEL_TV_PCM_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_NONMS12_TUNNEL_TV_PCM_LATENCY;
+            break;
+        }
+        case AUDIO_FORMAT_AC3:
+        case AUDIO_FORMAT_E_AC3: {
+            prop_name = AVSYNC_NONMS12_TUNNEL_TV_DDP_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_NONMS12_TUNNEL_TV_DDP_LATENCY;
+            break;
+        }
+        default:
+            break;
+        }
     }
-    default:
-        break;
+    else if (platform_type == SBR) {
+        ;/* TODO */
     }
 
     if (prop_name) {
@@ -796,12 +831,48 @@ static int get_nonms12_tunnel_input_latency(audio_format_t input_format) {
     return latency_ms;
 }
 
+static int get_nonms12_output_latency(audio_format_t output_format) {
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    switch (output_format) {
+    case AUDIO_FORMAT_PCM_16_BIT: {
+        latency_ms = AVSYNC_NONMS12_STB_PCMOUT_LATENCY;
+        prop_name = AVSYNC_NONMS12_STB_PCMOUT_LATENCY_PROPERTY;
+        break;
+    }
+    case AUDIO_FORMAT_AC3: {
+        latency_ms = AVSYNC_NONMS12_STB_DDOUT_LATENCY;
+        prop_name = AVSYNC_NONMS12_STB_DDOUT_LATENCY_PROPERTY;
+        break;
+    }
+    case AUDIO_FORMAT_E_AC3: {
+        latency_ms = AVSYNC_NONMS12_STB_DDPOUT_LATENCY;
+        prop_name = AVSYNC_NONMS12_STB_DDPOUT_LATENCY_PROPERTY;
+        break;
+    }
+    default:
+        break;
+    }
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+    ALOGV("%s output format =0x%x latency ms =%d", __func__, output_format, latency_ms);
+    return latency_ms;
+}
+
 
 static int get_nonms12_tunnel_latency_offset(enum OUT_PORT port
     , audio_format_t input_format
     , audio_format_t output_format
     , bool is_netflix
-    , bool is_output_ddp_atmos)
+    , bool is_output_ddp_atmos
+    , device_type_t platform_type)
 {
     int latency_ms = 0;
     int input_latency_ms = 0;
@@ -812,8 +883,11 @@ static int get_nonms12_tunnel_latency_offset(enum OUT_PORT port
         input_latency_ms  = get_nonms12_netflix_tunnel_input_latency(input_format);
         //output_latency_ms = get_nonms12_netflix_output_latency(output_format);
     } else {
-        input_latency_ms  = get_nonms12_tunnel_input_latency(input_format);
+        input_latency_ms  = get_nonms12_tunnel_input_latency(input_format, platform_type, port);
         port_latency_ms   = get_nonms12_port_latency(port, output_format);
+        if (platform_type == STB) {
+            output_latency_ms = get_nonms12_output_latency(output_format);
+        }
     }
 
     latency_ms = input_latency_ms + output_latency_ms + port_latency_ms;
@@ -831,6 +905,17 @@ int aml_audio_get_nonms12_tunnel_latency(struct audio_stream_out * stream)
     int32_t alsa_delay = 0;
     int latency_frames = 0;
     bool is_output_ddp_atmos = aml_audio_output_ddp_atmos(stream);
+    device_type_t platform_type = STB;
+
+    if (adev->is_STB) {
+        platform_type = STB;
+    }
+    else if (adev->is_TV) {
+        platform_type = TV;
+    }
+    else if (adev->is_SBR) {
+        platform_type = SBR;
+    }
 
     //alsa_delay = (int32_t)out_get_latency(stream);
     //ALOGI("latency_frames =%d", latency_frames);
@@ -838,7 +923,8 @@ int aml_audio_get_nonms12_tunnel_latency(struct audio_stream_out * stream)
                                                       out->hal_internal_format,
                                                       adev->sink_format,
                                                       adev->is_netflix,
-                                                      is_output_ddp_atmos) * 48;
+                                                      is_output_ddp_atmos,
+                                                      platform_type) * 48;
 
     latency_frames = alsa_delay + tunning_delay;
 
