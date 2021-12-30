@@ -39,12 +39,37 @@ static void aml_audio_stream_volume_process(struct audio_stream_out *stream, voi
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *aml_dev = aml_out->dev;
     float volume_l = aml_out->volume_l;
+
+    /*
+    for non tv, system sound vol control at audioflinger, so dtv sound vol
+    control need to do before mxing.
+    */
+    if (!aml_dev->is_TV) {
+        float port_gain = 1.0;
+        if (aml_dev->active_outport == OUTPORT_HDMI) {
+            if (aml_dev->audio_patching == true) {
+               port_gain = aml_dev->sink_gain[OUTPORT_HDMI];
+            }
+        } else if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+            if (aml_dev->audio_patching == true)
+               port_gain = aml_dev->sink_gain[OUTPORT_A2DP];
+        } else  if (aml_dev->active_outport == OUTPORT_SPEAKER) {
+            port_gain = aml_dev->sink_gain[OUTPORT_SPEAKER];
+        }
+        if (aml_dev->debug_flag > 100) {
+            ALOGI("[%s:%d] gain:%f, out_device:%#x, active_outport:%d", __func__, __LINE__,
+                port_gain, aml_out->out_device, aml_dev->active_outport);
+        }
+        volume_l *= port_gain;
+    }
+
     /*
     Indeed,all the input source main need to be applied before the mixer
     need hdmi/av.. source gain here also.now only DTV available.
     */
-    if (aml_dev->patch_src ==  SRC_DTV)
+    if (aml_dev->patch_src ==  SRC_DTV) {
         volume_l *= aml_dev->dtv_volume;
+    }
     apply_volume_fade(aml_out->last_volume_l, volume_l, buf, sample_size, channels, bytes);
     aml_out->last_volume_l = volume_l;
     /*volume R is not used during this processing TBD*/

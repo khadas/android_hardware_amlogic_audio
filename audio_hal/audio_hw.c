@@ -5441,26 +5441,6 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             *output_buffer = aml_out->tmp_buffer_8ch;
             *output_buffer_bytes = 8 * bytes;
         } else {
-            float gain_speaker = 1.0;
-            if (adev->active_outport == OUTPORT_HDMI) {
-                if (adev->audio_patching == true) {
-                    gain_speaker = adev->sink_gain[OUTPORT_HDMI];
-                }
-            } else if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-                if (adev->audio_patching == true)
-                    gain_speaker = adev->sink_gain[OUTPORT_A2DP];
-            } else  if (adev->active_outport == OUTPORT_SPEAKER){
-                gain_speaker = adev->sink_gain[OUTPORT_SPEAKER];
-            }
-            if (adev->debug_flag > 100) {
-                ALOGI("[%s:%d] gain:%f, out_device:%#x, active_outport:%d", __func__, __LINE__,
-                    gain_speaker, aml_out->out_device, adev->active_outport);
-            }
-
-            if ((eDolbyMS12Lib == adev->dolby_lib_type) && aml_out->ms12_vol_ctrl) {
-                gain_speaker = 1.0;
-            }
-
             if (adev->patch_src == SRC_DTV && adev->audio_patch != NULL) {
                 aml_audio_switch_output_mode((int16_t *)buffer, bytes, adev->audio_patch->mode);
             } else if (adev->audio_patch == NULL) {
@@ -5469,7 +5449,6 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
 
             *output_buffer = (void *) buffer;
             *output_buffer_bytes = bytes;
-            apply_volume(gain_speaker, *output_buffer, sizeof(uint16_t), bytes);
         }
     }
     /*when REPORT_DECODED_INFO is added, we will enable it*/
