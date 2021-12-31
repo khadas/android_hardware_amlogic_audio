@@ -106,7 +106,6 @@ include $(BUILD_PREBUILT)
         $(LOCAL_PATH)/../utils/ini/include \
         $(LOCAL_PATH)/../rcaudio \
         $(LOCAL_PATH)/../../LibAudio/amadec/include \
-        $(LOCAL_PATH)/../bt_voice/kehwin \
         $(LOCAL_PATH)/../utils/tinyalsa/include \
         vendor/amlogic/common/prebuilt/dvb/include/am_adp \
         hardware/amlogic/audio/dtv_audio_utils/sync \
@@ -124,8 +123,6 @@ include $(BUILD_PREBUILT)
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/Amlogic_DRC_Param_Generator.a
     LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/../amlogic_AQ_tools/Amlogic_EQ_Param_Generator64.a
     LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/../amlogic_AQ_tools/Amlogic_DRC_Param_Generator64.a
-    LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../bt_voice/kehwin/32/btmic.a
-    LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/../bt_voice/kehwin/64/btmic.a
 
     LOCAL_SHARED_LIBRARIES := \
         liblog libcutils libamltinyalsa \
