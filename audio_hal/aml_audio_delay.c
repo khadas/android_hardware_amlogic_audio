@@ -26,7 +26,6 @@
 
 #define ALIGN(size, align) ((size + align - 1) & (~(align - 1)))
 
-
 static aml_audio_delay_st g_stAudioOutputDelay[AML_DELAY_OUTPORT_BUTT];
 static const int g_u32OutDelayMaxDefault[AML_DELAY_OUTPORT_BUTT] = {250, 250, 250, 250};
 static bool g_bAudioDelayInit = false;
@@ -34,19 +33,10 @@ static bool g_bAudioDelayInit = false;
 int aml_audio_delay_init()
 {
     memset(&g_stAudioOutputDelay, 0, sizeof(aml_audio_delay_st)*AML_DELAY_OUTPORT_BUTT);
-    for (unsigned int i=0; i<AML_DELAY_OUTPORT_BUTT; i++) {
-        int s32BfferSize = 0;
-        unsigned int u32ChannelCnt = 2;
-        if (AML_DELAY_OUTPORT_ALL == i) {
-            /*calculate the max size for 8ch */
-            u32ChannelCnt = 8;
-        }
-        s32BfferSize = 192 * u32ChannelCnt * 4 * g_u32OutDelayMaxDefault[i];
-        ring_buffer_init(&g_stAudioOutputDelay[i].stDelayRbuffer, s32BfferSize);
-    }
     g_bAudioDelayInit = true;
     return 0;
 }
+
 int aml_audio_delay_deinit()
 {
     if (!g_bAudioDelayInit) {
@@ -55,6 +45,7 @@ int aml_audio_delay_deinit()
     }
     for (unsigned int i=0; i<AML_DELAY_OUTPORT_BUTT; i++) {
         ring_buffer_release(&g_stAudioOutputDelay[i].stDelayRbuffer);
+        g_stAudioOutputDelay[i].is_init_buffer = false;
     }
     g_bAudioDelayInit = false;
     return 0;
@@ -69,18 +60,45 @@ int aml_audio_delay_set_time(aml_audio_delay_type_e enAudioDelayType, int s32Del
         ALOGW("[%s:%d] audio delay not initialized", __func__, __LINE__);
         return -1;
     }
+
     if (enAudioDelayType < AML_DELAY_OUTPORT_SPEAKER || enAudioDelayType >= AML_DELAY_OUTPORT_BUTT) {
         ALOGW("[%s:%d] delay type:%d invalid, min:%d, max:%d",
             __func__, __LINE__, enAudioDelayType, AML_DELAY_OUTPORT_SPEAKER, AML_DELAY_OUTPORT_BUTT-1);
         return -1;
     }
+
     if (s32DelayTimeMs < 0 || s32DelayTimeMs > g_u32OutDelayMaxDefault[enAudioDelayType]) {
         ALOGW("[%s:%d] unsupport delay time:%dms, min:%dms, max:%dms",
             __func__, __LINE__, s32DelayTimeMs, 0, g_u32OutDelayMaxDefault[enAudioDelayType]);
         return -1;
     }
+
+    if (s32DelayTimeMs > 0 && g_stAudioOutputDelay[enAudioDelayType].is_init_buffer == false)
+    {
+        int s32BfferSize = 0;
+        unsigned int u32ChannelCnt = 2;
+
+        if (AML_DELAY_OUTPORT_ALL == enAudioDelayType) {
+            // calculate the max size for 8ch
+            u32ChannelCnt = 8;
+        }
+        s32BfferSize = 192 * u32ChannelCnt * 4 * g_u32OutDelayMaxDefault[enAudioDelayType];
+        ring_buffer_init(&g_stAudioOutputDelay[enAudioDelayType].stDelayRbuffer, s32BfferSize);
+
+        g_stAudioOutputDelay[enAudioDelayType].is_init_buffer = true;
+    }
+
     g_stAudioOutputDelay[enAudioDelayType].delay_time = s32DelayTimeMs;
-    ALOGI("set audio output type:%d delay time: %dms", enAudioDelayType, s32DelayTimeMs);
+
+    if (g_stAudioOutputDelay[enAudioDelayType].delay_time == 0)
+    {
+        // drop all data in ring buffer
+        ring_buffer_release(&g_stAudioOutputDelay[enAudioDelayType].stDelayRbuffer);
+        g_stAudioOutputDelay[enAudioDelayType].is_init_buffer = false;
+    }
+
+    ALOGI("set audio output type:%d, delay time: %dms, has init buferr: %d",
+            enAudioDelayType, s32DelayTimeMs, g_stAudioOutputDelay[enAudioDelayType].is_init_buffer);
     return 0;
 }
 
@@ -106,10 +124,18 @@ int aml_audio_delay_process(aml_audio_delay_type_e enAudioDelayType, void *pData
         //ALOGW("[%s:%d] audio delay not initialized", __func__, __LINE__);
         return -1;
     }
+
     if (enAudioDelayType < AML_DELAY_OUTPORT_SPEAKER || enAudioDelayType >= AML_DELAY_OUTPORT_BUTT) {
         ALOGW("[%s:%d] delay type:%d invalid, min:%d, max:%d",
             __func__, __LINE__, enAudioDelayType, AML_DELAY_OUTPORT_SPEAKER, AML_DELAY_OUTPORT_BUTT-1);
         return -1;
+    }
+
+    if (g_stAudioOutputDelay[enAudioDelayType].is_init_buffer == false ||
+            g_stAudioOutputDelay[enAudioDelayType].delay_time == 0)
+    {
+        ALOGV("%s:%d delay type:%d, 0ms delay, do nothing", __func__, __LINE__, enAudioDelayType);
+        return 0;
     }
 
     unsigned int    u32OneMsSize = 48 * 2 * 2;

@@ -24,6 +24,7 @@
 typedef struct AML_AUDIO_DELAY {
     int                 delay_time;
     struct ring_buffer  stDelayRbuffer;
+    int                 is_init_buffer;
 } aml_audio_delay_st;
 
 
