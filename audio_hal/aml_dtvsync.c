@@ -647,6 +647,7 @@ dtvsync_process_res  aml_dtvsync_nonms12_process(struct audio_stream_out *stream
         return DTVSYNC_AUDIO_DROP;
     } else if (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_INSERT) {
 
+        adev->underrun_mute_flag = true;
         aml_dtvsync_nonms12_process_insert(stream,  &m_audiopolicy);
 
     } else if (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_ADJUST_CLOCK) {
@@ -656,6 +657,7 @@ dtvsync_process_res  aml_dtvsync_nonms12_process(struct audio_stream_out *stream
 
     } else if (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_RESAMPLE) {
 
+        adev->underrun_mute_flag = false;
         aml_dtvsync_process_resample(stream, &m_audiopolicy, speed_enabled);
     } else if (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_MUTE) {
         adev->underrun_mute_flag = true;

@@ -449,10 +449,6 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
 
 write:
 
-    if (get_debug_value(AML_DUMP_AUDIOHAL_ALSA)) {
-        aml_audio_dump_audio_bitstreams(ALSA_OUTPUT_PCM_FILE, buffer, bytes);
-    }
-
     // SWPL-412, when input source is DTV, and UI set "parental_control_av_mute" command to audio hal
     // we need to mute audio output for PCM output here
     if (adev->patch_src == SRC_DTV && adev->parental_control_av_mute) {
@@ -525,6 +521,10 @@ write:
         if (adev->patch_src == SRC_DTV && (adev->discontinue_mute_flag ||
             adev->underrun_mute_flag || adev->insert_mute_flag)) {
             memset(buffer, 0x0, bytes);
+        }
+
+        if (get_debug_value(AML_DUMP_AUDIOHAL_ALSA)) {
+            aml_audio_dump_audio_bitstreams(ALSA_OUTPUT_PCM_FILE, buffer, bytes);
         }
 
         if (!adev->continuous_audio_mode && !audio_is_linear_pcm(aml_out->alsa_output_format)) {
