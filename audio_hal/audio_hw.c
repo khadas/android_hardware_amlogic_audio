@@ -3664,6 +3664,74 @@ static int aml_audio_set_speaker_mute(struct aml_audio_device *adev, char *value
     return 0;
 }
 
+static void check_usb_card_device(struct str_parms *parms, int device)
+{
+    /*usb audio hot plug need delay some time wait alsa file create */
+    if ((device & AUDIO_DEVICE_OUT_ALL_USB) || (device & AUDIO_DEVICE_IN_ALL_USB)) {
+        int card = 0, alsa_dev = 0, val, retry;
+        char fn[256];
+        int ret = str_parms_get_int(parms, "card", &val);
+        if (ret >= 0) {
+            card = val;
+        }
+        ret = str_parms_get_int(parms, "device", &val);
+        if (ret >= 0) {
+            alsa_dev = val;
+        }
+        snprintf(fn, sizeof(fn), "/dev/snd/pcmC%uD%u%c", card, alsa_dev,
+             device & AUDIO_DEVICE_OUT_ALL_USB ? 'p' : 'c');
+        for (retry = 0; access(fn, F_OK) < 0 && retry < 10; retry++) {
+            usleep (20000);
+        }
+        if (access(fn, F_OK) < 0 && retry >= 10) {
+            ALOGE("usb audio create alsa file time out,need check \n");
+        }
+    }
+}
+
+static void set_device_connect_state(struct aml_audio_device *adev, struct str_parms *parms, int device, bool state)
+{
+    AM_LOGI("state:%d, dev:%#x, pre_out:%#x, pre_in:%#x", state, device, adev->out_device, adev->in_device);
+    if (state) {
+        check_usb_card_device(parms, device);
+        if (audio_is_output_device(device)) {
+            if ((device & AUDIO_DEVICE_OUT_HDMI_ARC) || (device & AUDIO_DEVICE_OUT_HDMI)) {
+                adev->bHDMIConnected = 1;
+                adev->bHDMIConnected_update = 1;
+                if (device & AUDIO_DEVICE_OUT_HDMI_ARC) {
+                    aml_audio_set_speaker_mute(adev, "true");
+                    aml_audio_update_arc_status(adev, true);
+                }
+                update_sink_format_after_hotplug(adev);
+            } else if (device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+                adev->a2dp_updated = 1;
+                adev->out_device |= device;
+                a2dp_out_open(adev);
+            } else if (device &  AUDIO_DEVICE_OUT_ALL_USB) {
+                adev->out_device |= device;
+            }
+        }
+    } else {
+        if (audio_is_output_device(device)) {
+            if ((device & AUDIO_DEVICE_OUT_HDMI_ARC) || (device & AUDIO_DEVICE_OUT_HDMI)) {
+                adev->bHDMIConnected = 0;
+                adev->bHDMIConnected_update = 1;
+                adev->hdmi_descs.pcm_fmt.max_channels = 2;
+                if (device & AUDIO_DEVICE_OUT_HDMI_ARC) {
+                    aml_audio_set_speaker_mute(adev, "false");
+                    aml_audio_update_arc_status(adev, false);
+                }
+            } else if (device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+                adev->a2dp_updated = 1;
+                adev->out_device &= (~device);
+                a2dp_out_close(adev);
+            } else if (device &  AUDIO_DEVICE_OUT_ALL_USB) {
+                adev->out_device &= (~device);
+            }
+        }
+    }
+}
+
 static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *) dev;
@@ -3724,78 +3792,15 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         goto exit;
     }
 
-    // HDMI cable plug off
     ret = str_parms_get_int(parms, "disconnect", &val);
     if (ret >= 0) {
-        ALOGI("[%s:%d] disconnect dev:%#x, cur hal out_dev:%#x", __func__, __LINE__, val, adev->out_device);
-        if (val & AUDIO_DEVICE_BIT_IN)
-            goto exit;
-        if ((val & AUDIO_DEVICE_OUT_HDMI_ARC) || (val & AUDIO_DEVICE_OUT_HDMI)) {
-            adev->bHDMIConnected = 0;
-            adev->bHDMIConnected_update = 1;
-            adev->hdmi_descs.pcm_fmt.max_channels = 2;
-            if (val & AUDIO_DEVICE_OUT_HDMI_ARC) {
-                aml_audio_set_speaker_mute(adev, "false");
-                aml_audio_update_arc_status(adev, false);
-            }
-        } else if (val & AUDIO_DEVICE_OUT_ALL_A2DP) {
-            adev->a2dp_updated = 1;
-            adev->out_device &= (~val);
-            a2dp_out_close(adev);
-        } else if (val &  AUDIO_DEVICE_OUT_ALL_USB) {
-            adev->out_device &= (~val);
-        }
+        set_device_connect_state(adev, parms, val, false);
         goto exit;
     }
 
-    // HDMI cable plug in
     ret = str_parms_get_int(parms, "connect", &val);
     if (ret >= 0) {
-        ALOGI("[%s:%d] connect dev:%#x, cur hal out_dev:%#x", __func__, __LINE__, val, adev->out_device);
-
-        /*usb audio hot plug need delay some time wait alsa file create */
-        if ((val & AUDIO_DEVICE_OUT_ALL_USB) || (val & AUDIO_DEVICE_IN_ALL_USB)) {
-               if (val &  AUDIO_DEVICE_OUT_ALL_USB) {
-                    adev->out_device |= val;
-                }
-                int card = 0, device = 0, status = 0;
-                int retry;
-                char fn[256];
-                status = val;
-                ret = str_parms_get_int(parms, "card", &val);
-                if (ret >= 0)
-                        card = val;
-                ret = str_parms_get_int(parms, "device", &val);
-                if (ret >= 0)
-                        device = val;
-
-                snprintf(fn, sizeof(fn), "/dev/snd/pcmC%uD%u%c", card, device,
-                         status & AUDIO_DEVICE_OUT_ALL_USB ? 'p' : 'c');
-
-                for (retry = 0; access(fn, F_OK) < 0 && retry < 10; retry++) {
-                        usleep (20000);
-                }
-
-                if (access(fn, F_OK) < 0 && retry >= 10)
-                        ALOGE("usb audio create alsa file time out,need check \n");
-        }
-
-        if (val & AUDIO_DEVICE_BIT_IN)
-            goto exit;
-
-        if ((val & AUDIO_DEVICE_OUT_HDMI_ARC) || (val & AUDIO_DEVICE_OUT_HDMI)) {
-            adev->bHDMIConnected = 1;
-            adev->bHDMIConnected_update = 1;
-            if (val & AUDIO_DEVICE_OUT_HDMI_ARC) {
-                aml_audio_set_speaker_mute(adev, "true");
-                aml_audio_update_arc_status(adev, true);
-            }
-            update_sink_format_after_hotplug(adev);
-        } else if (val & AUDIO_DEVICE_OUT_ALL_A2DP) {
-            adev->a2dp_updated = 1;
-            adev->out_device |= val;
-            a2dp_out_open(adev);
-        }
+        set_device_connect_state(adev, parms, val, true);
         goto exit;
     }
 
