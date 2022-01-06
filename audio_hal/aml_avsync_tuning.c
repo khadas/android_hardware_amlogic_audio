@@ -334,7 +334,8 @@ int aml_dev_avsync_diff_in_path(struct aml_audio_patch *patch, int *Vltcy, int *
     struct aml_stream_in *in = aml_dev->active_input;
     void *pcm_handle_spdif = aml_dev->alsa_handle[DIGITAL_DEVICE];
 
-    if (!in->pcm) {
+
+    if (!in || !in->pcm) {
         ret = -INPUT_ERROR;
         goto err;
     }
