@@ -283,6 +283,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
         case AUDIO_DTV_PATCH_CMD_SET_OUTPUT_MODE:
             ALOGI("DTV sound mode %d ", val);
             demux_info->output_mode = val;
+            adev->sound_track_mode = val;
             if (patch && path_id == dtv_audio_instances->demux_index_working) {
                 patch->mode = demux_info->output_mode;
             }

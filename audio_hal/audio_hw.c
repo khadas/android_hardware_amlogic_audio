@@ -4644,6 +4644,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     struct usb_audio_device *usb_adev = &adev->usb_audio;
     struct aml_stream_in *in;
+    int sample_rate = config->sample_rate;
     int channel_count = audio_channel_count_from_in_mask(config->channel_mask);
     int ret = 0;
 
@@ -4742,7 +4743,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     in->dev = adev;
     in->standby = 1;
     in->source = source;
-    in->requested_rate = config->sample_rate;
+    in->requested_rate = sample_rate;
     in->hal_channel_mask = config->channel_mask;
     in->hal_format = config->format;
 
@@ -5405,7 +5406,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     }
 
                     if (adev->patch_src == SRC_DTV && adev->audio_patch != NULL) {
-                        aml_audio_switch_output_mode((int16_t *)adev->out_16_buf, bytes, adev->audio_patch->mode);
+                        aml_audio_switch_output_mode((int16_t *)adev->out_16_buf, bytes, adev->sound_track_mode);
                     } else if (adev->audio_patch == NULL) {
                         aml_audio_switch_output_mode((int16_t *)adev->out_16_buf, bytes, adev->sound_track_mode);
                     }
