@@ -572,25 +572,33 @@ void set_ms12_fade_pan
 }
 
 
-void set_ms12_main_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsigned int bytes_offset)
+void set_ms12_main_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, uint64_t bytes_offset)
 {
     char parm[64] = "";
     uint32_t apts_high32b = (uint32_t)(apts>>32);
     uint32_t apts_low32b = (uint32_t)(apts&UINT_MAX);
-    sprintf(parm, "%s %u,%u,%u", "-main_audio_pts", apts_high32b, apts_low32b, bytes_offset);
+    uint32_t offset_high32b = (uint32_t)(bytes_offset>>32);
+    uint32_t offset_low32b = (uint32_t)(bytes_offset&UINT_MAX);
+
+    sprintf(parm, "%s %u,%u,%u,%u", "-main_audio_pts", apts_high32b, apts_low32b, offset_high32b, offset_low32b);
+    ALOGV("%s offset =0x%llx pts =0x%llx high =0x%x low =0x%x", __func__, bytes_offset, apts, apts_high32b, apts_low32b);
     if ((strlen(parm)) > 0 && ms12)
         aml_ms12_update_runtime_params(ms12, parm);
 }
 
-void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsigned int bytes_offset)
+
+void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, uint64_t bytes_offset)
 {
     char parm[64] = "";
     uint32_t apts_high32b = (uint32_t)(apts>>32);
     uint32_t apts_low32b = (uint32_t)(apts&UINT_MAX);
-    sprintf(parm, "%s %u,%u,%u", "-main1_audio_pts", apts_high32b,apts_low32b, bytes_offset);
+    uint32_t offset_high32b = (uint32_t)(bytes_offset>>32);
+    uint32_t offset_low32b = (uint32_t)(bytes_offset&UINT_MAX);
+    sprintf(parm, "%s %u,%u,%u,%u", "-main1_audio_pts", apts_high32b,apts_low32b, offset_high32b, offset_low32b);
     if ((strlen(parm)) > 0 && ms12)
         aml_ms12_update_runtime_params(ms12, parm);
 }
+
 
 
 void dynamic_set_dolby_ms12_drc_parameters(struct dolby_ms12_desc *ms12)
@@ -733,7 +741,7 @@ int get_the_dolby_ms12_prepared(
     struct aml_stream_out *out;
     struct aml_audio_patch *patch = adev->audio_patch;
     aml_demux_audiopara_t *demux_info = NULL;
-    uint32_t dtv_decoder_offset_base = 0;
+    uint64_t dtv_decoder_offset_base = 0;
     int  output_config;
     if (patch) {
         demux_info = (aml_demux_audiopara_t *)patch->demux_info;

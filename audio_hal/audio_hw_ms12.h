@@ -274,7 +274,7 @@ void set_ms12_fade_pan
  *     uint64_t apts
  *     unsigned int bytes_offset
  */
-void set_ms12_main_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsigned int bytes_offset);
+void set_ms12_main_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, uint64_t bytes_offset);
 /*
  *@brief set ms12 main1 audio pts
  * input parameters
@@ -282,7 +282,7 @@ void set_ms12_main_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsign
  *     uint64_t apts
  *     unsigned int bytes_offset
  */
-void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsigned int bytes_offset);
+void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, uint64_t bytes_offset);
 
 /*
  *@brief set ms12 main audio mute or non mute

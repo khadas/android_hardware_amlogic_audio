@@ -145,7 +145,7 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
             pts = 0;
         }
     } else {
-        pts = decoder_apts_lookup(patch->decoder_offset);
+        pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
     }
     if (patch->dtv_first_apts_flag == 0) {
         pts = checkin_firstapts;
@@ -163,7 +163,7 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
         frame_nums = (patch->outlen_after_last_validpts / (DEFAULT_DATA_WIDTH * DEFAULT_CHANNELS));
         pts += (frame_nums * 90 / DEFAULT_SAMPLERATE);
         if (aml_audio_get_debug_flag()) {
-            ALOGI("decode_offset:%d out_pcm:%d   pts:%lx,audec->last_valid_pts %lx\n",
+            ALOGI("decode_offset:%lld out_pcm:%d   pts:%lx,audec->last_valid_pts %lx\n",
                    patch->decoder_offset, patch->outlen_after_last_validpts, pts, patch->last_valid_pts);
         }
         patch->cur_outapts = pts;
@@ -174,7 +174,7 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
     patch->last_valid_pts = val;
     patch->outlen_after_last_validpts = 0;
     if (aml_audio_get_debug_flag()) {
-        ALOGI("====get pts:%lx offset:%d lan %d, origin:apts:%lx \n",
+        ALOGI("====get pts:%lx offset:%lld lan %d, origin:apts:%lx \n",
                val, patch->decoder_offset, lantcy, pts);
     }
     patch->cur_outapts = val;
@@ -382,7 +382,7 @@ void dtv_adjust_output_clock(struct aml_audio_patch * patch, int direct, int ste
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) adev;
     bool spdif_b = dual;
     if (aml_audio_get_debug_flag())
-        ALOGI("dtv_adjust_output_clock not set,%x,%x",patch->decoder_offset,patch->dtv_pcm_readed);
+        ALOGI("dtv_adjust_output_clock not set,%llx,%x",patch->decoder_offset,patch->dtv_pcm_readed);
     if (!aml_dev || step <= 0) {
         return;
     }

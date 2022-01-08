@@ -318,7 +318,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
             if (patch->skip_amadec_flag) {
                 if (patch->cur_package) {
                     if (patch->cur_package->pts == 0) {
-                        patch->cur_package->pts = decoder_apts_lookup(patch->decoder_offset);
+                        patch->cur_package->pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
                     }
                 }
             }
@@ -326,13 +326,13 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
 
         /* audio data/apts, we send the APTS at first*/
         if (ms12 && patch && patch->cur_package) {
-            uint32_t  decoder_base = ms12->dtv_decoder_offset_base;
-            uint32_t  decoder_offset = patch->decoder_offset;
+            uint64_t  decoder_base = ms12->dtv_decoder_offset_base;
+            uint64_t  decoder_offset = patch->decoder_offset;
             if (decoder_base != 0 && decoder_offset >= decoder_base) {
                 decoder_offset -= decoder_base;
             }
             if (adev->debug_flag) {
-                ALOGI("%s dolby pts %llu decoder_base =%u decoder_offset =%u", __func__, patch->cur_package->pts, decoder_base, decoder_offset);
+                ALOGI("%s dolby pts %llu decoder_base =%llu decoder_offset =%llu", __func__, patch->cur_package->pts, decoder_base, decoder_offset);
             }
             set_ms12_main_audio_pts(ms12, patch->cur_package->pts, decoder_offset);
             /* to init the pts information */
@@ -353,7 +353,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                 if (patch->cur_package)
                     aml_dec->in_frame_pts = patch->cur_package->pts;
                 if (aml_dec->in_frame_pts == 0) {
-                     aml_dec->in_frame_pts = decoder_apts_lookup(patch->decoder_offset);
+                     aml_dec->in_frame_pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
                 }
             }
         }

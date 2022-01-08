@@ -1540,13 +1540,13 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
             } else
                 patch->decoder_offset += size - consume_size;
             patch->outlen_after_last_validpts += (unsigned int)(all_pcm_len2 - all_pcm_len1);
-            ALOGV("consume_size %d,size %d,ret %d,validpts %d patch->decoder_offset %d",consume_size,size,ret,patch->outlen_after_last_validpts,patch->decoder_offset);
+            ALOGV("consume_size %d,size %d,ret %d,validpts %d patch->decoder_offset %lld",consume_size,size,ret,patch->outlen_after_last_validpts,patch->decoder_offset);
             patch->dtv_pcm_readed += ret;
         }
 
         if (aml_dev->debug_flag) {
             if (ddp_dec)
-                ALOGI("after decode: decode_offset: %d, ddp.remain_size=%d\n",
+                ALOGI("after decode: decode_offset: %lld, ddp.remain_size=%d\n",
                    patch->decoder_offset, ddp_dec->remain_size);
         }
         pthread_mutex_unlock(&(patch->dtv_output_mutex));

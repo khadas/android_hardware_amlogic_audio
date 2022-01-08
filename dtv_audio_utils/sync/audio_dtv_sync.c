@@ -54,7 +54,7 @@ enum tsync_status {
 
 typedef struct apts_tab {
     int  valid;
-    size_t offset;
+    uint64_t offset;
     unsigned pts;
 } apts_tab_t;
 
@@ -165,7 +165,7 @@ int aml_audio_swcheck_get_lastapts(int  audio_path)
     ALOGI("%s done", __func__);
 }
 
-int aml_audio_swcheck_checkin_apts(int audio_path, size_t offset, unsigned long apts)
+int aml_audio_swcheck_checkin_apts(int audio_path, uint64_t offset, unsigned long apts)
 {
     int i = 0;
     int ret = -1;
@@ -193,7 +193,7 @@ int aml_audio_swcheck_checkin_apts(int audio_path, size_t offset, unsigned long 
         return -1;
     }
     if (p_swcheck->debug_enable) {
-        ALOGI("++ %s checkin ,offset %zu,apts 0x%lx", __func__, offset, apts);
+        ALOGI("++ %s checkin ,offset %llu,apts 0x%lx", __func__, offset, apts);
     }
     pthread_mutex_lock(&p_swcheck->lock);
 	p_swcheck->last_apts_from_header = apts;
@@ -204,7 +204,7 @@ int aml_audio_swcheck_checkin_apts(int audio_path, size_t offset, unsigned long 
             pts_tab[i].offset = offset;
             pts_tab[i].valid = 1;
             if (p_swcheck->debug_enable) {
-                ALOGI("%s checkin done,offset %zu,apts 0x%lx", __func__, offset, apts);
+                ALOGI("%s checkin done,offset %llu,apts 0x%lx", __func__, offset, apts);
             }
             ret = 0;
             break;
@@ -215,16 +215,16 @@ int aml_audio_swcheck_checkin_apts(int audio_path, size_t offset, unsigned long 
     return ret;
 }
 
-int aml_audio_swcheck_lookup_apts(int audio_path, size_t offset, unsigned long *p_apts)
+int aml_audio_swcheck_lookup_apts(int audio_path, uint64_t offset, unsigned long *p_apts)
 {
     int i = 0;
-    size_t align  = 0;
+    uint64_t align  = 0;
     int ret = -1;
     apts_tab_t *pts_tab = NULL;
     apts_tab_t pts_tab0;
     uint32_t nearest_pts = 0;
-    uint32_t nearest_offset = 0;
-    uint32_t min_offset = 0;
+    uint64_t nearest_offset = 0;
+    uint64_t min_offset = 0;
     int match_index = -1;
     memset(&pts_tab0, 0, sizeof(apts_tab_t));
     audio_swcheck_sync_t *p_swcheck = p_swcheck_table[audio_path];
@@ -235,7 +235,7 @@ int aml_audio_swcheck_lookup_apts(int audio_path, size_t offset, unsigned long *
     }
     min_offset = p_swcheck->look_res;
     if (p_swcheck->debug_enable) {
-        ALOGI("%s offset %zu,first %d", __func__, offset, p_swcheck->first_apts_flag);
+        ALOGI("%s offset %lld,first %d", __func__, offset, p_swcheck->first_apts_flag);
     }
     pthread_mutex_lock(&p_swcheck->lock);
 
@@ -251,7 +251,7 @@ int aml_audio_swcheck_lookup_apts(int audio_path, size_t offset, unsigned long *
 
     if (p_swcheck->debug_enable) {
         if (align > p_swcheck->payload_offset)
-            ALOGI("audio_hal_debug exception apts lookup offset: %zu > checkin offset: %zu",
+            ALOGI("audio_hal_debug exception apts lookup offset: %llu > checkin offset: %zu",
                    align, p_swcheck->payload_offset);
     }
     if (offset == 0) {
@@ -269,7 +269,7 @@ int aml_audio_swcheck_lookup_apts(int audio_path, size_t offset, unsigned long *
                 pts_tab[i].valid = 0;
                 ret = 0;
                 if (p_swcheck->debug_enable) {
-                    ALOGI("%s first flag %d,pts checkout done,offset %zu,align %zu,pts 0x%lx",
+                    ALOGI("%s first flag %d,pts checkout done,offset %llu,align %llu,pts 0x%lx",
                           __func__, p_swcheck->first_apts_flag, offset, align, *p_apts);
                 }
                 break;
@@ -301,14 +301,14 @@ int aml_audio_swcheck_lookup_apts(int audio_path, size_t offset, unsigned long *
     if (nearest_offset) {
         ret = 0;
         *p_apts = nearest_pts;
-        ALOGI("find nearest pts 0x%lx offset %zu align %zu offset %zu",
+        ALOGI("find nearest pts 0x%lx offset %llu align %llu offset %llu",
                 *p_apts, nearest_offset, align, offset);
     } else {
-        ALOGE("%s,apts lookup failed,align %zu,offset %zu", __func__, align, offset);
+        ALOGE("%s,apts lookup failed,align %llu,offset %llu", __func__, align, offset);
     }
     if (ret == 0) {
         if (p_swcheck->debug_enable) {
-            ALOGI("data offset =%zu pts offset =%zu diff =%d pts=0x%lx ", offset, nearest_offset, offset - nearest_offset, *p_apts);
+            ALOGI("data offset =%llu pts offset =%llu diff =%llu pts=0x%lx ", offset, nearest_offset, offset - nearest_offset, *p_apts);
         }
     }
     pthread_mutex_unlock(&p_swcheck->lock);

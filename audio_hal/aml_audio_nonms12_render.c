@@ -214,7 +214,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     ALOGW("cur_package null !!!");
                 }
             } else {
-                aml_dec->in_frame_pts = decoder_apts_lookup(patch->decoder_offset);
+                aml_dec->in_frame_pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
             }
         }
 

@@ -598,22 +598,28 @@ void set_ms12_fade_pan
 }
 
 
-void set_ms12_main_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsigned int bytes_offset)
+void set_ms12_main_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, uint64_t bytes_offset)
 {
     char parm[64] = "";
     uint32_t apts_high32b = (uint32_t)(apts>>32);
     uint32_t apts_low32b = (uint32_t)(apts&UINT_MAX);
-    sprintf(parm, "%s %u,%u,%u", "-main_audio_pts", apts_high32b, apts_low32b, bytes_offset);
+    uint32_t offset_high32b = (uint32_t)(bytes_offset>>32);
+    uint32_t offset_low32b = (uint32_t)(bytes_offset&UINT_MAX);
+
+    sprintf(parm, "%s %u,%u,%u,%u", "-main_audio_pts", apts_high32b, apts_low32b, offset_high32b, offset_low32b);
+    ALOGV("%s offset =0x%llx pts =0x%llx high =0x%x low =0x%x", __func__, bytes_offset, apts, apts_high32b, apts_low32b);
     if ((strlen(parm)) > 0 && ms12)
         aml_ms12_update_runtime_params(ms12, parm);
 }
 
-void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsigned int bytes_offset)
+void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, uint64_t bytes_offset)
 {
     char parm[64] = "";
     uint32_t apts_high32b = (uint32_t)(apts>>32);
     uint32_t apts_low32b = (uint32_t)(apts&UINT_MAX);
-    sprintf(parm, "%s %u,%u,%u", "-main1_audio_pts", apts_high32b,apts_low32b, bytes_offset);
+    uint32_t offset_high32b = (uint32_t)(bytes_offset>>32);
+    uint32_t offset_low32b = (uint32_t)(bytes_offset&UINT_MAX);
+    sprintf(parm, "%s %u,%u,%u,%u", "-main1_audio_pts", apts_high32b,apts_low32b, offset_high32b, offset_low32b);
     if ((strlen(parm)) > 0 && ms12)
         aml_ms12_update_runtime_params(ms12, parm);
 }
@@ -846,7 +852,7 @@ int get_the_dolby_ms12_prepared(
     int output_config = MS12_OUTPUT_MASK_STEREO;
     struct aml_audio_patch *patch = adev->audio_patch;
     aml_demux_audiopara_t *demux_info = NULL;
-    uint32_t dtv_decoder_offset_base = 0;
+    uint64_t dtv_decoder_offset_base = 0;
     if (patch) {
         demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     }
@@ -2836,9 +2842,11 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
             aml_dtvsync->out_end_apts = aml_dtvsync->out_start_apts + cur_pcm_pts;
             aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_tuing_delay_pts + force_setting_delay_pts;
         }
+
         if (patch->cur_package && adev->debug_flag) {
-            ALOGI("%s package pts(ms) %llu ms12_main_apts(ms) %llu pcm-duration(ms)%u cur_outapts(ms) %llu, alsa_latency(ms) %d ms12_tuing_delay_pts(ms) %d\n",
-                __func__, patch->cur_package->pts / 90, ms12_main_apts / 90, cur_pcm_pts / 90 , aml_dtvsync->cur_outapts / 90, alsa_latency / 90, ms12_tuing_delay_pts / 90);
+            uint64_t pts_diff = patch->cur_package->pts / 90 - ms12_main_apts / 90;
+            ALOGI("%s package pts(ms) %llu ms12_main_apts(ms) %llu diff =%lld pcm-duration(ms)%u cur_outapts(ms) %llu, alsa_latency(ms) %d ms12_tuing_delay_pts(ms) %d\n",
+                __func__, patch->cur_package->pts / 90, ms12_main_apts / 90, pts_diff, cur_pcm_pts / 90 , aml_dtvsync->cur_outapts / 90, alsa_latency / 90, ms12_tuing_delay_pts / 90);
             ALOGI("%s package pts %llx ms12_main_apts %llx pcm-duration %x cur_outapts %llx, alsa_latency %x ms12_tuing_delay_pts %x start-pts %llx end-pts %llx\n",
                 __func__, patch->cur_package->pts, ms12_main_apts, cur_pcm_pts, aml_dtvsync->cur_outapts, alsa_latency, ms12_tuing_delay_pts, aml_dtvsync->out_start_apts, aml_dtvsync->out_end_apts);
 
