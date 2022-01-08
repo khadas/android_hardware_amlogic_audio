@@ -457,7 +457,7 @@ bool is_hdmi_in_stable_hw (struct audio_stream_in *stream)
         return false;
     }
     /* TL1 do not use HDMIIN_AUDIO_TYPE */
-    if (audio_type_status->soft_parser != 1 && !tl1_chip) {
+    if (audio_type_status != NULL && audio_type_status->soft_parser != 1 && !tl1_chip) {
         type = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_HDMIIN_AUDIO_TYPE);
         if (type != in->spdif_fmt_hw) {
             ALOGD ("%s(), in type changed from %d to %d", __func__, in->spdif_fmt_hw, type);
