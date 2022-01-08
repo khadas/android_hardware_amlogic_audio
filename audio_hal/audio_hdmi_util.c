@@ -335,8 +335,8 @@ int update_edid_after_edited_audio_sad(struct aml_audio_device *adev, struct for
     }
     else if (AUTO == adev->hdmi_format) {
         if (!fmt_desc->is_support) {
-            //if DDP is not in EDID, should update AVR's EDID
-            update_edid(adev, false, (void *)&hdmi_desc->target_EDID_array[0], hdmi_desc->EDID_length);
+            //if AVR doesn't support DDP, update EDID to default EDID
+            update_edid(adev, true, (void *)&hdmi_desc->target_EDID_array[0], hdmi_desc->EDID_length);
         } else {
             /* get the default EDID audio array */
             char EDID_cur_array[EDID_ARRAY_MAX_LEN] = {0};
