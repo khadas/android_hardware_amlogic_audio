@@ -144,6 +144,8 @@ int extend_channel_5_8(void *data_out, void *data_in,
 
     return 0;
 }
+
+
 int processing_and_convert(void *data_mixed,
         void *data_sys, size_t frames,
         struct audioCfg inCfg, struct audioCfg mixerCfg)
@@ -162,3 +164,31 @@ int processing_and_convert(void *data_mixed,
 
     return 0;
 }
+
+/*
+ * convert L R C LFE *** -> L R LFE C **
+ *
+ */
+void channel_layout_swap_center_lfe(void * data, int size, int channels) {
+    int i = 0;
+    int16_t *in_buf = data;
+    int16_t temp = 0;
+    int frames = 0;
+
+    if (data == NULL) {
+        ALOGE("%s(), NULL pointer", __func__);
+        return;
+    }
+    if (channels == 0 || size <= 0) {
+        ALOGE("%s() channels=%d size=%d", __func__, channels, size);
+        return;
+    }
+
+    frames = size / (channels * 2);
+    for (i = 0; i < frames; i++) {
+        temp = in_buf[channels * i + 2];
+        in_buf[channels * i + 2] = in_buf[channels * i + 3];
+        in_buf[channels * i + 3] = temp;
+    }
+}
+

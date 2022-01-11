@@ -176,6 +176,7 @@ typedef enum AML_MIXER_CTRL_ID {
     AML_MIXER_ID_EARC_TX_EARC_MODE,
     AML_MIXER_ID_EARCTX_CDS,
     AML_MIXER_ID_EARC_TX_LATENCY,
+    AML_MIXER_ID_EARC_TX_CA,
     AML_MIXER_ID_AML_CHIP_ID,
     AML_MIXER_ID_TVIN_VIDEO_DELAY,
     AML_MIXER_ID_TVIN_VIDEO_MIN_DELAY,
@@ -245,6 +246,33 @@ typedef enum aml_arc_coding_types {
     /* Pause */
     AML_AUDIO_CODING_TYPE_PAUSE              = 16,
 }eMixerARC_Format;
+
+/*
+ *tinymix "eARC_TX Channel Allocation" list
+ *this control the channel allocation for multi channel pcm case,
+ *please refer tp CTA-861-G-Final, Table 35 Audio InfoFrame Data Byte 4
+ */
+typedef enum aml_earc_channel_allocation {
+    AML_EARC_CHANNEL_FL_FR                        = 0x0,   // normal 2.0 channel
+    AML_EARC_CHANNEL_FL_FR_LFE1                   = 0x1,   // normal 2.1 channel
+    AML_EARC_CHANNEL_FL_FR_FC                     = 0x2,
+    AML_EARC_CHANNEL_FL_FR_LFE1_FC                = 0x3,
+    AML_EARC_CHANNEL_FL_FR_BC                     = 0x4,
+    AML_EARC_CHANNEL_FL_FR_LFE1_BC                = 0x5,
+    AML_EARC_CHANNEL_FL_FR_FC_BC                  = 0x6,
+    AML_EARC_CHANNEL_FL_FR_LFE1_FC_BC             = 0x7,
+    AML_EARC_CHANNEL_FL_FR_LS_RS                  = 0x8,
+    AML_EARC_CHANNEL_FL_FR_LFE1_LS_RS             = 0x9,
+    AML_EARC_CHANNEL_FL_FR_FC_LS_RS               = 0xa,
+    AML_EARC_CHANNEL_FL_FR_LFE1_FC_LS_RS          = 0xb,   // normal 5.1 channel
+    AML_EARC_CHANNEL_FL_FR_LS_RS_BC               = 0xc,
+    AML_EARC_CHANNEL_FL_FR_LFE1_LS_RS_BC          = 0xd,
+    AML_EARC_CHANNEL_FL_FR_FC_LS_RS_BC            = 0xe,
+    AML_EARC_CHANNEL_FL_FR_LFE1_FC_LS_RS_BC       = 0xf,
+    AML_EARC_CHANNEL_FL_FR_LFE1_FC_LS_RS_RLC_RRC  = 0x13,  // normal 7.1 channel
+    AML_EARC_CHANNEL_REFER_TO_SPEAKER_MASK        = 0xfe,  // Channels delivered according to the Speaker Mask (see section 6.6.3)
+    AML_EARC_CHANNEL_REFER_TO_CHANNEL_INDEX       = 0xff,  // Channels delivered according to Channel Index (see section 6.6.4)
+} eMixerEARC_Channel_Allocation;
 
 
 /*

@@ -216,6 +216,39 @@ static void get_sink_pcm_capability(struct aml_audio_device *adev)
     ALOGI("pcm_fmt support sample_rate_mask:0x%x", hdmi_desc->pcm_fmt.sample_rate_mask);
 }
 
+static unsigned int get_sink_format_max_channels(struct aml_audio_device *adev, audio_format_t sink_format) {
+    unsigned int max_channels = 2;
+    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+
+    switch (sink_format) {
+    case AUDIO_FORMAT_PCM_16_BIT:
+        max_channels = hdmi_desc->pcm_fmt.max_channels;
+        break;
+    case AUDIO_FORMAT_AC3:
+        max_channels = hdmi_desc->dd_fmt.max_channels;
+        break;
+    case AUDIO_FORMAT_E_AC3:
+        max_channels = hdmi_desc->ddp_fmt.max_channels;
+        break;
+    case AUDIO_FORMAT_DTS:
+        max_channels = hdmi_desc->dts_fmt.max_channels;
+        break;
+    case AUDIO_FORMAT_DTS_HD:
+        max_channels = hdmi_desc->dtshd_fmt.max_channels;
+        break;
+    case AUDIO_FORMAT_MAT:
+        max_channels = hdmi_desc->mat_fmt.max_channels;
+        break;
+    default:
+        max_channels = 2;
+        break;
+    }
+    if (max_channels == 0) {
+        max_channels = 2;
+    }
+    return max_channels;
+}
+
 bool is_sink_support_dolby_passthrough(audio_format_t sink_capability)
 {
     return sink_capability == AUDIO_FORMAT_MAT ||
@@ -428,6 +461,7 @@ void get_sink_format(struct audio_stream_out *stream)
     }
     adev->sink_format = sink_audio_format;
     adev->optical_format = optical_audio_format;
+    adev->sink_max_channels = get_sink_format_max_channels(adev, adev->sink_format);
 
     /* set the dual output format flag */
     if (adev->sink_format != adev->optical_format) {
@@ -436,8 +470,8 @@ void get_sink_format(struct audio_stream_out *stream)
         aml_out->dual_output_flag = false;
     }
 
-    ALOGI("%s sink_format %#x optical_format %#x, dual_output %d\n",
-           __FUNCTION__, adev->sink_format, adev->optical_format, aml_out->dual_output_flag);
+    ALOGI("%s sink_format %#x max channel =%d optical_format %#x, dual_output %d\n",
+           __FUNCTION__, adev->sink_format, adev->sink_max_channels, adev->optical_format, aml_out->dual_output_flag);
     return ;
 }
 

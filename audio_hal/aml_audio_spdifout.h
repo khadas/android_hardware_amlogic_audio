@@ -25,7 +25,8 @@ typedef struct {
     audio_format_t audio_format;
     audio_format_t sub_format;
     uint32_t      rate;
-    audio_channel_mask_t channel_mask;
+    int           data_ch;  /*the channel for transfer the pcm data, eg, the pcm data is 8ch, but only contains 2ch audio data*/
+    audio_channel_mask_t channel_mask;  /*exactly audio channel in the data*/
     bool          mute;
     bool is_dtscd;
 } spdif_config_t;
@@ -51,5 +52,15 @@ int aml_audio_spdifout_resume(void *phandle);
 int aml_audio_spdifout_stop(void *phandle);
 
 int aml_audio_spdifout_get_delay(void *phandle);
+
+/**
+* @brief convert the audio channel mask layout to earc channel allocation and set to arc
+* @param  phandle:   spidf handle
+*         channel_mask:  the channel mask for the data
+* @return [success]: 0 set success
+*         [fail]: -1
+*/
+int aml_audio_spdifout_config_earc_ca(void *phandle, int channel_mask);
+
 
 #endif

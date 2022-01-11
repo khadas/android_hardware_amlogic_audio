@@ -38,4 +38,6 @@ int extend_channel_2_8(void *data_out, void *data_in,
 int extend_channel_5_8(void *data_out, void *data_in,
         size_t frames, int ch_cnt_out, int ch_cnt_in);
 
+void channel_layout_swap_center_lfe(void * data, int size, int channels);
+
 #endif

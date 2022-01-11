@@ -52,6 +52,7 @@ typedef enum MS12_RESUME_STATE {
 enum {
     BITSTREAM_OUTPUT_A,
     BITSTREAM_OUTPUT_B,
+    BITSTREAM_OUTPUT_C,  /*multi channnel pcm*/
     BITSTREAM_OUTPUT_CNT
 };
 

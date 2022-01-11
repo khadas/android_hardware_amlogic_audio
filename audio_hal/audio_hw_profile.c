@@ -1720,6 +1720,12 @@ char *get_hdmi_arc_cap(struct audio_hw_device *dev, const char *keys, audio_form
             size += hdmi_arc_process_channel_str(&hdmi_desc->dts_fmt, aud_cap + size);
         } else if (AUDIO_FORMAT_DTS_HD == format) {
             size += hdmi_arc_process_channel_str(&hdmi_desc->dtshd_fmt, aud_cap + size);
+        } else if (AUDIO_FORMAT_PCM_16_BIT == format) {
+            /*when earc is connected, it supports 8ch pcm*/
+            if (aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_ATTENDED_TYPE) == ATTEND_TYPE_EARC && adev->bHDMIARCon) {
+                hdmi_desc->pcm_fmt.max_channels = 8;
+            }
+            size += hdmi_arc_process_channel_str(&hdmi_desc->pcm_fmt, aud_cap + size);
         }
     } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
         size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");

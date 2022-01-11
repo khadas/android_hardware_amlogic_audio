@@ -33,7 +33,7 @@
 #define MAIN_INPUT_STREAM 1
 #define ASSOC_INPUT_STREAM 0
 #define SYSTEM_INPUT_STREAM 0
-#define RESERVED_LENGTH 27
+#define RESERVED_LENGTH 25
 
 #define AUDIO_2MAIN_MIXER_NODE           0xFF000001UL
 #define AUDIO_2MAIN_MIXER_NODE_PRIMARY   0xFF000002UL
@@ -47,6 +47,25 @@
 #define MIXER_PRIMARY_INPUT   0
 #define MIXER_SECONDARY_INPUT 1
 #define MIXER_SYSTEM_INPUT    2
+
+
+/**
+ *  @brief Supported channel modes, independent on module or codec.
+ */
+typedef enum {
+    AML_DOLBY_ACMOD_INVALID    = -2,  /**< Invalid channel mode. */
+    AML_DOLBY_ACMOD_RAW        = -1,  /**< Raw channel mode. (Object audio.) */
+    AML_DOLBY_ACMOD_ONEPLUSONE =  0,  /**< Channel mode is dual mono. */
+    AML_DOLBY_ACMOD_MONO       =  1,  /**< Channel mode is mono   (C). */
+    AML_DOLBY_ACMOD_STEREO     =  2,  /**< Channel mode is stereo (L, R). */
+    AML_DOLBY_ACMOD_3_0        =  3,  /**< Channel mode is 3/0    (L, R, C). */
+    AML_DOLBY_ACMOD_2_1        =  4,  /**< Channel mode is 2/1    (L, R, Ls). */
+    AML_DOLBY_ACMOD_3_1        =  5,  /**< Channel mode is 3/1    (L, R, C, Ls). */
+    AML_DOLBY_ACMOD_2_2        =  6,  /**< Channel mode is 2/2    (L, R, Ls, Rs). */
+    AML_DOLBY_ACMOD_3_2        =  7,  /**< Channel mode is 5.x    (L, R, C, Ls, Rs). */
+    AML_DOLBY_ACMOD_3_4        = 21,  /**< Channel mode is 7.x    (L, R, C, Ls, Rs, Lrs, Rrs). */
+    AML_DOLBY_ACMOD_3_2_2      = 28   /**< Channel mode is 5.x.2  (L, R, C, Ls, Rs, Ltm, Rtm). */
+} AML_DOLBY_ACMOD;
 
 
 /*
@@ -94,6 +113,7 @@ int dolby_ms12_system_process(
 enum MS12_PCM_TYPE {
     NORMAL_LPCM = 0,
     DAP_LPCM = 1,
+    MC_LPCM  = 2,
 };
 
 typedef struct aml_ms12_dec_info {
@@ -106,6 +126,8 @@ typedef struct aml_ms12_dec_info {
     unsigned int main_apts_low32b;
     unsigned int main1_apts_high32b;
     unsigned int main1_apts_low32b;
+    int acmod;       /**dolby acmod, please refer to AML_DOLBY_ACMOD**/
+    int lfeon;       /**whether it has lfe channel, lfe means low frequency effects**/
     int reserved[RESERVED_LENGTH];
 } aml_ms12_dec_info_t;
 
