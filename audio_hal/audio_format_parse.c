@@ -382,7 +382,7 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size,
     static unsigned int _dts_cd_sync_count = 0;
     static unsigned int _dtscd_checked_bytes = 0;
 
-    DoDumpData(temp_buffer, bytes, CC_DUMP_SRC_TYPE_INPUT_PARSE);
+    //DoDumpData(temp_buffer, bytes, CC_DUMP_SRC_TYPE_INPUT_PARSE);
     pos_sync_word = seek_61937_sync_word((char*)temp_buffer, bytes);
     if (pos_sync_word >= 0) {
         tmp_pc = (uint32_t*)(temp_buffer + pos_sync_word + 4);

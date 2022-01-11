@@ -367,7 +367,7 @@ static void select_devices (struct aml_audio_device *adev)
     int earpiece;
     int mic_in;
     int headset_mic;
-
+    int anlg_dock_headset_on;
     headset_on = adev->out_device & AUDIO_DEVICE_OUT_WIRED_HEADSET;
     headphone_on = adev->out_device & AUDIO_DEVICE_OUT_WIRED_HEADPHONE;
     speaker_on = adev->out_device & AUDIO_DEVICE_OUT_SPEAKER;
@@ -375,7 +375,7 @@ static void select_devices (struct aml_audio_device *adev)
     earpiece =  adev->out_device & AUDIO_DEVICE_OUT_EARPIECE;
     mic_in = adev->in_device & (AUDIO_DEVICE_IN_BUILTIN_MIC | AUDIO_DEVICE_IN_BACK_MIC);
     headset_mic = adev->in_device & AUDIO_DEVICE_IN_WIRED_HEADSET;
-
+    anlg_dock_headset_on = adev->out_device & AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET;
     ALOGD ("%s : hs=%d , hp=%d, sp=%d, hdmi=0x%x,earpiece=0x%x", __func__,
              headset_on, headphone_on, speaker_on, hdmi_on, earpiece);
     ALOGD ("%s : in_device(%#x), mic_in(%#x), headset_mic(%#x)", __func__,
@@ -384,7 +384,7 @@ static void select_devices (struct aml_audio_device *adev)
     if (hdmi_on) {
         audio_route_apply_path (adev->ar, "hdmi");
     }
-    if (headphone_on || headset_on) {
+    if (headphone_on || headset_on || anlg_dock_headset_on) {
         audio_route_apply_path (adev->ar, "headphone");
     }
     if (speaker_on || earpiece) {
@@ -3558,6 +3558,7 @@ static int aml_audio_output_routing(struct audio_hw_device *dev,
         case OUTPORT_HEADPHONE:
             audio_route_apply_path(aml_dev->ar, "headphone");
             audio_route_apply_path(aml_dev->ar, "spdif");
+            audio_route_apply_path(aml_dev->ar, "speaker_off");
             break;
         case OUTPORT_A2DP:
         case OUTPORT_BT_SCO:
@@ -9039,8 +9040,11 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
             if (patch->num_sinks == 1) {
                 android_dev_convert_to_hal_dev(config->ext.device.type, (int *)&outport);
             }
-
-            aml_dev->sink_gain[outport] = DbToAmpl(config->gain.values[0] / 100.0);
+            if (config->ext.device.type != AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET) {
+                aml_dev->sink_gain[outport] = DbToAmpl(config->gain.values[0] / 100.0);
+            } else {
+                aml_dev->sink_gain[outport] = 1.0;
+            }
             ALOGI(" - set sink device[%#x](outport:%s): volume_Mb[%d], gain[%f]",
                     config->ext.device.type, outputPort2Str(outport),
                     config->gain.values[0], aml_dev->sink_gain[outport]);
@@ -9050,6 +9054,7 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
             ALOGI("\t- OUTPORT_HDMI_ARC->gain[%f]", aml_dev->sink_gain[OUTPORT_HDMI_ARC]);
             ALOGI("\t- OUTPORT_HEADPHONE->gain[%f]", aml_dev->sink_gain[OUTPORT_HEADPHONE]);
             ALOGI("\t- OUTPORT_HDMI->gain[%f]", aml_dev->sink_gain[OUTPORT_HDMI]);
+            ALOGI("\t- OUTPORT_ANLG_DOCK_HEADSET->gain[%f]", aml_dev->sink_gain[OUTPORT_HEADPHONE]);
             ALOGI("\t- active outport is: %s", outputPort2Str(aml_dev->active_outport));
         } else if (config->role == AUDIO_PORT_ROLE_SOURCE) {
             android_dev_convert_to_hal_dev(config->ext.device.type, (int *)&inport);

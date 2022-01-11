@@ -463,7 +463,9 @@ sp<TSPMessage> TSPMessage::dup() const {
             case kTypeString:
             {
                 to->u.stringValue = (char *)aml_audio_malloc(strlen(from->u.stringValue) + 1);
-	            strncpy(to->u.stringValue, from->u.stringValue, strlen(from->u.stringValue));
+                if (to->u.stringValue != NULL) {
+                    strncpy(to->u.stringValue, from->u.stringValue, strlen(from->u.stringValue));
+                }
                 break;
             }
 

@@ -42,7 +42,7 @@ typedef struct _dtv_assoc_audio {
     int sub_apid;
     int sub_afmt;
     int cache;
-    int cache_start_time;
+    int64_t cache_start_time;
     int main_frame_size;
     int ad_frame_size;
     ring_buffer_t sub_abuf;
@@ -77,9 +77,9 @@ enum {
 
 static int64_t get_time(void)
 {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return ((int64_t)tv.tv_sec * 1000000 + tv.tv_usec)/1000;//ms
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (ts.tv_sec * 1000LL + ts.tv_nsec / 1000000LL); //ms
 }
 
 static dtv_assoc_audio *get_assoc_audio(void)
