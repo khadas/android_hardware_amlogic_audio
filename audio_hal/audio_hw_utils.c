@@ -1168,7 +1168,7 @@ int aml_audio_get_dolby_dap_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost
     char cEndpoint[PROPERTY_VALUE_MAX];
     int ret = 0;
     unsigned dap_drc_control = (DDPI_UDC_COMP_LINE<<DRC_MODE_BIT)|(100<<DRC_HIGH_CUT_BIT)|(100<<DRC_LOW_BST_BIT);
-    dap_drc_control = get_sysfs_int("/sys/class/audiodsp/dap_drc_control");
+    dap_drc_control = get_sysfs_int("/sys/class/audiodsp/ac3_drc_control");
 
     if (!drc_mode || !drc_cut || !drc_boost)
         return -1;

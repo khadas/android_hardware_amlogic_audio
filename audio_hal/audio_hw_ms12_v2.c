@@ -659,6 +659,16 @@ void dynamic_set_dolby_ms12_drc_parameters(struct dolby_ms12_desc *ms12)
     if (ms12->output_config & MS12_OUTPUT_MASK_DAP) {
         if (0 == aml_audio_get_dolby_dap_drc_mode(&drc_mode, &drc_cut, &drc_boost))
             dolby_ms12_dap_drc_mode = (drc_mode == DDPI_UDC_COMP_LINE) ? DOLBY_DRC_LINE_MODE : DOLBY_DRC_RF_MODE;
+
+        /*
+         * if main input is hdmi-in/dtv/other-source PCM
+         * would not go through the DRC processing
+         * DRC LineMode means to bypass DRC processing.
+         */
+        if (audio_is_linear_pcm(ms12->main_input_fmt)) {
+            dolby_ms12_dap_drc_mode = DOLBY_DRC_LINE_MODE;
+        }
+
         set_ms12_drc_boost_value(ms12, drc_boost);
         set_ms12_drc_cut_value(ms12, drc_cut);
         set_ms12_drc_mode_for_multichannel_and_dap_output(ms12, dolby_ms12_dap_drc_mode);
@@ -719,6 +729,15 @@ void set_dolby_ms12_drc_parameters(audio_format_t input_format, int output_confi
     if (output_config_mask & MS12_OUTPUT_MASK_DAP) {
         if (0 == aml_audio_get_dolby_dap_drc_mode(&drc_mode, &drc_cut, &drc_boost))
             dolby_ms12_dap_drc_mode = (drc_mode == DDPI_UDC_COMP_LINE) ? DOLBY_DRC_LINE_MODE : DOLBY_DRC_RF_MODE;
+        /*
+         * if main input is hdmi-in/dtv/other-source PCM
+         * would not go through the DRC processing
+         * DRC LineMode means to bypass DRC processing.
+         */
+        if (audio_is_linear_pcm(input_format)) {
+            dolby_ms12_dap_drc_mode = DOLBY_DRC_LINE_MODE;
+        }
+
         dolby_ms12_set_dap_drc_mode(dolby_ms12_dap_drc_mode);
         ALOGI("%s dolby_ms12_set_dap_drc_mode %s",
             __FUNCTION__, (dolby_ms12_dap_drc_mode == DOLBY_DRC_RF_MODE) ? "RF MODE" : "LINE MODE");
@@ -778,6 +797,32 @@ bool is_ad_data_available(int hdmi_format)
         return false;
     }
 }
+
+void update_drc_paramter_when_output_config_changed(struct dolby_ms12_desc *ms12)
+{
+    /*
+     * if output config contains MS12_OUTPUT_MASK_SPEAKER
+     * the dap_init_mode will update the output config value as this logic
+     *
+     * if (mDolbyMS12OutConfig & MS12_OUTPUT_MASK_SPEAKER) {
+     *    if (mDAPInitMode) {
+     *        mDolbyMS12OutConfig |= MS12_OUTPUT_MASK_DAP;
+     *    } else {
+     *        mDolbyMS12OutConfig |= MS12_OUTPUT_MASK_STEREO;
+     *    }
+     * }
+     * so, here update the DRC:-b/-c/-drc DPA_DRC: -bs/-cs/-dap_drc again
+     */
+    int final_output_config = dolby_ms12_config_params_get_dobly_config_output_config();
+
+    if (final_output_config) {
+        ALOGD("%s line %d ms12 output config redefine from %#x to %#x\n",
+            __func__, __LINE__, ms12->output_config, final_output_config);
+        ms12->output_config = final_output_config;
+        dynamic_set_dolby_ms12_drc_parameters(ms12);
+    }
+}
+
 
 /*
  *@brief get dolby ms12 prepared
@@ -984,6 +1029,7 @@ int get_the_dolby_ms12_prepared(
             }
         }
         ms12->main_input_sr = input_sample_rate;
+        update_drc_paramter_when_output_config_changed(ms12);
     }
     ms12->sys_audio_base_pos = adev->sys_audio_frame_written;
     ms12->sys_audio_skip     = 0;

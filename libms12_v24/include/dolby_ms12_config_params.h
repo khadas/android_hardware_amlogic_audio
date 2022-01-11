@@ -150,6 +150,10 @@ char **dolby_ms12_config_params_update_runtime_config_params(int *argc, char *cm
  */
 char **dolby_ms12_config_params_get_runtime_config_params_lite(int *argc);
 
+/**
+ * @brief Get dolby ms12 output config, its value is defined in "dolby_ms12_output_mask.h".
+ */
+int dolby_ms12_config_params_get_dobly_config_output_config(void);
 
 /**
  * @brief Get dolby ms12 output format
