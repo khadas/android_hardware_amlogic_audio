@@ -337,7 +337,8 @@ int IniParser::setKeyValue(void* user, const char* section, const char* key, con
                     strncpy(pLine->Value, value, sizeof(pLine->Value) - 1);
                     pLine->Value[sizeof(pLine->Value) - 1] = '\0';
                 } else {
-                    strncat(pLine->Value, value, sizeof(value));
+                    //should not include string terminator '\0'
+                    strncat(pLine->Value, value, sizeof(pLine->Value) - 1);
                     pLine->Value[sizeof(pLine->Value) - 1] = '\0';
                 }
             }
