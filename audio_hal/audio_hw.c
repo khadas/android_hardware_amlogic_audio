@@ -3320,13 +3320,15 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         adev->usecase_masks &= ~(1 << out->usecase);
     }
 
-    if (continous_mode(adev) && (eDolbyMS12Lib == adev->dolby_lib_type)) {
+    // This 1.0f volume may affect the waveform at the end.
+    // Since stream will set volume before start, remove it.
+    /* if (continous_mode(adev) && (eDolbyMS12Lib == adev->dolby_lib_type)) {
         if (out->volume_l != 1.0) {
             if (!audio_is_linear_pcm(out->hal_internal_format)) {
                 set_ms12_main_volume(&adev->ms12, 1.0);
             }
         }
-    }
+    } */
 
     pthread_mutex_lock(&out->lock);
     if (out->audioeffect_tmp_buffer) {
