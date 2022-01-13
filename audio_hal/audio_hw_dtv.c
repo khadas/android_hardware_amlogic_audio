@@ -2593,6 +2593,8 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
             }
             used_size += main_frame_size;
             main_size = main_frame_size;
+            patch->cur_package->split_frame_size = main_frame_size;
+            ALOGV("p_package->pts %0llx",p_package->pts);
             if (p_package->ad_size) {
                 aml_ac3_parser_process(patch->ad_ac3_parser_handle,
                                        p_package->ad_data + ad_used_size,
@@ -2639,8 +2641,6 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
                 ret = out_write_new(stream_out, mixbuffer, EAC3_IEC61937_FRAME_SIZE);//eac3 iec61937 package size 6144*4
             }
             p_package->pts += DOLBY_FRAME_PTS_DURATION;
-            patch->cur_package->split_frame_size = main_frame_size;
-            ALOGV("p_package->pts %0llx",p_package->pts);
         }
         if (p_package->ad_size > ad_used_size)  {
             ALOGW("p_package->ad_size %d >  ad_used_size %d", p_package->ad_size, ad_used_size);
