@@ -337,8 +337,13 @@ bool is_platform_supported_ddp_atmos(bool atmos_supported, enum OUT_PORT current
             ret = true;
         }
         else {
-            /* OTT CVBS case */
-            ret = false;
+            /*through it is speaker output, but the sink device is connected with atmos*/
+            if (atmos_supported) {
+                ret = true;
+            } else {
+                /* OTT CVBS case */
+                ret = false;
+            }
         }
     }
     //ALOGD("%s Line %d return %s", __func__, __LINE__, ret ? "true": "false");
