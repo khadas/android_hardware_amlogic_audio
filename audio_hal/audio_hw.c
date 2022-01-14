@@ -6377,6 +6377,7 @@ hwsync_rewrite:
                     int tunning_latency = aml_audio_get_nonms12_tunnel_latency(stream) / 48;
                     int latency_pts = 0;
                     int video_delay_ms = 0;
+                    bool valid_pts = true;
                     /*here we need add video delay*/
                     video_delay_ms = get_media_video_delay(&adev->alsa_mixer);
                     if ((latency + tunning_latency) > video_delay_ms) {
@@ -6387,8 +6388,10 @@ hwsync_rewrite:
                     // does not match the timestamp of next audio samples
                     if (cur_pts >= abs(latency_pts)) {
                         apts = cur_pts - latency_pts;
+                        valid_pts = true;
                     } else {
                         apts = 0;
+                        valid_pts = false;
                     }
                     apts64 = apts & ULLONG_MAX;
                     /*if the pts is zero, to avoid video pcr not set issue, we just set it as 1ms*/
@@ -6420,7 +6423,7 @@ hwsync_rewrite:
                         write_drop_threshold = 0;
                     }
 
-                    if (aml_out->alsa_running_status == true) {
+                    if (aml_out->alsa_running_status == true && valid_pts) {
                         if (hw_sync->first_apts_flag == false) {
                             aml_audio_hwsync_set_first_pts(aml_out->hwsync, apts64);
                         }

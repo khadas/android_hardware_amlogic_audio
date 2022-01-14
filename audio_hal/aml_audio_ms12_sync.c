@@ -33,6 +33,73 @@ TV = 1,
 SBR = 2
 }device_type_t;
 
+
+static int get_nonms12_dv_tunnel_input_latency(audio_format_t input_format) {
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    switch (input_format) {
+    case AUDIO_FORMAT_PCM_16_BIT: {
+        /*for non tunnel ddp2h/heaac case:netlfix AL1 case */
+        prop_name = AVSYNC_NONMS12_DV_TUNNEL_PCM_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_NONMS12_DV_TUNNEL_PCM_LATENCY;
+        break;
+    }
+    case AUDIO_FORMAT_AC3:
+    case AUDIO_FORMAT_E_AC3: {
+        /*for non tunnel dolby ddp5.1 case:netlfix AL1 case*/
+        prop_name = AVSYNC_NONMS12_DV_TUNNEL_DDP_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_NONMS12_DV_TUNNEL_DDP_LATENCY;
+        break;
+    }
+    default:
+        break;
+    }
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+
+    return latency_ms;
+}
+
+static int get_nonms12_dv_tunnel_output_latency(audio_format_t output_format) {
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+
+    switch (output_format) {
+    case AUDIO_FORMAT_PCM_16_BIT: {
+        prop_name = AVSYNC_NONMS12_DV_TUNNEL_PCMOUT_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_NONMS12_DV_TUNNEL_PCMOUT_LATENCY;
+        break;
+    }
+    case AUDIO_FORMAT_AC3:
+    case AUDIO_FORMAT_E_AC3: {
+        prop_name = AVSYNC_NONMS12_DV_TUNNEL_DDPOUT_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_NONMS12_DV_TUNNEL_DDPOUT_LATENCY;
+        break;
+    }
+    default:
+        break;
+    }
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+
+    return latency_ms;
+}
+
+
 static int get_ms12_dv_tunnel_input_latency(audio_format_t input_format) {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
@@ -878,6 +945,7 @@ static int get_nonms12_tunnel_latency_offset(enum OUT_PORT port
     int input_latency_ms = 0;
     int output_latency_ms = 0;
     int port_latency_ms = 0;
+    int is_dv = getprop_bool(MS12_OUTPUT_5_1_DDP); /* suppose that Dolby Vision is under test */
 
     if (is_netflix) {
         input_latency_ms  = get_nonms12_netflix_tunnel_input_latency(input_format);
@@ -887,6 +955,13 @@ static int get_nonms12_tunnel_latency_offset(enum OUT_PORT port
         port_latency_ms   = get_nonms12_port_latency(port, output_format);
         if (platform_type == STB) {
             output_latency_ms = get_nonms12_output_latency(output_format);
+        }
+        if (is_dv) {
+            input_latency_ms += get_nonms12_dv_tunnel_input_latency(input_format);
+        }
+
+        if (is_dv) {
+            output_latency_ms += get_nonms12_dv_tunnel_output_latency(output_format);
         }
     }
 
