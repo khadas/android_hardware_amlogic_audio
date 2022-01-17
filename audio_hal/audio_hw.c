@@ -4262,6 +4262,14 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     }
 #endif
 
+    ret = str_parms_get_str(parms, "direct-mode", value, sizeof(value));
+    if (ret >= 0) {
+        unsigned int direct_mode = (unsigned int)atoi(value);
+        ALOGI ("Amlogic_HAL - %s: direct-mode:%d.", __FUNCTION__,direct_mode);
+        adev->direct_mode = direct_mode;
+        goto exit;
+    }
+
 exit:
     str_parms_destroy (parms);
     /* always success to pass VTS */
@@ -7308,6 +7316,8 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     struct aml_audio_device *adev = aml_out->dev;
     ssize_t ret = 0;
     write_func  write_func_p = NULL;
+    size_t frame_size = audio_stream_out_frame_size(stream);
+    size_t in_frames = bytes / frame_size;
 
     if (adev->debug_flag > 1) {
         ALOGI("+<IN>%s: out_stream(%p) position(%zu)", __func__, stream, bytes);
@@ -7340,6 +7350,23 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     /*when there is data writing in this stream, we can add it to active stream*/
     pthread_mutex_lock(&adev->lock);
     adev->active_outputs[aml_out->usecase] = aml_out;
+    if (adev->direct_mode) {
+        /*
+         * when the third_party apk calls pcm_close during use and then calls pcm_open again,
+         * primary hal does not access the sound card,
+         * continue to let the third_party apk access the sound card.
+         */
+        aml_alsa_output_close(stream);
+        aml_out->status = STREAM_STANDBY;
+        if (adev->debug_flag) {
+            ALOGI("%s,direct mode write,skip bytes %zu\n",__func__,bytes);
+        }
+        /*TODO accurate delay time */
+        usleep(in_frames*1000/48);
+        aml_out->frame_write_sum += in_frames;
+        pthread_mutex_unlock(&adev->lock);
+        return bytes;
+    }
     pthread_mutex_unlock(&adev->lock);
 
 

@@ -574,6 +574,14 @@ struct aml_audio_device {
     float dtv_volume; // Todo: This parameter is not used yet
     /* -End- */
     bool arc_connected_reconfig;  /*when arc conncted, set it as to true*/
+
+    /*
+    for karaoke use case, the apk will acess
+    the sound card device directly.the apk will
+    send the direct mode flag to audio hal. the audio
+    hal need by-pass hw acess until the apk release flag
+    */
+    unsigned int direct_mode;
 };
 
 struct meta_data {
