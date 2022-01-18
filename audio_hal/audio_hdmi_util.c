@@ -127,8 +127,6 @@ int update_dolby_atmos_decoding_and_rendering_cap_for_ddp_sad(
     , bool is_joc_supported)
 {
     char *ddp_sad = NULL;
-    int bit_for_acmod_28 = 1; // bytes3 bit1
-    int bit_for_joc = 0; //bytes3 bit0
     int ret = -1;
     if (!array || (count < SAD_SIZE)) {
         ALOGE("%s line %d array %p count %d\n", __func__, __LINE__, array, count);
@@ -136,19 +134,19 @@ int update_dolby_atmos_decoding_and_rendering_cap_for_ddp_sad(
     }
 
     ddp_sad = (char *)array;
-    //ALOGV("%s line %d ddp sad [%#x %#x %#x]\n", __func__, __LINE__, ddp_sad[0], ddp_sad[1], ddp_sad[2]);
 
+    /* mask Atmos bit from AVR to hdmirx edid */
+    /* bytes3 bit1: bit_for_acmod_28; bytes3 bit0: bit_for_joc */
     if (DOLBY_DIGITAL_PLUS == ((ddp_sad[0] >> AUDIO_FORMAT_CODE_BYTE1_BIT3)&0xF)) {
-        if (is_acmod_28_supported) {
-            ddp_sad[2] |= (0x1<<bit_for_acmod_28);
-        }
-        if (is_joc_supported) {
-            ddp_sad[2] |= (0x1<<bit_for_joc);
-        }
+        int value = (is_acmod_28_supported << 1) | is_joc_supported;
+
+        ddp_sad[2] &= 0xFC;
+        ddp_sad[2] |= value;
+
         ret = 0;
-    }
-    else
+    } else {
         ret = -1;
+    }
 
     //ALOGV("%s line %d ddp sad [%#x %#x %#x]\n", __func__, __LINE__, ddp_sad[0], ddp_sad[1], ddp_sad[2]);
     return ret;
@@ -175,8 +173,6 @@ int update_dolby_MAT_decoding_cap_for_dolby_MAT_and_dolby_TRUEHD_sad(
     , bool is_truehd_supported)
 {
     char *mat_sad = NULL;
-    int bit_for_mat_pcm = 1; // bytes3 bit1
-    int bit_for_truehd = 0; //bytes3 bit0
     int ret = -1;
     if (!array || (count < SAD_SIZE)) {
         ALOGE("%s line %d array %p count %d\n", __func__, __LINE__, array, count);
@@ -184,18 +180,19 @@ int update_dolby_MAT_decoding_cap_for_dolby_MAT_and_dolby_TRUEHD_sad(
     }
 
     mat_sad = (char *)array;
-    //ALOGV("%s line %d mat sad [%#x %#x %#x]\n", __func__, __LINE__, mat_sad[0], mat_sad[1], mat_sad[2]);
+
+    /* mask Atmos bit from AVR to hdmirx edid*/
+    /* bytes3 bit1: bit_for_mat_pcm; bytes3 bit0: bit_for_truehd */
     if (DOLBY_TRUEHD_AND_DOLBY_MAT == ((mat_sad[0] >> AUDIO_FORMAT_CODE_BYTE1_BIT3)&0xF)) {
-        if (is_mat_pcm_supported) {
-            mat_sad[2] |= (0x1 << bit_for_mat_pcm);
-        }
-        if (is_truehd_supported) {
-            mat_sad[2] |= (0x1 << bit_for_truehd);
-        }
+        int value = (is_mat_pcm_supported << 1) | is_truehd_supported;
+
+        mat_sad[2] &= 0xFC;
+        mat_sad[2] |= value;
+
         ret = 0;
-    }
-    else
+    } else {
         ret = -1;
+    }
 
     //ALOGV("%s line %d mat sad [%#x %#x %#x]\n", __func__, __LINE__, mat_sad[0], mat_sad[1], mat_sad[2]);
     return ret;
