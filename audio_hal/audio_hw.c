@@ -5796,14 +5796,14 @@ ssize_t hw_write (struct audio_stream_out *stream
                         __func__, total_frame, write_frames, aml_out->total_ddp_frame_nblks);
                 }
             }
-            /*case 3*/
+            /*case 3:pcm_hwsync*/
             else if (aml_out->hw_sync_mode) {
                 total_frame = dolby_ms12_get_main_pcm_generated(stream);
             }
-            /*case 1*/
+            /*case 1:pcm_direct+pcm_normal*/
             else {
                 /*system volume prestation caculatation is done inside aux write thread*/
-                total_frame = 0;
+                total_frame = dolby_ms12_get_main_pcm_generated(stream);
                 //write_frames = (aml_out->input_bytes_size - dolby_ms12_get_system_buffer_avail(NULL)) / 4;
                 //total_frame = write_frames;
             }
