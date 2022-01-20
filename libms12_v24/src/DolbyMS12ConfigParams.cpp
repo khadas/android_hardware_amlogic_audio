@@ -163,6 +163,7 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mIsLegecyDDPOut(false)
     , mDolbyInputCMDMask(0)
     , mEnforceTimeslice(0)
+    , mTVTuningFlag(false)
 {
     ALOGD("+%s() mAudioOutFlags %d mAudioStreamOutFormat %#x mHasAssociateInput %d mHasSystemInput %d AppInput %d\n",
           __FUNCTION__, mAudioOutFlags, mAudioStreamOutFormat, mHasAssociateInput, mHasSystemInput, mHasAppInput);
@@ -566,6 +567,15 @@ int DolbyMS12ConfigParams::ChannelMask2LFEConfig(audio_channel_mask_t channel_ma
 int DolbyMS12ConfigParams::SetFunctionalSwitches(char **ConfigParams, int *row_index)
 {
     ALOGV("+%s() line %d\n", __FUNCTION__, __LINE__);
+
+    if ((mAudioStreamOutFormat == AUDIO_FORMAT_MAT) && (mDolbyMS12OutConfig & MS12_OUTPUT_MASK_SPEAKER)) {
+        if (mTVTuningFlag) {
+            sprintf(ConfigParams[*row_index], "%s", "-tv_tuning");
+            (*row_index)++;
+        }
+
+    }
+
     if (mDolbyMS12OutConfig & MS12_OUTPUT_MASK_STEREO) {
         if ((mDRCBoostStereo >= 0) && (mDRCBoostStereo <= 100)) {
             sprintf(ConfigParams[*row_index], "%s", "-bs");

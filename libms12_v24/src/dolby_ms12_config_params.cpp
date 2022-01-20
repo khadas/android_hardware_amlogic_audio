@@ -1002,6 +1002,16 @@ extern "C" void dolby_ms12_set_enforce_timeslice(bool is_enforce)
     }
 }
 
+extern "C" void dolby_ms12_set_tv_tuning_flag(bool tv_tuning_flag)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12ConfigParams *config_param = getInstance();
+    if (config_param) {
+        return config_param->setTVTuningFlag(tv_tuning_flag);
+    }
+}
+
+
 /*****************************************************************************************************************/
 /*END*/
 /*****************************************************************************************************************/

@@ -153,6 +153,7 @@ struct dolby_ms12_desc {
     bool     is_muted;
     bool     do_easing;
     uint32_t dtv_decoder_offset_base;   /*save the dtv input offset, which is realted with PTS*/
+    bool tv_tuning_flag;
 };
 
 /*

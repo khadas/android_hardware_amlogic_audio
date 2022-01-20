@@ -165,6 +165,8 @@ struct dolby_ms12_desc {
     int mat_enc_out_bytes;
     uint32_t dtv_decoder_offset_base;  /*save the dtv input offset, which is realted with PTS*/
     /* MAT Encoder inside ms12, end */
+    /* For DAP multi output except the stereo output */
+    bool tv_tuning_flag;
 };
 
 /*

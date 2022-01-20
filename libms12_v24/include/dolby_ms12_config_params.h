@@ -656,6 +656,11 @@ bool dolby_ms12_get_ddp_5_1_out(void);
  */
 void dolby_ms12_set_enforce_timeslice(bool is_enforce);
 
+/**
+ * @brief set tv tuning flag
+ */
+void dolby_ms12_set_tv_tuning_flag(bool tv_tuning_flag);
+
 /*End*/
 
 #ifdef __cplusplus

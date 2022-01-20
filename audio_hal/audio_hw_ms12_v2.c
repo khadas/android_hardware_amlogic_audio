@@ -110,6 +110,7 @@
 #define MS12_INPUT_SYS_MAIN_IEC_FILE     "/data/vendor/audiohal/ms12_input_main_iec.raw"
 
 #define MS12_OUTPUT_5_1_DDP "vendor.media.audio.ms12.output.5_1_ddp"
+#define MS12_TV_TUNING "vendor.media.audio.ms12.tv_tuning"
 
 // Downmix Mode start
 #define DOWNMIX_MODE_LtRt (0)
@@ -851,6 +852,7 @@ int get_the_dolby_ms12_prepared(
     }
     int ret = 0, associate_audio_mixing_enable = 0 , media_presentation_id = -1;
     bool output_5_1_ddp = getprop_bool(MS12_OUTPUT_5_1_DDP);
+    ms12->tv_tuning_flag = getprop_bool(MS12_TV_TUNING);
 
     ALOGI("\n+%s()", __FUNCTION__);
     pthread_mutex_lock(&ms12->lock);
@@ -868,6 +870,16 @@ int get_the_dolby_ms12_prepared(
     }
     set_audio_app_format(AUDIO_FORMAT_PCM_16_BIT);
     set_audio_main_format(input_format);
+
+    /*
+     *-tv_tuning    Flag to activate a special processing graph for TV tuning purposes:
+     *     * The input is expected to be a MAT tuning signal (-im).
+     *     * The output is the MAT decoded signal without further processing (-o_dap_speaker).
+     */
+    if (ms12->tv_tuning_flag && (input_format == AUDIO_FORMAT_MAT)) {
+        dolby_ms12_set_tv_tuning_flag(ms12->tv_tuning_flag);
+        output_config |= MS12_OUTPUT_MASK_SPEAKER;
+    }
 
     if (input_format == AUDIO_FORMAT_AC3 ||
         input_format == AUDIO_FORMAT_E_AC3 ||
@@ -1610,6 +1622,12 @@ int dolby_ms12_system_process(
 
     pthread_mutex_lock(&ms12->lock);
     if (ms12->dolby_ms12_enable) {
+
+        if (ms12->tv_tuning_flag && ms12->input_config_format == AUDIO_FORMAT_MAT) {
+            ALOGW("MS12 use -tv_tuning Flag to activate a special processing graph for TV tuning purposes!\n");
+            ALOGW("System sound is Mute as design!\n");
+            return ret;
+        }
         /*set the dolby ms12 debug level*/
         dolby_ms12_enable_debug();
 
@@ -1756,6 +1774,7 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     dolby_ms12_config_params_set_system_flag(false);
     dolby_ms12_config_params_set_app_flag(false);
     dolby_ms12_set_enforce_timeslice(false);
+    dolby_ms12_set_tv_tuning_flag(false);
     aml_ms12_cleanup(ms12);
     ms12->output_config = 0;
     ms12->dolby_ms12_enable = false;

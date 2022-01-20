@@ -562,6 +562,10 @@ public:
         mEnforceTimeslice = is_enforce;
     }
 
+    virtual void setTVTuningFlag(bool tv_tuning_flag) {
+        mTVTuningFlag = tv_tuning_flag;
+    }
+
     //*End||Add the APT to set the params*//
 
 
@@ -735,6 +739,7 @@ private:
     bool mIsLegecyDDPOut;
     int mDolbyInputCMDMask;
     bool mEnforceTimeslice;
+    bool mTVTuningFlag;
 }; //class DolbyMS12ConfigParams
 
 
