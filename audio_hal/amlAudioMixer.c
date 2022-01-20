@@ -156,7 +156,7 @@ int init_mixer_input_port(struct amlAudioMixer *audio_mixer,
     direct_on = (audio_mixer->in_ports[AML_MIXER_INPUT_PORT_PCM_DIRECT] != NULL);
     in_port = new_input_port(MIXER_FRAME_COUNT, config, flags, volume, direct_on);
     port_index = mixer_get_available_inport_index(audio_mixer);
-    R_CHECK_PARAM_LEGAL(-1, port_index, 0, NR_INPORTS, "");
+    R_CHECK_PARAM_LEGAL(-1, port_index, 0, NR_INPORTS - 1, "");
 
     if (audio_mixer->in_ports[port_index] != NULL) {
         AM_LOGW("inport index:[%d]%s already exists! recreate", port_index, mixerInputType2Str(port_index));
@@ -182,7 +182,7 @@ int init_mixer_input_port(struct amlAudioMixer *audio_mixer,
 
 int delete_mixer_input_port(struct amlAudioMixer *audio_mixer, uint8_t port_index)
 {
-    R_CHECK_PARAM_LEGAL(-EINVAL, port_index, 0, NR_INPORTS, "");
+    R_CHECK_PARAM_LEGAL(-EINVAL, port_index, 0, NR_INPORTS - 1, "");
     input_port *in_port = audio_mixer->in_ports[port_index];
     R_CHECK_POINTER_LEGAL(-EINVAL, in_port, "port_index:%d", port_index);
 
@@ -288,7 +288,7 @@ static void mixer_procs_msg_queue(struct amlAudioMixer *audio_mixer __unused)
 static output_port *mixer_get_cur_outport(struct amlAudioMixer *audio_mixer)
 {
     output_port *handle = NULL;
-    R_CHECK_PARAM_LEGAL(NULL, audio_mixer->cur_output_port_type, MIXER_OUTPUT_PORT_STEREO_PCM, MIXER_OUTPUT_PORT_NUM-1, "");
+    R_CHECK_PARAM_LEGAL(NULL, audio_mixer->cur_output_port_type, MIXER_OUTPUT_PORT_STEREO_PCM, MIXER_OUTPUT_PORT_NUM - 1, "");
     handle = audio_mixer->out_ports[audio_mixer->cur_output_port_type];
     R_CHECK_POINTER_LEGAL(NULL, handle, "get pcm handle fail, cur output type:%s[%d]",
         mixerOutputType2Str(audio_mixer->cur_output_port_type), audio_mixer->cur_output_port_type);
@@ -1382,7 +1382,7 @@ int mixer_get_presentation_position(
         struct timespec *timestamp)
 {
     int ret = 0;
-    R_CHECK_PARAM_LEGAL(-1, port_index, 0, NR_INPORTS, "");
+    R_CHECK_PARAM_LEGAL(-1, port_index, 0, NR_INPORTS - 1, "");
     pthread_mutex_lock(&audio_mixer->inport_lock);
     input_port *in_port = audio_mixer->in_ports[port_index];
     if (in_port == NULL) {

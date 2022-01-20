@@ -8392,7 +8392,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
     R_CHECK_POINTER_LEGAL(-EINVAL, sinks, "");
     R_CHECK_POINTER_LEGAL(-EINVAL, handle, "");
     R_CHECK_PARAM_LEGAL(-EINVAL, num_sources, 0, 1, "");
-    R_CHECK_PARAM_LEGAL(-EINVAL, num_sinks, 0, AUDIO_PATCH_PORTS_MAX, "");
+    R_CHECK_PARAM_LEGAL(-EINVAL, num_sinks, 0, AUDIO_PATCH_PORTS_MAX - 1, "");
 
     patch_set = register_audio_patch(dev, num_sources, sources, num_sinks, sinks, handle);
     R_CHECK_POINTER_LEGAL(-ENOMEM, patch_set, "create patch fail");
@@ -8402,7 +8402,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
     if (sink_config->type == AUDIO_PORT_TYPE_DEVICE) {
         android_dev_convert_to_hal_dev(sink_config->ext.device.type, (int *)&outport);
         /* Only 3 sink devices are allowed to coexist */
-        R_CHECK_PARAM_LEGAL(-EINVAL, num_sinks, 0, OUTPUT_PORT_MAX_COEXIST_NUM, "not support num_sinks");
+        R_CHECK_PARAM_LEGAL(-EINVAL, num_sinks, 0, OUTPUT_PORT_MAX_COEXIST_NUM - 1, "not support num_sinks");
         if (num_sinks > 1) {
             enum OUT_PORT sink_devs[OUTPUT_PORT_MAX_COEXIST_NUM] = {OUTPORT_SPEAKER, OUTPORT_SPEAKER, OUTPORT_SPEAKER};
             for (int i=0; i<num_sinks; i++) {
