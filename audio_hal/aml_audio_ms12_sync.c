@@ -637,6 +637,12 @@ int get_ms12_bypass_latency_offset(bool tunnel, bool is_netflix)
 uint32_t out_get_ms12_latency_frames(struct audio_stream_out *stream)
 {
     struct aml_stream_out *hal_out = (struct aml_stream_out *)stream;
+
+    if (hal_out == NULL)  {
+        ALOGI("hal_out null return 0");
+        return 0;
+    }
+
     snd_pcm_sframes_t frames = 0;
     struct snd_pcm_status status;
     uint32_t whole_latency_frames;

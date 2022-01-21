@@ -291,6 +291,10 @@ static audio_format_t reconfig_optical_audio_format(struct aml_stream_out *aml_o
  */
 void get_sink_format(struct audio_stream_out *stream)
 {
+   if (stream == NULL) {
+        ALOGE("stream NULL");
+        return;
+    }
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
     /*set default value for sink_audio_format/optical_audio_format*/
