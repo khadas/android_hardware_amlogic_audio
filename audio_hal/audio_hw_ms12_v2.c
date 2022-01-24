@@ -2889,8 +2889,21 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
         if (patch->output_thread_exit) {
             return ret;
         }
-        if (!audio_is_linear_pcm(hal_internal_format))
-            ms12_output_update_audio_pts(stream_out, ms12_info, buffer, size);
+        if (!audio_is_linear_pcm(hal_internal_format)) {
+            /*for pcm out, we only need update the master output*/
+            if (audio_is_linear_pcm(output_format)) {
+                enum MS12_PCM_TYPE master_pcm_type = NORMAL_LPCM;
+                if (is_dolbyms12_dap_enable(aml_out)) {
+                    master_pcm_type = DAP_LPCM;
+                }
+                if (ms12_info->pcm_type == master_pcm_type) {
+                    ms12_output_update_audio_pts(stream_out, ms12_info, buffer, size);
+                }
+            }
+            else {
+                ms12_output_update_audio_pts(stream_out, ms12_info, buffer, size);
+            }
+        }
     }
 
     if (do_sync_flag && aml_out->dtvsync_enable) {
