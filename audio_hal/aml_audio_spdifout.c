@@ -42,6 +42,7 @@ typedef struct spdifout_handle {
     bool b_mute;
     audio_channel_mask_t channel_mask;
     bool spdif_mute;
+    uint32_t sample_rate;
 } spdifout_handle_t;
 
 
@@ -312,6 +313,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
 
         device_config.device_port = alsa_device_get_port_index(device_id);
         phandle->spdif_port       = device_config.device_port;
+        phandle->sample_rate = spdif_config->rate;
 
         aml_spdif_format = halformat_convert_to_spdif(audio_format, stream_config.config.channel_mask);
         /*for dts cd , we can't set the format as dts, we should set it as pcm*/
@@ -411,6 +413,7 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
         output_buffer = buffer;
         output_buffer_bytes = byte;
     }
+
 #if 0
     {
         output_info_t output_info = { 0 };
@@ -419,6 +422,22 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
 
     }
 #endif
+
+#ifdef ADD_AUDIO_DELAY_INTERFACE
+
+    ALOGV("spdif/arc raw delay: format=0x%x", spdifout_phandle->audio_format);
+    if (spdifout_phandle->audio_format == AUDIO_FORMAT_AC3) {
+        aml_audio_delay_process(AML_DELAY_OUTPORT_SPDIF_RAW,
+                (void *) output_buffer, output_buffer_bytes, spdifout_phandle->audio_format, spdifout_phandle->sample_rate);
+    } else if (spdifout_phandle->audio_format == AUDIO_FORMAT_E_AC3) {
+        aml_audio_delay_process(AML_DELAY_OUTPORT_ARC_RAW,
+                (void *) output_buffer, output_buffer_bytes, spdifout_phandle->audio_format, spdifout_phandle->sample_rate);
+    } else {
+        ALOGV("Only support spdif/arc DD/DDP raw delay, format=0x%x", spdifout_phandle->audio_format);
+    }
+
+#endif
+
     if (aml_dev->audio_patch) {
         if (aml_dev->sink_gain[aml_dev->active_outport] < FLOAT_ZERO) {
             b_mute = true;
@@ -465,7 +484,6 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
 #endif
         ret = aml_alsa_output_write_new(alsa_handle, output_buffer, output_buffer_bytes);
     }
-
 
     return ret;
 }

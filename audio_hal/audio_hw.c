@@ -5421,7 +5421,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 }
 #ifdef ADD_AUDIO_DELAY_INTERFACE
                 if (dev != AML_AUDIO_OUT_DEV_TYPE_OTHER) {
-                    aml_audio_delay_process(out_dev_convert_to_delay_type(dev), adev->out_16_buf, bytes, AUDIO_FORMAT_PCM_16_BIT);
+                    aml_audio_delay_process(out_dev_convert_to_delay_type(dev), adev->out_16_buf, bytes,
+                            AUDIO_FORMAT_PCM_16_BIT, MM_FULL_POWER_SAMPLING_RATE);
                 }
 #endif
                 if (!adev->volume_ease.ease->do_easing || dev != AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
@@ -5625,7 +5626,8 @@ ssize_t hw_write (struct audio_stream_out *stream
     }
     if (aml_out->pcm || adev->a2dp_hal || is_sco_port(adev->active_outport)) {
 #ifdef ADD_AUDIO_DELAY_INTERFACE
-        ret = aml_audio_delay_process(AML_DELAY_OUTPORT_ALL, (void *) tmp_buffer, bytes, output_format);
+        ret = aml_audio_delay_process(AML_DELAY_OUTPORT_ALL, (void *) tmp_buffer, bytes,
+                output_format, MM_FULL_POWER_SAMPLING_RATE);
         if (ret < 0) {
             //ALOGW("aml_audio_delay_process skip, ret:%#x", ret);
         }
@@ -6600,6 +6602,8 @@ hwsync_rewrite:
 #ifdef ADD_AUDIO_DELAY_INTERFACE
             // fixed switch between RAW and PCM noise, drop delay residual data
             aml_audio_delay_clear(AML_DELAY_OUTPORT_SPDIF);
+            aml_audio_delay_clear(AML_DELAY_OUTPORT_SPDIF_RAW);
+            aml_audio_delay_clear(AML_DELAY_OUTPORT_ARC_RAW);
             aml_audio_delay_clear(AML_DELAY_OUTPORT_ALL);
 #endif
             /* we need standy a2dp when switch the format, in order to prevent UNDERFLOW in a2dp stack. */
@@ -8789,6 +8793,8 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
 #ifdef ADD_AUDIO_DELAY_INTERFACE
     aml_audio_delay_clear(AML_DELAY_OUTPORT_SPEAKER);
     aml_audio_delay_clear(AML_DELAY_OUTPORT_SPDIF);
+    aml_audio_delay_clear(AML_DELAY_OUTPORT_SPDIF_RAW);
+    aml_audio_delay_clear(AML_DELAY_OUTPORT_ARC_RAW);
     aml_audio_delay_clear(AML_DELAY_OUTPORT_ALL);
 #endif
 
