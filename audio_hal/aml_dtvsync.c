@@ -533,7 +533,11 @@ int aml_dtvsync_ms12_process_insert(void *priv_data, int insert_time_ms,
         }
 
         if (audio_is_linear_pcm(output_format)) {
-
+            if (is_dolbyms12_dap_enable((struct aml_stream_out *)priv_data)) {
+                ms12_info->pcm_type = DAP_LPCM;
+            } else {
+                ms12_info->pcm_type = NORMAL_LPCM;
+            }
             if (ms12_info->pcm_type == DAP_LPCM) {
                 dap_pcm_output(patch->out_buf, priv_data, 192*insert_ms, ms12_info);
             } else {
