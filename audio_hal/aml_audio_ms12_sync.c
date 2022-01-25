@@ -1173,8 +1173,10 @@ static int dtv_get_ms12_output_latency(audio_format_t output_format) {
     return latency_ms;
 }
 
-int dtv_get_ms12_port_latency(enum OUT_PORT port, audio_format_t output_format)
+int dtv_get_ms12_port_latency(struct audio_stream_out *stream, enum OUT_PORT port, audio_format_t output_format)
 {
+    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = aml_out->dev;
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
     int latency_ms = 0;
@@ -1219,8 +1221,13 @@ int dtv_get_ms12_port_latency(enum OUT_PORT port, audio_format_t output_format)
         case OUTPORT_SPEAKER:
         case OUTPORT_AUX_LINE:
         {
-            latency_ms = AVSYNC_MS12_DTV_SPEAKER_LATENCY;
-            prop_name = AVSYNC_MS12_DTV_SPEAKER_LATENCY_PROPERTY;
+            if (adev->is_TV) {
+                latency_ms = AVSYNC_MS12_TV_DTV_SPEAKER_LATENCY;
+                prop_name = AVSYNC_MS12_TV_DTV_SPEAKER_LATENCY_PROPERTY;
+            } else {
+                latency_ms = AVSYNC_MS12_DTV_SPEAKER_LATENCY;
+                prop_name = AVSYNC_MS12_DTV_SPEAKER_LATENCY_PROPERTY;
+            }
             break;
         }
         default :
@@ -1238,7 +1245,8 @@ int dtv_get_ms12_port_latency(enum OUT_PORT port, audio_format_t output_format)
 }
 
 static int dtv_get_ms12_latency_offset(
-    enum OUT_PORT port
+    struct audio_stream_out *stream
+    , enum OUT_PORT port
     , audio_format_t input_format
     , audio_format_t output_format
     )
@@ -1253,7 +1261,7 @@ static int dtv_get_ms12_latency_offset(
     //            port, is_netflix, input_format, output_format);
     input_latency_ms  = dtv_get_ms12_input_latency(input_format);
     output_latency_ms = dtv_get_ms12_output_latency(output_format);
-    port_latency_ms   = dtv_get_ms12_port_latency(port, output_format);
+    port_latency_ms   = dtv_get_ms12_port_latency(stream, port, output_format);
 
     latency_ms = input_latency_ms + output_latency_ms + port_latency_ms;
     ALOGV("%s total latency %d(ms) input %d(ms) out %d(ms) port %d(ms)",
@@ -1288,7 +1296,7 @@ int aml_audio_dtv_get_ms12_latency(struct audio_stream_out *stream)
     int32_t tunning_frame_delay = 0;
 
     tunning_frame_delay = 48 * dtv_get_ms12_latency_offset(
-        adev->active_outport, out->hal_internal_format, adev->ms12.optical_format);
+        stream, adev->active_outport, out->hal_internal_format, adev->ms12.optical_format);
 
     latency_frames = tunning_frame_delay;
     if (adev->is_TV) {

@@ -323,7 +323,7 @@
  *          its value is AVSYNC_MS12_DTV_DDP_OUT_LATENCY)
  */
 /* for different port and different format */
-#define  AVSYNC_MS12_DTV_HDMI_ARC_OUT_PCM_LATENCY            (0)
+#define  AVSYNC_MS12_DTV_HDMI_ARC_OUT_PCM_LATENCY            (100)
 #define  AVSYNC_MS12_DTV_HDMI_ARC_OUT_DD_LATENCY             (0)
 #define  AVSYNC_MS12_DTV_HDMI_ARC_OUT_DDP_LATENCY            (0)
 #define  AVSYNC_MS12_DTV_HDMI_OUT_PCM_LATENCY                (-30) /* if 0,  result locats at [-10, 10] */
@@ -331,6 +331,7 @@
 #define  AVSYNC_MS12_DTV_HDMI_OUT_DDP_LATENCY                (0)
 #define  AVSYNC_MS12_DTV_HDMI_OUT_MAT_LATENCY                (0)
 #define  AVSYNC_MS12_DTV_SPEAKER_LATENCY                     (0)
+#define  AVSYNC_MS12_TV_DTV_SPEAKER_LATENCY                  (110)
 
 #define  AVSYNC_MS12_DTV_HDMI_ARC_OUT_PCM_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.dtv.arc.pcm"
 #define  AVSYNC_MS12_DTV_HDMI_ARC_OUT_DD_LATENCY_PROPERTY             "vendor.media.audio.hal.ms12.dtv.arc.dd"
@@ -340,6 +341,7 @@
 #define  AVSYNC_MS12_DTV_HDMI_OUT_DDP_LATENCY_PROPERTY                "vendor.media.audio.hal.ms12.dtv.hdmi.ddp"
 #define  AVSYNC_MS12_DTV_HDMI_OUT_MAT_LATENCY_PROPERTY                "vendor.media.audio.hal.ms12.dtv.hdmi.mat"
 #define  AVSYNC_MS12_DTV_SPEAKER_LATENCY_PROPERTY                     "vendor.media.audio.hal.ms12.dtv.speaker"
+#define  AVSYNC_MS12_TV_DTV_SPEAKER_LATENCY_PROPERTY                  "vendor.media.audio.hal.ms12.tv.dtv.speaker"
 
 
 /* for different output format */
