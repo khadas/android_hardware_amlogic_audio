@@ -451,8 +451,10 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                         Close_Dmx_Audio(demux_handle);
                         demux_handle = NULL;
                         dtv_audio_instances->demux_handle[path_id] = NULL;
+                        void *tmp = NULL;
                         if (dtvsync->mediasync_new != NULL) {
-                            ALOGI("close mediasync_new:%p, mediasync:%p", dtvsync->mediasync_new, dtvsync->mediasync);
+                            tmp = dtvsync->mediasync_new;
+                            ALOGI("close mediasync_new:%p, mediasync:%p, tmp:%p", dtvsync->mediasync_new, dtvsync->mediasync, tmp);
                             if (dtvsync->mediasync_new == dtvsync->mediasync) {
                                 dtvsync->mediasync = NULL;
                             }
@@ -462,7 +464,10 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
 
                         if (dtvsync->mediasync != NULL) {
                             ALOGI("receive close cmd, release mediasync:%p\n", dtvsync->mediasync);
-                            aml_dtvsync_release(dtvsync);
+                            if (dtvsync->mediasync != tmp)
+                                aml_dtvsync_release(dtvsync);
+                            else
+                                ALOGI("must not release the same mediasync twice!");
                             dtvsync->mediasync = NULL;
                         }
                     }
