@@ -653,7 +653,7 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
             if (1 /* adev->continuous_audio_mode */) {
                 /*Tunnel sync HEADER is 16 bytes*/
                 if ((out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) && out->hw_sync_mode) {
-                    size = out->ddp_frame_size + 20;
+                    size = out->ddp_frame_size + TUNNEL_SYNC_HEADER_SIZE;
                 } else {
                     size = out->ddp_frame_size * 4;
                 }
@@ -672,7 +672,7 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
          */
         if (adev->is_netflix) {
             if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
-                size = NETFLIX_DDP_BUFSIZE + 20;
+                size = NETFLIX_DDP_BUFSIZE + TUNNEL_SYNC_HEADER_SIZE;
             } else {
                 size = NETFLIX_DDP_BUFSIZE;
             }
@@ -2959,8 +2959,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     int digital_codec;
     int ret;
 
-    ALOGD("%s: enter: devices(%#x) channel_mask(%#x) rate(%d) format(%#x) flags(%#x)", __func__,
-        devices, config->channel_mask, config->sample_rate, config->format, flags);
+    ALOGD("%s: enter: devices(%#x) channel_mask(%#x) rate(%d) format(%#x) flags(%#x), address:%s", __func__,
+        devices, config->channel_mask, config->sample_rate, config->format, flags, address);
 
     out = (struct aml_stream_out *)aml_audio_calloc(1, sizeof(struct aml_stream_out));
     if (!out) {
@@ -2974,7 +2974,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
 
     if (address && !strncmp(address, "AML_", 4)) {
         ALOGI("%s(): aml TV source stream", __func__);
-        out->tv_src_stream = true;
+        out->is_tv_src_stream = true;
     }
 
     if (flags == AUDIO_OUTPUT_FLAG_NONE)
@@ -5005,7 +5005,7 @@ int do_output_standby_l(struct audio_stream *stream)
       closed anymore, because its ref is bigger than 0.
       Now we add this patch to make sure the alsa will be closed.
     */
-    if (aml_out->status == STREAM_HW_WRITING &&
+    if (aml_out->stream_status == STREAM_HW_WRITING &&
         ((!continous_mode(adev) || (!ms12->dolby_ms12_enable && (eDolbyMS12Lib == adev->dolby_lib_type))))) {
         ALOGI("%s aml_out(%p)standby close", __func__, aml_out);
         aml_alsa_output_stop(out);
@@ -5019,7 +5019,7 @@ int do_output_standby_l(struct audio_stream *stream)
             //aml_out->spdifout2_handle = NULL;
         }
     }
-    aml_out->status = STREAM_STANDBY;
+    aml_out->stream_status = STREAM_STANDBY;
     aml_out->standby= 1;
 
     if (adev->continuous_audio_mode == 0) {
@@ -5095,7 +5095,7 @@ int do_output_standby_l(struct audio_stream *stream)
         }
     }
     if (aml_out->is_normal_pcm) {
-        set_system_app_mixing_status(aml_out, aml_out->status);
+        set_system_app_mixing_status(aml_out, aml_out->stream_status);
         aml_out->normal_pcm_mixing_config = false;
     }
     aml_out->pause_status = false;//clear pause status
@@ -5124,7 +5124,7 @@ int out_standby_new(struct audio_stream *stream)
 
     ALOGD("%s: enter", __func__);
     aml_audio_trace_int("out_standby_new", 1);
-    if (aml_out->status == STREAM_STANDBY) {
+    if (aml_out->stream_status == STREAM_STANDBY) {
         ALOGI("already standby, do nothing");
         aml_audio_trace_int("out_standby_new", 0);
         return 0;
@@ -5554,7 +5554,7 @@ ssize_t hw_write (struct audio_stream_out *stream
 
     pthread_mutex_lock(&adev->alsa_pcm_lock);
     aml_out->alsa_output_format = output_format;
-    if (aml_out->status != STREAM_HW_WRITING) {
+    if (aml_out->stream_status != STREAM_HW_WRITING) {
         ALOGI("%s, aml_out %p alsa open output_format %#x\n", __func__, aml_out, output_format);
         if (adev->useSubMix) {
             if (/*adev->audio_patching &&*/
@@ -5587,7 +5587,7 @@ ssize_t hw_write (struct audio_stream_out *stream
         if (is_dtv) {
             audio_set_spdif_clock(aml_out, get_codec_type(output_format));
         }
-        aml_out->status = STREAM_HW_WRITING;
+        aml_out->stream_status = STREAM_HW_WRITING;
     }
 
     if (eDolbyMS12Lib == adev->dolby_lib_type && !is_bypass_dolbyms12(stream)) {
@@ -5933,6 +5933,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
 
     /*get sink format*/
     get_sink_format (stream);
+    ALOGI("%s() aml_out:%p  adev->dolby_lib_type = %d", __FUNCTION__, aml_out, adev->dolby_lib_type);
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         bool is_compatible = false;
         bool is_direct_pcm = is_direct_stream_and_pcm_format(aml_out);
@@ -6003,9 +6004,9 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             if (adev->dual_spdifenc_inited) {
                 adev->dual_spdifenc_inited = 0;
             }
-            if (aml_out->status == STREAM_HW_WRITING) {
+            if (aml_out->stream_status == STREAM_HW_WRITING) {
                 aml_alsa_output_close(stream);
-                aml_out->status = STREAM_STANDBY;
+                aml_out->stream_status = STREAM_STANDBY;
                 aml_audio_set_spdif_format(PORT_SPDIF, AML_STEREO_PCM,aml_out);
             }
             pthread_mutex_unlock(&adev->alsa_pcm_lock);
@@ -6102,9 +6103,9 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
 
         if (reset_decoder) {
             pthread_mutex_lock(&adev->alsa_pcm_lock);
-            if (aml_out->status == STREAM_HW_WRITING) {
+            if (aml_out->stream_status == STREAM_HW_WRITING) {
                 aml_alsa_output_close(stream);
-                aml_out->status = STREAM_STANDBY;
+                aml_out->stream_status = STREAM_STANDBY;
             }
             pthread_mutex_unlock(&adev->alsa_pcm_lock);
             /*if decoder is init, we close it first*/
@@ -6252,7 +6253,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         ALOGI ("%s mix init, mask %#x",__func__,adev->usecase_masks);
         pthread_mutex_lock (&adev->lock);
         /* recovery from stanby case */
-        if (aml_out->status == STREAM_STANDBY) {
+        if (aml_out->stream_status == STREAM_STANDBY) {
             ALOGI("%s() recovery from standby, dev masks %#x, usecase[%s]",
                   __func__, adev->usecase_masks, usecase2Str(aml_out->usecase));
             adev->usecase_masks |= (1 << aml_out->usecase);
@@ -6283,8 +6284,8 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         return return_bytes;
     }
     /*for ms12 continuous mode, we need update status here, instead of in hw_write*/
-    if (aml_out->status == STREAM_STANDBY && continous_mode(adev)) {
-        aml_out->status = STREAM_HW_WRITING;
+    if (aml_out->stream_status == STREAM_STANDBY && continous_mode(adev)) {
+        aml_out->stream_status = STREAM_HW_WRITING;
     }
 
     /* here to check if the audio HDMI ARC format updated. */
@@ -6565,7 +6566,7 @@ hwsync_rewrite:
 
     /* here to check if the audio input format changed. */
     audio_format_t cur_aformat;
-    if (adev->audio_patch && aml_out->tv_src_stream && IS_DIGITAL_IN_HW(patch->input_src)) {
+    if (adev->audio_patch && aml_out->is_tv_src_stream && IS_DIGITAL_IN_HW(patch->input_src)) {
         cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
         if (cur_aformat != patch->aformat) {
             ALOGI ("HDMI/SPDIF input format changed from %#x to %#x\n", patch->aformat, cur_aformat);
@@ -6878,18 +6879,18 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
         __func__, __LINE__, bytes, adev->dolby_lib_type, frame_size);
     }
 
-    if ((aml_out->status == STREAM_HW_WRITING) && hw_mix) {
+    if ((aml_out->stream_status == STREAM_HW_WRITING) && hw_mix) {
         ALOGI("%s(), aux do alsa close\n", __func__);
         pthread_mutex_lock(&adev->alsa_pcm_lock);
         aml_alsa_output_close(stream);
 
         ALOGI("%s(), aux alsa close done\n", __func__);
-        aml_out->status = STREAM_MIXING;
+        aml_out->stream_status = STREAM_MIXING;
         pthread_mutex_unlock(&adev->alsa_pcm_lock);
     }
 
-    if (aml_out->status == STREAM_STANDBY) {
-        aml_out->status = STREAM_MIXING;
+    if (aml_out->stream_status == STREAM_STANDBY) {
+        aml_out->stream_status = STREAM_MIXING;
     }
 
     if (aml_out->standby) {
@@ -6899,7 +6900,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
     }
 
     if (aml_out->is_normal_pcm && !aml_out->normal_pcm_mixing_config) {
-        if (0 == set_system_app_mixing_status(aml_out, aml_out->status)) {
+        if (0 == set_system_app_mixing_status(aml_out, aml_out->stream_status)) {
             aml_out->normal_pcm_mixing_config = true;
         } else {
             aml_out->normal_pcm_mixing_config = false;
@@ -7123,8 +7124,8 @@ ssize_t mixer_app_buffer_write(struct audio_stream_out *stream, const void *buff
     }
 
     /*for ms12 continuous mode, we need update status here, instead of in hw_write*/
-    if (aml_out->status == STREAM_STANDBY && continous_mode(adev)) {
-        aml_out->status = STREAM_HW_WRITING;
+    if (aml_out->stream_status == STREAM_STANDBY && continous_mode(adev)) {
+        aml_out->stream_status = STREAM_HW_WRITING;
     }
 
     while (bytes_remaining && adev->ms12.dolby_ms12_enable && retry > 0) {
@@ -7217,12 +7218,16 @@ int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby)
             aml_out->dev_usecase_masks = 0;
         }
         aml_dev->usecase_cnt[aml_out->usecase]--;
-        if ((aml_out->usecase == STREAM_RAW_DIRECT ||
+
+        /* out_standby_new will be called after seek, here shouldn't setup the raw_to_pcm_flag.
+        ** raw_to_pcm_flag will be set in aml_audio_spdif_output_stop when raw stream exit.
+        */
+        /*if ((aml_out->usecase == STREAM_RAW_DIRECT ||
             aml_out->usecase == STREAM_RAW_HWSYNC)
             && (eDolbyDcvLib == aml_dev->dolby_lib_type)) {
             aml_dev->raw_to_pcm_flag = true;
             ALOGI("enable raw_to_pcm_flag !!!");
-        }
+        }*/
         ALOGI("--[%s:%d], dev masks:%#x, is_standby:%d, out usecase %s", __func__, __LINE__,
             aml_dev->usecase_masks, is_standby, usecase2Str(aml_out->usecase));
         return 0;
@@ -7374,7 +7379,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
          * continue to let the third_party apk access the sound card.
          */
         aml_alsa_output_close(stream);
-        aml_out->status = STREAM_STANDBY;
+        aml_out->stream_status = STREAM_STANDBY;
         if (adev->debug_flag) {
             ALOGI("%s,direct mode write,skip bytes %zu\n",__func__,bytes);
         }
@@ -7542,7 +7547,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
                and the audio patch is enabled, we do not need to wait DTV exit as it is
                enabled by DTV itself */
             if (config->sample_rate == 96000 || config->sample_rate == 88200 ||
-                    (aml_out->usecase != STREAM_PCM_MMAP && channel_num > 2) || aml_out->tv_src_stream) {
+                    (aml_out->usecase != STREAM_PCM_MMAP && channel_num > 2) || aml_out->is_tv_src_stream) {
                 aml_out->bypass_submix = true;
                 aml_out->stream.write = out_write_new;
                 aml_out->stream.common.standby = out_standby_new;
@@ -7578,7 +7583,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
         aml_out->stream.write = out_write_new;
         aml_out->stream.common.standby = out_standby_new;
     }
-    aml_out->status = STREAM_STANDBY;
+    aml_out->stream_status = STREAM_STANDBY;
     if (adev->continuous_audio_mode == 0) {
         adev->spdif_encoder_init_flag = false;
     }
@@ -8911,6 +8916,16 @@ static int adev_close(hw_device_t *device)
 
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         get_dolby_ms12_cleanup(&adev->ms12, false);
+
+        int wait_count = 0;
+        while (adev->ms12_out != NULL) {
+            if (wait_count >= 100) {
+                break;
+            }
+            wait_count++;
+            usleep(10*1000);//10ms
+        }
+        ALOGD("%s, wait_count:%d, ms12 resource should be released finish\n", __func__, wait_count);
     }
 
 /*[SEI-zhaopf-2018-10-29] add for HBG remote audio support { */

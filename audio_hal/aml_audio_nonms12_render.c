@@ -172,8 +172,8 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
     int decoder_remain_size = 0;
     dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
 
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->tv_src_stream;
-    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->tv_src_stream;
+    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->is_tv_src_stream;
+    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->is_tv_src_stream;
 
     if (aml_out->aml_dec == NULL) {
         config_output(stream, true);

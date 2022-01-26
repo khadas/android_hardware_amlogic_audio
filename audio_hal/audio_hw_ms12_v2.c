@@ -846,7 +846,7 @@ int get_the_dolby_ms12_prepared(
     , audio_channel_mask_t input_channel_mask
     , int input_sample_rate)
 {
-    ALOGI("+%s()", __FUNCTION__);
+    ALOGI("+%s()  aml_out:%p", __FUNCTION__, aml_out);
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     struct aml_stream_out *out;
@@ -1264,8 +1264,8 @@ int dolby_ms12_main_process(
 
         /*this status is only updated in hw_write, continuous mode also need it*/
         if (adev->continuous_audio_mode) {
-            if (aml_out->status != STREAM_HW_WRITING) {
-                aml_out->status = STREAM_HW_WRITING;
+            if (aml_out->stream_status != STREAM_HW_WRITING) {
+                aml_out->stream_status = STREAM_HW_WRITING;
             }
         }
 
@@ -1485,7 +1485,7 @@ MAIN_INPUT:
                         goto exit;
                     }
 
-                } while (aml_out->status != STREAM_STANDBY);
+                } while (aml_out->stream_status != STREAM_STANDBY);
             }
 
             dolby_ms12_input_bytes = dolby_ms12_input_main(
@@ -2875,14 +2875,14 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     struct aml_audio_patch *patch = adev->audio_patch;
     aml_dtvsync_t *aml_dtvsync = NULL;
     audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->tv_src_stream;
+    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->is_tv_src_stream;
     dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
     audio_format_t output_format = (ms12_info) ? ms12_info->data_type : AUDIO_FORMAT_PCM_16_BIT;
     unsigned int main_apts_high32b = (ms12_info) ? ms12_info->main_apts_high32b : 0;
     unsigned int main_apts_low32b = (ms12_info) ? ms12_info->main_apts_low32b : 0;
     unsigned int main1_apts_high32b = (ms12_info) ? ms12_info->main1_apts_high32b : 0;
     unsigned int main1_apts_low32b = (ms12_info) ? ms12_info->main1_apts_low32b : 0;
-    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->tv_src_stream;
+    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->is_tv_src_stream;
     int ret = 0;
 
     if (adev->debug_flag > 1) {
@@ -2963,6 +2963,8 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
             spdif_bitstream_output(buffer, priv_data, size);
         } else if (output_format == AUDIO_FORMAT_MAT) {
             mat_bitstream_output(buffer, priv_data, size);
+        } else {
+            ALOGE("%s  abnormal output_format:0x%x", __func__, output_format);
         }
     }
     return ret;

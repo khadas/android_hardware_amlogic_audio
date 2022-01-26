@@ -277,12 +277,13 @@ typedef enum alsa_device {
     ALSA_DEVICE_CNT
 } alsa_device_t;
 
-enum stream_status {
-    STREAM_STANDBY = 0,
+typedef enum audio_stream_status {
+    STREAM_STANDBY  = 0,
     STREAM_HW_WRITING,
     STREAM_MIXING,
-    STREAM_PAUSED
-};
+    STREAM_PAUSED,
+    STREAM_STATUS_MAX
+} stream_status_t;
 
 /* Base on user settings */
 typedef enum picture_mode {
@@ -677,7 +678,7 @@ struct aml_stream_out {
     unsigned int card;
     alsa_device_t device;
     ssize_t (*write)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
-    enum stream_status status;
+    stream_status_t stream_status;
     audio_format_t hal_internal_format;
     bool dual_output_flag;
     uint64_t input_bytes_size;
@@ -721,7 +722,7 @@ struct aml_stream_out {
     int codec_type2;  /*used for dual bitstream output*/
     struct pcm *pcm2; /*used for dual bitstream output*/
     int pcm2_mute_cnt;
-    bool tv_src_stream;
+    bool is_tv_src_stream;
     unsigned int write_func;
     uint64_t  last_frame_reported;
     struct timespec  last_timestamp_reported;

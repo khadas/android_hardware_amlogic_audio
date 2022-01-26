@@ -763,7 +763,7 @@ static int dtv_write_mute_frame(struct aml_audio_patch *patch,
     } else {
         memcpy(mixbuffer + mix_size, mute_ddp_frame, sizeof(mute_ddp_frame));
     }
-    if (aml_out->status != STREAM_HW_WRITING ||
+    if (aml_out->stream_status != STREAM_HW_WRITING ||
         patch->output_thread_exit == 1) {
         ALOGE("dtv_write_mute_frame exit");
         return -1;

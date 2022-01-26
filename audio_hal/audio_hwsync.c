@@ -466,6 +466,9 @@ int aml_audio_hwsync_set_first_pts(audio_hwsync_t *p_hwsync, uint64_t pts)
 
     p_hwsync->first_apts_flag = true;
     p_hwsync->first_apts = pts;
+
+    /* this wait lead to medaivol case fail. TV-41815 */
+#if 0 // here close this delay for tsync.
     if (!p_hwsync->use_mediasync) {
         while (delay_count < 10) {
             vframe_ready_cnt = get_sysfs_int("/sys/class/video/vframe_ready_cnt");
@@ -478,7 +481,7 @@ int aml_audio_hwsync_set_first_pts(audio_hwsync_t *p_hwsync, uint64_t pts)
             break;
         }
     }
-
+#endif
     if (aml_hwsync_set_tsync_start_pts64(p_hwsync, pts) < 0)
         return -EINVAL;
     p_hwsync->aout->tsync_status = TSYNC_STATUS_RUNNING;

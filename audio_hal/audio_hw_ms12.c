@@ -733,7 +733,7 @@ int get_the_dolby_ms12_prepared(
     , audio_channel_mask_t input_channel_mask
     , int input_sample_rate)
 {
-    ALOGI("+%s()", __FUNCTION__);
+    ALOGI("+%s()  aml_out:%p", __FUNCTION__, aml_out);
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     int dolby_ms12_drc_mode = DOLBY_DRC_RF_MODE;
@@ -1056,8 +1056,8 @@ int dolby_ms12_main_process(
 
         /*this status is only updated in hw_write, continuous mode also need it*/
         if (adev->continuous_audio_mode) {
-            if (aml_out->status != STREAM_HW_WRITING) {
-                aml_out->status = STREAM_HW_WRITING;
+            if (aml_out->stream_status != STREAM_HW_WRITING) {
+                aml_out->stream_status = STREAM_HW_WRITING;
             }
         }
 
@@ -1279,7 +1279,7 @@ MAIN_INPUT:
                         goto exit;
                     }
 
-                } while (aml_out->status != STREAM_STANDBY);
+                } while (aml_out->stream_status != STREAM_STANDBY);
             }
 
             dolby_ms12_input_bytes = dolby_ms12_input_main(

@@ -92,7 +92,7 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
     unsigned long long all_zero_len = 0;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     audio_format_t output_format = get_output_format (stream);
-    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->tv_src_stream;
+    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->is_tv_src_stream;
 
     if (adev->debug_flag) {
         ALOGD("%s:%d hal_format:%#x, output_format:0x%x, sink_format:0x%x do_easing %d",
@@ -295,8 +295,8 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     int ms12_delayms = 0;
     int force_setting_delayms = 0;
     bool bypass_aml_dec = false;
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->tv_src_stream;
-    bool dtv_stream_flag = patch && (adev->patch_src == SRC_DTV) && aml_out->tv_src_stream;
+    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->is_tv_src_stream;
+    bool dtv_stream_flag = patch && (adev->patch_src == SRC_DTV) && aml_out->is_tv_src_stream;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
     /*

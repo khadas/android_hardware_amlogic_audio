@@ -1327,7 +1327,7 @@ int out_standby_subMixingPCM(struct audio_stream *stream)
         goto exit;
     }
 
-    aml_out->status = STREAM_STANDBY;
+    aml_out->stream_status = STREAM_STANDBY;
     aml_out->standby = true;
 #ifdef ENABLE_AEC_APP
     aec_set_spk_running(adev->aec, false);

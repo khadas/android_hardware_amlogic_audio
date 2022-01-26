@@ -811,14 +811,22 @@ static const char *write_func_to_str(enum stream_write_func func)
     return write_func_strs[func];
 }
 
+/*this should match with stream_status_t in audio_hw.h*/
+const char *stream_status_2_string[STREAM_STATUS_MAX] = {
+    "_STANDBY",
+    "_HW_WRITING",
+    "_MIXING",
+    "_PAUSED"
+};
+
 void aml_stream_out_dump(struct aml_stream_out *aml_out, int fd)
 {
     if (aml_out) {
         dprintf(fd, "    usecase: %s\n", usecase2Str(aml_out->usecase));
         dprintf(fd, "    out device: %#x\n", aml_out->out_device);
-        dprintf(fd, "    tv source stream: %d\n", aml_out->tv_src_stream);
-        dprintf(fd, "    status: %d\n", aml_out->status);
-        dprintf(fd, "    standby: %d\n", aml_out->standby);
+        dprintf(fd, "    is tv source stream: %s\n", aml_out->is_tv_src_stream?"true":"false");
+        dprintf(fd, "    stream status:%d %s\n", aml_out->stream_status, stream_status_2_string[aml_out->stream_status]);
+        dprintf(fd, "    standby: %s\n", aml_out->standby?"true":"false");
         if (aml_out->is_normal_pcm) {
             dprintf(fd, "    normal pcm: %s\n",
                 write_func_to_str(aml_out->write_func));
