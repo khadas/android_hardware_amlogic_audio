@@ -291,6 +291,9 @@ void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, unsig
  *     bool b_mute: 1 mute , 0 unmute
  */
 void set_ms12_main_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute, unsigned int duration);
+
+audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format);
+
 #endif //end of _AUDIO_HW_MS12_H_
 
 #else

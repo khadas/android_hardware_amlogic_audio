@@ -6233,15 +6233,15 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
                 dolby_ms12_hwsync_init();
         }
     }
-    // why clean up, ms12 thead will handle all?? zz
+
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
-        if (patch && continous_mode(adev)) {
-            if (adev->ms12.dolby_ms12_enable) {
-                pthread_mutex_lock(&adev->lock);
-                get_dolby_ms12_cleanup(&adev->ms12, false);
-                pthread_mutex_unlock(&adev->lock);
+        if (!continous_mode(adev) && adev->ms12.dolby_ms12_enable) {
+            if (adev->ms12.main_input_fmt != ms12_get_audio_hal_format(aml_out->hal_internal_format)) {
+                bool set_ms12_non_continuous = true;
+                ALOGI("main format is not match with current one, we need reset it");
+                get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
+                adev->doing_reinit_ms12 = true;
             }
-            return return_bytes;
         }
     }
     case_cnt = popcount (adev->usecase_masks);

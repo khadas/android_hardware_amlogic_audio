@@ -394,7 +394,7 @@ static int get_ms12_output_mask(audio_format_t sink_format,audio_format_t  optic
     return output_config;
 }
 
-static audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format)
+audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format)
 {
     if (hal_format == AUDIO_FORMAT_E_AC3_JOC) {
         return AUDIO_FORMAT_E_AC3;
