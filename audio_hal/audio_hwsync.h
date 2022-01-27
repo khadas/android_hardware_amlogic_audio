@@ -163,6 +163,6 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
 void aml_audio_hwsync_release(audio_hwsync_t *p_hwsync);
 bool aml_audio_hwsync_get_id(audio_hwsync_t *p_hwsync, int32_t* id);
 bool aml_audio_hwsync_set_id(audio_hwsync_t *p_hwsync, uint32_t id);
-
+bool aml_audio_hwsync_update_threshold(audio_hwsync_t *p_hwsync);
 
 #endif

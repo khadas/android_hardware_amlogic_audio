@@ -6406,7 +6406,7 @@ hwsync_rewrite:
                         latency_pts / 90, latency, video_delay_ms, tunning_latency, apts, apts64);
                     }
 
-
+                    aml_audio_hwsync_update_threshold(hw_sync);
                     if (hw_sync->wait_video_done == false) {
                         aml_hwsync_wait_video_start(hw_sync);
                         aml_hwsync_wait_video_drop(hw_sync, apts64);

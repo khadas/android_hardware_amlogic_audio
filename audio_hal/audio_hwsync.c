@@ -484,7 +484,7 @@ int aml_audio_hwsync_set_first_pts(audio_hwsync_t *p_hwsync, uint64_t pts)
     p_hwsync->aout->tsync_status = TSYNC_STATUS_RUNNING;
     return 0;
 }
-bool aml_audio_hwsync_set_time_gap_threshold(audio_hwsync_t *p_hwsync, int64_t threshold_value /*__unused*/)
+bool aml_audio_hwsync_set_time_gap_threshold(audio_hwsync_t *p_hwsync, int64_t threshold_value)
 {
     int64_t value = 0;
     bool ret = false;
@@ -499,6 +499,29 @@ bool aml_audio_hwsync_set_time_gap_threshold(audio_hwsync_t *p_hwsync, int64_t t
 
     return ret;
 }
+
+bool aml_audio_hwsync_update_threshold(audio_hwsync_t *p_hwsync)
+{
+    bool ret = false;
+    int64_t avsync_time_threshold_value = 0;
+    struct aml_audio_device *adev = p_hwsync->aout->dev;
+    /* the threshold default value is 50ms,
+     * it will be changed to 100ms for drop when pass through mode.
+     * this modification is for MiBox plist passthrough of NTS cases
+     */
+    if (adev && (BYPASS == adev->hdmi_format || eDolbyMS12Lib != adev->dolby_lib_type)) {
+        avsync_time_threshold_value = 100*1000;
+        ret = aml_audio_hwsync_set_time_gap_threshold(p_hwsync, avsync_time_threshold_value);
+    } else {
+        avsync_time_threshold_value = 50*1000;
+        ret = aml_audio_hwsync_set_time_gap_threshold(p_hwsync, avsync_time_threshold_value);
+    }
+    ALOGV("%s, avsync_time_threshold_value:%lld, udpate threshold finished.",
+            __func__, avsync_time_threshold_value);
+
+    return ret;
+}
+
 /*
 @offset :ms12 real costed offset
 @p_adjust_ms: a/v adjust ms.if return a minus,means
@@ -524,7 +547,6 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     int alsa_pcm_delay_frames = 0;
     int alsa_bitstream_delay_frames = 0;
     int ms12_pipeline_delay_frames = 0;
-    int64_t avsync_time_threshold_value = 0;
     ALOGV("%s,================", __func__);
 
 
@@ -545,20 +567,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
         }
     }
 
-    /* the threshold default value is 50ms,
-     * it will be changed to 100ms for drop when pass through mode.
-     * this modification is for MiBox plist passthrough of NTS cases
-     */
-    if (adev && BYPASS == adev->hdmi_format) {
-        avsync_time_threshold_value = 100*1000;
-        aml_audio_hwsync_set_time_gap_threshold(p_hwsync, avsync_time_threshold_value);
-    } else {
-        avsync_time_threshold_value = 50*1000;
-        aml_audio_hwsync_set_time_gap_threshold(p_hwsync, avsync_time_threshold_value);
-    }
-    ALOGV("%s, avsync_time_threshold_value:%lld, udpate threshold finished.",
-            __func__, avsync_time_threshold_value);
-
+    ret = aml_audio_hwsync_update_threshold(p_hwsync);
     ret = aml_audio_hwsync_lookup_apts(p_hwsync, offset, &apts);
 
     /*get MS12 pipe line delay + alsa delay*/
