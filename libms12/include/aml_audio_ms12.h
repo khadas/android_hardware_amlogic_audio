@@ -25,6 +25,27 @@
 
 #define DOLBY_SAMPLE_SIZE 4//2ch x 2bytes(16bits) = 4 bytes
 
+/*
+ *@brief define enum for MS12 Scheduler state
+ */
+typedef enum MS12_SCHEDULER_STATE {
+    MS12_SCHEDULER_NONE = -1,
+    MS12_SCHEDULER_RUNNING =  0,
+    MS12_SCHEDULER_STANDBY =  1,
+
+    MS12_SCHEDULER_MAX,
+} ms12_scheduler_state_t;
+
+typedef enum MS12_RESUME_STATE {
+    MS12_RESUME_NONE = -1,
+    MS12_RESUME_FROM_RESUME =  0,
+    MS12_RESUME_FROM_FLUSH =  1,
+    MS12_RESUME_FROM_CLOSE =  2,
+    MS12_RESUME_FROM_DTV_PAUSE = 3,
+
+    MS12_RESUME_MAX,
+} ms12_resume_state_t;
+
 enum {
     BITSTREAM_OUTPUT_A,
     BITSTREAM_OUTPUT_B,
@@ -154,6 +175,10 @@ struct dolby_ms12_desc {
     bool     do_easing;
     uint64_t dtv_decoder_offset_base;   /*save the dtv input offset, which is realted with PTS*/
     bool tv_tuning_flag;
+    int ms12_scheduler_state;
+    int last_scheduler_state;
+    int ms12_resume_state;
+    bool ms12_resume;
 };
 
 /*

@@ -147,7 +147,7 @@ void aml_hwsync_wrap_set_tsync_pause(audio_hwsync_t *p_hwsync)
 
 void aml_hwsync_wrap_set_tsync_resume(audio_hwsync_t *p_hwsync)
 {
-    ALOGI("%s(), send resuem event", __func__);
+    ALOGI("%s(), send resume event", __func__);
     bool ret = false;
     sync_mode mode = MEDIA_SYNC_MODE_MAX;
     if (!p_hwsync || (p_hwsync && !p_hwsync->use_mediasync)) {

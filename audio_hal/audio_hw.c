@@ -1002,8 +1002,8 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
             // set hal_rate to sr for passing VTS
             ALOGI ("Amlogic_HAL - %s: set sample_rate to hal_rate.", __FUNCTION__);
             out->hal_rate = sr;
-            pthread_mutex_unlock (&adev->lock);
             pthread_mutex_unlock (&out->lock);
+            pthread_mutex_unlock (&adev->lock);
         }
 
         // We shall return Result::OK, which is 0, if parameter is set successfully,
@@ -1031,8 +1031,8 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
             // set hal_format to fmt for passing VTS
             ALOGI ("Amlogic_HAL - %s: set format to hal_format. fmt = %d", __FUNCTION__, fmt);
             out->hal_format = fmt;
-            pthread_mutex_unlock (&adev->lock);
             pthread_mutex_unlock (&out->lock);
+            pthread_mutex_unlock (&adev->lock);
         }
 
         // We shall return Result::OK, which is 0, if parameter is set successfully,
@@ -1060,8 +1060,8 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
             // set out->hal_channel_mask to channels for passing VTS
             ALOGI ("Amlogic_HAL - %s: set out->hal_channel_mask to channels. fmt = %d", __FUNCTION__, channels);
             out->hal_channel_mask = channels;
-            pthread_mutex_unlock (&adev->lock);
             pthread_mutex_unlock (&out->lock);
+            pthread_mutex_unlock (&adev->lock);
         }
 
         // We shall return Result::OK, which is 0, if parameter is set successfully,
@@ -1086,8 +1086,8 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
                 startup_func (out);
                 out->standby = 0;
             }
-            pthread_mutex_unlock (&adev->lock);
             pthread_mutex_unlock (&out->lock);
+            pthread_mutex_unlock (&adev->lock);
         }
 
         // We shall return Result::OK, which is 0, if parameter is set successfully,
@@ -1098,12 +1098,31 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
         goto exit;
     }
     ret = str_parms_get_str (parms, "hw_av_sync", value, sizeof (value) );
-    if (ret >= 0) {
+    if (ret >= 0 && out->hw_sync_mode == false) {
         if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
             int hw_sync_id = atoi(value);
             bool ret_set_id = false;
-            if ((hw_sync_id != 12345678) && (hw_sync_id >= 0)) {
-                ALOGI ("[%s]adev->hw_mediasync:%p\n", __FUNCTION__, adev->hw_mediasync);
+
+            if (hw_sync_id < 0) {
+                ALOGE("%s, hw_sync_id:%d failed", __func__, hw_sync_id);
+                goto exit;
+            }
+
+            pthread_mutex_lock(&out->lock);
+            out->hwsync = aml_audio_calloc(1, sizeof(audio_hwsync_t));
+            if (!out->hwsync) {
+                pthread_mutex_unlock(&out->lock);
+                ALOGE("%s,malloc hwsync failed", __func__);
+                goto exit;
+            }
+            pthread_mutex_unlock(&out->lock);
+
+            if (hw_sync_id == 12345678) {
+                out->hwsync->tsync_fd = -1;
+                out->hwsync->hwsync_id = hw_sync_id;
+                aml_audio_hwsync_init(out->hwsync, out);
+            } else {
+                ALOGI ("[%s] adev->hw_mediasync:%p\n", __FUNCTION__, adev->hw_mediasync);
                 if (adev->hw_mediasync == NULL) {
                     adev->hw_mediasync = aml_hwsync_mediasync_create();
                 }
@@ -1113,20 +1132,22 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
                     out->hwsync->hwsync_id = hw_sync_id;
                     ret_set_id = aml_audio_hwsync_set_id(out->hwsync, hw_sync_id);
                 }
+                aml_audio_hwsync_init(out->hwsync, out);
             }
-            unsigned char sync_enable = ((hw_sync_id == 12345678) || ret_set_id) ? 1 : 0;
+
+
+            bool sync_enable = ((hw_sync_id == 12345678) || ret_set_id) ? true : false;
             audio_hwsync_t *hw_sync = out->hwsync;
-            ALOGI("(%p)set hw_sync_id %d,%s hw sync mode\n",
-                   out, hw_sync_id, sync_enable ? "enable" : "disable");
+            ALOGI("stream:(%p) set hw_sync_id:%d (0x%x), %s hw_sync and the mode is %s\n",
+                   out, hw_sync_id, hw_sync_id, sync_enable ? "enable" : "disable", (hw_sync_id == 12345678) ? "tsync" : "mediasync");
             out->hw_sync_mode = sync_enable;
 
             if (adev->ms12_out != NULL && adev->ms12_out->hwsync) {
                 adev->ms12_out->hw_sync_mode = out->hw_sync_mode;
                 ALOGI("set ms12_out %p hw_sync_mode %d",adev->ms12_out, adev->ms12_out->hw_sync_mode);
             }
-
-
             hw_sync->first_apts_flag = false;
+
             pthread_mutex_lock (&adev->lock);
             pthread_mutex_lock (&out->lock);
             out->frame_write_sum = 0;
@@ -1135,16 +1156,15 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
             if (!out->standby) {
                 standy_func (out);
             }
-            //adev->hwsync_output = sync_enable?out:NULL;
-            if (sync_enable) {
+
+            /*currently not use "hal mixer", here close these code*/
+            /*if (sync_enable) {
                 ALOGI ("init hal mixer when hwsync\n");
                 aml_hal_mixer_init (&adev->hal_mixer);
-            }
+            }*/
             if (continous_mode(adev) && out->hw_sync_mode) {
                 dolby_ms12_hwsync_init();
-
             }
-
             pthread_mutex_unlock (&out->lock);
             pthread_mutex_unlock (&adev->lock);
         } else {
@@ -1152,6 +1172,8 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
         }
         ret = 0;
         goto exit;
+    } else {
+        ALOGE("%s, ret:%d, hw_sync_mode:%s", __func__, ret, out->hw_sync_mode?"is true":"is false");
     }
     /*ret = str_parms_get_str (parms, "A2dpSuspended", value, sizeof (value) );
     if (ret >= 0) {
@@ -1456,7 +1478,8 @@ static int out_pause_new (struct audio_stream_out *stream)
     if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
         if (aml_dev->continuous_audio_mode == 1) {
             pthread_mutex_lock(&ms12->lock);
-            if ((aml_dev->ms12.dolby_ms12_enable == true) && (aml_dev->ms12.is_continuous_paused == false)) {
+            if ((aml_dev->ms12.dolby_ms12_enable == true) &&
+                ((aml_dev->ms12.is_continuous_paused == false) || (aml_out->pause_status == false))) {
                 audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_PAUSE);
             } else {
                 ALOGI("%s do nothing\n", __func__);
@@ -1519,10 +1542,11 @@ static int out_resume_new (struct audio_stream_out *stream)
     }
     if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
         if (aml_dev->continuous_audio_mode == 1) {
-            if ((aml_dev->ms12.dolby_ms12_enable == true) && (aml_dev->ms12.is_continuous_paused == true)) {
-                /*pcm case we resume here*/
+            if ((aml_dev->ms12.dolby_ms12_enable == true) && (aml_dev->ms12.is_continuous_paused || aml_out->pause_status)) {
                 if (audio_is_linear_pcm(aml_out->hal_internal_format)) {
+                    /*pcm data case, directly send resume message*/
                     pthread_mutex_lock(&ms12->lock);
+                    ms12->ms12_resume_state = MS12_RESUME_FROM_RESUME;
                     audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_RESUME);
                     pthread_mutex_unlock(&ms12->lock);
                 } else {
@@ -1533,15 +1557,6 @@ static int out_resume_new (struct audio_stream_out *stream)
             }
         }
     }
-    if (aml_out->pause_status == false) {
-        ALOGE("%s(), stream status %d\n", __func__, aml_out->pause_status);
-        goto exit;
-    }
-    aml_out->pause_status = false;
-    if (aml_out->hw_sync_mode && !aml_dev->ms12.need_resume) {
-        aml_hwsync_set_tsync_resume(aml_out->hwsync);
-        aml_out->tsync_status = TSYNC_STATUS_RUNNING;
-    }
 
 exit:
     pthread_mutex_unlock (&aml_out->lock);
@@ -1549,6 +1564,7 @@ exit:
 
     aml_out->pause_status = false;
     aml_audio_trace_int("out_resume_new", 0);
+    ALOGI("%s(), stream(%p) exit", __func__, stream);
     return ret;
 }
 
@@ -1589,6 +1605,7 @@ static int out_flush_new (struct audio_stream_out *stream)
              *It may causes problem for normal pause/flush/resume
              */
             if ((out->pause_status || adev->ms12.is_continuous_paused) && adev->ms12.dolby_ms12_enable) {
+                ms12->ms12_resume_state = MS12_RESUME_FROM_FLUSH;
                 audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_RESUME);
             }
             pthread_mutex_unlock(&ms12->lock);
@@ -3193,7 +3210,6 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         outMmapInit(out);
     }
 
-    //aml_audio_hwsync_init(out->hwsync,out);
     /* FIXME: when we support multiple output devices, we will want to
      * do the following:
      * adev->devices &= ~AUDIO_DEVICE_OUT_ALL;
@@ -3224,19 +3240,6 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         }
         memset(out->audioeffect_tmp_buffer, 0, out->config.period_size * 6);
     }
-
-    pthread_mutex_lock(&out->lock);
-    out->hwsync =  aml_audio_calloc(1, sizeof(audio_hwsync_t));
-    if (!out->hwsync) {
-        pthread_mutex_unlock(&out->lock);
-        ALOGE("%s,malloc hwsync failed", __func__);
-        ret = -ENOMEM;
-        goto err;
-    }
-    out->hwsync->tsync_fd = -1;
-    // for every stream, init hwsync once. ready to use in hwsync mode
-    aml_audio_hwsync_init(out->hwsync, out);
-    pthread_mutex_unlock(&out->lock);
 
     /*if tunnel mode pcm is not 48Khz, resample to 48K*/
     if (flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
@@ -3406,6 +3409,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             adev->ms12_out->hw_sync_mode = false;
 
             audiohal_send_msg_2_ms12(&adev->ms12, MS12_MESG_TYPE_FLUSH);
+            adev->ms12.ms12_resume_state = MS12_RESUME_FROM_CLOSE;
             audiohal_send_msg_2_ms12(&adev->ms12, MS12_MESG_TYPE_RESUME);
         }
         pthread_mutex_unlock(&adev->ms12.lock);
@@ -5865,9 +5869,11 @@ ssize_t hw_write (struct audio_stream_out *stream
             /*FIXME. 2ch 16 bit audio */
             adev->ms12.sys_audio_frame_pos = adev->ms12.sys_audio_base_pos + adev->ms12.sys_audio_skip + sys_total_cost/4 - latency_frames;
         }
-        if (adev->debug_flag)
-            ALOGI("sys audio pos %"PRIu64" ms ,sys_total_cost %"PRIu64",base pos %"PRIu64",skip pos %"PRIu64", latency %d \n",
-                    adev->ms12.sys_audio_frame_pos/48,sys_total_cost,adev->ms12.sys_audio_base_pos,adev->ms12.sys_audio_skip,latency_frames);
+        if (adev->debug_flag) {
+            ALOGI("%s  ms12.last_frames_postion:%llu,last_ms12_pcm_out_position:%llu; sys audio pos %"PRIu64" ms ,sys_total_cost %"PRIu64",base pos %"PRIu64",latency %d \n", __func__,
+                  adev->ms12.last_frames_postion, adev->ms12.last_ms12_pcm_out_position,
+                  adev->ms12.sys_audio_frame_pos/48,sys_total_cost,adev->ms12.sys_audio_base_pos,latency_frames);
+        }
         adev->ms12.last_sys_audio_cost_pos = sys_total_cost;
     }
     if (adev->debug_flag) {
@@ -6218,6 +6224,11 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
 
     if (aml_out->standby) {
         ALOGI("%s(), standby to unstandby", __func__);
+
+        if (aml_out->tsync_status != TSYNC_STATUS_RUNNING && aml_out->hw_sync_mode) {
+            hw_sync->first_apts_flag = false; //start tsync again.
+        }
+
         aml_out->standby = false;
     }
 
@@ -6544,6 +6555,7 @@ hwsync_rewrite:
             if (adev->ms12.need_resume) {
                 ALOGI("resume the timer");
                 pthread_mutex_lock(&ms12->lock);
+                ms12->ms12_resume_state = MS12_RESUME_FROM_RESUME;
                 audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_RESUME);
                 pthread_mutex_unlock(&ms12->lock);
                 if (aml_out->hw_sync_mode) {
@@ -6813,6 +6825,8 @@ exit:
             aml_out->timestamp = adev->ms12.timestamp;
             //clock_gettime(CLOCK_MONOTONIC, &aml_out->timestamp);
             aml_out->last_frames_postion = adev->ms12.last_frames_postion;
+            if (adev->debug_flag)
+                ALOGI("%s out:%p aml_out->last_frames_postion:%llu \n", __FUNCTION__, aml_out, aml_out->last_frames_postion);
         }
     }
     /*if the data consume is not complete, it will be send again by audio flinger,
@@ -7662,11 +7676,8 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
      * and here set audio stop would cause audio stuck
      */
     if (aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_STOP && !has_hwsync_stream_running(stream)) {
-        ALOGI("%s set AUDIO_PAUSE when close stream\n",__func__);
+        ALOGI("%s set AUDIO_PAUSE and AUDIO_STOP when close stream\n",__func__);
         aml_hwsync_set_tsync_pause(aml_out->hwsync);
-        aml_out->tsync_status = TSYNC_STATUS_PAUSED;
-
-        ALOGI("%s set AUDIO_STOP when stop stream\n",__func__);
         aml_hwsync_set_tsync_stop(aml_out->hwsync);
         aml_out->tsync_status = TSYNC_STATUS_STOP;
     }
@@ -9263,6 +9274,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->hw_device.get_audio_port = adev_get_audio_port;
     adev->hw_device.dump = adev_dump;
     adev->hdmi_format = AUTO;
+    adev->ms12.ms12_resume_state = MS12_RESUME_NONE;
     card = alsa_device_get_card_index();
     if ((card < 0) || (card > 7)) {
         ALOGE("error to get audio card");

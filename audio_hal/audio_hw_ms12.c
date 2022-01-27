@@ -1593,6 +1593,7 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     }
     aml_ms12_bypass_close(ms12->ms12_bypass_handle);
     ms12->ms12_bypass_handle = NULL;
+    ms12->ms12_resume_state = MS12_RESUME_NONE;
     for (i = 0; i < BITSTREAM_OUTPUT_CNT; i++) {
         struct bitstream_out_desc * bitstream_out = &ms12->bitstream_out[i];
         if (bitstream_out->spdifout_handle) {

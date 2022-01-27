@@ -1819,6 +1819,7 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
         ms12->mat_enc_handle = NULL;
     }
     ms12->ms12_bypass_handle = NULL;
+    ms12->ms12_resume_state = MS12_RESUME_NONE;
     ms12_close_all_spdifout(ms12);
     if (ms12->iec61937_ddp_buf) {
         aml_audio_free(ms12->iec61937_ddp_buf);
