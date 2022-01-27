@@ -51,6 +51,18 @@
 
 /*
  *@brief
+ *define the aml timer.
+ */
+#define AML_TIMER_ID_NUM (4)
+static struct
+{
+    unsigned int id;
+    unsigned int evt;
+    unsigned int state;
+}aml_timer[AML_TIMER_ID_NUM];
+
+/*
+ *@brief
  *Convert from ms12 pointer to aml_auido_device pointer.
  */
 #define ms12_to_adev(ms12_ptr)  (struct aml_audio_device *) (((char*) (ms12_ptr)) - offsetof(struct aml_audio_device, ms12))
@@ -69,8 +81,18 @@ const char *mesg_type_2_string[MS12_MESG_TYPE_MAX] = {
     "MS12_MESG_TYPE_SET_MAIN_DUMMY",
     "MS12_MESG_TYPE_UPDATE_RUNTIIME_PARAMS",
     "MS12_MESG_TYPE_EXIT_THREAD",
+    "MS12_MESG_TYPE_SCHEDULER_STATE",
 };
 
+/*
+ *@brief
+ *convert scheduler state to string,
+ *for more easy to check out log.
+ */
+const char *scheduler_state_2_string[MS12_SCHEDULER_MAX] = {
+    "SCHEDULER_RUNNING",
+    "SCHEDULER_STANDBY",
+};
 
 /*****************************************************************************
 *   Function Name:  set_dolby_ms12_runtime_pause
@@ -288,6 +310,10 @@ Repop_Mesg:
             case MS12_MESG_TYPE_EXIT_THREAD:
                 ALOGD("%s mesg exit thread.", __func__);
                 break;
+            case MS12_MESG_TYPE_SCHEDULER_STATE:
+                //aml_set_ms12_scheduler_state(&ms12->ms12_main_stream_out->stream);
+                //ALOGD("%s scheduler state.", __func__);
+                break;
             default:
                 ALOGD("%s  msg type not support.", __func__);
         }
@@ -371,4 +397,164 @@ int ms12_mesg_thread_destroy(struct dolby_ms12_desc *ms12)
     }
 
     return ret;
+}
+
+/*****************************************************************************
+*   Function Name:  aml_send_ms12_scheduler_state_2_ms12
+*   Description:    send scheduler state to ms12 after timer expiration.
+*   Parameters:     void
+*   Return value:   0: success, -1: error
+******************************************************************************/
+int aml_send_ms12_scheduler_state_2_ms12(void)
+{
+    struct aml_audio_device *adev = aml_adev_get_handle();
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    int sch_state = MS12_SCHEDULER_NONE;
+
+    pthread_mutex_lock(&ms12->lock);
+    sch_state = ms12->ms12_scheduler_state;
+    if (sch_state <= MS12_SCHEDULER_NONE ||  sch_state >= MS12_SCHEDULER_MAX) {
+           ALOGE("%s  sch_state:%d is an invalid scheduler state.", __func__, sch_state);
+           pthread_mutex_unlock(&ms12->lock);
+           return -1;
+    } else {
+        dolby_ms12_set_scheduler_state(ms12->ms12_scheduler_state);
+        ALOGD("%s adev:%p, sch_state:%d(%s) ", __func__, adev, sch_state, scheduler_state_2_string[sch_state]);
+    }
+    pthread_mutex_unlock(&ms12->lock);
+
+    return 0;
+}
+
+/*****************************************************************************
+*   Function Name:  aml_set_ms12_scheduler_state
+*   Description:    send scheduler state to ms12 or start a timer to delay.
+*   Parameters:     struct dolby_ms12_desc:ms12 pointer
+*   Return value:   0: success, -1: error
+******************************************************************************/
+int aml_set_ms12_scheduler_state(struct dolby_ms12_desc *ms12)
+{
+    struct aml_audio_device *adev = aml_adev_get_handle();
+    int sch_state = ms12->ms12_scheduler_state;
+    bool is_arc_connecting = (adev->bHDMIConnected == 1);/*(adev->active_outport == OUTPORT_HDMI_ARC);*/
+    bool is_netflix = adev->is_netflix;
+    unsigned int remaing_time = 0;
+
+    if (sch_state <= MS12_SCHEDULER_NONE ||  sch_state >= MS12_SCHEDULER_MAX) {
+          ALOGE("%s  sch_state:%d is an invalid scheduler state.", __func__, sch_state);
+          return -1;
+    } else if (ms12->last_scheduler_state == sch_state) {
+       ALOGW("%s  sch_state:%d %s, ms12 scheduler state not changed.", __func__, sch_state, scheduler_state_2_string[sch_state]);
+       return 0;
+    }
+    if (!is_arc_connecting && !is_netflix) {
+        remaing_time = audio_timer_remaining_time(AML_TIMER_ID_1);
+        if (remaing_time > 0) {
+            audio_timer_stop(AML_TIMER_ID_1);
+        }
+
+        if (sch_state == MS12_SCHEDULER_STANDBY) {
+            audio_one_shot_timer_start(AML_TIMER_ID_1, AML_TIMER_DELAY);
+        } else {
+            dolby_ms12_set_scheduler_state(sch_state);
+        }
+
+        ALOGI("%s  ms12_scheduler_state:%d, sch_state:%d %s is sent to ms12", __func__,
+            ms12->ms12_scheduler_state, sch_state, scheduler_state_2_string[sch_state]);
+    } else {
+        remaing_time = audio_timer_remaining_time(AML_TIMER_ID_1);
+        if (remaing_time > 0) {
+            audio_timer_stop(AML_TIMER_ID_1);
+        }
+
+        sch_state = MS12_SCHEDULER_RUNNING;
+        dolby_ms12_set_scheduler_state(sch_state);
+        ALOGI("%s  is_arc_connecting:%d, is_netflix:%d, sch_state:%d %s is sent to ms12", __func__,
+            is_arc_connecting, is_netflix, sch_state, scheduler_state_2_string[sch_state]);
+    }
+    ms12->last_scheduler_state = sch_state;
+
+    return 0;
+}
+
+/*****************************************************************************
+*   Function Name:  aml_audiohal_sch_state_2_ms12
+*   Description:    audio hal send message to ms12.
+*   Parameters:     struct dolby_ms12_desc:ms12 pointer
+*   Return value:   0: success, -1: error
+******************************************************************************/
+int aml_audiohal_sch_state_2_ms12(struct dolby_ms12_desc *ms12, int sch_state)
+{
+    pthread_mutex_lock(&ms12->lock);
+    ms12->ms12_scheduler_state = sch_state;
+    aml_set_ms12_scheduler_state(ms12);
+    pthread_mutex_unlock(&ms12->lock);
+
+    return 0;
+}
+
+/*****************************************************************************
+*   Function Name:  aml_audio_timer_create
+*   Description:    create timer for audio hal.
+*   Parameters:     void
+*   Return value:   0: success, -1: error
+******************************************************************************/
+int aml_audio_timer_create(void)
+{
+    unsigned int timer_id = 0;
+    int ret = 0;
+    int err = 0;
+
+    for (timer_id = 0; timer_id < AML_TIMER_ID_NUM; timer_id++)
+    {
+        ret = audio_timer_create(timer_id);
+        if (ret < 0) {
+            ALOGE("func:%s timer_id:%d fail",__func__, timer_id);
+            err = -1;
+            break;
+        }
+
+        aml_timer[timer_id].id = timer_id;
+        aml_timer[timer_id].evt = AML_TIMER_MK_EVT(timer_id);
+        aml_timer[timer_id].state = 0;
+    }
+
+    return err;
+}
+
+/*****************************************************************************
+*   Function Name:  aml_audio_timer_init
+*   Description:    init timer for audio hal.
+*   Parameters:     void
+*   Return value:   void
+******************************************************************************/
+void aml_audio_timer_init(void)
+{
+    audio_timer_init();
+}
+
+/*****************************************************************************
+*   Function Name:  aml_audio_timer_delete
+*   Description:    delete timer for audio hal.
+*   Parameters:     void
+*   Return value:   0: success, -1: error
+******************************************************************************/
+int aml_audio_timer_delete(void)
+{
+    unsigned int timer_id = 0;
+    int ret = 0;
+    int err = 0;
+
+    for (timer_id = 0; timer_id < AML_TIMER_ID_NUM; timer_id++)
+    {
+        ret = audio_timer_delete(timer_id);
+        if (ret < 0)
+        {
+            ALOGE("func:%s timer_id:%d fail",__func__, timer_id);
+            err = -1;
+            break;
+        }
+    }
+
+    return err;
 }

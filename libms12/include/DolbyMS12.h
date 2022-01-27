@@ -26,6 +26,9 @@
 typedef enum  {
     MS12_CONFIG_MAIN_VOLUME,
     MS12_CONFIG_LOW_LATENCY,
+    MS12_CONFIG_MIXER_MAX_SIZE_ENABLED,
+    MS12_CONFIG_COMPRESSION_FORMAT,/*enable the mixer max size to 1536, this can save cpu bandwidth*/
+    MS12_CONFIG_SCHEDULER_STATE,
 }ms12_config_type_t;
 
 typedef union ms12_config {
@@ -150,6 +153,10 @@ public:
     virtual int     DolbyMS12SetMainVolume(float volume);
 
     virtual int     DolbyMS12GetInputISDolbyAtmos();
+
+    virtual int     DolbyMS12EnableMixerMaxSize(int enable);
+    virtual int     DolbyMS12SetCompressionFormat(int compression_format);
+    virtual int     DolbyMS12SetSchedulerState(int sch_state);
 
     virtual int     DolbyMS12SetSysLowLatency(int low_latency);
     virtual unsigned long long DolbyMS12GetNBytesConsumedSysSound(void);

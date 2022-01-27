@@ -60,6 +60,7 @@
 #include "aml_dts_dec_api.h"
 #include "audio_format_parse.h"
 #include "audio_usb_hal.h"
+#include "audio_timer.h"
 
 /* number of frames per period */
 /*
@@ -584,6 +585,7 @@ struct aml_audio_device {
     hal need by-pass hw acess until the apk release flag
     */
     unsigned int direct_mode;
+    bool audio_patch_2_af_stream;
 };
 
 struct meta_data {
@@ -1010,6 +1012,11 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder);
 int out_standby_direct (struct audio_stream *stream);
 
 void *adev_get_handle();
+/*
+ *@brief get primary adev handle.
+ */
+void *aml_adev_get_handle(void);
+
 audio_format_t get_non_ms12_output_format(audio_format_t src_format, struct aml_audio_device *aml_dev);
 
 int start_input_stream(struct aml_stream_in *in);

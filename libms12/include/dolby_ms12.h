@@ -271,6 +271,20 @@ int dolby_ms12_set_sys_low_latency(int low_latency);
     @brief enable the atmos drop
 */
 int dolby_ms12_enable_atmos_drop(int atmos_drop);
+
+/*@@
+    @brief enable the mixer max frame size
+*/
+int dolby_ms12_enable_mixer_max_size(int enable);
+
+/*@@
+    @brief set the mixer compression format
+*/
+int dolby_ms12_set_dolby_compression_format(int compression_format);
+/*@@
+    @brief set the scheduler state
+*/
+int dolby_ms12_set_scheduler_state(int sch_state);
 unsigned long long dolby_ms12_get_consumed_sys_audio();
 
 int dolby_ms12_hwsync_init_internal(void);

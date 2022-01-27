@@ -247,6 +247,27 @@ int dolby_ms12_set_mat_stream_profile(int stream_profile);
 int dolby_ms12_enable_atmos_drop(int atmos_drop);
 
 /*@@
+    @brief set game mode
+*/
+int dolby_ms12_set_game_mode(int game_mode);
+
+/*@@
+    @brief enable the mixer max frame size
+*/
+int dolby_ms12_enable_mixer_max_size(int enable);
+
+/*@@
+    @brief set the mixer compression format
+*/
+int dolby_ms12_set_dolby_compression_format(int compression_format);
+
+
+/*@@
+    @brief set the scheduler state
+*/
+int dolby_ms12_set_scheduler_state(int sch_state);
+
+/*@@
     @brief get PCM's nframes which outputed by decoder
 */
 unsigned long long dolby_ms12_get_decoder_nframes_pcm_output(void *ms12_pointer, int format, int is_main);

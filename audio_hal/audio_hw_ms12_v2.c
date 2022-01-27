@@ -52,7 +52,7 @@
 #include "aml_data_utils.h"
 #include "aml_audio_ms12_sync.h"
 #include "aml_malloc_debug.h"
-
+#include "audio_hw_ms12_common.h"
 
 #define DOLBY_DRC_LINE_MODE 0
 #define DOLBY_DRC_RF_MODE   1
@@ -223,11 +223,31 @@ static const unsigned int ms12_muted_ddp_raw[] = {
 
 static int nbytes_of_dolby_ms12_downmix_output_pcm_frame();
 void ms12_do_dtv_sync(struct audio_stream_out *stream);
+static void *dolby_ms12_threadloop(void *data);
 
 static int get_ms12_dump_enable(int dump_type) {
     int value = 0;
     value = get_debug_value(AML_DUMP_AUDIOHAL_MS12);
     return (value & dump_type);
+}
+
+unsigned int get_ms12_buffer_latency(struct aml_stream_out *out)
+{
+    unsigned int ms12_latency = 0;
+    ALOGV("%s, flags:0x%x, format:0x%x", __func__, out->flags, out->hal_internal_format);
+    if (is_dolby_ms12_support_compression_format(out->hal_internal_format)) {
+        ms12_latency = MS12_MAIN_INPUT_BUF_NONEPCM_NS / (1000*1000);
+    } else if (out->hal_internal_format & AUDIO_FORMAT_PCM_16_BIT) {
+        if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
+            ms12_latency = MS12_MAIN_INPUT_BUF_PCM_NS / (1000*1000);
+        } else {
+            ms12_latency = MS12_SYS_INPUT_BUF_NS / (1000*1000);
+        }
+    } else {
+        // do nothing.
+    }
+
+    return ms12_latency;
 }
 
 static void ms12_spdif_encoder(void * in_buf, int in_size, audio_format_t output_format, void *out_buf, int * out_size) {
@@ -290,8 +310,6 @@ static void dump_ms12_output_data(void *buffer, int size, char *file_name)
         fclose(fp1);
     }
 }
-
-static void *dolby_ms12_threadloop(void *data);
 
 static int get_ms12_output_config(audio_format_t format)
 {
@@ -1096,6 +1114,26 @@ int get_the_dolby_ms12_prepared(
     ms12->mat_enc_debug_enable = get_debug_value(AML_DEBUG_AUDIOHAL_MATENC);
     ALOGI("--%s(), locked", __FUNCTION__);
     pthread_mutex_unlock(&ms12->lock);
+
+    /*1)switch AudioPatch to AF stream, need send SCHEDULER_RUNNING state again.
+    **  to avoid ms12 not wakeup, so that the device no sound.
+    **2)ms12_cleanup maybe be called in close_output_stream when connecting ARC.
+    **  here should send SCHEDULER_RUNNING again to wakeup ms12 scheduler_run.
+    **3)system_stream send the MS12_SCHEDULER_RUNNING message to ms12 and call ms12_cleanup/ms12_prepare
+    **  when device bootup to config ms12. this patch add detecting(dolby_ms12_enable) logic in get_dolby_ms12_cleanup,
+    **  it lead to cleanup not excute finished. so the last_scheduler_state/MS12_SCHEDULER_RUNNING state can't
+    **  send to ms12, ms12 always sleep status.
+    **  the system stream data can't send to ms12/speaker when bootup,
+    **  this lead to system stream always pop noise when playback YouTuBe.
+    */
+    if (adev->audio_patch_2_af_stream || OUTPORT_HDMI_ARC == adev->active_outport
+        || ms12->ms12_scheduler_state == MS12_SCHEDULER_RUNNING) {
+        ms12->last_scheduler_state = MS12_SCHEDULER_NONE;
+        adev->audio_patch_2_af_stream = false;
+
+        aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
+    }
+
     ALOGI("-%s()\n\n", __FUNCTION__);
 
     return ret;
@@ -1749,8 +1787,10 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     int is_quit = 1;
     int i = 0;
     struct aml_audio_device *adev = NULL;
+    unsigned int remaing_time = 0;
     ALOGI("+%s()", __FUNCTION__);
-    if (!ms12) {
+    if (!ms12 || ms12->dolby_ms12_enable == false) {
+        ALOGI("-%s()  exit.", __FUNCTION__);
         return -EINVAL;
     }
     adev = ms12_to_adev(ms12);
@@ -1766,9 +1806,17 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
         goto exit;
     }
 
+    ALOGI("++%s(), locked", __FUNCTION__);
     adev->doing_cleanup_ms12 = true;
 
-    ALOGI("++%s(), locked", __FUNCTION__);
+    /* check timers is running or not,
+    ** timer should be stopped if running.
+    **/
+    remaing_time = audio_timer_remaining_time(AML_TIMER_ID_1);
+    if (remaing_time > 0) {
+        audio_timer_stop(AML_TIMER_ID_1);
+    }
+
     ALOGI("%s() dolby_ms12_set_quit_flag %d", __FUNCTION__, is_quit);
     dolby_ms12_set_quit_flag(is_quit);
 
@@ -1819,6 +1867,8 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
         ms12->mat_enc_handle = NULL;
     }
     ms12->ms12_bypass_handle = NULL;
+    ms12->ms12_scheduler_state = MS12_SCHEDULER_NONE;
+    ms12->last_scheduler_state = MS12_SCHEDULER_NONE;
     ms12->ms12_resume_state = MS12_RESUME_NONE;
     ms12_close_all_spdifout(ms12);
     if (ms12->iec61937_ddp_buf) {

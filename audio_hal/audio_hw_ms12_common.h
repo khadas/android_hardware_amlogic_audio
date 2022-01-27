@@ -24,6 +24,20 @@
 
 #include "audio_hw.h"
 
+#define AML_TIMER_ID_1                        (0)
+#define AML_TIMER_ID_2                        (1)
+#define AML_TIMER_ID_3                        (2)
+#define AML_TIMER_ID_4                        (3)
+
+#define AML_TIMER_MK_EVT(ID)                   ((unsigned int)1<<(unsigned int)((ID)+1))
+#define AML_TIMER_ID_01_EVT                    AML_TIMER_MK_EVT(AML_TIMER_ID_1)
+#define AML_TIMER_ID_02_EVT                    AML_TIMER_MK_EVT(AML_TIMER_ID_2)
+#define AML_TIMER_ID_03_EVT                    AML_TIMER_MK_EVT(AML_TIMER_ID_3)
+#define AML_TIMER_ID_04_EVT                    AML_TIMER_MK_EVT(AML_TIMER_ID_4)
+
+//delay time ms
+#define AML_TIMER_DELAY     (3000)
+
 /*
  *@brief define enum for MS12 message type
  */
@@ -35,6 +49,7 @@ typedef enum ms12_mesg_type {
     MS12_MESG_TYPE_SET_MAIN_DUMMY,
     MS12_MESG_TYPE_UPDATE_RUNTIIME_PARAMS,
     MS12_MESG_TYPE_EXIT_THREAD,
+    MS12_MESG_TYPE_SCHEDULER_STATE,
     MS12_MESG_TYPE_MAX,
 }ms12_mesg_type_t;
 
@@ -49,11 +64,20 @@ struct ms12_mesg_desc {
 };
 
 /*
- *@brief set dolby ms12 pause
+ *@brief set dolby ms12 pause/resume
  */
 int set_dolby_ms12_runtime_pause(struct dolby_ms12_desc *ms12, int is_pause);
 int dolby_ms12_main_pause(struct audio_stream_out *stream);
 int dolby_ms12_main_resume(struct audio_stream_out *stream);
+
+/*
+ *@brief send scheduler state to ms12
+ */
+int aml_audiohal_sch_state_2_ms12(struct dolby_ms12_desc *ms12, int sch_state);
+/*
+ *@brief set dolby ms12 scheduler state
+ */
+int aml_set_ms12_scheduler_state(struct dolby_ms12_desc *ms12);
 /*
  *@brief check whether the mesg list is empty
  */
@@ -74,5 +98,10 @@ int audiohal_send_msg_2_ms12(struct dolby_ms12_desc *ms12, ms12_mesg_type_t mesg
  */
 int ms12_mesg_thread_create(struct dolby_ms12_desc *ms12);
 int ms12_mesg_thread_destroy(struct dolby_ms12_desc *ms12);
+
+int aml_audio_timer_create(void);
+void aml_audio_timer_init(void);
+int aml_send_ms12_scheduler_state_2_ms12(void);
+int aml_audio_timer_delete(void);
 
 #endif //end of _AUDIO_HW_MS12_COMMON_H_

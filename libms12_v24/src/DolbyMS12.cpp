@@ -841,6 +841,48 @@ int DolbyMS12::DolbyMS12GetInputISDolbyAtmos()
     return p_aml_audio_info.is_dolby_atmos;
 }
 
+int DolbyMS12::DolbyMS12EnableMixerMaxSize(int enable)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12Config) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12Config)(MS12_CONFIG_MIXER_MAX_SIZE_ENABLED, (ms12_config_t *)&enable);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
+int DolbyMS12::DolbyMS12SetCompressionFormat(int compression_format)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12Config) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12Config)(MS12_CONFIG_COMPRESSION_FORMAT, (ms12_config_t *)&compression_format);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
+int DolbyMS12::DolbyMS12SetSchedulerState(int sch_state)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12Config) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12Config)(MS12_CONFIG_SCHEDULER_STATE, (ms12_config_t *)&sch_state);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
 unsigned long long DolbyMS12::DolbyMS12GetDecoderNFramesPcmOutput(void *ms12_pointer, int format, int is_main)
 {
     unsigned long long ret = 0;

@@ -170,6 +170,9 @@
 /*Tunnel sync HEADER is 20 bytes*/
 #define TUNNEL_SYNC_HEADER_SIZE    (20)
 
+/* this latency is from logcat time. */
+#define HAL_MS12_PIPELINE_LATENCY (10)
+
 #define DISABLE_CONTINUOUS_OUTPUT "persist.vendor.audio.continuous.disable"
 /* Maximum string length in audio hal. */
 #define AUDIO_HAL_CHAR_MAX_LEN                          (256)
@@ -232,6 +235,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
 static int out_get_presentation_position(const struct audio_stream_out *stream,
                                          uint64_t *frames,
                                          struct timespec *timestamp);
+static int adev_release_patch_restore_resource(struct aml_audio_device *aml_dev);
 
 static aec_timestamp get_timestamp(void);
 
@@ -241,6 +245,12 @@ static int adev_get_microphones(const struct audio_hw_device* dev,
                                 size_t* mic_count);
 static void get_mic_characteristics(struct audio_microphone_characteristic_t* mic_data,
                                     size_t* mic_count);
+static void * g_aml_primary_adev = NULL;
+
+void *aml_adev_get_handle(void)
+{
+    return (void *)g_aml_primary_adev;
+}
 
 static inline bool need_hw_mix(usecase_mask_t masks)
 {
@@ -1226,10 +1236,24 @@ static char *out_get_parameters(const struct audio_stream *stream, const char *k
 static uint32_t out_get_latency (const struct audio_stream_out *stream)
 {
     const struct aml_stream_out *out = (const struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = out->dev;
+    uint32_t a2dp_delay = 0, alsa_latency = 0, ms12_latency = 0, ms12_pipeline_latnecy = 0, whole_latency = 0;
+
+    if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+        a2dp_delay = a2dp_out_get_latency(adev) * out->hal_rate / 1000;
+        return a2dp_delay;
+    }
 
     snd_pcm_sframes_t frames = out_get_latency_frames (stream);
-    //snd_pcm_sframes_t frames = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
-    return (frames * 1000) / out->config.rate;
+    ms12_latency = get_ms12_buffer_latency((struct aml_stream_out *)out);
+    ms12_pipeline_latnecy = HAL_MS12_PIPELINE_LATENCY;
+    alsa_latency = (frames * 1000) / out->config.rate;
+    whole_latency =  ms12_latency + ms12_pipeline_latnecy + alsa_latency;
+
+    ALOGV("%s  stream:%p frames:%lu out->config.rate:%u whole_latency:%u, alsa_latency:%u, ms12_latency:%u", __func__,
+        stream, frames,out->config.rate, whole_latency, alsa_latency, ms12_latency);
+    return whole_latency;
+
 }
 
 static uint32_t out_get_alsa_latency (const struct audio_stream_out *stream)
@@ -1550,9 +1574,14 @@ static int out_resume_new (struct audio_stream_out *stream)
                     audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_RESUME);
                     pthread_mutex_unlock(&ms12->lock);
                 } else {
-                    /*raw data case, we resume it in write*/
-                    ALOGI("resume raw data case later");
-                    aml_dev->ms12.need_resume = 1;
+                    /*About resume, we should seperate the control message and data stream.
+                    **This solution can avoid gap issue,
+                    **for example ms12 remaing buffer and audioflinger can't send data in time.
+                    **raw data case, resume it in write_new when first data coming.
+                    **This is for fixing the almond NTS underflow cases TV-45739.
+                    */
+                    ALOGI("%s resume raw data later", __func__);
+                    aml_dev->ms12.need_ms12_resume = true;
                 }
             }
         }
@@ -1730,6 +1759,10 @@ static int out_get_render_position (const struct audio_stream_out *stream,
     if (ret == 0)
     {
         *dsp_frames = (uint32_t)(dsp_frame_uint64 & 0xffffffff);
+        if (*dsp_frames == 0) {
+            /*add this code INVALID_STATE(3) for VTS in AndroidP*/
+            ret = INVALID_STATE;
+        }
     } else {
         ret = -ENOSYS;
     }
@@ -3404,7 +3437,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             if (out->ms12_acmod2ch_lock_disable) {
                 set_ms12_acmod2ch_lock(&adev->ms12, true);
             }
-            adev->ms12.need_resume = 0;
+            adev->ms12.need_ms12_resume = false;
             adev->ms12.need_resync = 0;
             adev->ms12_out->hw_sync_mode = false;
 
@@ -3511,6 +3544,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     pthread_mutex_destroy(&out->lock);
 
     aml_audio_free(stream);
+    stream = NULL;
     ALOGD("%s: exit", __func__);
 }
 
@@ -3792,12 +3826,20 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     ret = str_parms_get_int(parms, "disconnect", &val);
     if (ret >= 0) {
         set_device_connect_state(adev, parms, val, false);
+
+        /*if (adev->bHDMIConnected == 0) {
+            aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_STANDBY);
+        }*/
         goto exit;
     }
 
     ret = str_parms_get_int(parms, "connect", &val);
     if (ret >= 0) {
         set_device_connect_state(adev, parms, val, true);
+
+        if (adev->bHDMIConnected == 1) {
+            aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
+        }
         goto exit;
     }
 
@@ -3964,6 +4006,17 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
             adev->is_netflix = val;
             /*in netflix case, we enable atmos drop at the beginning*/
             dolby_ms12_enable_atmos_drop(val);
+
+            if (adev->is_netflix) {
+                aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
+            } else {
+                /* currently system send the "continuous_audio_mode=0" in below a few scenario,
+                ** 1)when ExoPlayer/AIV open and close, start play or exit play.
+                ** 2)system bootup.
+                ** so can't send the scheduler stanby to ms12 here.
+                */
+                //aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_STANDBY);
+            }
             goto exit;
             ALOGI("%s continuous_audio_mode set to %d\n", __func__ , val);
             char buf[PROPERTY_VALUE_MAX] = {0};
@@ -5038,8 +5091,9 @@ int do_output_standby_l(struct audio_stream *stream)
             aml_out->resampler = NULL;
         }
     }
-    usecase_change_validate_l (aml_out, true);
     pthread_mutex_unlock(&adev->alsa_pcm_lock);
+
+    usecase_change_validate_l (aml_out, true);
     if (is_usecase_mix (aml_out->usecase) ) {
         uint32_t usecase = adev->usecase_masks & ~ (1 << STREAM_PCM_MMAP);
         /*unmask the mmap case*/
@@ -5080,13 +5134,15 @@ int do_output_standby_l(struct audio_stream *stream)
                     dolby_ms12_set_pause_flag(false);
                 }
                 if (eDolbyMS12Lib == adev->dolby_lib_type && adev->ms12.dolby_ms12_enable) {
+                    /*here will not be excuted, as need_remove_conti_mode not be set to true
+                      we can remove this part code later. FIXME.*/
                     if (adev->need_remove_conti_mode == true) {
                         ALOGI("%s,release ms12 here", __func__);
                         bool set_ms12_non_continuous = true;
                         get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
                         //ALOGI("[%s:%d] get_dolby_ms12_cleanup\n", __FUNCTION__, __LINE__);
                         adev->ms12.is_continuous_paused = false;
-                        adev->ms12.need_resume       = 0;
+                        adev->ms12.need_ms12_resume = false;
                         adev->ms12.need_resync       = 0;
                         adev->need_remove_conti_mode = false;
                     }
@@ -6552,18 +6608,15 @@ hwsync_rewrite:
     if (write_bytes > 0) {
         if ((eDolbyMS12Lib == adev->dolby_lib_type) && continous_mode(adev)) {
             /*SWPL-11531 resume the timer here, because we have data now*/
-            if (adev->ms12.need_resume) {
-                ALOGI("resume the timer");
+            /*resume ms12/hwsync here, as we receive the first data*/
+            if (adev->ms12.need_ms12_resume) {
+                ALOGI("%s resume the ms12 and hwsync", __func__);
                 pthread_mutex_lock(&ms12->lock);
                 ms12->ms12_resume_state = MS12_RESUME_FROM_RESUME;
                 audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_RESUME);
                 pthread_mutex_unlock(&ms12->lock);
-                if (aml_out->hw_sync_mode) {
-                    aml_hwsync_set_tsync_resume(aml_out->hwsync);
-                    aml_out->tsync_status = TSYNC_STATUS_RUNNING;
-                    adev->ms12.need_resync = 1;
-                }
-                adev->ms12.need_resume = 0;
+                adev->ms12.need_resync = 1;
+                adev->ms12.need_ms12_resume = false;
             } else if (aml_out->tsync_status == TSYNC_STATUS_STOP && aml_out->hw_sync_mode) {
                 pthread_mutex_lock(&ms12->lock);
                 audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_RESUME);
@@ -6695,6 +6748,17 @@ hwsync_rewrite:
             need_reconfig_output = true;
             need_reset_decoder = true;
         }
+
+        /**
+         * Need config MS12 in this scenario.
+         * Switch source between HDMI1 and HDMI2, the two source playback pcm data.
+         * sometimes dolby_ms12_enable is true(system stream config ms12), here should reconfig
+         * ms12 when switching to HDMI stream source.(Jira:TV-46722)
+         */
+        if (need_reconfig_output && adev->ms12.dolby_ms12_enable && patch && patch->input_src == AUDIO_DEVICE_IN_HDMI) {
+            need_reset_decoder = true;
+            ALOGI ("%s() %d, HDMI input source, need reset decoder:%d", __func__, __LINE__, need_reset_decoder);
+        }
     }
 
     if (need_reconfig_output) {
@@ -6751,6 +6815,14 @@ hwsync_rewrite:
             ms12_out->hal_rate = aml_out->hal_rate;
             pthread_mutex_unlock(&adev->trans_lock);
             ALOGI("%s set dolby ott enable", __func__);
+        }
+
+        /*the hal_internal_format of ms12 not update to format of new stream(DDP)
+        **from HDMI to local player, as adev->ms12_main1_dolby_dummy not set to true in config_output.
+        **so update the format of ms12 to avoid this case last_frames_position(0) issue.
+        */
+        if (ms12_out->hal_internal_format != aml_out->hal_internal_format) {
+            ms12_out->hal_internal_format = aml_out->hal_internal_format;
         }
         /*during netlfix pause, it will first pause, then ms12 will do fade out
           but netflix will continue write some data, this will resume ms12 again.
@@ -7211,12 +7283,15 @@ ssize_t process_buffer_write(struct audio_stream_out *stream,
 int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby)
 {
     struct aml_audio_device *aml_dev = NULL;
+    struct dolby_ms12_desc *ms12 = NULL;
     bool hw_mix = false;
     if (aml_out == NULL) {
         ALOGE("%s stream is NULL", __func__);
         return 0;
     }
     aml_dev = aml_out->dev;
+    ms12 = &(aml_dev->ms12);
+
     if (is_standby) {
         ALOGI("++[%s:%d], dev masks:%#x, is_standby:%d, out usecase:%s", __func__, __LINE__,
             aml_dev->usecase_masks, is_standby, usecase2Str(aml_out->usecase));
@@ -7242,6 +7317,13 @@ int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby)
             aml_dev->raw_to_pcm_flag = true;
             ALOGI("enable raw_to_pcm_flag !!!");
         }*/
+
+        if (0 == aml_dev->usecase_masks) {
+            // send the SCHEDULER_STANDBY to ms12.
+            aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_STANDBY);
+        } else {
+            // do something.
+        }
         ALOGI("--[%s:%d], dev masks:%#x, is_standby:%d, out usecase %s", __func__, __LINE__,
             aml_dev->usecase_masks, is_standby, usecase2Str(aml_out->usecase));
         return 0;
@@ -7282,6 +7364,13 @@ int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby)
         }
         /* add the new output usecase to aml_dev usecase masks */
         aml_dev->usecase_masks |= 1 << aml_out->usecase;
+    }
+
+    /*any stream is active, and the ms12 scheduler state is not Running.
+    **here should send the MS12_SCHEDULER_RUNNING to ms12.
+    */
+    if (ms12->ms12_scheduler_state != MS12_SCHEDULER_RUNNING && aml_dev->usecase_masks >= 1) {
+        aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
     }
 
     /* choose the out_write functions by usecase masks */
@@ -7382,6 +7471,19 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         }
     }
     aml_out->write_count++;
+
+    if (!aml_out->is_tv_src_stream && (aml_out->flags & AUDIO_OUTPUT_FLAG_DIRECT) && adev->audio_patch) {
+        ALOGD("%s: AF direct stream comming, patch exists, first release it", __func__);
+        pthread_mutex_lock(&adev->patch_lock);
+        if (adev->audio_patch && adev->audio_patch->is_dtv_src)
+            release_dtv_patch_l(adev);
+        else
+            release_patch_l(adev);
+        pthread_mutex_unlock(&adev->patch_lock);
+
+        /*for no patch case, we need to restore it*/
+        adev_release_patch_restore_resource(adev);
+    }
 
     /*when there is data writing in this stream, we can add it to active stream*/
     pthread_mutex_lock(&adev->lock);
@@ -8153,13 +8255,13 @@ int release_patch_l(struct aml_audio_device *aml_dev)
     release_tvin_buffer(patch);
     aml_audio_free(patch);
     aml_dev->audio_patch = NULL;
+    aml_dev->audio_patch_2_af_stream = true;
     aml_dev->patch_start = false;
-    ALOGD("%s: exit", __func__);
 
     if (aml_dev->useSubMix) {
         switchNormalStream(aml_dev->active_outputs[STREAM_PCM_NORMAL], 1);
     }
-
+    ALOGD("%s: exit", __func__);
 exit:
     return 0;
 }
@@ -8689,6 +8791,59 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
     return ret;
 }
 
+static int adev_release_patch_restore_resource(struct aml_audio_device *aml_dev)
+{
+    int ret = 0;
+
+    /* for no patch case, we need to restore it, especially note the multi-instance audio-patch */
+    if (eDolbyMS12Lib == aml_dev->dolby_lib_type && (aml_dev->continuous_audio_mode_default == 1) && !is_dtv_patch_alive(aml_dev))
+    {
+        get_dolby_ms12_cleanup(&aml_dev->ms12, false);
+        /*continuous mode is using in ms12 prepare, we should lock it*/
+        pthread_mutex_lock(&aml_dev->ms12.lock);
+        aml_dev->continuous_audio_mode = 1;
+        pthread_mutex_unlock(&aml_dev->ms12.lock);
+        ALOGI("%s restore continuous_audio_mode=%d", __func__, aml_dev->continuous_audio_mode);
+    }
+    aml_dev->audio_patching = 0;
+    /* save ATV src to deal with ATV HP hotplug */
+    if (aml_dev->patch_src != SRC_ATV && aml_dev->patch_src != SRC_DTV) {
+        aml_dev->patch_src = SRC_INVAL;
+    }
+    if (aml_dev->is_TV) {
+        aml_dev->parental_control_av_mute = false;
+    }
+
+
+    /* The route output device is updated again. According to the current available devices to do a policy,
+     * determine the current output device.
+     */
+    enum OUT_PORT sink_devs[OUTPUT_PORT_MAX_COEXIST_NUM] = {OUTPORT_SPEAKER, OUTPORT_SPEAKER, OUTPORT_SPEAKER};
+    size_t num_sinks = 0;
+    audio_devices_t out_dev = aml_dev->out_device;
+    while (out_dev) {
+        uint8_t right_zeros = get_bit_position_in_mask(sizeof(audio_devices_t) * 8 - 1, &out_dev);
+        out_dev &= ~(1 << right_zeros);
+        audio_devices_t sink_dev = 1 << right_zeros;
+        if (sink_dev) {
+            android_dev_convert_to_hal_dev(sink_dev, (int *)&sink_devs[num_sinks]);
+            num_sinks++;
+            if (num_sinks >= OUTPUT_PORT_MAX_COEXIST_NUM) {
+                AM_LOGW("invalid num_sinks:%d >= %d", num_sinks, OUTPUT_PORT_MAX_COEXIST_NUM);
+                break;
+            }
+        }
+    }
+    enum OUT_PORT outport = get_output_dev_for_strategy(aml_dev, sink_devs, num_sinks);
+    ret = aml_audio_output_routing(&aml_dev->hw_device, outport, false);
+    if (ret < 0) {
+        ALOGE("%s() routing failed", __func__);
+        ret = -EINVAL;
+    }
+
+    return ret;
+}
+
 /* Release an audio patch */
 static int adev_release_audio_patch(struct audio_hw_device *dev,
                                 audio_patch_handle_t handle)
@@ -8743,46 +8898,9 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
                 aml_dev->aml_ng_handle = NULL;
             }
         }
-        /* for no patch case, we need to restore it, especially note the multi-instance audio-patch */
-        if (eDolbyMS12Lib == aml_dev->dolby_lib_type && (aml_dev->continuous_audio_mode_default == 1) && !is_dtv_patch_alive(aml_dev))
-        {
-            get_dolby_ms12_cleanup(&aml_dev->ms12, false);
-            /*continuous mode is using in ms12 prepare, we should lock it*/
-            pthread_mutex_lock(&aml_dev->ms12.lock);
-            aml_dev->continuous_audio_mode = 1;
-            pthread_mutex_unlock(&aml_dev->ms12.lock);
-            ALOGI("%s restore continuous_audio_mode=%d", __func__, aml_dev->continuous_audio_mode);
-        }
-        aml_dev->audio_patching = 0;
-        /* save ATV src to deal with ATV HP hotplug */
-        if (aml_dev->patch_src != SRC_ATV && aml_dev->patch_src != SRC_DTV) {
-            aml_dev->patch_src = SRC_INVAL;
-        }
-        if (aml_dev->is_TV) {
-            aml_dev->parental_control_av_mute = false;
-        }
 
-        /* The route output device is updated again. According to the current available devices to do a policy,
-         * determine the current output device.
-         */
-        enum OUT_PORT sink_devs[OUTPUT_PORT_MAX_COEXIST_NUM] = {OUTPORT_SPEAKER, OUTPORT_SPEAKER, OUTPORT_SPEAKER};
-        size_t num_sinks = 0;
-        audio_devices_t out_dev = aml_dev->out_device;
-        while (out_dev) {
-            uint8_t right_zeros = get_bit_position_in_mask(sizeof(audio_devices_t) * 8 - 1, &out_dev);
-            out_dev &= ~(1 << right_zeros);
-            audio_devices_t sink_dev = 1 << right_zeros;
-            if (sink_dev) {
-                android_dev_convert_to_hal_dev(sink_dev, (int *)&sink_devs[num_sinks]);
-                num_sinks++;
-                if (num_sinks >= OUTPUT_PORT_MAX_COEXIST_NUM) {
-                    AM_LOGW("invalid num_sinks:%d >= %d", num_sinks, OUTPUT_PORT_MAX_COEXIST_NUM);
-                    break;
-                }
-            }
-        }
-        enum OUT_PORT outport = get_output_dev_for_strategy(aml_dev, sink_devs, num_sinks);
-        ret = aml_audio_output_routing(dev, outport, false);
+        /*for no patch case, we need to restore it*/
+        ret = adev_release_patch_restore_resource(aml_dev);
     }
 
     if (patch->sources[0].type == AUDIO_PORT_TYPE_DEVICE
@@ -8924,6 +9042,7 @@ static int adev_close(hw_device_t *device)
         ms12_mesg_thread_destroy(&adev->ms12);
         ALOGD("%s, ms12_mesg_thread_destroy finished!\n", __func__);
     }
+    aml_audio_timer_delete();
 
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         get_dolby_ms12_cleanup(&adev->ms12, false);
@@ -8986,7 +9105,9 @@ static int adev_close(hw_device_t *device)
     g_adev = NULL;
 
     aml_audio_free(device);
+    g_aml_primary_adev = NULL;
     pthread_mutex_unlock(&adev_mutex);
+
     aml_audio_debug_close();
     aml_audio_debug_malloc_close();
 
@@ -9241,6 +9362,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         goto err;
     }
     g_adev = (void *)adev;
+    g_aml_primary_adev = (void *)adev;
 
     adev->hw_device.common.tag = HARDWARE_DEVICE_TAG;
     adev->hw_device.common.version = AUDIO_DEVICE_API_VERSION_3_0;
@@ -9274,6 +9396,9 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->hw_device.get_audio_port = adev_get_audio_port;
     adev->hw_device.dump = adev_dump;
     adev->hdmi_format = AUTO;
+    adev->ms12.ms12_scheduler_state = MS12_SCHEDULER_NONE;
+    adev->ms12.last_scheduler_state = MS12_SCHEDULER_NONE;
+    adev->audio_patch_2_af_stream = false;
     adev->ms12.ms12_resume_state = MS12_RESUME_NONE;
     card = alsa_device_get_card_index();
     if ((card < 0) || (card > 7)) {
@@ -9526,7 +9651,8 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->is_multi_demux = is_multi_demux();
 
     memset(&(adev->hdmi_descs), 0, sizeof(struct aml_arc_hdmi_desc));
-
+    aml_audio_timer_init();
+    aml_audio_timer_create();
     ALOGD("%s adev->dolby_lib_type:%d  !adev->is_TV:%d", __func__, adev->dolby_lib_type, !adev->is_TV);
     /* create thread for communication between Audio Hal and MS12 */
     if ((eDolbyMS12Lib == adev->dolby_lib_type)) {

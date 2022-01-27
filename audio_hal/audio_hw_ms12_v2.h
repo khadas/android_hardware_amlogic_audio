@@ -267,6 +267,11 @@ void dynamic_set_dolby_ms12_drc_parameters(struct dolby_ms12_desc *ms12);
 int dolby_ms12_main_pipeline_latency_frames(struct audio_stream_out *stream);
 
 /*
+ *@brief get buffer latency about ms12
+ */
+unsigned int get_ms12_buffer_latency(struct aml_stream_out *out);
+
+/*
  *@brief get audio postprocessing add dolby ms12 dap or not
  * return
  *   true if DAP is in MS12 pipline;

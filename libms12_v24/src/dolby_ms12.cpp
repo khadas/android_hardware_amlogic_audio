@@ -428,6 +428,35 @@ extern "C" int dolby_ms12_get_input_atmos_info()
     }
 }
 
+extern "C" int dolby_ms12_enable_mixer_max_size(int enable)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12EnableMixerMaxSize(enable);
+    }
+    return -1;
+}
+
+extern "C" int dolby_ms12_set_dolby_compression_format(int compression_format)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12SetCompressionFormat(compression_format);
+    }
+    return -1;
+}
+
+extern "C" int dolby_ms12_set_scheduler_state(int sch_state)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12SetSchedulerState(sch_state);
+    }
+    return -1;
+}
 
 extern "C" unsigned long long dolby_ms12_get_decoder_nframes_pcm_output(void *ms12_pointer, int format, int is_main)
 {

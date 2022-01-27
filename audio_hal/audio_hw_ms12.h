@@ -235,6 +235,10 @@ bool is_ms12_output_compatible(struct audio_stream_out *stream, audio_format_t n
 int dolby_ms12_main_pipeline_latency_frames(struct audio_stream_out *stream);
 
 /*
+ *@brief get buffer latency about ms12
+ */
+unsigned int get_ms12_buffer_latency(struct aml_stream_out *out);
+/*
  *@brief get audio postprocessing add dolby ms12 dap or not
  * return
  *   true if DAP is in MS12 pipline;

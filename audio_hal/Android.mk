@@ -88,7 +88,8 @@ include $(BUILD_PREBUILT)
         aml_audio_nonms12_render.c \
         aml_dtvsync.c \
         karaoke_manager.c \
-        audio_usb_hal.c
+        audio_usb_hal.c \
+	audio_timer.c
 
     LOCAL_C_INCLUDES += \
         hardware/amlogic/audio/aml_speed/include \

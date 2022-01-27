@@ -139,7 +139,6 @@ struct dolby_ms12_desc {
     void * ms12_bypass_handle;
     bool is_bypass_ms12;
     int atmos_info_change_cnt;
-    int need_resume;
     int need_resync; /*handle from pause to resume sync*/
     bool dual_bitstream_support;
     struct bitstream_out_desc bitstream_out[BITSTREAM_OUTPUT_CNT];
@@ -191,7 +190,7 @@ struct dolby_ms12_desc {
     int ms12_scheduler_state;
     int last_scheduler_state;
     int ms12_resume_state;
-    bool ms12_resume;
+    bool need_ms12_resume;
 };
 
 /*

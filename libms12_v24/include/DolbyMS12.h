@@ -36,6 +36,8 @@ typedef enum  {
     MS12_CONFIG_DDP_OUT_LATENCY,
     MS12_CONFIG_DD_OUT_LATENCY,
     MS12_CONFIG_MAT_OUT_LATENCY,
+    MS12_CONFIG_COMPRESSION_FORMAT,
+    MS12_CONFIG_SCHEDULER_STATE,
 }ms12_config_type_t;
 
 typedef union ms12_config {
@@ -166,6 +168,9 @@ public:
     virtual int     DolbyMS12SetMATStreamProfile(int stream_profile);
     virtual int     DolbyMS12SetAtmosDrop(int atmos_drop);
     virtual int     DolbyMS12GetInputISDolbyAtmos();
+    virtual int     DolbyMS12EnableMixerMaxSize(int enable);
+    virtual int     DolbyMS12SetCompressionFormat(int compression_format);
+    virtual int     DolbyMS12SetSchedulerState(int sch_state);
 
     virtual unsigned long long DolbyMS12GetDecoderNFramesPcmOutput(void *ms12_pointer, int format, int is_main);
 
