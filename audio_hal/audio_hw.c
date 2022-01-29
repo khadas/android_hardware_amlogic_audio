@@ -5389,7 +5389,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             for (int dev = AML_AUDIO_OUT_DEV_TYPE_SPEAKER; dev < AML_AUDIO_OUT_DEV_TYPE_BUTT; dev++) {
                 memcpy(adev->out_16_buf, buffer, bytes);
                 float volume = aml_audio_get_s_gain_by_src(adev, adev->patch_src);
-                if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
+                if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER || dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) {
                     /* apply volume for spk/hp, SPDIF/HDMI keep the max volume */
                     if (adev->active_outport == OUTPORT_A2DP) {
                         if ((adev->patch_src == SRC_DTV || adev->patch_src == SRC_HDMIIN
@@ -5397,6 +5397,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                                 && adev->audio_patching) {
                                 volume *= adev->sink_gain[OUTPORT_A2DP];
                         }
+                    } else if (dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) {
+                        volume *= adev->eq_data.p_gain.headphone * adev->sink_gain[OUTPORT_HEADPHONE];
                     } else {
                         volume *= adev->eq_data.p_gain.speaker * adev->sink_gain[OUTPORT_SPEAKER];
                     }
@@ -5417,7 +5419,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                         aml_audio_switch_output_mode((int16_t *)adev->out_16_buf, bytes, adev->sound_track_mode);
                     }
 
-                    if (adev->active_outport != OUTPORT_A2DP) {
+                    if (adev->active_outport != OUTPORT_A2DP && adev->active_outport != OUTPORT_HEADPHONE) {
                         out_frames = audio_post_process(&adev->native_postprocess, adev->out_16_buf, out_frames);
                         bytes = out_frames * 4;
                     }
