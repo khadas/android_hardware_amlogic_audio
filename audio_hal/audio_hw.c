@@ -4469,6 +4469,11 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         earctx_fetch_cds(&adev->alsa_mixer, cds, 0);
         sprintf(temp_buf, "hal_param_get_earctx_cds=%s", cds);
         return strdup(temp_buf);
+    } else if (strstr (keys, "hal_param_get_earctx_attend_type") ) {
+        int type = aml_audio_earctx_get_type(adev);
+        sprintf(temp_buf, "hal_param_get_earctx_attend_type=%d", type);
+        ALOGD("temp_buf %s", temp_buf);
+        return strdup(temp_buf);
     }
 
     return strdup("");

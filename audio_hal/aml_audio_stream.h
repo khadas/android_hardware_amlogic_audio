@@ -515,7 +515,7 @@ enum hdmiin_audio_mode {
     HDMIIN_MODE_TDM   = 2
 };
 enum hdmiin_audio_mode get_hdmiin_audio_mode(struct aml_mixer_handle *mixer_handle);
-int aml_audio_earc_get_type(struct aml_audio_device *adev);
+int aml_audio_earctx_get_type(struct aml_audio_device *adev);
 int aml_audio_earc_get_latency(struct aml_audio_device *adev);
 
 #endif /* _AML_AUDIO_STREAM_H_ */

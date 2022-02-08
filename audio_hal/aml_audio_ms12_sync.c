@@ -1396,8 +1396,8 @@ int dtv_get_nonms12_port_latency(struct audio_stream_out * stream, enum OUT_PORT
                 prop_name = AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_PCM_LATENCY_PROPERTY;
             }
             // get earc latency from alsa driver;
-            attend_type = aml_audio_earc_get_type(adev);
-            if (attend_type == 2) {
+            attend_type = aml_audio_earctx_get_type(adev);
+            if (attend_type == ATTEND_TYPE_EARC) {
                 earc_latency = aml_audio_earc_get_latency(adev);
                 latency_ms = 0 - earc_latency;
                 return latency_ms;
