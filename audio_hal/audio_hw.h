@@ -548,6 +548,7 @@ struct aml_audio_device {
     struct aec_t *aec;
     bool bt_wbs;
     int security_mem_level;
+    int dolby_ms12_dap_init_mode;
     void *aml_dtv_audio_instances;
     pthread_mutex_t dtv_lock;
     /* display audio format on UI, both streaming and hdmiin*/

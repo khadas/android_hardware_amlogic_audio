@@ -88,6 +88,10 @@ namespace android
 #define MAX_DAP_LEVELER 10
 #define MIN_DAP_LEVELER 0
 
+//dap init mode
+#define DAP_CONTENT_PROC_MODE 1
+#define DAP_CONTENT_PROC_DEVICE_PROC_MODE 2
+
 DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     // mDolbyMS12GetOutProfile(NULL)
     // ,
@@ -1537,7 +1541,10 @@ char **DolbyMS12ConfigParams::GetDolbyMS12ConfigParams(int *argc)
         SetPCMSwitches(mConfigParams, &mParamNum);
         SetHEAACSwitches(mConfigParams, &mParamNum);
         SetOTTProcessingGraphSwitches(mConfigParams, &mParamNum);
-        if (mDolbyMS12OutConfig & MS12_OUTPUT_MASK_DAP) {
+        if (mDAPInitMode == DAP_CONTENT_PROC_MODE) {
+            SetDAPContentSwitches(mConfigParams, &mParamNum);
+        }
+        if (mDAPInitMode == DAP_CONTENT_PROC_DEVICE_PROC_MODE) {
             SetDAPDeviceSwitches(mConfigParams, &mParamNum, 0);
             SetDAPContentSwitches(mConfigParams, &mParamNum);
         }

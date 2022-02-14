@@ -766,8 +766,9 @@ static void set_dolby_ms12_dap_init_mode(struct aml_audio_device *adev)
         dap_init_mode = get_ms12_dap_init_mode(adev->is_TV);
     }
     else {
-        dap_init_mode = 0;
+        dap_init_mode = adev->dolby_ms12_dap_init_mode;
     }
+    ALOGD("dap_init_mode = %d", dap_init_mode);
     dolby_ms12_set_dap2_initialisation_mode(dap_init_mode);
 }
 
@@ -986,7 +987,11 @@ int get_the_dolby_ms12_prepared(
     if (adev->sink_capability == AUDIO_FORMAT_MAT) {
         output_config = MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_MAT;
     } else {
-        output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_SPEAKER;
+        if (adev->is_TV) {
+            output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_SPEAKER;
+        } else {
+            output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO;
+        }
     }
     /* for soundbar, we only need speaker output */
     if (adev->is_SBR)
