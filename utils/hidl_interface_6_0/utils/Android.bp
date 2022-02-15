@@ -34,9 +34,11 @@ cc_library {
         "-Werror",
     ],
 
+    header_libs: [
+        "libmediautils_headers",
+    ],
+
     include_dirs: [
-        "frameworks/av/media/utils/include/",
-        "frameworks/av/media/utils/",
         "bionic/libc/private",
     ],
 }

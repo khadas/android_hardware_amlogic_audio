@@ -41,8 +41,6 @@ cc_library_shared {
     include_dirs: [
         "frameworks/av/media/libaudiohal/impl/",
         "frameworks/av/media/libaudiohal/include/",
-        "frameworks/av/include/",
-        "frameworks/av/media/utils/include/",
     ],
 
     cflags: [
@@ -82,8 +80,10 @@ cc_library_shared {
 
     header_libs: [
         "android.hardware.audio.common.util@all-versions",
+        "av-headers",
         "libamlaudiohal_headers@6.0",
         "libaudioclient_headers",
+        "libmediautils_headers",
     ],
 
     export_shared_lib_headers: [
@@ -113,8 +113,6 @@ cc_library_shared {
     include_dirs: [
         "frameworks/av/media/libaudiohal/impl/",
         "frameworks/av/media/libaudiohal/include/",
-        "frameworks/av/include/",
-        "frameworks/av/media/utils/include/",
     ],
 
     cflags: [
@@ -154,8 +152,10 @@ cc_library_shared {
 
     header_libs: [
         "android.hardware.audio.common.util@all-versions",
+        "av-headers",
         "libamlaudiohal_headers@6.0",
         "libaudioclient_headers",
+        "libmediautils_headers",
     ],
 
     export_shared_lib_headers: [
