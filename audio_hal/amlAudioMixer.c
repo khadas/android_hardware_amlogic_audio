@@ -501,9 +501,25 @@ static int mixer_update_tstamp(struct amlAudioMixer *audio_mixer)
     }
 
     /*only deal with system audio */
-    if (in_port == NULL || out_port == NULL || out_port->pcm_handle == NULL) {
-        AM_LOGV("in_port:%p or out_port:%p or pcm handle:%p is null",
-            in_port, out_port, out_port->pcm_handle);
+    if (in_port == NULL || out_port == NULL) {
+        AM_LOGV("in_port:%p or out_port:%p is null", in_port, out_port);
+        return 0;
+    }
+
+    struct aml_audio_device *adev = audio_mixer->adev;
+    if (adev->active_outport == OUTPORT_A2DP) {
+        uint64_t a2dp_latency_frames = a2dp_out_get_latency(adev) * in_port->cfg.sampleRate / MSEC_PER_SEC;
+        if (in_port->mix_consumed_frames + in_port->initial_frames > a2dp_latency_frames) {
+            in_port->presentation_frames = in_port->mix_consumed_frames + in_port->initial_frames - a2dp_latency_frames;
+        } else {
+            in_port->presentation_frames = 0;
+        }
+        clock_gettime(CLOCK_MONOTONIC, &in_port->timestamp);
+        return 0;
+    }
+
+    if (out_port->pcm_handle == NULL) {
+        AM_LOGV("pcm handle is null");
         return 0;
     }
 

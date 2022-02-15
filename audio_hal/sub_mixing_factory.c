@@ -614,30 +614,27 @@ static int out_get_presentation_position_port(
     }
 
     if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        // Timestamp adjustment for AV sync
+        ret = mixer_get_presentation_position(audio_mixer, out->inputPortID, frames, timestamp);
         struct timespec adjusted_timestamp;
-        int64_t inport_latency_nanos = (out->standby ? 0 :
-                mixer_get_inport_latency_frames(audio_mixer, out->inputPortID) * NSEC_PER_SEC / out->hal_rate);
-        int64_t bt_latency_nanos = (long long)(a2dp_out_get_latency(adev)) * NSEC_PER_MSEC;
-        int64_t latency_nanos = inport_latency_nanos + bt_latency_nanos;
-
         // libaudioclient code expects HAL position to lag behind server position.
         // If the two are the same, it resets timestamp to the current time.
         // As a temporary work-around, get around this by subtracting one
         // frame from both position and timestamp.
         int64_t frame_diff_for_client = 1;
         int64_t time_diff_for_client = NSEC_PER_SEC / out->hal_rate;
-        int64_t adjusted_nanos = (long long)out->timestamp.tv_sec * NSEC_PER_SEC
-                + (long long)out->timestamp.tv_nsec + latency_nanos - time_diff_for_client;
+        int64_t adjusted_nanos = (long long)timestamp->tv_sec * NSEC_PER_SEC + (long long)timestamp->tv_nsec - time_diff_for_client;
+        int64_t pre_time_nanos = out->last_timestamp_reported.tv_sec * NSEC_PER_SEC + out->last_timestamp_reported.tv_nsec;
         if (adjusted_nanos < 0) {
-               adjusted_nanos = 0;
+           adjusted_nanos = 0;
+        } else if (adjusted_nanos < pre_time_nanos) {
+            adjusted_nanos = pre_time_nanos;
         }
         adjusted_timestamp.tv_sec = adjusted_nanos / NSEC_PER_SEC;
         adjusted_timestamp.tv_nsec = adjusted_nanos % NSEC_PER_SEC;
-        AM_LOGV("latency adjustment: %lld (%lld ms), adjusted_nanos: %lld, frame drift: %lld, hal_rate: %u",
-            latency_nanos, latency_nanos / NSEC_PER_MSEC, adjusted_nanos, frame_diff_for_client, out->hal_rate);
-
-        *frames = frames_written_hw - frame_diff_for_client;
+        AM_LOGV("adjusted_nanos: %lld, frame drift: %lld, hal_rate: %u", adjusted_nanos, frame_diff_for_client, out->hal_rate);
+        if (*frames > frame_diff_for_client) {
+            *frames -= frame_diff_for_client;
+        }
         *timestamp = adjusted_timestamp;
     } else if (!adev->audio_patching) {
         ret = mixer_get_presentation_position(audio_mixer,
@@ -667,7 +664,7 @@ static int out_get_presentation_position_port(
                                                          out->hal_internal_format,
                                                          adev->sink_format,
                                                          adev->ms12.dolby_ms12_enable);
-        frame_latency = latency_ms * (out->hal_rate / 1000);
+        frame_latency = latency_ms * (out->hal_rate / MSEC_PER_SEC);
         *frames += frame_latency ;
     }
     if (adev->debug_flag) {
@@ -676,18 +673,18 @@ static int out_get_presentation_position_port(
 
     if (adev->debug_flag) {
         AM_LOGI("out %p %"PRIu64", sec = %ld, nanosec = %ld\n", out, *frames, timestamp->tv_sec, timestamp->tv_nsec);
-        int64_t  frame_diff_ms =  (*frames - out->last_frame_reported) * 1000 / out->hal_rate;
-        int64_t  system_time_ms = 0;
-        if (timestamp->tv_nsec < out->last_timestamp_reported.tv_nsec) {
-            system_time_ms = (timestamp->tv_nsec + 1000000000 - out->last_timestamp_reported.tv_nsec)/1000000;
+        int64_t  frame_diff_ms =  (*frames - out->last_frame_reported) * MSEC_PER_SEC / out->hal_rate;
+        int64_t pre_time_nanos = (long long)out->last_timestamp_reported.tv_sec * NSEC_PER_SEC + (long long)out->last_timestamp_reported.tv_nsec;
+        int64_t cur_time_nanos = (long long)timestamp->tv_sec * NSEC_PER_SEC + (long long)timestamp->tv_nsec;
+        if (cur_time_nanos < pre_time_nanos) {
+            AM_LOGW("timestamp loopback. pre_time:%lld ms, cur_time:%lld ms", pre_time_nanos / NSEC_PER_MSEC, cur_time_nanos / NSEC_PER_MSEC);
         }
-        else
-            system_time_ms = (timestamp->tv_nsec - out->last_timestamp_reported.tv_nsec)/1000000;
+        int64_t system_time_ms = (cur_time_nanos - pre_time_nanos) / NSEC_PER_MSEC;
         int64_t jitter_diff = llabs(frame_diff_ms - system_time_ms);
         if  (jitter_diff > JITTER_DURATION_MS) {
-            AM_LOGI("jitter out last pos info: %p %"PRIu64", sec = %ld, nanosec = %ld\n", out, out->last_frame_reported,
+            AM_LOGI("jitter out last pos info: %p %"PRIu64", sec:%ld, nanosec:%ld\n", out, out->last_frame_reported,
                 out->last_timestamp_reported.tv_sec, out->last_timestamp_reported.tv_nsec);
-            AM_LOGI("jitter  system time diff %"PRIu64" ms, position diff %"PRIu64" ms, jitter %"PRIu64" ms \n",
+            AM_LOGI("jitter system time diff %"PRIu64" ms, position diff %"PRIu64" ms, jitter %"PRIu64" ms \n",
                 system_time_ms,frame_diff_ms,jitter_diff);
         }
         out->last_frame_reported = *frames;
