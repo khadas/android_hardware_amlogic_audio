@@ -5467,7 +5467,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     /* for ms12 lib, and audio volume control in ms12, bypass all volume apply */
                     if (eDolbyMS12Lib == adev->dolby_lib_type && aml_out->ms12_vol_ctrl) {
                         volume = 1.0;
-                    } else if (adev->volume_ease.config_easing) { /* start audio volume easing */
+                    } else if (adev->volume_ease.config_easing && dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
+                        /* start audio volume easing */
                         float vol_now = aml_audio_ease_get_current_volume(adev->volume_ease.ease);
                         config_volume_easing(adev->volume_ease.ease, vol_now, volume);
                         adev->volume_ease.ease->do_easing = true;
@@ -9273,7 +9274,6 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
         /* for both dev->dev and mixer->dev, start volume ease */
         if (outport == OUTPORT_SPEAKER && aml_dev->last_sink_gain != aml_dev->sink_gain[OUTPORT_SPEAKER]) {
             ALOGD("start easing: vol last %f, vol new %f", aml_dev->last_sink_gain, aml_dev->sink_gain[OUTPORT_SPEAKER]);
-            aml_dev->volume_ease.vol_target = aml_dev->sink_gain[OUTPORT_SPEAKER];
             aml_dev->volume_ease.config_easing = true;
             aml_dev->last_sink_gain = aml_dev->sink_gain[OUTPORT_SPEAKER];
 

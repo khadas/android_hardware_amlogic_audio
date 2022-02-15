@@ -337,13 +337,15 @@ int config_volume_easing(aml_audio_ease_t *audio_ease, float vol_start, float vo
     ease_setting_t ease_setting;
     ALOGD("%s, vol_start %f, vol_end %f", __func__, vol_start, vol_end);
 
+    pthread_mutex_lock(&audio_ease->ease_lock);
     audio_ease->data_format.format = AUDIO_FORMAT_PCM_32_BIT;
     audio_ease->data_format.ch = 2;
     audio_ease->data_format.sr = 48000;
-    audio_ease->ease_type = EaseInCubic;
+    audio_ease->ease_type = EaseLinear;
     ease_setting.duration = 100;
     ease_setting.start_volume = vol_start;
     ease_setting.target_volume = vol_end;
+    pthread_mutex_unlock(&audio_ease->ease_lock);
     aml_audio_ease_config(audio_ease, &ease_setting);
 
     return 0;
