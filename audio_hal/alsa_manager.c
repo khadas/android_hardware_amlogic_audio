@@ -834,6 +834,13 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
     get_hardware_config_parameters(config, format, adev->default_alsa_ch/*channels*/, rate, platform_is_tv,
                 continous_mode(adev), adev->game_mode);
 
+    /*
+     * when eARC output MAT, should increase the mat output buffer.
+     */
+    if ((adev->active_outport == OUTPORT_HDMI_ARC) && (format == AUDIO_FORMAT_MAT || format == AUDIO_FORMAT_DOLBY_TRUEHD)) {
+        config->period_count *= 2;
+    }
+
     config->channels = channels;
     config->rate     = rate;
     if (config->rate == 0 || config->channels == 0) {
