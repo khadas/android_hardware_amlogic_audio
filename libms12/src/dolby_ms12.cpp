@@ -519,3 +519,13 @@ extern "C" int dolby_ms12_hwsync_checkin_pts_internal(int offset, int apts)
     }
 }
 
+extern "C" int dolby_ms12_set_scheduler_state(int sch_state)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12SetSchedulerState(sch_state);
+    }
+    return -1;
+}
+
