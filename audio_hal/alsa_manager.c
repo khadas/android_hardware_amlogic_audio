@@ -982,7 +982,9 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
         struct snd_pcm_status status;
         pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
         if (status.state == PCM_STATE_XRUN) {
+            aml_audio_trace_int("bitstream_underrun", bytes);
             ALOGW("[%s:%d] format =0x%x alsa underrun", __func__, __LINE__, alsa_handle->format);
+            aml_audio_trace_int("bitstream_underrun", 0);
         }
     }
     if (get_debug_value(AML_DUMP_AUDIOHAL_ALSA) ||
@@ -1014,6 +1016,34 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
         ret = pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
         ALOGI("alsa format =0x%x delay frames =%ld total frames=%lld", alsa_handle->format, frames, alsa_handle->write_frames);
     }
+
+    snd_pcm_sframes_t delay_frames = 0;
+    ret = pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_DELAY, &delay_frames);
+
+    if (alsa_handle->format == AUDIO_FORMAT_AC3) {
+        aml_audio_trace_int("aml_ac3_delay_frames", delay_frames);
+    } else if (alsa_handle->format == AUDIO_FORMAT_E_AC3) {
+        aml_audio_trace_int("aml_eac3_delay_frames", delay_frames);
+    } else if (alsa_handle->format == AUDIO_FORMAT_MAT) {
+        aml_audio_trace_int("aml_mat_delay_frames", delay_frames);
+    } else if (alsa_handle->format == AUDIO_FORMAT_DTS) {
+        aml_audio_trace_int("aml_dts_delay_frames", delay_frames);
+    } else {
+        aml_audio_trace_int("aml_pcm_delay_frames", delay_frames);
+    }
+    ALOGV("alsa format =0x%x delay frames =%ld total frames=%lld", alsa_handle->format, delay_frames, alsa_handle->write_frames);
+    if (alsa_handle->format == AUDIO_FORMAT_AC3) {
+        aml_audio_trace_int("aml_ac3_delay_frames", 0);
+    } else if (alsa_handle->format == AUDIO_FORMAT_E_AC3) {
+        aml_audio_trace_int("aml_eac3_delay_frames", 0);
+    } else if (alsa_handle->format == AUDIO_FORMAT_MAT) {
+        aml_audio_trace_int("aml_mat_delay_frames", 0);
+    } else if (alsa_handle->format == AUDIO_FORMAT_DTS) {
+        aml_audio_trace_int("aml_dts_delay_frames", 0);
+    } else {
+        aml_audio_trace_int("aml_pcm_delay_frames", 0);
+    }
+
 
 #if 0
     /*for ms12 case, we control the output buffer level*/

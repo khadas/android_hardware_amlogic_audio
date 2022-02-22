@@ -59,7 +59,8 @@ static void get_dts_hd_hardware_config_parameters(
 static void get_mat_hardware_config_parameters(
     struct pcm_config *hardware_config
     , unsigned int channels __unused
-    , unsigned int rate)
+    , unsigned int rate
+    , bool platform_is_tv)
 {
     hardware_config->channels = 2;
     hardware_config->format = PCM_FORMAT_S16_LE;
@@ -69,6 +70,14 @@ static void get_mat_hardware_config_parameters(
     //hardware_config->period_size = PERIOD_SIZE /* * 4 */;
     hardware_config->period_size = 6144 * 2; /* period_size in frame unit, MAT IEC61937 frame size (61440) bytes */
     hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count/2;
+    /* In the TV DUT, the HDMIIN to eARC(MAT-cap) */
+    /* when play Atmos_Music_32_Objects_PCM_MAT2.mat / Atmos_Music_16_Objects_TrueHD.mat */
+    /* sometime decode some frame(duration is 20ms), but will cost 40~50ms. */
+    /* so, increase the alsa start threshold to 100%. */
+    /* avoid to effect the STB/OTT DUT's AVSync, active this part only on TV DUT. */
+    if (platform_is_tv) {
+        hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count;
+    }
     hardware_config->avail_min = 0;
 
     return ;
@@ -205,7 +214,7 @@ int get_hardware_config_parameters(
      * MAT2.1-PCM_ATMOS inside
      */
     else if ((output_format == AUDIO_FORMAT_MAT) || (output_format == AUDIO_FORMAT_DOLBY_TRUEHD)) {
-        get_mat_hardware_config_parameters(final_config, 2, rate);
+        get_mat_hardware_config_parameters(final_config, 2, rate, platform_is_tv);
 
     }
     //DTS-HD

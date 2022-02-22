@@ -157,6 +157,12 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
             }
             /*when it is non continuous mode, we bypass data here*/
             dolby_ms12_bypass_process(stream, write_buf, write_bytes);
+
+            /* This code is the True Passthrough(MS12) method. */
+            //if (is_ms12_passthrough(stream)) {
+            //    ALOGD("%s only passthrough, do not goto dolbyms12!\n", __func__);
+            //    return return_bytes;
+            //}
         }
         /*begin to write, clear the total write*/
         total_write = 0;

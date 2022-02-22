@@ -7918,7 +7918,9 @@ void *audio_patch_input_threadloop(void *data)
             if (aml_dev->patch_src == SRC_HDMIIN && in->audio_packet_type == AUDIO_PACKET_AUDS && in->config.channels != 2) {
                 ret = input_stream_channels_adjust(&in->stream, patch->in_buf, read_bytes);
             } else {
+                aml_audio_trace_int("input_read_thread", read_bytes);
                 aml_alsa_input_read(&in->stream, patch->in_buf, read_bytes);
+                aml_audio_trace_int("input_read_thread", 0);
                 if (IS_DIGITAL_IN_HW(patch->input_src) && !check_digital_in_stream_signal(&in->stream)) {
                     memset(patch->in_buf, 0, bytes_avail);
                 }
@@ -7954,12 +7956,14 @@ void *audio_patch_input_threadloop(void *data)
 
                 if (get_buffer_write_space(ringbuffer) >= bytes_avail) {
                     retry = 0;
+                    aml_audio_trace_int("input_thread_write2buf", bytes_avail);
                     ret = ring_buffer_write(ringbuffer,
                                             (unsigned char*)patch->in_buf,
                                             bytes_avail, UNCOVER_WRITE);
                     if (ret != bytes_avail) {
                         ALOGE("%s(), write buffer fails!", __func__);
                     }
+                    aml_audio_trace_int("input_thread_write2buf", 0);
 
                     if (!first_start || get_buffer_read_space(ringbuffer) >= read_threshold) {
                         pthread_cond_signal(&patch->cond);
@@ -7972,7 +7976,7 @@ void *audio_patch_input_threadloop(void *data)
                     retry = 1;
                     pthread_cond_signal(&patch->cond);
                     //Fixme: if ringbuffer is full enough but no output, reset ringbuffer
-                    ALOGV("%s(), ring buffer no space to write, buffer free size:%d, need write size:%d", __func__,
+                    ALOGD("%s(), ring buffer no space to write, buffer free size:%d, need write size:%d", __func__,
                         get_buffer_write_space(ringbuffer), bytes_avail);
                     ring_buffer_reset(ringbuffer);
                     usleep(3000);
@@ -8078,6 +8082,8 @@ void *audio_patch_output_threadloop(void *data)
 
     while (!patch->output_thread_exit) {
         int period_mul = (patch->aformat == AUDIO_FORMAT_E_AC3) ? EAC3_MULTIPLIER : 1;
+        /* If source format is MAT or DTS_HD, should capture the data size multiple the coef(16) */
+        period_mul = ((patch->aformat == AUDIO_FORMAT_MAT) || (patch->aformat == AUDIO_FORMAT_DTS_HD)) ? HBR_MULTIPLIER : 1;
 
         if (aml_dev->game_mode)
             write_bytes = LOW_LATENCY_PLAYBACK_PERIOD_SIZE * audio_stream_out_frame_size(&out->stream);
@@ -8097,11 +8103,13 @@ void *audio_patch_output_threadloop(void *data)
         ALOGV("%s(), ringbuffer level read after wait-- %d",
               __func__, get_buffer_read_space(ringbuffer));
         if (get_buffer_read_space(ringbuffer) >= (write_bytes * period_mul)) {
+            aml_audio_trace_int("output_thread_read_from_buf", write_bytes * period_mul);
             ret = ring_buffer_read(ringbuffer,
                                    (unsigned char*)patch->out_buf, write_bytes * period_mul);
             if (ret == 0) {
                 ALOGE("%s(), ring_buffer read 0 data!", __func__);
             }
+            aml_audio_trace_int("output_thread_read_from_buf", 0);
             /* avsync for dev->dev patch*/
             if (patch && (patch->need_do_avsync == true) && (patch->input_signal_stable == true) &&
                     (aml_dev->patch_src == SRC_ATV || aml_dev->patch_src == SRC_HDMIIN ||

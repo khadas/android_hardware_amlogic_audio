@@ -40,6 +40,7 @@ typedef enum AML_DUMP_DEBUG_INFO {
     AML_DEBUG_AUDIOHAL_SYNCPTS,
     AML_DUMP_AUDIOHAL_TV,
     AML_DEBUG_AUDIOHAL_MATENC,
+    AML_DEBUG_AUDIOHAL_TRACE,
     AML_DEBUG_DUMP_MAX,
 } AML_DUMP_DEBUG_INFO_T;
 
@@ -73,6 +74,7 @@ typedef enum AML_DUMP_DEBUG_INFO {
 #define AML_DEBUG_AUDIOHAL_SYNCPTS_PROPERTY         "vendor.media.audio.hal.syncpts"
 #define AML_DUMP_AUDIOHAL_TV_PROPERTY               "vendor.media.audiohal.tvdump"
 #define AML_DEBUG_AUDIOHAL_MATENC_PROPERTY          "vendor.media.audiohal.matenc.debug"
+#define AML_DEBUG_AUDIOHAL_TRACE_PROPERTY           "vendor.audio.hal.trace.debug"
 
 
 void aml_audio_debug_open(void);

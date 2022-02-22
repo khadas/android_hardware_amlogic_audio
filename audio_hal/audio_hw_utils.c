@@ -2022,7 +2022,7 @@ int aml_audio_trace_debug_level(void)
 ******************************************************************************/
 int aml_audio_trace_int(char *name, int value)
 {
-    int debug_level = aml_audio_trace_debug_level();
+    int debug_level = get_debug_value(AML_DEBUG_AUDIOHAL_TRACE);
 
     if (debug_level > 0) {
         ATRACE_INT(name, value);

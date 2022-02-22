@@ -220,7 +220,6 @@ static const unsigned int ms12_muted_ddp_raw[] = {
 
 };
 
-
 static int nbytes_of_dolby_ms12_downmix_output_pcm_frame();
 void ms12_do_dtv_sync(struct audio_stream_out *stream);
 static void *dolby_ms12_threadloop(void *data);
@@ -397,17 +396,19 @@ bool is_ms12_out_ddp_5_1_suitable(bool is_ddp_atmos)
 static int get_ms12_output_mask(audio_format_t sink_format,audio_format_t  optical_format,bool is_arc)
 {
     int  output_config;
-    if (sink_format == AUDIO_FORMAT_E_AC3)
+    if (sink_format == AUDIO_FORMAT_E_AC3) /* ARC with DDP Sink-cap */
         output_config =  MS12_OUTPUT_MASK_DDP;
-    else if (sink_format == AUDIO_FORMAT_AC3)
+    else if (sink_format == AUDIO_FORMAT_AC3) /* ARC with DD Sink-cap */
         output_config = MS12_OUTPUT_MASK_DD;
-    else if (sink_format == AUDIO_FORMAT_MAT)
+    else if (sink_format == AUDIO_FORMAT_MAT) /* E-ARC with DD Sink-cap */
         output_config = MS12_OUTPUT_MASK_MAT;
-    else if (sink_format == AUDIO_FORMAT_PCM_16_BIT && optical_format == AUDIO_FORMAT_AC3)
+    else if (sink_format == AUDIO_FORMAT_PCM_16_BIT && optical_format == AUDIO_FORMAT_AC3) /* Speaker or Optical Sink */
         output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_SPEAKER;
-    else if (is_arc)
+    else if (is_arc) {
+        /* ARC with PCM Sink-cap */
         output_config = MS12_OUTPUT_MASK_STEREO;
-    else
+    }
+    else /* others */
         output_config = MS12_OUTPUT_MASK_SPEAKER | MS12_OUTPUT_MASK_STEREO;
     return output_config;
 }
@@ -1016,13 +1017,16 @@ int get_the_dolby_ms12_prepared(
         output_config = MS12_OUTPUT_MASK_SPEAKER|MS12_OUTPUT_MASK_STEREO;
 
     set_dolby_ms12_drc_parameters(input_format, output_config);
-#if 0
-    /*we reconfig the ms12 nodes depending on the user case when digital input case to refine ms12 perfermance*/
+
+    /* 1.If HDMIIN-source got Atmos_Music_32_Objects_PCM_MAT2.mat / Atmos_Music_16_Objects_TrueHD.mat to ARC-sink */
+    /*   with 'top' command, found the 'android.hardware.audio.service-droidlogic' will used 80%+ CPU. */
+    /* 2.To reconfig the ms12 nodes depending on the user case when digital input case to refine ms12 perfermance */
+    /* 3.For DDP-ARC,  top result about 60%+ CPU */
+    /* 4.For MAT-eARC, top result about 50%+ CPU */
     if (patch && \
            (patch->input_src == AUDIO_DEVICE_IN_HDMI || patch->input_src == AUDIO_DEVICE_IN_SPDIF)) {
         output_config = get_ms12_output_mask(adev->sink_format, adev->optical_format,adev->active_outport == OUTPORT_HDMI_ARC);
     }
-#endif
 
     if (patch && patch->input_src == AUDIO_DEVICE_IN_HDMI) {
         if (!adev->continuous_audio_mode &&
@@ -1541,7 +1545,9 @@ MAIN_INPUT:
             /*set the dolby ms12 debug level*/
             dolby_ms12_enable_debug();
             if (adev->continuous_audio_mode == 0) {
+                aml_audio_trace_int("ms12_scheduler_run", dolby_ms12_input_bytes);
                 dolby_ms12_scheduler_run(ms12->dolby_ms12_ptr);
+                aml_audio_trace_int("ms12_scheduler_run", 0);
             }
 
             if (dolby_ms12_input_bytes > 0) {
@@ -2471,6 +2477,7 @@ static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_
 
 }
 
+#define ALSA_MAX_US 8//us
 int dap_pcm_output(void *buffer, void *priv_data, size_t size,aml_ms12_dec_info_t *ms12_info)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
@@ -2491,8 +2498,12 @@ int dap_pcm_output(void *buffer, void *priv_data, size_t size,aml_ms12_dec_info_
     if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_SPEAKER_PCM)) {
         dump_ms12_output_data(buffer, size, MS12_OUTPUT_SPEAKER_PCM_FILE);
     }
+
+
     if (is_dolbyms12_dap_enable(aml_out)) {
+        aml_audio_trace_int("aml_dap_output", size);
         ms12_output_master(buffer, priv_data, size, output_format,ms12_info);
+        aml_audio_trace_int("aml_dap_output", 0);
     } else
         return ret;
     if (adev->debug_flag > 1) {
@@ -2529,7 +2540,9 @@ int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_i
             ring_buffer_write(&ms12->spdif_ring_buffer, buffer, size, UNCOVER_WRITE);
         }
     } else {
+        aml_audio_trace_int("stereo_output", size);
         ms12_output_master(buffer, priv_data, size, output_format, ms12_info);
+        aml_audio_trace_int("stereo_output", 0);
     }
 
     if (adev->debug_flag > 1) {
@@ -2609,9 +2622,9 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
     output_format = AUDIO_FORMAT_E_AC3;
 
     ms12_spdif_encoder(buffer, size, output_format, ms12->iec61937_ddp_buf, &out_size);
-
+    aml_audio_trace_int("bitstream_output", out_size);
     ret = aml_ms12_spdif_output_new(stream_out, bitstream_out, AUDIO_FORMAT_IEC61937, AUDIO_FORMAT_E_AC3, ms12->iec61937_ddp_buf, out_size);
-
+    aml_audio_trace_int("bitstream_output", 0);
     bitstream_delay_ms = aml_audio_spdifout_get_delay(bitstream_out->spdifout_handle);
     ALOGV("%s delay=%d", __func__, bitstream_delay_ms);
 
@@ -2683,9 +2696,9 @@ int spdif_bitstream_output(void *buffer, void *priv_data, size_t size)
     if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_BITSTREAN2)) {
         dump_ms12_output_data(buffer, size, MS12_OUTPUT_BITSTREAM2_FILE);
     }
-
+    aml_audio_trace_int("spdif_bitstream_output", size);
     ret = aml_ms12_spdif_output_new(stream_out, bitstream_out, output_format, output_format, buffer, size);
-
+    aml_audio_trace_int("spdif_bitstream_output", 0);
     return ret;
 }
 
@@ -2732,8 +2745,9 @@ int mat_bitstream_output(void *buffer, void *priv_data, size_t size)
     if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_BITSTREAN_MAT)) {
         dump_ms12_output_data(buffer, size, MS12_OUTPUT_BITSTREAM_MAT_FILE);
     }
-
+    aml_audio_trace_int("aml_mat_bitstream_output", size);
     ret = aml_ms12_spdif_output_new(stream_out, bitstream_out, output_format, output_format, buffer, size);
+    aml_audio_trace_int("aml_mat_bitstream_output", 0);
 
     bitstream_delay_ms = aml_audio_spdifout_get_delay(bitstream_out->spdifout_handle);
     ALOGV("%s delay=%d", __func__, bitstream_delay_ms);
