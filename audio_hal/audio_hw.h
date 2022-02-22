@@ -116,6 +116,10 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 #define FLOAT_ZERO              (0.00002)   /* the APM mute volume is 0.00001, less than 0.00002 we think is mute. */
 #define TV_SPEAKER_OUTPUT_CH_NUM    10
 
+#define OFFLOAD_BUFFER_SIZE_DURATION_MS (50) // Unit:ms. Need to be able to cover the delay of the offload pipeline.
+#define DTS_OFFLOAD_BUFFER_MAX_SIZE     (32768)
+#define OFFLOAD_BUFFER_SIZE_ALIGMENT    (8)
+
 #ifdef USB_KARAOKE
 #ifndef AUDIO_SOURCE_KARAOKE_SPEAKER
 #define AUDIO_SOURCE_KARAOKE_SPEAKER 1001
@@ -584,6 +588,7 @@ struct aml_audio_device {
     */
     unsigned int direct_mode;
     bool audio_patch_2_af_stream;
+    int stream_bitrate; // current offload stream bitrate
 };
 
 struct meta_data {

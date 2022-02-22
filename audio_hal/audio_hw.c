@@ -715,7 +715,18 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
             size = DTS1_PERIOD_SIZE / 2;
         } else {
-            size = DTSHD_PERIOD_SIZE * 8;
+            if (adev->stream_bitrate != 0  && adev->stream_bitrate != -1 && adev->stream_bitrate <= 384000) {
+                size = ((adev->stream_bitrate >> 3) / 1000) * OFFLOAD_BUFFER_SIZE_DURATION_MS; // 1ms datasize * 50ms
+                /*align to 8 byte*/
+                size = size & ~(OFFLOAD_BUFFER_SIZE_ALIGMENT - 1);
+                if (size > DTS_OFFLOAD_BUFFER_MAX_SIZE) {
+                    size = DTS_OFFLOAD_BUFFER_MAX_SIZE;
+                } else if (size <= 0) {
+                    size = DTSHD_PERIOD_SIZE * 8;
+                }
+            } else {
+                size = DTSHD_PERIOD_SIZE * 8;
+            }
         }
         ALOGI("%s AUDIO_FORMAT_DTS buffer size = %zuframes", __FUNCTION__, size);
         break;
@@ -723,7 +734,18 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
             size = 4 * PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
         } else {
-            size = DTSHD_PERIOD_SIZE * 8;
+            if (adev->stream_bitrate != 0  && adev->stream_bitrate != -1 && adev->stream_bitrate <= 384000) {
+                size = ((adev->stream_bitrate >> 3) / 1000) * OFFLOAD_BUFFER_SIZE_DURATION_MS; // 1ms datasize * 50ms
+                /*align to 8 byte*/
+                size = size & ~(OFFLOAD_BUFFER_SIZE_ALIGMENT - 1);
+                if (size > DTS_OFFLOAD_BUFFER_MAX_SIZE) {
+                    size = DTS_OFFLOAD_BUFFER_MAX_SIZE;
+                } else if (size <= 0) {
+                    size = DTSHD_PERIOD_SIZE * 8;
+                }
+            } else {
+                size = DTSHD_PERIOD_SIZE * 8;
+            }
         }
         ALOGI("%s AUDIO_FORMAT_DTS_HD buffer size = %zuframes", __FUNCTION__, size);
         break;
@@ -4246,6 +4268,13 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         goto exit;
     }
 
+    ret = str_parms_get_int (parms, "stream_bitrate", &val);
+    if (ret >= 0) {
+        adev->stream_bitrate = val;
+        ALOGI ("stream_bitrate set to %d\n", adev->stream_bitrate);
+        goto exit;
+    }
+
 #ifdef USB_KARAOKE
     ret = str_parms_get_int(parms, "karaoke_switch", &val);
     if (ret >= 0) {
@@ -7747,6 +7776,9 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
         aml_hwsync_set_tsync_stop(aml_out->hwsync);
         aml_out->tsync_status = TSYNC_STATUS_STOP;
     }
+    if (aml_out->usecase == STREAM_RAW_DIRECT && is_dts_format(aml_out->hal_internal_format)) {
+        adev->stream_bitrate = -1;
+    }
     adev_close_output_stream(dev, stream);
     //adev->dual_decoder_support = false;
     //destroy_aec_reference_config(adev->aec);
@@ -9634,6 +9666,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 
     /* dtv_volume init , range [0, 1]*/
     adev->dtv_volume = 1.0;
+    adev->stream_bitrate = -1;
     pthread_mutex_unlock(&adev_mutex);
 
     adev->insert_mute_flag = false;
