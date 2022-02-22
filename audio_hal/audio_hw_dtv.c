@@ -2731,7 +2731,10 @@ void *audio_dtv_patch_input_threadloop(void *data)
     ALOGI("[audiohal_kpi]++%s start input now patch->input_thread_exit %d!!!\n ",
           __FUNCTION__, patch->input_thread_exit);
 
-    prctl(PR_SET_NAME, (unsigned long)"audio_input_patch");
+    prctl(PR_SET_NAME, (unsigned long)"dtv_input_patch");
+    aml_set_thread_priority("dtv_input_patch", patch->audio_input_threadID);
+    /*affinity the thread to cpu 2/3 which has few IRQ*/
+    aml_audio_set_cpu23_affinity();
     dtv_package_list_init(patch->dtv_package_list);
 
     while (!patch->input_thread_exit) {
@@ -3225,7 +3228,10 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
     ALOGI("[audiohal_kpi]++%s live start output pcm now patch->output_thread_exit %d!!!\n ",
           __FUNCTION__, patch->output_thread_exit);
 
-    prctl(PR_SET_NAME, (unsigned long)"audio_output_patch");
+    prctl(PR_SET_NAME, (unsigned long)"dtv_output_patch");
+    aml_set_thread_priority("dtv_output_patch", patch->audio_output_threadID);
+    /*affinity the thread to cpu 2/3 which has few IRQ*/
+    aml_audio_set_cpu23_affinity();
     aml_out->output_speed = 1.0f;
     aml_out->dtvsync_enable =  property_get_int32("vendor.media.dtvsync.enable", 1);
     ALOGI("output_speed=%f,dtvsync_enable=%d\n", aml_out->output_speed, aml_out->dtvsync_enable);
