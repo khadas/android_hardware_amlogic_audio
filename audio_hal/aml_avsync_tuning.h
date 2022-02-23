@@ -36,7 +36,8 @@
 #define MS12_DD_DDP_BUFERR_LATENCY 10
 #define MS12_MAT_BUFERR_LATENCY 10
 #define MS12_DAP_LATENCY 0
-#define AVR_LATENCY (60)
+#define AVR_LATENCY (80)
+#define AVR_RAW_PCM_LATENCY (20)
 #define AVR_LATENCY_PCM (10)
 
 struct aml_audio_patch;

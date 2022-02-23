@@ -270,9 +270,19 @@ int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *la
     } else if (aml_dev->sink_format == AUDIO_FORMAT_AC3 ||
             aml_dev->sink_format == AUDIO_FORMAT_E_AC3 ||
             aml_dev->sink_format == AUDIO_FORMAT_MAT) {
-        /* For raw data output of AVR, add more 60ms latency */
-        out_path_ltcy = alsa_out_spdif_ltcy + AVR_LATENCY;
-        alsa_output_latency = alsa_out_spdif_ltcy;
+        if ((aml_dev->optical_format == AUDIO_FORMAT_AC3) ||
+            (aml_dev->optical_format == AUDIO_FORMAT_E_AC3)) {
+            /* For dd/ddp output of AVR, add more 80ms latency */
+            out_path_ltcy = alsa_out_spdif_ltcy + AVR_LATENCY;
+            alsa_output_latency = alsa_out_spdif_ltcy;
+        } else if (aml_dev->optical_format == AUDIO_FORMAT_MAT) {
+            /* For mat output of AVR, add more 20ms latency */
+            out_path_ltcy = alsa_out_spdif_ltcy + AVR_RAW_PCM_LATENCY;
+            alsa_output_latency = alsa_out_spdif_ltcy;
+        } else {
+            out_path_ltcy = alsa_out_spdif_ltcy;
+            alsa_output_latency = alsa_out_spdif_ltcy;
+        }
     }
 
     /* calc whole path latency considering with format */
@@ -415,8 +425,9 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
     char latency_details[256] = {0};
     ret = aml_dev_avsync_diff_in_path(patch, &vltcy, &altcy, latency_details);
     if (ret < 0) {
-        patch->timeout_avsync_cnt++;
         /* timeout to wait video stability, don't do avsync */
+        patch->timeout_avsync_cnt++;
+        usleep(10*1000);
         if (patch->timeout_avsync_cnt > AVSYNC_TIMEOUT_CNT) {
             aml_dev_avsync_reset(patch);
             ALOGI(" timeout to tune avsync! error statrus = %d", ret);
@@ -459,9 +470,16 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
 
         tune_val -= seek_duration_ret;
 
-        ret = aml_dev_tune_video_path_latency(&aml_dev->alsa_mixer, tune_val);
         vltcy = aml_dev_sample_video_path_latency(patch);
         altcy = aml_dev_sample_audio_path_latency(aml_dev, latency_details);
+
+        if (tune_val > patch->max_video_latency) {
+            tune_val = patch->max_video_latency;
+        } else if (tune_val < patch->min_video_latency) {
+            tune_val = patch->min_video_latency;
+        }
+
+        ret = aml_dev_tune_video_path_latency(&aml_dev->alsa_mixer, tune_val);
 
         ALOGD("  --start avsync, tuning video total latency: value [%dms], real vltcy [%dms], real altcy [%dms]",
                 tune_val, vltcy, altcy);

@@ -620,8 +620,8 @@ int pcm_read(struct pcm *pcm, void *data, unsigned int count)
                 pcm->prepared = 0;
                 pcm->running = 0;
             }
-            if (errno == EPIPE) {
-                /* we failed to make our window -- try to restart */
+            if (errno == EPIPE || errno == ESTRPIPE) {
+                    /* we failed to make our window -- try to restart */
                 if (pcm->flags & PCM_NONEBLOCK) {
                     pcm->prepared = 0;
                     pcm->running = 0;
