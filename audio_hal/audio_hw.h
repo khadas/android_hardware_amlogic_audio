@@ -60,7 +60,7 @@
 #include "aml_dts_dec_api.h"
 #include "audio_format_parse.h"
 #include "audio_usb_hal.h"
-#include "audio_timer.h"
+#include "aml_audio_timer.h"
 
 /* number of frames per period */
 /*
@@ -358,9 +358,8 @@ struct aml_audio_device {
     bool hi_pcm_mode;
     bool audio_patching;
     /* audio configuration for dolby HDMI/SPDIF output */
-    int hdmi_format;
-    int hdmi_format_last;
-    int pre_hdmi_format;
+    int digital_audio_format;
+    int last_digital_audio_format;
     int spdif_format;
     bool spdif_enable;
     int hdmi_is_pth_active;
@@ -379,7 +378,7 @@ struct aml_audio_device {
     void * a2dp_hal;
     pthread_mutex_t a2dp_lock;
     bool bt_avrcp_supported;
-    int hdmi_format_updated;
+    int digital_audio_format_updated;
     struct aml_native_postprocess native_postprocess;
     /* used only for real TV source */
     enum patch_src_assortion patch_src;
@@ -466,7 +465,6 @@ struct aml_audio_device {
     int continuous_audio_mode_default;
     int delay_disable_continuous;
     bool atoms_lock_flag;
-    bool need_remove_conti_mode;
     int  exiting_ms12;
     bool doing_reinit_ms12;    /*we are doing reinit ms12*/
     bool doing_cleanup_ms12;   /*we are doing cleanup ms12*/

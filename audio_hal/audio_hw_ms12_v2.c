@@ -820,9 +820,9 @@ static void set_dolby_ms12_downmix_mode(struct aml_audio_device *adev)
  * when passthrough mode(BYPASS), audio_hw_dtv do not send the ad data;
  * when AUTO/PCM mode(PCM/AUTO), audio_hw_dtv send the main&ad data;
  */
-bool is_ad_data_available(int hdmi_format)
+bool is_ad_data_available(int digital_audio_format)
 {
-    if (hdmi_format != BYPASS) {
+    if (digital_audio_format != BYPASS) {
         return true;
     }
     else {
@@ -1069,7 +1069,7 @@ int get_the_dolby_ms12_prepared(
 
         //n bytes of dowmix output pcm frame, 16bits_per_sample / stereo, it value is 4btes.
         ms12->nbytes_of_dmx_output_pcm_frame = nbytes_of_dolby_ms12_downmix_output_pcm_frame();
-        ms12->hdmi_format = adev->hdmi_format;
+        ms12->ms12_digital_audio_format = adev->digital_audio_format;
         //ms12->optical_format = adev->optical_format;
         ms12->main_input_fmt = input_format;
         /*IEC61937 DDP format, the real samplerate need device by 4*/
@@ -1211,7 +1211,7 @@ bool is_ms12_passthrough(struct audio_stream_out *stream) {
             __FUNCTION__, __LINE__, is_bypass_truehd, is_truehd, is_mat, is_truehd_supported);
     }
 
-    if ((adev->hdmi_format == BYPASS)
+    if ((adev->digital_audio_format == BYPASS)
         /* when arc output, the optical_format == sink format
          * when speaker output, the optical format != format
          * only the optical_format >= hal_internal_format, we can do passthrough,
@@ -1235,7 +1235,7 @@ bool is_ms12_passthrough(struct audio_stream_out *stream) {
     }
     if (adev->debug_flag & AUDIO_HAL_DEBUG_PASSTHROUGH) {
         ALOGD("%s line %d bypass_ms12 =%d hdmi format =%d optical format =0x%x intenal format 0x%x",
-            __FUNCTION__, __LINE__, bypass_ms12, adev->hdmi_format, ms12->optical_format, aml_out->hal_internal_format);
+            __FUNCTION__, __LINE__, bypass_ms12, adev->digital_audio_format, ms12->optical_format, aml_out->hal_internal_format);
     }
     return bypass_ms12;
 }
@@ -1336,7 +1336,7 @@ int dolby_ms12_main_process(
         }
 
         /* Passthrough Mode, only get the MAIN data */
-        if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->hdmi_format)) {
+        if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->digital_audio_format)) {
             dual_input_ret = scan_dolby_main_associate_frame(input_buffer
                              , input_bytes
                              , &dual_decoder_used_bytes
@@ -1384,7 +1384,7 @@ int dolby_ms12_main_process(
                 ALOGV("Input size =%d used_size =%d output size=%d rate=%d interl format=0x%x rate=%d",
                     input_bytes, spdif_dec_used_size, main_frame_size, aml_out->hal_rate, aml_out->hal_internal_format, sample_rate);
 
-                if (adev->hdmi_format == BYPASS && main_frame_size != 0 && adev->continuous_audio_mode) {
+                if (adev->digital_audio_format == BYPASS && main_frame_size != 0 && adev->continuous_audio_mode) {
                     struct bypass_frame_info frame_info = { 0 };
                     aml_out->ddp_frame_size    = main_frame_size;
                     frame_info.audio_format    = ms12_hal_format;
@@ -1429,7 +1429,7 @@ int dolby_ms12_main_process(
 
                     }
                 }
-                if (adev->hdmi_format == BYPASS && main_frame_size != 0) {
+                if (adev->digital_audio_format == BYPASS && main_frame_size != 0) {
                     struct bypass_frame_info frame_info = { 0 };
                     aml_out->ddp_frame_size    = main_frame_size;
                     frame_info.audio_format    = ms12_hal_format;
@@ -1452,7 +1452,7 @@ int dolby_ms12_main_process(
         }
 
         /* Passthrough Mode, only get the MAIN data as the single input */
-        if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->hdmi_format)) {
+        if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->digital_audio_format)) {
             /*if there is associate frame, send it to dolby ms12.*/
             char tmp_array[4096] = {0};
             if (!associate_frame_buffer || (associate_frame_size == 0)) {
@@ -1552,7 +1552,7 @@ MAIN_INPUT:
 
             if (dolby_ms12_input_bytes > 0) {
                 /* Passthrough Mode, only get the MAIN data as the single input */
-                if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->hdmi_format)) {
+                if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->digital_audio_format)) {
                     *use_size = dual_decoder_used_bytes;
                 } else {
                     if (adev->debug_flag >= 2) {
@@ -1625,7 +1625,7 @@ MAIN_INPUT:
             }
         } else {
             /* Passthrough Mode, only get the MAIN data as the single input */
-            if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->hdmi_format)) {
+            if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->digital_audio_format)) {
                 *use_size = dual_decoder_used_bytes;
             } else {
                 *use_size = input_bytes;
@@ -2396,13 +2396,13 @@ int ms12_passthrough_output(struct aml_stream_out *aml_out) {
     uint64_t ms12_dec_out_nframes = dolby_ms12_get_decoder_nframes_pcm_output(adev->ms12.dolby_ms12_ptr, hal_internal_format, MAIN_INPUT_STREAM);
     struct bitstream_out_desc *bitstream_out = &ms12->bitstream_out[BITSTREAM_OUTPUT_A];
 
-    if (adev->hdmi_format == BYPASS && ms12_dec_out_nframes != 0 &&
+    if (adev->digital_audio_format == BYPASS && ms12_dec_out_nframes != 0 &&
         (hal_internal_format == AUDIO_FORMAT_E_AC3 || hal_internal_format == AUDIO_FORMAT_AC3)) {
         uint64_t consume_offset = dolby_ms12_get_decoder_n_bytes_consumed(ms12->dolby_ms12_ptr, hal_internal_format, MAIN_INPUT_STREAM);
         aml_ms12_bypass_checkout_data(ms12->ms12_bypass_handle, &output_buf, &out_size, consume_offset, &frame_info);
     }
 
-    if ((adev->hdmi_format != BYPASS)) {
+    if ((adev->digital_audio_format != BYPASS)) {
         ms12->is_bypass_ms12 = false;
     }
     if (ms12->is_bypass_ms12 != bitstream_out->is_bypass_ms12) {
@@ -3312,7 +3312,7 @@ bool is_bypass_dolbyms12(struct audio_stream_out *stream)
 
     return (is_dts
             || is_high_rate_pcm(stream)
-            || (is_multi_channel_pcm(stream) && (adev->hdmi_format == BYPASS)));
+            || (is_multi_channel_pcm(stream) && (adev->digital_audio_format == BYPASS)));
 }
 
 bool is_audio_postprocessing_add_dolbyms12_dap(struct aml_audio_device *adev)
@@ -3570,7 +3570,7 @@ bool is_ms12_output_compatible(struct audio_stream_out *stream, audio_format_t n
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
-    if (adev->hdmi_format == BYPASS || adev->hdmi_format == PCM) {
+    if (adev->digital_audio_format == BYPASS || adev->digital_audio_format == PCM) {
         /*for bypass case and pcm case, it is always compatible*/
         return true;
     }

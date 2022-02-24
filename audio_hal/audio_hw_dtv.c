@@ -1995,11 +1995,6 @@ void *audio_dtv_patch_output_threadloop(void *data)
         */
         out_standby_new((struct audio_stream *)aml_out);
         pthread_mutex_lock(&aml_dev->lock);
-        if (aml_dev->need_remove_conti_mode == true) {
-            ALOGI("%s,conntinous mode still there,release ms12 here", __func__);
-            aml_dev->need_remove_conti_mode = false;
-            aml_dev->continuous_audio_mode = 0;
-        }
     } else {
         ALOGI("++%s live cant get the aml_out now!!!\n ", __FUNCTION__);
     }
@@ -2058,7 +2053,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
             ALOGV("AD %d %d %d", aml_dev->dolby_lib_type, aml_dev->dual_decoder_support, demux_info->ad_pid);
             if (aml_dev->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
                 if (aml_dev->dolby_lib_type == eDolbyMS12Lib) {
-                    if (aml_dev->disable_pcm_mixing == false || aml_dev->hdmi_format == PCM ||
+                    if (aml_dev->disable_pcm_mixing == false || aml_dev->digital_audio_format == PCM ||
                         aml_dev->sink_capability == AUDIO_FORMAT_PCM_16_BIT || aml_dev->sink_capability == AUDIO_FORMAT_PCM_32_BIT) {
                         ret = audio_dtv_patch_output_dolby_dual_decoder(patch, stream_out, &apts_diff);
                     } else {
@@ -2259,7 +2254,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 int demux_id  = demux_info->demux_id;
                 ALOGI("patch->demux_handle %p patch->aformat %0x", patch->demux_handle, patch->aformat);
                 if (aml_dev->dolby_lib_type == eDolbyMS12Lib) {
-                    if (aml_dev->disable_pcm_mixing == true && aml_dev->hdmi_format != PCM &&
+                    if (aml_dev->disable_pcm_mixing == true && aml_dev->digital_audio_format != PCM &&
                         (aml_dev->sink_capability == AUDIO_FORMAT_AC3 || aml_dev->sink_capability == AUDIO_FORMAT_E_AC3)) {
                         associate_mix = 0;
                         dual_decoder = 0;
@@ -2320,7 +2315,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
             /*[SE][BUG][SWPL-17416][chengshun] maybe sometimes subafmt and subapid not set before dtv patch start*/
             if (aml_dev->ad_start_enable == 0 && VALID_PID(demux_info->ad_pid) && VALID_AD_FMT(demux_info->ad_fmt)) {
                 if (aml_dev->dolby_lib_type == eDolbyMS12Lib) {
-                    if (aml_dev->disable_pcm_mixing == false || aml_dev->hdmi_format == PCM ||
+                    if (aml_dev->disable_pcm_mixing == false || aml_dev->digital_audio_format == PCM ||
                         aml_dev->sink_capability == AUDIO_FORMAT_PCM_16_BIT || aml_dev->sink_capability == AUDIO_FORMAT_PCM_32_BIT) {
                         int ad_start_flag;
                         if (aml_dev->is_multi_demux) {
@@ -2692,7 +2687,7 @@ static bool need_enable_dual_decoder(struct aml_audio_patch *patch)
                 }
             }
         } else if (aml_dev->dolby_lib_type == eDolbyMS12Lib) {
-            if (aml_dev->hdmi_format == BYPASS) {
+            if (aml_dev->digital_audio_format == BYPASS) {
                 return false;
             }
         }
@@ -3182,11 +3177,6 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
         */
         out_standby_new((struct audio_stream *)aml_out);
         pthread_mutex_lock(&aml_dev->lock);
-        if (aml_dev->need_remove_conti_mode == true) {
-            ALOGI("%s,conntinous mode still there,release ms12 here", __func__);
-            aml_dev->need_remove_conti_mode = false;
-            aml_dev->continuous_audio_mode = 0;
-        }
     } else {
         ALOGI("++%s live cant get the aml_out now!!!\n ", __FUNCTION__);
     }

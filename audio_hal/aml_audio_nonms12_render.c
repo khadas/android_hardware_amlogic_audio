@@ -297,7 +297,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                  * DTS 88.2K/96K pcm direct output case.
                  * If the PCM after decoding is 88.2k/96k, then direct output.
                  * Need to check whether HDMI sink supports 88.2k/96k or not.*/
-                if (adev->hdmi_format == PCM
+                if (adev->digital_audio_format == PCM
                     && is_dts_format(aml_out->hal_internal_format)
                     && dec_pcm_data->data_sr > 48000
                     && check_sink_pcm_sr_cap(adev, dec_pcm_data->data_sr)) {

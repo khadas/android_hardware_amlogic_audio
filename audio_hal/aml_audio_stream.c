@@ -318,7 +318,7 @@ void get_sink_format(struct audio_stream_out *stream)
 
     /*when device is HDMI_ARC*/
     ALOGI("!!!%s() Sink devices %#x Source format %#x digital_format(hdmi_format) %#x Sink Capability %#x\n",
-          __FUNCTION__, adev->active_outport, aml_out->hal_internal_format, adev->hdmi_format, sink_capability);
+          __FUNCTION__, adev->active_outport, aml_out->hal_internal_format, adev->digital_audio_format, sink_capability);
 
     if ((source_format != AUDIO_FORMAT_PCM_16_BIT) && \
         (source_format != AUDIO_FORMAT_AC3) && \
@@ -334,13 +334,13 @@ void get_sink_format(struct audio_stream_out *stream)
     }
     adev->sink_capability = sink_capability;
 
-    // "adev->hdmi_format" is the UI selection item.
+    // "adev->digital_audio_format" is the UI selection item.
     // "adev->active_outport" was set when HDMI ARC cable plug in/off
     // condition 1: ARC port, single output.
     // condition 2: for STB case with dolby-ms12 libs
     if (adev->active_outport == OUTPORT_HDMI_ARC || !adev->is_TV) {
         ALOGI("%s() HDMI ARC or mbox + dvb case", __FUNCTION__);
-        switch (adev->hdmi_format) {
+        switch (adev->digital_audio_format) {
         case PCM:
             sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
             optical_audio_format = sink_audio_format;
@@ -386,7 +386,7 @@ void get_sink_format(struct audio_stream_out *stream)
     /*when device is SPEAKER/HEADPHONE*/
     else {
         ALOGI("%s() SPEAKER/HEADPHONE case", __FUNCTION__);
-        switch (adev->hdmi_format) {
+        switch (adev->digital_audio_format) {
         case PCM:
             sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
             optical_audio_format = sink_audio_format;
@@ -966,7 +966,7 @@ bool is_use_spdifb(struct aml_stream_out *out) {
         if (adev->dual_spdif_support) {
             out->dual_spdif = true;
         }
-        if (out->dual_spdif && ((adev->hdmi_format == AUTO) &&
+        if (out->dual_spdif && ((adev->digital_audio_format == AUTO) &&
             adev->optical_format == AUDIO_FORMAT_E_AC3) &&
             out->hal_rate != 32000) {
             return true;

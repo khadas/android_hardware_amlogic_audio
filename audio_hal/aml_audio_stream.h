@@ -77,7 +77,7 @@ enum auge_input_source {
 };
 
 /*
- *@brief get this value by adev_set_parameters(), command is "hdmi_format"
+ *@brief get this value by adev_set_parameters(), command is "digital_audio_format"
  */
 enum digital_format {
     PCM = 0,

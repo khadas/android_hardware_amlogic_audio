@@ -125,7 +125,7 @@ struct dolby_ms12_desc {
     int ac4_de;
     int nbytes_of_dmx_output_pcm_frame;
     void * ac3_parser_handle;
-    int hdmi_format;
+    int ms12_digital_audio_format;
     audio_format_t optical_format;
     audio_format_t sink_format;
     struct timespec  sys_audio_timestamp;

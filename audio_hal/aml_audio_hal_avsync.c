@@ -456,12 +456,12 @@ static unsigned int dtv_calc_pcrpts_latency(struct aml_audio_patch *patch, unsig
 {
     struct audio_hw_device *adev = patch->dev;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) adev;
-    if (aml_dev->bHDMIARCon == 0 || aml_dev->hdmi_format == PCM) {
+    if (aml_dev->bHDMIARCon == 0 || aml_dev->digital_audio_format == PCM) {
         return pcrpts;
     } else {
         return pcrpts + DEFAULT_ARC_DELAY_MS * 90;
     }
-    if (aml_dev->bHDMIARCon && aml_dev->hdmi_format == PCM) {
+    if (aml_dev->bHDMIARCon && aml_dev->digital_audio_format == PCM) {
         if (patch->aformat == AUDIO_FORMAT_E_AC3) {
             pcrpts += 2 * DTV_PTS_CORRECTION_THRESHOLD;
         } else {

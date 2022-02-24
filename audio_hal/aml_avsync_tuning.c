@@ -214,7 +214,7 @@ int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *la
         }
 
         /* if arc is connected and format setting is "Passthrough", bypass MS12 */
-        if (aml_dev->bHDMIARCon == 1 && aml_dev->hdmi_format == BYPASS)
+        if (aml_dev->bHDMIARCon == 1 && aml_dev->digital_audio_format == BYPASS)
             ms12_ltcy = 0;
 
         patch->audio_latency.ms12_latency = ms12_ltcy;

@@ -128,7 +128,7 @@ struct dolby_ms12_desc {
     unsigned int   main_input_sr;
     void * ac3_parser_handle;
     void * spdif_dec_handle;
-    int hdmi_format;
+    int ms12_digital_audio_format;
     audio_format_t sink_format;
     audio_format_t optical_format;
     bool dual_decoder_support;
