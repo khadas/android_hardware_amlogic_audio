@@ -507,7 +507,7 @@ bool aml_audio_hwsync_update_threshold(audio_hwsync_t *p_hwsync)
      * it will be changed to 100ms for drop when pass through mode.
      * this modification is for MiBox plist passthrough of NTS cases
      */
-    if (adev && (BYPASS == adev->hdmi_format || eDolbyMS12Lib != adev->dolby_lib_type)) {
+    if (adev && (BYPASS == adev->hdmi_format)) {
         avsync_time_threshold_value = 100*1000;
         ret = aml_audio_hwsync_set_time_gap_threshold(p_hwsync, avsync_time_threshold_value);
     } else {

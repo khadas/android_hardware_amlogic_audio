@@ -492,6 +492,7 @@ write:
         pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
         alsa_status = (status.state == PCM_STATE_RUNNING);
         if (alsa_status != aml_out->alsa_running_status) {
+            ALOGI("%s alsa_running_status[%p] change from %d to %d", __func__, aml_out, aml_out->alsa_running_status, alsa_status);
             aml_out->alsa_running_status = alsa_status;
             aml_out->alsa_status_changed = true;
         }
@@ -598,6 +599,9 @@ int aml_alsa_output_resume(struct audio_stream_out *stream) {
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = out->dev;
     int ret = 0;
+    struct snd_pcm_status status;
+    bool alsa_status;
+
     if (out->pcm && pcm_is_ready (out->pcm) ) {
         ret = pcm_ioctl (out->pcm, SNDRV_PCM_IOCTL_PREPARE, 0);
         if (ret < 0) {
@@ -608,7 +612,18 @@ int aml_alsa_output_resume(struct audio_stream_out *stream) {
             if (out->pcm == adev->pcm)
                 adev->pcm_paused = false;
         }
+
+        pcm_ioctl(out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+        alsa_status = (status.state == PCM_STATE_RUNNING);
+    } else {
+        alsa_status = false;
     }
+
+    if (alsa_status != out->alsa_running_status) {
+        ALOGI("%s alsa_running_status[%p] change from %d to %d", __func__, out, out->alsa_running_status, alsa_status);
+        out->alsa_running_status = alsa_status;
+        out->alsa_status_changed = true;
+   }
 
     return 0;
 }

@@ -5092,6 +5092,8 @@ int do_output_standby_l(struct audio_stream *stream)
     aml_out->standby= 1;
 
     if (adev->continuous_audio_mode == 0) {
+        aml_out->alsa_running_status = false;
+
         // release buffers
         if (aml_out->buffer) {
             aml_audio_free(aml_out->buffer);
@@ -6530,7 +6532,8 @@ hwsync_rewrite:
                             ALOGI("%s pcr =%llu pts =%llu,  diff =%d ms", __func__, pcr/90, apts64/90, pcr_pts_gap);
                         }
                     } else {
-                        ALOGI("%s  write_count:%d, drop this pts", __func__, aml_out->write_count);
+                        ALOGI("%s  write_count:%d, drop this pts (alsa_running_status:%d [%p], valid_pts:%d)", __func__,
+                            aml_out->write_count, aml_out->alsa_running_status, aml_out, valid_pts);
                     }
                 } else {
 
