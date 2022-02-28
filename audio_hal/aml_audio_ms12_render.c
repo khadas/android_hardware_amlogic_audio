@@ -309,7 +309,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     bool dtv_stream_flag = patch && (adev->patch_src == SRC_DTV) && aml_out->is_tv_src_stream;
     bool do_sync_flag = dtv_stream_flag && patch && patch->skip_amadec_flag && patch->dtvsync->sync_type == DTVSYNC_MEDIASYNC;
     /*when es data pts jump > 5s, the dvb stream may replay and do ease out to prevent pop nosie*/
-    if ( dtv_stream_flag && patch->cur_package && patch->dtvsync) {
+    if ( dtv_stream_flag && patch->cur_package && patch->dtvsync && (patch->cur_package->pts != ULLONG_MAX)) {
         if (patch->dtvsync->last_package_pts !=  DTVSYNC_INIT_PTS &&
             (ABS(patch->dtvsync->last_package_pts,patch->cur_package->pts) > AUDIO_PTS_DISCONTINUE_THRESHOLD)) {
             set_ms12_main_audio_mute(ms12, true, 0);
@@ -357,7 +357,8 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
             if (adev->debug_flag) {
                 ALOGI("%s dolby pts %" PRIu64 " decoder_base =%" PRIu64 " decoder_offset =%" PRIu64 "", __func__, patch->cur_package->pts, decoder_base, decoder_offset);
             }
-            set_ms12_main_audio_pts(ms12, patch->cur_package->pts, decoder_offset);
+            if (patch->cur_package->pts != ULLONG_MAX)
+                set_ms12_main_audio_pts(ms12, patch->cur_package->pts, decoder_offset);
             /* to init the pts information */
             if (patch->decoder_offset == 0) {
                 aml_audio_ms12_init_pts_param(ms12, patch->cur_package->pts);
@@ -491,7 +492,12 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     if (patch && patch->cur_package && patch->skip_amadec_flag && patch->demux_info) {
         aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
         if (!demux_info->dual_decoder_support) {
-             patch->decoder_offset += patch->cur_package->size;
+             /*we have separated the input data, then we need use input size to calculate pts*/
+             if (is_aac_format(patch->aformat)) {
+                patch->decoder_offset += bytes;
+             } else {
+                patch->decoder_offset += patch->cur_package->size;
+             }
         } else {
              if (patch->aformat == AUDIO_FORMAT_HE_AAC_V1 ||
                  patch->aformat == AUDIO_FORMAT_AAC_LATM ||

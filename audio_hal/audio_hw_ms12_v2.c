@@ -2202,7 +2202,7 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
             int alsa_bitstream_delay_ms = out_get_ms12_bitstream_latency_ms(stream);
             int64_t alsa_latency = (alsa_bitstream_delay_ms >= 0) ? (alsa_bitstream_delay_ms * MILLISECOND_2_PTS) : 0;
             int64_t ms12_bypass_tuning_pts = dtv_get_ms12_bypass_latency_offset()/*ms*/ * MILLISECOND_2_PTS;
-            if (aml_dtvsync && patch && patch->cur_package) {
+            if (aml_dtvsync && patch && patch->cur_package && (patch->cur_package->pts != ULLONG_MAX)) {
                 /* Fixme: if there are multi frames in the dolby raw data, how to update the pts? */
                 aml_dtvsync->out_start_apts = patch->cur_package->pts;
                 aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_bypass_tuning_pts;
@@ -3164,7 +3164,8 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
             /* SWPL-71715, if package_pts is bigger than out_end_apts a certain range,
                use package_pts to reinitialize out_start_apts */
             if (patch->cur_package && patch->cur_package->pts > ms12_total_delay_pts && (int64_t)(patch->cur_package->pts -
-                aml_dtvsync->out_end_apts) > (int64_t)(ms12_total_delay_pts + MILLISECOND_2_PTS * 32 * 5)) {
+                aml_dtvsync->out_end_apts) > (int64_t)(ms12_total_delay_pts + MILLISECOND_2_PTS * 32 * 5)
+                && (patch->cur_package->pts != ULLONG_MAX)) {
                 aml_dtvsync->out_start_apts = patch->cur_package->pts - ms12_total_delay_pts;
                 if (adev->debug_flag) {
                     ALOGI("%s update out_start_apts, package_pts, %" PRIx64 ", out_end_apts %" PRIx64 ", diff %d ms", __FUNCTION__, patch->cur_package->pts,
@@ -3182,7 +3183,7 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
             aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_tuning_delay_pts + force_setting_delay_pts;
         }
 
-        if (patch->cur_package && adev->debug_flag) {
+        if (patch->cur_package && adev->debug_flag && (patch->cur_package->pts != ULLONG_MAX)) {
             uint64_t pts_diff = patch->cur_package->pts / 90 - ms12_main_apts / 90;
             ALOGI("%s package pts(ms) %" PRIu64 " ms12_main_apts(ms) %" PRIu64 " diff =%" PRId64 " pcm-duration(ms)%zu cur_outapts(ms) %" PRIu64 ", alsa_latency(ms) %d ms12_tuning_delay_pts(ms) %d\n",
                 __func__, patch->cur_package->pts / 90, ms12_main_apts / 90, pts_diff, cur_pcm_pts / 90 , aml_dtvsync->cur_outapts / 90, alsa_latency / 90, ms12_tuning_delay_pts / 90);

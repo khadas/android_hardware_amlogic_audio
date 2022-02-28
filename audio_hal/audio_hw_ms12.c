@@ -2184,7 +2184,7 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
             aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_tuning_delay_pts + force_setting_delay_pts;
         }
 
-        if (patch->cur_package && adev->debug_flag) {
+        if (patch->cur_package && adev->debug_flag && (patch->cur_package->pts != ULLONG_MAX)) {
             uint64_t pts_diff = patch->cur_package->pts / 90 - ms12_main_apts / 90;
             ALOGI("%s package pts(ms) %llu ms12_main_apts(ms) %llu diff =%lld pcm-duration(ms)%u cur_outapts(ms) %llu, alsa_latency(ms) %d ms12_tuning_delay_pts(ms) %d\n",
                 __func__, patch->cur_package->pts / 90, ms12_main_apts / 90, pts_diff, cur_pcm_pts / 90 , aml_dtvsync->cur_outapts / 90, alsa_latency / 90, ms12_tuning_delay_pts / 90);

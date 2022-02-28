@@ -2610,6 +2610,10 @@ int audio_dtv_patch_output_single_decoder(struct aml_audio_patch *patch,
                 ALOGW("do not get main aac frames !!!");
                 break;
             }
+            /*only the first frame has the correct pts*/
+            if (used_size != 0) {
+                cur_package->pts = ULLONG_MAX;
+            }
             used_size += parser_used_size;
             patch->cur_package->split_frame_size = main_frame_size;
             if (aml_dev->debug_flag) {
