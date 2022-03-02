@@ -74,7 +74,7 @@ typedef enum AML_DUMP_DEBUG_INFO {
 #define AML_DEBUG_AUDIOHAL_SYNCPTS_PROPERTY         "vendor.media.audio.hal.syncpts"
 #define AML_DUMP_AUDIOHAL_TV_PROPERTY               "vendor.media.audiohal.tvdump"
 #define AML_DEBUG_AUDIOHAL_MATENC_PROPERTY          "vendor.media.audiohal.matenc.debug"
-#define AML_DEBUG_AUDIOHAL_TRACE_PROPERTY           "vendor.audio.hal.trace.debug"
+#define AML_DEBUG_AUDIOHAL_TRACE_PROPERTY           "vendor.media.audiohal.trace.debug"
 
 
 void aml_audio_debug_open(void);
