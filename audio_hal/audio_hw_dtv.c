@@ -2035,7 +2035,10 @@ void *audio_dtv_patch_output_threadloop(void *data)
     ALOGI("[audiohal_kpi]++%s live start output pcm now patch->output_thread_exit %d!!!\n ",
           __FUNCTION__, patch->output_thread_exit);
 
-    prctl(PR_SET_NAME, (unsigned long)"audio_output_patch");
+    prctl(PR_SET_NAME, (unsigned long)"dtv_output_patch");
+    aml_set_thread_priority("dtv_output_patch", patch->audio_output_threadID);
+    /*affinity the thread to cpu 2/3 which has few IRQ*/
+    aml_audio_set_cpu23_affinity();
 
     while (!patch->output_thread_exit) {
         if (patch->dtv_decoder_state == AUDIO_DTV_PATCH_DECODER_STATE_PAUSE) {
