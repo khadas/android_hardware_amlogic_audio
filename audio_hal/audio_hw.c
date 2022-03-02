@@ -1472,6 +1472,9 @@ static int out_resume (struct audio_stream_out *stream)
         out->tsync_status = TSYNC_STATUS_RUNNING;
     }
     out->pause_status = false;
+    out->write_status = false;
+    ALOGI("%s(), stream[%p] write_status set to false", __func__, out);
+
 exit:
     if (out->hw_sync_mode) {
         ALOGI("%s set AUDIO_RESUME when tunnel mode\n",__func__);
@@ -1609,6 +1612,8 @@ static int out_resume_new (struct audio_stream_out *stream)
             }
         }
     }
+    aml_out->write_status = false;
+    ALOGI("%s(), stream[%p] write_status set to false", __func__, aml_out);
 
 exit:
     pthread_mutex_unlock (&aml_out->lock);
@@ -7605,6 +7610,11 @@ ssize_t out_write_new(struct audio_stream_out *stream,
             }
         }
     }
+    if (aml_out->write_status == false) {
+        ALOGI("%s(), stream[%p] write_status set to true", __func__, aml_out);
+        aml_out->write_status = true;
+    }
+
     if (adev->debug_flag > 1) {
         ALOGI("-<OUT>%s() ret %zd,%p %"PRIu64"\n", __func__, ret, stream, aml_out->total_write_size);
     }

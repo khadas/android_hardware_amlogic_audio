@@ -650,7 +650,13 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
                     __func__, apts32, pcr);
             }
 #endif
-            aml_hwsync_reset_tsync_pcrscr(out->hwsync, apts64);
+            if (adev && adev->continuous_audio_mode && (out->write_status == false)) {
+                // ms12 continuous mode, stream just resume and not ready for write
+                ALOGI("%s : continuous mode, waiting stream[%p] write_status to be true", __func__, out);
+            } else {
+                aml_hwsync_reset_tsync_pcrscr(out->hwsync, apts64);
+            }
+
             {
                 int pts_gap = ((int)apts64 - (int)out->hwsync->last_output_pts)/ 90;
                 int time_gap = (int)calc_time_interval_us(&out->hwsync->last_timestamp, &ts) / 1000;

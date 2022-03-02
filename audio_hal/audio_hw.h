@@ -777,6 +777,7 @@ struct aml_stream_out {
     bool alsa_status_changed;
     /*flag indicate the ms12 2ch lock is on*/
     bool ms12_acmod2ch_lock_disable;
+    bool write_status;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
