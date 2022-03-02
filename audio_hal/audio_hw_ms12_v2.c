@@ -1726,7 +1726,7 @@ int dolby_ms12_system_process(
             if (input_ns == 0) {
                 input_ns = (uint64_t)(bytes) * NANO_SECOND_PER_SECOND / 4 / mixer_default_samplerate;
             }
-            audio_virtual_buf_open(&ms12->system_virtual_buf_handle, "ms12 system input", input_ns/2, MS12_SYS_INPUT_BUF_NS, MS12_SYS_BUF_INCREASE_TIME_MS);
+            audio_virtual_buf_open(&ms12->system_virtual_buf_handle, "ms12 system input", input_ns/2, MS12_SYS_INPUT_BUF_NS, 0, MS12_SYS_BUF_INCREASE_TIME_MS);
         }
         audio_virtual_buf_process(ms12->system_virtual_buf_handle, input_ns);
     }
@@ -3326,6 +3326,7 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
             , "ms12 main input"
             , buf_ns_begin
             , buf_ns_target
+            , 0
             , MS12_MAIN_BUF_INCREASE_TIME_MS);
     }
     if (is_iec61937_format(stream)) {

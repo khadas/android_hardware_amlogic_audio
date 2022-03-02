@@ -1248,7 +1248,7 @@ static void *mixer_16b_threadloop(void *data)
     while (!audio_mixer->exit_thread) {
         if (pstVirtualBuffer == NULL) {
             audio_virtual_buf_open((void **)&pstVirtualBuffer, "mixer_16bit_thread",
-                    MIXER_WRITE_PERIOD_TIME_NANO * 4, MIXER_WRITE_PERIOD_TIME_NANO * 4, 0);
+                    MIXER_WRITE_PERIOD_TIME_NANO * 4, MIXER_WRITE_PERIOD_TIME_NANO * 4, 0, 0);
             audio_virtual_buf_process((void *)pstVirtualBuffer, MIXER_WRITE_PERIOD_TIME_NANO * 4);
         }
         pthread_mutex_lock(&audio_mixer->lock);

@@ -47,10 +47,10 @@ struct audio_virtual_buf {
     uint64_t buf_write_ns;
     uint64_t buf_read_ns;
     uint64_t last_process_ns;
-
+    uint64_t buf_start_ns;
 };
 
-int audio_virtual_buf_open(void ** pphandle, char * buf_name, uint64_t buf_ns_begin, uint64_t buf_ns_target, int ease_time_ms)
+int audio_virtual_buf_open(void ** pphandle, char * buf_name, uint64_t buf_ns_begin, uint64_t buf_ns_target, uint64_t buf_start_ns, int ease_time_ms)
 {
     int ret = -1;
     audio_virtual_buf_t * phandle = NULL;
@@ -82,6 +82,7 @@ int audio_virtual_buf_open(void ** pphandle, char * buf_name, uint64_t buf_ns_be
     phandle->buf_ns_cur = buf_ns_begin;
     phandle->buf_ns_begin = buf_ns_begin;
     phandle->buf_ns_target = buf_ns_target;
+    phandle->buf_start_ns = buf_start_ns;
     phandle->ease_time_ns = (uint64_t)ease_time_ms * 1000000LL;
 
     ALOGD("%s %s buf_begin=%" PRId64 " buf_target=%" PRId64 " time=%" PRId64 "", __FUNCTION__ , phandle->buf_name,
@@ -109,6 +110,7 @@ int audio_virtual_buf_process(void *phandle, uint64_t frame_ns)
 
     uint64_t read_ns = 0;
     uint64_t write_ns = 0;
+    uint64_t last_write_ns = 0;
     uint64_t buf_ns = 0;
     uint64_t sleep_ns = 0;
     uint64_t delay_ns = 0;
@@ -132,7 +134,7 @@ int audio_virtual_buf_process(void *phandle, uint64_t frame_ns)
     write_ns = virtual_handle->buf_write_ns;
     ease_time_ns = virtual_handle->ease_time_ns;
     buf_ns_cur = virtual_handle->buf_ns_cur;
-
+    last_write_ns = write_ns;
 
     while (1) {
         switch (virtual_handle->state) {
@@ -183,6 +185,10 @@ int audio_virtual_buf_process(void *phandle, uint64_t frame_ns)
             buf_ns_cur = (virtual_handle->buf_ns_target - virtual_handle->buf_ns_begin) * t + virtual_handle->buf_ns_begin;
         }
         virtual_handle->buf_ns_cur = buf_ns_cur;
+    }
+    if (last_write_ns < virtual_handle->buf_start_ns) {
+        // buffer is not ready for consuming ...
+        read_ns = 0;
     }
 
     if (read_ns <= write_ns) {

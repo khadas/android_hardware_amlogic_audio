@@ -23,7 +23,7 @@
 typedef struct audio_virtual_buf audio_virtual_buf_t;
 
 
-int audio_virtual_buf_open(void ** pphandle, char * buf_name, uint64_t buf_ns_begin, uint64_t buf_ns_target, int ease_time_ms);
+int audio_virtual_buf_open(void ** pphandle, char * buf_name, uint64_t buf_ns_begin, uint64_t buf_ns_target, uint64_t buf_start_ns, int ease_time_ms);
 
 int audio_virtual_buf_close(void **pphandle);
 

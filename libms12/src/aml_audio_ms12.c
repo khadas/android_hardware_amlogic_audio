@@ -84,7 +84,8 @@ int aml_ms12_config(struct dolby_ms12_desc *ms12_desc
                     , char *dolby_ms12_path)
 {
     ALOGI("+%s() %d\n", __FUNCTION__, __LINE__);
-    int low_latency = 1;
+    //int low_latency = 1;
+    int low_latency = 0;
     ms12_desc->input_config_format = config_format;
     ms12_desc->config_channel_mask = config_channel_mask;
     ms12_desc->config_sample_rate = config_sample_rate;

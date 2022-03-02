@@ -90,7 +90,7 @@ static void *outMmapThread(void *pArg) {
 
             if (pstVirtualBuffer == NULL) {
                 audio_virtual_buf_open((void **)&pstVirtualBuffer, "aaudio mmap",
-                        MMAP_WRITE_PERIOD_TIME_NANO * MMAP_BUFFER_BURSTS_NUM, MMAP_WRITE_PERIOD_TIME_NANO * MMAP_BUFFER_BURSTS_NUM, 0);
+                        MMAP_WRITE_PERIOD_TIME_NANO * MMAP_BUFFER_BURSTS_NUM, MMAP_WRITE_PERIOD_TIME_NANO * MMAP_BUFFER_BURSTS_NUM, 0, 0);
                 audio_virtual_buf_process((void *)pstVirtualBuffer, MMAP_WRITE_PERIOD_TIME_NANO * MMAP_BUFFER_BURSTS_NUM);
             }
             unsigned int u32RemainSizeByte =  (pstParam->u32BufferSize + pu8StartAddr) - pu8CurReadAddr;
