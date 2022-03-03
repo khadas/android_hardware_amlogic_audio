@@ -8381,6 +8381,9 @@ static enum OUT_PORT get_output_dev_for_strategy(struct aml_audio_device *adev, 
 {
     uint32_t sink = -1;
     if (sink == -1) {
+        sink = get_output_dev_for_sinks(sinks, num_sinks, OUTPORT_HEADPHONE);
+    }
+    if (sink == -1) {
         sink = get_output_dev_for_sinks(sinks, num_sinks, OUTPORT_A2DP);
     }
     if (sink == -1 && adev->bHDMIARCon) {
