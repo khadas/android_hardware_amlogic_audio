@@ -3507,6 +3507,15 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         out->resample_handle = NULL;
     }
 
+    // for SWPL-69423, DTV apk create mix-->device patch.
+    // we need to cleanup the dolbyms12 resource when close stream.
+    if (adev && adev->audio_patching && (adev->patch_src == SRC_DTV || adev->patch_src == SRC_ATV) &&
+        !adev->continuous_audio_mode) {
+        ALOGI("%s cleanup dolbyms12 in close stream of non continuous mode", __func__);
+        get_dolby_ms12_cleanup(&adev->ms12, true);
+        adev->exiting_ms12 = 1;
+    }
+
     /*TBD .to fix the AC-4 continous function in ms12 lib then remove this */
     /*
      * will close MS12 if the AVR DDP-ATMOS capbility is changed,
