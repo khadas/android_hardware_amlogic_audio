@@ -3333,6 +3333,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
 
     out->ddp_frame_size = aml_audio_get_ddp_frame_size();
     out->resample_handle = NULL;
+    out->speed_handle = NULL;
     *stream_out = &out->stream;
     ALOGD("%s: exit", __func__);
 
@@ -3532,6 +3533,10 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     if (out->resample_handle) {
         aml_audio_resample_close(out->resample_handle);
         out->resample_handle = NULL;
+    }
+    if (out->speed_handle) {
+        aml_audio_speed_close(out->speed_handle);
+        out->speed_handle = NULL;
     }
 
     // for SWPL-69423, DTV apk create mix-->device patch.

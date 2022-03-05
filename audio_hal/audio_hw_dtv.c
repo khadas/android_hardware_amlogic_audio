@@ -3036,8 +3036,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
 
                             demux_info->dtv_pacakge = dtv_pacakge;
                             pthread_mutex_unlock(&aml_dev->dtv_lock);
-                            if (!audio_queue_info.isneedupdate &&
-                                dtv_audio_instances->demux_index_working == -1) {
+                            if (dtv_audio_instances->demux_index_working == -1) {
                                 usleep(5000);
                             }
                             continue;
@@ -3047,8 +3046,8 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     /* add dtv package to package list */
                     while (!patch->input_thread_exit &&
                         path_index == dtv_audio_instances->demux_index_working) {
-                        pthread_mutex_lock(&patch->mutex);
                         if (dtv_pacakge) {
+                            pthread_mutex_lock(&patch->mutex);
                             ret = dtv_package_add(list, dtv_pacakge);
                             if (ret == 0) {
                                 if (aml_dev->debug_flag > 0)
@@ -3066,6 +3065,8 @@ void *audio_dtv_patch_input_threadloop(void *data)
                                 pthread_mutex_lock(&aml_dev->dtv_lock);
                                 continue;
                             }
+                        } else {
+                            break;
                         }
                     }
                 }
