@@ -59,7 +59,12 @@
 #define  AVSYNC_MS12_TUNNEL_ATMOS_LATENCY                (20)
 
 #define  AVSYNC_MS12_NONTUNNEL_AC4_LATENCY               (70)
-#define  AVSYNC_MS12_TUNNEL_AC4_LATENCY                  (50)
+
+/* CVBS or TV-Speaker output, Dolby AVSync target is [-45, +125] */
+#define  AVSYNC_MS12_TUNNEL_AC4_CVBS_LATENCY                  (0)
+/* HDMI or other output, Dolby AVSync target is [-45, 0] */
+#define  AVSYNC_MS12_TUNNEL_AC4_HDMI_LATENCY                  (50)
+
 
 #define  AVSYNC_MS12_NONTUNNEL_BYPASS_LATENCY            (-130)
 
@@ -116,7 +121,9 @@
 #define  AVSYNC_MS12_TUNNEL_DDP_CVBS_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.ddp_cvbs"
 
 #define  AVSYNC_MS12_TUNNEL_ATMOS_LATENCY_PROPERTY       "vendor.media.audio.hal.ms12.tunnel.atmos"
-#define  AVSYNC_MS12_TUNNEL_AC4_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.ac4"
+#define  AVSYNC_MS12_TUNNEL_AC4_CVBS_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.ac4_cvbs"
+#define  AVSYNC_MS12_TUNNEL_AC4_HDMI_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.ac4_hdmi"
+
 #define  AVSYNC_MS12_TUNNEL_BYPASS_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.tunnel.bypass"
 #define  AVSYNC_MS12_NETFLIX_TUNNEL_BYPASS_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.netflix.tunnel.bypass"
 

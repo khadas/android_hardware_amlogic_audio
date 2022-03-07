@@ -246,8 +246,17 @@ static int get_ms12_tunnel_input_latency(audio_format_t input_format, enum OUT_P
         break;
     }
     case AUDIO_FORMAT_AC4: {
-        prop_name = AVSYNC_MS12_TUNNEL_AC4_LATENCY_PROPERTY;
-        latency_ms = AVSYNC_MS12_TUNNEL_AC4_LATENCY;
+        /* CVBS/Speaker output, Dolby MS12 AVSync target is [-45, +125] */
+        if ((port == OUTPORT_SPEAKER) || (port == OUTPORT_AUX_LINE)) {
+            prop_name = AVSYNC_MS12_TUNNEL_AC4_CVBS_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_MS12_TUNNEL_AC4_CVBS_LATENCY;
+        }
+        /* HDMI output, Dolby MS12 AVSync target is [-45, 0] */
+        else {
+            prop_name = AVSYNC_MS12_TUNNEL_AC4_HDMI_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_MS12_TUNNEL_AC4_HDMI_LATENCY;
+        }
+
         break;
     }
     default:
