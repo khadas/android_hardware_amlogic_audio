@@ -1164,6 +1164,17 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
                     out->hwsync->mediasync = adev->hw_mediasync;
                     out->hwsync->hwsync_id = hw_sync_id;
                     ret_set_id = aml_audio_hwsync_set_id(out->hwsync, hw_sync_id);
+                    if (ret_set_id && adev->hw_mediasync_id == -1) {
+                        adev->hw_mediasync_id = hw_sync_id;
+                    }
+                    if (ret_set_id == false) {
+                        ALOGI("mediasync set hwsync id fail, need get new one");
+                        ret_set_id = aml_audio_hwsync_get_id(out->hwsync->mediasync, &out->hwsync->hwsync_id);
+                        if (ret_set_id && ret_set_id != -1) {
+                            adev->hw_mediasync_id = out->hwsync->hwsync_id;
+                            ret_set_id = aml_audio_hwsync_set_id(out->hwsync, out->hwsync->hwsync_id);
+                        }
+                    }
                 }
                 aml_audio_hwsync_init(out->hwsync, out);
             }
@@ -6300,8 +6311,14 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
             aml_out->hwsync->use_mediasync = true;
             aml_out->hwsync->mediasync = adev->hw_mediasync;
             ret = aml_audio_hwsync_set_id(aml_out->hwsync, aml_out->hwsync->hwsync_id);
-            if (!ret)
+            if (!ret) {
                 ALOGD("%s: aml_audio_hwsync_set_id fail: ret=%d, id=%d", __func__, ret, aml_out->hwsync->hwsync_id);
+                ret = aml_audio_hwsync_get_id(aml_out->hwsync->mediasync, &aml_out->hwsync->hwsync_id);
+                if (ret && ret != -1) {
+                    adev->hw_mediasync_id = aml_out->hwsync->hwsync_id;
+                    ret = aml_audio_hwsync_set_id(aml_out->hwsync, aml_out->hwsync->hwsync_id);
+                }
+            }
             aml_audio_hwsync_init(aml_out->hwsync, aml_out);
             if (eDolbyMS12Lib == adev->dolby_lib_type)
                 dolby_ms12_hwsync_init();

@@ -297,6 +297,7 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
     size_t channel_count = audio_channel_count_from_out_mask(out->hal_channel_mask);
     size_t frame_size = audio_bytes_per_frame(channel_count, out->hal_format);;
     int written_total = 0;
+    int ret = -1;
     struct timespec ts;
     memset(&ts, 0, sizeof(struct timespec));
 
@@ -307,7 +308,15 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
         adev->hw_mediasync = aml_hwsync_mediasync_create();
         out->hwsync->use_mediasync = true;
         out->hwsync->mediasync = adev->hw_mediasync;
-        aml_audio_hwsync_set_id(out->hwsync, out->hwsync->hwsync_id);
+        ret = aml_audio_hwsync_set_id(out->hwsync, out->hwsync->hwsync_id);
+        if (!ret) {
+            ALOGD("%s: aml_audio_hwsync_set_id fail: ret=%d, id=%d", __func__, ret, out->hwsync->hwsync_id);
+            ret = aml_audio_hwsync_get_id(out->hwsync->mediasync, &out->hwsync->hwsync_id);
+            if (ret && ret != -1) {
+                adev->hw_mediasync_id = out->hwsync->hwsync_id;
+                ret = aml_audio_hwsync_set_id(out->hwsync, out->hwsync->hwsync_id);
+            }
+        }
         aml_audio_hwsync_init(out->hwsync, out);
     }
     if (out->standby) {
