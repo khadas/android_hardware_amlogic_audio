@@ -1571,6 +1571,8 @@ char*  get_offload_cap(const char *keys,audio_format_t format)
         //if (adev->dts_decode_enable)
         size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS|AUDIO_FORMAT_DTS_HD");
         size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AAC_LC");
+        size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AAC_HE_V1");
+        size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AAC_HE_V2");
         size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_MP3");
 
     }

@@ -3940,9 +3940,10 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         adev->digital_audio_format = val;
 
         /* only switch from/to bypass mode, update the DUT's EDID */
-        if (adev->digital_audio_format == BYPASS || adev->digital_audio_format == BYPASS)
+        if (adev->digital_audio_format == BYPASS || adev->last_digital_audio_format == BYPASS)
             update_edid_after_edited_audio_sad(adev, &adev->hdmi_descs.ddp_fmt);
 
+        adev->last_digital_audio_format = adev->digital_audio_format;
         //sysfs_set_sysfs_str(REPORT_DECODED_INFO, kvpairs);
         if ((eDolbyMS12Lib == adev->dolby_lib_type) && (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP))
             adev->a2dp_no_reconfig_ms12 = aml_audio_get_systime() + 2000000;
@@ -4882,7 +4883,8 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     }
     memset(in->buffer, 0, in->config.period_size * audio_stream_in_frame_size(&in->stream));
 
-    if (!(in->device & AUDIO_DEVICE_IN_WIRED_HEADSET) && in->requested_rate != in->config.rate) {
+    if (!(in->device & AUDIO_DEVICE_IN_WIRED_HEADSET) &&
+        in->requested_rate != in->config.rate && in->requested_rate != 0) {
         ALOGD("%s: in->requested_rate = %d, in->config.rate = %d",
             __func__, in->requested_rate, in->config.rate);
         in->buf_provider.get_next_buffer = get_next_buffer;
