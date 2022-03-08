@@ -913,6 +913,12 @@ int get_the_dolby_ms12_prepared(
         if (patch && demux_info) {
             ms12->dual_decoder_support = demux_info->dual_decoder_support;
             associate_audio_mixing_enable = demux_info->associate_audio_mixing_enable;
+
+           /* for ac4, if ad switch enable, associate_audio_mixing_enable need to be set true */
+           /* since ac4 format, dvbkit do not send dual_decoder_support and associate_audio_mixing_enable info */
+            if (input_format == AUDIO_FORMAT_AC4 && adev->ad_switch_enable) {
+                 associate_audio_mixing_enable = adev->ad_switch_enable;
+            }
             media_presentation_id = demux_info->media_presentation_id;
             dtv_decoder_offset_base = patch->decoder_offset;
        } else {
