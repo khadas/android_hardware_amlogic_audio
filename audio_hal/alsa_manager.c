@@ -1074,7 +1074,8 @@ int aml_alsa_output_data_handle(void *handle, void *output_buffer, size_t size, 
         return 0;
     }
 
-    if (size && alsa_handle->format == AUDIO_FORMAT_E_AC3) {
+    if (size &&
+        ((alsa_handle->format == AUDIO_FORMAT_E_AC3) || (alsa_handle->format == AUDIO_FORMAT_AC3))) {
         struct snd_pcm_status status;
         pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
         if (status.state == PCM_STATE_SETUP ||
