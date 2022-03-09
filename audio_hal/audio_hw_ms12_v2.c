@@ -820,20 +820,6 @@ static void set_dolby_ms12_downmix_mode(struct aml_audio_device *adev)
 
     dolby_ms12_set_downmix_modes(downmix_mode);
 }
-/*
- * if dual_decoder_support is true;
- * when passthrough mode(BYPASS), audio_hw_dtv do not send the ad data;
- * when AUTO/PCM mode(PCM/AUTO), audio_hw_dtv send the main&ad data;
- */
-bool is_ad_data_available(int digital_audio_format)
-{
-    if (digital_audio_format != BYPASS) {
-        return true;
-    }
-    else {
-        return false;
-    }
-}
 
 void update_drc_paramter_when_output_config_changed(struct dolby_ms12_desc *ms12)
 {

@@ -558,3 +558,19 @@ int aml_audio_timer_delete(void)
 
     return err;
 }
+
+/*
+ * if dual_decoder_support is true;
+ * when passthrough mode(BYPASS), audio_hw_dtv do not send the ad data;
+ * when AUTO/PCM mode(PCM/AUTO), audio_hw_dtv send the main&ad data;
+ */
+bool is_ad_data_available(int digital_audio_format)
+{
+    if (digital_audio_format != BYPASS) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+

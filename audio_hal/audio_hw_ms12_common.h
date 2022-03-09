@@ -103,5 +103,7 @@ int aml_audio_timer_create(void);
 void aml_audio_timer_init(void);
 int aml_send_ms12_scheduler_state_2_ms12(void);
 int aml_audio_timer_delete(void);
+bool is_ad_data_available(int digital_audio_format);
+
 
 #endif //end of _AUDIO_HW_MS12_COMMON_H_

@@ -1119,7 +1119,8 @@ int dolby_ms12_main_process(
             }
         }
 
-        if (ms12->dual_decoder_support == true) {
+        /* Passthrough Mode, only get the MAIN data */
+        if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->digital_audio_format)) {
             dual_input_ret = scan_dolby_main_associate_frame(input_buffer
                              , input_bytes
                              , &dual_decoder_used_bytes
@@ -1238,6 +1239,7 @@ int dolby_ms12_main_process(
             }
         }
 
+        /* Passthrough Mode, only get the MAIN data as the single input */
         if (ms12->dual_decoder_support == true) {
             /*if there is associate frame, send it to dolby ms12.*/
             char tmp_array[4096] = {0};
@@ -1251,6 +1253,18 @@ int dolby_ms12_main_process(
                 memcpy(&tmp_array[0], associate_frame_buffer, associate_frame_size);
                 associate_frame_size = sizeof(tmp_array);
             }
+            if (!is_ad_data_available(adev->digital_audio_format)) {
+                if (ms12_hal_format == AUDIO_FORMAT_AC3) {
+                    associate_frame_buffer = (void *)&ms12_muted_dd_raw[0];
+                    associate_frame_size = sizeof(ms12_muted_dd_raw);
+                }
+
+                if (ms12_hal_format == AUDIO_FORMAT_E_AC3) {
+                    associate_frame_buffer = (void *)&ms12_muted_ddp_raw[0];
+                    associate_frame_size = sizeof(ms12_muted_ddp_raw);
+                }
+            }
+
             dolby_ms12_input_associate(ms12->dolby_ms12_ptr
                                        , (const void *)associate_frame_buffer
                                        , (size_t)associate_frame_size
@@ -1333,7 +1347,8 @@ MAIN_INPUT:
             }
 
             if (dolby_ms12_input_bytes > 0) {
-                if (ms12->dual_decoder_support == true) {
+                /* Passthrough Mode, only get the MAIN data as the single input */
+                if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->digital_audio_format)) {
                     *use_size = dual_decoder_used_bytes;
                 } else {
                     if (adev->debug_flag >= 2) {
@@ -1405,7 +1420,8 @@ MAIN_INPUT:
                 }
             }
         } else {
-            if (ms12->dual_decoder_support == true) {
+            /* Passthrough Mode, only get the MAIN data as the single input */
+            if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->digital_audio_format)) {
                 *use_size = dual_decoder_used_bytes;
             } else {
                 *use_size = input_bytes;

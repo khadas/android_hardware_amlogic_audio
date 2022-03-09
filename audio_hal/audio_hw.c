@@ -3942,6 +3942,7 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         /* only switch from/to bypass mode, update the DUT's EDID */
         if (adev->digital_audio_format == BYPASS || adev->last_digital_audio_format == BYPASS)
             update_edid_after_edited_audio_sad(adev, &adev->hdmi_descs.ddp_fmt);
+        adev->last_digital_audio_format = adev->digital_audio_format;
 
         adev->last_digital_audio_format = adev->digital_audio_format;
         //sysfs_set_sysfs_str(REPORT_DECODED_INFO, kvpairs);
@@ -6398,7 +6399,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
     }
 
     if (adev->digital_audio_format_updated) {
-        ALOGI("%s(), digital audio format updated, need reconfig output, [PCM(0)/SPDIF(4)/AUTO(5)] %d", __func__, adev->digital_audio_format_updated);
+        ALOGI("%s(), digital audio format updated, need reconfig output, [PCM(0)/SPDIF(4)/AUTO(5)]/BYPASS[6] %d", __func__, adev->digital_audio_format_updated);
         need_reconfig_output = true;
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             need_reset_decoder = false;
