@@ -52,8 +52,6 @@ include $(BUILD_PREBUILT)
         audio_hwsync.c \
         audio_hw_profile.c \
         alsa_manager.c \
-        audio_hw_dtv.c \
-        audio_dtv_utils.c \
         a2dp_hw.cpp \
         a2dp_hal.cpp \
         audio_bt_sco.c \
@@ -75,7 +73,6 @@ include $(BUILD_PREBUILT)
         aml_audio_ms12_bypass.c \
         aml_audio_delay.c \
         aml_audio_spdifout.c \
-        aml_audio_hal_avsync.c \
         aml_audio_ms12_sync.c \
         ../amlogic_AQ_tools/audio_eq_drc_compensation.c \
         ../amlogic_AQ_tools/audio_eq_drc_parser.c \
@@ -87,7 +84,6 @@ include $(BUILD_PREBUILT)
         aml_vad_wakeup.c \
         aml_audio_ms12_render.c \
         aml_audio_nonms12_render.c \
-        aml_dtvsync.c \
         karaoke_manager.c \
         audio_usb_hal.c \
 
@@ -106,11 +102,7 @@ include $(BUILD_PREBUILT)
         $(LOCAL_PATH)/../utils/include \
         $(LOCAL_PATH)/../utils/ini/include \
         $(LOCAL_PATH)/../rcaudio \
-        $(LOCAL_PATH)/../../LibAudio/amadec/include \
         $(LOCAL_PATH)/../utils/tinyalsa/include \
-        vendor/amlogic/common/prebuilt/dvb/include/am_adp \
-        hardware/amlogic/audio/dtv_audio_utils/sync \
-        hardware/amlogic/audio/dtv_audio_utils/audio_read_api \
         $(LOCAL_PATH)/../amlogic_AQ_tools \
         $(LOCAL_PATH)/../amlogic_AQ_tools/ini \
         vendor/amlogic/common/frameworks/av/libaudioeffect/VirtualX \
@@ -128,14 +120,12 @@ include $(BUILD_PREBUILT)
     LOCAL_SHARED_LIBRARIES := \
         liblog libcutils libamltinyalsa \
         libaudioutils libdl libaudioroute libutils \
-        libdroidaudiospdif libamaudioutils libamlaudiorc libamadec \
-        libam_adp \
+        libdroidaudiospdif libamaudioutils libamlaudiorc \
         libnano \
         libion \
         libamladecs \
         libamlresampler \
         libamlparser \
-        libdvbaudioutils \
         libamlspeed \
         libalsautils
 
@@ -146,12 +136,32 @@ include $(BUILD_PREBUILT)
         libbase \
         libfmq
 
-LOCAL_SRC_FILES += \
+    LOCAL_SRC_FILES += \
         audio_hwsync_wrap.c \
-        audio_mediasync_wrap.c
+        audio_mediasync_wrap.c \
 
-LOCAL_C_INCLUDES += \
-        vendor/amlogic/common/mediahal_sdk/include
+
+    LOCAL_C_INCLUDES += \
+        vendor/amlogic/common/mediahal_sdk/include \
+
+ifneq ($(BOARD_DISABLE_DVB_AUDIO), true)
+        LOCAL_CFLAGS += -DENABLE_DVB_PATCH
+        LOCAL_SRC_FILES += audio_hw_dtv.c \
+                           audio_dtv_utils.c \
+                           aml_dtvsync.c \
+                           aml_audio_hal_avsync.c \
+
+        LOCAL_C_INCLUDES += \
+                $(LOCAL_PATH)/../../LibAudio/amadec/include \
+                vendor/amlogic/common/prebuilt/dvb/include/am_adp \
+                hardware/amlogic/audio/dtv_audio_utils/sync \
+                hardware/amlogic/audio/dtv_audio_utils/audio_read_api \
+
+        LOCAL_SHARED_LIBRARIES += \
+                libamadec \
+                libam_adp \
+                libdvbaudioutils
+endif
 
 LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 #/*[SEI-zhaopf-2018-12-18] add for HBG remote audio support { */

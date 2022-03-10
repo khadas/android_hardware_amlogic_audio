@@ -26,7 +26,9 @@
 
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
+#ifdef ENABLE_DVB_PATCH
 #include "audio_dtv_utils.h"
+#endif
 #include "aml_dec_api.h"
 #include "aml_ddp_dec_api.h"
 #include "aml_audio_spdifout.h"
@@ -174,10 +176,14 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
     bool speed_enabled = false;
     bool dts_pcm_direct_output = false;
     int decoder_remain_size = 0;
+
+#ifdef ENABLE_DVB_PATCH
     dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
 
     bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->is_tv_src_stream;
     bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->is_tv_src_stream;
+#endif
+
 
     if (aml_out->aml_dec == NULL) {
         config_output(stream, true);
@@ -188,7 +194,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
 
     if (aml_dec) {
-
+#ifdef ENABLE_DVB_PATCH
         if (dtv_stream_flag  && patch->decoder_offset == 0) {
             if (patch->cur_package) {
                 aml_dec->first_in_frame_pts = patch->cur_package->pts;
@@ -199,17 +205,6 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
             aml_dec->out_synced_frame_count = 0;
             ALOGI("first_in_frame_pts  %lld ms" , aml_dec->first_in_frame_pts / 90);
         }
-
-        if (is_dolby_ddp_support_compression_format(aml_out->hal_internal_format)) {
-            struct dolby_ddp_dec *ddp_dec = (struct dolby_ddp_dec *)aml_dec;
-            decoder_remain_size = ddp_dec->remain_size;
-        }
-
-        dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
-        dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
-        dec_data_info_t * raw_in_data  = &aml_dec->raw_in_data;
-        left_bytes = bytes;
-
         if (do_sync_flag) {
             if(patch->skip_amadec_flag) {
                 if (patch->cur_package) {
@@ -221,6 +216,16 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 aml_dec->in_frame_pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
             }
         }
+#endif
+        if (is_dolby_ddp_support_compression_format(aml_out->hal_internal_format)) {
+            struct dolby_ddp_dec *ddp_dec = (struct dolby_ddp_dec *)aml_dec;
+            decoder_remain_size = ddp_dec->remain_size;
+        }
+
+        dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
+        dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
+        dec_data_info_t * raw_in_data  = &aml_dec->raw_in_data;
+        left_bytes = bytes;
 
         do {
             ALOGV("%s() in raw len=%d", __func__, left_bytes);
@@ -267,7 +272,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     decoder_remain_cache = (decoder_remain_size > raw_in_data->data_len / 2) ? DDP_DECODER_CACHE : 0;
                     decoder_latency = DDP_DECODER_CACHE + decoder_remain_cache;
                 }
-
+#ifdef ENABLE_DVB_PATCH
                 if (do_sync_flag && aml_dec->debug_synced_frame_pts_flag) {
                     int pre_zero_samples = 0;
                     bool is_beep_frame = check_beep_frame(dec_pcm_data->buf, dec_pcm_data->data_len, &pre_zero_samples);
@@ -284,14 +289,16 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                         }
                     }
                 }
-
-                audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
-                void  *dec_data = (void *)dec_pcm_data->buf;
-                int pcm_len = dec_pcm_data->data_len;
                 if (do_sync_flag &&
                     (adev->start_mute_flag == 1 || adev->tv_mute)) {
                     memset(dec_pcm_data->buf, 0, dec_pcm_data->data_len);
                 }
+#endif
+
+                audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
+                void  *dec_data = (void *)dec_pcm_data->buf;
+                int pcm_len = dec_pcm_data->data_len;
+
 
                 if (patch) {
                     patch->sample_rate = dec_pcm_data->data_sr;
@@ -337,7 +344,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                         dec_pcm_data->data_ch /= 3;
                     }
                 }
-
+#ifdef ENABLE_DVB_PATCH
                 if (do_sync_flag) {
                     if (dec_pcm_data->data_ch != 0)
                         duration =  (pcm_len * 1000) / (2 * dec_pcm_data->data_ch * aml_out->config.rate);
@@ -377,7 +384,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                         }
                     }
                 }
-
+#endif
                 if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
                     check_audio_level("render pcm", dec_data, pcm_len);
                 }
@@ -466,12 +473,13 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
         } while ((left_bytes > 0) || aml_dec->fragment_left_size || try_again);
     }
 
+#ifdef ENABLE_DVB_PATCH
     if (dtv_stream_flag) {
         aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
         if (demux_info && demux_info->dual_decoder_support == 0)
             patch->decoder_offset +=return_bytes;
     }
-
+#endif
     return return_bytes;
 }
 
@@ -510,15 +518,15 @@ static void ddp_decoder_config_prepare(struct audio_stream_out *stream, aml_dcv_
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_arc_hdmi_desc *p_hdmi_descs = &adev->hdmi_descs;
     struct aml_audio_patch *patch = adev->audio_patch;
-    aml_demux_audiopara_t *demux_info = NULL;
 
+    adev->dcvlib_bypass_enable = 0;
+    ddp_config->digital_raw = AML_DEC_CONTROL_CONVERT;
+
+#ifdef ENABLE_DVB_PATCH
+    aml_demux_audiopara_t *demux_info = NULL;
     if (patch ) {
         demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     }
-
-    adev->dcvlib_bypass_enable = 0;
-
-    ddp_config->digital_raw = AML_DEC_CONTROL_CONVERT;
 
     if (demux_info && demux_info->dual_decoder_support) {
         ddp_config->decoding_mode = DDP_DECODE_MODE_AD_DUAL;
@@ -527,7 +535,7 @@ static void ddp_decoder_config_prepare(struct audio_stream_out *stream, aml_dcv_
     } else {
         ddp_config->decoding_mode = DDP_DECODE_MODE_SINGLE;
     }
-
+#endif
     /*passthrough  raw output  priority level higher than ad output*/
     if (adev->sink_format != AUDIO_FORMAT_PCM_16_BIT &&  adev->sink_format != AUDIO_FORMAT_PCM_32_BIT) {
         ddp_config->decoding_mode = DDP_DECODE_MODE_SINGLE;
@@ -607,6 +615,8 @@ int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t f
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_audio_patch *patch = adev->audio_patch;
+
+#ifdef ENABLE_DVB_PATCH
     aml_demux_audiopara_t *demux_info = NULL;
     if (patch ) {
         demux_info = (aml_demux_audiopara_t *)patch->demux_info;
@@ -619,6 +629,7 @@ int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t f
         dec_config->advol_level = adev->advol_level;
         ALOGI("mixer_level %d adev->associate_audio_mixing_enable %d",adev->mixing_level, demux_info->associate_audio_mixing_enable);
     }
+#endif
 
     switch (format) {
     case AUDIO_FORMAT_AC3:

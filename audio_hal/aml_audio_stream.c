@@ -1508,6 +1508,7 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
     // tuner_in=atv: tuner_in=dtv
     if (ret >= 0 && adev->is_TV) {
         if (strncmp(value, "dtv", 3) == 0) {
+#ifdef ENABLE_DVB_PATCH
             // no audio patching in dtv
             if (adev->audio_patching && (adev->patch_src == SRC_ATV)) {
                 // this is to handle atv->dtv case
@@ -1534,14 +1535,16 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
                         usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
                 }
 
+
                 ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER, AUDIO_DEVICE_OUT_SPEAKER);
                 if (ret == 0) {
                     adev->audio_patching = 1;
                 }
                 ALOGI("[audiohal_kpi] %s, now end create dtv patch the audio_patching is %d ", __func__, adev->audio_patching);
             }
+#endif
         } else if (strncmp(value, "atv", 3) == 0) {
-
+#ifdef ENABLE_DVB_PATCH
             // need create patching
             if ((adev->patch_src == SRC_DTV) && adev->audio_patching) {
                 ALOGI("[audiohal_kpi] %s, release dtv patching", __func__);
@@ -1550,6 +1553,7 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
                     adev->audio_patching = 0;
                 }
             }
+#endif
             if (eDolbyMS12Lib == adev->dolby_lib_type && adev->continuous_audio_mode) {
                 ALOGI("In ATV exit MS12 continuous mode");
                 bool set_ms12_non_continuous = true;

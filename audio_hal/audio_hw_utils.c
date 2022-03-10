@@ -1874,6 +1874,7 @@ const char* mixerOutputType2Str(MIXER_OUTPUT_PORT type)
     ENUM_TYPE_TO_STR_END
 }
 
+#ifdef ENABLE_DVB_PATCH
 const char* mediasyncAudiopolicyType2Str(audio_policy type)
 {
     ENUM_TYPE_TO_STR_START("MEDIASYNC_AUDIO_");
@@ -1919,6 +1920,7 @@ const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type)
     ENUM_TYPE_TO_STR(AUDIO_DTV_PATCH_CMD_NUM)
     ENUM_TYPE_TO_STR_END
 }
+#endif
 
 const char* hdmiFormat2Str(AML_HDMI_FORMAT_E type)
 {

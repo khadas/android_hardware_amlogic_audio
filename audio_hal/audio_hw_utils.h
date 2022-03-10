@@ -20,10 +20,12 @@
 #define _AUDIO_HW_UTILS_H_
 #include <system/audio.h>
 #include "audio_hw.h"
+#ifdef ENABLE_DVB_PATCH
 #include "audio_hw_dtv.h"
+#endif
 #include "aml_audio_types_def.h"
 #include "aml_audio_stream.h"
-#include "MediaSyncInterface.h"
+
 #include "aml_dump_debug.h"
 #define ENUM_TYPE_STR_MAX_LEN                           (100)
 #define REPORT_DECODED_INFO  "/sys/class/amaudio/codec_report_info"
@@ -156,8 +158,11 @@ const char* inputPort2Str(enum IN_PORT type);
 const char* mixerInputType2Str(aml_mixer_input_port_type_e type);
 const char* mixerOutputType2Str(MIXER_OUTPUT_PORT type);
 uint8_t get_bit_position_in_mask(uint8_t max_position, uint32_t *p_mask);
+
+#ifdef ENABLE_DVB_PATCH
 const char* mediasyncAudiopolicyType2Str(audio_policy type);
 const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type);
+#endif
 const char* hdmiFormat2Str(AML_HDMI_FORMAT_E type);
 const char* audioPortRole2Str(audio_port_role_t type);
 const char* audioPortType2Str(audio_port_type_t type);

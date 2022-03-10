@@ -19,6 +19,7 @@
 
 #include "dmx_audio_es.h"
 #include "aml_dec_api.h"
+#include "aml_dtvsync.h"
 
 #define TSYNC_PCRSCR "/sys/class/tsync/pts_pcrscr"
 #define TSYNC_EVENT "/sys/class/tsync/event"
@@ -70,11 +71,7 @@
 #define AUDIO_RESAMPLE_MIN_THRESHOLD 50
 #define AUDIO_RESAMPLE_MIDDLE_THRESHOLD 100
 #define AUDIO_RESAMPLE_MAX_THRESHOLD 150
-#define AUDIO_FADEOUT_TV_DURATION_US 100 * 1000
-#define MS12_AUDIO_FADEOUT_TV_DURATION_US 60 * 1000
-#define MS12_AUDIO_FADEIN_TV_DURATION_US  200 * 1000
 
-#define AUDIO_FADEOUT_STB_DURATION_US 40 * 1000
 #define MAX_BUFF_LEN 36
 #define MAX(a, b) ((a) > (b)) ? (a) : (b)
 
@@ -156,6 +153,5 @@ int dtv_patch_get_cmd(struct cmd_node *dtv_cmd_list,int *cmd, int *path_id);
 int dtv_patch_cmd_is_empty(struct cmd_node *dtv_cmd_list);
 
 AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts,  aml_demux_audiopara_t *demux_info);
-
 
 #endif

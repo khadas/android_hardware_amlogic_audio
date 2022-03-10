@@ -22,9 +22,17 @@
 #include "aml_ringbuffer.h"
 #include "audio_hw.h"
 #include "audio_hw_profile.h"
+
+#ifdef ENABLE_DVB_PATCH
 #include "audio_dtv_utils.h"
 #include "aml_audio_hal_avsync.h"
 #include "aml_dtvsync.h"
+#endif
+#define AUDIO_FADEOUT_TV_DURATION_US 100 * 1000
+#define MS12_AUDIO_FADEOUT_TV_DURATION_US 60 * 1000
+#define MS12_AUDIO_FADEIN_TV_DURATION_US  200 * 1000
+#define AUDIO_FADEOUT_STB_DURATION_US 40 * 1000
+
 #define RAW_USECASE_MASK ((1<<STREAM_RAW_DIRECT) | (1<<STREAM_RAW_HWSYNC) | (1<<STREAM_RAW_PATCH))
 /*
  * 1.AUDIO_FORMAT_PCM_16_BIT is suitable for Speaker
@@ -386,13 +394,14 @@ struct aml_audio_patch {
     bool video_invalid; //Used to determine whether the video is valid
     bool ad_substream_checked_flag;
     int a_discontinue_threshold;
-    struct avsync_para  sync_para;
     int pid;
     int i2s_div_factor;
     struct timespec speed_time;
     struct timespec slow_time;
-    struct audiohal_debug_para debug_para;
     int media_sync_id;
+#ifdef ENABLE_DVB_PATCH
+    struct audiohal_debug_para debug_para;
+    struct avsync_para  sync_para;
     struct mAudioEsDataInfo *mADEsData;
     void *demux_handle;
     void *demux_info;
@@ -401,6 +410,7 @@ struct aml_audio_patch {
     struct cmd_node *dtv_cmd_list;
     void *dtv_package_list;
     struct package *cur_package;
+#endif
     bool skip_amadec_flag;
     /*add a new flag to check the patch is created from tuner framework*/
     bool cbs_patch;

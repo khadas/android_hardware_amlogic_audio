@@ -70,7 +70,6 @@
 #include "aml_avsync_tuning.h"
 #include "aml_ng.h"
 #include "aml_audio_timer.h"
-#include "audio_dtv_ad.h"
 #include "aml_audio_ease.h"
 #include "aml_audio_spdifout.h"
 #include "aml_mmap_audio.h"
@@ -90,7 +89,7 @@
 #include "audio_hdmi_util.h"
 #include "aml_audio_dev2mix_process.h"
 
-#include "dmx_audio_es.h"
+
 #include "aml_audio_ms12_render.h"
 #include "aml_audio_nonms12_render.h"
 #include "aml_vad_wakeup.h"
@@ -100,8 +99,13 @@
 #include "jb_nano.h"
 #endif
 
+#ifdef ENABLE_DVB_PATCH
+#include "dmx_audio_es.h"
 // for dtv playback
 #include "audio_hw_dtv.h"
+#endif
+
+
 /*Google Voice Assistant channel_mask */
 #define BUILT_IN_MIC 12
 
@@ -3412,6 +3416,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         out->audioeffect_tmp_buffer = NULL;
     }
 
+#if ENABLE_DVB_PATCH
 #if ANDROID_PLATFORM_SDK_VERSION > 29
     if (dtv_tuner_framework(stream)) {
         /*enter into tuner framework case, we need to stop&release audio dtv patch*/
@@ -3422,6 +3427,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             ALOGI("%s: finish releasing patch", __func__);
         }
     }
+#endif
 #endif
 
     if (out->tmp_buffer_8ch) {
@@ -4142,13 +4148,14 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     }
 #endif
 
+#ifdef ENABLE_DVB_PATCH
     /* deal with dvb cmd */
     ret = set_dtv_parameters(dev, parms);
     if (ret >= 0) {
         ALOGD("get dtv param(kv: %s)", kvpairs);
         goto exit;
     }
-
+#endif
     /* deal with AQ cmd */
     ret = set_AQ_parameters(dev, parms);
     if (ret >= 0) {
@@ -4398,6 +4405,7 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
 
     if (!strcmp (keys, AUDIO_PARAMETER_HW_AV_SYNC) ) {
         ALOGI ("get hw_av_sync id\n");
+#ifdef ENABLE_DVB_PATCH
         if (adev->patch_src == SRC_DTV && adev->audio_patching ==1) {
             unsigned int path_id = 0;
             aml_dtv_audio_instances_t *dtv_audio_instances = (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
@@ -4413,7 +4421,9 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
                     return strdup ("hw_av_sync=12345678");
                 }
             }
-        } else {
+        } else
+#endif
+        {
             if (adev->hw_mediasync == NULL) {
                 adev->hw_mediasync = aml_hwsync_mediasync_create();
             }
@@ -4533,8 +4543,10 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         get_audio_indicator(adev, temp_buf);
         return strdup(temp_buf);
     } else if (strstr (keys, "hal_param_dtv_latencyms") ) {
+#ifdef ENABLE_DVB_PATCH
         int latancyms = dtv_patch_get_latency(adev);
         sprintf(temp_buf, "hal_param_dtv_latencyms=%d", latancyms);
+#endif
         ALOGV("temp_buf %s", temp_buf);
         return strdup(temp_buf);
     } else if (strstr (keys, "hal_param_audio_output_mode") ) {
@@ -5660,9 +5672,11 @@ ssize_t hw_write (struct audio_stream_out *stream
                 }
             }
         }
+#ifdef ENABLE_DVB_PATCH
         if (is_dtv) {
             audio_set_spdif_clock(aml_out, get_codec_type(output_format));
         }
+#endif
         aml_out->stream_status = STREAM_HW_WRITING;
     }
 
@@ -7497,9 +7511,11 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     if (!aml_out->is_tv_src_stream && (aml_out->flags & AUDIO_OUTPUT_FLAG_DIRECT) && adev->audio_patch) {
         ALOGD("%s: AF direct stream comming, patch exists, first release it", __func__);
         pthread_mutex_lock(&adev->patch_lock);
+#ifdef ENABLE_DVB_PATCH
         if (adev->audio_patch && adev->audio_patch->is_dtv_src)
             release_dtv_patch_l(adev);
         else
+#endif
             release_patch_l(adev);
         pthread_mutex_unlock(&adev->patch_lock);
 
@@ -7696,6 +7712,8 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
                 aml_out->stream.common.standby = out_standby_new;
                 ALOGI("bypass submix");
             } else {
+
+#ifdef ENABLE_DVB_PATCH
                 int retry_count = 0;
                 /* when dvb switch to neflix,dvb send cmd stop and dtv decoder_state
                     AUDIO_DTV_PATCH_DECODER_STATE_INIT, but when hdmi plug in and out dvb
@@ -7707,6 +7725,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
                     retry_count++;
                     ALOGW("waiting dtv patch release before create submixing path %d\n",retry_count);
                 }
+#endif
                 ret = initSubMixingInput(aml_out, config);
                 aml_out->bypass_submix = false;
                 aml_out->inputPortID = -1;
@@ -7739,6 +7758,8 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
             aml_out->stream.flush = out_flush_new;
         }
     }
+
+#if ENABLE_DVB_PATCH
 #if ANDROID_PLATFORM_SDK_VERSION > 29
     if (config != NULL) {
         /*valid audio_config means enter in tuner framework case, then we need to create&start audio dtv patch*/
@@ -7754,6 +7775,8 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
         }
     }
 #endif
+#endif
+
     aml_out->codec_type = get_codec_type(aml_out->hal_internal_format);
     aml_out->continuous_mode_check = true;
 
@@ -8641,9 +8664,11 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                     ALOGD("%s: patch exists, first release it", __func__);
                     ALOGD("%s: new input %#x, old input %#x",
                         __func__, inport, aml_dev->audio_patch->input_src);
+#ifdef ENABLE_DVB_PATCH
                     if (aml_dev->audio_patch->is_dtv_src)
                         release_dtv_patch(aml_dev);
                     else
+#endif
                         release_patch(aml_dev);
                 }
                 ret = create_patch(dev, src_config->ext.device.type, aml_dev->out_device);
@@ -8669,6 +8694,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                     }
                 }
             } else if ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_DTV)) {
+#ifdef ENABLE_DVB_PATCH
                  if (/*aml_dev->is_TV*/1) {
 
                      if (aml_dev->is_TV) {
@@ -8700,7 +8726,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                      ALOGI("%s, now end create dtv patch the audio_patching is %d ", __func__, aml_dev->audio_patching);
 
                  }
-
+#endif
             }
             if (input_src == LINEIN && aml_dev->aml_ng_enable) {
                 aml_dev->aml_ng_handle = init_noise_gate(aml_dev->aml_ng_level,
@@ -8768,9 +8794,11 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                     ALOGD("%s: patch exists, first release it", __func__);
                     ALOGD("%s: new input %#x, old input %#x",
                         __func__, inport, aml_dev->audio_patch->input_src);
+#ifdef ENABLE_DVB_PATCH
                     if (aml_dev->audio_patch->is_dtv_src)
                         release_dtv_patch(aml_dev);
                     else
+#endif
                         release_patch(aml_dev);
                 }
                 ret = create_patch(dev, src_config->ext.device.type, aml_dev->out_device);
@@ -8796,6 +8824,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                     }
                 }
             } else if ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_DTV)){///zzz
+#ifdef ENABLE_DVB_PATCH
                 if (/*aml_dev->is_TV*/1) {
                     if (aml_dev->audio_patching) {
                         ALOGI("%s,!!!now release the dtv patch now\n ", __func__);
@@ -8810,6 +8839,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
                         aml_dev->audio_patching = 1;
                     }
                 }
+#endif
             }
             aml_audio_input_routing(dev, inport);
             ret = 0;
@@ -8832,13 +8862,20 @@ static int adev_release_patch_restore_resource(struct aml_audio_device *aml_dev)
     int ret = 0;
 
     /* for no patch case, we need to restore it, especially note the multi-instance audio-patch */
-    if (eDolbyMS12Lib == aml_dev->dolby_lib_type && (aml_dev->continuous_audio_mode_default == 1) && !is_dtv_patch_alive(aml_dev))
+    if (eDolbyMS12Lib == aml_dev->dolby_lib_type && (aml_dev->continuous_audio_mode_default == 1))
     {
-        get_dolby_ms12_cleanup(&aml_dev->ms12, false);
-        /*continuous mode is using in ms12 prepare, we should lock it*/
-        pthread_mutex_lock(&aml_dev->ms12.lock);
-        aml_dev->continuous_audio_mode = 1;
-        pthread_mutex_unlock(&aml_dev->ms12.lock);
+#ifdef ENABLE_DVB_PATCH
+        if (is_dtv_patch_alive(aml_dev)) {
+
+        } else
+#endif
+        {
+            get_dolby_ms12_cleanup(&aml_dev->ms12, false);
+            /*continuous mode is using in ms12 prepare, we should lock it*/
+            pthread_mutex_lock(&aml_dev->ms12.lock);
+            aml_dev->continuous_audio_mode = 1;
+            pthread_mutex_unlock(&aml_dev->ms12.lock);
+        }
         ALOGI("%s restore continuous_audio_mode=%d", __func__, aml_dev->continuous_audio_mode);
     }
     aml_dev->audio_patching = 0;
@@ -8917,13 +8954,13 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
         audioPortType2Str(patch->sinks[0].type), patchSrc2Str(aml_dev->patch_src));
     if (patch->sources[0].type == AUDIO_PORT_TYPE_DEVICE
         && patch->sinks[0].type == AUDIO_PORT_TYPE_DEVICE) {
-
+#ifdef ENABLE_DVB_PATCH
         if (aml_dev->patch_src == SRC_DTV) {
             ALOGI("patch src == DTV now line %d \n", __LINE__);
             release_dtv_patch(aml_dev);
             aml_dev->audio_patching = 0;
         }
-
+#endif
         if (aml_dev->patch_src != SRC_DTV
                 && aml_dev->patch_src != SRC_INVAL
                 && aml_dev->audio_patching == 1) {
@@ -8947,13 +8984,15 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
         }
 #endif
 
-
+#ifdef ENABLE_DVB_PATCH
         if (aml_dev->patch_src == SRC_DTV &&
                 patch->sources[0].ext.device.type == AUDIO_DEVICE_IN_TV_TUNER) {
             ALOGI("patch src == DTV now line %d \n", __LINE__);
             release_dtv_patch(aml_dev);
             aml_dev->audio_patching = 0;
-        } else {
+        } else
+#endif
+        {
             release_patch(aml_dev);
         }
 
@@ -9115,6 +9154,7 @@ static int adev_close(hw_device_t *device)
     }
     eq_drc_release(&adev->eq_data);
     close_mixer_handle(&adev->alsa_mixer);
+#if ENABLE_DVB_PATCH
     if (adev->aml_dtv_audio_instances) {
         aml_dtv_audio_instances_t *dtv_audio_instances = (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
         for (int index = 0; index < DVB_DEMUX_SUPPORT_MAX_NUM; index ++) {
@@ -9123,6 +9163,7 @@ static int adev_close(hw_device_t *device)
         }
         aml_audio_free(adev->aml_dtv_audio_instances);
     }
+#endif
     if (adev->sm) {
         deleteHalSubMixing(adev->sm);
     }
@@ -9581,6 +9622,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->dtv_sound_mode = 0;
     adev->mixing_level = 0;
     adev->advol_level = 100;
+#if ENABLE_DVB_PATCH
     adev->aml_dtv_audio_instances = aml_audio_calloc(1, sizeof(aml_dtv_audio_instances_t));
     if (adev->aml_dtv_audio_instances == NULL) {
         ALOGE("malloc aml_dtv_audio_instances failed");
@@ -9593,7 +9635,9 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
             pthread_mutex_init(&dtvsync->ms_lock, NULL);
         }
     }
+
     pthread_mutex_init(&adev->dtv_lock, NULL);
+#endif
 
 #if ENABLE_NANO_NEW_PATH
     nano_init();

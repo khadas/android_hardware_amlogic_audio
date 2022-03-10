@@ -862,13 +862,10 @@ int get_the_dolby_ms12_prepared(
     struct aml_stream_out *out;
     int output_config = MS12_OUTPUT_MASK_STEREO;
     struct aml_audio_patch *patch = adev->audio_patch;
-    aml_demux_audiopara_t *demux_info = NULL;
     uint64_t dtv_decoder_offset_base = 0;
     unsigned int sink_max_channels = 2;
     int t3_chip = check_chip_name("t3", 3, &adev->alsa_mixer);
-    if (patch) {
-        demux_info = (aml_demux_audiopara_t *)patch->demux_info;
-    }
+
     int ret = 0, associate_audio_mixing_enable = 0 , media_presentation_id = -1;
     bool output_5_1_ddp = getprop_bool(MS12_OUTPUT_5_1_DDP);
     ms12->tv_tuning_flag = getprop_bool(MS12_TV_TUNING);
@@ -900,7 +897,11 @@ int get_the_dolby_ms12_prepared(
         dolby_ms12_set_tv_tuning_flag(ms12->tv_tuning_flag);
         output_config |= MS12_OUTPUT_MASK_SPEAKER;
     }
-
+#ifdef ENABLE_DVB_PATCH
+    aml_demux_audiopara_t *demux_info = NULL;
+    if (patch) {
+        demux_info = (aml_demux_audiopara_t *)patch->demux_info;
+    }
     if (input_format == AUDIO_FORMAT_AC3 ||
         input_format == AUDIO_FORMAT_E_AC3 ||
         input_format == AUDIO_FORMAT_AC4) {
@@ -923,8 +924,11 @@ int get_the_dolby_ms12_prepared(
         ms12->dual_decoder_support = 0;
         associate_audio_mixing_enable = 0;
     }
+
     ALOGI("+%s() dual_decoder_support %d optical =0x%x sink =0x%x sink max channel =%d\n",
         __FUNCTION__, ms12->dual_decoder_support, ms12->optical_format, ms12->sink_format, sink_max_channels);
+
+#endif
 
     /*set the associate audio format*/
     if (ms12->dual_decoder_support == true) {
@@ -2098,7 +2102,7 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
         if (aml_out->need_drop_size > 0) {
             return 0;
         }
-
+#ifdef ENABLE_DVB_PATCH
         if (do_sync_flag && aml_out->dtvsync_enable) {
             aml_dtvsync_t *aml_dtvsync = patch->dtvsync;
             int alsa_bitstream_delay_ms = out_get_ms12_bitstream_latency_ms(stream);
@@ -2129,6 +2133,7 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
                  }
              }
         }
+#endif
         ret = aml_audio_spdifout_processs(bitstream_out->spdifout_handle, buffer, bytes);
 
     }
@@ -2476,7 +2481,7 @@ static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_
     }
 
     ms12->is_dolby_atmos = (dolby_ms12_get_input_atmos_info() == 1);
-	//TODO support 24/32 bit sample  */
+    //TODO support 24/32 bit sample  */
     ALOGV("dap pcm =%lld stereo pcm =%lld master =%lld", ms12->dap_pcm_frames, ms12->stereo_pcm_frames, ms12->master_pcm_frames);
 
     if (ms12_info->output_ch == 2) {
@@ -2940,6 +2945,7 @@ static int ms12_debug_out_stereo_pcm_synced_frame_pts
     return ret;
 }
 
+#ifdef ENABLE_DVB_PATCH
 void ms12_do_dtv_sync(struct audio_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
@@ -2967,6 +2973,7 @@ void ms12_do_dtv_sync(struct audio_stream_out *stream)
     }
 
 }
+#endif
 
 int dolby_ms12_get_latency(audio_format_t output_format, int pcm_type)
 {
@@ -2993,6 +3000,7 @@ int dolby_ms12_get_latency(audio_format_t output_format, int pcm_type)
     return ms12_total_delay_frames;
 }
 
+#ifdef ENABLE_DVB_PATCH
 void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_info_t *ms12_info, void *buffer, size_t size)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
@@ -3081,6 +3089,7 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
         ms12_do_dtv_sync(stream);
     }
 }
+#endif
 
 int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info)
 {
@@ -3089,16 +3098,14 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     struct aml_audio_patch *patch = adev->audio_patch;
-    aml_dtvsync_t *aml_dtvsync = NULL;
+
     audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->is_tv_src_stream;
-    dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
     audio_format_t output_format = (ms12_info) ? ms12_info->data_type : AUDIO_FORMAT_PCM_16_BIT;
     unsigned int main_apts_high32b = (ms12_info) ? ms12_info->main_apts_high32b : 0;
     unsigned int main_apts_low32b = (ms12_info) ? ms12_info->main_apts_low32b : 0;
     unsigned int main1_apts_high32b = (ms12_info) ? ms12_info->main1_apts_high32b : 0;
     unsigned int main1_apts_low32b = (ms12_info) ? ms12_info->main1_apts_low32b : 0;
-    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->is_tv_src_stream;
+
     int ret = 0;
 
     if (adev->debug_flag > 1) {
@@ -3136,6 +3143,11 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
             }
         }
     }
+#ifdef ENABLE_DVB_PATCH
+    aml_dtvsync_t *aml_dtvsync = NULL;
+    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->is_tv_src_stream;
+    dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
+    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->is_tv_src_stream;
     if (dtv_stream_flag)  {
         if (patch->output_thread_exit) {
             return ret;
@@ -3162,7 +3174,7 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
         if (process_result == DTVSYNC_AUDIO_DROP)
             return ret;
     }
-
+#endif
     if (audio_is_linear_pcm(output_format)) {
         if (ms12_info->pcm_type == MC_LPCM) {
             mc_pcm_output(buffer, priv_data, size, ms12_info);

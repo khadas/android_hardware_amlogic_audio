@@ -25,8 +25,9 @@
 
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
+#ifdef ENABLE_DVB_PATCH
 #include "audio_dtv_utils.h"
-
+#endif
 #include "dolby_lib_api.h"
 #include "aml_volume_utils.h"
 #include "audio_hw_ms12.h"
@@ -38,6 +39,7 @@
 #define AUDIO_IEC61937_FRAME_SIZE 4
 #define MS12_TRUNK_SIZE                                 (1024)
 
+#ifdef ENABLE_DVB_PATCH
 extern unsigned long decoder_apts_lookup(unsigned int offset);
 
 /*now th latency api is just used for DTV doing avsync by useing mediasync */
@@ -70,7 +72,7 @@ int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
     return ms12_latencyms;
 
 }
-
+#endif
 int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *write_buf, size_t write_bytes)
 
 {
@@ -92,7 +94,6 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
     unsigned long long all_zero_len = 0;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     audio_format_t output_format = get_output_format (stream);
-    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->is_tv_src_stream;
 
     if (adev->debug_flag) {
         ALOGD("%s:%d hal_format:%#x, output_format:0x%x, sink_format:0x%x do_easing %d",
@@ -170,10 +171,12 @@ re_write:
         if (adev->debug_flag) {
             ALOGI("%s dolby_ms12_main_process before write_bytes %zu!\n", __func__, write_bytes);
         }
-
+#ifdef ENABLE_DVB_PATCH
+        bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->is_tv_src_stream;
         if (dtv_stream_flag && patch->output_thread_exit) {
             return return_bytes;
         }
+#endif
         used_size = 0;
         ret = dolby_ms12_main_process(stream, (char*)write_buf + total_write, write_bytes, &used_size);
         if (ret == 0) {
@@ -301,8 +304,10 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     int ms12_delayms = 0;
     int force_setting_delayms = 0;
     bool bypass_aml_dec = false;
+#ifdef ENABLE_DVB_PATCH
     bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->is_tv_src_stream;
     bool dtv_stream_flag = patch && (adev->patch_src == SRC_DTV) && aml_out->is_tv_src_stream;
+#endif
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
     /*
@@ -317,6 +322,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     }
 
     if (bypass_aml_dec) {
+#ifdef ENABLE_DVB_PATCH
         /*
          * DTV instance, should get the APTS and send the APTS + Audio Data together.
          */
@@ -346,7 +352,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                 aml_audio_ms12_init_pts_param(ms12, patch->cur_package->pts);
             }
         }
-
+#endif
         /* audio data/apts, then we send the audio data*/
         ret = aml_audio_ms12_process(stream, buffer, bytes);
     } else {
@@ -354,6 +360,8 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
             config_output(stream, true);
         }
         aml_dec_t *aml_dec = aml_out->aml_dec;
+
+#ifdef ENABLE_DVB_PATCH
         if (do_sync_flag) {
             if(patch->skip_amadec_flag) {
                 if (patch->cur_package)
@@ -363,7 +371,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                 }
             }
         }
-
+#endif
         if (aml_dec) {
             dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
             dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
@@ -384,9 +392,11 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                 // write pcm data
                 if (dec_pcm_data->data_len > 0) {
                     void  *dec_data = (void *)dec_pcm_data->buf;
+#ifdef ENABLE_DVB_PATCH
                     if (dtv_stream_flag && adev->start_mute_flag == 1) {
                         memset(dec_pcm_data->buf, 0, dec_pcm_data->data_len);
                     }
+#endif
                     if (dec_pcm_data->data_sr > 0) {
                         aml_out->config.rate = dec_pcm_data->data_sr;
                     }
@@ -403,6 +413,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                          }
                     }
                     out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
+#ifdef ENABLE_DVB_PATCH
                     if (dtv_stream_flag)
                         patch->dtv_pcm_writed += dec_pcm_data->data_len;
                     aml_dec->out_frame_pts = aml_dec->in_frame_pts + (90 * out_frames /(dec_pcm_data->data_sr / 1000));
@@ -413,8 +424,10 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                         //ALOGV("%s non-dolby pts %llu decoder_offset %llu", __func__, ms12->ms12_main_input_size/4/48, ms12->ms12_main_input_size);
                         //set_ms12_main_audio_pts(ms12, ms12->ms12_main_input_size * 90000 / 192 /* bytes_per_sample(4) plus sr(48 kHz)*/, ms12->ms12_main_input_size);
                     }
+#endif
                     /* audio data/apts, then we send the audio data*/
                     ret = aml_audio_ms12_process_wrapper(stream, dec_data, dec_pcm_data->data_len);
+#ifdef ENABLE_DVB_PATCH
                     if (do_sync_flag) {
                         if (patch->output_thread_exit) {
                             break;
@@ -432,6 +445,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                                 aml_dtvsync_ms12_get_policy(stream);
                         }
                     }
+#endif
                 }
 
             } while ((left_bytes > 0) || aml_dec->fragment_left_size);
@@ -439,6 +453,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
 
     }
 
+#ifdef ENABLE_DVB_PATCH
     /*
      *if main&associate dolby input, decoder_offset should only add main data size.
      *if main dolby input, decoder_offset should add main data size.
@@ -451,7 +466,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
              patch->decoder_offset += patch->cur_package->split_frame_size;
         }
     }
-
+#endif
     return return_bytes;
 }
 
