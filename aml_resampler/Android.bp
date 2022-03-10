@@ -1,6 +1,6 @@
 cc_library_shared {
     name: "libamlresampler",
-
+    compile_multilib: "32",
     srcs: [
         "audio_android_resample_api.c",
         "audio_simple_resample_api.c",

@@ -52,6 +52,7 @@ LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 LOCAL_CFLAGS += -Werror -Wno-unused-label -Wno-unused-parameter
 LOCAL_MODULE := libamladecs
 LOCAL_MODULE_TAGS := optional
+LOCAL_32_BIT_ONLY := true
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
     LOCAL_PROPRIETARY_MODULE := true
 endif

@@ -51,7 +51,7 @@
 #define AIU_MEM_AIFIFO2_BUF_WRAP_COUNT             0x158e
 #define AIU_MEM_AIFIFO_MEM_CTL                     0x158f
 
-volatile unsigned* reg_base = 0;
+volatile long* reg_base = 0;
 #define READ_MPEG_REG(reg) reg_base[reg-AIU_AIFIFO_CTRL]
 #define WRITE_MPEG_REG(reg, val) reg_base[reg-AIU_AIFIFO_CTRL]=val
 #define AIFIFO_READY  (((READ_MPEG_REG(AIU_MEM_AIFIFO_CONTROL)&(1<<9))))
@@ -108,7 +108,7 @@ int uio_init(int  *fd_uio)
     }
     if (phys_offset == 0)
         phys_offset = ((AIU_AIFIFO_CTRL + addr_offset) << 2) & (pagesize - 1);
-    reg_base = (volatile unsigned*)((unsigned)memmap + phys_offset);
+    reg_base = (volatile long*)((long)memmap + phys_offset);
     pthread_mutex_unlock(&uio_mutex);
 
     return 0;

@@ -47,7 +47,7 @@ LOCAL_SRC_FILES  +=               \
     sync/audio_dtv_sync.c \
 
 LOCAL_MODULE := libdvbaudioutils
-
+LOCAL_MULTILIB := both
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
     LOCAL_PROPRIETARY_MODULE := true
 endif
@@ -63,6 +63,6 @@ LOCAL_SHARED_LIBRARIES += \
     libam_adp
 
 LOCAL_MODULE_TAGS := optional
-LOCAL_CFLAGS += -DBUILD_IN_ANDROID -Werror -Wno-deprecated-declarations -Wno-deprecated-register \
+LOCAL_CFLAGS += -DBUILD_IN_ANDROID -Wno-error -Wno-deprecated-declarations -Wno-deprecated-register \
                 -Wno-unused-parameter -Wall
 include $(BUILD_SHARED_LIBRARY)

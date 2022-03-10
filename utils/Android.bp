@@ -23,6 +23,7 @@ cc_library_shared {
     name: "libamaudioutils",
     vendor: true,
     defaults: ["audio_utils_go_defaults"],
+    compile_multilib: "both",
     header_libs: [
         "libaudioclient_headers",
         "libaudio_system_headers",
@@ -75,7 +76,7 @@ cc_library_shared {
 
     cflags: [
         "-DBUILD_IN_ANDROID",
-        "-Werror",
+        "-Wno-error",
         "-Wno-unused-parameter",
         "-Wno-unused-variable",
         "-Wno-unused-function",
@@ -90,7 +91,7 @@ cc_binary {
     name: "spdif_decoder",
 
     vendor: true,
-
+compile_multilib: "32",
     srcs: [
         "aml_audio_spdifdec.c",
         "spdifdec_test.c",
