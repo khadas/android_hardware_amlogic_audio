@@ -1071,6 +1071,7 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
 {
     int update_type = get_codec_type(format);
     int update_threshold = DOLBY_FMT_UPDATE_THRESHOLD;
+    int cur_aml_dap_surround_virtuallizer = dolby_ms12_get_dap_surround_virtuallizer();
 
     if (is_dolby_ms12_support_compression_format(format)) {
         update_threshold = DOLBY_FMT_UPDATE_THRESHOLD;
@@ -1084,8 +1085,12 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
     }
 
     /* Check whether the update_type is stable or not as bellow. */
+    bool is_virt_updated_off_vs_onauto = (!!adev->audio_hal_info.aml_dap_surround_virtuallizer != !!cur_aml_dap_surround_virtuallizer);
+    bool is_virt_updated_for_aml_atmos = (atmos_flag && is_virt_updated_off_vs_onauto);
 
-    if ((format != adev->audio_hal_info.format) || (atmos_flag != adev->audio_hal_info.is_dolby_atmos)) {
+    if ((format != adev->audio_hal_info.format) ||
+        (atmos_flag != adev->audio_hal_info.is_dolby_atmos) ||
+        is_virt_updated_for_aml_atmos) {
         adev->audio_hal_info.update_cnt = 0;
     }
 
@@ -1104,7 +1109,7 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
         }
     }
 
-    bool is_dolby_atmos_off = (MS12_DAP_SPEAKER_VIRTUALIZER_OFF == dolby_ms12_get_dap_surround_virtuallizer());
+    bool is_dolby_atmos_off = (MS12_DAP_SPEAKER_VIRTUALIZER_OFF == cur_aml_dap_surround_virtuallizer);
     if (atmos_flag == 1) {
         if (format == AUDIO_FORMAT_E_AC3)
             update_type = (is_dolby_atmos_off) ? TYPE_DDP_ATMOS_PROMPT_ON_ATMOS : TYPE_DDP_ATMOS;
@@ -1123,6 +1128,7 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
     adev->audio_hal_info.format = format;
     adev->audio_hal_info.is_dolby_atmos = atmos_flag;
     adev->audio_hal_info.update_type = update_type;
+    adev->audio_hal_info.aml_dap_surround_virtuallizer = cur_aml_dap_surround_virtuallizer;
 
     if (adev->audio_hal_info.update_cnt == update_threshold) {
 

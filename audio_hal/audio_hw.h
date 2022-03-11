@@ -314,6 +314,7 @@ typedef struct audio_hal_info{
     bool is_dolby_atmos;
     int update_type;
     int update_cnt;
+    int aml_dap_surround_virtuallizer;
 } audio_hal_info_t;
 
 struct aml_bt_output {
