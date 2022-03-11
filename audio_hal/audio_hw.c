@@ -1271,11 +1271,10 @@ static uint32_t out_get_latency (const struct audio_stream_out *stream)
 {
     const struct aml_stream_out *out = (const struct aml_stream_out *) stream;
     struct aml_audio_device *adev = out->dev;
-    uint32_t a2dp_delay = 0, alsa_latency = 0, ms12_latency = 0, ms12_pipeline_latnecy = 0, whole_latency = 0;
+    uint32_t alsa_latency = 0, ms12_latency = 0, ms12_pipeline_latnecy = 0, whole_latency = 0;
 
     if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        a2dp_delay = a2dp_out_get_latency(adev) * out->hal_rate / 1000;
-        return a2dp_delay;
+        return a2dp_out_get_latency(adev);
     }
 
     snd_pcm_sframes_t frames = out_get_latency_frames (stream);
