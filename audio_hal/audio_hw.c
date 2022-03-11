@@ -7296,6 +7296,12 @@ ssize_t process_buffer_write(struct audio_stream_out *stream,
         config_output(stream, true);
     }
 
+    if (aml_out->standby) {
+        ALOGI("%s(), standby to unstandby", __func__);
+        aml_out->audio_data_handle_state = AUDIO_DATA_HANDLE_START;
+        aml_out->standby = false;
+    }
+
     /*during ms12 continuous exiting, the write function will be
      set to this function, then some part of audio need to be
      discarded, otherwise it will cause audio gap*/
@@ -7314,6 +7320,9 @@ ssize_t process_buffer_write(struct audio_stream_out *stream,
         }
     }
 
+    if ((eDolbyMS12Lib != adev->dolby_lib_type) && (STREAM_PCM_NORMAL == aml_out->usecase)) {
+        aml_audio_data_handle(stream, buffer, bytes);
+    }
     if (audio_hal_data_processing(stream, buffer, bytes, &output_buffer, &output_buffer_bytes, aml_out->hal_internal_format) == 0) {
         hw_write(stream, output_buffer, output_buffer_bytes, aml_out->hal_internal_format);
     }
