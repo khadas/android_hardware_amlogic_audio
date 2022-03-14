@@ -883,6 +883,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
         raw_in_data->data_format = aml_dec->format;
         raw_in_data->sub_format  = aml_dec->format;
         raw_in_data->data_sr     = mSample_rate;
+        raw_in_data->data_ch     = 2;
         /*we don't support 32k ddp*/
         if (raw_in_data->data_sr == 32000) {
             raw_in_data->data_len = 0;

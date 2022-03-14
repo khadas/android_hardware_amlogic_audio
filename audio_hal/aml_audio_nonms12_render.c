@@ -118,6 +118,9 @@ ssize_t aml_audio_spdif_output(struct audio_stream_out *stream, void **spdifout_
         spdif_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
         spdif_config.mute = aml_out->offload_mute;
         spdif_config.data_ch = data_info->data_ch;
+        if (spdif_config.data_ch == 0) {
+            spdif_config.data_ch = 2;
+        }
         if (spdif_config.audio_format == AUDIO_FORMAT_IEC61937) {
             spdif_config.sub_format = data_info->sub_format;
         } else if (audio_is_linear_pcm(spdif_config.audio_format)) {
