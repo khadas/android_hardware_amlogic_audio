@@ -49,7 +49,12 @@
 #include <audio_utils/primitives.h>
 #include "alsa_device_parser.h"
 #include "a2dp_hal.h"
-#include "aml_audio_avsync_table.h"
+#ifndef MS12_V24_ENABLE
+#include "audio_avsync_table_aml_ms12_v1.h"
+#else
+#include "audio_avsync_table_aml_ms12_v2.h"
+#endif
+
 
 #ifdef LOG_NDEBUG_FUNCTION
 #define LOGFUNC(...) ((void)0)

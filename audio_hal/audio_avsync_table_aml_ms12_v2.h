@@ -16,8 +16,8 @@
 
 
 
-#ifndef  _AUDIO_AVSYNC_TABLE_H_
-#define _AUDIO_AVSYNC_TABLE_H_
+#ifndef _AUDIO_AVSYNC_TABLE_AML_MS12_V2_H_
+#define _AUDIO_AVSYNC_TABLE_AML_MS12_V2_H_
 
 /* we use this table to tune the AV sync case,
  * if the value is big, it can delay video
@@ -50,11 +50,9 @@
  *The result is about +9ms.
  */
 #define  AVSYNC_MS12_TUNNEL_DDP_CVBS_LATENCY                  (40)
-/*
- *AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY works in HDMI port:
- *      For DDP source under HDMI output,
- *      40->90, the result change from +25ms to -25ms
- */
+/*AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY works in HDMI port:*/
+/*For DDP source under HDMI output*/
+/*40->90, the result change from +25ms to -25ms*/
 #define  AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY                  (90)
 #define  AVSYNC_MS12_TUNNEL_ATMOS_LATENCY                (20)
 
@@ -112,11 +110,9 @@
 #define  AVSYNC_MS12_TUNNEL_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.pcm"
 #define  AVSYNC_MS12_TUNNEL_DD_LATENCY_PROPERTY          "vendor.media.audio.hal.ms12.tunnel.dd"
 
-/*
- * For DDP output, same source but through CVBS vs HDMI, the Dolby Certification Target is different.
- *    1. CVBS: [-45, +125], set the AVSYNC_MS12_TUNNEL_DDP_CVBS_LATENCY_PROPERTY as 40, then get the +25ms.
- *    2. HDMI: [-45, 0], set the AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY_PROPERTY as 90, then get the -25ms.
- */
+/*For DDP output, same source but through CVBS vs HDMI, the SDK Target is different.*/
+/*    1. CVBS: [-45, +125], set the AVSYNC_MS12_TUNNEL_DDP_CVBS_LATENCY_PROPERTY as 40, then get the +25ms.*/
+/*    2. HDMI: [-45, 0], set the AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY_PROPERTY as 90, then get the -25ms.*/
 #define  AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.ddp_hdmi"
 #define  AVSYNC_MS12_TUNNEL_DDP_CVBS_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.ddp_cvbs"
 
@@ -303,30 +299,29 @@
 
 /* following property, used for DTV avsync with MS12 processing */
 /*
- * MS12 SDK v2.6.1, AV-Sync test for CVBS&HDMI output.
- * Here give an simple guide to tune the property to meet the target.
- * first step: test the CVBS output, to confirm the <different input format> property
- *          target [-45, 125]
+ *MS12 SDK v2.6.1, AV-Sync test for CVBS&HDMI output.
+ *Here give an simple guide to tune the property to meet the target.
+ *first step: test the CVBS output, to confirm the <different input format> property
+ *target [-45, 125]
  *          MACRO:AVSYNC_MS12_DTV_PCM_LATENCY_PROPERTY <PCM/DD/DDP/AC4>
  *          Property:"vendor.media.audio.hal.ms12.dtv.pcm" <pcm/dd/ddp/ac4>
  *          Value:AVSYNC_MS12_DTV_PCM_LATENCY <PCM/DD/DDP/AC4>
  *          current values are 0.
- *
- * second step: test the HDMI output, to confirm the PCM/DDP/MAT OUTPUT
- *          PCM target [-45, 0]
- *          DDP target [-100, 0]
- *          MAT target [-80, 0]
- *          MACRO:AVSYNC_MS12_DTV_PCM_OUT_LATENCY_PROPERTY <PCM/DD/DDP/MAT>
+ */
+/*second step: test the HDMI output, to confirm the PCM/DDP/MAT OUTPUT*/
+/*PCM target [-45, 0]*/
+/*DDP target [-100, 0]*/
+/*MAT target [-80, 0]*/
+/*          MACRO:AVSYNC_MS12_DTV_PCM_OUT_LATENCY_PROPERTY <PCM/DD/DDP/MAT>
  *          Property:"vendor.media.audio.hal.ms12.dtv.pcmout" <pcm/dd/ddp/mat>
- *          Value:AVSYNC_MS12_DTV_PCM_OUT_LATENCY <PCM/DD/DDP/MAT>
- *          current values are DDP(-64=<26 (DDP Encoder Node) + 38 tuning>)/MAT(0).
- *
- * third step: test the Passthrough output, to confirm the DDP Passthrough
- *          Target DDP [-100, 0]
- *          MACRO:AVSYNC_MS12_DTV_BYPASS_LATENCY_PROPERTY
+ *          Value:AVSYNC_MS12_DTV_PCM_OUT_LATENCY <PCM/DD/DDP/MAT>*/
+/*          current values are DDP(-64=<26 (DDP Encoder Node) + 38 tuning>)/MAT(0).*/
+/*third step: test the Passthrough output, to confirm the DDP Passthrough*/
+/*Target DDP [-100, 0]*/
+/*          MACRO:AVSYNC_MS12_DTV_BYPASS_LATENCY_PROPERTY
  *          Property:"vendor.media.audio.hal.ms12.dtv.bypass"
  *          Value:AVSYNC_MS12_DTV_BYPASS_LATENCY
- *          current values are 100(passthrough should consider ddp out,
+ *          current values are 100(passthrough should consider bitstream out,
  *          its value is AVSYNC_MS12_DTV_DDP_OUT_LATENCY)
  */
 /* for different port and different format */
@@ -354,17 +349,13 @@
 /* for different output format */
 #define  AVSYNC_MS12_DTV_PCM_OUT_LATENCY                     (0)
 #define  AVSYNC_MS12_DTV_DD_OUT_LATENCY                      (0)
-/*
- * if set "vendor.media.audio.hal.ms12.dtv.ddpout" -100,
- * AUTO( DDP ) results located at [-93, -67]
- * after set property with (-50), results located at [-51, -22]
- */
+/*if set "vendor.media.audio.hal.ms12.dtv.ddpout" -100,*/
+/*AUTO( DDP ) results located at [-93, -67]*/
+/*after set property with (-50), results located at [-51, -22]*/
 #define  AVSYNC_MS12_DTV_DDP_OUT_LATENCY                     (-50)
-/*
- * if set "vendor.media.audio.hal.ms12.dtv.matout" -55,
- * AUTO( MAT ) result located at [-90, -50]
- * after set property with (-30), results located at [-43, -19]
- */
+/*if set "vendor.media.audio.hal.ms12.dtv.matout" -55,*/
+/*AUTO( MAT ) result located at [-90, -50]*/
+/*after set property with (-30), results located at [-43, -19]*/
 #define  AVSYNC_MS12_DTV_MAT_OUT_LATENCY                     (-30)
 
 #define  AVSYNC_MS12_DTV_PCM_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.dtv.pcmout"

@@ -74,6 +74,7 @@ int (*FuncDolbyMS12GetTotalNFramesDelay)(void *);
 int (*FuncDolbyMS12HWSyncInit)(void);
 int (*FuncDolbyMS12HWSyncRelease)(void);
 int (*FuncDolbyMS12HWSyncCheckinPTS)(int offset, int apts);
+char * (*FunDolbMS12GetVersion)(void);
 
 /* MAT Encoder API Begain */
 int (*FuncDolbyMS12MATEncoderInit)(int, int, unsigned int *, int, int, void **);
@@ -324,6 +325,11 @@ int DolbyMS12::GetLibHandle(char *dolby_ms12_path)
     }
     /* MAT Encoder API End */
 
+    FunDolbMS12GetVersion = (char * (*)(void)) dlsym(mDolbyMS12LibHanle, "ms12_get_version");
+    if (!FunDolbMS12GetVersion) {
+        ALOGW("%s, dlsym FunDolbMS12GetVersion fail, ingore it as version difference\n", __FUNCTION__);
+    }
+
     ALOGD("-%s() line %d get libdolbyms12 success!", __FUNCTION__, __LINE__);
     return 0;
 
@@ -361,6 +367,7 @@ void DolbyMS12::ReleaseLibHandle(void)
     FuncDolbyMS12SetMainDummy = NULL;
     FuncDolbyMS12Config = NULL;
     FuncDolbyMS12GetAudioInfo = NULL;
+    FunDolbMS12GetVersion = NULL;
     FuncDolbyMS12GetNFramesPCMOutput = NULL;
     FuncDolbyMS12SetDebugLevel = NULL;
     FuncDolbyMS12GetNBytesConsumedSysSound = NULL;
@@ -411,6 +418,17 @@ void * DolbyMS12::DolbyMS12Init(int configNum, char **configParams)
     return dolby_ms12_init_ret;
 }
 
+char * DolbyMS12:: DolbMS12GetVersion(void)
+{
+    char *versioninfo = NULL;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FunDolbMS12GetVersion) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return NULL;
+    }
+    versioninfo = (*FunDolbMS12GetVersion)();
+    return versioninfo;
+}
 void DolbyMS12::DolbyMS12Release(void *DolbyMS12Pointer)
 {
     ALOGD("+%s()", __FUNCTION__);

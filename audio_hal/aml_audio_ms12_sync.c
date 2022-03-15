@@ -22,8 +22,13 @@
 #include "audio_hw_utils.h"
 #include "a2dp_hal.h"
 #include "audio_hw_ms12.h"
-#include "aml_audio_avsync_table.h"
+#ifndef MS12_V24_ENABLE
+#include "audio_avsync_table_aml_ms12_v1.h"
+#else
+#include "audio_avsync_table_aml_ms12_v2.h"
+#endif
 #include "aml_audio_spdifout.h"
+#include "aml_audio_ms12_sync.h"
 
 #define MS12_OUTPUT_5_1_DDP "vendor.media.audio.ms12.output.5_1_ddp"
 

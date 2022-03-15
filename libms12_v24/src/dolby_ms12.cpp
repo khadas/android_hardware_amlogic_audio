@@ -97,6 +97,16 @@ extern "C" void * dolby_ms12_init(int configNum, char **configParams)
     }
 }
 
+extern "C" char * dolby_ms12_get_version(void)
+{
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbMS12GetVersion();
+    } else {
+        return NULL;
+    }
+}
+
 extern "C" void dolby_ms12_release(void *dolbyMS12_pointer)
 {
     android::DolbyMS12* dolby_ms12_instance = getInstance();

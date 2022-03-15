@@ -27,8 +27,16 @@ typedef enum  {
     MS12_CONFIG_MAIN_VOLUME,
     MS12_CONFIG_LOW_LATENCY,
     MS12_CONFIG_MIXER_MAX_SIZE_ENABLED,
+    MS12_CONFIG_STEREO_OUT_LATENCY,
+    MS12_CONFIG_MULTICHANNEL_OUT_LATENCY,
+    MS12_CONFIG_DAP_SPEAKER_OUT_LATENCY,
+    MS12_CONFIG_DAP_HEADPHONE_OUT_LATENCY,
+    MS12_CONFIG_DDP_OUT_LATENCY,
+    MS12_CONFIG_DD_OUT_LATENCY,
+    MS12_CONFIG_MAT_OUT_LATENCY,
     MS12_CONFIG_COMPRESSION_FORMAT,/*enable the mixer max size to 1536, this can save cpu bandwidth*/
     MS12_CONFIG_SCHEDULER_STATE,
+    MS12_CONFIG_AUDIO_HAL_VERSION,
 }ms12_config_type_t;
 
 typedef union ms12_config {
@@ -45,7 +53,7 @@ typedef struct aml_audio_info{
 
 namespace android
 {
-typedef int (*output_callback)(void *buffer, void *priv, size_t size);
+typedef int (*output_callback)(void *buffer, void *priv, size_t size, void *);
 
 class DolbyMS12
 {
@@ -163,6 +171,14 @@ public:
     virtual int     DolbyMS12HWSyncInit(void);
     virtual int     DolbyMS12HWSyncRelease(void);
     virtual int     DolbyMS12HWSyncChecinPTS(int offset, int apts);
+    virtual int     DolbyMS12GetLatencyForStereoOut(int *latency);
+    virtual int     DolbyMS12GetLatencyForMultiChannelOut(int *latency);
+    virtual int     DolbyMS12GetLatencyForDAPSpeakerOut(int *latency);
+    virtual int     DolbyMS12GetLatencyForDAPHeadphoneOut(int *latency);
+    virtual int     DolbyMS12GetLatencyForDDPOut(int *latency);
+    virtual int     DolbyMS12GetLatencyForDDOut(int *latency);
+    virtual int     DolbyMS12GetLatencyForMATOut(int *latency);
+    virtual int     DolbyMS12SetAudioHALVersion(int version);
     // protected:
 
 

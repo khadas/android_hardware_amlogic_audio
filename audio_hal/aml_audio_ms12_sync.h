@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef _AML_AUDIO_MS12_SYNC_H_
+#define _AML_AUDIO_MS12_SYNC_H_
 
 
 #include "audio_hw.h"
@@ -46,4 +48,6 @@ int aml_audio_dtv_get_ms12_latency(struct audio_stream_out *stream);
  * The return value unit is the number of samples.
  */
 int aml_audio_dtv_get_nonms12_latency(struct audio_stream_out * stream);
+
+#endif
 

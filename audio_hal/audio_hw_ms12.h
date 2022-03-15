@@ -28,7 +28,7 @@
 #define DDP_OUTPUT_SAMPLE_RATE (48000)
 #define SAMPLE_NUMS_IN_ONE_BLOCK (256)
 #define DDP_FRAME_DURATION(sample_nums, sample_rate) ((sample_nums) / (sample_rate))
-#define RESERVED_LENGTH 31
+#define RESERVED_LENGTH 27
 
 enum MS12_PCM_TYPE {
     NORMAL_LPCM = 0,
@@ -41,6 +41,10 @@ typedef struct aml_ms12_dec_info {
     int output_bitwidth; /**the decoded sample bit width*/
     int data_type;
     enum MS12_PCM_TYPE pcm_type;
+    unsigned int main_apts_high32b;
+    unsigned int main_apts_low32b;
+    unsigned int main1_apts_high32b;
+    unsigned int main1_apts_low32b;
     int reserved[RESERVED_LENGTH];
 } aml_ms12_dec_info_t;
 
@@ -123,6 +127,11 @@ int set_dolby_ms12_primary_input_db_gain(struct dolby_ms12_desc *ms12,
  * if normal pcm stream status is active, set mixing on(-xs 1)
  */
 int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_status);
+
+/*
+ *@brief an callback for dolby ms12 output
+ */
+int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info);
 
 /*
  *@brief an callback for dolby ms12 pcm output

@@ -529,3 +529,83 @@ extern "C" int dolby_ms12_set_scheduler_state(int sch_state)
     return -1;
 }
 
+extern "C" int dolby_ms12_get_latency_for_stereo_out(int *latency)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12GetLatencyForStereoOut(latency);
+    }
+    return -1;
+}
+
+extern "C" int dolby_ms12_get_latency_for_multichannel_out(int *latency)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12GetLatencyForMultiChannelOut(latency);
+    }
+    return -1;
+}
+
+extern "C" int dolby_ms12_get_latency_for_dap_speaker_out(int *latency)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12GetLatencyForDAPSpeakerOut(latency);
+    }
+    return -1;
+}
+
+extern "C" int dolby_ms12_get_latency_for_dap_headphone_out(int *latency)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12GetLatencyForDAPHeadphoneOut(latency);
+    }
+    return -1;
+}
+
+extern "C" int dolby_ms12_get_latency_for_ddp_out(int *latency)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12GetLatencyForDDPOut(latency);
+    }
+    return -1;
+}
+
+extern "C" int dolby_ms12_get_latency_for_dd_out(int *latency)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12GetLatencyForDDOut(latency);
+    }
+    return -1;
+}
+
+extern "C" int dolby_ms12_get_latency_for_mat_out(int *latency)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12GetLatencyForMATOut(latency);
+    }
+    return -1;
+}
+
+extern "C" int dolby_ms12_set_audio_hal_version(int version)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12SetAudioHALVersion(version);
+    }
+    return -1;
+}
+

@@ -292,7 +292,34 @@ int dolby_ms12_hwsync_init_internal(void);
 int dolby_ms12_hwsync_release_internal(void);
 
 int dolby_ms12_hwsync_checkin_pts_internal(int offset, int apts);
+
+/* brief get the total delay for stereo out */
+int dolby_ms12_get_latency_for_stereo_out(int *latency);
+
+/* brief get the total delay for multichannel out */
+int dolby_ms12_get_latency_for_multichannel_out(int *latency);
+
+/* brief get the total delay for dap speaker out */
+int dolby_ms12_get_latency_for_dap_speaker_out(int *latency);
+
+/* brief get the total delay for dap headphone out */
+int dolby_ms12_get_latency_for_dap_headphone_out(int *latency);
+
+/* brief get the total delay for ddp out */
+int dolby_ms12_get_latency_for_ddp_out(int *latency);
+
+/* brief get the total delay for dd out */
+int dolby_ms12_get_latency_for_dd_out(int *latency);
+
+/* brief get the total delay for mat out */
+int dolby_ms12_get_latency_for_mat_out(int *latency);
+
+/* brief get the MS12's version */
 char * dolby_ms12_get_version(void);
+
+/* brief set the audio hal's version to ms12 */
+void dolby_ms12_set_audio_hal_version(int version);
+
 
 #ifdef __cplusplus
 }

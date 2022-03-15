@@ -66,7 +66,7 @@ struct aml_audio_info{
 
 namespace android
 {
-typedef int (*output_callback)(void *buffer, void *priv, size_t size);
+typedef int (*output_callback)(void *buffer, void *priv, size_t size, void *);
 
 class DolbyMS12
 {
@@ -217,6 +217,9 @@ public:
         , mat_enc_config_type_t config_type
         , mat_enc_config_t *config
         );
+
+    virtual char *  DolbMS12GetVersion(void);
+
     // protected:
 
 
