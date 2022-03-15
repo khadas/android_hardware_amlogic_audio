@@ -7515,9 +7515,13 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         ALOGD("%s: AF direct stream comming, patch exists, first release it", __func__);
         pthread_mutex_lock(&adev->patch_lock);
 #ifdef ENABLE_DVB_PATCH
-        if (adev->audio_patch && adev->audio_patch->is_dtv_src)
-            release_dtv_patch_l(adev);
-        else
+        if (adev->audio_patch && adev->audio_patch->is_dtv_src) {
+            if (adev->audio_patch->ouput_thread_created) {
+                release_dtv_patch_l(adev);
+            } else {
+                ALOGW("dtv has not started yet !!!");
+            }
+        } else
 #endif
             release_patch_l(adev);
         pthread_mutex_unlock(&adev->patch_lock);
