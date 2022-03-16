@@ -54,6 +54,9 @@
 #define MS12_DAP_SPEAKER_VIRTUALIZER_ON   (1)//Enable Speaker Virtualizer.
 #define MS12_DAP_SPEAKER_VIRTUALIZER_AUTO (2)//Enable Dolby Atmos Virtualization.
 
+#define HDMI_HDR_STATUS_NODE        "/sys/class/amhdmitx/amhdmitx0/hdmi_hdr_status"
+#define SINK_DV_KEYWORD             "DolbyVision"
+
 
 static audio_format_t ms12_max_support_output_format() {
 #ifndef MS12_V24_ENABLE
@@ -249,6 +252,28 @@ static unsigned int get_sink_format_max_channels(struct aml_audio_device *adev, 
     return max_channels;
 }
 
+static bool get_sink_dv_capability()
+{
+    char buffer[128];
+    FILE *fp = NULL;
+    bool dv_enable = false;
+
+    memset(buffer, 0, sizeof(buffer));
+    fp = fopen(HDMI_HDR_STATUS_NODE, "r");
+    if (fp) {
+        fread((char *)buffer, 1, sizeof(buffer)-1, fp);
+        fclose(fp);
+    }
+    ALOGI("%s : %s = %s", __func__, HDMI_HDR_STATUS_NODE, buffer);
+
+    if (strstr(buffer, SINK_DV_KEYWORD) != NULL) {
+        dv_enable = true;
+    }
+
+    ALOGI("%s : dv enable %d", __func__, dv_enable);
+    return dv_enable;
+}
+
 bool is_sink_support_dolby_passthrough(audio_format_t sink_capability)
 {
     return sink_capability == AUDIO_FORMAT_MAT ||
@@ -339,6 +364,8 @@ void get_sink_format(struct audio_stream_out *stream)
     audio_format_t source_format = aml_out->hal_internal_format;
 
     get_sink_pcm_capability(adev);
+
+    adev->bDVEnable = get_sink_dv_capability();
 
     if (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP || adev->out_device & AUDIO_DEVICE_OUT_ALL_USB) {
         ALOGD("get_sink_format: a2dp and usb set to pcm");

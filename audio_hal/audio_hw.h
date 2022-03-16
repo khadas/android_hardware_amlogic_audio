@@ -431,6 +431,7 @@ struct aml_audio_device {
     bool bHDMIARCon;
     bool bHDMIConnected;
     bool bHDMIConnected_update;
+    bool bDVEnable;
     int16_t *out_16_buf;
     size_t out_16_buf_size;
     int32_t *out_32_buf;
