@@ -640,8 +640,9 @@ dtvsync_process_res  aml_dtvsync_nonms12_process(struct audio_stream_out *stream
             usleep(15*1000);
 
         if (patch->output_thread_exit == 1) {
-                ALOGI("input exit, break now\n");
-                break;
+            m_audiopolicy.audiopolicy = MEDIASYNC_AUDIO_DROP_PCM;
+            ALOGI("input exit, break now\n");
+            break;
         }
 
     } while (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_HOLD);
@@ -696,6 +697,7 @@ void aml_dtvsync_ms12_get_policy(struct audio_stream_out *stream)
 
         if (patch->output_thread_exit == 1) {
             ALOGI("input exit, break now\n");
+            m_audiopolicy.audiopolicy = MEDIASYNC_AUDIO_DROP_PCM;
             break;
         }
 

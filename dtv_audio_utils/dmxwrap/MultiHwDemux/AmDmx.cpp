@@ -98,7 +98,7 @@ void* AM_DMX_Device::dmx_data_thread(void *arg)
 #ifndef DMX_WAIT_CB
                 pthread_mutex_lock(&dev->lock);
 #endif
-                if (!filter->enable || !filter->used)
+                if (!filter->enable || !filter->used || filter->to_be_stopped)
                 {
                     ret = AM_FAILURE;
                 }
@@ -123,7 +123,8 @@ void* AM_DMX_Device::dmx_data_thread(void *arg)
                         header_es = (struct dmx_non_sec_es_header *)sec_buf;
                         sec_len = header_es->len;
                         if (header_es->len < 0 ||
-                            (header_es->len > (BUF_SIZE - sizeof(struct dmx_non_sec_es_header)))) {
+                            (header_es->len > (BUF_SIZE - sizeof(struct dmx_non_sec_es_header)))
+                            || filter->to_be_stopped) {
                             ALOGI("data len invalid %d ", header_es->len );
                             header_es->len = 0;
                             ret = AM_DMX_ERR_NO_DATA;
