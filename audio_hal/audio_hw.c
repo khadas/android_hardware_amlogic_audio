@@ -6174,7 +6174,10 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                 //aml_audio_hwsync_init(adev->ms12_out->hwsync, adev->ms12_out);
                 adev->ms12_out->hwsync->aout = adev->ms12_out;
                 adev->ms12_out->hw_sync_mode = aml_out->hw_sync_mode;
-                ALOGI("set ms12 hwsync out to %p set its hw_sync_mode %d",adev->ms12_out, adev->ms12_out->hw_sync_mode);
+                if (is_dolby_ms12_main_stream(stream) && continous_mode(adev)) {
+                    adev->ms12_out->hwsync->aout = ( struct aml_stream_out *)stream;
+                }
+                ALOGI("set ms12 hwsync out to %p set its hw_sync_mode %d",adev->ms12_out->hwsync->aout, adev->ms12_out->hw_sync_mode);
             }
 
             adev->mix_init_flag = true;
