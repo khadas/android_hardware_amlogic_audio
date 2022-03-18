@@ -5515,6 +5515,9 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
                         aml_audio_dump_audio_bitstreams("/data/audio/audio_spk.pcm", adev->out_16_buf, bytes);
                     }
+                } else if (dev == AML_AUDIO_OUT_DEV_TYPE_SPDIF &&
+                    check_chip_name("t7", 2, &adev->alsa_mixer)) {
+                    volume *= adev->eq_data.p_gain.speaker * adev->sink_gain[OUTPORT_SPEAKER];
                 }
 #ifdef ADD_AUDIO_DELAY_INTERFACE
                 if (dev != AML_AUDIO_OUT_DEV_TYPE_OTHER) {
