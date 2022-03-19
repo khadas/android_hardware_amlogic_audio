@@ -496,7 +496,6 @@ bool is_hdmi_in_stable_hw (struct audio_stream_in *stream)
         if (type != in->spdif_fmt_hw) {
             ALOGD ("%s(), in type changed from %d to %d", __func__, in->spdif_fmt_hw, type);
             in->spdif_fmt_hw = type;
-            return false;
         }
     }
     return true;
