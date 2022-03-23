@@ -3947,6 +3947,13 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         goto exit;
     }
 
+    ret = str_parms_get_int(parms, "hal_param_arc_earc_tx_enable", &val);
+    if (ret >= 0) {
+        aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_ARC_EARC_TX_ENABLE, val);
+        ALOGI("ARC eARC TX enable: %d\n", val);
+        goto exit;
+    }
+
     ret = str_parms_get_int(parms, "spdifin/arcin switch", &val);
     if (ret >= 0) {
         aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIFIN_ARCIN_SWITCH, val);
@@ -9414,6 +9421,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     int ret = 0, i;
     char buf[PROPERTY_VALUE_MAX] = {0};
     int disable_continuous = 1;
+    bool earctx_mode = true;
 
     ALOGD("%s: enter", __func__);
     pthread_mutex_lock(&adev_mutex);
@@ -9602,6 +9610,12 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     pthread_mutex_init(&adev->alsa_pcm_lock, NULL);
     pthread_mutex_init(&adev->patch_lock, NULL);
     open_mixer_handle(&adev->alsa_mixer);
+    /* Set the earctx mode by the property, only need set false */
+    earctx_mode = property_get_bool("persist.sys.vendor.earc_settings", true);
+    if (!earctx_mode) {
+        aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_EARC_MODE, earctx_mode);
+        ALOGI("eARC_TX eARC Mode get from property: %d\n", earctx_mode);
+    }
 
     if (eDolbyMS12Lib != adev->dolby_lib_type) {
         adev->ms12.dolby_ms12_enable == false;
