@@ -1090,6 +1090,11 @@ int get_the_dolby_ms12_prepared(
         }
         ms12->main_input_sr = input_sample_rate;
         update_drc_paramter_when_output_config_changed(ms12);
+
+        /*if arc is connected, we neesabld diseabl dap*/
+        if (adev->active_outport == OUTPORT_HDMI_ARC && adev->bHDMIConnected == 1) {
+            set_ms12_full_dap_disable(ms12, true);
+        }
     }
     ms12->sys_audio_base_pos = adev->sys_audio_frame_written;
     ms12->sys_audio_skip     = 0;

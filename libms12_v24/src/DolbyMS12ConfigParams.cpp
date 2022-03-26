@@ -168,6 +168,7 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mDolbyInputCMDMask(0)
     , mEnforceTimeslice(0)
     , mTVTuningFlag(false)
+    , mFullDAPDisable(false)
 {
     ALOGD("+%s() mAudioOutFlags %d mAudioStreamOutFormat %#x mHasAssociateInput %d mHasSystemInput %d AppInput %d\n",
           __FUNCTION__, mAudioOutFlags, mAudioStreamOutFormat, mHasAssociateInput, mHasSystemInput, mHasAppInput);
@@ -1870,7 +1871,12 @@ char **DolbyMS12ConfigParams::UpdateDolbyMS12RuntimeConfigParams(int *argc, char
             val = atoi(mConfigParams[index]);
             mAtmosLock = val ? true : false;
             ALOGI("-atmos_lock: %d", mAtmosLock);
+        } else if (strcmp(opt, "full_dap_disable") == 0) {
+            val = atoi(mConfigParams[index]);
+            mFullDAPDisable = val ? true : false;
+            ALOGI("-full_dap_disable: %d", mFullDAPDisable);
         }
+
 eq_error:
         index++;
         opt = NULL;

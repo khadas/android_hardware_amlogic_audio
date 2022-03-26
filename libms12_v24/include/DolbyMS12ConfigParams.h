@@ -740,6 +740,7 @@ private:
     int mDolbyInputCMDMask;
     bool mEnforceTimeslice;
     bool mTVTuningFlag;
+    bool mFullDAPDisable;
 }; //class DolbyMS12ConfigParams
 
 

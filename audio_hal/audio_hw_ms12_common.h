@@ -109,4 +109,10 @@ bool is_ad_data_available(int digital_audio_format);
 
 void set_continuous_audio_mode(struct aml_audio_device *adev, int enable, int is_suspend);
 
+/* @brief set ms12 full dap disable as full_dap_disable [0/1] */
+void set_ms12_full_dap_disable(struct dolby_ms12_desc *ms12, int full_dap_disable);
+
+/* @brief set ms12 multichanel enable [0/1] */
+void set_ms12_mc_enable(struct dolby_ms12_desc *ms12, int mc_enable);
+
 #endif //end of _AUDIO_HW_MS12_COMMON_H_
