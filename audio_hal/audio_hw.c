@@ -3846,6 +3846,11 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
                 adev->bHDMIConnected = 1;
                 adev->bHDMIConnected_update = 1;
                 if (device & AUDIO_DEVICE_OUT_HDMI_ARC) {
+                    if (eDolbyMS12Lib == adev->dolby_lib_type) {
+                        /*when arc is connected, disable dap*/
+                        set_ms12_full_dap_disable(&adev->ms12, true);
+                    }
+                    aml_audio_set_speaker_mute(adev, "true");
                     aml_audio_update_arc_status(adev, true);
                 }
                 update_sink_format_after_hotplug(adev);
@@ -3866,6 +3871,11 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
                 adev->bHDMIConnected_update = 1;
                 adev->hdmi_descs.pcm_fmt.max_channels = 2;
                 if (device & AUDIO_DEVICE_OUT_HDMI_ARC) {
+                    if (eDolbyMS12Lib == adev->dolby_lib_type) {
+                        /*when arc is connected, disable dap*/
+                        set_ms12_full_dap_disable(&adev->ms12, false);
+                    }
+                    aml_audio_set_speaker_mute(adev, "false");
                     aml_audio_update_arc_status(adev, false);
                 }
             } else if (device & AUDIO_DEVICE_OUT_ALL_A2DP) {

@@ -649,3 +649,25 @@ void set_continuous_audio_mode(struct aml_audio_device *adev, int enable, int is
         pthread_mutex_unlock(&adev->lock);
     }
 }
+
+void set_ms12_full_dap_disable(struct dolby_ms12_desc *ms12, int full_dap_disable)
+{
+    char parm[64] = "";
+
+    sprintf(parm, "%s %d", "-full_dap_disable", full_dap_disable);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+void set_ms12_mc_enable(struct dolby_ms12_desc *ms12, int mc_enable)
+{
+    char parm[64] = "";
+
+    if (!(ms12->output_config & MS12_OUTPUT_MASK_MC)) {
+        return;
+    }
+    sprintf(parm, "%s %d", "-mc", mc_enable);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
