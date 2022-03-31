@@ -3387,7 +3387,8 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     }
 
     if (adev->useSubMix) {
-        if (out->usecase == STREAM_PCM_NORMAL || out->usecase == STREAM_PCM_HWSYNC)
+        if (out->usecase == STREAM_PCM_NORMAL || out->usecase == STREAM_PCM_HWSYNC
+            || (out->usecase == STREAM_PCM_DIRECT && !out->bypass_submix))
             out_standby_subMixingPCM(&stream->common);
         else
             out_standby_new(&stream->common);
