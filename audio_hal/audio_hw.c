@@ -1434,6 +1434,7 @@ exit:
         ALOGI("%s set AUDIO_PAUSE when tunnel mode\n",__func__);
         aml_hwsync_set_tsync_pause(out->hwsync);
         out->tsync_status = TSYNC_STATUS_PAUSED;
+        out->hwsync->first_apts_flag = false;
     }
     pthread_mutex_unlock (&adev->lock);
     pthread_mutex_unlock (&out->lock);
