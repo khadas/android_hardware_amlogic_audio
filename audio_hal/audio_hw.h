@@ -859,7 +859,7 @@ inline bool dtv_tuner_framework(struct audio_stream_out *stream)
    return false;
 }
 /* called when adev locked */
-inline int dolby_stream_active(struct aml_audio_device *adev)
+static inline int dolby_stream_active(struct aml_audio_device *adev)
 {
     int i = 0;
     int is_dolby = 0;
@@ -879,7 +879,7 @@ inline int dolby_stream_active(struct aml_audio_device *adev)
 }
 
 /* called when adev locked */
-inline int dts_stream_active(struct aml_audio_device *adev)
+static inline int dts_stream_active(struct aml_audio_device *adev)
 {
     int i = 0;
     int is_dts = 0;
@@ -897,7 +897,7 @@ inline int dts_stream_active(struct aml_audio_device *adev)
 
 
 /* called when adev locked */
-inline int hwsync_lpcm_active(struct aml_audio_device *adev)
+static inline int hwsync_lpcm_active(struct aml_audio_device *adev)
 {
     int i = 0;
     int is_hwsync_lpcm = 0;

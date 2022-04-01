@@ -270,7 +270,7 @@ static int outMmapGetPosition(const struct audio_stream_out *stream,
         return -ENOSYS;
     }
     if (out->dev->debug_flag >= 100) {
-        AM_LOGD("stream:%p, position_frames:%d, nano:%lld frame diff=%lu ms time diff=%lld ms", stream,
+        AM_LOGD("stream:%p, position_frames:%d, nano:%lld frame diff=%lu ms time diff=%" PRId64 " ms", stream,
             position->position_frames, (long long)position->time_nanoseconds,
             (position->position_frames - out->last_mmap_position) * MSEC_PER_SEC / MMAP_SAMPLE_RATE_HZ,
             (position->time_nanoseconds - out->last_mmap_nano_second) / NSEC_PER_MSEC);

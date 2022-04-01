@@ -570,7 +570,7 @@ bool mediasync_wrap_getUpdateTimeThreshold(void* handle, int64_t *value) {
     if (handle != NULL) {
         mediasync_result ret = gMediaSync_getUpdateTimeThreshold(handle, value);
         if (ret == AM_MEDIASYNC_OK) {
-            ALOGV("[%s] get threshold ok, value:%lld\n", __func__, *value);
+            ALOGV("[%s] get threshold ok, value:(%" PRId64 ")\n", __func__, *value);
             return true;
         } else {
             ALOGE("[%s] no ok, errno:%s\n", __func__, strerror(errno));

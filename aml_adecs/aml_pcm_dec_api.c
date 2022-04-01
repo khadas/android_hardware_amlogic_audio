@@ -203,10 +203,10 @@ static int pcm_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
     downmix_size = bytes / downmix_conf;
 
     if (dec_pcm_data->buf_size < downmix_size) {
-        ALOGI("realloc outbuf_max_len  from %zu to %zu\n", dec_pcm_data->buf_size, downmix_size);
+        ALOGI("realloc outbuf_max_len  from %d to %d\n", dec_pcm_data->buf_size, downmix_size);
         dec_pcm_data->buf = aml_audio_realloc(dec_pcm_data->buf, downmix_size);
         if (dec_pcm_data->buf == NULL) {
-            ALOGE("realloc pcm buffer failed size %zu\n", downmix_size);
+            ALOGE("realloc pcm buffer failed size %d\n", downmix_size);
             return AML_DEC_RETURN_TYPE_FAIL;
         }
         dec_pcm_data->buf_size = downmix_size;
@@ -235,10 +235,10 @@ static int pcm_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
 
     if (pcm_config->max_out_channels >= pcm_config->channel) {
         if (raw_in_data->buf_size < bytes) {
-            ALOGI("realloc outbuf_max_len  from %zu to %zu\n", raw_in_data->buf_size, bytes);
+            ALOGI("realloc outbuf_max_len  from %d to %d\n", raw_in_data->buf_size, bytes);
             raw_in_data->buf = aml_audio_realloc(raw_in_data->buf, bytes);
             if (raw_in_data->buf == NULL) {
-                ALOGE("realloc pcm buffer failed size %zu\n", bytes);
+                ALOGE("realloc pcm buffer failed size %d\n", bytes);
                 return AML_DEC_RETURN_TYPE_FAIL;
             }
             raw_in_data->buf_size = bytes;

@@ -47,7 +47,7 @@ typedef struct spdifout_handle {
     bool spdif_mute;
     uint32_t sample_rate;
     bool need_extend_channel;
-    uint32_t buf_size;
+    size_t buf_size;
     void * temp_buf;
 } spdifout_handle_t;
 
@@ -564,7 +564,7 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
             /*if it is not 8 channel, we need swap it*/
             if (spdifout_phandle->need_extend_channel && spdifout_phandle->out_data_ch != 0 && spdifout_phandle->in_data_ch != 0) {
                 ret = aml_audio_check_and_realloc(&spdifout_phandle->temp_buf, &spdifout_phandle->buf_size, output_buffer_bytes * spdifout_phandle->out_data_ch / spdifout_phandle->in_data_ch);
-                NO_R_CHECK_RET(ret, "alloc spdif temp buff size:%d fail", byte);
+                NO_R_CHECK_RET(ret, "alloc spdif temp buff size:%zu fail", byte);
                 output_buffer_bytes = adjust_channels((const void*) output_buffer,
                                                       spdifout_phandle->in_data_ch,
                                                       spdifout_phandle->temp_buf,

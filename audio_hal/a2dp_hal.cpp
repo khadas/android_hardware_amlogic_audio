@@ -17,6 +17,7 @@
 #define LOG_TAG  "a2dp_hal"
 
 #include <system/audio.h>
+#include <cinttypes>
 #include <cutils/log.h>
 #include <cutils/properties.h>
 #include <android-base/strings.h>
@@ -115,7 +116,7 @@ static void dump_a2dp_output_data(aml_a2dp_hal *hal, const void *buffer, uint32_
         char acFilePathStr[ENUM_TYPE_STR_MAX_LEN];
         size_t out_per_sample_byte = audio_bytes_per_sample(hal->config.format);
         size_t out_channel_byte = audio_channel_count_from_out_mask(hal->config.channel_mask);
-        sprintf(acFilePathStr, "/data/audio/a2dp_%0.1fK_%dC_%dB.pcm", hal->config.sample_rate/1000.0, out_channel_byte, out_per_sample_byte);
+        sprintf(acFilePathStr, "/data/audio/a2dp_%0.1fK_%zuC_%zuB.pcm", hal->config.sample_rate/1000.0, out_channel_byte, out_per_sample_byte);
         aml_audio_dump_audio_bitstreams(acFilePathStr, buffer, size);
     }
 }
@@ -159,7 +160,7 @@ int a2dp_out_open(struct aml_audio_device *adev) {
     hal->mute_time += 1000000LL; // mute for 1s
     adev->a2dp_hal = (void*)hal;
     pthread_mutex_unlock(&adev->a2dp_lock);
-    AM_LOGI("Rx param rate:%d, bytes_per_sample:%d, ch:%d", hal->config.sample_rate,
+    AM_LOGI("Rx param rate:%d, bytes_per_sample:%zu, ch:%d", hal->config.sample_rate,
         audio_bytes_per_sample(hal->config.format), audio_channel_count_from_out_mask(hal->config.channel_mask));
     return 0;
 }
@@ -271,13 +272,13 @@ static bool a2dp_state_process(struct aml_audio_device *adev, audio_config_base_
         AM_LOGI("a2dp state changed: %s -> %s",  a2dpStatus2String(hal->state), a2dpStatus2String(cur_state));
     }
     if (adev->debug_flag & DEBUG_LOG_MASK_A2DP) {
-        AM_LOGD("cur_state:%s, frames:%d, gap:%lld ms", a2dpStatus2String(cur_state), cur_frames, write_delta_time_us / 1000);
+        AM_LOGD("cur_state:%s, frames:%zu, gap:%" PRId64 " ms", a2dpStatus2String(cur_state), cur_frames, write_delta_time_us / 1000);
     }
 
     if (cur_state == BluetoothStreamState::STARTING) {
         if (data_delta_time_us > 0) {
             if (adev->debug_flag & DEBUG_LOG_MASK_A2DP) {
-                AM_LOGD("write too fast, need sleep:%lld ms", data_delta_time_us / 1000);
+                AM_LOGD("write too fast, need sleep:%" PRId64 " ms", data_delta_time_us / 1000);
             }
             usleep(data_delta_time_us);
         }
@@ -285,7 +286,7 @@ static bool a2dp_state_process(struct aml_audio_device *adev, audio_config_base_
          if (adev->audio_patch) {
             /* tv_mute for atv switch channel */
             if (write_delta_time_us > 128000 || adev->tv_mute) {
-                AM_LOGI("tv_mute:%d, gap:%lld ms, start standby", adev->tv_mute, write_delta_time_us / 1000);
+                AM_LOGI("tv_mute:%d, gap:%" PRId64 " ms, start standby", adev->tv_mute, write_delta_time_us / 1000);
                 a2dp_out_standby_l(adev);
             } else {
                 /* The first startup needs to be filled. BT stack is 40ms buffer.*/
@@ -405,7 +406,7 @@ static ssize_t a2dp_out_data_process(aml_a2dp_hal *hal, audio_config_base_t *con
     out_size = out_per_sample_byte * out_channel_byte * in_frames;
     if (hal->config.format != AUDIO_FORMAT_PCM_16_BIT) {
         aml_audio_check_and_realloc((void **)&hal->buff_conv_format, &hal->buff_size_conv_format, out_size);
-        R_CHECK_RET(0, "realloc buff_conv_format size:%d fail", out_size);
+        R_CHECK_RET(0, "realloc buff_conv_format size:%zu fail", out_size);
         if (hal->config.format == AUDIO_FORMAT_PCM_32_BIT) {
             memcpy_to_i32_from_i16((int32_t *)hal->buff_conv_format, (int16_t *)buffer, in_frames * out_channel_byte);
         } else if (hal->config.format == AUDIO_FORMAT_PCM_24_BIT_PACKED) {
@@ -499,7 +500,7 @@ ssize_t a2dp_out_write(struct aml_audio_device *adev, audio_config_base_t *confi
             sent = period_time_size;
         }
         a2dp_out_write_l(adev, config, (char *)buffer + written_size, sent);
-        AM_LOGV("written_size:%d, remain_size:%d, sent:%d", written_size, remain_size, sent);
+        AM_LOGV("written_size:%d, remain_size:%d, sent:%zu", written_size, remain_size, sent);
         written_size += sent;
     }
     return written_size;

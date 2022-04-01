@@ -191,11 +191,11 @@ size_t aml_dev2mix_parser_process(struct aml_stream_in *in, unsigned char *buffe
         }
         if (time_out_cnt++ >= 100) {
             memset(buffer, 0, bytes);
-            ALOGW("[%s:%d] alsa read decode timeout 100 times, read_bytes:%d, bytes:%d", __func__, __LINE__, read_bytes, bytes);
+            ALOGW("[%s:%d] alsa read decode timeout 100 times, read_bytes:%zu, bytes:%zu", __func__, __LINE__, read_bytes, bytes);
             break;
         }
     } while (read_bytes < bytes);
-    ALOGV("[%s:%d] read_bytes:%d, byte:%d, cnt:%d", __func__, __LINE__, read_bytes, bytes, time_out_cnt);
+    ALOGV("[%s:%d] read_bytes:%zu, byte:%zu, cnt:%d", __func__, __LINE__, read_bytes, bytes, time_out_cnt);
     return bytes;
 }
 

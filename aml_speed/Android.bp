@@ -3,7 +3,6 @@ cc_library_shared {
     name: "libamlspeed",
 
     proprietary: true,
-    compile_multilib: "32",
     srcs: [
         "aml_audio_speed_manager.c",
         "audio_sonic_speed_api.c",

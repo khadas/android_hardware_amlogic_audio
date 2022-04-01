@@ -163,7 +163,7 @@ AM_Dmx_Audio_ErrorCode_t Get_MainAudio_Es(void *demux_handle,struct mAudioEsData
         return AM_AUDIO_Dmx_ERROR;
     }
 
-    ALOGV("mEsdata->pts : %lld size:%d \n",(*mAudioEsData)->pts,(*mAudioEsData)->size);
+    ALOGV("mEsdata->pts : %" PRId64 " size:%d \n",(*mAudioEsData)->pts,(*mAudioEsData)->size);
 
     return (AM_Dmx_Audio_ErrorCode_t)ret;
 }
@@ -188,7 +188,7 @@ AM_Dmx_Audio_ErrorCode_t Get_ADAudio_Es(void *demux_handle, struct mAudioEsDataI
     if ((*mAudioEsData)->size == 0) {
         return AM_AUDIO_Dmx_ERROR;
     }
-    ALOGV("mEsdata->pts : %lld size:%d \n",(*mAudioEsData)->pts,(*mAudioEsData)->size);
+    ALOGV("mEsdata->pts : %" PRId64 " size:%d \n",(*mAudioEsData)->pts,(*mAudioEsData)->size);
     return (AM_Dmx_Audio_ErrorCode_t)ret;
 }
 
@@ -205,7 +205,7 @@ AM_Dmx_Audio_ErrorCode_t Get_Audio_LastES_Apts(void *demux_handle , int64_t *las
     }
     TSPMutex::Autolock l(demux_wrapper->mDemuxHandleLock);
     *last_queue_es_apts = demux_wrapper->last_queue_es_apts;
-    ALOGV("Get_Audio_LastES_Apts  %0llx",*last_queue_es_apts);
+    ALOGV("Get_Audio_LastES_Apts  %" PRIx64 "",*last_queue_es_apts);
 
     return (AM_Dmx_Audio_ErrorCode_t)ret;
 }

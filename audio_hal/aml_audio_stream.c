@@ -1475,17 +1475,17 @@ uint32_t tv_in_write(struct audio_stream_out *stream, const void* buffer, size_t
     uint32_t full_count = 0;
     while (bytes_written < bytes) {
         uint32_t sent = ring_buffer_write(&patch->tvin_ringbuffer, (uint8_t *)buffer + bytes_written, bytes - bytes_written, UNCOVER_WRITE);
-        AM_LOGV("need_write:%d, actual sent:%d, bytes:%d", (bytes - bytes_written), sent, bytes);
+        AM_LOGV("need_write:%zu, actual sent:%d, bytes:%zu", (bytes - bytes_written), sent, bytes);
         bytes_written += sent;
         if (bytes_written == bytes) {
             if (adev->debug_flag) {
-                AM_LOGD("write finished, bytes:%d, timeout:%d ms", bytes, 5 * full_count);
+                AM_LOGD("write finished, bytes:%zu, timeout:%d ms", bytes, 5 * full_count);
             }
             return bytes;
         }
         full_count++;
         if (full_count >= 20) {
-            AM_LOGW("write data timeout 100ms, need write:%d, bytes_written:%d, reset buffer", bytes, bytes_written);
+            AM_LOGW("write data timeout 100ms, need write:%zu, bytes_written:%d, reset buffer", bytes, bytes_written);
             ring_buffer_reset(&patch->tvin_ringbuffer);
             return bytes_written;
         }
@@ -1511,18 +1511,18 @@ uint32_t tv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
     uint32_t nodata_count = 0;
     while (read_bytes < bytes) {
         uint32_t ret = ring_buffer_read(&patch->tvin_ringbuffer, (uint8_t *)buffer + read_bytes, bytes - read_bytes);
-        AM_LOGV("need_write:%d, actual sent:%d, bytes:%d", (bytes - read_bytes), ret, bytes);
+        AM_LOGV("need_write:%zu, actual sent:%d, bytes:%zu", (bytes - read_bytes), ret, bytes);
         read_bytes += ret;
         if (read_bytes == bytes) {
             if (adev->debug_flag) {
                 int available = get_buffer_read_space(&patch->tvin_ringbuffer);
-                AM_LOGD("read finished, bytes:%d, timeout:%d ms, available:%d", bytes, 5 * nodata_count, available);
+                AM_LOGD("read finished, bytes:%zu, timeout:%d ms, available:%d", bytes, 5 * nodata_count, available);
             }
             return bytes;
         }
         nodata_count++;
         if (nodata_count >= 20) {
-            AM_LOGW("read data timeout 100ms, need:%d, read_bytes:%d", bytes, read_bytes);
+            AM_LOGW("read data timeout 100ms, need:%zu, read_bytes:%d", bytes, read_bytes);
             return read_bytes;
         }
         usleep(5000);

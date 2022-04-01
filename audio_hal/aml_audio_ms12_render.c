@@ -22,7 +22,7 @@
 #include <pthread.h>
 #include <cutils/log.h>
 
-
+#include <inttypes.h>
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
 #ifdef ENABLE_DVB_PATCH
@@ -225,7 +225,7 @@ static void aml_audio_ms12_init_pts_param(struct dolby_ms12_desc *ms12, uint64_t
         ms12->last_synced_frame_pts = -1;
         ms12->out_synced_frame_count = 0;
     }
-    ALOGI("first_in_frame_pts  %llu ms" , ms12->first_in_frame_pts / 90);
+    ALOGI("first_in_frame_pts  %" PRIu64 " ms" , ms12->first_in_frame_pts / 90);
 }
 
 static int aml_audio_ms12_process(struct audio_stream_out *stream, const void *write_buf, size_t write_bytes) {

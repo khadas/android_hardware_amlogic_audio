@@ -164,7 +164,7 @@ int init_mixer_input_port(struct amlAudioMixer *audio_mixer,
     }
 
     in_port->ID = port_index;
-    AM_LOGI("input port:%s, size %d frames, frame_write_sum:%lld",
+    AM_LOGI("input port:%s, size %d frames, frame_write_sum:%" PRId64 "",
         mixerInputType2Str(in_port->enInPortType), MIXER_FRAME_COUNT, aml_out->frame_write_sum);
     audio_mixer->in_ports[port_index] = in_port;
     audio_mixer->inportsMasks |= 1 << port_index;
@@ -530,7 +530,7 @@ static int mixer_update_tstamp(struct amlAudioMixer *audio_mixer)
             signed_frames = 0;
         }
         in_port->presentation_frames = in_port->initial_frames + signed_frames;
-        AM_LOGV("present frames:%lld, initial %lld, consumed %lld, sec:%ld, nanosec:%ld",
+        AM_LOGV("present frames:%" PRId64 ", initial %" PRId64 ", consumed %" PRId64 ", sec:%ld, nanosec:%ld",
                 in_port->presentation_frames,
                 in_port->initial_frames,
                 in_port->mix_consumed_frames,
@@ -1350,7 +1350,7 @@ struct amlAudioMixer *newAmlAudioMixer(struct aml_audio_device *adev)
     AM_LOGD("");
 
     audio_mixer = aml_audio_calloc(1, sizeof(*audio_mixer));
-    R_CHECK_POINTER_LEGAL(NULL, audio_mixer, "allocate amlAudioMixer:%d no memory", sizeof(struct amlAudioMixer));
+    R_CHECK_POINTER_LEGAL(NULL, audio_mixer, "allocate amlAudioMixer:%zu no memory", sizeof(struct amlAudioMixer));
     audio_mixer->adev = adev;
     audio_mixer->submix_standby = 1;
     mixer_set_state(audio_mixer, MIXER_IDLE);
@@ -1478,7 +1478,7 @@ void mixer_dump(int s32Fd, const struct aml_audio_device *pstAmlDev)
             dprintf(s32Fd, "[AML_HAL]  input port type: %s(ID:%d)\n", mixerInputType2Str(pstInputPort->enInPortType), pstInputPort->ID);
             dprintf(s32Fd, "[AML_HAL]      Channel       : %10d     | Format            : %#10x\n",
                 pstInputPort->cfg.channelCnt, pstInputPort->cfg.format);
-            dprintf(s32Fd, "[AML_HAL]      FrameCnt      : %10d     | data size         : %10d Byte\n",
+            dprintf(s32Fd, "[AML_HAL]      FrameCnt      : %zu     | data size         : %zu Byte\n",
                 pstInputPort->data_buf_frame_cnt, pstInputPort->data_len_bytes);
             dprintf(s32Fd, "[AML_HAL]      rbuf size     : %10d Byte| Avail size        : %10d Byte\n",
                 pstInputPort->r_buf->size, get_buffer_read_space(pstInputPort->r_buf));
@@ -1491,7 +1491,7 @@ void mixer_dump(int s32Fd, const struct aml_audio_device *pstAmlDev)
     if (pstOutPort) {
         dprintf(s32Fd, "[AML_HAL]  output port type: %s\n", mixerOutputType2Str(pstOutPort->enOutPortType));
         dprintf(s32Fd, "[AML_HAL]      Channel       : %10d     | Format            : %#10x\n", pstOutPort->cfg.channelCnt, pstOutPort->cfg.format);
-        dprintf(s32Fd, "[AML_HAL]      FrameCnt      : %10d     | data size         : %10d Byte\n",
+        dprintf(s32Fd, "[AML_HAL]      FrameCnt      : %zu     | data size         : %zu Byte\n",
             pstOutPort->data_buf_frame_cnt, pstOutPort->data_buf_len);
     } else {
         dprintf(s32Fd, "[AML_HAL] not find output port description!!!\n");

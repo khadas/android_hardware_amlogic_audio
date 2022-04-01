@@ -1232,8 +1232,8 @@ bool aml_audio_data_detect(int16_t *buf, size_t bytes, int detect_value)
         buf_value +=  abs(temp_buf[i++]);
     };
 
-    ALOGV("%s bytes:%zu i:%u  buf_value:%llu (%#llx),  sizeof(uint64_t):%u sizeof(size_t):%u", __func__,
-                bytes, i, buf_value, buf_value,  sizeof(uint64_t), sizeof(size_t));
+    ALOGV("%s bytes:%zu i:%u  buf_value:%" PRIu64 "  sizeof(uint64_t):%zu sizeof(size_t):%zu", __func__,
+                bytes, i, buf_value,  sizeof(uint64_t), sizeof(size_t));
     if (buf_value <= detect_value) {
         ret = true;
     } else {
@@ -1285,7 +1285,7 @@ int aml_audio_data_handle(struct audio_stream_out *stream, const void* buffer, s
     int detected_size = 0;
     size_t remaining_size = bytes;
 
-    ALOGV("%s out_stream usecase:%d-->%s, hal_format:%#x hal_ch:%u --> hal_frame_size:%u, hal_rate:%u, DETECT_AUDIO_DATA_UNIT:%zu, bytes:%zu", __func__,
+    ALOGV("%s out_stream usecase:%d-->%s, hal_format:%#x hal_ch:%u --> hal_frame_size:%u, hal_rate:%u, DETECT_AUDIO_DATA_UNIT:%u, bytes:%zu", __func__,
           out->usecase, usecase2Str(out->usecase), out->hal_format, out->hal_ch, out->hal_frame_size, out->hal_rate, DETECT_AUDIO_DATA_UNIT, bytes);
 
     while (out->audio_data_handle_state < AUDIO_DATA_HANDLE_FINISHED && remaining_size) {
@@ -1305,7 +1305,7 @@ int aml_audio_data_handle(struct audio_stream_out *stream, const void* buffer, s
                     ret = aml_audio_data_detect((int16_t *)((int8_t *)buffer + detected_size), unit_size , AML_DETECT_VALUE);
                     if (false == ret) {
                         out->audio_data_handle_state = AUDIO_DATA_HANDLE_DETECTED;
-                        ALOGD("%s  detected the nonzero data, remaing_size:%zu  detected_size:%zu", __func__, remaining_size, detected_size);
+                        ALOGD("%s  detected the nonzero data, remaing_size:%zu  detected_size:%u", __func__, remaining_size, detected_size);
                         break;
                     }
 

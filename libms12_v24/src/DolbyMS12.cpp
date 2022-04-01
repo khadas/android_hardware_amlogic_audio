@@ -903,7 +903,7 @@ int DolbyMS12::DolbyMS12SetSchedulerState(int sch_state)
 
 unsigned long long DolbyMS12::DolbyMS12GetDecoderNFramesPcmOutput(void *ms12_pointer, int format, int is_main)
 {
-    unsigned long long ret = 0;
+    uint64_t ret = 0;
     ALOGV("+%s()", __FUNCTION__);
     if (!FuncDolbyMS12GetNFramesPCMOutput) {
         ALOGE("%s(), pls load lib first.\n", __FUNCTION__);

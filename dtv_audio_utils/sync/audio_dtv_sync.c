@@ -193,7 +193,7 @@ int aml_audio_swcheck_checkin_apts(int audio_path, uint64_t offset, unsigned lon
         return -1;
     }
     if (p_swcheck->debug_enable) {
-        ALOGI("++ %s checkin ,offset %llu,apts 0x%lx", __func__, offset, apts);
+        ALOGI("++ %s checkin ,offset %" PRIx64 ",apts 0x%lx", __func__, offset, apts);
     }
     pthread_mutex_lock(&p_swcheck->lock);
 	p_swcheck->last_apts_from_header = apts;
@@ -204,7 +204,7 @@ int aml_audio_swcheck_checkin_apts(int audio_path, uint64_t offset, unsigned lon
             pts_tab[i].offset = offset;
             pts_tab[i].valid = 1;
             if (p_swcheck->debug_enable) {
-                ALOGI("%s checkin done,offset %llu,apts 0x%lx", __func__, offset, apts);
+                ALOGI("%s checkin done,offset %" PRIu64 ",apts 0x%lx", __func__, offset, apts);
             }
             ret = 0;
             break;
@@ -235,7 +235,7 @@ int aml_audio_swcheck_lookup_apts(int audio_path, uint64_t offset, unsigned long
     }
     min_offset = p_swcheck->look_res;
     if (p_swcheck->debug_enable) {
-        ALOGI("%s offset %lld,first %d", __func__, offset, p_swcheck->first_apts_flag);
+        ALOGI("%s offset %" PRId64 ",first %d", __func__, offset, p_swcheck->first_apts_flag);
     }
     pthread_mutex_lock(&p_swcheck->lock);
 
@@ -251,12 +251,12 @@ int aml_audio_swcheck_lookup_apts(int audio_path, uint64_t offset, unsigned long
 
     if (p_swcheck->debug_enable) {
         if (align > p_swcheck->payload_offset)
-            ALOGI("audio_hal_debug exception apts lookup offset: %llu > checkin offset: %zu",
+            ALOGI("audio_hal_debug exception apts lookup offset: %" PRIu64 " > checkin offset: %zu",
                    align, p_swcheck->payload_offset);
     }
     if (offset == 0) {
         *p_apts = p_swcheck->first_apts;
-        ALOGI("offset=0, set first_lookup_apts=0x%llx not return\n", p_swcheck->first_apts);
+        ALOGI("offset=0, set first_lookup_apts=0x%" PRIx64 " not return\n", p_swcheck->first_apts);
         pthread_mutex_unlock(&p_swcheck->lock);
         return 0;
     }
@@ -269,7 +269,7 @@ int aml_audio_swcheck_lookup_apts(int audio_path, uint64_t offset, unsigned long
                 pts_tab[i].valid = 0;
                 ret = 0;
                 if (p_swcheck->debug_enable) {
-                    ALOGI("%s first flag %d,pts checkout done,offset %llu,align %llu,pts 0x%lx",
+                    ALOGI("%s first flag %d,pts checkout done,offset %" PRIu64 ",align %" PRIu64 ",pts 0x%lx",
                           __func__, p_swcheck->first_apts_flag, offset, align, *p_apts);
                 }
                 break;
@@ -301,14 +301,14 @@ int aml_audio_swcheck_lookup_apts(int audio_path, uint64_t offset, unsigned long
     if (nearest_offset) {
         ret = 0;
         *p_apts = nearest_pts;
-        ALOGI("find nearest pts 0x%lx offset %llu align %llu offset %llu",
+        ALOGI("find nearest pts 0x%lx offset %" PRIu64 " align %" PRIu64 " offset %" PRIu64 "",
                 *p_apts, nearest_offset, align, offset);
     } else {
-        ALOGE("%s,apts lookup failed,align %llu,offset %llu", __func__, align, offset);
+        ALOGE("%s,apts lookup failed,align %" PRIu64 ",offset %" PRIu64 "", __func__, align, offset);
     }
     if (ret == 0) {
         if (p_swcheck->debug_enable) {
-            ALOGI("data offset =%llu pts offset =%llu diff =%llu pts=0x%lx ", offset, nearest_offset, offset - nearest_offset, *p_apts);
+            ALOGI("data offset =%" PRIu64 " pts offset =%" PRIu64 " diff =%" PRIu64 " pts=0x%lx ", offset, nearest_offset, offset - nearest_offset, *p_apts);
         }
     }
     pthread_mutex_unlock(&p_swcheck->lock);
