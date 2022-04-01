@@ -31,7 +31,7 @@ typedef enum {
     DTVSYNC_AUDIO_OUTPUT,
 } dtvsync_process_res;
 
-void* aml_dtvsync_create();
+void* aml_dtvsync_create(aml_dtvsync_t *p_dtvsync);
 
 bool aml_dtvsync_allocInstance(aml_dtvsync_t *p_dtvsync, int32_t* id);
 

@@ -185,71 +185,82 @@ static const unsigned int ms12_muted_mat_raw[MS12_MAT_RAW_LENGTH / 4 + 1] = {
 };
 
 
-void* aml_dtvsync_create()
+void* aml_dtvsync_create(aml_dtvsync_t *p_dtvsync)
 {
+    void *p = NULL;
     ALOGI("%s", __func__);
-	return mediasync_wrap_create();
+    pthread_mutex_lock(&p_dtvsync->ms_lock);
+    p = mediasync_wrap_create();
+    pthread_mutex_unlock(&p_dtvsync->ms_lock);
+    return p;
 }
 
 bool aml_dtvsync_allocInstance(aml_dtvsync_t *p_dtvsync, int32_t* id)
 {
+    bool ret = false;
     if (p_dtvsync && p_dtvsync->mediasync) {
-
-        return mediasync_wrap_allocInstance(p_dtvsync->mediasync, 0, 0, id);
+        pthread_mutex_lock(&p_dtvsync->ms_lock);
+        ret = mediasync_wrap_allocInstance(p_dtvsync->mediasync, 0, 0, id);
+        pthread_mutex_unlock(&p_dtvsync->ms_lock);
     }
-    return false;
+    return ret;
 }
 
 bool aml_dtvsync_bindInstance(aml_dtvsync_t *p_dtvsync, uint32_t id)
 {
-
+    bool ret = false;
     if (p_dtvsync) {
-        return mediasync_wrap_bindInstance(p_dtvsync->mediasync, id, MEDIA_AUDIO);
+        pthread_mutex_lock(&p_dtvsync->ms_lock);
+        ret = mediasync_wrap_bindInstance(p_dtvsync->mediasync, id, MEDIA_AUDIO);
+        pthread_mutex_unlock(&p_dtvsync->ms_lock);
     }
-    return false;
+    return ret;
 }
 
 bool aml_dtvsync_setParameter(aml_dtvsync_t *p_dtvsync, mediasync_parameter type, void* arg)
 {
-
+    bool ret = false;
     if (p_dtvsync) {
-        return mediasync_wrap_setParameter(p_dtvsync->mediasync, type, arg);
+        pthread_mutex_lock(&p_dtvsync->ms_lock);
+        ret = mediasync_wrap_setParameter(p_dtvsync->mediasync, type, arg);
+        pthread_mutex_unlock(&p_dtvsync->ms_lock);
     }
-    return false;
+    return ret;
 }
 
 bool aml_dtvsync_getParameter(aml_dtvsync_t *p_dtvsync, mediasync_parameter type, void* arg)
 {
+    bool ret = false;
     if (p_dtvsync) {
-         return mediasync_wrap_getParameter(p_dtvsync->mediasync, type, arg);
+         pthread_mutex_lock(&p_dtvsync->ms_lock);
+         ret = mediasync_wrap_getParameter(p_dtvsync->mediasync, type, arg);
+         pthread_mutex_unlock(&p_dtvsync->ms_lock);
     }
-    return false;
+    return ret;
 }
 
 bool aml_dtvsync_queue_audio_frame(aml_dtvsync_t *p_dtvsync, struct mediasync_audio_queue_info* info)
 {
-    bool ret = true;
+    bool ret = false;
     if(p_dtvsync) {
         pthread_mutex_lock(&p_dtvsync->ms_lock);
         ret = mediasync_wrap_queueAudioFrame(p_dtvsync->mediasync, info);
         pthread_mutex_unlock(&p_dtvsync->ms_lock);
-        return ret;
     }
-    return false;
+    return ret;
 }
 
 bool aml_dtvsync_audioprocess(aml_dtvsync_t *p_dtvsync, int64_t apts, int64_t cur_apts,
                                                 mediasync_time_unit tunit,
                                                 struct mediasync_audio_policy* asyncPolicy)
 {
-    bool ret = true;
+    bool ret = false;
     if (p_dtvsync) {
         pthread_mutex_lock(&p_dtvsync->ms_lock);
         ret = mediasync_wrap_AudioProcess(p_dtvsync->mediasync, apts, cur_apts, tunit, asyncPolicy);
         pthread_mutex_unlock(&p_dtvsync->ms_lock);
-        return ret;
     }
-    return false;
+    return ret;
 }
 
 bool aml_dtvsync_insertpcm(struct audio_stream_out *stream, audio_format_t format, int time_ms, bool is_ms12)
@@ -614,6 +625,7 @@ dtvsync_process_res  aml_dtvsync_nonms12_process(struct audio_stream_out *stream
     aml_dec_t *aml_dec = aml_out->aml_dec;
     dec_data_info_t * dec_pcm_data;
     float speed = 0.0f;
+    bool ret = true;
     struct mediasync_audio_policy m_audiopolicy;
     memset(&m_audiopolicy, 0, sizeof(m_audiopolicy));
 
@@ -625,10 +637,14 @@ dtvsync_process_res  aml_dtvsync_nonms12_process(struct audio_stream_out *stream
     }
 
     do {
-
-        aml_dtvsync_audioprocess(patch->dtvsync, aml_dec->out_frame_pts,
+        ret = aml_dtvsync_audioprocess(patch->dtvsync, aml_dec->out_frame_pts,
                                 patch->dtvsync->cur_outapts,
                                 MEDIASYNC_UNIT_PTS, &m_audiopolicy);
+        if (!ret) {
+            ALOGE("aml_dtvsync_audioprocess fail.");
+            return DTVSYNC_AUDIO_OUTPUT;;
+        }
+
         if (m_audiopolicy.audiopolicy != MEDIASYNC_AUDIO_NORMAL_OUTPUT)
             ALOGI("do get m_audiopolicy=%d=%s, param1=%u, param2=%u, out_pts=0x%" PRIx64 ",cur=0x%" PRIx64 ",exit=%d\n",
                 m_audiopolicy.audiopolicy, mediasyncAudiopolicyType2Str(m_audiopolicy.audiopolicy),
@@ -680,12 +696,18 @@ void aml_dtvsync_ms12_get_policy(struct audio_stream_out *stream)
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_audio_patch *patch = adev->audio_patch;
     struct mediasync_audio_policy m_audiopolicy;
+    bool ret = true;
     memset(&m_audiopolicy, 0, sizeof(m_audiopolicy));
 
     do {
-        aml_dtvsync_audioprocess(patch->dtvsync, patch->cur_package->pts,
+        ret = aml_dtvsync_audioprocess(patch->dtvsync, patch->cur_package->pts,
                                 patch->dtvsync->cur_outapts,
                                 MEDIASYNC_UNIT_PTS, &m_audiopolicy);
+
+        if (!ret) {
+            ALOGE("aml_dtvsync_audioprocess fail.");
+            return;
+        }
 
         if (m_audiopolicy.audiopolicy != MEDIASYNC_AUDIO_NORMAL_OUTPUT)
             ALOGI("do get m_audiopolicy=%d=%s, param1=%u, param2=%u, out_pts=0x%" PRIx64 ",cur=0x%" PRIx64 "\n",
@@ -775,19 +797,24 @@ dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_de
 
 bool aml_dtvsync_setPause(aml_dtvsync_t *p_dtvsync, bool pause)
 {
+    bool ret = false;
     if (p_dtvsync) {
-        return mediasync_wrap_setPause(p_dtvsync->mediasync, pause);
+        pthread_mutex_lock(&p_dtvsync->ms_lock);
+        ret = mediasync_wrap_setPause(p_dtvsync->mediasync, pause);
+        pthread_mutex_unlock(&p_dtvsync->ms_lock);
     }
-    return false;
+    return ret;
 }
 
 bool aml_dtvsync_reset(aml_dtvsync_t *p_dtvsync)
 {
-
+    bool ret = false;
     if (p_dtvsync) {
-        return mediasync_wrap_reset(p_dtvsync->mediasync);
+        pthread_mutex_lock(&p_dtvsync->ms_lock);
+        ret = mediasync_wrap_reset(p_dtvsync->mediasync);
+        pthread_mutex_unlock(&p_dtvsync->ms_lock);
     }
-    return false;
+    return ret;
 }
 
 void aml_dtvsync_release(aml_dtvsync_t *p_dtvsync)
@@ -795,7 +822,17 @@ void aml_dtvsync_release(aml_dtvsync_t *p_dtvsync)
 
     if (p_dtvsync) {
         pthread_mutex_lock(&p_dtvsync->ms_lock);
-        mediasync_wrap_destroy(p_dtvsync->mediasync);
+        ALOGI("mediasync_new:%p, mediasync:%p", p_dtvsync->mediasync_new, p_dtvsync->mediasync);
+        void *tmp = NULL;
+        if (p_dtvsync->mediasync_new)
+            tmp = p_dtvsync->mediasync_new;
+        mediasync_wrap_destroy(p_dtvsync->mediasync_new);
+        p_dtvsync->mediasync_new = NULL;
+
+        if (p_dtvsync->mediasync && p_dtvsync->mediasync != tmp)
+            mediasync_wrap_destroy(p_dtvsync->mediasync);
+        p_dtvsync->mediasync = NULL;
         pthread_mutex_unlock(&p_dtvsync->ms_lock);
     }
+    return;
 }

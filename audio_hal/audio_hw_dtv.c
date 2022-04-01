@@ -416,7 +416,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                     if (demux_info->dual_decoder_support)
                         Start_Dmx_AD_Audio(demux_handle);
                     if (dtvsync->mediasync_new == NULL) {
-                        dtvsync->mediasync_new = aml_dtvsync_create();
+                        dtvsync->mediasync_new = aml_dtvsync_create(dtvsync);
                         if (dtvsync->mediasync_new == NULL)
                             ALOGI("mediasync create failed\n");
                         else {
@@ -456,26 +456,8 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                         Close_Dmx_Audio(demux_handle);
                         demux_handle = NULL;
                         dtv_audio_instances->demux_handle[path_id] = NULL;
-                        void *tmp = NULL;
-                        if (dtvsync->mediasync_new != NULL) {
-                            tmp = dtvsync->mediasync_new;
-                            ALOGI("close mediasync_new:%p, mediasync:%p, tmp:%p", dtvsync->mediasync_new, dtvsync->mediasync, tmp);
-                            if (dtvsync->mediasync_new == dtvsync->mediasync) {
-                                dtvsync->mediasync = NULL;
-                            }
-                            mediasync_wrap_destroy(dtvsync->mediasync_new);
-                            dtvsync->mediasync_new = NULL;
-                        }
-
-                        if (dtvsync->mediasync != NULL) {
-                            ALOGI("receive close cmd, release mediasync:%p\n", dtvsync->mediasync);
-                            if (dtvsync->mediasync != tmp) {
-                                aml_dtvsync_reset(dtvsync);
-                                aml_dtvsync_release(dtvsync);
-                            } else
-                                ALOGI("must not release the same mediasync twice!");
-                            dtvsync->mediasync = NULL;
-                        }
+                        aml_dtvsync_release(dtvsync);
+                        ALOGI("receive close cmd, release mediasync.\n");
                     }
                 } else {
                      //uio_deinit(&patch->uio_fd);
