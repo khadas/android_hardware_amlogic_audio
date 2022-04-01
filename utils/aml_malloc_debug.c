@@ -260,7 +260,7 @@ int aml_audio_check_and_realloc(void** pointer, size_t* cur_size, size_t need_si
     if (*cur_size < need_size || *pointer == NULL) {
         void *p = aml_audio_realloc(*pointer, need_size);
         if (p == NULL) {
-            ALOGE("[%s:%d] realloc buffer failed size:%d", __func__, __LINE__, need_size);
+            ALOGE("[%s:%d] realloc buffer failed size:%zu", __func__, __LINE__, need_size);
             return -ENOMEM;
         } else {
             memset(p, 0, need_size);

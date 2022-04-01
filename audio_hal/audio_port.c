@@ -139,7 +139,7 @@ void inport_reset(input_port *port)
 int send_inport_message(input_port *port, PORT_MSG msg)
 {
     port_message *p_msg = aml_audio_calloc(1, sizeof(port_message));
-    R_CHECK_POINTER_LEGAL(-ENOMEM, p_msg, "no memory, size:%d", sizeof(port_message));
+    R_CHECK_POINTER_LEGAL(-ENOMEM, p_msg, "no memory, size:%zu", sizeof(port_message));
 
     p_msg->msg_what = msg;
     pthread_mutex_lock(&port->msg_lock);
@@ -221,7 +221,7 @@ static int inport_padding_zero(input_port *port, size_t bytes)
     char *feed_mem = NULL;
     AM_LOGI("padding size %zu 0s to inport %d", bytes, port->enInPortType);
     feed_mem = aml_audio_calloc(1, bytes);
-    R_CHECK_POINTER_LEGAL(-ENOMEM, feed_mem, "no memory, size:%d", bytes);
+    R_CHECK_POINTER_LEGAL(-ENOMEM, feed_mem, "no memory, size:%zu", bytes);
     input_port_write(port, feed_mem, bytes);
     port->padding_frames = bytes / port->cfg.frame_size;
     aml_audio_free(feed_mem);
@@ -253,11 +253,11 @@ input_port *new_input_port(
     int ret = 0;
 
     port = aml_audio_calloc(1, sizeof(input_port));
-    R_CHECK_POINTER_LEGAL(NULL, port, "no memory, size:%d", sizeof(input_port));
+    R_CHECK_POINTER_LEGAL(NULL, port, "no memory, size:%zu", sizeof(input_port));
 
     setPortConfig(&port->cfg, config);
     thunk_size = buf_frames * port->cfg.frame_size;
-    AM_LOGD("buf_frames:%d,frame_size:%d ==> thunk_size:%d", buf_frames, port->cfg.frame_size, thunk_size);
+    AM_LOGD("buf_frames:%zu,frame_size:%d ==> thunk_size:%d", buf_frames, port->cfg.frame_size, thunk_size);
     data = aml_audio_calloc(1, thunk_size);
     if (!data) {
         AM_LOGE("no memory");
@@ -439,7 +439,7 @@ size_t get_inport_consumed_size(input_port *port)
     return port->consumed_bytes;
 }
 
-static ssize_t output_port_start(output_port *port)
+static int output_port_start(output_port *port)
 {
     struct audioCfg cfg = port->cfg;
     struct pcm_config pcm_cfg;
@@ -731,7 +731,7 @@ output_port *new_output_port(
     }
 
     port = aml_audio_calloc(1, sizeof(output_port));
-    R_CHECK_POINTER_LEGAL(NULL, port, "no memory, size:%d", sizeof(output_port));
+    R_CHECK_POINTER_LEGAL(NULL, port, "no memory, size:%zu", sizeof(output_port));
 
     data = aml_audio_calloc(1, rbuf_size);
     if (!data) {
@@ -788,7 +788,7 @@ int resize_output_port_buffer(output_port *port, size_t buf_frames)
     AM_LOGI("new buf_frames %zu", buf_frames);
     buf_length = buf_frames * port->cfg.frame_size;
     port->data_buf = (char *)aml_audio_realloc(port->data_buf, buf_length);
-    R_CHECK_POINTER_LEGAL(-ENOMEM, port->data_buf, "no memory, size:%d", buf_length);
+    R_CHECK_POINTER_LEGAL(-ENOMEM, port->data_buf, "no memory, size:%zu", buf_length);
     port->data_buf_len = buf_length;
     return 0;
 }

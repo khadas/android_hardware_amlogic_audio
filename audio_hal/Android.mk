@@ -171,7 +171,6 @@ endif
 #/*[SEI-zhaopf-2018-12-18] add for HBG remote audio support } */
 
     LOCAL_MODULE_TAGS := optional
-    LOCAL_32_BIT_ONLY := true
     LOCAL_CFLAGS += -Werror
 ifneq ($(TARGET_BUILD_VARIANT),user)
     LOCAL_CFLAGS += -DDEBUG_VOLUME_CONTROL

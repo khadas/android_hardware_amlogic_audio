@@ -210,7 +210,7 @@ int aml_hwsync_get_tsync_pts_by_handle(int fd, uint64_t *pts)
         return -EINVAL;
     }
 
-    if (sscanf(valstr, "0x%llx", &val) < 1) {
+    if (sscanf(valstr, "0x%" PRIx64 "", &val) < 1) {
         ALOGE("unable to get pts from: fd(%d), str(%s)", fd, valstr);
         return -EINVAL;
     }
@@ -244,7 +244,7 @@ static int aml_audio_hwsync_get_pcr(audio_hwsync_t *p_hwsync, uint64_t *value)
         ALOGE("%s unable to open file %s\n", __func__, TSYNC_PCRSCR);
         return -1;
     }
-    if (sscanf(valstr, "0x%llx", &val) < 1) {
+    if (sscanf(valstr, "0x%" PRIx64 "", &val) < 1) {
         ALOGE("%s unable to get pcr from: %s,fd %d,offset %ld", __func__, valstr, fd, offset);
         return -1;
     }
@@ -387,7 +387,7 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                 time_diff = get_pts_gap(pts, p_hwsync->last_apts_from_header) / 90;
                 if (debug_enable) {
                     ALOGI("pts 0x%"PRIx64",frame len %u\n", pts, p_hwsync->hw_sync_body_cnt);
-                    ALOGI("last pts 0x%"PRIx64",diff %lld ms\n", p_hwsync->last_apts_from_header, time_diff);
+                    ALOGI("last pts 0x%"PRIx64",diff %" PRId64 " ms\n", p_hwsync->last_apts_from_header, time_diff);
                 }
                 if (p_hwsync->hw_sync_frame_size > HWSYNC_MAX_BODY_SIZE) {
                     ALOGE("hwsync frame body %d bigger than pre-defined size %d, need check !!!!!\n",
@@ -490,9 +490,9 @@ bool aml_audio_hwsync_set_time_gap_threshold(audio_hwsync_t *p_hwsync, int64_t t
     ret = mediasync_wrap_getUpdateTimeThreshold(p_hwsync->mediasync, &value);
     if (ret && value != threshold_value) {
         ret = mediasync_wrap_setUpdateTimeThreshold(p_hwsync->mediasync, threshold_value);
-        ALOGD("%s, ret:%d threshold value is changed from %lld to %lld", __func__,ret, value, threshold_value);
+        ALOGD("%s, ret:%d threshold value is changed from %" PRId64 " to %" PRId64 "", __func__,ret, value, threshold_value);
     } else {
-        ALOGV("%s, ret:%d, threshold value is same %lld, not to set again.", __func__, ret, value);
+        ALOGV("%s, ret:%d, threshold value is same %" PRId64 ", not to set again.", __func__, ret, value);
     }
 
     return ret;
@@ -514,7 +514,7 @@ bool aml_audio_hwsync_update_threshold(audio_hwsync_t *p_hwsync)
         avsync_time_threshold_value = 50*1000;
         ret = aml_audio_hwsync_set_time_gap_threshold(p_hwsync, avsync_time_threshold_value);
     }
-    ALOGV("%s, avsync_time_threshold_value:%lld, udpate threshold finished.",
+    ALOGV("%s, avsync_time_threshold_value:%" PRId64 ", udpate threshold finished.",
             __func__, avsync_time_threshold_value);
 
     return ret;
@@ -590,10 +590,10 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     if (p_hwsync->use_mediasync) {
         uint64_t apts64 = 0;
         if (p_hwsync->first_apts_flag == false && offset > 0 && (apts >= abs(latency_pts))) {
-            ALOGI("%s offset =%d apts =%#llx", __func__, offset, apts);
+            ALOGI("%s offset =%zu apts =%" PRIx64 "", __func__, offset, apts);
             ALOGI("%s alsa pcm delay =%d bitstream delay =%d pipeline =%d", __func__, alsa_pcm_delay_frames, alsa_bitstream_delay_frames, ms12_pipeline_delay_frames);
-            ALOGI("%s apts = 0x%llx (%llu ms) latency=0x%x (%d ms)", __func__, apts, apts / 90, latency_pts, latency_pts/90);
-            ALOGI("%s aml_audio_hwsync_set_first_pts = 0x%llx (%llu ms)", __func__, apts - latency_pts, (apts - latency_pts)/90);
+            ALOGI("%s apts = 0x%" PRIx64 " (%" PRIu64 " ms) latency=0x%x (%d ms)", __func__, apts, apts / 90, latency_pts, latency_pts/90);
+            ALOGI("%s aml_audio_hwsync_set_first_pts = 0x%" PRIx64 " (%" PRIu64 " ms)", __func__, apts - latency_pts, (apts - latency_pts)/90);
             apts64 = apts - latency_pts;
             /*if the pts is zero, to avoid video pcr not set issue, we just set it as 1ms*/
             if (apts64 == 0) {
@@ -608,7 +608,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
                 //apts -= latency_pts;
                 apts64 = apts - latency_pts;
             } else {
-                ALOGE("wrong PTS =0x%llx delay pts=0x%x",apts, latency_pts);
+                ALOGE("wrong PTS =0x%" PRIx64 " delay pts=0x%x",apts, latency_pts);
                 return 0;
             }
             /*if the pts is zero, to avoid video pcr not set issue, we just set it as 1ms*/
@@ -662,23 +662,23 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
                 int time_gap = (int)calc_time_interval_us(&out->hwsync->last_timestamp, &ts) / 1000;
 
                 if (debug_enable || abs(pcr_pts_gap) > 20) {
-                    ALOGI("%s offset =%d apts =%#llx %llums", __func__, offset, apts, apts/90);
+                    ALOGI("%s offset =%zu apts =%#" PRIx64 " %" PRIu64 " ms", __func__, offset, apts, apts/90);
                     ALOGI("%s alsa pcm delay =%d bitstream delay =%d pipeline =%d frame=%d total =%d", __func__,
                         alsa_pcm_delay_frames,
                         alsa_bitstream_delay_frames,
                         ms12_pipeline_delay_frames,
                         frame_len,
                         latency_frames);
-                    ALOGI("pcr =%llx ms pts =0x%llx %llums gap =%d ms", pcr / 90, apts64, apts64/90, pcr_pts_gap);
+                    ALOGI("pcr =%" PRIx64 " ms pts =0x%" PRIx64 " %" PRIu64 " ms gap =%d ms", pcr / 90, apts64, apts64/90, pcr_pts_gap);
                     ALOGI("frame len =%d ms =%d latency_frames =%d ms=%d", frame_len, frame_len / 48, latency_frames, latency_frames / 48);
-                    ALOGI("pts last =0x%llx now =0x%llx diff =%d ms time diff =%d ms jitter =%d ms",
+                    ALOGI("pts last =0x%" PRIx64 " now =0x%" PRIx64 " diff =%d ms time diff =%d ms jitter =%d ms",
                         out->hwsync->last_output_pts, apts64, pts_gap, time_gap, pts_gap - time_gap);
                 }
             }
             out->hwsync->last_output_pts = apts64;
             out->hwsync->last_timestamp  = ts;
         } else {
-            ALOGI("%s not ready offset =%d apts =%#llx", __func__, offset, apts);
+            ALOGI("%s not ready offset =%zu apts =%" PRIx64 "", __func__, offset, apts);
             ALOGI("%s alsa pcm delay =%d bitstream delay =%d pipeline =%d frame=%d total =%d", __func__,
                 alsa_pcm_delay_frames,
                 alsa_bitstream_delay_frames,
@@ -688,10 +688,10 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
         }
     } else {
 
-        ALOGE("%s,================first_apts_flag:%d, apts:%llu, latency_pts:%d\n", __func__, p_hwsync->first_apts_flag, apts, latency_pts);
+        ALOGE("%s,================first_apts_flag:%d, apts:%" PRIu64 ", latency_pts:%d\n", __func__, p_hwsync->first_apts_flag, apts, latency_pts);
         if (p_hwsync->first_apts_flag == false && offset > 0 && (apts >= latency_pts)) {
-            ALOGI("%s apts = 0x%llx (%llu ms) latency=0x%x (%d ms)", __FUNCTION__, apts, apts / 90, latency_pts, latency_pts/90);
-            ALOGI("%s aml_audio_hwsync_set_first_pts = 0x%llx (%llu ms)", __FUNCTION__, apts - latency_pts, (apts - latency_pts)/90);
+            ALOGI("%s apts = 0x%" PRIx64 " (%" PRIu64 " ms) latency=0x%x (%d ms)", __FUNCTION__, apts, apts / 90, latency_pts, latency_pts/90);
+            ALOGI("%s aml_audio_hwsync_set_first_pts = 0x%" PRIx64 " (%" PRIx64 " ms)", __FUNCTION__, apts - latency_pts, (apts - latency_pts)/90);
             if (p_hwsync->use_mediasync) {
                 ALOGI("%s =============== can drop============", __FUNCTION__);
                 aml_hwsync_wait_video_start(p_hwsync);
@@ -703,7 +703,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
             if (apts >= latency_pts) {
                 apts -= latency_pts;
             } else {
-                ALOGE("wrong PTS =0x%llx delay pts=0x%x",apts, latency_pts);
+                ALOGE("wrong PTS =0x%" PRIx64 " delay pts=0x%x",apts, latency_pts);
                 return 0;
             }
             ret = aml_audio_hwsync_get_pcr(p_hwsync, &pcr);
@@ -712,7 +712,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
                 gap = get_pts_gap(pcr, apts);
                 gap_ms = gap / 90;
                 if (debug_enable || gap_ms > 80) {
-                    ALOGI("%s pcr 0x%llx,apts 0x%llx,gap 0x%x,gap duration %d ms", __func__, pcr, apts, gap, gap_ms);
+                    ALOGI("%s pcr 0x%" PRIx64 ",apts 0x%" PRIx64 ",gap 0x%x,gap duration %d ms", __func__, pcr, apts, gap, gap_ms);
                 }
                 /*resume from pause status, we can sync it exactly*/
                 if (adev->ms12.need_resync) {
@@ -733,7 +733,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
                             ALOGE("pcr has been reset\n");
                         }
                     } else {
-                        ALOGI("tsync -> reset pcrscr 0x%llx -> 0x%llx, %s big,diff %"PRIx64" ms",
+                        ALOGI("tsync -> reset pcrscr 0x%" PRIx64 " -> 0x%" PRIx64 ", %s big,diff %"PRIx64" ms",
                             pcr, apts, apts > pcr ? "apts" : "pcr", get_pts_gap(apts, pcr) / 90);
                         int ret_val = aml_hwsync_reset_tsync_pcrscr(p_hwsync, apts);
                         if (ret_val == -1) {
@@ -741,7 +741,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
                         }
                     }
                 } else if (gap > APTS_DISCONTINUE_THRESHOLD_MAX) {
-                    ALOGE("%s apts exceed the adjust range,need check apts 0x%llx,pcr 0x%llx",
+                    ALOGE("%s apts exceed the adjust range,need check apts 0x%" PRIx64 ",pcr 0x%" PRIx64 "",
                         __func__, apts, pcr);
                 }
             }
@@ -761,7 +761,7 @@ int aml_audio_hwsync_checkin_apts(audio_hwsync_t *p_hwsync, size_t offset, uint6
         return -1;
     }
     if (debug_enable) {
-        ALOGI("++ %s checkin ,offset %zu,apts 0x%llx, sizeof(unsigned):%d", __func__, offset, apts, sizeof(unsigned));
+        ALOGI("++ %s checkin ,offset %zu,apts 0x%" PRIx64 ", sizeof(unsigned):%zu", __func__, offset, apts, sizeof(unsigned));
     }
     pthread_mutex_lock(&p_hwsync->lock);
     pts_tab = p_hwsync->pts_tab;
@@ -771,7 +771,7 @@ int aml_audio_hwsync_checkin_apts(audio_hwsync_t *p_hwsync, size_t offset, uint6
             pts_tab[i].offset = offset;
             pts_tab[i].valid = 1;
             if (debug_enable) {
-                ALOGI("%s checkin done,offset %zu,apts 0x%llx", __func__, offset, apts);
+                ALOGI("%s checkin done,offset %zu,apts 0x%" PRIx64 "", __func__, offset, apts);
             }
             ret = 0;
             break;
@@ -853,7 +853,7 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, uint64
                 nearest_offset = pts_tab[i].offset;
                 ret = 0;
                 if (debug_enable) {
-                    ALOGI("%s first flag %d,pts checkout done,offset %zu,align %zu,pts 0x%llx",
+                    ALOGI("%s first flag %d,pts checkout done,offset %zu,align %zu,pts 0x%" PRIx64 "",
                           __func__, p_hwsync->first_apts_flag, offset, align, *p_apts);
                 }
                 break;
@@ -882,10 +882,10 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, uint64
             if (out->hal_internal_format == AUDIO_FORMAT_AC3 ||
                 out->hal_internal_format == AUDIO_FORMAT_E_AC3) {
                 *p_apts += (1536 * 1000) / out->hal_rate * 90;
-                ALOGI("correct nearest pts 0x%llx offset %u align %zu", *p_apts, nearest_offset, align);
+                ALOGI("correct nearest pts 0x%" PRIx64 " offset %u align %zu", *p_apts, nearest_offset, align);
             }
             if (debug_enable)
-                ALOGI("find nearest pts 0x%llx offset %u align %zu", *p_apts, nearest_offset, align);
+                ALOGI("find nearest pts 0x%" PRIx64 " offset %u align %zu", *p_apts, nearest_offset, align);
         } else {
             ALOGE("%s,apts lookup failed,align %zu,offset %zu", __func__, align, offset);
         }
@@ -901,7 +901,7 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, uint64
         }
         *p_apts +=  pts_diff * 90;
         if (debug_enable) {
-            ALOGI("data offset =%zu pts offset =%d diff =%" PRIuFAST16 " pts=0x%llx pts diff =%d", offset, nearest_offset, offset - nearest_offset, *p_apts, pts_diff);
+            ALOGI("data offset =%zu pts offset =%d diff =%" PRIuFAST16 " pts=0x%" PRIx64 " pts diff =%d", offset, nearest_offset, offset - nearest_offset, *p_apts, pts_diff);
         }
     }
     pthread_mutex_unlock(&p_hwsync->lock);

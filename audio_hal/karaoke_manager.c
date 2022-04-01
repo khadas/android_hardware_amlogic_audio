@@ -48,7 +48,7 @@ static ssize_t voice_in_read(struct voice_in *in, void *buffer, size_t bytes)
     /* Setup/Realloc the conversion buffer (if necessary). */
     if (num_read_buff_bytes != bytes) {
         if (num_read_buff_bytes > in->conversion_buffer_size) {
-            ALOGV("num_read_buff_bytes:%d conversion_buffer_size:%d",
+            ALOGV("num_read_buff_bytes:%zu conversion_buffer_size:%zu",
                 num_read_buff_bytes, in->conversion_buffer_size);
             in->conversion_buffer_size = num_read_buff_bytes;
             in->conversion_buffer = aml_audio_realloc(in->conversion_buffer, in->conversion_buffer_size);

@@ -345,7 +345,7 @@ static int echo_reference_read(struct echo_reference_itfe *echo_reference,
 
         ALOGD_IF((er->frames_in < buffer->frame_count),
                  "echo_reference_read() waited %d ms but still not enough frames"\
-                 " er->frames_in: %d, buffer->frame_count = %d",
+                 " er->frames_in: %zu, buffer->frame_count = %zu",
                  timeoutMs, er->frames_in, buffer->frame_count);
     }
 

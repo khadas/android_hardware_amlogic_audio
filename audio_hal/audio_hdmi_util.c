@@ -395,7 +395,7 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
     bool is_dts_sad = false;
 
     if (strlen (value) > len) {
-        ALOGW("[%s:%d] value array len:%d overflow!", __func__, __LINE__, strlen(value));
+        ALOGW("[%s:%d] value array len:%zu overflow!", __func__, __LINE__, strlen(value));
         return -EINVAL;
     }
 

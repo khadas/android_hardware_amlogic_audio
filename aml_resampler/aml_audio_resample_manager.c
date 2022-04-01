@@ -102,7 +102,7 @@ int aml_audio_resample_init(aml_audio_resample_t ** ppaml_audio_resample, resamp
     if (aml_audio_resample->resample_buffer_size < aml_audio_resample->align_size)
         aml_audio_resample->resample_buffer_size += aml_audio_resample->align_size;
 
-    ALOGI("init resample_buffer_size:%d\n", aml_audio_resample->resample_buffer_size);
+    ALOGI("init resample_buffer_size:%zu\n", aml_audio_resample->resample_buffer_size);
 
     aml_audio_resample->resample_buffer = aml_audio_calloc(1, aml_audio_resample->resample_buffer_size);
     if (aml_audio_resample->resample_buffer == NULL) {
@@ -187,7 +187,7 @@ int aml_audio_resample_process(aml_audio_resample_t * aml_audio_resample, void *
             ALOGE("realloc resample_buffer is failed\n");
             return -1;
         }
-        ALOGD("realloc resample_buffer size from %zu to %d\n", aml_audio_resample->resample_buffer_size, out_size);
+        ALOGD("realloc resample_buffer size from %zu to %zu\n", aml_audio_resample->resample_buffer_size, out_size);
         aml_audio_resample->resample_buffer_size = out_size;
     }
 

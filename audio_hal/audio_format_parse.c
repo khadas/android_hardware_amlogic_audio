@@ -287,7 +287,7 @@ int get_dts_stream_channels(const char *buffer, size_t buffer_size) {
 
     //IEC Header + 15 Byte Bitstream Header(120 bits)
     if (bytes < (frame_header_len + 15)) {
-        ALOGE("%s, illegal param bytes(%d)", __FUNCTION__, bytes);
+        ALOGE("%s, illegal param bytes(%zu)", __FUNCTION__, bytes);
         return -1;
     }
     temp_buffer = (char *)aml_audio_malloc(sizeof(char) * bytes);

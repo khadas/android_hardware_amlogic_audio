@@ -640,7 +640,7 @@ static int out_get_presentation_position_port(
         }
         adjusted_timestamp.tv_sec = adjusted_nanos / NSEC_PER_SEC;
         adjusted_timestamp.tv_nsec = adjusted_nanos % NSEC_PER_SEC;
-        AM_LOGV("adjusted_nanos: %lld, frame drift: %lld, hal_rate: %u", adjusted_nanos, frame_diff_for_client, out->hal_rate);
+        AM_LOGV("adjusted_nanos: %" PRId64 ", frame drift: %" PRId64 ", hal_rate: %u", adjusted_nanos, frame_diff_for_client, out->hal_rate);
         if (*frames > frame_diff_for_client) {
             *frames -= frame_diff_for_client;
         }
@@ -686,7 +686,7 @@ static int out_get_presentation_position_port(
         int64_t pre_time_nanos = (long long)out->last_timestamp_reported.tv_sec * NSEC_PER_SEC + (long long)out->last_timestamp_reported.tv_nsec;
         int64_t cur_time_nanos = (long long)timestamp->tv_sec * NSEC_PER_SEC + (long long)timestamp->tv_nsec;
         if (cur_time_nanos < pre_time_nanos) {
-            AM_LOGW("timestamp loopback. pre_time:%lld ms, cur_time:%lld ms", pre_time_nanos / NSEC_PER_MSEC, cur_time_nanos / NSEC_PER_MSEC);
+            AM_LOGW("timestamp loopback. pre_time:%" PRId64 " ms, cur_time:%" PRId64 "ms", pre_time_nanos / NSEC_PER_MSEC, cur_time_nanos / NSEC_PER_MSEC);
         }
         int64_t system_time_ms = (cur_time_nanos - pre_time_nanos) / NSEC_PER_MSEC;
         int64_t jitter_diff = llabs(frame_diff_ms - system_time_ms);
@@ -1271,7 +1271,7 @@ static ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
     if (aml_audio_trace_debug_level() > 0) {
         if (false == aml_out->pause_status  &&  aml_out->write_count < 2) {
             aml_out->write_time = aml_audio_get_systime() / 1000; //us --> ms
-            AM_LOGD("out_stream(%p) bytes(%zu), write_time:%llu, count:%d",
+            AM_LOGD("out_stream(%p) bytes(%zu), write_time:%" PRIu64 ", count:%d",
                        stream, bytes, aml_out->write_time, aml_out->write_count);
         }
         aml_out->write_count++;
@@ -1381,7 +1381,7 @@ static int out_pause_subMixingPCM(struct audio_stream_out *stream)
         aml_out->write_count = 0;
         aml_out->pause_time = aml_audio_get_systime() / 1000; //us --> ms
         if (aml_out->pause_time > aml_out->write_time && (aml_out->pause_time - aml_out->write_time < 5*1000)) { //continually write time less than 5s, audio gap
-            AM_LOGD("out_stream(%p) AudioGap pause_time:%llu,  diff_time(pause - write):%llu ms",
+            AM_LOGD("out_stream(%p) AudioGap pause_time:%" PRIu64 ",  diff_time(pause - write):%" PRIu64 " ms",
                    stream, aml_out->pause_time, aml_out->pause_time - aml_out->write_time);
         } else {
             AM_LOGD("-------- pause ----------");

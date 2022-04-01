@@ -243,6 +243,17 @@ static int out_get_presentation_position(const struct audio_stream_out *stream,
                                          struct timespec *timestamp);
 static int adev_release_patch_restore_resource(struct aml_audio_device *aml_dev);
 
+static int adev_release_audio_patch(struct audio_hw_device *dev,
+                                audio_patch_handle_t handle);
+
+static int adev_create_audio_patch(struct audio_hw_device *dev,
+                                unsigned int num_sources,
+                                const struct audio_port_config *sources,
+                                unsigned int num_sinks,
+                                const struct audio_port_config *sinks,
+                                audio_patch_handle_t *handle);
+
+static int adev_close(hw_device_t *device);
 static aec_timestamp get_timestamp(void);
 
 static int adev_get_mic_mute(const struct audio_hw_device* dev, bool* state);
@@ -1396,7 +1407,7 @@ static int out_pause (struct audio_stream_out *stream)
     {
         out->pause_time = aml_audio_get_systime() / 1000; //us --> ms
         if (out->pause_time > out->write_time && (out->pause_time - out->write_time < 5*1000)) { //continually write time less than 5s, audio gap
-            ALOGD("%s: out_stream(%p) AudioGap pause_time:%llu,  diff_time(pause - write):%llu ms", __func__,
+            ALOGD("%s: out_stream(%p) AudioGap pause_time:%" PRIu64 ",  diff_time(pause - write):%" PRIu64 " ms", __func__,
                    stream, out->pause_time, out->pause_time - out->write_time);
         } else {
             ALOGD("%s:  -------- pause ----------", __func__);
@@ -1528,7 +1539,7 @@ static int out_pause_new (struct audio_stream_out *stream)
     {
         aml_out->pause_time = aml_audio_get_systime() / 1000; //us --> ms
         if (aml_out->pause_time > aml_out->write_time && (aml_out->pause_time - aml_out->write_time < 5*1000)) { //continually write time less than 5s, audio gap
-            ALOGD("%s: out_stream(%p) AudioGap pause_time:%llu,  diff_time(pause - write):%llu ms", __func__,
+            ALOGD("%s: out_stream(%p) AudioGap pause_time:%" PRIu64 ",  diff_time(pause - write):%" PRIu64 " ms", __func__,
                    stream, aml_out->pause_time, aml_out->pause_time - aml_out->write_time);
         } else {
             ALOGD("%s:  -------- pause ----------", __func__);
@@ -2013,7 +2024,7 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
             aml_audio_delay_timestamp(timestamp, offset_us);
             video_delay_frames = max_delay_frames;
             if (adev->debug_flag) {
-                ALOGI("%s sys_audio_frame_written:%lld frames:%lld max_delay_frames:%d offset_frames:%d offset_us:%d", __func__,
+                ALOGI("%s sys_audio_frame_written:%" PRId64 " frames:%" PRId64 " max_delay_frames:%d offset_frames:%d offset_us:%d", __func__,
                     adev->sys_audio_frame_written, *frames, max_delay_frames, offset_frames, offset_us);
             }
         }
@@ -2021,7 +2032,7 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
     *frames += video_delay_frames;
 
     if (adev->debug_flag) {
-        ALOGI("out_get_presentation_position out %p %"PRIu64", sec = %ld, nanosec = %ld(origin:%lld) tunned_latency_ms %d frame_latency %d video delay=%d(origin:%d)\n",
+        ALOGI("out_get_presentation_position out %p %"PRIu64", sec = %ld, nanosec = %ld(origin:%" PRId64 ") tunned_latency_ms %d frame_latency %d video delay=%d(origin:%d)\n",
             out, *frames, timestamp->tv_sec, timestamp->tv_nsec, origin_tv_nsec, timems_latency, frame_latency, video_delay_frames, origin_vdelay_frames);
         int64_t  frame_diff_ms =  (*frames - out->last_frame_reported) * 1000 / out->hal_rate;
         int64_t  system_time_ms = 0;
@@ -5362,7 +5373,7 @@ ssize_t audio_hal_data_processing_ms12v2(struct audio_stream_out *stream,
             }
 
             ret = aml_audio_check_and_realloc((void **)&adev->out_32_buf, &adev->out_32_buf_size, 2 * bytes);
-            R_CHECK_RET(ret, "alloc out_32_buf size:%d fail", 2 * bytes);
+            R_CHECK_RET(ret, "alloc out_32_buf size:%zu fail", 2 * bytes);
 
             /* apply volume for spk/hp, SPDIF/HDMI keep the max volume */
             float gain_speaker = adev->sink_gain[OUTPORT_SPEAKER];
@@ -5382,7 +5393,7 @@ ssize_t audio_hal_data_processing_ms12v2(struct audio_stream_out *stream,
             /* nchannels 32 bit --> 8 channel 32 bit mapping */
             ret = aml_audio_check_and_realloc((void **)&aml_out->tmp_buffer_8ch, &aml_out->tmp_buffer_8ch_size,
                     out_frames * 4 * adev->default_alsa_ch);
-            R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%d fail", out_frames * 4 * adev->default_alsa_ch);
+            R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%zu fail", out_frames * 4 * adev->default_alsa_ch);
 
             for (i = 0; i < out_frames; i++) {
                 for (j = 0; j < nchannels; j++) {
@@ -5471,7 +5482,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         /* 2 ch 32 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
         ret = aml_audio_check_and_realloc((void **)&aml_out->tmp_buffer_8ch, &aml_out->tmp_buffer_8ch_size,
             FRAMESIZE_32BIT_8ch * out_frames);
-        R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%d fail", FRAMESIZE_32BIT_8ch * out_frames);
+        R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%zu fail", FRAMESIZE_32BIT_8ch * out_frames);
 
         for (i = 0; i < out_frames; i++) {
             aml_out->tmp_buffer_8ch[8 * i] = tmp_buffer[2 * i];
@@ -5489,14 +5500,14 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
     } else {
         if (aml_out->is_tv_platform == 1) {
             ret = aml_audio_check_and_realloc((void **)&adev->out_16_buf, &adev->out_16_buf_size, buffer_need_size);
-            R_CHECK_RET(ret, "alloc out_16_buf size:%d fail", bytes);
+            R_CHECK_RET(ret, "alloc out_16_buf size:%zu fail", bytes);
 
             ret = aml_audio_check_and_realloc((void **)&adev->out_32_buf, &adev->out_32_buf_size, 2 * buffer_need_size);
-            R_CHECK_RET(ret, "alloc out_32_buf size:%d fail", 2 * bytes);
+            R_CHECK_RET(ret, "alloc out_32_buf size:%zu fail", 2 * bytes);
 
             /* 2 ch 16 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
             ret = aml_audio_check_and_realloc((void **)&aml_out->tmp_buffer_8ch, &aml_out->tmp_buffer_8ch_size, 8 * buffer_need_size);
-            R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%d fail", 8 * bytes);
+            R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%zu fail", 8 * bytes);
 
             for (int dev = AML_AUDIO_OUT_DEV_TYPE_SPEAKER; dev < AML_AUDIO_OUT_DEV_TYPE_BUTT; dev++) {
                 memcpy(adev->out_16_buf, buffer, bytes);
@@ -5583,11 +5594,11 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         }
     }
     /*when REPORT_DECODED_INFO is added, we will enable it*/
-
+#ifdef ENABLE_DVB_PATCH
     if (get_audio_info_enable(DUMP_AUDIO_INFO_DECODE)) {
         get_dtv_amadec_audio_info(adev);
     }
-
+#endif
     if (adev->dev2mix_patch) {
         tv_in_write(stream, buffer, bytes);
         memset((char *)buffer, 0, bytes);
@@ -5699,7 +5710,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                 else {
                     if (!audio_is_linear_pcm(aml_out->hal_internal_format)) {
                         /*if udc decode doens't generate any data, we should not use the consume offset to get pts*/
-                        ALOGV("udc generate pcm =%lld", dolby_ms12_get_main_pcm_generated(stream));
+                        ALOGV("udc generate pcm =%" PRId64 "", dolby_ms12_get_main_pcm_generated(stream));
                         if (dolby_ms12_get_main_pcm_generated(stream)) {
                             aml_audio_hwsync_audio_process(aml_out->hwsync, dolby_ms12_get_main_bytes_consumed(stream), out_frames, &adjust_ms);
                         }
@@ -5961,7 +5972,7 @@ ssize_t hw_write (struct audio_stream_out *stream
             adev->ms12.sys_audio_frame_pos = adev->ms12.sys_audio_base_pos + adev->ms12.sys_audio_skip + sys_total_cost/4 - latency_frames;
         }
         if (adev->debug_flag) {
-            ALOGI("%s  ms12.last_frames_postion:%llu,last_ms12_pcm_out_position:%llu; sys audio pos %"PRIu64" ms ,sys_total_cost %"PRIu64",base pos %"PRIu64",latency %d \n", __func__,
+            ALOGI("%s  ms12.last_frames_postion:%" PRIu64 ",last_ms12_pcm_out_position:%" PRIu64 "; sys audio pos %"PRIu64" ms ,sys_total_cost %"PRIu64",base pos %"PRIu64",latency %d \n", __func__,
                   adev->ms12.last_frames_postion, adev->ms12.last_ms12_pcm_out_position,
                   adev->ms12.sys_audio_frame_pos/48,sys_total_cost,adev->ms12.sys_audio_base_pos,latency_frames);
         }
@@ -6146,7 +6157,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             if (is_dolby_ms12_main_stream(stream) && continous_mode(adev)) {
                 adev->ms12.main_input_start_offset_ns = aml_out->main_input_ns;
                 adev->ms12.main_input_bytes_offset    = aml_out->input_bytes_size;
-                ALOGI("main start offset ns =%lld", adev->ms12.main_input_start_offset_ns);
+                ALOGI("main start offset ns =%" PRId64 "", adev->ms12.main_input_start_offset_ns);
             }
 
             /*set the volume to current one*/
@@ -6509,7 +6520,7 @@ hwsync_rewrite:
                         apts64 = 1 * 90;
                     }
                     if (debug_enable) {
-                        ALOGI("total latency =%d ms alsa =%d video delay=%d tunning latency=%d apts 0x%llx apts64 0x%llx\n",
+                        ALOGI("total latency =%d ms alsa =%d video delay=%d tunning latency=%d apts 0x%" PRIx64 " apts64 0x%" PRIx64 "\n",
                         latency_pts / 90, latency, video_delay_ms, tunning_latency, apts, apts64);
                     }
 
@@ -6544,7 +6555,7 @@ hwsync_rewrite:
                         aml_hwsync_reset_tsync_pcrscr(aml_out->hwsync, apts64);
                         pcr_pts_gap = ((int)(apts64 - pcr)) / 90;
                         if (abs(pcr_pts_gap) > 50 || debug_enable) {
-                            ALOGI("%s pcr =%llu pts =%llu,  diff =%d ms", __func__, pcr/90, apts64/90, pcr_pts_gap);
+                            ALOGI("%s pcr =%" PRIu64 " pts =%" PRIu64 ",  diff =%d ms", __func__, pcr/90, apts64/90, pcr_pts_gap);
                         }
                     } else {
                         ALOGI("%s  write_count:%d, drop this pts (alsa_running_status:%d [%p], valid_pts:%d)", __func__,
@@ -6592,7 +6603,7 @@ hwsync_rewrite:
                                     //audio pts smaller than pcr,need skip frame.
                                     //we assume one frame duration is 32 ms for DD+(6 blocks X 1536 frames,48K sample rate)
                                     if (aml_out->codec_type == TYPE_EAC3 && outsize > 0) {
-                                        ALOGI ("audio slow 0x%x,skip frame @pts 0x%"PRIx64",pcr 0x%llx,cur apts 0x%llx\n",
+                                        ALOGI ("audio slow 0x%x,skip frame @pts 0x%"PRIx64",pcr 0x%" PRIx64 ",cur apts 0x%" PRIx64 "\n",
                                         apts_gap, cur_pts, pcr, apts64);
                                         aml_out->frame_skip_sum  +=   1536;
                                         return_bytes = hwsync_cost_bytes;
@@ -6600,7 +6611,7 @@ hwsync_rewrite:
                                     }
                                 }
                             } else if (sync_status == RESYNC) {
-                                ALOGI ("tsync -> reset pcrscr 0x%llx -> ox%llx, %s big,diff %"PRIx64" ms",
+                                ALOGI ("tsync -> reset pcrscr 0x%" PRIx64 " -> ox%" PRIx64 ", %s big,diff %"PRIx64" ms",
                                     pcr, apts64, apts64 > pcr ? "apts" : "pcr", get_pts_gap (apts, pcr) / 90);
 
                                 int ret_val = aml_hwsync_reset_tsync_pcrscr(aml_out->hwsync, apts64);
@@ -6929,7 +6940,7 @@ exit:
             //clock_gettime(CLOCK_MONOTONIC, &aml_out->timestamp);
             aml_out->last_frames_postion = adev->ms12.last_frames_postion;
             if (adev->debug_flag)
-                ALOGI("%s out:%p aml_out->last_frames_postion:%llu \n", __FUNCTION__, aml_out, aml_out->last_frames_postion);
+                ALOGI("%s out:%p aml_out->last_frames_postion:%" PRIu64 " \n", __FUNCTION__, aml_out, aml_out->last_frames_postion);
         }
     }
     /*if the data consume is not complete, it will be send again by audio flinger,
@@ -7135,7 +7146,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
             }
             if (bytes_remaining) {
                 ms12->sys_audio_skip += bytes_remaining / frame_size;
-                ALOGI("bytes_remaining =%d totoal skip =%lld", bytes_remaining, ms12->sys_audio_skip);
+                ALOGI("bytes_remaining =%zu totoal skip =%" PRId64 "", bytes_remaining, ms12->sys_audio_skip);
             }
         }
     } else {
@@ -7151,7 +7162,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
         } else {
             sleep_time_us = (uint64_t)bytes_written * 1000000 / frame_size / out_get_sample_rate(&stream->common);
         }
-        ALOGV("aml_audio_sleep  sleep_time_us %lld ",sleep_time_us);
+        ALOGV("aml_audio_sleep  sleep_time_us %" PRId64 " ",sleep_time_us);
         aml_audio_sleep(sleep_time_us);
 
         if (getprop_bool("vendor.media.audiohal.mixer")) {
@@ -7503,7 +7514,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     if (aml_audio_trace_debug_level() > 0) {
         if (false == aml_out->pause_status  &&  aml_out->write_count < 1) {
             aml_out->write_time = aml_audio_get_systime() / 1000; //us --> ms
-            ALOGD("%s: out_stream(%p) bytes(%zu), write_time:%llu, count:%d", __func__,
+            ALOGD("%s: out_stream(%p) bytes(%zu), write_time:%" PRIu64 ", count:%d", __func__,
                        stream, bytes, aml_out->write_time, aml_out->write_count);
         }
     }
@@ -8907,7 +8918,7 @@ static int adev_release_patch_restore_resource(struct aml_audio_device *aml_dev)
             android_dev_convert_to_hal_dev(sink_dev, (int *)&sink_devs[num_sinks]);
             num_sinks++;
             if (num_sinks >= OUTPUT_PORT_MAX_COEXIST_NUM) {
-                AM_LOGW("invalid num_sinks:%d >= %d", num_sinks, OUTPUT_PORT_MAX_COEXIST_NUM);
+                AM_LOGW("invalid num_sinks:%zu >= %d", num_sinks, OUTPUT_PORT_MAX_COEXIST_NUM);
                 break;
             }
         }

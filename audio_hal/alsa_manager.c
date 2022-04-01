@@ -372,7 +372,7 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
 
     cur_apts = (unsigned int)((int64_t)first_apts + (int64_t)(((int64_t)aml_out->dropped_size * 90) / (48 * frame_size)));
     av_diff = (int)((int64_t)cur_apts - (int64_t)cur_vpts);
-    ALOGI("[audio-startup] av both comming.fa:0x%x fv:0x%x ca:0x%x cv:0x%x cp:0x%llx d:%d fs:%zu diff:%d ms\n",
+    ALOGI("[audio-startup] av both comming.fa:0x%x fv:0x%x ca:0x%x cv:0x%x cp:0x%" PRIx64 " d:%d fs:%zu diff:%d ms\n",
           first_apts, first_vpts, cur_apts, cur_vpts, cur_pcr, aml_out->dropped_size, frame_size, av_diff / 90);
 
     // Exception
@@ -557,7 +557,7 @@ write:
     if (debug_enable || (aml_out->alsa_write_cnt % 1000) == 0) {
         snd_pcm_sframes_t frames = 0;
         ret = pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
-        ALOGI("alsa format =0x%x delay frames =%ld total frames=%lld", aml_out->alsa_output_format, frames, aml_out->alsa_write_frames);
+        ALOGI("alsa format =0x%x delay frames =%ld total frames=%" PRId64 "", aml_out->alsa_output_format, frames, aml_out->alsa_write_frames);
     }
 
     if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT) && (aml_out->is_tv_platform == false)) {
@@ -712,8 +712,8 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
         if (ret >= 0) {
             nodata_count = 0;
             read_bytes += ret;
-            ALOGV("pcm_handle:%p, ret:%d read_bytes:%d, bytes:%d ",
-                pcm_handle,ret,read_bytes,bytes);
+            ALOGV("pcm_handle:%p, ret:%d read_bytes:%zu, bytes:%zu ",
+                pcm_handle, ret, read_bytes, bytes);
         } else if (ret != -EAGAIN) {
             ALOGD("%s:%d, pcm_read fail, ret:%#x, error info:%s",
                 __func__, __LINE__, ret, strerror(errno));
@@ -729,11 +729,11 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
 
             }
 
-             ALOGV("bytes %d bytes - read_bytes %d nodata_count %d",bytes, bytes - read_bytes, nodata_count);
+             ALOGV("bytes %zu bytes - read_bytes %zu nodata_count %d",bytes, bytes - read_bytes, nodata_count);
              nodata_count++;
              if (nodata_count >= WAIT_COUNT_MAX) {
                  nodata_count = 0;
-                 AM_LOGW("read timeout, in:%p read_bytes:%d need:%d", in, read_bytes, bytes);
+                 AM_LOGW("read timeout, in:%p read_bytes:%zu need:%zu", in, read_bytes, bytes);
                  memset((void*)buffer, 0, bytes);
                  return 0;
              }
@@ -999,7 +999,7 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
     if (debug_enable || (alsa_handle->write_cnt % 1000) == 0) {
         snd_pcm_sframes_t frames = 0;
         ret = pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
-        ALOGI("alsa format =0x%x delay frames =%ld total frames=%lld", alsa_handle->format, frames, alsa_handle->write_frames);
+        ALOGI("alsa format =0x%x delay frames =%ld total frames=%" PRId64 "", alsa_handle->format, frames, alsa_handle->write_frames);
     }
 
     snd_pcm_sframes_t delay_frames = 0;
@@ -1016,7 +1016,7 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
     } else {
         aml_audio_trace_int("aml_pcm_delay_frames", delay_frames);
     }
-    ALOGV("alsa format =0x%x delay frames =%ld total frames=%lld", alsa_handle->format, delay_frames, alsa_handle->write_frames);
+    ALOGV("alsa format =0x%x delay frames =%ld total frames=%" PRId64 "", alsa_handle->format, delay_frames, alsa_handle->write_frames);
     if (alsa_handle->format == AUDIO_FORMAT_AC3) {
         aml_audio_trace_int("aml_ac3_delay_frames", 0);
     } else if (alsa_handle->format == AUDIO_FORMAT_E_AC3) {

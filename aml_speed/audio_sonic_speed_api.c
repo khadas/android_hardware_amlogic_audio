@@ -115,12 +115,11 @@ int sonic_speed_process(void *handle, void * in_buffer, size_t bytes, void * out
 
     } while (speed_samples >  0);
 
-    ALOGV("input_size = %d, speed_frames = %d \n",
-    bytes, speed_frames);
+    ALOGV("input_size = %zu, speed_frames = %d \n", bytes, speed_frames);
 
     *out_size = speed_frames * framesize;
     if (*out_size > OUPUT_BUF_SIZE) {
-         ALOGW("sonic_speed out_size  %d overflow !!", *out_size);
+         ALOGW("sonic_speed out_size  %zu overflow !!", *out_size);
          *out_size = OUPUT_BUF_SIZE;
     }
     return 0;
