@@ -599,6 +599,7 @@ bool mediasync_wrap_reset(void* handle) {
 void mediasync_wrap_destroy(void* handle) {
      if (handle != NULL)  {
          gMediaSync_destroy(handle);
+         handle = NULL;
      } else {
         ALOGE("[%s] no handle\n", __func__);
      }
