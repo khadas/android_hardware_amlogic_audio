@@ -36,6 +36,7 @@ struct aml_native_postprocess {
     bool vx_force_stereo;
     /* channel num of effect input */
     int effect_in_ch;
+    int AML_DTS_index;
 };
 
 /*
@@ -60,5 +61,7 @@ int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int
 void VirtualX_reset(struct aml_native_postprocess *native_postprocess);
 void VirtualX_Channel_reconfig(struct aml_native_postprocess *native_postprocess, int ch_num);
 bool Check_VX_lib(void);
+int set_aml_dts_effect_param(struct aml_native_postprocess *native_postprocess, char *param);
+int get_aml_dts_effect_param(struct aml_native_postprocess *native_postprocess, char *param, const char *keys);
 
 #endif

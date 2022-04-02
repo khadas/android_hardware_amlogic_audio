@@ -27,6 +27,9 @@
 #include "audio_eq_drc_compensation.h"
 #include "aml_volume_utils.h"
 #include "aml_malloc_debug.h"
+#include "aml_EQ_param_gen.h"
+#include "aml_DRC_param_gen.h"
+#include "audio_post_process.h"
 
 #undef  LOG_TAG
 #define LOG_TAG  "audio_hw_primary"
@@ -111,6 +114,31 @@ static int eq_drc_ctl_value_set(int card, int val, char *name)
 ERROR:
     mixer_close(mixer);
     return ret;
+}
+
+static int eq_drc_ctl_value_get(int card, char *name)
+{
+    int value = -1;
+    struct mixer_ctl *ctl;
+    struct mixer *mixer;
+
+    mixer = mixer_open(card);
+    if (mixer == NULL) {
+        ALOGE("%s: mixer is closed", __FUNCTION__);
+        return -1;
+    }
+
+    ctl = mixer_get_ctl_by_name(mixer, name);
+    if (ctl == NULL) {
+        ALOGE("%s: get mixer ctl failed: %s", __FUNCTION__, name);
+        goto ERROR;
+    }
+
+    value = mixer_ctl_get_value(ctl, 0);
+
+ERROR:
+    mixer_close(mixer);
+    return value;
 }
 
 static int eq_status_set(struct audio_eq_drc_info_s *p_attr, int card)
@@ -402,6 +430,7 @@ int eq_drc_init(struct eq_drc_data *pdata)
         parse_audio_eq_drc_table(dev_cfg[0].ini_file, pdata->aml_attr);
         eq_mode_set(pdata, 0);
         drc_set(pdata);
+        parse_usersetting(dev_cfg[0].ini_file, &pdata->user_setting);
     }
 
     ret = parse_audio_sum(filename, model_name, &dev_cfg[1]);
@@ -446,11 +475,252 @@ int eq_drc_release(struct eq_drc_data *pdata)
     return 0;
 }
 
+void get_AQ_parameters(const struct audio_hw_device *dev, char *temp_buf, const char *keys)
+{
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    int value = -1;
+    float val = 0;
+    char *parm = NULL;
+
+    parm = strstr(keys, "aq_tuning_peq_enable");
+    if (parm) {
+        value = eq_drc_ctl_value_get(0, "AED EQ enable");
+        sprintf(temp_buf, "aq_tuning_peq_enable=%d", value);
+        goto exit;
+    }
+    parm = strstr(keys, "aq_tuning_hpf_enable");
+    if (parm) {
+        value = eq_drc_ctl_value_get(0, "AED EQ enable");
+        sprintf(temp_buf, "aq_tuning_hpf_enable=%d", value);
+        goto exit;
+    }
+    parm = strstr(keys, "aq_tuning_soc_drc_enable");
+    if (parm) {
+        value = eq_drc_ctl_value_get(0, "AED Full-band DRC enable");
+        sprintf(temp_buf, "aq_tuning_soc_drc_enable=%d", value);
+        goto exit;
+    }
+    parm = strstr(keys, "aq_tuning_ap_spk");
+    if (parm) {
+        val = AmplToDb(adev->eq_data.p_gain.speaker);
+        sprintf(temp_buf, "aq_tuning_ap_spk=%f", val);
+        goto exit;
+    }
+    parm = strstr(keys, "aq_tuning_ap_lineout");
+    if (parm) {
+        val = AmplToDb(adev->eq_data.p_gain.headphone);
+        sprintf(temp_buf, "aq_tuning_ap_lineout=%f", val);
+        goto exit;
+    }
+    parm = strstr(keys, "aq_tuning_ap_spdif");
+    if (parm) {
+        val = AmplToDb(adev->eq_data.p_gain.spdif_arc);
+        sprintf(temp_buf, "aq_tuning_ap_spdif=%f", val);
+        goto exit;
+    }
+    parm = strstr(keys, "aq_tuning_volume_curve");
+    if (parm) {
+        val = AmplToDb(adev->sink_gain[OUTPORT_SPEAKER]);
+        sprintf(temp_buf, "aq_tuning_volume_curve=%f", val);
+        goto exit;
+    }
+    parm = strstr(keys, "aq_tuning_dts_ts");
+    if (parm) {
+        get_aml_dts_effect_param(&adev->native_postprocess, temp_buf, keys);
+        goto exit;
+    }
+    parm = strstr(keys, "aq_tuning_peq");
+    if (parm) {
+        parm += 14;
+        int band_id = 0;
+        sscanf(parm, "%d", &band_id);
+        if (band_id < MAX_PEQ_BAND) {
+            sprintf(temp_buf, "aq_tuning_peq_%d=%d,%d,%d,%f,%f",
+                band_id, band_id,
+                adev->eq_data.user_setting.peqs[band_id].type,
+                adev->eq_data.user_setting.peqs[band_id].fc,
+                adev->eq_data.user_setting.peqs[band_id].G,
+                adev->eq_data.user_setting.peqs[band_id].Q);
+        } else {
+            ALOGE("invalid band id: %d", band_id);
+        }
+        goto exit;
+    }
+    parm = strstr(keys, "aq_tuning_soc_drc_value");
+    if (parm) {
+        sprintf(temp_buf, "aq_tuning_soc_drc_value=%f,%d,%d",
+            adev->eq_data.user_setting.drc.threshold,
+            adev->eq_data.user_setting.drc.attack_time,
+            adev->eq_data.user_setting.drc.release_time);
+        goto exit;
+    }
+
+exit:
+    ALOGI("%s(), [%s]", __func__, temp_buf);
+    return;
+}
+
 int set_AQ_parameters(struct audio_hw_device *dev, struct str_parms *parms)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     int ret = -1, val = 0;
     char value[64];
+    char *parm;
+
+    ret = str_parms_get_str(parms, "aq_tuning", value, sizeof(value));
+    if (ret >= 0) {
+        /* DTS Trusurround */
+        parm = strstr(value, "dts_ts");
+        if (parm) {
+            parm += 7;
+            ALOGI("%s() DTS Trusurround Parameters:%s", __func__, parm);
+            set_aml_dts_effect_param(&adev->native_postprocess, parm);
+            goto exit;
+        }
+        /* Amlogic PEQ */
+        parm = strstr(value, "peq");
+        if (parm) {
+            parm += 4;
+            ALOGI("%s() Amlogic PEQ Parameters:%s", __func__, parm);
+            parm = strstr(value, "-enable");
+            if (parm) {
+                parm += 8;
+                int enable = 0;
+                sscanf(parm, "%d", &enable);
+                int ret;
+                ret = eq_drc_ctl_value_set(0, enable, "AED EQ enable");
+                if (ret < 0) {
+                    ALOGI("%s:parm set fail", __func__);
+                    return -1;
+                }
+                ALOGI("%s() PEQ & HPF enable: %d", __func__, enable);
+                goto exit;
+            }
+            parm = strstr(value, "-b");
+            if (parm) {
+                parm += 3;
+                int band = 0, fc = 0, type = 0;
+                float G = 0, Q = 0;
+                sscanf(parm, "%d -t %d -f %d -G %f -Q %f", &band, &type, &fc, &G, &Q);
+                if (band > 0 && band <= 19)
+                    setpar_eq(G, Q, fc, type, band);
+                ALOGI("%s() PEQ: Band:%d, Type:%d, Fc:%dHz, G:%f, Q:%f", __func__, band, type, fc, G, Q);
+                goto exit;
+            }
+            goto exit;
+        }
+        /* Amlogic HPF */
+        parm = strstr(value, "hpf");
+        if (parm) {
+            parm += 4;
+            ALOGI("%s() Amlogic HPF Parameters:%s", __func__, parm);
+            parm = strstr(value, "-enable");
+            if (parm) {
+                parm += 8;
+                int enable = 0;
+                sscanf(parm, "%d", &enable);
+                ALOGI("%s() PEQ & HPF enable: %d", __func__, enable);
+                int ret = 0;
+                ret = eq_drc_ctl_value_set(0, enable, "AED EQ enable");
+                if (ret < 0) {
+                    ALOGI("%s:parm set fail", __func__);
+                    return -1;
+                }
+                goto exit;
+            }
+            parm = strstr(value, "-f");
+            if (parm) {
+                parm += 3;
+                int fc = 0;
+                float G = 0;
+                sscanf(parm, "%d -g %f", &fc, &G);
+                setpar_eq(G, 1, fc, 1, 0);
+                ALOGI("%s() HPF: Fc:%dHz, G:%fdB", __func__, fc, G);
+                goto exit;
+            }
+            goto exit;
+        }
+        /* Amlogic DRC Limiter */
+        parm = strstr(value, "soc_drc");
+        if (parm) {
+            parm += 8;
+            ALOGI("%s() Amlogic DRC Parameters:%s", __func__, parm);
+            parm = strstr(value, "-enable");
+            if (parm) {
+                parm += 8;
+                int enable = 0;
+                sscanf(parm, "%d", &enable);
+                ALOGI("%s() DRC enable: %d", __func__, enable);
+                int ret = 0;
+                ret = eq_drc_ctl_value_set(0, enable, "AED Full-band DRC enable");
+                if (ret < 0) {
+                    ALOGI("%s:parm set fail", __func__);
+                    return -1;
+                }
+                goto exit;
+            }
+            parm = strstr(value, "-t");
+            if (parm) {
+                parm += 3;
+                int attack_time = 0, decay_time = 0;
+                float threshold = 0;
+                sscanf(parm, "%f -a %d -d %d", &threshold, &attack_time, &decay_time);
+                setfb_drc(0, attack_time, decay_time, 15, 0, threshold, 144);
+                ALOGI("%s() DRC: threshold:%fdB, attack_time:%dms, decay_time:%dms",
+                    __func__, threshold, attack_time, decay_time);
+                goto exit;
+            }
+            goto exit;
+        }
+        /* Volume Curve */
+        parm = strstr(value, "volume_curve");
+        if (parm) {
+            parm += 13;
+            float volume = 0,  gain = 0;
+            sscanf(parm, "%f", &volume);
+            gain = DbToAmpl(volume);
+            adev->sink_gain[OUTPORT_SPEAKER] = gain;
+            ALOGI("%s() Volume Curve Parameters:%s, %fdB [%f]", __func__, parm, volume, gain);
+            goto exit;
+        }
+        /* Audio Prescaler */
+        parm = strstr(value, "ap");
+        if (parm) {
+            parm += 3;
+            ALOGI("%s() Audio Prescaler Parameters:%s", __func__, parm);
+            parm = strstr(value, "-spk");
+            if (parm) {
+                parm += 5;
+                float volume = 0, gain = 0;
+                sscanf(parm, "%f", &volume);
+                gain = DbToAmpl(volume);
+                adev->eq_data.p_gain.speaker = gain;
+                ALOGI("%s() speaker post gain: %fdB [%f]", __func__, volume, gain);
+                goto exit;
+            }
+            parm = strstr(value, "-lineout");
+            if (parm) {
+                parm += 9;
+                float volume = 0, gain = 0;
+                sscanf(parm, "%f", &volume);
+                gain = DbToAmpl(volume);
+                adev->eq_data.p_gain.headphone = gain;
+                ALOGI("%s() lineout post gain: %fdB [%f]", __func__, volume, gain);
+                goto exit;
+            }
+            parm = strstr(value, "-spdif");
+            if (parm) {
+                parm += 7;
+                float volume = 0, gain = 0;
+                sscanf(parm, "%f", &volume);
+                gain = DbToAmpl(volume);
+                adev->eq_data.p_gain.spdif_arc = gain;
+                ALOGI("%s() spdif post gain: %fdB [%f]", __func__, volume, gain);
+                goto exit;
+            }
+            goto exit;
+        }
+    }
 
     ret = str_parms_get_str(parms, "SOURCE_GAIN", value, sizeof(value));
     if (ret >= 0) {

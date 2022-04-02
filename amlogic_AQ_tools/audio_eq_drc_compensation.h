@@ -28,6 +28,7 @@ int eq_drc_init(struct eq_drc_data *pdata);
 int eq_drc_release(struct eq_drc_data *pdata);
 int ext_eq_mode_set(struct eq_drc_data *pdata, int eq_mode, int amp_num);
 int set_AQ_parameters(struct audio_hw_device *dev, struct str_parms *parms);
+void get_AQ_parameters(const struct audio_hw_device *dev, char *temp_buf, const char *keys);
 
 #ifdef __cplusplus
 }
