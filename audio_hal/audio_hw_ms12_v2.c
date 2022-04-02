@@ -3060,7 +3060,18 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
                 aml_dtvsync->out_start_apts = (int64_t)ms12_main_apts;
         }
         else {
-            aml_dtvsync->out_start_apts = aml_dtvsync->out_end_apts;
+            /* SWPL-71715, if package_pts is bigger than out_end_apts a certain range,
+               use package_pts to reinitialize out_start_apts */
+            if (patch->cur_package && patch->cur_package->pts > ms12_total_delay_pts && (int64_t)(patch->cur_package->pts -
+                aml_dtvsync->out_end_apts) > (int64_t)(ms12_total_delay_pts + MILLISECOND_2_PTS * 32 * 5)) {
+                aml_dtvsync->out_start_apts = patch->cur_package->pts - ms12_total_delay_pts;
+                if (adev->debug_flag) {
+                    ALOGI("%s update out_start_apts, package_pts, %llx, out_end_apts %llx, diff %d ms", __FUNCTION__, patch->cur_package->pts,
+                        aml_dtvsync->out_end_apts, (int)(patch->cur_package->pts - aml_dtvsync->out_end_apts) / 90);
+                }
+            } else {
+                aml_dtvsync->out_start_apts = aml_dtvsync->out_end_apts;
+            }
         }
         if (aml_dtvsync->out_start_apts == DTVSYNC_INIT_PTS) {
             /*invalid pts */
