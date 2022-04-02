@@ -681,3 +681,86 @@ void free_eq_drc_table(struct audio_eq_drc_info_s *p_attr)
         aml_audio_free(p_attr->mdrc.crossover_table);
 }
 
+static int transBufferData_float(const char *data_str, float *data_buf)
+{
+    int item_ind = 0;
+    char *token;
+    char *pSave;
+    char *tmp_buf;
+
+    if (data_str == NULL)
+        return 0;
+
+    tmp_buf = (char *)aml_audio_calloc(1, (MAX_STRING_TABLE_MAX * sizeof(char)));
+    if (tmp_buf == NULL)
+        return 0;
+
+    strncpy(tmp_buf, data_str, MAX_STRING_TABLE_MAX - 1);
+    token = strtok_r(tmp_buf, ",", &pSave);
+    while (token != NULL) {
+        data_buf[item_ind] = strtof(token, NULL);
+        item_ind++;
+        token = strtok_r(NULL, ",", &pSave);
+    }
+
+    aml_audio_free(tmp_buf);
+    return item_ind;
+}
+
+int parse_usersetting(char *file_name, struct audio_user_setting_s *user_setting)
+{
+    dictionary *ini = NULL;
+    const char  *str = NULL;
+    float *tmp_buf;
+    int data_cnt = 0, i;
+
+    ini = iniparser_load(file_name);
+    if (ini == NULL) {
+        ITEM_LOGE("%s, INI load file (%s) error!\n", __FUNCTION__, file_name);
+        goto exit;
+    }
+
+    tmp_buf = (float *)aml_audio_calloc(1, (MAX_INT_TABLE_MAX * sizeof(float)));
+    if (tmp_buf == NULL)
+        goto exit;
+
+    str = iniparser_getstring(ini, "user_setting:peq_usersetting", NULL);
+    if (str) {
+        data_cnt = transBufferData_float(str, tmp_buf);
+        ITEM_LOGD("%s, User_setting PEQ data cnt = %d\n", __FUNCTION__, data_cnt);
+
+        /* max 100 params */
+        if (data_cnt <= (MAX_PEQ_BAND * 5)) {
+            for (i = 0; i < MAX_PEQ_BAND; i++) {
+                user_setting->peqs[i].band_id = (int) tmp_buf[5 * i];
+                user_setting->peqs[i].type = (int) tmp_buf[5 * i + 1];
+                user_setting->peqs[i].fc = (int) tmp_buf[5 * i + 2];
+                user_setting->peqs[i].G = tmp_buf[5 * i + 3];
+                user_setting->peqs[i].Q = tmp_buf[5 * i + 4];
+                ITEM_LOGD("PEQ: band[%d], type[%d], fc[%d], G[%.3f], Q[%.3f]\n", user_setting->peqs[i].band_id,
+                    user_setting->peqs[i].type, user_setting->peqs[i].fc, user_setting->peqs[i].G, user_setting->peqs[i].Q);
+            }
+        }
+    }
+
+    str = iniparser_getstring(ini, "user_setting:drc_usersetting", NULL);
+    if (str) {
+        memset(tmp_buf, 0, MAX_INT_TABLE_MAX);
+        data_cnt = transBufferData_float(str, tmp_buf);
+        ITEM_LOGD("%s, User_setting drc data cnt = %d\n", __FUNCTION__, data_cnt);
+
+        if (data_cnt == 3) {
+                user_setting->drc.threshold = tmp_buf[0];
+                user_setting->drc.attack_time = (int) tmp_buf[1];
+                user_setting->drc.release_time = (int) tmp_buf[2];
+                ITEM_LOGD("DRC: threshold[%.3f], attack_time[%d], release_time[%d]\n",
+                    user_setting->drc.threshold, user_setting->drc.attack_time, user_setting->drc.release_time);
+        }
+    }
+
+    aml_audio_free(tmp_buf);
+exit:
+    iniparser_freedict(ini);
+    return 0;
+}
+

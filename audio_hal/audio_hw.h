@@ -333,7 +333,9 @@ struct aml_audio_device {
     int in_call;
     struct aml_stream_in *active_input;
     bool mic_mute;
-    bool speaker_mute;
+    //when set speaker_off, this param will be used to juge the routing_update,
+    //which is equal to user_setting.
+    bool speaker_mute_user_setting;
     unsigned int card;
     struct audio_route *ar;
     struct echo_reference_itfe *echo_reference;

@@ -188,3 +188,300 @@ bool Check_VX_lib(void)
     }
 }
 
+typedef enum {
+    SRS_PARAM_MODE = 0,
+    SRS_PARAM_DIALOGCLARTY_MODE,
+    SRS_PARAM_SURROUND_MODE,
+    SRS_PARAM_VOLUME_MODE,
+    SRS_PARAM_ENABLE,
+    SRS_PARAM_TRUEBASS_ENABLE,
+    SRS_PARAM_TRUEBASS_MODE,
+    SRS_PARAM_TRUEBASS_SPKER_SIZE,
+    SRS_PARAM_TRUEBASS_GAIN,
+    SRS_PARAM_DIALOG_CLARITY_ENABLE,
+    SRS_PARAM_DIALOGCLARTY_GAIN,
+    SRS_PARAM_DEFINITION_ENABLE,
+    SRS_PARAM_DEFINITION_GAIN,
+    SRS_PARAM_SURROUND_ENABLE,
+    SRS_PARAM_SURROUND_GAIN,
+    SRS_PARAM_INPUT_GAIN,
+    SRS_PARAM_OUTPUT_GAIN,
+    SRS_PARAM_OUTPUT_GAIN_COMP,
+    SRS_PARAM_OUTPUT_GAIN_BYPASS
+} SRSparams;
+
+int set_aml_dts_effect_param(struct aml_native_postprocess *native_postprocess, char *param)
+{
+    int32_t value = 0, replyData = -1;
+    uint32_t replySize = sizeof(int32_t);
+    effect_handle_t effect = native_postprocess->postprocessors[native_postprocess->AML_DTS_index];
+    uint32_t cmdSize = (int)(sizeof(effect_param_t) + sizeof(uint32_t) + sizeof(uint32_t));
+    uint32_t buf32[sizeof(effect_param_t) / sizeof(uint32_t) + 2];
+    effect_param_t *p = (effect_param_t *)buf32;
+    char *ptr = NULL;
+
+    if (!effect || !(*effect) || !(*effect)->command)
+        return replyData;
+
+    p->psize = sizeof(uint32_t);
+    p->vsize = sizeof(uint32_t);
+
+    ptr = strstr(param, "-enable");
+    if (ptr) {
+        sscanf(ptr + 8, "%d", &value);
+        ALOGI("%s() Set DTS Parameters:%s, enable = %d", __func__, ptr, value);
+        *(int32_t *)p->data = SRS_PARAM_ENABLE;
+        *((int32_t *)p->data + 1) = value;
+        (*effect)->command(effect, EFFECT_CMD_SET_PARAM, cmdSize, (void *)p, &replySize, &replyData);
+        goto exit;
+    }
+    ptr = strstr(param, "-tb_enable");
+    if (ptr) {
+        sscanf(ptr + 11, "%d", &value);
+        ALOGI("%s() Set DTS Parameters:%s, True Bass enable = %d", __func__, ptr, value);
+        *(int32_t *)p->data = SRS_PARAM_TRUEBASS_ENABLE;
+        *((int32_t *)p->data + 1) = value;
+        (*effect)->command(effect, EFFECT_CMD_SET_PARAM, cmdSize, (void *)p, &replySize, &replyData);
+        goto exit;
+    }
+    ptr = strstr(param, "-ss");
+    if (ptr) {
+        sscanf(ptr + 4, "%d", &value);
+        ALOGI("%s() Set DTS Parameters:%s, True Bass speaker size = %d", __func__, ptr, value);
+        *(int32_t *)p->data = SRS_PARAM_TRUEBASS_SPKER_SIZE;
+        *((int32_t *)p->data + 1) = value;
+        (*effect)->command(effect, EFFECT_CMD_SET_PARAM, cmdSize, (void *)p, &replySize, &replyData);
+        goto exit;
+    }
+    ptr = strstr(param, "-tbm");
+    if (ptr) {
+        sscanf(ptr + 5, "%d", &value);
+        ALOGI("%s() Set DTS Parameters:%s, True Bass mode = %d", __func__, ptr, value);
+        *(int32_t *)p->data = SRS_PARAM_TRUEBASS_MODE;
+        *((int32_t *)p->data + 1) = value;
+        (*effect)->command(effect, EFFECT_CMD_SET_PARAM, cmdSize, (void *)p, &replySize, &replyData);
+        goto exit;
+    }
+    ptr = strstr(param, "-tbv");
+    if (ptr) {
+        sscanf(ptr + 5, "%d", &value);
+        ALOGI("%s() Set DTS Parameters:%s, True Bass Gain = %d", __func__, ptr, value);
+        *(int32_t *)p->data = SRS_PARAM_TRUEBASS_GAIN;
+        *((float *)p->data + 1) = (float) value/100;
+        (*effect)->command(effect, EFFECT_CMD_SET_PARAM, cmdSize, (void *)p, &replySize, &replyData);
+        goto exit;
+    }
+    ptr = strstr(param, "-dc_enable");
+    if (ptr) {
+        sscanf(ptr + 11, "%d", &value);
+        ALOGI("%s() Set DTS Parameters:%s, Dialog Clarity Enable = %d", __func__, ptr, value);
+        *(int32_t *)p->data = SRS_PARAM_DIALOG_CLARITY_ENABLE;
+        *((int32_t *)p->data + 1) = value;
+        (*effect)->command(effect, EFFECT_CMD_SET_PARAM, cmdSize, (void *)p, &replySize, &replyData);
+        goto exit;
+    }
+    ptr = strstr(param, "-dcv");
+    if (ptr) {
+        sscanf(ptr + 5, "%d", &value);
+        ALOGI("%s() Set DTS Parameters:%s, Dialog Clarity Gain = %d", __func__, ptr, value);
+        *(int32_t *)p->data = SRS_PARAM_DIALOGCLARTY_GAIN;
+        *((float *)p->data + 1) = (float) value/100;
+        (*effect)->command(effect, EFFECT_CMD_SET_PARAM, cmdSize, (void *)p, &replySize, &replyData);
+        goto exit;
+    }
+    ptr = strstr(param, "-def_enable");
+    if (ptr) {
+        sscanf(ptr + 12, "%d", &value);
+        ALOGI("%s() Set DTS Parameters:%s, Definition Enable = %d", __func__, ptr, value);
+        *(int32_t *)p->data = SRS_PARAM_DEFINITION_ENABLE;
+        *((int32_t *)p->data + 1) = value;
+        (*effect)->command(effect, EFFECT_CMD_SET_PARAM, cmdSize, (void *)p, &replySize, &replyData);
+        goto exit;
+    }
+    ptr = strstr(param, "-defv");
+    if (ptr) {
+        sscanf(ptr + 6, "%d", &value);
+        ALOGI("%s() Set DTS Parameters:%s, Definition Gain = %d", __func__, ptr, value);
+        *(int32_t *)p->data = SRS_PARAM_DEFINITION_GAIN;
+        *((float *)p->data + 1) = (float) value/100;
+        (*effect)->command(effect, EFFECT_CMD_SET_PARAM, cmdSize, (void *)p, &replySize, &replyData);
+        goto exit;
+    }
+    ptr = strstr(param, "-sd_enable");
+    if (ptr) {
+        sscanf(ptr + 11, "%d", &value);
+        ALOGI("%s() Set DTS Parameters:%s, Surround Enable = %d", __func__, ptr, value);
+        *(int32_t *)p->data = SRS_PARAM_SURROUND_ENABLE;
+        *((int32_t *)p->data + 1) = value;
+        (*effect)->command(effect, EFFECT_CMD_SET_PARAM, cmdSize, (void *)p, &replySize, &replyData);
+        goto exit;
+    }
+    ptr = strstr(param, "-sdv");
+    if (ptr) {
+        sscanf(ptr + 5, "%d", &value);
+        ALOGI("%s() Set DTS Parameters:%s, Surround Gain = %d", __func__, ptr, value);
+        *(int32_t *)p->data = SRS_PARAM_SURROUND_GAIN;
+        *((float *)p->data + 1) = (float) value/100;
+        (*effect)->command(effect, EFFECT_CMD_SET_PARAM, cmdSize, (void *)p, &replySize, &replyData);
+        goto exit;
+    }
+    ptr = strstr(param, "-ig");
+    if (ptr) {
+        sscanf(ptr + 4, "%d", &value);
+        ALOGI("%s() Set DTS Parameters:%s, Input Gain = %d", __func__, ptr, value);
+        *(int32_t *)p->data = SRS_PARAM_INPUT_GAIN;
+        *((float *)p->data + 1) = (float) value/100;
+        (*effect)->command(effect, EFFECT_CMD_SET_PARAM, cmdSize, (void *)p, &replySize, &replyData);
+        goto exit;
+    }
+    ptr = strstr(param, "-og");
+    if (ptr) {
+        sscanf(ptr + 4, "%d", &value);
+        ALOGI("%s() Set DTS Parameters:%s, Output Gain = %d", __func__, ptr, value);
+        *(int32_t *)p->data = SRS_PARAM_OUTPUT_GAIN;
+        *((float *)p->data + 1) = (float) value/100;
+        (*effect)->command(effect, EFFECT_CMD_SET_PARAM, cmdSize, (void *)p, &replySize, &replyData);
+        goto exit;
+    }
+exit:
+    return replyData;
+}
+
+int get_aml_dts_effect_param(struct aml_native_postprocess *native_postprocess, char *param, const char *keys)
+{
+    effect_handle_t effect = native_postprocess->postprocessors[native_postprocess->AML_DTS_index];
+    uint32_t cmdSize = (int)(sizeof(effect_param_t) + sizeof(uint32_t));
+    uint32_t buf32[sizeof(effect_param_t) / sizeof(uint32_t) + 2];
+    effect_param_t *p = (effect_param_t *)buf32;
+    uint32_t replySize = (int)(sizeof(effect_param_t) + sizeof(uint32_t) + sizeof(uint32_t));
+    float scale = 0;
+    int value = 0;
+    char *ptr = NULL;
+
+    if (!effect || !(*effect) || !(*effect)->command)
+        return -1;
+
+    p->psize = sizeof(uint32_t);
+    p->vsize = sizeof(uint32_t);
+
+    ptr = strstr(keys, "aq_tuning_dts_ts_enable");
+    if (ptr) {
+        *(int32_t *)p->data = SRS_PARAM_ENABLE;
+        (*effect)->command(effect, EFFECT_CMD_GET_PARAM, cmdSize, (void *)p, &replySize, (void *)p);
+        sprintf(param, "aq_tuning_dts_ts_enable=%d", *((int32_t *)p->data + 1));
+        ALOGV("%s() Get DTS Parameters: [%s]", __func__, param);
+        goto exit;
+    }
+    ptr = strstr(keys, "aq_tuning_dts_ts_tb_enable");
+    if (ptr) {
+        *(int32_t *)p->data = SRS_PARAM_TRUEBASS_ENABLE;
+        (*effect)->command(effect, EFFECT_CMD_GET_PARAM, cmdSize, (void *)p, &replySize, (void *)p);
+        sprintf(param, "aq_tuning_dts_ts_tb_enable=%d", *((int32_t *)p->data + 1));
+        ALOGV("%s() Get DTS Parameters: [%s]", __func__, param);
+        goto exit;
+    }
+    ptr = strstr(keys, "aq_tuning_dts_ts_ss");
+    if (ptr) {
+        *(int32_t *)p->data = SRS_PARAM_TRUEBASS_SPKER_SIZE;
+        (*effect)->command(effect, EFFECT_CMD_GET_PARAM, cmdSize, (void *)p, &replySize, (void *)p);
+        sprintf(param, "aq_tuning_dts_ts_ss=%d", *((int32_t *)p->data + 1));
+        ALOGV("%s() Get DTS Parameters: [%s]", __func__, param);
+        goto exit;
+    }
+    ptr = strstr(keys, "aq_tuning_dts_ts_tbm");
+    if (ptr) {
+        *(int32_t *)p->data = SRS_PARAM_TRUEBASS_MODE;
+        (*effect)->command(effect, EFFECT_CMD_GET_PARAM, cmdSize, (void *)p, &replySize, (void *)p);
+        sprintf(param, "aq_tuning_dts_ts_tbm=%d", *((int32_t *)p->data + 1));
+        ALOGV("%s() Get DTS Parameters: [%s]", __func__, param);
+        goto exit;
+    }
+    ptr = strstr(keys, "aq_tuning_dts_ts_tbv");
+    if (ptr) {
+        *(int32_t *)p->data = SRS_PARAM_TRUEBASS_GAIN;
+        (*effect)->command(effect, EFFECT_CMD_GET_PARAM, cmdSize, (void *)p, &replySize, (void *)p);
+        scale = *((float *)p->data + 1);
+        value = (int)round(scale * 100);
+        sprintf(param, "aq_tuning_dts_ts_tbv=%d", value);
+        ALOGV("%s() Get DTS Parameters: [%s]", __func__, param);
+        goto exit;
+    }
+    ptr = strstr(keys, "aq_tuning_dts_ts_dc_enable");
+    if (ptr) {
+        *(int32_t *)p->data = SRS_PARAM_DIALOG_CLARITY_ENABLE;
+        (*effect)->command(effect, EFFECT_CMD_GET_PARAM, cmdSize, (void *)p, &replySize, (void *)p);
+        sprintf(param, "aq_tuning_dts_ts_dc_enable=%d", *((int32_t *)p->data + 1));
+        ALOGV("%s() Get DTS Parameters: [%s]", __func__, param);
+        goto exit;
+    }
+    ptr = strstr(keys, "aq_tuning_dts_ts_dcv");
+    if (ptr) {
+        *(int32_t *)p->data = SRS_PARAM_DIALOGCLARTY_GAIN;
+        (*effect)->command(effect, EFFECT_CMD_GET_PARAM, cmdSize, (void *)p, &replySize, (void *)p);
+        scale = *((float *)p->data + 1);
+        value = (int)round(scale * 100);
+        sprintf(param, "aq_tuning_dts_ts_dcv=%d", value);
+        ALOGV("%s() Get DTS Parameters: [%s]", __func__, param);
+        goto exit;
+    }
+    ptr = strstr(keys, "aq_tuning_dts_ts_def_enable");
+    if (ptr) {
+        *(int32_t *)p->data = SRS_PARAM_DEFINITION_ENABLE;
+        (*effect)->command(effect, EFFECT_CMD_GET_PARAM, cmdSize, (void *)p, &replySize, (void *)p);
+        sprintf(param, "aq_tuning_dts_ts_def_enable=%d", *((int32_t *)p->data + 1));
+        ALOGV("%s() Get DTS Parameters: [%s]", __func__, param);
+        goto exit;
+    }
+    ptr = strstr(keys, "aq_tuning_dts_ts_defv");
+    if (ptr) {
+        *(int32_t *)p->data = SRS_PARAM_DEFINITION_GAIN;
+        (*effect)->command(effect, EFFECT_CMD_GET_PARAM, cmdSize, (void *)p, &replySize, (void *)p);
+        scale = *((float *)p->data + 1);
+        value = (int)round(scale * 100);
+        sprintf(param, "aq_tuning_dts_ts_defv=%d", value);
+        ALOGV("%s() Get DTS Parameters: [%s]", __func__, param);
+        goto exit;
+    }
+    ptr = strstr(keys, "aq_tuning_dts_ts_sd_enable");
+    if (ptr) {
+        *(int32_t *)p->data = SRS_PARAM_SURROUND_ENABLE;
+        (*effect)->command(effect, EFFECT_CMD_GET_PARAM, cmdSize, (void *)p, &replySize, (void *)p);
+        sprintf(param, "aq_tuning_dts_ts_sd_enable=%d", *((int32_t *)p->data + 1));
+        ALOGV("%s() Get DTS Parameters: [%s]", __func__, param);
+        goto exit;
+    }
+    ptr = strstr(keys, "aq_tuning_dts_ts_sdv");
+    if (ptr) {
+        *(int32_t *)p->data = SRS_PARAM_SURROUND_GAIN;
+        (*effect)->command(effect, EFFECT_CMD_GET_PARAM, cmdSize, (void *)p, &replySize, (void *)p);
+        scale = *((float *)p->data + 1);
+        value = (int)round(scale * 100);
+        sprintf(param, "aq_tuning_dts_ts_sdv=%d", value);
+        ALOGV("%s() Get DTS Parameters: [%s]", __func__, param);
+        goto exit;
+    }
+    ptr = strstr(keys, "aq_tuning_dts_ts_ig");
+    if (ptr) {
+        *(int32_t *)p->data = SRS_PARAM_INPUT_GAIN;
+        (*effect)->command(effect, EFFECT_CMD_GET_PARAM, cmdSize, (void *)p, &replySize, (void *)p);
+        scale = *((float *)p->data + 1);
+        value = (int)round(scale * 100);
+        sprintf(param, "aq_tuning_dts_ts_ig=%d", value);
+        ALOGV("%s() Get DTS Parameters: [%s]", __func__, param);
+        goto exit;
+    }
+    ptr = strstr(keys, "aq_tuning_dts_ts_og");
+    if (ptr) {
+        *(int32_t *)p->data = SRS_PARAM_OUTPUT_GAIN;
+        (*effect)->command(effect, EFFECT_CMD_GET_PARAM, cmdSize, (void *)p, &replySize, (void *)p);
+        scale = *((float *)p->data + 1);
+        value = (int)round(scale * 100);
+        sprintf(param, "aq_tuning_dts_ts_og=%d", value);
+        ALOGV("%s() Get DTS Parameters: [%s]", __func__, param);
+        goto exit;
+    }
+
+exit:
+    return 0;
+}
+

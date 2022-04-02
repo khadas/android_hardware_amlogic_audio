@@ -23,6 +23,27 @@
 #define MAX_EQ_NUM 16
 #define MAX_INT_TABLE_MAX 2048
 #define MAX_STRING_TABLE_MAX 16384
+#define MAX_PEQ_BAND 20
+
+/*user setting of PEQ/HPF*/
+struct audio_PEQ_param_s {
+    int band_id;
+    int type;
+    int fc;
+    float G;
+    float Q;
+};
+
+struct audio_DRC_param_s {
+    float threshold;
+    int attack_time;
+    int release_time;
+};
+
+struct audio_user_setting_s {
+    struct audio_PEQ_param_s peqs[MAX_PEQ_BAND];
+    struct audio_DRC_param_s drc;
+};
 
 /*ini file parser*/
 struct audio_file_config_s {
@@ -139,7 +160,7 @@ struct eq_drc_data {
     struct  audio_eq_drc_info_s *aml_attr;
     int     ext_amp_num;
     struct  audio_eq_drc_info_s *ext_attr[MAX_EXT_AMP_NUM];
-
+    struct  audio_user_setting_s user_setting;
     bool aml_dap_v1_enable;
 };
 
@@ -153,6 +174,7 @@ int parse_audio_eq_drc_status(char *file_name, struct audio_eq_drc_info_s *p_att
 int parse_audio_eq_drc_table(char *file_name, struct audio_eq_drc_info_s *p_attr);
 int parse_AMP_num(char *file_name, struct eq_drc_data *p_attr);
 void free_eq_drc_table(struct audio_eq_drc_info_s *p_attr);
+int parse_usersetting(char *file_name, struct audio_user_setting_s *user_setting);
 
 #ifdef __cplusplus
 }

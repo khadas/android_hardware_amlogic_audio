@@ -255,6 +255,24 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
 
     memset(hdmi_desc->target_EDID_array, 0, EDID_ARRAY_MAX_LEN);
 
+    /* if dts decoder doesn't support, don't update dts edid */
+    if (!adev->dts_decode_enable) {
+        int edid_length = hdmi_desc->EDID_length;
+        for (i = 0; i < edid_length/3; ) {
+            char AudioFormatCodes = (hdmi_desc->target_EDID_array[TLV_HEADER_SIZE + 3*i] >> 3) & 0xF;
+            /* mask EDID of dts and dtshd */
+            if (AudioFormatCodes == AML_HDMI_FORMAT_DTS || AudioFormatCodes == AML_HDMI_FORMAT_DTSHD) {
+                char *pr = &hdmi_desc->target_EDID_array[TLV_HEADER_SIZE + 3*i];
+                memmove(pr, (pr + 3), (edid_length - 3*i - 3));
+                edid_length -= 3;
+            } else {
+                i++;
+            }
+        }
+        hdmi_desc->EDID_length = edid_length;
+        ptr[1] = (unsigned int)hdmi_desc->EDID_length;
+    }
+
     pt = strtok_r (value, "[], ", &tmp);
     while (pt != NULL) {
 
