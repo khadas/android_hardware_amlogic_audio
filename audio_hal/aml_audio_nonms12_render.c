@@ -47,7 +47,7 @@ static void aml_audio_stream_volume_process(struct audio_stream_out *stream, voi
     for non tv, system sound vol control at audioflinger, so dtv sound vol
     control need to do before mxing.
     */
-    if (!aml_dev->is_TV) {
+    if (!aml_dev->is_TV || aml_dev->is_BDS) {
         float port_gain = 1.0;
         if (aml_dev->active_outport == OUTPORT_HDMI) {
             if (aml_dev->audio_patching == true) {

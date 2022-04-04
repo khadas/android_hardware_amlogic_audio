@@ -3104,7 +3104,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         out->stream.common.get_channels = out_get_channels;
         out->stream.common.get_format = out_get_format;
 
-        if ((eDolbyMS12Lib == adev->dolby_lib_type) && (!adev->is_TV)) {
+        if ((eDolbyMS12Lib == adev->dolby_lib_type) && (!adev->is_TV || adev->is_BDS)) {
             // BOX with ms 12 need to use new method
             out->stream.write = out_write_new;
             out->stream.common.standby = out_standby_new;
@@ -3141,7 +3141,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         out->stream.common.get_channels = out_get_channels_direct;
         out->stream.common.get_format = out_get_format_direct;
 
-        if ((eDolbyMS12Lib == adev->dolby_lib_type) && (!adev->is_TV)) {
+        if ((eDolbyMS12Lib == adev->dolby_lib_type) && (!adev->is_TV || adev->is_BDS)) {
             // BOX with ms 12 need to use new method
             out->stream.write = out_write_new;
             out->stream.common.standby = out_standby_new;
@@ -3641,7 +3641,9 @@ static int aml_audio_output_routing(struct audio_hw_device *dev,
         /* switch off the active output */
         switch (aml_dev->active_outport) {
         case OUTPORT_SPEAKER:
-            audio_route_apply_path(aml_dev->ar, "speaker_off");
+            /*for BDS,speaker/hdmitx output at the same time */
+            if (!(aml_dev->is_BDS && outport == OUTPORT_HDMI))
+                audio_route_apply_path(aml_dev->ar, "speaker_off");
             break;
         case OUTPORT_HDMI_ARC:
             audio_route_apply_path(aml_dev->ar, "hdmi_arc_off");
@@ -4407,7 +4409,7 @@ static void adev_get_hal_control_volume_en(struct aml_audio_device *adev, char *
 {
     bool hal_control_vol_en = true;
     /* For STB product.*/
-    if (!adev->is_TV) {
+    if (!adev->is_TV || adev->is_BDS) {
         /*  Audio_hal has no ability to control volume at the following scence:
          *    1. non-ms12, output non-pcm, cec closed.
          *    2. ms12, ouput non-pcm, cec closed, passthrough.
@@ -5522,6 +5524,9 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                         }
                     } else if (dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) {
                         volume *= adev->eq_data.p_gain.headphone * adev->sink_gain[OUTPORT_HEADPHONE];
+                    } else if (adev->is_BDS && adev->active_outport == OUTPORT_HDMI) {
+                      /* for BDS project with HDMITX output,we need apply with volume with HDMITX */
+                        volume *= adev->sink_gain[OUTPORT_HDMI];
                     } else {
                         volume *= adev->eq_data.p_gain.speaker * adev->sink_gain[OUTPORT_SPEAKER];
                     }
@@ -5542,8 +5547,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     } else if (adev->audio_patch == NULL) {
                         aml_audio_switch_output_mode((int16_t *)adev->out_16_buf, bytes, adev->sound_track_mode);
                     }
-
-                    if (adev->active_outport != OUTPORT_A2DP && adev->active_outport != OUTPORT_HEADPHONE) {
+                    if (adev->active_outport != OUTPORT_A2DP && adev->active_outport != OUTPORT_HEADPHONE && \
+                        adev->active_outport != OUTPORT_HDMI) {
                         out_frames = audio_post_process(&adev->native_postprocess, adev->out_16_buf, out_frames);
                         bytes = out_frames * 4;
                     }
@@ -5556,9 +5561,6 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                            //do nothing.
                         }
                     }
-                } else if (dev == AML_AUDIO_OUT_DEV_TYPE_SPDIF &&
-                    check_chip_name("t7", 2, &adev->alsa_mixer)) {
-                    volume *= adev->eq_data.p_gain.speaker * adev->sink_gain[OUTPORT_SPEAKER];
                 }
 #ifdef ADD_AUDIO_DELAY_INTERFACE
                 if (dev != AML_AUDIO_OUT_DEV_TYPE_OTHER) {
@@ -7568,7 +7570,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
      */
     if (!aml_out->is_sink_format_prepared) {
         get_sink_format(&aml_out->stream);
-        if (!adev->is_TV) {
+        if (!adev->is_TV || adev->is_BDS) {
             if (is_use_spdifb(aml_out)) {
                 aml_audio_select_spdif_to_hdmi(AML_SPDIF_B_TO_HDMITX);
                 aml_out->restore_hdmitx_selection = true;
@@ -9688,6 +9690,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 /*[SEI-zhaopf-2018-10-29] add for HBG remote audio support } */
 #if defined(TV_AUDIO_OUTPUT)
     adev->is_TV = true;
+    adev->is_BDS = check_chip_name("t7", 2, &adev->alsa_mixer) ? true : false;
     adev->default_alsa_ch =  aml_audio_get_default_alsa_output_ch();
     /*Now SoundBar type is depending on TV audio as only tv support multi-channel LPCM output*/
     adev->is_SBR = aml_audio_check_sbr_product();
