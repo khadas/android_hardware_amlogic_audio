@@ -1973,7 +1973,7 @@ char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(con
         } else if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
             cap = (char *) strdup_a2dp_cap_default(adev, keys, format);
         } else {
-            if (out->is_tv_platform == 1) {
+            if (out->is_tv_platform == 1 && !adev->is_BDS) {
                 cap = (char *)strdup_tv_platform_cap_default(keys, format);
             } else {
                 if (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) {

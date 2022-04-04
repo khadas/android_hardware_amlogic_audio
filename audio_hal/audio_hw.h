@@ -482,6 +482,7 @@ struct aml_audio_device {
     struct aml_mixer_handle alsa_mixer;
     struct subMixing *sm;
     struct aml_audio_mixer *audio_mixer;
+    bool is_BDS;
     bool is_TV;
     bool is_STB;
     bool is_SBR;
