@@ -1041,6 +1041,11 @@ int get_the_dolby_ms12_prepared(
         }
     }
 
+    if (input_sample_rate != OUTPUT_ALSA_SAMPLERATE &&
+        (aml_out->usecase == STREAM_PCM_HWSYNC || aml_out->usecase == STREAM_PCM_DIRECT)) {
+        ALOGD("%s change SampleRate from %d to %d, for ms12 config.", __func__, input_sample_rate, OUTPUT_ALSA_SAMPLERATE);
+        input_sample_rate = OUTPUT_ALSA_SAMPLERATE;
+    }
     aml_ms12_config(ms12, input_format, input_channel_mask, input_sample_rate, output_config, get_ms12_path());
     if (ms12->dolby_ms12_enable) {
         //register Dolby MS12 callback

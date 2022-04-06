@@ -94,6 +94,9 @@ int audio_virtual_buf_open(void ** pphandle, char * buf_name, uint64_t buf_ns_be
 int audio_virtual_buf_close(void **pphandle)
 {
     if (*pphandle) {
+        audio_virtual_buf_t *virtual_handle = (audio_virtual_buf_t *)*pphandle;
+        ALOGI("%s  name:%s", __func__, virtual_handle->buf_name);
+
         aml_audio_free(*pphandle);
         *pphandle = NULL;
     }

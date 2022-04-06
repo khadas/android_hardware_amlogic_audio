@@ -765,7 +765,12 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         if (adev->continuous_audio_mode && audio_is_linear_pcm(out->hal_internal_format)) {
             /*Tunnel sync HEADER is 20 bytes*/
             if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
-                size = (8192 + TUNNEL_SYNC_HEADER_SIZE);
+                if (out->hal_rate == 32000) {
+                    // SampleRate:32k, 2 package 32ms data.
+                    size = (8192 + TUNNEL_SYNC_HEADER_SIZE*2);
+                } else {
+                    size = (8192 + TUNNEL_SYNC_HEADER_SIZE);
+                }
                 return size;
             } else {
                 /* roll back the change for SWPL-15974 to pass the gts failure SWPL-20926*/
@@ -779,7 +784,12 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
     }
 
     if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC && audio_is_linear_pcm(out->hal_internal_format)) {
-        size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream)) + TUNNEL_SYNC_HEADER_SIZE;
+        if (out->hal_rate == 32000) {
+            // SampleRate:32k, 2 package 32ms data.
+            size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream)) + TUNNEL_SYNC_HEADER_SIZE*2;
+        } else {
+            size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream)) + TUNNEL_SYNC_HEADER_SIZE;
+        }
     } else {
         size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream));
     }
@@ -3898,6 +3908,9 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     ret = str_parms_get_int(parms, "connect", &val);
     if (ret >= 0) {
         set_device_connect_state(adev, parms, val, true);
+        if (val & AUDIO_DEVICE_OUT_HDMI_ARC) {
+            adev->raw_to_pcm_flag = true;
+        }
 
         if (adev->bHDMIConnected == 1) {
             aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
@@ -5517,7 +5530,13 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                         bytes = out_frames * 4;
                     }
                     if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-                        aml_audio_dump_audio_bitstreams("/data/audio/audio_spk.pcm", adev->out_16_buf, bytes);
+                        if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
+                            aml_audio_dump_audio_bitstreams("/data/audio/audio_spk.pcm", adev->out_16_buf, bytes);
+                        } else if (dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) {
+                            aml_audio_dump_audio_bitstreams("/data/audio/audio_headphone.pcm", adev->out_16_buf, bytes);
+                        } else {
+                           //do nothing.
+                        }
                     }
                 } else if (dev == AML_AUDIO_OUT_DEV_TYPE_SPDIF &&
                     check_chip_name("t7", 2, &adev->alsa_mixer)) {
@@ -8974,6 +8993,9 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
         {
             release_patch(aml_dev);
         }
+
+        /*for no patch case, we need to restore it*/
+        ret = adev_release_patch_restore_resource(aml_dev);
 
         if (aml_dev->patch_src != SRC_ATV && aml_dev->patch_src != SRC_DTV) {
             aml_dev->patch_src = SRC_INVAL;
