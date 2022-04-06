@@ -2864,7 +2864,9 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     }
 
                     pthread_mutex_unlock(&aml_dev->dtv_lock);
-                    if (dtv_audio_instances->demux_index_working == -1) {
+                    if (dtv_audio_instances->demux_index_working == -1 ||
+                        patch->output_thread_exit == 1 ||
+                        patch->ouput_thread_created == 0) {
                         usleep(5000);
                     }
                     continue;
