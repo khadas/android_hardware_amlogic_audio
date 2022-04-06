@@ -485,10 +485,12 @@ int aml_set_ms12_scheduler_state(struct dolby_ms12_desc *ms12)
 ******************************************************************************/
 int aml_audiohal_sch_state_2_ms12(struct dolby_ms12_desc *ms12, int sch_state)
 {
-    pthread_mutex_lock(&ms12->lock);
-    ms12->ms12_scheduler_state = sch_state;
-    aml_set_ms12_scheduler_state(ms12);
-    pthread_mutex_unlock(&ms12->lock);
+    if (ms12->dolby_ms12_enable) {
+        pthread_mutex_lock(&ms12->lock);
+        ms12->ms12_scheduler_state = sch_state;
+        aml_set_ms12_scheduler_state(ms12);
+        pthread_mutex_unlock(&ms12->lock);
+    }
 
     return 0;
 }
