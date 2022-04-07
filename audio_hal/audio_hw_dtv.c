@@ -344,11 +344,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
             if (val == 0) {
                 dtv_assoc_audio_cache(-1);
             }
-            if (adev->ad_switch_enable) {
-                adev->associate_audio_mixing_enable = val;
-            } else {
-                adev->associate_audio_mixing_enable = 0;
-           }
+            adev->associate_audio_mixing_enable = val;
             demux_info->associate_audio_mixing_enable = adev->associate_audio_mixing_enable;
             ALOGI("associate_audio_mixing_enable set to %d\n", adev->associate_audio_mixing_enable);
             break;
@@ -4156,7 +4152,7 @@ int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms)
     if (ret >= 0) {
         adev->ad_switch_enable = val;
         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_ENABLE, val);
-        ALOGI("ad_switch_enable set to %d\n", adev->associate_audio_mixing_enable);
+        ALOGI("ad_switch_enable set to %d\n", adev->ad_switch_enable);
         goto exit;
     }
 
