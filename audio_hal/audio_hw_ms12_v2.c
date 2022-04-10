@@ -3285,12 +3285,12 @@ int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_stat
         system_app_mixing_status = SYSTEM_APP_SOUND_MIXING_ON;
     }
 
+    adev->system_app_mixing_status = system_app_mixing_status;
+
     //when under continuous_audio_mode, system app sound mixing always on.
     if (adev->continuous_audio_mode) {
         system_app_mixing_status = SYSTEM_APP_SOUND_MIXING_ON;
     }
-
-    adev->system_app_mixing_status = system_app_mixing_status;
 
     if (adev->debug_flag) {
         ALOGI("%s stream-status %d set system-app-audio-mixing %d current %d continuous_audio_mode %d\n", __func__,
