@@ -1962,7 +1962,7 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
 
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         ret = aml_audio_get_ms12_presentation_position(stream, frames, timestamp);
-    } else if (eDolbyDcvLib == adev->dolby_lib_type) {
+    } else {
          bool is_audio_type_dolby = (adev->audio_type == EAC3 || adev->audio_type == AC3);
          bool is_hal_format_dolby = (out->hal_format == AUDIO_FORMAT_AC3 || out->hal_format == AUDIO_FORMAT_E_AC3);
          if (is_audio_type_dolby || is_hal_format_dolby) {
@@ -6917,7 +6917,7 @@ hwsync_rewrite:
     }
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         ret = aml_audio_ms12_render(stream, write_buf, write_bytes);
-    } else if (eDolbyDcvLib == adev->dolby_lib_type) {
+    } else {
         ret = aml_audio_nonms12_render(stream, write_buf, write_bytes);
     }
 
