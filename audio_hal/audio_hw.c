@@ -6781,7 +6781,7 @@ hwsync_rewrite:
             // fixed switch between RAW and PCM noise, drop delay residual data
             aml_audio_delay_clear(AML_DELAY_OUTPORT_SPDIF);
             aml_audio_delay_clear(AML_DELAY_OUTPORT_SPDIF_RAW);
-            aml_audio_delay_clear(AML_DELAY_OUTPORT_ARC_RAW);
+            aml_audio_delay_clear(AML_DELAY_OUTPORT_SPDIF_B_RAW);
             aml_audio_delay_clear(AML_DELAY_OUTPORT_ALL);
 #endif
             /* we need standy a2dp when switch the format, in order to prevent UNDERFLOW in a2dp stack. */
@@ -9111,7 +9111,7 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
     aml_audio_delay_clear(AML_DELAY_OUTPORT_SPEAKER);
     aml_audio_delay_clear(AML_DELAY_OUTPORT_SPDIF);
     aml_audio_delay_clear(AML_DELAY_OUTPORT_SPDIF_RAW);
-    aml_audio_delay_clear(AML_DELAY_OUTPORT_ARC_RAW);
+    aml_audio_delay_clear(AML_DELAY_OUTPORT_SPDIF_B_RAW);
     aml_audio_delay_clear(AML_DELAY_OUTPORT_ALL);
 #endif
 

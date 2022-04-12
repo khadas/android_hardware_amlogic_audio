@@ -497,15 +497,18 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
 
 #ifdef ADD_AUDIO_DELAY_INTERFACE
 
-    ALOGV("spdif/arc raw delay: format=0x%x", spdifout_phandle->audio_format);
+    ALOGV("spdif/arc raw delay: format=0x%x, sample rate=%d", spdifout_phandle->audio_format, spdifout_phandle->sample_rate);
     if (spdifout_phandle->audio_format == AUDIO_FORMAT_AC3) {
         aml_audio_delay_process(AML_DELAY_OUTPORT_SPDIF_RAW,
                 (void *) output_buffer, output_buffer_bytes, spdifout_phandle->audio_format, spdifout_phandle->sample_rate);
     } else if (spdifout_phandle->audio_format == AUDIO_FORMAT_E_AC3) {
-        aml_audio_delay_process(AML_DELAY_OUTPORT_ARC_RAW,
+        aml_audio_delay_process(AML_DELAY_OUTPORT_SPDIF_B_RAW,
+                (void *) output_buffer, output_buffer_bytes, spdifout_phandle->audio_format, spdifout_phandle->sample_rate);
+    } else if (spdifout_phandle->audio_format == AUDIO_FORMAT_MAT) {
+        aml_audio_delay_process(AML_DELAY_OUTPORT_SPDIF_B_RAW,
                 (void *) output_buffer, output_buffer_bytes, spdifout_phandle->audio_format, spdifout_phandle->sample_rate);
     } else {
-        ALOGV("Only support spdif/arc DD/DDP raw delay, format=0x%x", spdifout_phandle->audio_format);
+        ALOGV("Only support spdif/hdmi/arc DD/DDP/MAT raw delay, format=0x%x", spdifout_phandle->audio_format);
     }
 
 #endif

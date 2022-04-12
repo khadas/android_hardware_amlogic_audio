@@ -29,12 +29,12 @@ typedef struct AML_AUDIO_DELAY {
 
 
 typedef enum AML_AUDIO_DELAY_TYPE{
-    AML_DELAY_OUTPORT_SPEAKER           = 0,
-    AML_DELAY_OUTPORT_SPDIF             = 1,
-    AML_DELAY_OUTPORT_HEADPHONE         = 2,
-    AML_DELAY_OUTPORT_ALL               = 3,
-    AML_DELAY_OUTPORT_SPDIF_RAW         = 4,
-    AML_DELAY_OUTPORT_ARC_RAW           = 5,
+    AML_DELAY_OUTPORT_SPEAKER           = 0, // for speaker output pcm case
+    AML_DELAY_OUTPORT_SPDIF             = 1, // for spdif/hdmi output pcm case, note: spdif/spdif raw/spdif b raw use same delay value
+    AML_DELAY_OUTPORT_HEADPHONE         = 2, // for headphone output pcm case
+    AML_DELAY_OUTPORT_ALL               = 3, // for speaker/spdif/hdmi/headphone output pcm case
+    AML_DELAY_OUTPORT_SPDIF_RAW         = 4, // for spdif/hdmi output DD case, note: spdif/spdif raw/spdif b raw use same delay value
+    AML_DELAY_OUTPORT_SPDIF_B_RAW       = 5, // for hdmi/arc output DDP/MAT case, note: spdif/spdif raw/spdif b raw use same delay value
 
     AML_DELAY_OUTPORT_BUTT              = 6,
 } aml_audio_delay_type_e;

@@ -82,23 +82,30 @@ int aml_audio_delay_set_time(aml_audio_delay_type_e enAudioDelayType, int s32Del
             // calculate the max size for 8ch
             u32ChannelCnt = 8;
         }
-        s32BfferSize = 192 * u32ChannelCnt * 4 * g_u32OutDelayMaxDefault[enAudioDelayType];
+        s32BfferSize = 192 * u32ChannelCnt * 4 * g_u32OutDelayMaxDefault[enAudioDelayType]; // use max buffer size
         ring_buffer_init(&g_stAudioOutputDelay[enAudioDelayType].stDelayRbuffer, s32BfferSize);
         g_stAudioOutputDelay[enAudioDelayType].is_init_buffer = true;
 
         if (enAudioDelayType == AML_DELAY_OUTPORT_SPDIF) {
+            s32BfferSize = 48000 * 2 * 2 / 1000 * g_u32OutDelayMaxDefault[AML_DELAY_OUTPORT_SPDIF_RAW]; // use max buffer size
             ring_buffer_init(&g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF_RAW].stDelayRbuffer, s32BfferSize);
             g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF_RAW].is_init_buffer = true;
 
-            ring_buffer_init(&g_stAudioOutputDelay[AML_DELAY_OUTPORT_ARC_RAW].stDelayRbuffer, s32BfferSize);
-            g_stAudioOutputDelay[AML_DELAY_OUTPORT_ARC_RAW].is_init_buffer = true;
+            s32BfferSize = 192000 * 2 * 2 * 4 / 1000 * g_u32OutDelayMaxDefault[AML_DELAY_OUTPORT_SPDIF_B_RAW]; // use max buffer size for MAT
+            ring_buffer_init(&g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF_B_RAW].stDelayRbuffer, s32BfferSize);
+            g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF_B_RAW].is_init_buffer = true;
         }
     }
 
     g_stAudioOutputDelay[enAudioDelayType].delay_time = s32DelayTimeMs;
-    if (enAudioDelayType == AML_DELAY_OUTPORT_SPDIF) {
+
+    // spdif/spdif raw/spdif b raw use same delay value
+    if (enAudioDelayType == AML_DELAY_OUTPORT_SPDIF ||
+            enAudioDelayType == AML_DELAY_OUTPORT_SPDIF_RAW ||
+            enAudioDelayType == AML_DELAY_OUTPORT_SPDIF_B_RAW ) {
+        g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF].delay_time = s32DelayTimeMs;
         g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF_RAW].delay_time = s32DelayTimeMs;
-        g_stAudioOutputDelay[AML_DELAY_OUTPORT_ARC_RAW].delay_time = s32DelayTimeMs;
+        g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF_B_RAW].delay_time = s32DelayTimeMs;
     }
 
     if (g_stAudioOutputDelay[enAudioDelayType].delay_time == 0) {
@@ -110,8 +117,8 @@ int aml_audio_delay_set_time(aml_audio_delay_type_e enAudioDelayType, int s32Del
             ring_buffer_release(&g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF_RAW].stDelayRbuffer);
             g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF_RAW].is_init_buffer = false;
 
-            ring_buffer_release(&g_stAudioOutputDelay[AML_DELAY_OUTPORT_ARC_RAW].stDelayRbuffer);
-            g_stAudioOutputDelay[AML_DELAY_OUTPORT_ARC_RAW].is_init_buffer = false;
+            ring_buffer_release(&g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF_B_RAW].stDelayRbuffer);
+            g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF_B_RAW].is_init_buffer = false;
         }
     }
 
@@ -151,9 +158,13 @@ int aml_audio_delay_process(aml_audio_delay_type_e enAudioDelayType, void *pData
     }
 
     if (g_stAudioOutputDelay[enAudioDelayType].is_init_buffer == false ||
-            g_stAudioOutputDelay[enAudioDelayType].delay_time == 0)
-    {
+            g_stAudioOutputDelay[enAudioDelayType].delay_time == 0) {
         ALOGV("%s:%d delay type:%d, 0ms delay, do nothing", __func__, __LINE__, enAudioDelayType);
+        return 0;
+    }
+
+    if (s32Size == 0) {
+        ALOGV("%s:%d delay type:%d, 0byte size, do nothing", __func__, __LINE__, enAudioDelayType);
         return 0;
     }
 
@@ -163,9 +174,9 @@ int aml_audio_delay_process(aml_audio_delay_type_e enAudioDelayType, void *pData
 
     if (AML_DELAY_OUTPORT_ALL == enAudioDelayType) {
         if (enFormat == AUDIO_FORMAT_E_AC3) {
-            u32OneMsSize = 192 * 4;// * abs(adev->delay_ms);
+            u32OneMsSize = sample_rate * 2 * 2 * 4 / 1000; // sample_rate * 2ch * 2Byte * 4(high bit rate)
         } else if (enFormat == AUDIO_FORMAT_AC3) {
-            u32OneMsSize = 48 * 4;// * abs(adev->delay_ms);
+            u32OneMsSize = sample_rate * 2 * 2 / 1000; // sample_rate * 2ch * 2Byte
         } else {
             u32OneMsSize = sample_rate * 8 * 4 / 1000; // sample_rate * 8ch * 4Byte
         }
@@ -185,11 +196,19 @@ int aml_audio_delay_process(aml_audio_delay_type_e enAudioDelayType, void *pData
         } else {
             u32OneMsSize = sample_rate * 2 * 2 / 1000;  // sample_rate * 2ch * 2Byte
         }
-    } else if (AML_DELAY_OUTPORT_SPDIF_RAW == enAudioDelayType || AML_DELAY_OUTPORT_ARC_RAW == enAudioDelayType) {
+    } else if (AML_DELAY_OUTPORT_SPDIF_RAW == enAudioDelayType || AML_DELAY_OUTPORT_SPDIF_B_RAW == enAudioDelayType) {
         if (enFormat == AUDIO_FORMAT_AC3) {
-            u32OneMsSize = sample_rate * 2 * 2 / 1000;
+            u32OneMsSize = sample_rate * 2 * 2 / 1000; // sample_rate * 2ch * 2Byte
         } else if (enFormat == AUDIO_FORMAT_E_AC3) {
-            u32OneMsSize = sample_rate * 4 * 2 * 2 / 1000;
+            u32OneMsSize = sample_rate * 2 * 2 * 4 / 1000; // sample_rate * 2ch * 2Byte * 4(high bit rate)
+        } else if (enFormat == AUDIO_FORMAT_MAT) {
+            if (sample_rate == 44100 || sample_rate == 88200 || sample_rate == 176400) {
+                u32OneMsSize = 176400 * 2 * 2 * 4 / 1000; // 176400 * 2ch * 2Byte * 4(high bit rate)
+            } else if (sample_rate == 48000 || sample_rate == 96000 || sample_rate == 192000) {
+                u32OneMsSize = 192000 * 2 * 2 * 4 / 1000; // 192000 * 2ch * 2Byte * 4(high bit rate)
+            } else {
+                u32OneMsSize = 192000 * 2 * 2 * 4 / 1000; // 192000 * 2ch * 2Byte * 4(high bit rate)
+            }
         }
     }
 
