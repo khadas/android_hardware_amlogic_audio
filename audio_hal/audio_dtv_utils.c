@@ -290,7 +290,7 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, aml_d
             ALOGI("invalid status %d ", ad_status);
 
     }
-    ALOGV("main_pts %lld ad_pts %lld ad_status %d timems_diff %d", main_pts, ad_pts, ad_status, timems_diff);
+    ALOGV("main_pts %" PRId64 " ad_pts %" PRId64 " ad_status %d timems_diff %d", main_pts, ad_pts, ad_status, timems_diff);
 
     return ad_status;
 }

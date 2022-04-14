@@ -630,7 +630,7 @@ dtvsync_process_res  aml_dtvsync_nonms12_process(struct audio_stream_out *stream
                                 patch->dtvsync->cur_outapts,
                                 MEDIASYNC_UNIT_PTS, &m_audiopolicy);
         if (m_audiopolicy.audiopolicy != MEDIASYNC_AUDIO_NORMAL_OUTPUT)
-            ALOGI("do get m_audiopolicy=%d=%s, param1=%u, param2=%u, out_pts=0x%llx,cur=0x%llx,exit=%d\n",
+            ALOGI("do get m_audiopolicy=%d=%s, param1=%u, param2=%u, out_pts=0x%" PRIx64 ",cur=0x%" PRIx64 ",exit=%d\n",
                 m_audiopolicy.audiopolicy, mediasyncAudiopolicyType2Str(m_audiopolicy.audiopolicy),
                 m_audiopolicy.param1, m_audiopolicy.param2,
                 aml_dec->out_frame_pts, patch->dtvsync->cur_outapts,
@@ -688,7 +688,7 @@ void aml_dtvsync_ms12_get_policy(struct audio_stream_out *stream)
                                 MEDIASYNC_UNIT_PTS, &m_audiopolicy);
 
         if (m_audiopolicy.audiopolicy != MEDIASYNC_AUDIO_NORMAL_OUTPUT)
-            ALOGI("do get m_audiopolicy=%d=%s, param1=%u, param2=%u, out_pts=0x%llx,cur=0x%llx\n",
+            ALOGI("do get m_audiopolicy=%d=%s, param1=%u, param2=%u, out_pts=0x%" PRIx64 ",cur=0x%" PRIx64 "\n",
                 m_audiopolicy.audiopolicy, mediasyncAudiopolicyType2Str(m_audiopolicy.audiopolicy),
                 m_audiopolicy.param1, m_audiopolicy.param2,
                 patch->cur_package->pts, patch->dtvsync->cur_outapts);

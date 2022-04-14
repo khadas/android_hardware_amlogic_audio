@@ -23,6 +23,7 @@
 #include <cutils/log.h>
 #include <aml_volume_utils.h>
 #include <aml_android_utils.h>
+#include <inttypes.h>
 
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
@@ -203,7 +204,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
             }
             aml_dec->last_synced_frame_pts = -1;
             aml_dec->out_synced_frame_count = 0;
-            ALOGI("first_in_frame_pts  %lld ms" , aml_dec->first_in_frame_pts / 90);
+            ALOGI("first_in_frame_pts %" PRId64 " ms" , aml_dec->first_in_frame_pts / 90);
         }
         if (do_sync_flag) {
             if(patch->skip_amadec_flag) {
@@ -283,7 +284,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                         } else {
                            aml_dec->out_synced_frame_count++;
                            int actual_synced_frame_ms = timems + pre_zero_samples / (2 * (dec_pcm_data->data_sr / 1000));
-                           ALOGI("count %d out_frame_pts %lld ms decoder out syned frame at %d ms pre_zero_samples %d actual_synced_frame %d ms",
+                           ALOGI("count %d out_frame_pts %" PRId64 " ms decoder out syned frame at %d ms pre_zero_samples %d actual_synced_frame %d ms",
                                aml_dec->out_synced_frame_count, aml_dec->out_frame_pts / 90, timems, pre_zero_samples, actual_synced_frame_ms);
                            aml_dec->last_synced_frame_pts = aml_dec->out_frame_pts;
                         }
@@ -378,7 +379,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                             ALOGE("aml_audio_speed_process_wrapper failed");
                         } else {
 
-                            ALOGV("data_len=%d, speed_size=%d\n", pcm_len, aml_out->speed_handle->speed_size);
+                            ALOGV("data_len=%d, speed_size=%zu\n", pcm_len, aml_out->speed_handle->speed_size);
                             dec_data = aml_out->speed_handle->speed_buffer;
                             pcm_len = aml_out->speed_handle->speed_size;
                         }
