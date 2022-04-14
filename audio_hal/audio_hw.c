@@ -4537,11 +4537,11 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         adev_get_hal_control_volume_en(adev, temp_buf);
         return  strdup (temp_buf);
     } else if (!strcmp(keys, "SOURCE_GAIN")) {
-        sprintf(temp_buf, "source_gain = %f %f %f %f %f", adev->eq_data.s_gain.atv, adev->eq_data.s_gain.dtv,
-                adev->eq_data.s_gain.hdmi, adev->eq_data.s_gain.av, adev->eq_data.s_gain.media);
+        sprintf(temp_buf, "source_gain = %f %f %f %f %f", AmplToDb(adev->eq_data.s_gain.atv), AmplToDb(adev->eq_data.s_gain.dtv),
+                AmplToDb(adev->eq_data.s_gain.hdmi), AmplToDb(adev->eq_data.s_gain.av), AmplToDb(adev->eq_data.s_gain.media));
         return strdup(temp_buf);
     } else if (!strcmp(keys, "POST_GAIN")) {
-        sprintf(temp_buf, "post_gain = %f %f %f", adev->eq_data.p_gain.speaker, adev->eq_data.p_gain.spdif_arc,
+        sprintf(temp_buf, "post_gain = %f %f %f", AmplToDb(adev->eq_data.p_gain.speaker), AmplToDb(adev->eq_data.p_gain.spdif_arc),
                 adev->eq_data.p_gain.headphone);
         return strdup(temp_buf);
     } else if (strstr(keys, "dolby_ms12_enable")) {
