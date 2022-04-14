@@ -67,7 +67,7 @@ int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
         ms12_latencyms = ((ms12->ms12_main_input_size - inputnode_consumed ) / 4 + frames_generated - ms12->master_pcm_frames) / 48;
     }
     if (adev->debug_flag)
-        ALOGI("ms12_latencyms %d  ms12_main_input_size %lld inputnode_consumed %lld frames_generated %lld master_pcm_frames %lld",
+        ALOGI("ms12_latencyms %d  ms12_main_input_size %" PRId64 " inputnode_consumed %" PRId64 " frames_generated %" PRId64 " master_pcm_frames %" PRId64 "",
         ms12_latencyms, ms12->ms12_main_input_size, inputnode_consumed,frames_generated, ms12->master_pcm_frames);
     return ms12_latencyms;
 
@@ -344,7 +344,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                 decoder_offset -= decoder_base;
             }
             if (adev->debug_flag) {
-                ALOGI("%s dolby pts %llu decoder_base =%llu decoder_offset =%llu", __func__, patch->cur_package->pts, decoder_base, decoder_offset);
+                ALOGI("%s dolby pts %" PRIu64 " decoder_base =%" PRIu64 " decoder_offset =%" PRIu64 "", __func__, patch->cur_package->pts, decoder_base, decoder_offset);
             }
             set_ms12_main_audio_pts(ms12, patch->cur_package->pts, decoder_offset);
             /* to init the pts information */
@@ -440,7 +440,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                         if(patch->skip_amadec_flag) {
                             patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90 + force_setting_delayms * 90;//need consider the alsa delay
                             if (adev->debug_flag)
-                                ALOGI("patch->dtvsync->cur_outapts %lld", patch->dtvsync->cur_outapts);
+                                ALOGI("patch->dtvsync->cur_outapts %" PRId64 "", patch->dtvsync->cur_outapts);
                             if (aml_out->dtvsync_enable)
                                 aml_dtvsync_ms12_get_policy(stream);
                         }

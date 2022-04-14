@@ -165,7 +165,7 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
         frame_nums = (patch->outlen_after_last_validpts / (DEFAULT_DATA_WIDTH * DEFAULT_CHANNELS));
         pts += (frame_nums * 90 / DEFAULT_SAMPLERATE);
         if (aml_audio_get_debug_flag()) {
-            ALOGI("decode_offset:%lld out_pcm:%d   pts:%lx,audec->last_valid_pts %lx\n",
+            ALOGI("decode_offset:%" PRId64 " out_pcm:%d   pts:%lx,audec->last_valid_pts %lx\n",
                    patch->decoder_offset, patch->outlen_after_last_validpts, pts, patch->last_valid_pts);
         }
         patch->cur_outapts = pts;
@@ -176,7 +176,7 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
     patch->last_valid_pts = val;
     patch->outlen_after_last_validpts = 0;
     if (aml_audio_get_debug_flag()) {
-        ALOGI("====get pts:%lx offset:%lld lan %d, origin:apts:%lx \n",
+        ALOGI("====get pts:%lx offset:%" PRId64 " lan %d, origin:apts:%lx \n",
                val, patch->decoder_offset, lantcy, pts);
     }
     patch->cur_outapts = val;
@@ -384,7 +384,7 @@ void dtv_adjust_output_clock(struct aml_audio_patch * patch, int direct, int ste
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) adev;
     bool spdif_b = dual;
     if (aml_audio_get_debug_flag())
-        ALOGI("dtv_adjust_output_clock not set,%llx,%x",patch->decoder_offset,patch->dtv_pcm_readed);
+        ALOGI("dtv_adjust_output_clock not set,%" PRIx64 ",%x",patch->decoder_offset,patch->dtv_pcm_readed);
     if (!aml_dev || step <= 0) {
         return;
     }
@@ -569,15 +569,15 @@ static void dtv_av_pts_info(struct aml_audio_patch *patch, unsigned int apts, un
         clock_gettime(CLOCK_MONOTONIC, &patch->last_debug_record);
         // add calc to judge audio,video or pcr error.
         if (patch->last_apts_record != 0) {
-            ALOGI("dtv_av_info, apts:0x%x, last_record=0x%x,apts diff:%lld ms, time_const=%d ms\n",
+            ALOGI("dtv_av_info, apts:0x%x, last_record=0x%x,apts diff:%" PRId64 " ms, time_const=%d ms\n",
                 apts, patch->last_apts_record, (int64_t)(apts - patch->last_apts_record) / 90, time_cost_ms);
         }
         if (patch->last_pcrpts_record != 0) {
-            ALOGI("dtv_av_info, pcrpts:0x%x, last_record=0x%x,pcr diff:%lld ms, time_const=%d ms\n",
+            ALOGI("dtv_av_info, pcrpts:0x%x, last_record=0x%x,pcr diff:%" PRId64 " ms, time_const=%d ms\n",
                 pcrpts, patch->last_pcrpts_record, (int64_t)(pcrpts - patch->last_pcrpts_record) / 90, time_cost_ms);
         }
         if (patch->last_vpts_record != 0) {
-            ALOGI("dtv_av_info, cur_vpts:0x%x, last_record=0x%x,vpts diff:%lld ms, time_const=%d ms\n",
+            ALOGI("dtv_av_info, cur_vpts:0x%x, last_record=0x%x,vpts diff:%" PRId64 " ms, time_const=%d ms\n",
                 cur_vpts, patch->last_vpts_record, (int64_t)(cur_vpts - patch->last_vpts_record) / 90, time_cost_ms);
         }
         patch->last_apts_record = apts;

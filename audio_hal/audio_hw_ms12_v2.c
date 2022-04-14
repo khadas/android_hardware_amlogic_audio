@@ -3071,7 +3071,7 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
                 aml_dtvsync->out_end_apts) > (int64_t)(ms12_total_delay_pts + MILLISECOND_2_PTS * 32 * 5)) {
                 aml_dtvsync->out_start_apts = patch->cur_package->pts - ms12_total_delay_pts;
                 if (adev->debug_flag) {
-                    ALOGI("%s update out_start_apts, package_pts, %llx, out_end_apts %llx, diff %d ms", __FUNCTION__, patch->cur_package->pts,
+                    ALOGI("%s update out_start_apts, package_pts, %" PRIx64 ", out_end_apts %" PRIx64 ", diff %d ms", __FUNCTION__, patch->cur_package->pts,
                         aml_dtvsync->out_end_apts, (int)(patch->cur_package->pts - aml_dtvsync->out_end_apts) / 90);
                 }
             } else {
@@ -3088,9 +3088,9 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
 
         if (patch->cur_package && adev->debug_flag) {
             uint64_t pts_diff = patch->cur_package->pts / 90 - ms12_main_apts / 90;
-            ALOGI("%s package pts(ms) %" PRIu64 " ms12_main_apts(ms) %" PRIu64 " diff =%" PRId64 " pcm-duration(ms)%u cur_outapts(ms) %" PRIu64 ", alsa_latency(ms) %d ms12_tuing_delay_pts(ms) %d\n",
+            ALOGI("%s package pts(ms) %" PRIu64 " ms12_main_apts(ms) %" PRIu64 " diff =%" PRId64 " pcm-duration(ms)%zu cur_outapts(ms) %" PRIu64 ", alsa_latency(ms) %d ms12_tuing_delay_pts(ms) %d\n",
                 __func__, patch->cur_package->pts / 90, ms12_main_apts / 90, pts_diff, cur_pcm_pts / 90 , aml_dtvsync->cur_outapts / 90, alsa_latency / 90, ms12_tuing_delay_pts / 90);
-            ALOGI("%s package pts %" PRIx64 " ms12_main_apts %" PRIx64 " pcm-duration %x cur_outapts %" PRIx64 ", alsa_latency %x ms12_tuing_delay_pts %x start-pts %" PRIx64 " end-pts %" PRIx64 "\n",
+            ALOGI("%s package pts %" PRIx64 " ms12_main_apts %" PRIu64 " pcm-duration %zx cur_outapts %" PRIx64 ", alsa_latency %x ms12_tuing_delay_pts %x start-pts %" PRIx64 " end-pts %" PRIx64 "\n",
                 __func__, patch->cur_package->pts, ms12_main_apts, cur_pcm_pts, aml_dtvsync->cur_outapts, alsa_latency, ms12_tuing_delay_pts, aml_dtvsync->out_start_apts, aml_dtvsync->out_end_apts);
 
         }
