@@ -7525,7 +7525,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         pthread_mutex_lock(&adev->patch_lock);
 #ifdef ENABLE_DVB_PATCH
         if (adev->audio_patch && adev->audio_patch->is_dtv_src) {
-            if (adev->audio_patch->ouput_thread_created) {
+            if (adev->audio_patch->output_thread_created) {
                 release_dtv_patch_l(adev);
             } else {
                 ALOGW("dtv has not started yet !!!");

@@ -2866,7 +2866,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     pthread_mutex_unlock(&aml_dev->dtv_lock);
                     if (dtv_audio_instances->demux_index_working == -1 ||
                         patch->output_thread_exit == 1 ||
-                        patch->ouput_thread_created == 0) {
+                        patch->output_thread_created == 0) {
                         usleep(5000);
                     }
                     continue;
@@ -3626,9 +3626,9 @@ static int create_dtv_output_stream_thread(struct aml_audio_patch *patch)
 {
     int ret = 0;
     struct aml_audio_device *adev = (struct aml_audio_device *)patch->dev;
-    ALOGI("++%s   ---- %d\n", __FUNCTION__, patch->ouput_thread_created);
+    ALOGI("++%s   ---- %d\n", __FUNCTION__, patch->output_thread_created);
 
-    if (patch->ouput_thread_created == 0) {
+    if (patch->output_thread_created == 0) {
         patch->output_thread_exit = 0;
         pthread_mutex_init(&patch->dtv_output_mutex, NULL);
         patch->dtv_replay_flag = true;
@@ -3652,7 +3652,7 @@ static int create_dtv_output_stream_thread(struct aml_audio_patch *patch)
             }
         }
 
-        patch->ouput_thread_created = 1;
+        patch->output_thread_created = 1;
     }
     ALOGI("--%s", __FUNCTION__);
     return 0;
@@ -3661,12 +3661,12 @@ static int create_dtv_output_stream_thread(struct aml_audio_patch *patch)
 static int release_dtv_output_stream_thread(struct aml_audio_patch *patch)
 {
     int ret = 0;
-    ALOGI("++%s   ---- %d\n", __FUNCTION__, patch->ouput_thread_created);
-    if (patch->ouput_thread_created == 1) {
+    ALOGI("++%s   ---- %d\n", __FUNCTION__, patch->output_thread_created);
+    if (patch->output_thread_created == 1) {
         patch->output_thread_exit = 1;
         pthread_join(patch->audio_output_threadID, NULL);
         pthread_mutex_destroy(&patch->dtv_output_mutex);
-        patch->ouput_thread_created = 0;
+        patch->output_thread_created = 0;
     }
     ALOGI("--%s", __FUNCTION__);
     return 0;
