@@ -548,19 +548,30 @@ int dtv_patch_get_latency(struct aml_audio_device *aml_dev)
     if (patch == NULL ) {
         ALOGI("dtv patch == NULL");
         return -1;
+    } else {
+         if (patch->output_thread_exit && (patch->output_thread_created = 0)) {
+             return -1;
+         }
     }
     int latencyms = 0;
     int64_t last_queue_es_apts = 0;
     if (aml_dev->is_multi_demux) {
-        if (Get_Audio_LastES_Apts(patch->demux_handle, &last_queue_es_apts) == 0) {
-             ALOGI("last_queue_es_apts %" PRId64 ,last_queue_es_apts);
-             patch->last_chenkin_apts = last_queue_es_apts;
+        if (patch->demux_handle)  {
+             if (Get_Audio_LastES_Apts(patch->demux_handle, &last_queue_es_apts) == 0) {
+                 ALOGV("last_queue_es_apts %lld",last_queue_es_apts);
+                 patch->last_chenkin_apts = last_queue_es_apts;
+             }
         }
+
         ALOGV("lastcheckinapts %d patch->cur_outapts %d ", patch->last_chenkin_apts, patch->cur_outapts);
         if (patch->last_chenkin_apts != 0xffffffff) {
             if (patch->skip_amadec_flag) {
-                if (patch->dtvsync->cur_outapts > 0 && patch->last_chenkin_apts - patch->dtvsync->cur_outapts)
-                    latencyms = (patch->last_chenkin_apts - patch->dtvsync->cur_outapts) / 90;
+                if (patch->dtvsync) {
+                    if (patch->dtvsync->cur_outapts > 0 && patch->last_chenkin_apts - patch->dtvsync->cur_outapts)
+                        latencyms = (patch->last_chenkin_apts - patch->dtvsync->cur_outapts) / 90;
+                } else {
+                    ALOGV("patch->dtvsync NULL");
+                }
             } else {
                 if (patch->cur_outapts > 0 && patch->last_chenkin_apts > patch->cur_outapts)
                     latencyms = (patch->last_chenkin_apts - patch->cur_outapts) / 90;
