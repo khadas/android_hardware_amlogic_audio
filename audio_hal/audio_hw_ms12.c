@@ -2322,8 +2322,6 @@ int dap_pcm_output_l(void *buffer, void *priv_data, size_t size)
 
     if (is_dolbyms12_dap_enable(aml_out)) {
         ms12_output_master(buffer, priv_data, size, output_format);
-        /* update the master pcm frame, which is used for av sync */
-        ms12->master_pcm_frames += size / (2 * 2);
     } else
         return ret;
     if (adev->debug_flag > 1) {
@@ -2343,10 +2341,6 @@ int stereo_pcm_output_l(void *buffer, void *priv_data, size_t size)
     int ret = 0;
 
     ret = stereo_pcm_output(buffer, priv_data, size, NULL);
-    /* update the master pcm frame, which is used for av sync */
-    if (!is_dolbyms12_dap_enable(aml_out)) {
-        ms12->master_pcm_frames += size / (2 * 2);
-    }
     return ret;
 }
 
