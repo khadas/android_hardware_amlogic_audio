@@ -7366,8 +7366,8 @@ int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby)
 ** waiting define all kinds of cases about standby/running in pulic version,
 ** then enable it.
 **/
-#if 0
-        if (0 == aml_dev->usecase_masks) {
+#if 1
+        if (0 == aml_dev->usecase_masks && aml_dev->is_TV) {
             // send the SCHEDULER_STANDBY to ms12.
             aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_STANDBY);
         } else {
