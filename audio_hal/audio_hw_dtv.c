@@ -558,7 +558,7 @@ int dtv_patch_get_latency(struct aml_audio_device *aml_dev)
     if (aml_dev->is_multi_demux) {
         if (patch->demux_handle)  {
              if (Get_Audio_LastES_Apts(patch->demux_handle, &last_queue_es_apts) == 0) {
-                 ALOGV("last_queue_es_apts %lld",last_queue_es_apts);
+                 ALOGV("last_queue_es_apts %" PRId64,last_queue_es_apts);
                  patch->last_chenkin_apts = last_queue_es_apts;
              }
         }
