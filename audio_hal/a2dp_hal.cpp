@@ -421,7 +421,6 @@ static ssize_t a2dp_out_data_process(aml_a2dp_hal *hal, audio_config_base_t *con
 }
 
 static ssize_t a2dp_out_write_l(struct aml_audio_device *adev, audio_config_base_t *config, const void* buffer, size_t bytes) {
-    pthread_mutex_lock(&adev->a2dp_lock);
     aml_a2dp_hal *hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
     int wr_size = 0;
     const void *wr_buff = NULL;
@@ -435,26 +434,26 @@ static ssize_t a2dp_out_write_l(struct aml_audio_device *adev, audio_config_base
         if (adev->debug_flag) {
             AM_LOGW("a2dp_hal is null pointer");
         }
-        goto exit;
+        return bytes;
     }
 
     cur_frames = a2dp_in_data_process(hal, config, buffer, bytes);
     if (cur_frames < 0) {
-        goto exit;
+        return bytes;
     }
 
     if (!a2dp_state_process(adev, config, cur_frames)) {
-        goto exit;
+        return bytes;
     }
 
     resample_frames = a2dp_data_resample_process(hal, config, buffer, cur_frames, &wr_buff);
     if (resample_frames < 0) {
-        goto exit;
+        return bytes;
     }
 
     wr_size = a2dp_out_data_process(hal, config, wr_buff, resample_frames, &wr_buff);
     if (wr_size == 0) {
-        goto exit;
+        return bytes;
     }
 
     if (adev->patch_src == SRC_DTV && adev->parental_control_av_mute) {
@@ -472,9 +471,6 @@ static ssize_t a2dp_out_write_l(struct aml_audio_device *adev, audio_config_base
             break;
         }
     }
-
-exit:
-    pthread_mutex_unlock(&adev->a2dp_lock);
     return bytes;
 }
 
@@ -493,6 +489,7 @@ ssize_t a2dp_out_write(struct aml_audio_device *adev, audio_config_base_t *confi
     R_CHECK_POINTER_LEGAL(-1, buffer, "");
 
     uint32_t written_size = 0;
+    pthread_mutex_lock(&adev->a2dp_lock);
     while (bytes > written_size) {
         uint32_t remain_size = bytes - written_size;
         size_t sent = remain_size;
@@ -503,6 +500,7 @@ ssize_t a2dp_out_write(struct aml_audio_device *adev, audio_config_base_t *confi
         AM_LOGV("written_size:%d, remain_size:%d, sent:%zu", written_size, remain_size, sent);
         written_size += sent;
     }
+    pthread_mutex_unlock(&adev->a2dp_lock);
     return written_size;
 }
 

@@ -56,7 +56,7 @@ int open_btSCO_device(struct aml_audio_device *adev, size_t frames)
     int ret = 0;
 
     if (bt->active) {
-        AM_LOGW("Alread has been opened.");
+        AM_LOGW("Already has been opened.");
         return 0;
     }
 
@@ -211,13 +211,12 @@ ssize_t write_to_sco(struct aml_audio_device *adev, audio_config_base_t *config,
                 bt->resampler_in_frames * frame_size);
         }
     }
-
+    pthread_mutex_lock(&bt->lock);
     if (bt->pcm_bt) {
-        pthread_mutex_lock(&bt->lock);
         pcm_write(bt->pcm_bt, bt->bt_out_buffer, out_frames * frame_size);
-        pthread_mutex_unlock(&bt->lock);
         dump_output_data(bt, bt->bt_out_buffer, out_frames * frame_size);
     }
+    pthread_mutex_unlock(&bt->lock);
     return bytes;
 }
 
