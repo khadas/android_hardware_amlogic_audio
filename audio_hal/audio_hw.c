@@ -3629,20 +3629,19 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 }
 
 static int aml_audio_output_routing(struct audio_hw_device *dev,
-                                    enum OUT_PORT outport,
+                                    enum OUT_PORT cur_outport,
                                     bool user_setting)
 {
     struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
+    enum OUT_PORT pre_outport = aml_dev->active_outport;
 
-    if (aml_dev->active_outport != outport) {
-        ALOGI("%s: switch from %s to %s", __func__,
-            outputPort2Str(aml_dev->active_outport), outputPort2Str(outport));
-
+    if (pre_outport != cur_outport) {
+        AM_LOGI("switch from %s to %s", outputPort2Str(pre_outport), outputPort2Str(cur_outport));
         /* switch off the active output */
-        switch (aml_dev->active_outport) {
+        switch (pre_outport) {
         case OUTPORT_SPEAKER:
             /*for BDS,speaker/hdmitx output at the same time */
-            if (!(aml_dev->is_BDS && outport == OUTPORT_HDMI))
+            if (!(aml_dev->is_BDS && cur_outport == OUTPORT_HDMI))
                 audio_route_apply_path(aml_dev->ar, "speaker_off");
             break;
         case OUTPORT_HDMI_ARC:
@@ -3658,12 +3657,12 @@ static int aml_audio_output_routing(struct audio_hw_device *dev,
             close_btSCO_device(aml_dev);
             break;
         default:
-            ALOGW("%s: pre active_outport:%d unsupport", __func__, aml_dev->active_outport);
+            ALOGW("%s: pre active_outport:%d unsupport", __func__, pre_outport);
             break;
         }
 
         /* switch on the new output */
-        switch (outport) {
+        switch (cur_outport) {
         case OUTPORT_SPEAKER:
             if (!aml_dev->speaker_mute)
                 audio_route_apply_path(aml_dev->ar, "speaker");
@@ -3685,16 +3684,23 @@ static int aml_audio_output_routing(struct audio_hw_device *dev,
         case OUTPORT_BT_SCO_HEADSET:
             break;
         default:
-            ALOGW("%s: cur outport:%d unsupport", __func__, outport);
+            ALOGW("%s: cur outport:%d unsupport", __func__, cur_outport);
             break;
         }
 
         audio_route_update_mixer(aml_dev->ar);
-        aml_dev->active_outport = outport;
-        if (outport == OUTPORT_HDMI_ARC) {
+        aml_dev->active_outport = cur_outport;
+        if (cur_outport == OUTPORT_HDMI_ARC) {
             aml_dev->arc_connected_reconfig = true;
         }
-    } else if (outport == OUTPORT_SPEAKER && user_setting) {
+        /* Standby a2dp must wait for the active_outport variable to change. because in case the
+         * active_outport variable has not changed, a2dp is already standby and may trigger resume
+         * via the a2dp_out_write function next time.
+         */
+        if (pre_outport == OUTPORT_A2DP) {
+            a2dp_out_standby(aml_dev);
+        }
+    } else if (cur_outport == OUTPORT_SPEAKER && user_setting) {
         /* In this case, user toggle the speaker_mute menu */
         if (aml_dev->speaker_mute)
             audio_route_apply_path(aml_dev->ar, "speaker_off");
@@ -3702,7 +3708,7 @@ static int aml_audio_output_routing(struct audio_hw_device *dev,
             audio_route_apply_path(aml_dev->ar, "speaker");
         audio_route_update_mixer(aml_dev->ar);
     } else {
-        ALOGI("%s: outport %s already exists, do nothing", __func__, outputPort2Str(outport));
+        ALOGI("%s: outport %s already exists, do nothing", __func__, outputPort2Str(cur_outport));
     }
 
     return 0;
@@ -4239,11 +4245,16 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     ret = str_parms_get_str(parms, "bt_wbs", value, sizeof(value));
     if (ret >= 0) {
         ALOGI("Amlogic_HAL - %s: bt_wbs=%s.", __func__, value);
-        if (strncmp(value, "on", 2) == 0)
-            adev->bt_wbs = true;
-        else
-            adev->bt_wbs = false;
-
+        adev->bt_wbs = (strncmp(value, "on", 2) == 0);
+        /* 1. Re-pcm_open input is required when setting bt_wbs param, re-configure the sample rate based on the bt_wbs.
+         * 2. eg: first read IN_BLUETOOTH_SCO_HEADSET data, then set bt_wbs=true, and finally play OUT_BLUETOOTH_SCO.
+         *    pcm_open input PCM will use 8khz, pcm_open output PCM use 16khz. The sample rate of the input and output
+         *    of PCM arc inconsistent, resulting in a pcm_open output failure.
+         */
+        struct aml_stream_in * in = adev->active_input;
+        if (in && (in->device & AUDIO_DEVICE_IN_ALL_SCO)) {
+           in_standby((struct audio_stream *)in);
+        }
         goto exit;
     }
 
@@ -4745,6 +4756,9 @@ int add_in_stream_resampler(struct aml_stream_in *in)
     if (in->requested_rate == in->config.rate)
         return 0;
 
+    if (in->buffer) {
+        aml_audio_free(in->buffer);
+    }
     in->buffer = aml_audio_calloc(1, in->config.period_size * audio_stream_in_frame_size(&in->stream));
     if (!in->buffer) {
         ret = -ENOMEM;
