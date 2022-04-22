@@ -824,6 +824,7 @@ static void* audio_type_parse_threadloop(void *data)
     }
 
     audio_type_parse_release(audio_type_status);
+    enable_HW_resample(audio_type_status->mixer_handle, HW_RESAMPLE_DISABLE);
 
     ALOGI("Exit thread loop for audio type parse!\n");
     return ((void *) 0);

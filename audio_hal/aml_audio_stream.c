@@ -1298,7 +1298,8 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
     int current_channel = get_hdmiin_channel(&aml_dev->alsa_mixer);
 
     is_channel_changed = ((current_channel > 0) && last_channel_count != current_channel);
-    is_audio_packet_changed = ((cur_audio_packet != AUDIO_PACKET_NONE) && (last_audio_packet != cur_audio_packet));
+    is_audio_packet_changed = (((cur_audio_packet == AUDIO_PACKET_AUDS) || (cur_audio_packet == AUDIO_PACKET_HBR)) &&
+                               (last_audio_packet != cur_audio_packet));
     //reconfig input stream and buffer when HBR and AUDS audio switching or channel num changed
     if ((is_channel_changed) || is_audio_packet_changed) {
         int period_size = 0;
