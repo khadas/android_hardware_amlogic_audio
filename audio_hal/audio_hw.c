@@ -7628,6 +7628,16 @@ ssize_t out_write_new(struct audio_stream_out *stream,
             get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
             adev->doing_reinit_ms12 = true;
         }
+
+        if (adev->ms12.dolby_ms12_enable) {
+            /*the main format is not matched with current one*/
+            if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)
+                && (audio_is_linear_pcm(adev->ms12.main_input_fmt))) {
+                ALOGI("main format is not match reset ms12");
+                get_dolby_ms12_cleanup(&adev->ms12, true);
+                adev->doing_reinit_ms12 = true;
+            }
+        }
     }
 
 
