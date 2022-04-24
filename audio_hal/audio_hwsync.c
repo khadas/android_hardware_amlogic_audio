@@ -689,7 +689,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     } else {
 
         ALOGE("%s,================first_apts_flag:%d, apts:%" PRIu64 ", latency_pts:%d\n", __func__, p_hwsync->first_apts_flag, apts, latency_pts);
-        if (p_hwsync->first_apts_flag == false && offset > 0 && (apts >= latency_pts)) {
+        if (p_hwsync->first_apts_flag == false && offset > 0 && ((latency_pts < 0) || (apts >= latency_pts))) {
             ALOGI("%s apts = 0x%" PRIx64 " (%" PRIu64 " ms) latency=0x%x (%d ms)", __FUNCTION__, apts, apts / 90, latency_pts, latency_pts/90);
             ALOGI("%s aml_audio_hwsync_set_first_pts = 0x%" PRIx64 " (%" PRIx64 " ms)", __FUNCTION__, apts - latency_pts, (apts - latency_pts)/90);
             if (p_hwsync->use_mediasync) {
