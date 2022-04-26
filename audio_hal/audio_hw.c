@@ -179,7 +179,6 @@
 /* this latency is from logcat time. */
 #define HAL_MS12_PIPELINE_LATENCY (10)
 
-#define DISABLE_CONTINUOUS_OUTPUT "persist.vendor.audio.continuous.disable"
 /* Maximum string length in audio hal. */
 #define AUDIO_HAL_CHAR_MAX_LEN                          (256)
 
@@ -3895,10 +3894,21 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 
     ret = str_parms_get_str (parms, "screen_state", value, sizeof (value) );
     if (ret >= 0) {
+        int continuous_audio_mode = 0;
         if (strcmp (value, AUDIO_PARAMETER_VALUE_ON) == 0) {
             adev->low_power = false;
+            continuous_audio_mode = adev->continuous_audio_mode_backup;
+            pthread_cond_broadcast(&adev->wake_cond);
+            ALOGI("%s : %s pthread_cond_broadcast", __func__, kvpairs);
         } else {
             adev->low_power = true;
+            adev->continuous_audio_mode_backup = adev->continuous_audio_mode;
+            continuous_audio_mode = 0;
+        }
+
+        ALOGI("%s : %s continuous_audio_mode(%d) dolby_lib_type(%d)", __func__, kvpairs, continuous_audio_mode, adev->dolby_lib_type);
+        if (eDolbyMS12Lib == adev->dolby_lib_type) {
+            set_continuous_audio_mode(adev, continuous_audio_mode, 1);
         }
         goto exit;
     }

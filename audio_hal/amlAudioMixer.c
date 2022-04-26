@@ -1174,6 +1174,7 @@ static void *mixer_32b_threadloop(void *data)
 {
     struct amlAudioMixer *audio_mixer = data;
     int ret = 0;
+    struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
 
     AM_LOGI("++start");
 
@@ -1181,6 +1182,12 @@ static void *mixer_32b_threadloop(void *data)
     prctl(PR_SET_NAME, "amlAudioMixer32");
     aml_audio_set_cpu23_affinity();
     while (!audio_mixer->exit_thread) {
+        if (adev->low_power) {
+            ALOGI("%s(), low_power mode, wait forever (line %d)", __func__, __LINE__);
+            pthread_cond_wait(&adev->wake_cond, &adev->wake_lock);
+            ALOGI("%s(), system resume,  wakeup (line %d)", __func__, __LINE__);
+        }
+
         //pthread_mutex_lock(&audio_mixer->lock);
         //mixer_procs_msg_queue(audio_mixer);
         // processing throttle
@@ -1234,6 +1241,7 @@ static void *mixer_16b_threadloop(void *data)
 {
     struct amlAudioMixer        *audio_mixer = data;
     struct audio_virtual_buf    *pstVirtualBuffer = NULL;
+    struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
 
     AM_LOGI("begin create thread");
     if (audio_mixer->mixing_enable == 0) {
@@ -1251,6 +1259,12 @@ static void *mixer_16b_threadloop(void *data)
                     MIXER_WRITE_PERIOD_TIME_NANO * 4, MIXER_WRITE_PERIOD_TIME_NANO * 4, 0, 0);
             audio_virtual_buf_process((void *)pstVirtualBuffer, MIXER_WRITE_PERIOD_TIME_NANO * 4);
         }
+        if (adev->low_power) {
+            ALOGI("%s(), low_power mode, wait forever (line %d)", __func__, __LINE__);
+            pthread_cond_wait(&adev->wake_cond, &adev->wake_lock);
+            ALOGI("%s(), system resume,  wakeup (line %d)", __func__, __LINE__);
+        }
+
         pthread_mutex_lock(&audio_mixer->lock);
         mixer_inports_read(audio_mixer);
         pthread_mutex_unlock(&audio_mixer->lock);

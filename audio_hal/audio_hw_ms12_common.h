@@ -38,6 +38,8 @@
 //delay time ms
 #define AML_TIMER_DELAY     (3000)
 
+#define DISABLE_CONTINUOUS_OUTPUT "persist.vendor.audio.continuous.disable"
+
 /*
  *@brief define enum for MS12 message type
  */
@@ -105,5 +107,6 @@ int aml_send_ms12_scheduler_state_2_ms12(void);
 int aml_audio_timer_delete(void);
 bool is_ad_data_available(int digital_audio_format);
 
+void set_continuous_audio_mode(struct aml_audio_device *adev, int enable, int is_suspend);
 
 #endif //end of _AUDIO_HW_MS12_COMMON_H_

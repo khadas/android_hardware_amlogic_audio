@@ -576,3 +576,76 @@ bool is_ad_data_available(int digital_audio_format)
     }
 }
 
+
+/*****************************************************************************
+*   Function Name:  set_continuous_audio_mode
+*   Description:    set continuous_audio_mode for audio hal
+*   Parameters:     struct aml_audio_device : audio hw pointer
+*                   int : enable/disable continuous_audio_mode
+*                   int : is suspend(resume) case
+*   Return value:   void
+******************************************************************************/
+void set_continuous_audio_mode(struct aml_audio_device *adev, int enable, int is_suspend)
+{
+    int ret = 0;
+    int disable_continuous = !enable;
+
+    // if exit netflix, we need disable atmos lock
+    if (disable_continuous) {
+        adev->atoms_lock_flag = false;
+        set_ms12_atmos_lock(&(adev->ms12), adev->atoms_lock_flag);
+        ALOGI("exit netflix, set atmos lock as 0");
+    }
+    {
+        bool acmod2ch_lock = !enable;
+        //when in netflix, we should always keep ddp5.1, exit netflix we can output ddp2ch
+        set_ms12_acmod2ch_lock(&(adev->ms12), acmod2ch_lock);
+    }
+
+    ALOGI("%s ignore the continuous_audio_mode!\n", __func__ );
+    adev->is_netflix = enable;
+    /*in netflix case, we enable atmos drop at the beginning*/
+    dolby_ms12_enable_atmos_drop(enable);
+
+    // Early suspend case, need to response right now.
+    if (is_suspend) {
+        ALOGI("%s continuous_audio_mode set to %d\n", __func__ , enable);
+        char buf[PROPERTY_VALUE_MAX] = {0};
+        ret = property_get(DISABLE_CONTINUOUS_OUTPUT, buf, NULL);
+        if (ret > 0) {
+            sscanf(buf, "%d", &disable_continuous);
+            ALOGI("%s[%s] disable_continuous %d\n", DISABLE_CONTINUOUS_OUTPUT, buf, disable_continuous);
+        }
+        pthread_mutex_lock(&adev->lock);
+        if (continous_mode(adev) && disable_continuous) {
+            // If the Netflix application is terminated, your platform must disable Atmos locking.
+            // For more information, see When to enable/disable Atmos lock.
+            // The following Netflix application state transition scenarios apply (state definitions described in Always Ready):
+            // Running->Not Running
+            // Not Running->Running
+            // Hidden->Visible
+            // Visible->Hidden
+            // Application crash / abnormal shutdown
+           if (eDolbyMS12Lib == adev->dolby_lib_type) {
+                adev->atoms_lock_flag = 0;
+                dolby_ms12_set_atmos_lock_flag(adev->atoms_lock_flag);
+            }
+
+            ALOGI("%s Dolby MS12 is at continuous output mode, here go to end it!\n", __FUNCTION__);
+            bool set_ms12_non_continuous = true;
+            get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
+            //ALOGI("[%s:%d] get_dolby_ms12_cleanup\n", __FUNCTION__, __LINE__);
+            adev->exiting_ms12 = 1;
+            clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
+            if (adev->active_outputs[STREAM_PCM_NORMAL] != NULL)
+                usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
+            //continuous_stream_do_standby(adev);
+        } else {
+            if ((!disable_continuous) && !continous_mode(adev)) {
+                adev->mix_init_flag = false;
+                adev->continuous_audio_mode = 1;
+            }
+        }
+        pthread_mutex_unlock(&adev->lock);
+    }
+}
