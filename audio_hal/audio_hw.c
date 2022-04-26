@@ -4615,6 +4615,10 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         sprintf(temp_buf, "hal_param_get_earctx_attend_type=%d", type);
         ALOGD("temp_buf %s", temp_buf);
         return strdup(temp_buf);
+    } else if (strstr (keys, "ms12_version") ) {
+        sprintf(temp_buf, "ms12_version=%d", adev->support_ms12_version);
+        ALOGD("temp_buf %s", temp_buf);
+        return strdup(temp_buf);
     }
 
     return strdup("");
