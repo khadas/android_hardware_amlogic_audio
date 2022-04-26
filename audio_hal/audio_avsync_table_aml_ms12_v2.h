@@ -392,7 +392,9 @@
 #define  AVSYNC_MS12_DTV_AC4_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.dtv.ac4"
 
 /* for passthrough(bypass) mode */
-#define  AVSYNC_MS12_DTV_BYPASS_LATENCY                 (-90) /* if set 0, range is [48 ~ 82] */
+/* if use (-90), DDP passthrough, its target is [-100, 0], result is -120 ~ -167*/
+/* so, set it as (-5), DDP passthrough result is -44 ~ -90*/
+#define  AVSYNC_MS12_DTV_BYPASS_LATENCY                 (-5)
 
 #define  AVSYNC_MS12_DTV_BYPASS_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.dtv.bypass"
 
