@@ -3501,7 +3501,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
                 adev->ms12_ott_enable = false;
                 ALOGI("%s set ott dummy", __func__);
             }
-            if (out->ms12_acmod2ch_lock_disable) {
+            if (out->ms12_acmod2ch_lock_disable && !adev->is_netflix) {
                 set_ms12_acmod2ch_lock(&adev->ms12, true);
             }
             adev->ms12.need_ms12_resume = false;
@@ -6827,10 +6827,10 @@ hwsync_rewrite:
             pthread_mutex_lock(&adev->lock);
             dolby_ms12_set_main_dummy(0, false);
             adev->ms12_main1_dolby_dummy = false;
-            if (!adev->is_netflix) {
-                set_ms12_acmod2ch_lock(&adev->ms12, false);
-                aml_out->ms12_acmod2ch_lock_disable = true;
-            }
+            /*when input is dolby stream, we don't need use acmod 2ch lock*/
+            set_ms12_acmod2ch_lock(&adev->ms12, false);
+            aml_out->ms12_acmod2ch_lock_disable = true;
+
             pthread_mutex_unlock(&adev->lock);
             pthread_mutex_lock(&adev->trans_lock);
             ms12_out->hal_internal_format = aml_out->hal_internal_format;
