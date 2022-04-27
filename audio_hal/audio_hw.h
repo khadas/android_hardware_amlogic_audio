@@ -150,6 +150,8 @@ enum audio_hal_format {
     TYPE_TRUE_HD_ATMOS_PROMPT_ON_ATMOS = 18,
     TYPE_MAT_ATMOS_PROMPT_ON_ATMOS = 19,
     TYPE_AC4_ATMOS_PROMPT_ON_ATMOS = 20,
+    TYPE_AAC  = 21,
+    TYPE_HEAAC = 22,
 };
 
 #define FRAMESIZE_16BIT_STEREO 4
@@ -883,7 +885,10 @@ static inline int dolby_stream_active(struct aml_audio_device *adev)
             || out->hal_internal_format == AUDIO_FORMAT_E_AC3
             || out->hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD
             || out->hal_internal_format == AUDIO_FORMAT_AC4
-            || out->hal_internal_format == AUDIO_FORMAT_MAT)) {
+            || out->hal_internal_format == AUDIO_FORMAT_MAT
+            || out->hal_internal_format == AUDIO_FORMAT_AAC
+            || out->hal_internal_format == AUDIO_FORMAT_HE_AAC_V1
+            || out->hal_internal_format == AUDIO_FORMAT_HE_AAC_V2)) {
             is_dolby = 1;
             break;
         }

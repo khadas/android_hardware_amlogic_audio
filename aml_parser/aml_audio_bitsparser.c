@@ -38,6 +38,7 @@ bool static inline fillReservoir(struct audio_bit_parser * bit_parser)
 
     bit_parser->num_bitsleft = 8 * i;
     bit_parser->num_reservoir <<= 32 - bit_parser->num_bitsleft;
+    ALOGV("%s num_bitsleft %d num_reservoir %x\n", __FUNCTION__, bit_parser->num_bitsleft, bit_parser->num_reservoir);
     return true;
 }
 
@@ -63,11 +64,12 @@ bool static inline getBitsGraceful(struct audio_bit_parser * bit_parser, size_t 
         result = (result << m) | (bit_parser->num_reservoir >> (32 - m));
         bit_parser->num_reservoir <<= m;
         bit_parser->num_bitsleft -= m;
+        ALOGV("%s num_bitsleft %d num_reservoir %x\n", __FUNCTION__, bit_parser->num_bitsleft, bit_parser->num_reservoir);
 
         n -= m;
     }
-
     *out = result;
+    ALOGV("%s n %d *out 0x%x\n", __FUNCTION__, n, *out);
     return true;
 }
 
@@ -142,6 +144,69 @@ void aml_audio_bitparser_putBits(struct audio_bit_parser * bit_parser, uint32_t 
     bit_parser->num_reservoir = (bit_parser->num_reservoir >> n) | (x << (32 - n));
     bit_parser->num_bitsleft += n;
     return;
+}
+
+void aml_audio_bitparser_readBits_to_buffer(struct audio_bit_parser * bit_parser, char *buffer, int offset, int numBits)
+{
+    // Whole bytes.
+    int to = offset + (numBits >> 3) /* numBits / 8 */;
+    int byteOffset = bit_parser->num_bitsleft >> 3;
+    int bitOffset = bit_parser->num_bitsleft & 7;
+    char *data = (char *)bit_parser->data_buf;
+    for (int i = offset; i < to; i++) {
+        buffer[i] = (data[byteOffset++] << bitOffset);
+        buffer[i] = (buffer[i] | ((data[byteOffset] & 0xFF) >> (8 - bitOffset)));
+    }
+    // Trailing bits.
+    int bitsLeft = numBits & 7 /* numBits % 8 */;
+    if (bitsLeft == 0) {
+        return;
+    }
+    // Set bits that are going to be overwritten to 0.
+    buffer[to] = (char) (buffer[to] & (0xFF >> bitsLeft));
+    if (bitOffset + bitsLeft > 8) {
+        // We read the rest of data[byteOffset] and increase byteOffset.
+        buffer[to] = (char) (buffer[to] | ((data[byteOffset++] & 0xFF) << bitOffset));
+        bitOffset -= 8;
+    }
+    bitOffset += bitsLeft;
+    int lastDataByteTrailingBits = (data[byteOffset] & 0xFF) >> (8 - bitOffset);
+    buffer[to] |= (char) (lastDataByteTrailingBits << (8 - bitsLeft));
+    if (bitOffset == 8) {
+        bitOffset = 0;
+        byteOffset++;
+    }
+    //assertValidOffset();
+}
+
+
+/**
+ * Returns the number of bits yet to be read.
+ */
+int aml_audio_bitparser_bitsLeft(struct audio_bit_parser * bit_parser) {
+    //return (byteLimit - byteOffset) * 8 - bitOffset;
+    return bit_parser->data_size * 8 - bit_parser->num_bitsleft;
+}
+
+/**
+ * Returns the current bit offset.
+ */
+int aml_audio_bitparser_getPosition(struct audio_bit_parser * bit_parser) {
+    //return byteOffset * 8 + bitOffset;
+    return bit_parser->num_bitsleft;
+}
+
+
+/**
+ * Sets the current bit offset.
+ *
+ * @param position The position to set.
+ */
+void aml_audio_bitparser_setPosition(struct audio_bit_parser * bit_parser, int position) {
+    //byteOffset = position / 8;
+    //bitOffset = position - (byteOffset * 8);
+    //assertValidOffset();
+    bit_parser->num_bitsleft = position;
 }
 
 

@@ -100,7 +100,11 @@ int aml_ms12_config(struct dolby_ms12_desc *ms12_desc
     if (get_audio_app_format() == AUDIO_FORMAT_PCM_16_BIT && is_dolby_ms12_continuous_mode()) {
         dolby_ms12_config_params_set_app_flag(true);
     }
-    if ((get_audio_associate_format() == AUDIO_FORMAT_AC3) || (get_audio_associate_format() == AUDIO_FORMAT_E_AC3)) {
+    if ((get_audio_associate_format() == AUDIO_FORMAT_AC3) ||
+        (get_audio_associate_format() == AUDIO_FORMAT_E_AC3) ||
+        (get_audio_associate_format() == AUDIO_FORMAT_MAT) ||
+        (get_audio_associate_format() == AUDIO_FORMAT_HE_AAC_V1) ||
+        (get_audio_associate_format() == AUDIO_FORMAT_HE_AAC_V2)) {
         dolby_ms12_config_params_set_associate_flag(true);
     }
 

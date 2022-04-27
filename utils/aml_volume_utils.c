@@ -75,6 +75,117 @@ void apply_volume(float volume, void *buf, int sample_size, int bytes)
     return;
 }
 
+const float msmix_pes_pan_LEFT_RIGHT[43] = {
+  (0.5000000000f),
+  (0.4996503524f),
+  (0.4986018986f),
+  (0.4968561049f),
+  (0.4944154131f),
+  (0.4912832366f),
+  (0.4874639561f),
+  (0.4829629131f),
+  (0.4777864029f),
+  (0.4719416652f),
+  (0.4654368743f),
+  (0.4582811279f),
+  (0.4504844340f),
+  (0.4420576968f),
+  (0.4330127019f),
+  (0.4233620996f),
+  (0.4131193872f),
+  (0.4022988899f),
+  (0.3909157412f),
+  (0.3789858616f),
+  (0.3665259359f),
+  (0.3535533906f),
+  (0.3400863689f),
+  (0.3261437056f),
+  (0.3117449009f),
+  (0.2969100928f),
+  (0.2816600290f),
+  (0.2660160383f),
+  (0.2500000000f),
+  (0.2336343141f),
+  (0.2169418696f),
+  (0.1999460122f),
+  (0.1826705122f),
+  (0.1651395310f),
+  (0.1473775872f),
+  (0.1294095226f),
+  (0.1112604670f),
+  (0.0929558036f),
+  (0.0745211331f),
+  (0.0559822381f),
+  (0.0373650468f),
+  (0.0186955971f),
+  (0.0000000000f)
+};
+
+
+void get_left_right_volume(unsigned char panByte,float* left_volume,float* right_volume)
+{
+    #define PAN_ONE    1.0f
+    #define PAN_ZERO   (0)     /**< Factor when no panning is applied. */
+    #define PAN_M3DB   0.707106769f /**< 3dB <=> 1/sqrt(2) */
+    *left_volume  = PAN_M3DB;
+    *right_volume = PAN_M3DB;
+    if ((panByte>0) && (panByte <= 0xff))
+    {
+     if ((panByte < 21)) {
+         * left_volume = (msmix_pes_pan_LEFT_RIGHT[42-(21-panByte)]);
+         * right_volume = (msmix_pes_pan_LEFT_RIGHT[21-panByte]);
+     } else if ((panByte >= 21) && (panByte <= 127)) {
+         * right_volume = PAN_ONE;
+     } else if ((panByte >= 128) && (panByte <= 234)) {
+         * left_volume = PAN_ONE;
+     } else if ((panByte >= 235) && (panByte <= 255)) {
+         * left_volume = (msmix_pes_pan_LEFT_RIGHT[panByte-235]);
+         * right_volume = (msmix_pes_pan_LEFT_RIGHT[42-(panByte-235)]);
+     }
+    }
+}
+
+void apply_volume_pan(unsigned char panByte, void *buf, int sample_size, int bytes)
+{
+    int16_t *input16 = (int16_t *)buf;
+    int32_t *input32 = (int32_t *)buf;
+    unsigned int i = 0;
+    float left_volume;
+    float right_volume;
+    if ((panByte <= 0)|| (panByte > 0xFF))
+    {
+        return ;
+    }
+    get_left_right_volume(panByte,&left_volume,&right_volume);
+    if (sample_size == 2) {
+        for (i = 0; i < bytes / sizeof(int16_t); i++) {
+            int32_t samp = (int32_t)(input16[i]);
+            if (0 == i%2)
+            {
+                input16[i] = clamp16((int32_t)(left_volume * samp));
+            }
+            else
+            {
+                input16[i] = clamp16((int32_t)(right_volume * samp));
+            }
+        }
+    } else if (sample_size == 4) {
+        for (i = 0; i < bytes / sizeof(int32_t); i++) {
+            int64_t samp = (int64_t)(input32[i]);
+            if (0 == i%2)
+            {
+                input32[i] = clamp32((int64_t)(left_volume * samp));
+            }
+            else
+            {
+                input32[i] = clamp32((int64_t)(right_volume * samp));
+            }
+        }
+    } else {
+        ALOGE("%s, unsupported audio format: %d!\n", __FUNCTION__, sample_size);
+    }
+    return;
+}
 void apply_volume_16to32(float volume, int16_t *in_buf, int32_t *out_buf, int bytes)
 {
     int16_t *input16 = (int16_t *)in_buf;
@@ -179,6 +290,30 @@ int volume2Ms12DBGain(float inVol)
 
     iMS12DB = (int)(fTargetDB - 0.5);
     return iMS12DB;
+}
+static signed int jj=0;
+static signed short sine_tone_data[108] = {
+    514,988,1443,1917,2359,2821,3246,3684,4091,4499,4881,5254,5606,5941,6257,6549,
+    6824,7069,7300,7498,7679,7828,7956,8054,8126,8173,8189,8183,8146,8085,7993,7879,
+    7735,7569,7375,7159,6916,6653,6367,6059,5733,5385,5021,4639,4245,3833,3411,2976,
+    2532,2080,1619,1156,686,216,-257,-727,-1196,-1661,-2120,-2571,-3015,-3448,-3871,-4280,
+    -4675,-5055,-5415,-5763,-6088,-6394,-6677,-6940,-7179,-7394,-7584,-7750,-7890,-8004,-8092,-8151,
+    -8185,-8191,-8171,-8123,-8048,-7947,-7819,-7664,-7484,-7280,-7051,-6801,-6526,-6231,-5913,-5578,
+    -5223,-4851,-4463,-4061,-3644,-3215,-2777,-2328,-1873,-1411,-944,-473
+};
+
+void apply_tone_16bit2ch(unsigned char* buf, int datalen)
+{
+    int ii =0;
+    for (ii=0;ii< datalen;) {
+        signed short *pL = &buf[ii];
+        signed short *pR = pL + 1;
+        *pL = sine_tone_data[jj];
+        *pR = sine_tone_data[jj];
+        ii += 4;
+        jj += 1;
+        jj = jj % 108;
+    }
 }
 
 /*

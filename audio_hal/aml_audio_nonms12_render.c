@@ -481,10 +481,10 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
 #ifdef ENABLE_DVB_PATCH
     if (dtv_stream_flag) {
-        aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
-        if (demux_info && demux_info->dual_decoder_support == 0)
-            patch->decoder_offset +=return_bytes;
-    }
+         aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
+         if (demux_info && demux_info->dual_decoder_support == 0)
+             patch->decoder_offset +=return_bytes;
+     }
 #endif
     return return_bytes;
 }

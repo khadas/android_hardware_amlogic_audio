@@ -71,14 +71,14 @@ int aml_getprop_int(const char *path)
 /*
 * Linux Sys Fs Set/Get Interface
 */
-int aml_sysfs_get_int (const char *path)
+unsigned long aml_sysfs_get_int (const char *path)
 {
-	int val = 0;
+	unsigned long val = 0;
 	int fd = open (path, O_RDONLY);
 	if (fd >= 0) {
-		char bcmd[16];
+		char bcmd[24];
 		read (fd, bcmd, sizeof (bcmd));
-		val = strtol (bcmd, NULL, 10);
+		val = strtoul (bcmd, NULL, 0);
 		close (fd);
 	} else {
 		ALOGE("%s: open %s node failed! return 0, err: %s\n", __func__, path, strerror(errno));

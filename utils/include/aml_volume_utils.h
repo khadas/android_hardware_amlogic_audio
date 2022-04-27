@@ -41,8 +41,10 @@ static inline float AmplToDb(float amplification)
 float get_volume_by_index(int volume_index);
 int volume2Ms12DBGain(float inVol);
 void apply_volume(float volume, void *buf, int sample_size, int bytes);
+void apply_volume_pan(unsigned char panByte, void *buf, int sample_size, int bytes);
 void apply_volume_16to32(float volume, int16_t *in_buf, int32_t *out_buf, int bytes);
 void apply_volume_fade(float last_volume, float volume, void *buf, int sample_size, int channels, int bytes);
+void apply_tone_16bit2ch(unsigned char* buf, int datalen);
 int volume2Ms12DapPostgain(float inVol);
 
 #endif

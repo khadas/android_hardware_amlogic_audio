@@ -5852,10 +5852,19 @@ ssize_t hw_write (struct audio_stream_out *stream
         ALOGI("+%s() buffer %p bytes %zu, format %#x out %p hw_sync_mode %d\n",
             __func__, buffer, bytes, output_format, aml_out, aml_out->hw_sync_mode);
     }
-    if (patch && !patch->skip_amadec_flag) {
+    if (patch && !adev->is_multi_demux) {
         if (is_dtv && need_hw_mix(adev->usecase_masks)) {
         if (adev->audio_patch->avsync_callback && aml_out->dtvsync_enable)
             adev->audio_patch->avsync_callback(adev->audio_patch,aml_out);
+        }
+        if (patch->skip_amadec_flag) {
+            if (patch->dtv_apts_lookup >= 0 && !patch->pcm_inserting)  {
+                if (adev->is_TV) {
+                    patch->outlen_after_last_validpts += (bytes / 8);
+                } else {
+                    patch->outlen_after_last_validpts += bytes;
+                }
+            }
         }
     }
 
@@ -6246,7 +6255,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
 
     /*get sink format*/
     get_sink_format (stream);
-    ALOGI("%s() aml_out:%p  adev->dolby_lib_type = %d", __FUNCTION__, aml_out, adev->dolby_lib_type);
+    ALOGI("%s() patch %p aml_out:%p hal_internal_format %#x adev->dolby_lib_type = %d reset_decoder %d", __FUNCTION__, patch, aml_out, aml_out->hal_internal_format, adev->dolby_lib_type, reset_decoder);
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         bool is_compatible = false;
         bool is_direct_pcm = is_direct_stream_and_pcm_format(aml_out);
@@ -6351,7 +6360,10 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                 adev->ms12_ott_enable = ott_input;
                 /*AC4 does not support -ui (OTT sound) */
                 dolby_ms12_set_ott_sound_input_enable(aformat != AUDIO_FORMAT_AC4);
-                dolby_ms12_set_dolby_main1_as_dummy_file(aformat != AUDIO_FORMAT_AC4);
+                dolby_ms12_set_dolby_main1_as_dummy_file((aformat != AUDIO_FORMAT_AC4) &&
+                    (aformat != AUDIO_FORMAT_AAC) &&
+                    (aformat != AUDIO_FORMAT_HE_AAC_V1) &&
+                    (aformat != AUDIO_FORMAT_HE_AAC_V2));
             }
             ring_buffer_reset(&adev->spk_tuning_rbuf);
             adev->ms12.is_continuous_paused = false;
@@ -7739,7 +7751,6 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     }
 #endif
 #endif
-
 
     if (aml_audio_trace_debug_level() > 0) {
         if (false == aml_out->pause_status  &&  aml_out->write_count < 1) {

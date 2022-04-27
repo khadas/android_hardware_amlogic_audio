@@ -34,6 +34,21 @@ int aml_audio_bitparser_getBits(struct audio_bit_parser * bit_parser, size_t n);
 
 bool aml_audio_bitparser_skipBits(struct audio_bit_parser * bit_parser, size_t n);
 
+void aml_audio_bitparser_readBits_to_buffer(struct audio_bit_parser * bit_parser, char *buffer, int offset, int numBits);
+
+int aml_audio_bitparser_bitsLeft(struct audio_bit_parser * bit_parser);
+
+/**
+ * Returns the current bit offset.
+ */
+int aml_audio_bitparser_getPosition(struct audio_bit_parser * bit_parser);
+
+/**
+ * Sets the current bit offset.
+ *
+ * @param position The position to set.
+ */
+void aml_audio_bitparser_setPosition(struct audio_bit_parser * bit_parser, int position);
 
 
 #endif

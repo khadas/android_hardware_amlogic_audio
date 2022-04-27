@@ -205,17 +205,16 @@ int dtv_patch_cmd_is_empty(struct cmd_node *dtv_cmd_list)
 
 AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, aml_demux_audiopara_t *demux_info)
 {
-    int timems_diff = llabs(main_pts - ad_pts) / 90;
 
-    if (timems_diff > AD_PACK_STATUS_UNNORMAL_THRESHOLD_MS) {
-        ALOGI("timems_diff %d it is impossible so drop ad data ", timems_diff);
-        return AD_PACK_STATUS_DROP;
-    }
     AD_PACK_STATUS_T ad_status = demux_info->ad_package_status;
+    if (demux_info->ad_package_status == -1) {
+       ad_status = AD_PACK_STATUS_NORMAL;
+    }
     int drop_threshold_ms,drop_start_threshold_ms,hold_start_threshold_ms,hold_threshold_ms;
     bool is_dolby_format = (demux_info->main_fmt == ACODEC_FMT_AC3 ||
                             demux_info->main_fmt == ACODEC_FMT_EAC3||
-                            demux_info->main_fmt == ACODEC_FMT_AC4);
+                            demux_info->main_fmt == ACODEC_FMT_AC4 ||
+                             demux_info->main_fmt == ACODEC_FMT_AAC_LATM);
 
     if (is_dolby_format) {
        drop_threshold_ms = AD_PACK_STATUS_DROP_THRESHOLD_MS;
@@ -228,6 +227,18 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, aml_d
        hold_threshold_ms = NON_DOLBY_AD_PACK_STATUS_HOLD_THRESHOLD_MS;
        hold_start_threshold_ms = NON_DOLBY_AD_PACK_STATUS_HOLD_START_THRESHOLD_MS;
 
+    }
+
+    int timems_diff = llabs(main_pts - ad_pts) / 90;
+
+    if (timems_diff > AD_PACK_STATUS_UNNORMAL_THRESHOLD_MS) {
+        if (is_dolby_format) {
+            ALOGI("timems_diff %d it is impossible so drop", timems_diff);
+            return AD_PACK_STATUS_DROP;
+        } else {
+            ALOGI("timems_diff %d it is impossible so do not check", timems_diff);
+            return AD_PACK_STATUS_NORMAL;
+        }
     }
     switch(ad_status) {
         case AD_PACK_STATUS_NORMAL:
@@ -258,7 +269,7 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, aml_d
                     ALOGI("main and ad timems_diff %d ms  need drop ", timems_diff);
                     ad_status = AD_PACK_STATUS_DROP;
                 } else {
-                    ad_status = AD_PACK_STATUS_NORMAL;
+                    ad_status = AD_PACK_STATUS_HOLD;
                 }
 
             } else {
@@ -266,7 +277,11 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, aml_d
                 if (timems_diff > hold_threshold_ms) {
                     ad_status = AD_PACK_STATUS_HOLD;
                 } else {
-                    ad_status = AD_PACK_STATUS_NORMAL;
+                    if (timems_diff < hold_start_threshold_ms) {
+                        ad_status = AD_PACK_STATUS_NORMAL;
+                    } else {
+                        ad_status = AD_PACK_STATUS_HOLD;
+                    }
                 }
             }
             break;

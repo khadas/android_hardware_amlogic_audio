@@ -5,6 +5,8 @@
     (fmt == ACODEC_FMT_MPEG) || (fmt == ACODEC_FMT_MPEG1) || \
     (fmt == ACODEC_FMT_MPEG2) || (fmt == ACODEC_FMT_AAC) || (fmt == ACODEC_FMT_AAC_LATM))
 
+#define VALID_AD_FMT_UK(fmt)  ((fmt == ACODEC_FMT_MPEG) || (fmt == ACODEC_FMT_MPEG1) || \
+    (fmt == ACODEC_FMT_MPEG2) || (fmt == ACODEC_FMT_AAC) || (fmt == ACODEC_FMT_AAC_LATM))
 #define  DVB_DEMUX_ID_BASE 20
 #define DVB_DEMUX_SUPPORT_MAX_NUM 6
 
@@ -39,6 +41,8 @@ typedef struct aml_demux__audiopara {
     struct mAudioEsDataInfo *mEsData;
     struct mAudioEsDataInfo *mADEsData;
     struct package *dtv_package;
+    uint8_t ad_fade;
+    uint8_t ad_pan;
 } aml_demux_audiopara_t;
 
 
@@ -53,6 +57,10 @@ typedef enum {
     DTVSYNC_AUDIO_ADJUST_CLOCK,
 } dtvsync_policy;
 
+typedef enum {
+    DTVSYNC_TSYNC = 0,
+    DTVSYNC_MEDIASYNC,
+} dtvsync_type_t;
 
 typedef enum {
    DTV_AUDIO_PATCH = 0,
@@ -81,6 +89,8 @@ typedef struct  aml_dtvsync {
     int pcm_dropping;
     int duration;
     pthread_mutex_t ms_lock;
+	dtvsync_type_t sync_type;
+	uint64_t last_package_pts;
 } aml_dtvsync_t;
 
 
@@ -92,6 +102,8 @@ typedef struct aml_dtv_audio_instances {
     aml_demux_audiopara_t demux_info[DVB_DEMUX_SUPPORT_MAX_NUM];
     aml_dtvsync_t dtvsync[DVB_DEMUX_SUPPORT_MAX_NUM];
     dtv_audio_scene dtv_scene;
+	int uio_fd;
+	bool skip_amadec_flag;
 } aml_dtv_audio_instances_t;
 
 struct mAudioEsDataInfo {
@@ -99,13 +111,15 @@ struct mAudioEsDataInfo {
     int size;
     int64_t pts;
     int used_size;
+    uint8_t adfade;
+    uint8_t adpan;
 };
 AM_Dmx_Audio_ErrorCode_t Open_Dmx_Audio (void **demux_handle, int  demux_id, int security_mem_level);
 AM_Dmx_Audio_ErrorCode_t Init_Dmx_Main_Audio(void *demux_handle, int fmt, int pid);
 AM_Dmx_Audio_ErrorCode_t Stop_Dmx_Main_Audio(void *demux_handle);
 AM_Dmx_Audio_ErrorCode_t Start_Dmx_Main_Audio(void *demux_handle);
 AM_Dmx_Audio_ErrorCode_t Destroy_Dmx_Main_Audio(void *demux_handle);
-AM_Dmx_Audio_ErrorCode_t Init_Dmx_AD_Audio(void *demux_handle, int fmt, int pid);
+AM_Dmx_Audio_ErrorCode_t Init_Dmx_AD_Audio(void *demux_handle, int fmt, int pid, int pesmode);
 AM_Dmx_Audio_ErrorCode_t Stop_Dmx_AD_Audio(void *demux_handle);
 AM_Dmx_Audio_ErrorCode_t Start_Dmx_AD_Audio(void *demux_handle);
 AM_Dmx_Audio_ErrorCode_t Destroy_Dmx_AD_Audio(void *demux_handle);
@@ -113,5 +127,5 @@ AM_Dmx_Audio_ErrorCode_t Close_Dmx_Audio(void *demux_handle);
 AM_Dmx_Audio_ErrorCode_t Get_MainAudio_Es(void *demux_handle, struct mAudioEsDataInfo  **mAudioEsData);
 AM_Dmx_Audio_ErrorCode_t Get_ADAudio_Es(void *demux_handle, struct mAudioEsDataInfo  **mAudioEsData);
 AM_Dmx_Audio_ErrorCode_t Get_Audio_LastES_Apts(void *demux_handle , int64_t *last_queue_es_apts);
-
+AM_Dmx_Audio_ErrorCode_t Flush_Dmx_Audio(void *demux_handle);
 #endif

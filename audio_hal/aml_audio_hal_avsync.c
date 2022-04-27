@@ -61,6 +61,7 @@
 #include <audio_dtv_sync.h>
 #include "aml_audio_report.h"
 #include "aml_audio_sysfs.h"
+static struct timespec start_time;
 
 unsigned long decoder_apts_lookup(unsigned int offset)
 {
@@ -125,6 +126,140 @@ void set_video_delay(int delay_ms)
     }
     return;
 }
+ int dtv_set_audio_latency(int apts_diff)
+{
+    int ret, diff = 0;
+    char buff[32];
+
+    /*[SE][BUG][SWPL-14828][chengshun.wang] add property
+     * to set start latency
+     */
+    int audio_latency = DEMUX_PCR_APTS_LATENCY;
+    int delay_ms = property_get_int32("vendor.media.audio.latencyms", 300);
+    if (delay_ms * 90 > audio_latency) {
+        audio_latency = delay_ms * 90;
+    }
+
+    if (apts_diff == 0) {
+        ret = aml_sysfs_get_str(TSYNC_APTS_DIFF, buff, sizeof(buff));
+        if (ret > 0) {
+            ret = sscanf(buff, "%d\n", &diff);
+        }
+        if (diff > DECODER_PTS_DEFAULT_LATENCY) {
+            diff = DECODER_PTS_DEFAULT_LATENCY;
+        }
+        apts_diff = diff;
+    }
+    ALOGI("dtv_set_audio_latency: audio_latency=%d, apts_diff=%d", audio_latency, apts_diff);
+
+    if (apts_diff < audio_latency && apts_diff > 0) {
+        decoder_set_latency(audio_latency - apts_diff);
+    } else {
+        decoder_set_latency(audio_latency);
+    }
+    return apts_diff;
+}
+
+ bool dtv_firstapts_lookup_over(struct aml_audio_patch *patch, struct aml_audio_device *aml_dev, bool a_discontinue, int *apts_diff)
+{
+    char buff[32];
+    int ret;
+    unsigned int first_checkinapts = 0xffffffff;
+    unsigned int last_checkinapts = 0xffffffff;
+    unsigned int last_checkinvpts = 0xffffffff;
+    unsigned int first_checkinvpts = 0xffffffff;
+    unsigned int cur_vpts = 0xffffffff;
+    unsigned int first_vpts = 0xffffffff;
+    unsigned int demux_pcr = 0xffffffff;
+    unsigned int pcr_inited = 0;
+    int first_checkin_av_diff = 0;
+    int first_out_av_diff = 0;
+
+    if (!patch || !aml_dev) {
+        return true;
+    }
+
+    if (dtv_get_tsync_mode() == TSYNC_MODE_PCRMASTER && get_dtv_pcr_sync_mode() == 0) {
+        ret = get_sysfs_uint(TSYNC_PCR_INITED, &pcr_inited);
+        if (ret == 0 && pcr_inited != 0) {
+            ALOGI("pcr_already inited=0x%x\n", pcr_inited);
+        } else {
+            ALOGI("ret = %d, pcr_inited=%x\n",ret, pcr_inited);
+            return false;
+        }
+    }
+    patch->tsync_mode = dtv_get_tsync_mode();
+    get_sysfs_uint(TSYNC_PCRSCR, &demux_pcr);
+
+    if (a_discontinue) {
+        get_sysfs_uint(TSYNC_LAST_DISCONTINUE_CHECKIN_APTS, &first_checkinapts);
+    } else {
+        get_sysfs_uint(TSYNC_FIRSTCHECKIN_APTS, &first_checkinapts);
+    }
+
+    if (get_tsync_pcr_debug()) {
+        get_sysfs_uint(TSYNC_FIRSTCHECKIN_VPTS, &first_checkinvpts);
+        get_sysfs_uint(TSYNC_FIRST_VPTS, &first_vpts);
+        get_sysfs_uint(TSYNC_LAST_CHECKIN_APTS, &last_checkinapts);
+        get_sysfs_uint(TSYNC_LAST_CHECKIN_VPTS, &last_checkinvpts);
+        first_checkin_av_diff = (int)(first_checkinapts - first_checkinvpts) / 90;
+        first_out_av_diff = (int)(first_checkinapts - first_vpts) / 90;
+        ALOGI("demux_pcr %x first_checkinapts %x,last_checkinapts=%x,first_checkinvpts=%x,first_vpts:0x%x(has_video:%d),"
+               " last_checkinvpts=%x, discontinue %d, apts_diff=%d, first_checkin_av_diff: %d ms, first_out_av_diff: %d ms",\
+               demux_pcr, first_checkinapts, last_checkinapts, first_checkinvpts, first_vpts, patch->dtv_has_video,\
+               last_checkinvpts, a_discontinue, *apts_diff, first_checkin_av_diff, first_out_av_diff);
+    }
+
+    if (dtv_get_tsync_mode() == TSYNC_MODE_AMASTER) {
+       unsigned int videostarted = 0;
+       struct timespec curtime;
+       int costtime_ms = 0;
+       int timeout = property_get_int32("vendor.media.audio.timecostms", 3000);
+
+       clock_gettime(CLOCK_MONOTONIC, &curtime);
+       costtime_ms = calc_time_interval_us(&start_time, &curtime) / 1000;
+       get_sysfs_uint(TSYNC_VIDEO_STARTED, &videostarted);
+       ALOGI("videostarted:%d , costtime:%d.", videostarted, costtime_ms);
+
+       if (patch->dtv_has_video && videostarted == 0 && costtime_ms < timeout) {
+           ALOGI("videostarted is 0.");
+           return false;
+       } else
+           return true;
+    }
+
+    if ((first_checkinapts != 0xffffffff) && (demux_pcr != 0xffffffff)) {
+        if (demux_pcr == 0 && first_checkinapts != 0 && last_checkinapts != 0) {
+            ALOGI("demux pcr not set, wait, tsync_mode=%d, use_tsdemux_pcr=%d\n", dtv_get_tsync_mode(), get_dtv_pcr_sync_mode());
+            return false;
+        }
+        if (first_checkinapts > demux_pcr) {
+            unsigned diff = first_checkinapts - demux_pcr;
+            if (diff < AUDIO_PTS_DISCONTINUE_THRESHOLD &&
+                dtv_get_tsync_mode() == TSYNC_MODE_PCRMASTER) {
+                //not return false in AMASTER mode
+                return false;
+            }
+        } else {
+            unsigned diff = demux_pcr - first_checkinapts;
+            aml_dev->dtv_droppcm_size = diff * 48 * 2 * 2 / 90;
+            ALOGI("now must drop size %d\n", aml_dev->dtv_droppcm_size);
+        }
+    }
+    get_sysfs_uint(TSYNC_FIRSTCHECKIN_VPTS, &first_checkinvpts);
+    get_sysfs_uint(TSYNC_FIRST_VPTS, &first_vpts);
+    get_sysfs_uint(TSYNC_LAST_CHECKIN_APTS, &last_checkinapts);
+    get_sysfs_uint(TSYNC_LAST_CHECKIN_VPTS, &last_checkinvpts);
+    get_sysfs_uint(TSYNC_VPTS, &cur_vpts);
+    first_checkin_av_diff = (int)(first_checkinapts - first_checkinvpts) / 90;
+    first_out_av_diff = (int)(first_checkinapts - first_vpts) / 90;
+    ALOGI("++ demux_pcr %x first_checkinapts %x,last_checkinapts=%x,first_checkinvpts=%x,first_vpts:0x%x(has_video:%d),"
+          " last_checkinvpts=%x,cur_vpts %x,discontinue %d,apts_diff=%d,first_checkin_av_diff: %d ms,first_out_av_diff: %d ms",\
+          demux_pcr, first_checkinapts, last_checkinapts, first_checkinvpts, first_vpts, patch->dtv_has_video,\
+          last_checkinvpts, cur_vpts, a_discontinue, *apts_diff, first_checkin_av_diff, first_out_av_diff);
+
+    return true;
+}
 
 unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
                               unsigned int latency)
@@ -144,7 +279,7 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
             pts = 0;
         }
     } else {
-        pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
+        pts = decoder_apts_lookup((unsigned int)patch->decoder_offset + patch->input_skipped_bytes);
     }
     if (patch->dtv_first_apts_flag == 0) {
         pts = checkin_firstapts;
@@ -159,8 +294,10 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
         if (patch->last_valid_pts) {
             pts = patch->last_valid_pts;
         }
+
         frame_nums = (patch->outlen_after_last_validpts / (DEFAULT_DATA_WIDTH * DEFAULT_CHANNELS));
         pts += (frame_nums * 90 / DEFAULT_SAMPLERATE);
+
         if (aml_audio_get_debug_flag()) {
             ALOGI("decode_offset:%" PRId64 " out_pcm:%d   pts:%lx,audio dec->last_valid_pts %lx\n",
                    patch->decoder_offset, patch->outlen_after_last_validpts, pts, patch->last_valid_pts);
@@ -168,6 +305,7 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
         patch->cur_outapts = pts;
         return 0;
     }
+
     val = pts - latency * 90;
     /*+[SE][BUG][SWPL-14811][zhizhong] set the real apts to last_valid_pts for sum cal*/
     patch->last_valid_pts = val;
@@ -405,14 +543,14 @@ void dtv_adjust_output_clock(struct aml_audio_patch * patch, int direct, int ste
             patch->dtv_default_i2s_clock == 0) {
             return;
         }
-        ALOGI("i2s_step_clk:%d, i2s_div_factor:%d.", patch->i2s_step_clk, patch->i2s_div_factor);
+        ALOGV("i2s_step_clk:%d, i2s_div_factor:%d.", patch->i2s_step_clk, patch->i2s_div_factor);
         dtv_adjust_i2s_output_clock(patch, direct, patch->i2s_step_clk / patch->i2s_div_factor);
     } else if (!aml_dev->bHDMIARCon) {
         if (patch->dtv_default_i2s_clock > DEFAULT_SPDIF_PLL_DDP_CLOCK * 4 ||
             patch->dtv_default_i2s_clock == 0) {
             return;
         }
-        ALOGI("i2s_step_clk:%d, spdif_step_clk:%d, i2s_div_factor:%d.", patch->i2s_step_clk, patch->spdif_step_clk, patch->i2s_div_factor);
+        ALOGV("i2s_step_clk:%d, spdif_step_clk:%d, i2s_div_factor:%d.", patch->i2s_step_clk, patch->spdif_step_clk, patch->i2s_div_factor);
         dtv_adjust_i2s_output_clock(patch, direct, patch->i2s_step_clk / patch->i2s_div_factor);
         dtv_adjust_spdif_output_clock(patch, direct, patch->spdif_step_clk / patch->i2s_div_factor, dual);
     } else {
@@ -727,6 +865,72 @@ void dtv_do_insert_zero_pcm(struct aml_audio_patch *patch,
     }
 }
 
+/*when skip amadec ,do not insert data from ringbuffer ,insert data from aml_dtvsync_insertpcm api*/
+void dtv_do_insert_zero_pcm_v2(struct aml_audio_patch *patch,
+                            struct audio_stream_out *stream_out)
+{
+    // to do
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream_out;
+    struct audio_hw_device *adev = patch->dev;
+    struct aml_audio_device *aml_dev = (struct aml_audio_device *) adev;
+    int insert_time_ms =0;
+    bool is_ms12 = false;
+    ALOGV("stream_out %p", stream_out);
+    if (abs(patch->dtv_apts_lookup) / 90 > 1000) {
+        insert_time_ms = 1000;
+    } else {
+        if (abs(patch->dtv_apts_lookup) / 90 > 60) {
+            insert_time_ms =  abs(patch->dtv_apts_lookup) / 90;
+        } else {
+            patch->pcm_inserting = false;
+            return;
+        }
+    }
+    do {
+
+        if (patch->output_thread_exit == 1) {
+            ALOGI("input exit, break now\n");
+            break;
+        }
+
+        aml_dtvsync_insertpcm(stream_out, AUDIO_FORMAT_PCM_16_BIT, 8, is_ms12);
+
+        insert_time_ms -= 8;
+
+    } while (insert_time_ms  > 0);
+    patch->pcm_inserting = false;
+}
+/*when skip amadec ,do not need drop data from ringbuffer ,skip data from alsa*/
+void dtv_do_drop_pcm_v2(struct aml_audio_patch *patch,
+            struct audio_stream_out *stream_out)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream_out;
+    struct aml_audio_device *adev = aml_out->dev;
+    size_t frame_size = 0;
+    switch (adev->sink_format) {
+    case AUDIO_FORMAT_E_AC3:
+        if (eDolbyDcvLib == adev->dolby_lib_type)
+            frame_size = AUDIO_AC3_FRAME_SIZE;
+        else
+            frame_size = AUDIO_EAC3_FRAME_SIZE;
+        break;
+    case AUDIO_FORMAT_AC3:
+        frame_size = AUDIO_AC3_FRAME_SIZE;
+        break;
+    default:
+        frame_size = (aml_out->is_tv_platform == true) ? AUDIO_TV_PCM_FRAME_SIZE : AUDIO_DEFAULT_PCM_FRAME_SIZE;
+        break;
+    }
+    if (patch->dtv_apts_lookup > AUDIO_PTS_DISCONTINUE_THRESHOLD) {
+        ALOGI("dtv_apts_lookup = 0x%x > 5s,force set 5s \n", patch->dtv_apts_lookup);
+        patch->dtv_apts_lookup = AUDIO_PTS_DISCONTINUE_THRESHOLD;
+    }
+    aml_out->need_drop_size = (patch->dtv_apts_lookup / 90) * 48 * frame_size;
+    aml_out->need_drop_size &= ~(frame_size - 1);
+    ALOGI("dtv_do_drop need_drop_size=%d,frame_size=%zu\n",
+        aml_out->need_drop_size, frame_size);
+}
+
 void dtv_do_process_pcm(int avail, struct aml_audio_patch *patch,
                             struct audio_stream_out *stream_out)
 {
@@ -737,9 +941,17 @@ void dtv_do_process_pcm(int avail, struct aml_audio_patch *patch,
         return;
     }
     if (patch->dtv_apts_lookup > 0) {
-        dtv_do_drop_pcm(avail, patch);
+        if (!audio_is_linear_pcm(patch->aformat))  {
+            dtv_do_drop_pcm_v2(patch, stream_out);
+        } else {
+            dtv_do_drop_pcm(avail, patch);
+        }
     } else if (patch->dtv_apts_lookup < 0) {
-        dtv_do_insert_zero_pcm(patch, stream_out);
+        if (!audio_is_linear_pcm(patch->aformat))  {
+            dtv_do_insert_zero_pcm_v2(patch, stream_out);
+        } else {
+            dtv_do_insert_zero_pcm(patch, stream_out);
+        }
 
         if (patch->dtv_apts_lookup == 0) {
             patch->last_apts = 0;
@@ -896,13 +1108,13 @@ static void do_pll1_by_pts(unsigned int pcrpts, struct aml_audio_patch *patch,
                                  abs(last_pts_diff) < DTV_PTS_CORRECTION_THRESHOLD)) {
             dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK, false);
         }
-	if (cur_pts_diff > 0)
+    if (cur_pts_diff > 0)
             dtv_adjust_output_clock_continue(patch, DIRECT_SPEED);
     } else if (patch->pll_state == DIRECT_SLOW) {
         if (cur_pts_diff > 0 && ((last_pts_diff + cur_pts_diff) > 0 || abs(last_pts_diff) < DTV_PTS_CORRECTION_THRESHOLD)) {
             dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK, false);
         }
-	if (cur_pts_diff < 0)
+    if (cur_pts_diff < 0)
             dtv_adjust_output_clock_continue(patch, DIRECT_SLOW);
     }
 }
@@ -969,13 +1181,13 @@ static void do_pll2_by_pts(unsigned int pcrpts, struct aml_audio_patch *patch,
                                  abs(last_pts_diff) < DTV_PTS_CORRECTION_THRESHOLD)) {
             dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK, false);
         }
-	if (cur_pts_diff > 0)
+    if (cur_pts_diff > 0)
             dtv_adjust_output_clock_continue(patch, DIRECT_SPEED);
     } else if (patch->pll_state == DIRECT_SLOW) {
         if (cur_pts_diff > 0 && ((last_pts_diff + cur_pts_diff) > 0 || abs(last_pts_diff) < DTV_PTS_CORRECTION_THRESHOLD)) {
             dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK, false);
         }
-	if (cur_pts_diff < 0)
+    if (cur_pts_diff < 0)
             dtv_adjust_output_clock_continue(patch, DIRECT_SLOW);
     }
 }
@@ -1354,20 +1566,99 @@ void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_out* st
         patch->dtv_audio_tune = AUDIO_LOOKUP;
         ALOGI("set audio_output_delay = %d\n", audio_output_delay);
     }
-    if (patch->aformat == AUDIO_FORMAT_E_AC3 || patch->aformat == AUDIO_FORMAT_AC3 ||
-            patch->aformat == AUDIO_FORMAT_AC4) {
+
+    if (patch->skip_amadec_flag) {
+        int apts_diff = 0;
+        if (!patch->first_apts_lookup_over) {
+              apts_diff = dtv_set_audio_latency(0);
+              while (!dtv_firstapts_lookup_over(patch, aml_dev, false, &apts_diff) ) {
+                  ALOGI("dtv_firstapts_lookup_over");
+                  if (patch->output_thread_exit == 1) {
+                      ALOGI("output exit, break now\n");
+                      break;
+                  }
+                  usleep(5000);
+              }
+              patch->first_apts_lookup_over = 1;
+              ALOGI("[audiohal_kpi][%s,%d] dtv_audio_tune %d-> AUDIO_LOOKUP\n",
+                      __FUNCTION__, __LINE__, patch->dtv_audio_tune);
+              patch->dtv_audio_tune = AUDIO_LOOKUP;
+              clean_dtv_patch_pts(patch);
+              //ALOGI("dtv_audio_tune audio_lookup\n");
+        } else if (patch->dtv_audio_tune == AUDIO_BREAK) {
+              int a_discontinue = get_audio_discontinue();
+              int cur_diff = 0;
+              /*[SE][BUG][SWPL-26555][chengshun] ms12 happen underrun,if ms12 lib fix it, remove it*/
+              if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
+                  cur_diff = apts_diff / 2;
+              } else {
+                  cur_diff = apts_diff;
+              }
+              dtv_set_audio_latency(cur_diff);
+              while (!dtv_firstapts_lookup_over(patch, aml_dev, true, &cur_diff) && !a_discontinue) {
+                  ALOGI("hold the aduio for cache data, a_discontinue %d", a_discontinue);
+                  if (patch->output_thread_exit == 1) {
+                      ALOGI("output exit, break now\n");
+                      break;
+                  }
+                  usleep(5000);
+              }
+              if (a_discontinue  == 0) {
+                  ALOGI("[%s,%d] dtv_audio_tune AUDIO_BREAK-> AUDIO_LOOKUP\n",
+                       __FUNCTION__, __LINE__);
+                  patch->dtv_audio_tune = AUDIO_LOOKUP;
+                  clean_dtv_patch_pts(patch);
+              } else {
+                  ALOGI("audio still discontinue, not change lookup\n");
+              }
+              //ALOGI("dtv_audio_tune audio_lookup\n");
+        } else if (patch->dtv_audio_tune == AUDIO_DROP) {
+              ALOGD("patch->tysnc_tune_processing %d",patch->tysnc_tune_processing);
+              if (!patch->tysnc_tune_processing) {
+                  patch->tysnc_tune_processing = true;
+                  dtv_do_process_pcm(0 ,patch, &stream_out->stream);
+              } else {
+                  if (patch->dtv_apts_lookup < 0 ||
+                      (patch->dtv_apts_lookup > 0 &&
+                      stream_out->need_drop_size == 0)) {
+                      clean_dtv_patch_pts(patch);
+                      patch->dtv_apts_lookup = 0;
+                      patch->ac3_pcm_dropping = 0;
+                      patch->tysnc_tune_processing = false;
+                      ALOGI("[%s,%d] dtv_audio_tune AUDIO_DROP-> AUDIO_LATENCY\n", __FUNCTION__, __LINE__);
+                      patch->dtv_audio_tune = AUDIO_LATENCY;
+                      ALOGI("dtv_audio_tune ac3 audio_latency\n");
+                  }
+                  ALOGV("doing dtv_do_process_pcm");
+              }
+
+        }
+
+        if (patch->dtv_audio_tune == AUDIO_BREAK) {
+            aml_dev->start_mute_flag = 1;
+        }
+     }
+    if ((eDolbyDcvLib == aml_dev->dolby_lib_type &&
+            is_dolby_ddp_support_compression_format(patch->aformat)) ||
+            (eDolbyMS12Lib == aml_dev->dolby_lib_type &&
+            is_dolby_ms12_support_compression_format(patch->aformat)) || patch->skip_amadec_flag) {
         if (stream_out != NULL) {
-        /*+[SE][BUG][SWPL-26557][zhizhong] for the passthrough set pre-latency default*/
-            if (aml_dev->sink_format == AUDIO_FORMAT_E_AC3 ||
-                aml_dev->sink_format == AUDIO_FORMAT_AC3)
-                audio_output_delay += patch->pre_latency;
-            else if (eDolbyMS12Lib == aml_dev->dolby_lib_type && audio_output_delay == 0)
-                //for tunning dolby dvb avsync -20 ~30ms
-                audio_output_delay = -20;
+            if (!patch->skip_amadec_flag) {
+                /*+[SE][BUG][SWPL-26557][zhizhong] for the passthrough set pre latency default*/
+                if (aml_dev->sink_format == AUDIO_FORMAT_E_AC3 ||
+                    aml_dev->sink_format == AUDIO_FORMAT_AC3)
+                    audio_output_delay += patch->pre_latency;
+                else if (eDolbyMS12Lib == aml_dev->dolby_lib_type && audio_output_delay == 0) {
+                    //for tunning dolby dvb avsync -20 ~30ms
+                    audio_output_delay = -20;
+                }
+            }
             pcm_latency = out_get_latency(&(stream_out->stream)) + audio_output_delay;
+
             if (pcm_latency < 0)
                 pcm_latency = 0;
             pts = dtv_hal_get_pts(patch, pcm_latency);
+
             process_ac3_sync(patch, pts, stream_out);
         }
     } else if (patch->aformat ==  AUDIO_FORMAT_DTS || patch->aformat == AUDIO_FORMAT_DTS_HD) {

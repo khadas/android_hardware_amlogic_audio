@@ -22,6 +22,7 @@
 #include "aml_ringbuffer.h"
 #include "audio_hw.h"
 #include "audio_hw_profile.h"
+#include "aml_audio_heaacparser.h"
 
 #ifdef ENABLE_DVB_PATCH
 #include "audio_dtv_utils.h"
@@ -158,6 +159,9 @@ static inline bool is_dolby_format(audio_format_t format) {
     case AUDIO_FORMAT_E_AC3:
     case AUDIO_FORMAT_E_AC3_JOC:
     case AUDIO_FORMAT_DOLBY_TRUEHD:
+    case AUDIO_FORMAT_AAC:
+    case AUDIO_FORMAT_HE_AAC_V1:
+    case AUDIO_FORMAT_HE_AAC_V2:
         return true;
     default:
         return false;
@@ -344,7 +348,8 @@ struct aml_audio_patch {
     unsigned int dtv_decoder_ready;
     unsigned int input_thread_created;
     unsigned int output_thread_created;
-    uint64_t decoder_offset ;
+    uint64_t decoder_offset;
+    uint64_t input_skipped_bytes;
     unsigned int outlen_after_last_validpts;
     unsigned long last_valid_pts;
     unsigned int first_apts_lookup_over; /*cache audio data before start-play flag*/
@@ -380,6 +385,7 @@ struct aml_audio_patch {
     unsigned char *resample_outbuf;
     AM_AOUT_OutputMode_t   mode;
     bool ac3_pcm_dropping;
+	bool tysnc_tune_processing;
     int last_audio_delay;
     //add only for debug.
     int dtv_log_retry_cnt;
@@ -412,16 +418,21 @@ struct aml_audio_patch {
     struct package *cur_package;
 #endif
     bool skip_amadec_flag;
+    int sync_type;
     /*add a new flag to check the patch is created from tuner framework*/
     bool cbs_patch;
     int adec_handle;
     void * ac3_parser_handle;
     void * ad_ac3_parser_handle;
+	void * heaac_parser_handle;
+    void * ad_heaac_parser_handle;
+    struct heaac_parser_info main_heaac_info;
+    struct heaac_parser_info ad_heaac_info;
+
     /* user setting picture mode */
     picture_mode_t pic_mode;
     bool IEC61937_format;
     bool mode_reconfig_flag;
-    /* user setting picture mode end */
 };
 
 struct audio_stream_out;

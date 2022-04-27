@@ -35,7 +35,7 @@ int aml_getprop_int(const char *path);
 /*
  * Sys Fs Interface
  */
-int aml_sysfs_get_int(const char *path);
+unsigned long aml_sysfs_get_int(const char *path);
 int aml_sysfs_get_int16(const char *path, unsigned *value);
 int aml_sysfs_get_str(const char *path, char *buf, int count);
 int aml_sysfs_set_int(const char *path, int value);

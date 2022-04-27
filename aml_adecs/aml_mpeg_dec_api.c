@@ -81,6 +81,8 @@ struct mad_dec_t {
     char ad_remain_data[MAD_REMAIN_BUFFER_SIZE];
     int ad_remain_size;
     int ad_need_cache_frames;
+    unsigned char ad_fade;
+    unsigned char ad_pan;
 };
 
 static  int unload_mad_decoder_lib(struct mad_dec_t *mad_dec)
@@ -165,7 +167,7 @@ static int mad_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config
     dec_data_info_t * ad_dec_pcm_data = NULL;
 
     if (dec_config == NULL) {
-        ALOGE("AAC config is NULL\n");
+        ALOGE("mad config is NULL\n");
         return -1;
     }
     mad_config = &dec_config->mad_config;
@@ -189,7 +191,7 @@ static int mad_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config
     aml_dec = &mad_dec->aml_dec;
 
     memcpy(&mad_dec->mad_config, mad_config, sizeof(aml_mad_config_t));
-    ALOGI("AAC format=%d samplerate =%d ch=%d\n", mad_config->mpeg_format,
+    ALOGI("mad format=%d samplerate =%d ch=%d\n", mad_config->mpeg_format,
           mad_config->samplerate, mad_config->channel);
 
     dec_pcm_data = &aml_dec->dec_pcm_data;
@@ -228,6 +230,8 @@ static int mad_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config
     mad_dec->ad_mixing_enable = dec_config->ad_mixing_enable;
     mad_dec->mixer_level = dec_config->mixer_level;
     mad_dec->advol_level = dec_config->advol_level;
+    mad_dec->ad_fade = dec_config->ad_fade;
+    mad_dec->ad_pan = dec_config->ad_pan;
     mad_dec->ad_need_cache_frames = MAD_AD_NEED_CACHE_FRAME_COUNT;
 
     ALOGI("mad_dec->ad_decoder_supported %d",mad_dec->ad_decoder_supported);
@@ -455,11 +459,20 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
 
         if (mad_dec->ad_mixing_enable && ad_dec_pcm_data->data_len) {
             int frames_written = 0;
-
-            float mixing_coefficient = 1.0f - (float)(mad_dec->mixer_level  + 32 ) / 64;
-            float ad_mixing_coefficient = (mad_dec->advol_level * 1.0f / 100 ) * (float)(mad_dec->mixer_level  + 32 ) / 64;
-            ALOGV("mixing_coefficient %f ad_mixing_coefficient %f",mixing_coefficient, ad_mixing_coefficient);
-            apply_volume(mixing_coefficient, dec_pcm_data->buf, sizeof(uint16_t), dec_pcm_data->data_len);
+            float mixing_coefficient = 0.5f;
+            float ad_mixing_coefficient = 0.5f;
+            if (property_get_bool("vendor.media.dtv.pesmode",false)) {
+                apply_volume_pan(mad_dec->ad_pan, ad_dec_pcm_data->buf, sizeof(uint16_t), ad_dec_pcm_data->data_len);
+                aml_decoder_calc_coefficient(mad_dec->ad_fade,&mixing_coefficient,&ad_mixing_coefficient);
+                apply_volume(mixing_coefficient, dec_pcm_data->buf, sizeof(uint16_t), dec_pcm_data->data_len);
+                ALOGI("mixing_coefficient %f ad_mixing_coefficient %f",mixing_coefficient, ad_mixing_coefficient);
+            }
+            else {
+                mixing_coefficient = 1.0f - (float)(mad_dec->mixer_level  + 32 ) / 64;
+                ad_mixing_coefficient = (mad_dec->advol_level * 1.0f / 100 ) * (float)(mad_dec->mixer_level  + 32 ) / 64;
+                apply_volume(mixing_coefficient, dec_pcm_data->buf, sizeof(uint16_t), dec_pcm_data->data_len);
+                ALOGV("mixing_coefficient %f ad_mixing_coefficient %f",mixing_coefficient, ad_mixing_coefficient);
+            }
             apply_volume(ad_mixing_coefficient, ad_dec_pcm_data->buf, sizeof(uint16_t), ad_dec_pcm_data->data_len);
 
             frames_written = do_mixing_2ch(dec_pcm_data->buf, ad_dec_pcm_data->buf ,
@@ -526,7 +539,16 @@ int mad_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, a
         ALOGI("dec_config->advol_level %d",dec_config->advol_level);
         break;
     }
-
+    case AML_DEC_CONFIG_FADE: {
+        mad_dec->ad_fade = dec_config->ad_fade;
+        ALOGI("dec_config->ad_fade %d",dec_config->ad_fade);
+        break;
+    }
+    case AML_DEC_CONFIG_PAN: {
+        mad_dec->ad_pan = dec_config->ad_pan;
+        ALOGI("dec_config->ad_pan %d",dec_config->ad_pan);
+        break;
+    }
     default:
         break;
     }

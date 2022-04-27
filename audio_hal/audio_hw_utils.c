@@ -389,6 +389,11 @@ int get_codec_type(int format)
         return TYPE_AC4;
     case AUDIO_FORMAT_MAT:
         return TYPE_MAT;
+    case AUDIO_FORMAT_AAC:
+        return TYPE_AAC;
+    case AUDIO_FORMAT_HE_AAC_V1:
+    case AUDIO_FORMAT_HE_AAC_V2:
+        return TYPE_HEAAC;
     case AUDIO_FORMAT_PCM:
     case AUDIO_FORMAT_PCM_16_BIT:
     case AUDIO_FORMAT_PCM_32_BIT:
@@ -1530,7 +1535,11 @@ bool is_disable_ms12_continuous(struct audio_stream_out *stream) {
         /*high bit rate pcm case, we need disable ms12 continuous mode*/
         return true;
     } else if (aml_out->hal_internal_format == AUDIO_FORMAT_AC3 \
-               || aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3) {
+               || aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3 \
+               || aml_out->hal_internal_format == AUDIO_FORMAT_AAC \
+               || aml_out->hal_internal_format == AUDIO_FORMAT_AAC_LATM \
+               || aml_out->hal_internal_format == AUDIO_FORMAT_HE_AAC_V1 \
+               || aml_out->hal_internal_format == AUDIO_FORMAT_HE_AAC_V2) {
         /*only support 48kz ddp/dd*/
         if (aml_out->hal_rate == 48000 || aml_out->hal_rate == 192000) {
             return false;
