@@ -41,6 +41,16 @@ AM_Dmx_Audio_ErrorCode_t Init_Dmx_Main_Audio(void *demux_handle,int fmt, int pid
 
     return AM_AUDIO_Dmx_SUCCESS;
 }
+AM_Dmx_Audio_ErrorCode_t Flush_Dmx_Audio(void *demux_handle) {
+    AmHwMultiDemuxWrapper * demux_wrapper = (AmHwMultiDemuxWrapper *)demux_handle;
+    if (demux_wrapper == NULL) {
+        ALOGD("demux not open !!!");
+        return AM_AUDIO_Dmx_ERROR;
+    }
+    ALOGI("%s %d",__FUNCTION__, __LINE__);
+    demux_wrapper->AmDemuxWrapperFlushData(demux_wrapper->filtering_aud_pid);
+    return AM_AUDIO_Dmx_SUCCESS;
+}
 AM_Dmx_Audio_ErrorCode_t Stop_Dmx_Main_Audio(void *demux_handle) {
     AmHwMultiDemuxWrapper * demux_wrapper = (AmHwMultiDemuxWrapper *)demux_handle;
     if (demux_wrapper == NULL) {
@@ -76,15 +86,15 @@ AM_Dmx_Audio_ErrorCode_t Destroy_Dmx_Main_Audio(void *demux_handle) {
     return AM_AUDIO_Dmx_SUCCESS;
 }
 
-AM_Dmx_Audio_ErrorCode_t Init_Dmx_AD_Audio(void *demux_handle, int fmt, int pid) {
+AM_Dmx_Audio_ErrorCode_t Init_Dmx_AD_Audio(void *demux_handle, int fmt, int pid, int pesmode) {
     AmHwMultiDemuxWrapper * demux_wrapper = (AmHwMultiDemuxWrapper *)demux_handle;
     if (demux_wrapper == NULL) {
         ALOGI("demux not open !!!");
         return AM_AUDIO_Dmx_ERROR;
     }
-    ALOGI("%s fmt %d pid %d ",__FUNCTION__, fmt, pid);
+    ALOGI("%s fmt %d pid %d pesmode %d",__FUNCTION__, fmt, pid,pesmode);
     TSPMutex::Autolock l(demux_wrapper->mDemuxHandleLock);
-    demux_wrapper->AmDemuxWrapperOpenAD(pid,fmt);
+    demux_wrapper->AmDemuxWrapperOpenAD(pid, fmt, pesmode);
     return AM_AUDIO_Dmx_SUCCESS;
 }
 AM_Dmx_Audio_ErrorCode_t Stop_Dmx_AD_Audio(void *demux_handle) {
@@ -150,11 +160,11 @@ AM_Dmx_Audio_ErrorCode_t Get_MainAudio_Es(void *demux_handle,struct mAudioEsData
     }
 
     AM_DmxErrorCode_t ret = AM_Dmx_SUCCESS;
-    if (!VALID_PID(demux_wrapper->filering_aud_pid)) {
+    if (!VALID_PID(demux_wrapper->filtering_aud_pid)) {
         return AM_AUDIO_Dmx_ERROR;
     }
     TSPMutex::Autolock l(demux_wrapper->mDemuxHandleLock);
-    ret = demux_wrapper->AmDemuxWrapperReadData(demux_wrapper->filering_aud_pid, (mEsDataInfo **)mAudioEsData,1);
+    ret = demux_wrapper->AmDemuxWrapperReadData(demux_wrapper->filtering_aud_pid, (mEsDataInfo **)mAudioEsData,1);
     ALOGV("get_audio_es_package ret %d mEsdata  %p",ret,*mAudioEsData);
     if (*mAudioEsData == NULL) {
         return AM_AUDIO_Dmx_ERROR;
@@ -174,14 +184,14 @@ AM_Dmx_Audio_ErrorCode_t Get_ADAudio_Es(void *demux_handle, struct mAudioEsDataI
         ALOGI("demux not open !!!");
         return AM_AUDIO_Dmx_ERROR;
     }
-    if (!VALID_PID(demux_wrapper->filering_aud_ad_pid)) {
+    ALOGV("demux_wrapper->filtering_aud_ad_pid %d",demux_wrapper->filtering_aud_ad_pid);
+    if (!VALID_PID(demux_wrapper->filtering_aud_ad_pid)) {
         return AM_AUDIO_Dmx_ERROR;
     }
 
     AM_DmxErrorCode_t ret = AM_Dmx_SUCCESS;
     TSPMutex::Autolock l(demux_wrapper->mDemuxHandleLock);
-    ret = demux_wrapper->AmDemuxWrapperReadData(demux_wrapper->filering_aud_ad_pid, (mEsDataInfo **)mAudioEsData,1);
-    ALOGV("Get_ADAudio_Es ret %d mEsdata  %p",ret,*mAudioEsData);
+    ret = demux_wrapper->AmDemuxWrapperReadData(demux_wrapper->filtering_aud_ad_pid, (mEsDataInfo **)mAudioEsData,1);
     if (*mAudioEsData == NULL) {
         return AM_AUDIO_Dmx_ERROR;
     }
@@ -200,7 +210,7 @@ AM_Dmx_Audio_ErrorCode_t Get_Audio_LastES_Apts(void *demux_handle , int64_t *las
     }
 
     AM_DmxErrorCode_t ret = AM_Dmx_SUCCESS;
-    if (!VALID_PID(demux_wrapper->filering_aud_pid)) {
+    if (!VALID_PID(demux_wrapper->filtering_aud_pid)) {
         return AM_AUDIO_Dmx_ERROR;
     }
     TSPMutex::Autolock l(demux_wrapper->mDemuxHandleLock);

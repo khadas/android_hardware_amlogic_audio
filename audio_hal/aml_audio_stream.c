@@ -392,7 +392,11 @@ void get_sink_format(struct audio_stream_out *stream)
         (source_format != AUDIO_FORMAT_AC4) && \
         (source_format != AUDIO_FORMAT_DTS) &&
         (source_format != AUDIO_FORMAT_DTS_HD) && \
-        (source_format != AUDIO_FORMAT_DOLBY_TRUEHD)) {
+        (source_format != AUDIO_FORMAT_DOLBY_TRUEHD) && \
+         (source_format != AUDIO_FORMAT_AAC) && \
+        (source_format != AUDIO_FORMAT_AAC_LATM) && \
+        (source_format != AUDIO_FORMAT_HE_AAC_V1) && \
+        (source_format != AUDIO_FORMAT_HE_AAC_V2)) {
         /*unsupport format [dts-hd/true-hd]*/
         ALOGI("%s() source format %#x change to %#x", __FUNCTION__, source_format, AUDIO_FORMAT_PCM_16_BIT);
         source_format = AUDIO_FORMAT_PCM_16_BIT;
@@ -1042,12 +1046,23 @@ bool is_use_spdifb(struct aml_stream_out *out) {
 
 bool is_dolby_ms12_support_compression_format(audio_format_t format)
 {
+
+#ifdef MS12_V24_ENABLE
+    if (format == AUDIO_FORMAT_HE_AAC_V1 ||
+        format == AUDIO_FORMAT_HE_AAC_V2 ||
+        format == AUDIO_FORMAT_AAC ||
+        format == AUDIO_FORMAT_AAC_LATM)  {
+        if (property_get_bool("ro.vendor.audio.use.ms12heaac", true)) {
+            return true;
+        }
+    }
+#endif
+
     return (format == AUDIO_FORMAT_AC3 ||
             format == AUDIO_FORMAT_E_AC3 ||
             format == AUDIO_FORMAT_E_AC3_JOC ||
             format == AUDIO_FORMAT_DOLBY_TRUEHD ||
-            format == AUDIO_FORMAT_AC4 ||
-            format == AUDIO_FORMAT_MAT);
+            format == AUDIO_FORMAT_AC4 );
 }
 
 bool is_dolby_ddp_support_compression_format(audio_format_t format)

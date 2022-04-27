@@ -128,7 +128,7 @@ public:
     //associate flags
     virtual void setAssociateFlag(bool flag)
     {
-        ALOGV("%s() Associate flag %d\n", __FUNCTION__, flag);
+        ALOGI("%s() Associate flag %d\n", __FUNCTION__, flag);
         mHasAssociateInput = flag;
     }
     virtual int getAssociateFlag(void)
@@ -549,11 +549,14 @@ public:
     {
         int curMask = getInputCMDMask();
         int ddp_dual_input = MS12_INPUT_MASK_MAIN_DDP|MS12_INPUT_MASK_ASSOCIATE;
+        int heaac_dual_input = MS12_INPUT_MASK_MAIN_HEAAC|MS12_INPUT_MASK_ASSOCIATE;
 
         bool is_ac4_single = ((curMask & MS12_INPUT_MASK_MAIN_AC4) == MS12_INPUT_MASK_MAIN_AC4);
         bool is_ddp_dual_input = ((curMask & ddp_dual_input) == ddp_dual_input);
+        bool is_heaac_dual_input = ((curMask & heaac_dual_input) == heaac_dual_input);
+        ALOGI("%s() curMask %#x heaac_dual_input %#x is_heaac_dual_input %d\n", __FUNCTION__, curMask, heaac_dual_input, is_heaac_dual_input);
 
-        if (is_ac4_single || is_ddp_dual_input)
+        if (is_ac4_single || is_ddp_dual_input || is_heaac_dual_input)
             return true;
         else
             return false;

@@ -6,7 +6,8 @@ LOCAL_SRC_FILES := \
     aml_audio_bitsparser.c \
     aml_audio_matparser.c \
     ac3_parser_utils.c \
-    aml_ac3_parser.c
+    aml_ac3_parser.c \
+    aml_audio_heaacparser.c
 
 LOCAL_SHARED_LIBRARIES := \
     libcutils \

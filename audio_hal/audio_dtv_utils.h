@@ -74,6 +74,8 @@
 
 #define MAX_BUFF_LEN 36
 #define MAX(a, b) ((a) > (b)) ? (a) : (b)
+#define ABS(a, b) ((a) > (b)) ? (a -b ) : (b -a)
+
 
 #define INPUT_PACKAGE_MAXCOUNT 40
 
@@ -84,7 +86,7 @@
 #define AD_PACK_STATUS_DROP_START_THRESHOLD_MS 60
 
 #define AD_PACK_STATUS_HOLD_THRESHOLD_MS 400
-#define AD_PACK_STATUS_HOLD_START_THRESHOLD_MS 100
+#define AD_PACK_STATUS_HOLD_START_THRESHOLD_MS 40
 
 
 #define NON_DOLBY_AD_PACK_STATUS_DROP_THRESHOLD_MS 3000

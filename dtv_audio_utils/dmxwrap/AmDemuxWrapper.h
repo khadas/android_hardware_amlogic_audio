@@ -74,6 +74,8 @@ struct mEsDataInfo {
     int size;
     int64_t pts;
     int used_size;
+    uint8_t adfade;
+    uint8_t adpan;
 };
 enum {
     kWhatReadVideo,

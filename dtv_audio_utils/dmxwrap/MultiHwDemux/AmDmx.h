@@ -107,7 +107,7 @@ public:
 	//AM_ErrorCode_t AM_DMX_SetSource(AM_DMX_Source_t src);
 	AM_ErrorCode_t AM_DMX_Sync();
 	//AM_ErrorCode_t AM_DMX_GetScrambleStatus(AM_Bool_t dev_status[2]);
-
+    static AM_ErrorCode_t AM_DMX_handlePESpacket(AM_DMX_Device *dev, AM_DMX_Filter *filter, unsigned char * outbuf, int* outlen, void *userdata);
 
 	AM_ErrorCode_t AM_DMX_WriteTs(uint8_t* data,int32_t size,uint64_t timeout);
 	int dev_no;      /**< 设备号*/

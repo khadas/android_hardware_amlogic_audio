@@ -91,8 +91,10 @@
 // bit 15:0 level_hold
 #define AIU_MEM_AIFIFO_MEM_CTL                     0x158f
 
-int uio_init(int *fd_uio);
-int uio_deinit(int *fd_uio);
-int uio_read_buffer(unsigned char *buffer, int size);
+int uio_init_new(int *fd_uio);
+int uio_deinit_new(int *fd_uio);
+int uio_read_buffer(unsigned char *buffer, int size, int thread_exit);
+int uio_get_buffer_level();
+
 #endif
 

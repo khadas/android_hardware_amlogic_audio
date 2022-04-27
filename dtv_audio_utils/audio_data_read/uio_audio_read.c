@@ -67,7 +67,7 @@ static unsigned long  get_num_infile(char *file)
     return aml_sysfs_get_int(file);
 }
 
-int uio_init(int  *fd_uio)
+int uio_init_new(int  *fd_uio)
 {
     //  int fd = -1;
     memmap = MAP_FAILED;
@@ -89,8 +89,11 @@ int uio_init(int  *fd_uio)
         return -1;
     }
     phys_start = get_num_infile(ASTREAM_ADDR);
+    ALOGI("phys_start %0x", phys_start);
     phys_size = get_num_infile(ASTREAM_SIZE);
+    ALOGI("phys_size %0x", phys_size);
     phys_offset = get_num_infile(ASTREAM_OFFSET);
+    ALOGI("phys_offset %0x", phys_offset);
     addr_offset = get_num_infile(ADDR_OFFSET);
 
     ALOGI("add=%08x, size=%08x, phy_offset=%08x, addr_offset=%d\n",
@@ -114,7 +117,7 @@ int uio_init(int  *fd_uio)
     return 0;
 }
 
-int uio_deinit(int *fd_uio)
+int uio_deinit_new(int *fd_uio)
 {
     pthread_mutex_lock(&uio_mutex);
     if (*fd_uio >= 0)
@@ -137,23 +140,23 @@ int uio_deinit(int *fd_uio)
 }
 
 
-static inline void waiting_bits(int bits)
+static inline void waiting_bits(int bits, int thread_exit)
 {
     int bytes;
     bytes = READ_MPEG_REG(AIU_MEM_AIFIFO_BYTES_AVAIL);
     while (bytes * 8 < bits)
     {
-        if (amthreadpool_on_requare_exit(0))
+        if (thread_exit)
         {
             break;
         }
-        amthreadpool_thread_usleep(1000);
+        usleep(1000);
         bytes = READ_MPEG_REG(AIU_MEM_AIFIFO_BYTES_AVAIL);
     }
 }
 
 #define EXTRA_DATA_SIZE 128
-int uio_read_buffer(unsigned char *buffer, int size)
+int uio_read_buffer(unsigned char *buffer, int size, int thread_exit)
 {
     int bytes;
     int len;
@@ -201,12 +204,12 @@ int uio_read_buffer(unsigned char *buffer, int size)
         //adec_print("read_buffer start AIU_MEM_AIFIFO_BYTES_AVAIL bytes= %d!!\n", bytes);
         wait_times = 0;
         while (bytes == 0) {
-            waiting_bits((space > 128) ? 128 * 8 : (space * 8)); /*wait 32 bytes,if the space is less than 32 bytes,wait the space bits*/
+            waiting_bits((space > 128) ? 128 * 8 : (space * 8), thread_exit); /*wait 32 bytes,if the space is less than 32 bytes,wait the space bits*/
             bytes = READ_MPEG_REG(AIU_MEM_AIFIFO_BYTES_AVAIL);
 
             ALOGI("read_buffer while AIU_MEM_AIFIFO_BYTES_AVAIL = %d!!\n", bytes);
             wait_times++;
-            if (wait_times > 10 || amthreadpool_on_requare_exit(0)) {
+            if (wait_times > 10 || thread_exit) {
                 ALOGI("goto out!!\n");
                 goto out;
             }
@@ -217,8 +220,8 @@ int uio_read_buffer(unsigned char *buffer, int size)
         for (i = 0; i < bytes; i++) {
             while (!AIFIFO_READY) {
                 fifo_ready_wait++;
-                amthreadpool_thread_usleep(1000);
-                if (fifo_ready_wait > 100 || amthreadpool_on_requare_exit(0)) {
+                usleep(1000);
+                if (fifo_ready_wait > 100 || thread_exit) {
                     ALOGI("FATAL err,AIFIFO is not ready,check!!\n");
                     pthread_mutex_unlock(&uio_mutex);
                     return 0;
@@ -239,5 +242,15 @@ out:
     pthread_mutex_unlock(&uio_mutex);
     return len;
 }
-
+int uio_get_buffer_level()
+{
+    pthread_mutex_lock(&uio_mutex);
+    if (memmap == MAP_FAILED) {
+        pthread_mutex_unlock(&uio_mutex);
+        return 0;
+    }
+    int bytes = READ_MPEG_REG(AIU_MEM_AIFIFO_BYTES_AVAIL);
+    pthread_mutex_unlock(&uio_mutex);
+    return bytes;
+}
 

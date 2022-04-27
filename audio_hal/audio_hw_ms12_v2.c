@@ -135,6 +135,9 @@
 
 #define DOLBY_MS12_AVSYNC_BEEP_DURATION (360)//ms, every 3s one beep
 #define MILLISECOND_2_PTS (90) // 1ms = 90 (pts)
+
+#define IEC61937_PAPB (0xf8724e1f)
+
 static int ms12_update_decoded_info_process(struct audio_stream_out *stream, void *input_buffer, size_t input_bytes);
 
 
@@ -424,8 +427,6 @@ audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format)
         return AUDIO_FORMAT_E_AC3;
     } else if (hal_format == AUDIO_FORMAT_MP2 ||
                hal_format == AUDIO_FORMAT_MP3 ||
-               hal_format == AUDIO_FORMAT_AAC ||
-               hal_format == AUDIO_FORMAT_AAC_LATM ||
                hal_format == AUDIO_FORMAT_DRA) {
         return AUDIO_FORMAT_PCM_16_BIT;
     } else {
@@ -848,7 +849,6 @@ void update_drc_parameter_when_output_config_changed(struct dolby_ms12_desc *ms1
     }
 }
 
-
 /*
  *@brief get dolby ms12 prepared
  */
@@ -858,7 +858,7 @@ int get_the_dolby_ms12_prepared(
     , audio_channel_mask_t input_channel_mask
     , int input_sample_rate)
 {
-    ALOGI("+%s()  aml_out:%p", __FUNCTION__, aml_out);
+    ALOGI("+%s()  aml_out:%p input_format %#x\n", __FUNCTION__, aml_out, input_format);
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     struct aml_stream_out *out;
@@ -884,7 +884,8 @@ int get_the_dolby_ms12_prepared(
     when HDMITX send pause frame,we treated as INVALID format.
     for MS12,we treat it as LPCM and mute the frame
     */
-    if (input_format == AUDIO_FORMAT_INVALID) {
+    if (input_format == AUDIO_FORMAT_INVALID ||
+        !is_dolby_ms12_support_compression_format(input_format)) {
         input_format = AUDIO_FORMAT_PCM_16_BIT;
     }
     set_audio_app_format(AUDIO_FORMAT_PCM_16_BIT);
@@ -906,7 +907,9 @@ int get_the_dolby_ms12_prepared(
     }
     if (input_format == AUDIO_FORMAT_AC3 ||
         input_format == AUDIO_FORMAT_E_AC3 ||
-        input_format == AUDIO_FORMAT_AC4) {
+        input_format == AUDIO_FORMAT_AC4 ||
+        input_format == AUDIO_FORMAT_AAC ||
+        input_format == AUDIO_FORMAT_AAC_LATM) {
         if (patch && demux_info) {
             ms12->dual_decoder_support = demux_info->dual_decoder_support;
             associate_audio_mixing_enable = demux_info->associate_audio_mixing_enable;
@@ -1305,6 +1308,12 @@ int dolby_ms12_main_process(
     int ret = 0;
     struct ac4_parser_info ac4_info = { 0 };
     audio_format_t ms12_hal_format = ms12_get_audio_hal_format(aml_out->hal_format);
+    bool is_dd_format = (ms12_hal_format == AUDIO_FORMAT_AC3);
+    bool is_ddp_format = (ms12_hal_format == AUDIO_FORMAT_E_AC3);
+    bool is_heaac_format = ((ms12_hal_format == AUDIO_FORMAT_AAC) || \
+                            (ms12_hal_format == AUDIO_FORMAT_AAC_LATM) || \
+                            (ms12_hal_format == AUDIO_FORMAT_HE_AAC_V1) || \
+                            (ms12_hal_format == AUDIO_FORMAT_HE_AAC_V2));
 
     if (adev->debug_flag >= 2) {
         ALOGI("\n%s() in continuous %d input ms12 bytes %d input bytes %zu\n",
@@ -1360,7 +1369,7 @@ int dolby_ms12_main_process(
         }
 
         /* Passthrough Mode, only get the MAIN data */
-        if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->digital_audio_format)) {
+        if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->digital_audio_format) && (is_dd_format || is_ddp_format)) {
             dual_input_ret = scan_dolby_main_associate_frame(input_buffer
                              , input_bytes
                              , &dual_decoder_used_bytes
@@ -1371,6 +1380,45 @@ int dolby_ms12_main_process(
             if (dual_input_ret) {
                 ALOGE("%s used size %zu don't find the iec61937 format header, re-scan next time!\n", __FUNCTION__, *use_size);
                 goto  exit;
+            }
+        }
+        else if ((ms12->dual_decoder_support == true) && is_heaac_format) {
+            uint32_t *p32_buf = (uint32_t *)input_buffer;
+            uint8_t *p_buf = (uint8_t *)input_buffer;
+            int buf_offset = 0;
+            /* | IEC61937_PAPB | IEC61937_PAPB | 4bytes-main-len | main data | 4bytes-ad-len | ad data | */
+            if ((p32_buf[0] != IEC61937_PAPB) || (p32_buf[1] != IEC61937_PAPB)) {
+                ALOGE("%s line %d p32_buf %#x %#x\n", __func__, __LINE__, p32_buf[0], p32_buf[1]);
+                goto exit;
+            }
+            else {
+                buf_offset += 2 * sizeof(uint32_t);
+            }
+
+            /* get main+ad package at the same time */
+            //4bytes-main-len
+            main_frame_size = *(int *)(p_buf + buf_offset);
+            buf_offset += sizeof(int);
+            //main data
+            main_frame_buffer = (char *)p_buf + buf_offset;
+            buf_offset += main_frame_size;
+
+            //4bytes-ad-len
+            associate_frame_size = *(int *)(p_buf + buf_offset);
+            buf_offset += sizeof(int);
+            //ad data if exiting.
+            if (associate_frame_size > 0) {
+                associate_frame_buffer = (char *)p_buf + buf_offset;
+            }
+            /* fixme: heaac dual decoder consumed bytes */
+            dual_decoder_used_bytes = input_bytes;
+
+            /*aml_audio_dump_audio_bitstreams("/data/audio/ms12_in_audio_main.es",
+            main_frame_buffer, main_frame_size);
+            aml_audio_dump_audio_bitstreams("/data/audio/ms12_in_audio_ad.es",
+            associate_frame_buffer, associate_frame_size);*/
+            if (adev->debug_flag >= 2) {
+                ALOGI("%s line %d input_bytes %d syncword %d + 4bytes + main len %d + 4bytes + ad len %d", __func__, __LINE__, input_bytes, 2 * sizeof(uint32_t), main_frame_size, associate_frame_size);
             }
         }
         /*
@@ -1478,19 +1526,26 @@ int dolby_ms12_main_process(
           }
 
         /* Passthrough Mode, only get the MAIN data as the single input */
-        if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->digital_audio_format)) {
+        if ((ms12->dual_decoder_support == true) &&
+            ((is_ad_data_available(adev->digital_audio_format) && (is_dd_format || is_ddp_format)) || is_heaac_format)) {
             /*if there is associate frame, send it to dolby ms12.*/
             char tmp_array[4096] = {0};
+            /* if AD is disappeared, use main same length but data is zero. */
             if (!associate_frame_buffer || (associate_frame_size == 0)) {
                 associate_frame_buffer = (void *)&tmp_array[0];
                 associate_frame_size = sizeof(tmp_array);
+                if (is_heaac_format && (main_frame_size < associate_frame_size)) {
+                    associate_frame_size = main_frame_size;
+                }
             }
-            if (associate_frame_size < main_frame_size) {
+            /* For DD/DDP, if AD length < Main length, use main same length */
+           if ((is_dd_format || is_ddp_format) && (associate_frame_size < main_frame_size)) {
                 ALOGV("%s() main frame addr %p size %d associate frame addr %p size %d, need a larger ad input size!\n",
                       __FUNCTION__, main_frame_buffer, main_frame_size, associate_frame_buffer, associate_frame_size);
                 memcpy(&tmp_array[0], associate_frame_buffer, associate_frame_size);
-                associate_frame_size = sizeof(tmp_array);
+                 associate_frame_size = main_frame_size;
             }
+
             dolby_ms12_input_associate(ms12->dolby_ms12_ptr
                                        , (const void *)associate_frame_buffer
                                        , (size_t)associate_frame_size
@@ -2972,10 +3027,10 @@ void ms12_do_dtv_sync(struct audio_stream_out *stream)
     struct aml_audio_patch *patch = adev->audio_patch;
     aml_dtvsync_t *aml_dtvsync = NULL;
 
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
+    bool do_sync_flag =  (patch->dtvsync->sync_type == DTVSYNC_MEDIASYNC);
 
     if (do_sync_flag) {
-        if (patch->skip_amadec_flag && aml_out->dtvsync_enable) {
+        if (aml_out->dtvsync_enable) {
             aml_dtvsync = patch->dtvsync;
             if (aml_out->alsa_status_changed) {
                 aml_dtvsync_setParameter(aml_dtvsync, MEDIASYNC_KEY_ALSAREADY, &aml_out->alsa_running_status);
@@ -3175,14 +3230,14 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     }
 #ifdef ENABLE_DVB_PATCH
     aml_dtvsync_t *aml_dtvsync = NULL;
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->is_tv_src_stream;
     dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
     bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->is_tv_src_stream;
+    bool do_sync_flag = dtv_stream_flag && patch->skip_amadec_flag && (patch->dtvsync->sync_type == DTVSYNC_MEDIASYNC);
     if (dtv_stream_flag)  {
         if (patch->output_thread_exit) {
             return ret;
         }
-        if (!audio_is_linear_pcm(hal_internal_format)) {
+        if (!audio_is_linear_pcm(hal_internal_format) && do_sync_flag) {
             /*for pcm out, we only need update the master output*/
             if (audio_is_linear_pcm(output_format)) {
                 enum MS12_PCM_TYPE master_pcm_type = NORMAL_LPCM;
@@ -3693,36 +3748,55 @@ bool is_rebuild_the_ms12_pipeline(    audio_format_t main_input_fmt, audio_forma
 
     bool is_ac4_alive = (main_input_fmt == AUDIO_FORMAT_AC4);
     bool is_mat_alive = (main_input_fmt == AUDIO_FORMAT_MAT);
+    bool is_aac_alive = ((main_input_fmt == AUDIO_FORMAT_AAC) || \
+                        (main_input_fmt == AUDIO_FORMAT_HE_AAC_V1) || \
+                        (main_input_fmt == AUDIO_FORMAT_HE_AAC_V2) || \
+                        (main_input_fmt == AUDIO_FORMAT_AAC_LATM));
     bool is_ott_format_alive = (main_input_fmt == AUDIO_FORMAT_AC3) || \
                                 ((main_input_fmt & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3) || \
                                 (main_input_fmt == AUDIO_FORMAT_PCM_16_BIT);
-    ALOGD("%s line %d is_ac4_alive %d is_mat_alive %d is_ott_format_alive %d\n",__func__, __LINE__, is_ac4_alive, is_mat_alive, is_ott_format_alive);
+    ALOGD("%s line %d is_ac4_alive %d is_mat_alive %d is_aac_alive %d is_ott_format_alive %d\n",
+        __func__, __LINE__, is_ac4_alive, is_mat_alive, is_aac_alive, is_ott_format_alive);
 
     bool request_ac4_alive = (hal_internal_format == AUDIO_FORMAT_AC4);
     /* if switch from MAT to Dolby-TrueHD, need to confirm it works well. */
     bool request_mat_alive = ((hal_internal_format == AUDIO_FORMAT_MAT) || (hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD));
+    bool request_aac_alive = ((hal_internal_format == AUDIO_FORMAT_AAC) || \
+                        (hal_internal_format == AUDIO_FORMAT_HE_AAC_V1) || \
+                        (hal_internal_format == AUDIO_FORMAT_HE_AAC_V2) || \
+                        (hal_internal_format == AUDIO_FORMAT_AAC_LATM));
     bool request_ott_format_alive = (hal_internal_format == AUDIO_FORMAT_AC3) || \
                                 ((hal_internal_format & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3) || \
                                 (hal_internal_format == AUDIO_FORMAT_PCM_16_BIT);
-    ALOGD("%s line %d request_ac4_alive %d request_mat_alive %d request_ott_format_alive %d\n",__func__, __LINE__, request_ac4_alive, request_mat_alive, request_ott_format_alive);
+    ALOGD("%s line %d request_ac4_alive %d request_mat_alive %d request_aac_alive %d request_ott_format_alive %d\n",
+        __func__, __LINE__, request_ac4_alive, request_mat_alive, request_aac_alive, request_ott_format_alive);
 
     if (request_ac4_alive && (is_ac4_alive^request_ac4_alive)) {
-        //new AC4 stream appears when last stream played MAT/DD/DDP
-        ALOGD("%s line %d main_input_fmt %#x hal_internal_format %#x request_ac4_alive^is_mat_alive %d request_ac4_alive^is_ott_format_alive %d\n",
-            __func__, __LINE__, main_input_fmt, hal_internal_format, request_ac4_alive^is_mat_alive, request_ac4_alive^is_ott_format_alive);
-        return (request_ac4_alive^is_mat_alive) || (request_ac4_alive^is_ott_format_alive);
+        //new AC4 stream appears when last stream played MAT/DD/DDP/AAC
+        ALOGD("%s line %d main_input_fmt %#x hal_internal_format %#x request_ac4_alive^is_mat_alive %d request_ac4_alive^is_ott_format_alive %d (request_ac4_alive^is_aac_alive) %d\n",
+            __func__, __LINE__, main_input_fmt, hal_internal_format,
+            request_ac4_alive^is_mat_alive, request_ac4_alive^is_ott_format_alive, request_ac4_alive^is_aac_alive);
+        return (request_ac4_alive^is_mat_alive) || (request_ac4_alive^is_ott_format_alive) || (request_ac4_alive^is_aac_alive);
     }
     else if (request_mat_alive && (is_mat_alive^request_mat_alive)) {
-        //new MAT stream appears when last steam played AC4/DD/DDP
-        ALOGD("%s line %d main_input_fmt %#x hal_internal_format %#x (request_mat_alive^is_ac4_alive) %d (request_mat_alive^is_ott_format_alive) %d\n",
-            __func__, __LINE__, main_input_fmt, hal_internal_format, (request_mat_alive^is_ac4_alive), (request_mat_alive^is_ott_format_alive));
-        return (request_mat_alive^is_ac4_alive) || (request_mat_alive^is_ott_format_alive);
+        //new MAT stream appears when last steam played AC4/DD/DDP/AAC
+        ALOGD("%s line %d main_input_fmt %#x hal_internal_format %#x (request_mat_alive^is_ac4_alive) %d (request_mat_alive^is_ott_format_alive) %d (request_mat_alive^is_aac_alive) %d\n",
+            __func__, __LINE__, main_input_fmt, hal_internal_format, (request_mat_alive^is_ac4_alive), (request_mat_alive^is_ott_format_alive), (request_mat_alive^is_aac_alive));
+        return (request_mat_alive^is_ac4_alive) || (request_mat_alive^is_ott_format_alive) || (request_mat_alive^is_aac_alive);
+    }
+    else if (request_aac_alive && (is_aac_alive^request_aac_alive)) {
+        //new aac stream appears when last steam played AC4/DD/DDP/MAT
+        ALOGD("%s line %d main_input_fmt %#x hal_internal_format %#x (request_aac_alive^is_ac4_alive) %d (request_aac_alive^is_ott_format_alive) %d (request_aac_alive^is_mat_alive) %d\n",
+            __func__, __LINE__, main_input_fmt, hal_internal_format,
+            (request_aac_alive^is_ac4_alive), (request_aac_alive^is_ott_format_alive), (request_aac_alive^is_mat_alive));
+        return (request_aac_alive^is_ac4_alive) || (request_aac_alive^is_ott_format_alive) || (request_aac_alive^is_mat_alive);
     }
     else if (request_ott_format_alive && (is_ott_format_alive^request_ott_format_alive)){
-        //new ott(dd/ddp/ddp_joc) format appears when last stream played AC4/MAT
-        ALOGD("%s line %d main_input_fmt %#x hal_internal_format %#x (request_ott_format_alive^is_ac4_alive) %d (request_ott_format_alive^is_mat_alive) %d\n",
-            __func__, __LINE__, main_input_fmt, hal_internal_format, (request_ott_format_alive^is_ac4_alive), (request_ott_format_alive^is_mat_alive));
-        return (request_ott_format_alive^is_ac4_alive) || (request_ott_format_alive^is_mat_alive);
+        //new ott(dd/ddp/ddp_joc) format appears when last stream played AC4/MAT/AAC
+        ALOGD("%s line %d main_input_fmt %#x hal_internal_format %#x (request_ott_format_alive^is_ac4_alive) %d (request_ott_format_alive^is_mat_alive) %d (request_ott_format_alive^is_aac_alive) %d\n",
+            __func__, __LINE__, main_input_fmt, hal_internal_format,
+            (request_ott_format_alive^is_ac4_alive), (request_ott_format_alive^is_mat_alive), (request_ott_format_alive^is_aac_alive));
+        return (request_ott_format_alive^is_ac4_alive) || (request_ott_format_alive^is_mat_alive) || (request_ott_format_alive^is_aac_alive);
     }
     else {
         ALOGE("%s line %d main_input_fmt %#x hal_internal_format %#x return false\n",
@@ -3730,7 +3804,6 @@ bool is_rebuild_the_ms12_pipeline(    audio_format_t main_input_fmt, audio_forma
         return false;
     }
 }
-
 
 bool is_need_reset_ms12_continuous(struct audio_stream_out *stream) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;

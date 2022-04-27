@@ -65,6 +65,8 @@ typedef enum {
     AML_DEC_CONFIG_AD_VOL,
     AML_DEC_CONFIG_MIXER_LEVEL, //runtime param
     AML_DEC_CONFIG_OUTPUT_CHANNEL,  //runtime/static param
+    AML_DEC_CONFIG_FADE,
+    AML_DEC_CONFIG_PAN
 } aml_dec_config_type_t;
 
 typedef enum {
@@ -159,7 +161,10 @@ typedef struct aml_pcm_config {
     audio_format_t pcm_format;
     int samplerate;
     int channel;
+    int lpcm_channel;
     int max_out_channels;
+    int width;
+    unsigned int lpcm_header;
 } aml_pcm_config_t;
 
 
@@ -195,6 +200,8 @@ typedef struct aml_dec_config {
     bool ad_mixing_enable;
     int advol_level;
     int  mixer_level;   /* AML_DEC_CONFIG_MIXER_LEVEL */
+    unsigned char ad_fade;
+    unsigned char ad_pan;
 } aml_dec_config_t;
 
 
@@ -225,6 +232,7 @@ int aml_decoder_release(aml_dec_t *aml_dec);
 int aml_decoder_info(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_dec_info_t * dec_info);
 int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int * used_bytes);
 int aml_decoder_set_config(aml_dec_t *aml_dec, aml_dec_config_type_t config_type, aml_dec_config_t * dec_config);
+void aml_decoder_calc_coefficient(unsigned char ad_fade,float * mix_coefficient,float * ad_coefficient);
 void get_audio_decoder_info (aml_dec_info_t dec_info, aml_dec_t *aml_dec);
 
 #endif

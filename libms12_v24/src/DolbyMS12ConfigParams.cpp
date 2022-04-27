@@ -53,10 +53,10 @@ namespace android
 //@@pcm [ott sounds]
 #define DEFAULT_OTT_PCM_FILE_NAME "/data/ott48000Hz.wav"
 //@@HE-AAC input file
-#define DEFAULT_MAIN_HEAAC_V1_FILE_NAME "/data/main.loas"
-#define DEFAULT_ASSOCIATE_HEAAC_V1_FILE_NAME "/data/associate.loas"
-#define DEFAULT_MAIN_HEAAC_V2_FILE_NAME "/data/main.adts"
-#define DEFAULT_ASSOCIATE_HEAAC_V2_FILE_NAME "/data/associate.adts"
+#define DEFAULT_MAIN_HEAAC_LOAS_FILE_NAME "/data/main.loas"
+#define DEFAULT_ASSOCIATE_HEAAC_LOAS_FILE_NAME "/data/associate.loas"
+#define DEFAULT_MAIN_HEAAC_ADTS_FILE_NAME "/data/main.adts"
+#define DEFAULT_ASSOCIATE_HEAAC_ADTS_FILE_NAME "/data/associate.adts"
 
 //@@@DDPlus input file
 #define DEFAULT_MAIN_DDP_FILE_NAME "/data/main.ac3"
@@ -175,7 +175,7 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     mConfigParams = PrepareConfigParams(MAX_ARGC, MAX_ARGV_STRING_LEN);
     if (!mConfigParams) {
         ALOGD("%s() line %d prepare the array fail", __FUNCTION__, __LINE__);
-		return;
+        return;
     }
     memset(mDolbyMain1FileName, 0, sizeof(mDolbyMain1FileName));
     memcpy(mDolbyMain1FileName, DEFAULT_MAIN_DDP_FILE_NAME, sizeof(DEFAULT_MAIN_DDP_FILE_NAME));
@@ -298,17 +298,19 @@ int DolbyMS12ConfigParams::SetInputOutputFileName(char **ConfigParams, int *row_
                 mAppSoundFlags = false;
                 mSystemSoundFlags = false;
                 setInputCMDMask("-imac4");
-            } else if ((mAudioStreamOutFormat == AUDIO_FORMAT_AAC) || (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V1)) {
+            } else if ((mAudioStreamOutFormat == AUDIO_FORMAT_AAC) ||
+                (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V1) ||
+                (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V2)) {
                 //fixme, which he-aac format is allowed to this flow.
-                sprintf(ConfigParams[*row_index], "%s", DEFAULT_MAIN_HEAAC_V1_FILE_NAME);
+                sprintf(ConfigParams[*row_index], "%s", DEFAULT_MAIN_HEAAC_ADTS_FILE_NAME);
                 (*row_index)++;
                 mMainFlags = true;
                 mAppSoundFlags = false;
                 mSystemSoundFlags = false;
                 setInputCMDMask("-imheaac");
-            } else if (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V2) {
+            } else if (mAudioStreamOutFormat == AUDIO_FORMAT_AAC_LATM) {
                 //fixme, which he-aac format is allowed to this flow.
-                sprintf(ConfigParams[*row_index], "%s", DEFAULT_MAIN_HEAAC_V2_FILE_NAME);
+                sprintf(ConfigParams[*row_index], "%s", DEFAULT_MAIN_HEAAC_LOAS_FILE_NAME);
                 (*row_index)++;
                 mMainFlags = true;
                 mAppSoundFlags = false;
@@ -374,33 +376,35 @@ int DolbyMS12ConfigParams::SetInputOutputFileName(char **ConfigParams, int *row_
                 mMainFlags = true;
                 mAppSoundFlags = false;
                 mSystemSoundFlags = false;
-            } else if ((mAudioStreamOutFormat == AUDIO_FORMAT_AAC) || (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V1)) {
+            } else if ((mAudioStreamOutFormat == AUDIO_FORMAT_AAC) ||
+                (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V1) ||
+                (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V2)) {
                 sprintf(ConfigParams[*row_index], "%s", "-im");
                 setInputCMDMask("-imheaac");
                 (*row_index)++;
-                sprintf(ConfigParams[*row_index], "%s", DEFAULT_MAIN_HEAAC_V1_FILE_NAME);
+                sprintf(ConfigParams[*row_index], "%s", DEFAULT_MAIN_HEAAC_ADTS_FILE_NAME);
                 (*row_index)++;
 
                 sprintf(ConfigParams[*row_index], "%s", "-ia");
                 setInputCMDMask("-ia");
                 (*row_index)++;
-                sprintf(ConfigParams[*row_index], "%s", DEFAULT_ASSOCIATE_HEAAC_V1_FILE_NAME);
+                sprintf(ConfigParams[*row_index], "%s", DEFAULT_ASSOCIATE_HEAAC_ADTS_FILE_NAME);
                 (*row_index)++;
 
                 mMainFlags = true;
                 mAppSoundFlags = false;
                 mSystemSoundFlags = false;
-            } else if (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V2) {
+            } else if (mAudioStreamOutFormat == AUDIO_FORMAT_AAC_LATM) {
                 sprintf(ConfigParams[*row_index], "%s", "-im");
                 setInputCMDMask("-imheaac");
                 (*row_index)++;
-                sprintf(ConfigParams[*row_index], "%s", DEFAULT_MAIN_HEAAC_V2_FILE_NAME);
+                sprintf(ConfigParams[*row_index], "%s", DEFAULT_MAIN_HEAAC_LOAS_FILE_NAME);
                 (*row_index)++;
 
                 sprintf(ConfigParams[*row_index], "%s", "-ia");
                 setInputCMDMask("-ia");
                 (*row_index)++;
-                sprintf(ConfigParams[*row_index], "%s", DEFAULT_ASSOCIATE_HEAAC_V2_FILE_NAME);
+                sprintf(ConfigParams[*row_index], "%s", DEFAULT_ASSOCIATE_HEAAC_LOAS_FILE_NAME);
                 (*row_index)++;
 
                 mMainFlags = true;
@@ -1190,7 +1194,9 @@ int DolbyMS12ConfigParams::SetHEAACSwitches(char **ConfigParams, int *row_index)
 {
     ALOGV("+%s() line %d\n", __FUNCTION__, __LINE__);
     if ((mHasAssociateInput == true) && ((mAudioStreamOutFormat == AUDIO_FORMAT_AAC) || \
-                                         (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V1) || (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V2))) {
+                                         (mAudioStreamOutFormat == AUDIO_FORMAT_AAC_LATM) || \
+                                         (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V1) || \
+                                         (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V2))) {
         {
             sprintf(ConfigParams[*row_index], "%s", "-as");
             (*row_index)++;

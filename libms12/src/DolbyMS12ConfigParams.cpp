@@ -261,7 +261,9 @@ int DolbyMS12ConfigParams::SetInputOutputFileName(char **ConfigParams, int *row_
                 mMainFlags = true;
                 mAppSoundFlags = false;
                 mSystemSoundFlags = false;
-            } else if ((mAudioStreamOutFormat == AUDIO_FORMAT_AAC) || (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V1)) {
+            } else if ((mAudioStreamOutFormat == AUDIO_FORMAT_AAC) ||
+                 (mAudioStreamOutFormat == AUDIO_FORMAT_AAC_LATM) ||
+                 (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V1)) {
                 //fixme, which he-aac format is allowed to this flow.
                 sprintf(ConfigParams[*row_index], "%s", DEFAULT_MAIN_HEAAC_V1_FILE_NAME);
                 (*row_index)++;
@@ -298,7 +300,9 @@ int DolbyMS12ConfigParams::SetInputOutputFileName(char **ConfigParams, int *row_
                 mMainFlags = true;
                 mAppSoundFlags = false;
                 mSystemSoundFlags = false;
-            } else if ((mAudioStreamOutFormat == AUDIO_FORMAT_AAC) || (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V1)) {
+            } else if ((mAudioStreamOutFormat == AUDIO_FORMAT_AAC) || \
+                       (mAudioStreamOutFormat == AUDIO_FORMAT_AAC_LATM) || \
+                       (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V1)) {
                 sprintf(ConfigParams[*row_index], "%s", "-im");
                 (*row_index)++;
                 sprintf(ConfigParams[*row_index], "%s", DEFAULT_MAIN_HEAAC_V1_FILE_NAME);
@@ -1027,7 +1031,9 @@ int DolbyMS12ConfigParams::SetHEAACSwitches(char **ConfigParams, int *row_index)
 {
     ALOGV("+%s() line %d\n", __FUNCTION__, __LINE__);
     if ((mHasAssociateInput == true) && ((mAudioStreamOutFormat == AUDIO_FORMAT_AAC) || \
-                                         (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V1) || (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V2))) {
+                                         (mAudioStreamOutFormat == AUDIO_FORMAT_AAC_LATM) || \
+                                         (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V1) || \
+                                         (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V2))) {
         {
             sprintf(ConfigParams[*row_index], "%s", "-as");
             (*row_index)++;

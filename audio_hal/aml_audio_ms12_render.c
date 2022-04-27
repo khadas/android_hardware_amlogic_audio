@@ -304,11 +304,22 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     int ms12_delayms = 0;
     int force_setting_delayms = 0;
     bool bypass_aml_dec = false;
-#ifdef ENABLE_DVB_PATCH
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->is_tv_src_stream;
-    bool dtv_stream_flag = patch && (adev->patch_src == SRC_DTV) && aml_out->is_tv_src_stream;
-#endif
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
+#ifdef ENABLE_DVB_PATCH
+    bool dtv_stream_flag = patch && (adev->patch_src == SRC_DTV) && aml_out->is_tv_src_stream;
+    bool do_sync_flag = dtv_stream_flag && patch && patch->skip_amadec_flag && patch->dtvsync->sync_type == DTVSYNC_MEDIASYNC;
+    /*when es data pts jump > 5s, the dvb stream may replay and do ease out to prevent pop nosie*/
+    if ( dtv_stream_flag && patch->cur_package && patch->dtvsync) {
+        if (patch->dtvsync->last_package_pts !=  DTVSYNC_INIT_PTS &&
+            (ABS(patch->dtvsync->last_package_pts,patch->cur_package->pts) > AUDIO_PTS_DISCONTINUE_THRESHOLD)) {
+            set_ms12_main_audio_mute(ms12, true, 0);
+            //aml_heaac_parser_reset(patch->heaac_parser_handle);
+            //aml_heaac_parser_reset(patch->ad_heaac_parser_handle);
+        }
+        patch->dtvsync->last_package_pts = patch->cur_package->pts;
+    }
+#endif
+
 
     /*
      * define the bypass_aml_dec by audio format
@@ -451,7 +462,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                             force_setting_delayms = aml_getprop_int(PROPERTY_LOCAL_PASSTHROUGH_LATENCY);
                         }
 
-                        if(patch->skip_amadec_flag) {
+                        if (patch->dtvsync->sync_type == DTVSYNC_MEDIASYNC) {
                             patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90 + force_setting_delayms * 90;//need consider the alsa delay
                             if (adev->debug_flag)
                                 ALOGI("patch->dtvsync->cur_outapts %" PRId64 "", patch->dtvsync->cur_outapts);
@@ -477,7 +488,15 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
         if (!demux_info->dual_decoder_support) {
              patch->decoder_offset += patch->cur_package->size;
         } else {
-             patch->decoder_offset += patch->cur_package->split_frame_size;
+             if (patch->aformat == AUDIO_FORMAT_HE_AAC_V1 ||
+                 patch->aformat == AUDIO_FORMAT_AAC_LATM ||
+                 patch->aformat == AUDIO_FORMAT_AAC ||
+                 patch->aformat == AUDIO_FORMAT_MP3 ||
+                 patch->aformat == AUDIO_FORMAT_MP2) {
+                 patch->decoder_offset += patch->cur_package->size;
+             } else {
+                 patch->decoder_offset += patch->cur_package->split_frame_size;
+             }
         }
     }
 #endif
