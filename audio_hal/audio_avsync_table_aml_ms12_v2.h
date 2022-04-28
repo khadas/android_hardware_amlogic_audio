@@ -53,7 +53,7 @@
 /*AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY works in HDMI port:*/
 /*For DDP source under HDMI output*/
 /*40->90, the result change from +25ms to -25ms*/
-#define  AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY                  (90)
+#define  AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY                  (85)
 #define  AVSYNC_MS12_TUNNEL_ATMOS_LATENCY                (20)
 
 #define  AVSYNC_MS12_NONTUNNEL_AC4_LATENCY               (70)
@@ -140,7 +140,7 @@
 #define  AVSYNC_NONMS12_TUNNEL_TV_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.tunnel.tv.ddp"
 
 #define  AVSYNC_NONMS12_TUNNEL_STB_PCM_LATENCY                          (0)
-#define  AVSYNC_NONMS12_TUNNEL_STB_DDP_CVBS_LATENCY                     (0)//through CVBS, target is  [-30, 100]
+#define  AVSYNC_NONMS12_TUNNEL_STB_DDP_CVBS_LATENCY                     (-160)//through CVBS, target is  [-30, 100]
 /*
  * For Display 4K30Hz vs 4K60Hz, the UHD_2997 has different avsync result.
  * This is TODO, which wait for the Video Delay API.
@@ -151,7 +151,7 @@
  * PCM_FHD_2997 > -7 ~ -23
  * PCM_FHD_5994 > -10 ~ -24
  */
-#define  AVSYNC_NONMS12_TUNNEL_STB_DDP_HDMI_LATENCY                     (40)//through HDMI,  target is [-45, 0]
+#define  AVSYNC_NONMS12_TUNNEL_STB_DDP_HDMI_LATENCY                     (-120)//through HDMI,  target is [-45, 0]
 
 #define  AVSYNC_NONMS12_TUNNEL_STB_PCM_LATENCY_PROPERTY             "vendor.media.audio.hal.nonms12.tunnel.stb.pcm"
 #define  AVSYNC_NONMS12_TUNNEL_STB_DDP_CVBS_LATENCY_PROPERTY        "vendor.media.audio.hal.nonms12.tunnel.stb.ddp_cvbs"
