@@ -405,8 +405,8 @@
 /* following property, used for DTV avsync with DDP(nonms12) processing */
 /* for different port and different format */
 #define  AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_PCM_LATENCY            (0)
-#define  AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_DD_LATENCY             (0)
-#define  AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_DDP_LATENCY            (0)
+#define  AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_DD_LATENCY             (-80)
+#define  AVSYNC_NONMS12_DTV_HDMI_ARC_OUT_DDP_LATENCY            (-70)
 #define  AVSYNC_NONMS12_DTV_HDMI_OUT_PCM_LATENCY                (-30)
 #define  AVSYNC_NONMS12_DTV_HDMI_OUT_DD_LATENCY                 (0)
 #define  AVSYNC_NONMS12_DTV_HDMI_OUT_DDP_LATENCY                (0)
