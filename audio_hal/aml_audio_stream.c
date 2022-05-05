@@ -376,6 +376,7 @@ void get_sink_format(struct audio_stream_out *stream)
         adev->sink_capability = AUDIO_FORMAT_PCM_16_BIT;
         adev->optical_format = AUDIO_FORMAT_PCM_16_BIT;
         aml_out->dual_output_flag = false;
+        adev->sink_max_channels = 2;
         return;
     }
 
