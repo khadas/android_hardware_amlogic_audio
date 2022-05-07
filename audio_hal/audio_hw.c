@@ -9779,7 +9779,8 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 /*[SEI-zhaopf-2018-10-29] add for HBG remote audio support } */
 #if defined(TV_AUDIO_OUTPUT)
     adev->is_TV = true;
-    adev->is_BDS = check_chip_name("t7", 2, &adev->alsa_mixer) ? true : false;
+    /* by default, BDS will share the same audio feature as TV */
+    adev->is_BDS = /*check_chip_name("t7", 2, &adev->alsa_mixer) ? true : */false;
     adev->default_alsa_ch =  aml_audio_get_default_alsa_output_ch();
     /*Now SoundBar type is depending on TV audio as only tv support multi-channel LPCM output*/
     adev->is_SBR = aml_audio_check_sbr_product();
