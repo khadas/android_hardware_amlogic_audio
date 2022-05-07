@@ -553,6 +553,7 @@ int dtv_patch_get_latency(struct aml_audio_device *aml_dev)
              return -1;
          }
     }
+    pthread_mutex_lock(&aml_dev->dtv_lock);
     int latencyms = 0;
     int64_t last_queue_es_apts = 0;
     if (aml_dev->is_multi_demux) {
@@ -587,6 +588,7 @@ int dtv_patch_get_latency(struct aml_audio_device *aml_dev)
                 latencyms = (patch->last_chenkin_apts - patch->cur_outapts) / 90;
         }
     }
+    pthread_mutex_unlock(&aml_dev->dtv_lock);
     return latencyms;
 }
 
