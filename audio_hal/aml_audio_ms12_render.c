@@ -356,7 +356,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
         /* audio data/apts, then we send the audio data*/
         ret = aml_audio_ms12_process(stream, buffer, bytes);
 #ifdef ENABLE_DVB_PATCH
-        if (patch->decoder_offset == 0) {
+        if (patch && patch->decoder_offset == 0) {
            /*after ms12 process one frame, set mix leve and ad vol level*/
             if (adev->dual_decoder_support) {
                 pthread_mutex_lock(&ms12->lock);
