@@ -514,7 +514,7 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
 #endif
 
     if (aml_dev->audio_patch) {
-        if (aml_dev->sink_gain[aml_dev->active_outport] < FLOAT_ZERO) {
+        if (aml_dev->sink_gain[aml_dev->active_outport] < FLOAT_ZERO && aml_dev->is_STB) {
             b_mute = true;
         } else {
             if ((aml_dev->patch_src == SRC_DTV) &&
