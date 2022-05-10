@@ -9692,6 +9692,8 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->ms12_force_ddp_out = property_get_bool("ro.vendor.platform.is.forceddp", false);
     adev->spdif_enable = true;
     adev->dolby_ms12_dap_init_mode = property_get_int32("ro.vendor.platform.ms12.dap_init_mode", 0);
+    /*this flag is for issue SWPL-80881*/
+    adev->aml_truehd_passthrough_support = property_get_bool("ro.vendor.platform.is.aml_truehd_passthrough", false);
 
     /*for ms12 case, we set default continuous mode*/
     if (eDolbyMS12Lib == adev->dolby_lib_type) {

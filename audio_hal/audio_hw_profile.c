@@ -669,7 +669,7 @@ exit:
     return 0;
 }
 
-char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml_arc_hdmi_desc *p_hdmi_descs)
+char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml_arc_hdmi_desc *p_hdmi_descs, bool report_aml_truehd)
 {
     int i = 0;
     int fd = -1;
@@ -784,19 +784,22 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
             if (audio_cap_item->dep_value == 0x1) {
                 //Byte3 bit0:1 bit1:0
                 //eg: "MAT, 8 ch, 32/44.1/48/88.2/96/176.4/192 kHz, DepVaule 0x1"
-                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0");
+                if (report_aml_truehd)
+                    size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0");
                 p_hdmi_descs->mat_fmt.is_support = 1;
 
             } else if (audio_cap_item->dep_value == 0x0) {
                 //Byte3 bit0:0 bit1:0
                 //eg: "MAT, 8 ch, 48/96/192 kHz, DepVaule 0x0"
-                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0");
+                if (report_aml_truehd)
+                    size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0");
                 p_hdmi_descs->mat_fmt.is_support = 0;//fixme about the mat_fmt.is_support
 
             } else if (audio_cap_item->dep_value == 0x3) {
                 //Byte3 bit0:0 bit1:1
                 //eg: "MAT, 8 ch, 48 kHz, DepVaule 0x3"
-                size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0|AUDIO_FORMAT_MAT_2_1");
+                if (report_aml_truehd)
+                    size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0|AUDIO_FORMAT_MAT_2_1");
                 p_hdmi_descs->mat_fmt.is_support = 1;
 
             } else {
@@ -1979,7 +1982,8 @@ char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(con
                 if (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) {
                         cap = (char *) get_offload_cap(keys,format);
                 } else {
-                    cap = (char *)get_hdmi_sink_cap_new(keys,format,&(adev->hdmi_descs));
+                    /*for truehd passthrough case, we need check whether this device support or not*/
+                    cap = (char *)get_hdmi_sink_cap_new(keys,format,&(adev->hdmi_descs), adev->aml_truehd_passthrough_support);
 
                     /* below patch is for dd only sink device.
                      * When connect dd only device, if we support ms12 or ddp convert,

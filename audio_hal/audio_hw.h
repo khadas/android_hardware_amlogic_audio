@@ -585,6 +585,7 @@ struct aml_audio_device {
     pthread_cond_t wake_cond;
     /*used to restore the continuous_audio_mode after system resume(early suspend case)*/
     int continuous_audio_mode_backup;
+    bool aml_truehd_passthrough_support;  /*whether dolby truehd passthrough can be supported*/
 };
 
 struct meta_data {
