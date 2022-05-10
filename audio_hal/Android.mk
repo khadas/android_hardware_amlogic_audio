@@ -48,6 +48,7 @@ include $(BUILD_PREBUILT)
     LOCAL_MODULE_RELATIVE_PATH := hw
     LOCAL_SRC_FILES := \
         audio_hw.c \
+        aml_hfp.c \
         audio_hw_utils.c \
         audio_hwsync.c \
         audio_hw_profile.c \

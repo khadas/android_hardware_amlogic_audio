@@ -238,6 +238,7 @@ unsigned int pcm_get_subdevice(struct pcm *pcm);
  */
 int pcm_write(struct pcm *pcm, const void *data, unsigned int count);
 int pcm_read(struct pcm *pcm, void *data, unsigned int count);
+int pcm_state(struct pcm *pcm);
 
 /*
  * mmap() support.
