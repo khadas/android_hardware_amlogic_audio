@@ -33,7 +33,7 @@
 #include "alsa_config_parameters.h"
 #include "audio_hw_dtv.h"
 #include "aml_audio_timer.h"
-
+#include "aml_hfp.h"
 
 #define AML_ZERO_ADD_MIN_SIZE 1024
 
@@ -562,6 +562,11 @@ write:
 
     if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT) && (aml_out->is_tv_platform == false)) {
         check_audio_level("alsa_write", buffer, bytes);
+    }
+
+   /* do hfp related when hfp write, maybe need drop the data for write conflict */
+    if (if_hfp_running(aml_out, stream, bytes)) {
+        return bytes;
     }
 
     ret = pcm_write(aml_out->pcm, buffer, bytes);

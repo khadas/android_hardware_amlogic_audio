@@ -96,6 +96,8 @@
 #include "aml_audio_nonms12_render.h"
 #include "aml_vad_wakeup.h"
 
+#include "aml_hfp.h"
+
 #define ENABLE_NANO_NEW_PATH 1
 #if ENABLE_NANO_NEW_PATH
 #include "jb_nano.h"
@@ -3902,6 +3904,8 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 
     ALOGI ("%s(%p, kv: %s)", __FUNCTION__, dev, kvpairs);
     parms = str_parms_create_str (kvpairs);
+
+    audio_extn_hfp_set_parameters(adev, parms);
 
     ret = str_parms_get_str (parms, "screen_state", value, sizeof (value) );
     if (ret >= 0) {

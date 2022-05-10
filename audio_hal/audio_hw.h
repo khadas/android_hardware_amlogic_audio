@@ -328,6 +328,7 @@ struct aml_audio_device {
     */
     pthread_mutex_t trans_lock;
     int mode;
+    bool enable_hfp;
     audio_devices_t in_device;
     audio_devices_t out_device;
     int in_call;
