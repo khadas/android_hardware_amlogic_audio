@@ -1088,6 +1088,7 @@ void get_audio_indicator(struct aml_audio_device *dev, char *temp_buf) {
 
 static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t format, int atmos_flag)
 {
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
     int update_type = get_codec_type(format);
     int update_threshold = DOLBY_FMT_UPDATE_THRESHOLD;
     int cur_aml_dap_surround_virtuallizer = dolby_ms12_get_dap_surround_virtuallizer();
@@ -1155,9 +1156,11 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
             aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, TYPE_DTS_HP);
         }
         aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, update_type);
-        ALOGD("%s()audio hal format change to %x, atmos flag = %d, dts_hp_x = %d, update_type = %d is_dolby_atmos_off = %d\n",
-            __FUNCTION__, adev->audio_hal_info.format, adev->audio_hal_info.is_dolby_atmos,
+        ALOGD("%s() audio hal format change to %x, atmos flag = %d, is_dolby_atmos = %d, dts_hp_x = %d, update_type = %d is_dolby_atmos_off = %d\n",
+            __FUNCTION__, adev->audio_hal_info.format, adev->audio_hal_info.is_dolby_atmos, adev->ms12.is_dolby_atmos,
             adev->dts_hd.is_headphone_x, adev->audio_hal_info.update_type, is_dolby_atmos_off);
+        ALOGD("%s() active_outport %#x, dap_bypass_enable = %d, is_ms12_tuning_dat = %d, dolby_ms12_enable = %d, output_config = %#x\n",
+            __FUNCTION__, adev->active_outport, adev->ms12.dap_bypass_enable, adev->is_ms12_tuning_dat, ms12->dolby_ms12_enable, ms12->output_config);
     }
 
     return 0;
