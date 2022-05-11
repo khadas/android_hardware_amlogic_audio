@@ -2010,7 +2010,6 @@ void *audio_dtv_patch_output_threadloop(void *data)
         ALOGI("++%s live cant get the aml_out now!!!\n ", __FUNCTION__);
     }
     aml_dev->mix_init_flag = false;
-    aml_dev->mute_start = true;
     pthread_mutex_unlock(&aml_dev->lock);
 #ifdef TV_AUDIO_OUTPUT
     patch->output_src = AUDIO_DEVICE_OUT_SPEAKER;
@@ -2311,6 +2310,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
 
                 patch->dtv_pcm_readed = patch->dtv_pcm_writed = 0;
                 patch->numDecodedSamples = patch->numOutputSamples = 0;
+                aml_dev->mute_start = true;
                 create_dtv_output_stream_thread(patch);
             } else {
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
