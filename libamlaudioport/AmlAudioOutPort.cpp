@@ -90,6 +90,9 @@ namespace android {
     void    AmlAudioOutPort::pause() {
         outStream->pause();
     }
+    status_t    AmlAudioOutPort::resume() {
+        return outStream->resume();
+    }
     status_t    AmlAudioOutPort::setVolume(float left, float right) {
         return outStream->setVolume(left,right);
     }

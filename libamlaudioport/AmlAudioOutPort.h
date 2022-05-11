@@ -95,6 +95,9 @@ class AmlAudioOutPort : public RefBase
      */
     void        pause();
 
+    /* resume a track.*/
+    status_t    resume();
+
     /* Set volume for this track, mostly used for games' sound effects
      * left and right volumes. Levels must be >= 0.0 and <= 1.0.
      * This is the older API.  New applications should use setVolume(float) when possible.
