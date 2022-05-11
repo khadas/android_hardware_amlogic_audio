@@ -579,6 +579,12 @@ struct aml_audio_device {
     unsigned int direct_mode;
     bool audio_patch_2_af_stream;
     int stream_bitrate; // current offload stream bitrate
+
+    /* Early suspend */
+    pthread_mutex_t wake_lock;
+    pthread_cond_t wake_cond;
+    /*used to restore the continuous_audio_mode after system resume(early suspend case)*/
+    int continuous_audio_mode_backup;
 };
 
 struct meta_data {
