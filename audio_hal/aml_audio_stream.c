@@ -87,7 +87,8 @@ static audio_format_t get_sink_capability (struct aml_audio_device *adev)
     if (!adev->is_TV || adev->is_BDS)
     {
         char *cap = NULL;
-        cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_FORMATS,0,&(adev->hdmi_descs));
+        /*we should get the real audio cap, so we need it report the correct truehd info*/
+        cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_FORMATS,0,&(adev->hdmi_descs), true);
         if (cap) {
             /*
              * Dolby MAT 2.0/2.1 has low latency vs Dolby MAT 1.0(TRUEHD inside)
@@ -166,7 +167,7 @@ static audio_format_t get_sink_dts_capability (struct aml_audio_device *adev)
     if (!adev->is_TV)
     {
         char *cap = NULL;
-        cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_FORMATS,0,&(adev->hdmi_descs));
+        cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_FORMATS,0,&(adev->hdmi_descs), true);
         if (cap) {
             if (adev->hdmi_descs.dts_fmt.is_support) {
                 sink_capability = AUDIO_FORMAT_DTS;
@@ -194,7 +195,7 @@ static void get_sink_pcm_capability(struct aml_audio_device *adev)
     char *cap = NULL;
     hdmi_desc->pcm_fmt.sample_rate_mask = 0;
 
-    cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES, AUDIO_FORMAT_PCM_16_BIT,&(adev->hdmi_descs));
+    cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES, AUDIO_FORMAT_PCM_16_BIT,&(adev->hdmi_descs), true);
     if (cap) {
         /*
          * bit:    6     5     4    3    2    1    0
