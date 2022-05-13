@@ -3700,6 +3700,9 @@ static int aml_audio_input_routing(struct audio_hw_device *dev,
         case INPORT_LINEIN:
             audio_route_apply_path(aml_dev->ar, "line_in");
             break;
+        case INPORT_BUILTIN_MIC:
+            audio_route_apply_path(aml_dev->ar, "main_mic");
+            break;
         default:
             ALOGW("%s: cur inport:%d unsupport", __func__, inport);
             break;
