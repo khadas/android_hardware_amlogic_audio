@@ -769,8 +769,10 @@ int free_output_port(output_port *port)
 {
     R_CHECK_POINTER_LEGAL(-EINVAL, port, "");
     AM_LOGI("port:%s", mixerOutputType2Str(port->enOutPortType));
-    output_close_alsa(port->pcm_handle);
-    port->pcm_handle = NULL;
+    if (port->pcm_handle) {
+        output_close_alsa(port->pcm_handle);
+        port->pcm_handle = NULL;
+    }
     aml_audio_free(port->data_buf);
     aml_audio_free(port);
     return 0;
