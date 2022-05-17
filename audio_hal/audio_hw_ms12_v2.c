@@ -3144,7 +3144,7 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
 
     /*update the master pcm frame, which is used for av sync*/
     if (audio_is_linear_pcm(output_format)) {
-        if (ms12_info->output_ch == 8) {
+        if (ms12_info->output_ch == 8 || ms12_info->output_ch == 6) {
             ms12_info->pcm_type = MC_LPCM;
         }
         if (ms12_info->pcm_type == DAP_LPCM) {
