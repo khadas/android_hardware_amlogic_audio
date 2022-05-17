@@ -5499,7 +5499,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
     uint32_t latency_frames = 0;
     uint64_t total_frame = 0;
     int auge_chip = alsa_device_is_auge();
-
+    bool bds = check_chip_name("t7", 2, &adev->alsa_mixer);
     /* raw data need packet to IEC61937 format by spdif encoder */
     if (output_format == AUDIO_FORMAT_IEC61937) {
         //ALOGI("IEC61937 Format");
@@ -5611,7 +5611,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                         aml_audio_switch_output_mode((int16_t *)adev->out_16_buf, bytes, adev->sound_track_mode);
                     }
                     if (adev->active_outport != OUTPORT_A2DP && adev->active_outport != OUTPORT_HEADPHONE && \
-                        adev->active_outport != OUTPORT_HDMI) {
+                        adev->active_outport != OUTPORT_HDMI && !bds) {
                         out_frames = audio_post_process(&adev->native_postprocess, adev->out_16_buf, out_frames);
                         bytes = out_frames * 4;
                     }
