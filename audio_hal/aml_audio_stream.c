@@ -191,6 +191,37 @@ static audio_format_t get_sink_dts_capability (struct aml_audio_device *adev)
     return sink_capability;
 }
 
+
+static audio_format_t get_sink_mpegh_capability (struct aml_audio_device *adev)
+{
+    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+
+    bool mpegh_is_support = hdmi_desc->mpegh_fmt.is_support;
+
+    audio_format_t sink_capability = AUDIO_FORMAT_PCM_16_BIT;
+
+    //STB case
+    if (!adev->is_TV)
+    {
+        char *cap = NULL;
+        cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_FORMATS, 0, &(adev->hdmi_descs), true);
+        if (cap) {
+            if (adev->hdmi_descs.mpegh_fmt.is_support) {
+                sink_capability = AUDIO_FORMAT_MPEGH;
+            }
+            ALOGI("%s mbox+dvb case sink_capability %#x\n", __FUNCTION__, sink_capability);
+            aml_audio_free(cap);
+            cap = NULL;
+        }
+    } else {
+        if (mpegh_is_support) {
+            sink_capability = AUDIO_FORMAT_MPEGH;
+        }
+        ALOGI ("%s mpegh support %d\n", __FUNCTION__, mpegh_is_support);
+    }
+    return sink_capability;
+}
+
 static void get_sink_pcm_capability(struct aml_audio_device *adev)
 {
     struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
@@ -367,6 +398,7 @@ void get_sink_format(struct audio_stream_out *stream)
 
     audio_format_t sink_capability = get_sink_capability(adev);
     audio_format_t sink_dts_capability = get_sink_dts_capability(adev);
+    audio_format_t sink_mpegh_capability = get_sink_mpegh_capability(adev);
     audio_format_t source_format = aml_out->hal_internal_format;
 
     get_sink_pcm_capability(adev);
@@ -395,10 +427,11 @@ void get_sink_format(struct audio_stream_out *stream)
         (source_format != AUDIO_FORMAT_DTS) &&
         (source_format != AUDIO_FORMAT_DTS_HD) && \
         (source_format != AUDIO_FORMAT_DOLBY_TRUEHD) && \
-         (source_format != AUDIO_FORMAT_AAC) && \
+        (source_format != AUDIO_FORMAT_AAC) && \
         (source_format != AUDIO_FORMAT_AAC_LATM) && \
         (source_format != AUDIO_FORMAT_HE_AAC_V1) && \
-        (source_format != AUDIO_FORMAT_HE_AAC_V2)) {
+        (source_format != AUDIO_FORMAT_HE_AAC_V2) && \
+        (source_format != AUDIO_FORMAT_MPEGH)) {
         /*unsupport format [dts-hd/true-hd]*/
         ALOGI("%s() source format %#x change to %#x", __FUNCTION__, source_format, AUDIO_FORMAT_PCM_16_BIT);
         source_format = AUDIO_FORMAT_PCM_16_BIT;
@@ -437,6 +470,8 @@ void get_sink_format(struct audio_stream_out *stream)
         case BYPASS:
             if (is_dts_format(source_format)) {
                 sink_audio_format = MIN(source_format, sink_dts_capability);
+            } else if (is_mpegh_format(source_format)) {
+                sink_audio_format = sink_mpegh_capability;
             } else {
                 sink_audio_format = get_suitable_output_format(aml_out, source_format, sink_capability);
             }

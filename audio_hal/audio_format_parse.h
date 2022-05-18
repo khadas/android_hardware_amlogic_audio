@@ -30,6 +30,7 @@ enum audio_type {
     TRUEHD,
     DTSCD,
     MUTE,
+    MPEGH,
 };
 
 

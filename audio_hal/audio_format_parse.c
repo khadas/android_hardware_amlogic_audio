@@ -437,6 +437,11 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size,
             // Not defined, set it as 1024*4
             *package_size = 1024 * 4;
             break;
+        case IEC61937_MPEGH:
+            AudioType = MPEGH;
+            // Not defined, set it as 1024*4
+            *package_size = 1024 * 4;
+            break;
         default:
             AudioType = LPCM;
             break;
@@ -928,6 +933,8 @@ audio_format_t audio_type_convert_to_android_audio_format_t(int codec_type)
         return AUDIO_FORMAT_DOLBY_TRUEHD;
     case LPCM:
         return AUDIO_FORMAT_PCM_16_BIT;
+    case MPEGH:
+        return AUDIO_FORMAT_MPEGH;
     default:
         AM_LOGW("invalid codec_type:%d, return PCM.", codec_type);
         return AUDIO_FORMAT_PCM_16_BIT;

@@ -90,6 +90,7 @@ struct aml_arc_hdmi_desc {
     struct format_desc dd_fmt;
     struct format_desc ddp_fmt;
     struct format_desc mat_fmt;
+    struct format_desc mpegh_fmt;
 };
 
 /*@ brief update edid

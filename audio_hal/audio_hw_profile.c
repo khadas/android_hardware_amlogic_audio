@@ -335,6 +335,7 @@ static audio_format_pair_t hdmi_format_table[] = {
     {"Dolby_Digital+" , AUDIO_FORMAT_E_AC3        },
     {"MAT"            , AUDIO_FORMAT_MAT          },
     {"WMA_Pro"        , AUDIO_FORMAT_WMA_PRO      },
+    {"MPEG-H"         , AUDIO_FORMAT_MPEGH        },
 };
 
 typedef  struct {
@@ -697,6 +698,14 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
         format = AUDIO_FORMAT_MAT;
     }
 
+    /*currently we treat MPEG-H subfomrat as MPEG-H*/
+    if (format == AUDIO_FORMAT_MPEGH_BL_L3 ||
+        format == AUDIO_FORMAT_MPEGH_BL_L4 ||
+        format == AUDIO_FORMAT_MPEGH_LC_L3 ||
+        format == AUDIO_FORMAT_MPEGH_LC_L4) {
+        format = AUDIO_FORMAT_MPEGH;
+    }
+
     /*currently we treat eac3_joc as eac3*/
     if (format == AUDIO_FORMAT_E_AC3_JOC) {
         format = AUDIO_FORMAT_E_AC3;
@@ -715,6 +724,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
         p_hdmi_descs->dtshd_fmt.is_support = 0;
         p_hdmi_descs->mat_fmt.is_support = 0;
         p_hdmi_descs->pcm_fmt.max_channels = 2;
+        p_hdmi_descs->mpegh_fmt.is_support = 0;
 
         /*check EAC3*/
         audio_cap_item = get_edid_support_audio_format(AUDIO_FORMAT_E_AC3);
@@ -753,9 +763,9 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
             p_hdmi_descs->dts_fmt.is_support = 1;
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS");
             /*as we don't support dts decoder, then we cant' support dts hd passthrough*/
-            if (adev->dts_decode_enable) {
+            //if (adev->dts_decode_enable) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS_HD");
-            }
+            //}
             p_hdmi_descs->dtshd_fmt.is_support = 1;
         } else if ((audio_cap_item = get_edid_support_audio_format(AUDIO_FORMAT_DTS)) != NULL) {
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS");
@@ -771,7 +781,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
 
         /*check dolby truehd*/
         audio_cap_item = get_edid_support_audio_format(AUDIO_FORMAT_MAT);
-        if (audio_cap_item && (eDolbyMS12Lib == adev->dolby_lib_type)) {
+        if (audio_cap_item) {
             /*
              * when cat /sys/class/amhdmitx/amhdmitx0/aud_cap,
              * eg: "AML_MAT, 8 ch, 44.1/48/88.2/96/176.4/192 kHz, DepValue 0x1"
@@ -814,6 +824,13 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
                 p_hdmi_descs->mat_fmt.is_support = 0;
             }
         }
+
+        /*check mpegh*/
+        audio_cap_item = get_edid_support_audio_format(AUDIO_FORMAT_MPEGH);
+        if (audio_cap_item) {
+            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_MPEGH_BL_L3|AUDIO_FORMAT_MPEGH_BL_L4|AUDIO_FORMAT_MPEGH_LC_L3|AUDIO_FORMAT_MPEGH_LC_L4");
+            p_hdmi_descs->mpegh_fmt.is_support = 1;
+        }
     }
     /*check the channel cap */
     else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
@@ -837,6 +854,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
         case AUDIO_FORMAT_DTS:
         case AUDIO_FORMAT_DTS_HD:
         case AUDIO_FORMAT_MAT:
+        case AUDIO_FORMAT_MPEGH:
             audio_cap_item = get_edid_support_audio_format(format);
             /*patch for some tv only support 2ch ddp, but it can decode ddp 5.1*/
             if (format == AUDIO_FORMAT_E_AC3 ||
@@ -875,6 +893,10 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
                 size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
 
             }
+            break;
+        case AUDIO_FORMAT_IEC61937:
+            // support all the channel mapping
+            size += sprintf(aud_cap, "sup_channels=%s", DOLBY_TRUEHD_SUPPORT_CHANNEL);
             break;
         default:
             /* take the 2ch supported as default */

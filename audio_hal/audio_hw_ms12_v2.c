@@ -3603,8 +3603,10 @@ bool is_bypass_dolbyms12(struct audio_stream_out *stream)
     audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
     bool is_dts = is_dts_format(hal_internal_format);
     bool is_dolby_audio = is_dolby_format(hal_internal_format);
+    bool is_mpegh = is_mpegh_format(hal_internal_format);
 
     return (is_dts
+            || is_mpegh
             || is_high_rate_pcm(stream)
             || (is_multi_channel_pcm(stream) && (adev->digital_audio_format == BYPASS)));
 }

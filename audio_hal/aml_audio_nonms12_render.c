@@ -140,6 +140,9 @@ ssize_t aml_audio_spdif_output(struct audio_stream_out *stream, void **spdifout_
         }
         if (spdif_config.audio_format == AUDIO_FORMAT_IEC61937) {
             spdif_config.sub_format = data_info->sub_format;
+            if ((spdif_config.sub_format == AUDIO_FORMAT_MPEGH || spdif_config.sub_format == AUDIO_FORMAT_DTS_HD) && spdif_config.data_ch == 8) {
+                spdif_config.channel_mask = AUDIO_CHANNEL_OUT_7POINT1;
+            }
         } else if (audio_is_linear_pcm(spdif_config.audio_format)) {
             if (data_info->data_ch == 6) {
                 spdif_config.channel_mask = AUDIO_CHANNEL_OUT_5POINT1;
@@ -277,6 +280,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 }
 
             }
+
             // write pcm data
             if (dec_pcm_data->data_len > 0) {
                 // aml_audio_dump_audio_bitstreams("/data/dec_data.raw", dec_pcm_data->buf, dec_pcm_data->data_len);
@@ -624,6 +628,39 @@ static void faad_decoder_config_prepare(struct audio_stream_out *stream, aml_faa
     return;
 }
 
+static void iec_decoder_config_prepare(struct audio_stream_out *stream, aml_iec_config_t * iec_config){
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+
+    if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+        iec_config->is_iec61937 = true;
+    } else {
+        iec_config->is_iec61937 = false;
+    }
+    if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
+        iec_config->is_dtshd = true;
+    }
+    iec_config->channel = aml_out->hal_ch;
+    iec_config->samplerate = aml_out->hal_rate;
+    iec_config->format = aml_out->hal_internal_format;
+
+    return;
+}
+
+static void mpegh_decoder_config_prepare(struct audio_stream_out *stream, aml_mpegh_config_t * mpegh_config){
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+
+    if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+        mpegh_config->is_iec61937 = true;
+    } else {
+        mpegh_config->is_iec61937 = false;
+    }
+    mpegh_config->channel = aml_out->hal_ch;
+    mpegh_config->samplerate = aml_out->hal_rate;
+    mpegh_config->format = aml_out->hal_internal_format;
+
+    return;
+}
+
 static void pcm_decoder_config_prepare(struct audio_stream_out *stream, aml_pcm_config_t * pcm_config)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
@@ -664,15 +701,23 @@ int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t f
     }
 #endif
 
+    dec_config->dts_decode_enable = adev->dts_decode_enable;
+
     switch (format) {
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3: {
         ddp_decoder_config_prepare(stream, &dec_config->dcv_config);
         break;
     }
-    case AUDIO_FORMAT_DTS:
-    case AUDIO_FORMAT_DTS_HD: {
+    case AUDIO_FORMAT_DTS: {
         dts_decoder_config_prepare(stream, &dec_config->dca_config);
+    }
+    case AUDIO_FORMAT_DTS_HD: {
+        if (adev->dts_decode_enable) {
+            dts_decoder_config_prepare(stream, &dec_config->dca_config);
+        } else {
+            iec_decoder_config_prepare(stream, &dec_config->iec_config);
+        }
         break;
     }
     case AUDIO_FORMAT_PCM_16_BIT:
@@ -690,6 +735,19 @@ int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t f
     case AUDIO_FORMAT_AAC:
     case AUDIO_FORMAT_AAC_LATM: {
         faad_decoder_config_prepare(stream, &dec_config->faad_config);
+        break;
+    }
+    case AUDIO_FORMAT_DOLBY_TRUEHD:
+    case AUDIO_FORMAT_MAT: {
+        iec_decoder_config_prepare(stream, &dec_config->iec_config);
+        break;
+    }
+    case AUDIO_FORMAT_MPEGH:
+    case AUDIO_FORMAT_MPEGH_BL_L3:
+    case AUDIO_FORMAT_MPEGH_BL_L4:
+    case AUDIO_FORMAT_MPEGH_LC_L3:
+    case AUDIO_FORMAT_MPEGH_LC_L4: {
+        mpegh_decoder_config_prepare(stream, &dec_config->mpegh_config);
         break;
     }
     default:

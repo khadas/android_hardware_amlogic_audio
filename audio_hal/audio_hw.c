@@ -7053,22 +7053,36 @@ hwsync_rewrite:
         }
     }
     /*dts cd process need to discuss here */
-    else if (aml_out->hal_format == AUDIO_FORMAT_IEC61937 &&
-        (aml_out->hal_internal_format == AUDIO_FORMAT_DTS || aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) &&
-        !aml_out->dts_check) {
-
+    else if (aml_out->hal_format == AUDIO_FORMAT_IEC61937 && !aml_out->iec_check) {
         audio_channel_mask_t cur_ch_mask;
         int package_size;
         int cur_audio_type = audio_type_parse(write_buf, write_bytes, &package_size, &cur_ch_mask);
 
         cur_aformat = audio_type_convert_to_android_audio_format_t(cur_audio_type);
         ALOGI("cur_aformat:%0x cur_audio_type:%d", cur_aformat, cur_audio_type);
-        if (cur_audio_type == DTSCD) {
-            aml_out->is_dtscd = true;
-        } else {
-            aml_out->is_dtscd = false;
+
+        if (cur_aformat == AUDIO_FORMAT_DTS || cur_aformat == AUDIO_FORMAT_DTS_HD || cur_aformat == AUDIO_FORMAT_MPEGH) {
+            if (cur_audio_type == DTSCD) {
+                aml_out->is_dtscd = true;
+            } else {
+                aml_out->is_dtscd = false;
+            }
+            if (adev->dolby_lib_type == eDolbyMS12Lib) {
+                if (adev->continuous_audio_mode) {
+                    aml_out->restore_continuous = true;
+                }
+                get_dolby_ms12_cleanup(&adev->ms12, true);
+            }
+            aml_out->restore_dolby_lib_type = true;
+            adev->dolby_lib_type = eDolbyDcvLib;
         }
-        aml_out->dts_check = true;
+
+        if (cur_audio_type != LPCM && cur_audio_type != PAUSE && cur_audio_type != MUTE) {
+            aml_out->hal_internal_format = cur_aformat;
+            aml_out->iec_check = true;
+        } else {
+            return return_bytes;
+        }
         /*
         if (cur_aformat == AUDIO_FORMAT_DTS || cur_aformat == AUDIO_FORMAT_AC3) {
             aml_out->hal_internal_format = cur_aformat;

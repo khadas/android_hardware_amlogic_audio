@@ -35,6 +35,7 @@ enum IEC61937_PC_Value {
     IEC61937_EAC3               = 0x15,          ///< E-AC-3 data
     IEC61937_MAT                = 0x16,          ///< MAT data
     IEC61937_PAUSE              = 0x03,          ///< Pause
+    IEC61937_MPEGH              = 0x19,          ///< Mpeg-H
 };
 
 

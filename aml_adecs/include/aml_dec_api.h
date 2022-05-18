@@ -138,6 +138,7 @@ typedef struct aml_dec {
     int64_t last_synced_frame_pts;
     int out_synced_frame_count;
     bool debug_synced_frame_pts_flag;
+    int dts_decode_enable;
 } aml_dec_t;
 
 typedef struct aml_dcv_config {
@@ -186,6 +187,21 @@ typedef struct aml_mad_config {
     int channel;
 } aml_mad_config_t;
 
+typedef struct aml_iec_config {
+    audio_format_t format;
+    bool is_iec61937;
+    bool is_dtshd;
+    int samplerate;
+    int channel;
+} aml_iec_config_t;
+
+typedef struct aml_mpegh_config {
+    audio_format_t format;
+    bool is_iec61937;
+    int samplerate;
+    int channel;
+} aml_mpegh_config_t;
+
 typedef struct aml_dec_config {
     /*config for decoder init*/
     aml_dcv_config_t dcv_config;
@@ -193,6 +209,8 @@ typedef struct aml_dec_config {
     aml_mad_config_t mad_config;
     aml_faad_config_t faad_config;
     aml_dra_config_t dra_config;
+    aml_iec_config_t iec_config;
+    aml_mpegh_config_t mpegh_config;
     aml_pcm_config_t pcm_config;
 
     /*config for runtime*/
@@ -202,6 +220,7 @@ typedef struct aml_dec_config {
     int  mixer_level;   /* AML_DEC_CONFIG_MIXER_LEVEL */
     unsigned char ad_fade;
     unsigned char ad_pan;
+    int dts_decode_enable;
 } aml_dec_config_t;
 
 

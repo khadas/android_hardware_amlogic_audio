@@ -36,18 +36,19 @@
 #include "aml_dts_dec_api.h"
 #include "aml_pcm_dec_api.h"
 #include "aml_mpeg_dec_api.h"
+#include "aml_iec_passthrough_api.h"
 #include "aml_aac_dec_api.h"
 #include "aml_dra_dec_api.h"
+#include "aml_mpegh_dec_api.h"
 #include "aml_dump_debug.h"
 #include "aml_audio_report.h"
 #include "aml_audio_sysfs.h"
 
 
-
 #define AML_DEC_FRAGMENT_FRAMES     (512)
 #define AML_DEC_MAX_FRAMES          (AML_DEC_FRAGMENT_FRAMES * 4)
 
-static aml_dec_func_t * get_decoder_function(audio_format_t format)
+static aml_dec_func_t * get_decoder_function(audio_format_t format, int dts_decode_enable)
 {
     switch (format) {
     case AUDIO_FORMAT_AC3:
@@ -56,10 +57,16 @@ static aml_dec_func_t * get_decoder_function(audio_format_t format)
     }
     case AUDIO_FORMAT_DOLBY_TRUEHD:
     case AUDIO_FORMAT_MAT:
-        return NULL;
-    case AUDIO_FORMAT_DTS:
-    case AUDIO_FORMAT_DTS_HD: {
+        return &aml_iec_func;
+    case AUDIO_FORMAT_DTS: {
         return &aml_dca_func;
+    }
+    case AUDIO_FORMAT_DTS_HD: {
+        if (dts_decode_enable) {
+            return &aml_dca_func;
+        } else {
+            return &aml_iec_func;
+        }
     }
     case AUDIO_FORMAT_PCM_16_BIT:
     case AUDIO_FORMAT_PCM_32_BIT:
@@ -76,6 +83,13 @@ static aml_dec_func_t * get_decoder_function(audio_format_t format)
     case AUDIO_FORMAT_HE_AAC_V2: {
         return  &aml_faad_func;
     }
+    case AUDIO_FORMAT_MPEGH:
+    case AUDIO_FORMAT_MPEGH_BL_L3:
+    case AUDIO_FORMAT_MPEGH_BL_L4:
+    case AUDIO_FORMAT_MPEGH_LC_L3:
+    case AUDIO_FORMAT_MPEGH_LC_L4: {
+        return &aml_mpegh_func;
+    }
     default:
         if (format == AUDIO_FORMAT_DRA) {
             return  &aml_dra_func;
@@ -91,7 +105,13 @@ int aml_decoder_init(aml_dec_t **ppaml_dec, audio_format_t format, aml_dec_confi
 {
     int ret = -1;
     aml_dec_func_t *dec_fun = NULL;
-    dec_fun = get_decoder_function(format);
+
+    if (dec_config == NULL) {
+        ALOGE("%s dec_config is NULL", __func__);
+        goto ERROR;
+    }
+
+    dec_fun = get_decoder_function(format, dec_config->dts_decode_enable);
     aml_dec_t *aml_dec_handle = NULL;
     if (dec_fun == NULL) {
         ALOGE("%s got dec_fun as NULL!\n", __func__);
@@ -108,6 +128,11 @@ int aml_decoder_init(aml_dec_t **ppaml_dec, audio_format_t format, aml_dec_confi
         return -1;
     }
 
+    if (*ppaml_dec == NULL) {
+        ALOGE("%s *ppaml_dec is NULL", __func__);
+        goto ERROR;
+    }
+
     aml_dec_handle = *ppaml_dec;
     aml_dec_handle->frame_cnt = 0;
     aml_dec_handle->format = format;
@@ -115,6 +140,7 @@ int aml_decoder_init(aml_dec_t **ppaml_dec, audio_format_t format, aml_dec_confi
     aml_dec_handle->in_frame_pts = 0;
     dec_config->ad_fade = 0;
     dec_config->ad_pan = 0;
+    aml_dec_handle->dts_decode_enable = dec_config->dts_decode_enable;
 
     if (get_debug_value(AML_DEBUG_AUDIOHAL_SYNCPTS)) {
         aml_dec_handle->debug_synced_frame_pts_flag = true;
@@ -141,7 +167,7 @@ int aml_decoder_release(aml_dec_t *aml_dec)
         return -1;
     }
 
-    dec_fun = get_decoder_function(aml_dec->format);
+    dec_fun = get_decoder_function(aml_dec->format, aml_dec->dts_decode_enable);
     if (dec_fun == NULL) {
         return -1;
     }
@@ -164,7 +190,7 @@ int aml_decoder_set_config(aml_dec_t *aml_dec, aml_dec_config_type_t config_type
         ALOGE("%s aml_dec is NULL\n", __func__);
         return -1;
     }
-    dec_fun = get_decoder_function(aml_dec->format);
+    dec_fun = get_decoder_function(aml_dec->format, aml_dec->dts_decode_enable);
     if (dec_fun == NULL) {
         return -1;
     }
@@ -184,7 +210,7 @@ int aml_decoder_get_info(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_
         ALOGE("%s aml_dec is NULL\n", __func__);
         return -1;
     }
-    dec_fun = get_decoder_function(aml_dec->format);
+    dec_fun = get_decoder_function(aml_dec->format, aml_dec->dts_decode_enable);
     if (dec_fun == NULL) {
         return -1;
     }
@@ -245,7 +271,7 @@ int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int
         return -1;
     }
 
-    dec_fun = get_decoder_function(aml_dec->format);
+    dec_fun = get_decoder_function(aml_dec->format, aml_dec->dts_decode_enable);
     if (dec_fun == NULL) {
         ALOGW("[%s:%d] get_decoder_function format:%#x is null", __func__, __LINE__, aml_dec->format);
         return -1;

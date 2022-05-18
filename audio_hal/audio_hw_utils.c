@@ -1489,11 +1489,23 @@ int halformat_convert_to_spdif(audio_format_t format, int ch_mask) {
             aml_spdif_format = AML_DTS;
             break;
         case AUDIO_FORMAT_DTS_HD:
-            aml_spdif_format = AML_DTS_HD;
+            if (ch_mask == AUDIO_CHANNEL_OUT_7POINT1) {
+                aml_spdif_format = AML_DTS_HD_MA;
+            } else {
+                aml_spdif_format = AML_DTS_HD;
+            }
             break;
         case AUDIO_FORMAT_DOLBY_TRUEHD:
         case AUDIO_FORMAT_MAT:
             aml_spdif_format = AML_TRUE_HD;
+            break;
+        case AUDIO_FORMAT_MPEGH:
+            if (ch_mask == AUDIO_CHANNEL_OUT_7POINT1) {
+                //HBR audio speed rate x4, HDMI TX using THD format
+                aml_spdif_format = AML_TRUE_HD;
+            } else {
+                aml_spdif_format = AML_DOLBY_DIGITAL;
+            }
             break;
         default:
             aml_spdif_format = AML_STEREO_PCM;
@@ -1521,10 +1533,22 @@ int halformat_convert_to_arcformat(audio_format_t format, int ch_mask) {
             aml_spdif_format = AML_AUDIO_CODING_TYPE_DTS;
             break;
         case AUDIO_FORMAT_DTS_HD:
-            aml_spdif_format = AML_AUDIO_CODING_TYPE_DTS_HD;
+            if (ch_mask == AUDIO_CHANNEL_OUT_7POINT1) {
+                aml_spdif_format = AML_AUDIO_CODING_TYPE_DTS_HD_MA;
+            } else {
+                aml_spdif_format = AML_AUDIO_CODING_TYPE_DTS_HD;
+            }
             break;
         case AUDIO_FORMAT_MAT:
             aml_spdif_format = AML_AUDIO_CODING_TYPE_MLP;
+            break;
+        case AUDIO_FORMAT_MPEGH:
+            if (ch_mask == AUDIO_CHANNEL_OUT_7POINT1) {
+                //HBR audio speed rate x4, Only eARC support,using MLP format
+                aml_spdif_format = AML_AUDIO_CODING_TYPE_MLP;
+            } else {
+                aml_spdif_format = AML_AUDIO_CODING_TYPE_AC3;
+            }
             break;
         default:
             aml_spdif_format = AML_AUDIO_CODING_TYPE_STEREO_LPCM;

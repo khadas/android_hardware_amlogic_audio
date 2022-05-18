@@ -180,6 +180,19 @@ inline bool is_dts_format(audio_format_t format) {
     }
 }
 
+static inline bool is_mpegh_format(audio_format_t format) {
+    switch (format) {
+    case AUDIO_FORMAT_MPEGH:
+    case AUDIO_FORMAT_MPEGH_BL_L3:
+    case AUDIO_FORMAT_MPEGH_BL_L4:
+    case AUDIO_FORMAT_MPEGH_LC_L3:
+    case AUDIO_FORMAT_MPEGH_LC_L4:
+        return true;
+    default:
+        return false;
+    }
+}
+
 inline bool is_aac_format(audio_format_t format) {
     switch (format) {
     case AUDIO_FORMAT_AAC:

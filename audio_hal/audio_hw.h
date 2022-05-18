@@ -771,7 +771,7 @@ struct aml_stream_out {
     uint64_t pause_time;
     int write_count;
     bool is_dtscd;
-    bool dts_check;
+    bool iec_check;
     bool alsa_running_status;
     bool alsa_status_changed;
     /*flag indicate the ms12 2ch lock is on*/
