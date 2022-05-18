@@ -3461,6 +3461,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         /*enter into tuner framework case, we need to stop&release audio dtv patch*/
         ALOGD("[audiohal_kpi] %s:patching %d, dev:%p, out->dev:%p, patch:%p", __func__, out->dev->audio_patching, dev, out->dev, ((struct aml_audio_device *)dev)->audio_patch);
         out->dev->audio_patching = 0;
+        out_stop_dtv_stream_for_tunerframework(stream);
         ret = disable_dtv_patch_for_tuner_framework(dev);
         if (!ret) {
             ALOGI("%s: finish releasing patch", __func__);
@@ -7591,6 +7592,10 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         if (adev->debug_flag > 1) {
             ALOGD("%s:patching %d, adev:%p, out->dev:%p, patch:%p.finish write", __func__, aml_out->dev->audio_patching, adev, aml_out->dev, adev->audio_patch);
         }
+        if (aml_out->standby) {
+            out_start_dtv_stream_for_tunerframework(stream);
+            aml_out->standby = false;
+        }
         return bytes;
     }
 #endif
@@ -7877,11 +7882,13 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
         ret = enable_dtv_patch_for_tuner_framework(config, dev);
         aml_out->audioCfg.offload_info.content_id = config->offload_info.content_id;
         aml_out->audioCfg.offload_info.sync_id = config->offload_info.sync_id;
+        aml_out->demux_id = (config->offload_info.content_id >> 16);
         if ((*stream_out) && dtv_tuner_framework(*stream_out)) {
             /*assign pause/resume api for tuner framework output stream.
               application scenarios like: timeshift pause/resume*/
-            aml_out->stream.pause = out_pause_dtv_patch_for_tunerframework;
-            aml_out->stream.resume = out_resume_dtv_patch_for_tunerframework;
+            aml_out->stream.pause = out_pause_dtv_stream_for_tunerframework;
+            aml_out->stream.resume = out_resume_dtv_stream_for_tunerframework;
+            aml_out->stream.flush = out_flush_dtv_stream_for_tunerframework;
         }
     }
 #endif
