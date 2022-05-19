@@ -52,6 +52,11 @@ typedef enum {
 } dtvsync_policy;
 
 
+typedef enum {
+   DTV_AUDIO_PATCH = 0,
+   DTV_TUNER_FRAMEWORK,
+} dtv_audio_scene;
+
 struct dtvsync_audio_policy {
     dtvsync_policy audiopolicy;
     int32_t  param1;
@@ -83,6 +88,7 @@ typedef struct aml_dtv_audio_instances {
     void *demux_handle[DVB_DEMUX_SUPPORT_MAX_NUM];
     aml_demux_audiopara_t demux_info[DVB_DEMUX_SUPPORT_MAX_NUM];
     aml_dtvsync_t dtvsync[DVB_DEMUX_SUPPORT_MAX_NUM];
+    dtv_audio_scene dtv_scene;
 } aml_dtv_audio_instances_t;
 
 struct mAudioEsDataInfo {

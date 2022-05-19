@@ -180,9 +180,8 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
 #ifdef ENABLE_DVB_PATCH
     dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
-
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->is_tv_src_stream;
     bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->is_tv_src_stream;
+    bool do_sync_flag = dtv_stream_flag && patch->skip_amadec_flag;
 #endif
 
 
@@ -350,7 +349,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     if (dec_pcm_data->data_ch != 0)
                         duration =  (pcm_len * 1000) / (2 * dec_pcm_data->data_ch * aml_out->config.rate);
 
-                    if (patch->skip_amadec_flag) {
+                    if (patch->skip_amadec_flag && patch->dtvsync) {
                         alsa_latency = 90 *(out_get_alsa_latency_frames(stream)  * 1000) / aml_out->config.rate;
                         /* in aml_audio_dtv_get_nonms12_latency, it use 50(supposed tuning 50 ms)*48Khz as default, will return 50*48 */
                         int ddp_tuning_latency = 90 * aml_audio_dtv_get_nonms12_latency(stream) / 48;
