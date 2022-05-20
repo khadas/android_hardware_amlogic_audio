@@ -7542,6 +7542,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     if (adev->debug_flag > 1) {
         ALOGI("+<IN>%s: out_stream(%p) position(%zu)", __func__, stream, bytes);
     }
+#ifdef ENABLE_DVB_PATCH
 #if ANDROID_PLATFORM_SDK_VERSION > 29
     if (aml_out && adev &&
         (aml_out->dev->patch_src == SRC_DTV) &&
@@ -7561,6 +7562,8 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         return bytes;
     }
 #endif
+#endif
+
 
     if (aml_audio_trace_debug_level() > 0) {
         if (false == aml_out->pause_status  &&  aml_out->write_count < 1) {
