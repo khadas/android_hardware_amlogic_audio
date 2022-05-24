@@ -8233,9 +8233,15 @@ void *audio_patch_output_threadloop(void *data)
     aml_audio_set_cpu23_affinity();
 
     while (!patch->output_thread_exit) {
-        int period_mul = (patch->aformat == AUDIO_FORMAT_E_AC3) ? EAC3_MULTIPLIER : 1;
+        int period_mul;
+
+        if (patch->aformat == AUDIO_FORMAT_E_AC3)
+            period_mul = EAC3_MULTIPLIER;
+        else if ((patch->aformat == AUDIO_FORMAT_MAT) || (patch->aformat == AUDIO_FORMAT_DTS_HD))
         /* If source format is MAT or DTS_HD, should capture the data size multiple the coef(16) */
-        period_mul = ((patch->aformat == AUDIO_FORMAT_MAT) || (patch->aformat == AUDIO_FORMAT_DTS_HD)) ? HBR_MULTIPLIER : 1;
+            period_mul = HBR_MULTIPLIER;
+        else
+            period_mul = 1;
 
         if (aml_dev->game_mode)
             write_bytes = LOW_LATENCY_PLAYBACK_PERIOD_SIZE * audio_stream_out_frame_size(&out->stream);
