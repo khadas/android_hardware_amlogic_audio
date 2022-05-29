@@ -178,6 +178,7 @@ struct dolby_ms12_desc {
     int last_scheduler_state;
     int ms12_resume_state;
     bool need_ms12_resume;
+    uint32_t ms12_timer_id;
 };
 
 /*

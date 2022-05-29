@@ -29,6 +29,7 @@
 #include "audio_hw_utils.h"
 #include "hw_avsync.h"
 #include "audio_hwsync.h"
+#include "audio_hwsync_wrap.h"
 
 #define MIXER_IN_BUFFER_SIZE (1024*4)
 #define MIXER_OUT_BUFFER_SIZE MIXER_IN_BUFFER_SIZE
@@ -462,14 +463,14 @@ static int mixer_inports_read(struct aml_audio_mixer *audio_mixer)
                             //mixer_set_inport_state(audio_mixer, port_index, PAUSED);
                             ALOGI("fade out finished pausing->pausing_1");
                             ALOGI("%s(), tsync pause audio", __func__);
-                            aml_hwsync_set_tsync_pause();
+                            aml_hwsync_wrap_set_pause();
                         //}
                         set_inport_state(in_port, PAUSING_1);
                     } else if (state == RESUMING) {
                         ALOGI("resuming port index %d", port_index);
                         audio_fade_func(in_port->data, in_port->data_len_bytes, 1);
                         ALOGI("%s(), tsync resume audio", __func__);
-                        aml_hwsync_set_tsync_resume();
+                        aml_hwsync_wrap_set_resume();
                         set_inport_state(in_port, ACTIVE);
                     }
                 }
@@ -559,13 +560,13 @@ static int mixer_inports_read1(struct aml_audio_mixer *audio_mixer)
                     if (fade_out) {
                         ALOGI("%s(), fade out finished pausing->pausing_1", __func__);
                         ALOGI("%s(), tsync pause audio", __func__);
-                        aml_hwsync_set_tsync_pause();
+                        aml_hwsync_wrap_set_pause();
                         audio_fade_func(in_port->data, ret, 0);
                         set_inport_state(in_port, PAUSED);
                     } else if (fade_in) {
                         ALOGI("%s(), resuming port index %d", __func__, port_index);
                         ALOGI("%s(), tsync resume audio", __func__);
-                        aml_hwsync_set_tsync_resume();
+                        aml_hwsync_wrap_set_resume();
                         audio_fade_func(in_port->data, ret, 1);
                         set_inport_state(in_port, ACTIVE);
                     }

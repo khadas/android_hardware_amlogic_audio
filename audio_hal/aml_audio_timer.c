@@ -24,8 +24,6 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <string.h>
-#include <signal.h>
-#include <time.h>
 #include <cutils/log.h>
 #include <errno.h>
 #include <stdbool.h>
@@ -37,81 +35,7 @@
 #include <poll.h>
 
 #include "aml_audio_timer.h"
-//#include "audio_timer.h"
-#include "audio_hw_ms12_common.h"
 
-
-#define AML_TIMER_NO     8
-#define INVALID_TIMER_ID 0xFF
-
-static struct {
-    unsigned int timer_id;
-    timer_t timer;
-}aml_timer_list[AML_TIMER_NO];
-
-/*****************************************************************************
-*   Function Name:  audio_timer_init
-*   Description:    init audio timer with aml_timer_list.
-*   Parameters:     void
-*   Return value:   void
-******************************************************************************/
-void audio_timer_init(void)
-{
-    int i;
-
-    for (i = 0; i < AML_TIMER_NO; i++)
-    {
-        aml_timer_list[i].timer_id = INVALID_TIMER_ID;
-        aml_timer_list[i].timer = 0;
-    }
-
-    ALOGV("func:%s  init timer NO.%d done.", __func__, i);
-}
-
-/*****************************************************************************
-*   Function Name:  audio_timer_callback_handler
-*   Description:    timer callback function.
-*   Parameters:     union sigval
-*   Return value:   void
-******************************************************************************/
-void audio_timer_callback_handler(union sigval sigv)
-{
-    ALOGV("func:%s  sival_int:%d", __func__, sigv.sival_int);
-
-    if (sigv.sival_int == AML_TIMER_ID_1) {
-        aml_send_ms12_scheduler_state_2_ms12();
-    } else {
-        ALOGW("func:%s callback do nothing, sival_int:%d", __func__, sigv.sival_int);
-    }
-}
-
-/*****************************************************************************
-*   Function Name:  audio_timer_create
-*   Description:    create timer for audio hal.
-*   Parameters:     unsigned32: timer id
-*   Return value:   0: success, -1: error
-******************************************************************************/
-int audio_timer_create(unsigned32 aml_timer_id)
-{
-    struct sigevent sig_event;
-    int ret = 0;
-
-    memset(&sig_event, 0, sizeof(sig_event));
-    sig_event.sigev_notify = SIGEV_THREAD;
-    sig_event.sigev_notify_function = audio_timer_callback_handler;
-    sig_event.sigev_value.sival_int = aml_timer_id; /*callback function can get the value.*/
-    //sig_event.sigev_value.sival_ptr = pointer;
-
-    aml_timer_list[aml_timer_id].timer_id = aml_timer_id;
-    ret = timer_create(CLOCK_REALTIME, &sig_event, &aml_timer_list[aml_timer_id].timer);
-    if (ret < 0) {
-        ALOGE("func:%s  create timer.%d fail. errno:%d(%s)", __func__, aml_timer_id, errno, strerror(errno));
-    } else {
-        ALOGD("func:%s  create timer.%d success.", __func__, aml_timer_id);
-    }
-
-    return ret;
-}
 
 /*****************************************************************************
 *   Function Name:  audio_get_sys_tick_frequency
@@ -135,9 +59,14 @@ unsigned64 audio_get_sys_tick_frequency(void)
 *   Parameters:     unsigned32:timer_id, unsigned64:delay_time, bool:type
 *   Return value:   void
 ******************************************************************************/
-void audio_timer_start(unsigned32 aml_timer_id, unsigned64 delay_time, bool type)
+void audio_timer_start(unsigned32 timer_id, unsigned64 delay_time, bool type)
 {
     struct itimerspec       i_timer_spec;
+
+    if (aml_timer[timer_id].state != TIMER_STATE_ACTIVE) {
+        ALOGE("func:%s timer not active, need to check.", __func__);
+        return ;
+    }
 
     i_timer_spec.it_value.tv_sec = delay_time/1000000000;
     i_timer_spec.it_value.tv_nsec = delay_time%1000000000;
@@ -150,7 +79,8 @@ void audio_timer_start(unsigned32 aml_timer_id, unsigned64 delay_time, bool type
         i_timer_spec.it_interval.tv_nsec = 0;
     }
 
-    if (timer_settime(aml_timer_list[aml_timer_id].timer, 0, &(i_timer_spec), NULL) == -1) {
+    if (timer_settime(aml_timer[timer_id].timer, 0, &(i_timer_spec), NULL) == -1) {
+
         ALOGE("func:%s  set timer fail. errno:%d(%s)", __func__, errno, strerror(errno));
     } else {
         ALOGV("func:%s  set timer success.", __func__);
@@ -163,9 +93,9 @@ void audio_timer_start(unsigned32 aml_timer_id, unsigned64 delay_time, bool type
 *   Parameters:     unsigned32:timer_id, unsigned64:delay_time
 *   Return value:   void
 ******************************************************************************/
-void audio_periodic_timer_start(unsigned32 aml_timer_id, unsigned32 delay_time_ms)
+void audio_periodic_timer_start(unsigned32 timer_id, unsigned32 delay_time_ms)
 {
-    audio_timer_start(aml_timer_id,(unsigned64)(delay_time_ms*(unsigned64)1000000), true);
+    audio_timer_start(timer_id,(unsigned64)(delay_time_ms*(unsigned64)1000000), true);
 }
 
 /*****************************************************************************
@@ -174,9 +104,9 @@ void audio_periodic_timer_start(unsigned32 aml_timer_id, unsigned32 delay_time_m
 *   Parameters:     unsigned32:timer_id, unsigned64:delay_time
 *   Return value:   void
 ******************************************************************************/
-void audio_one_shot_timer_start(unsigned32 aml_timer_id, unsigned32 delay_time_ms)
+void audio_one_shot_timer_start(unsigned32 timer_id, unsigned32 delay_time_ms)
 {
-    audio_timer_start(aml_timer_id,(unsigned64)(delay_time_ms*(unsigned64)1000000), false);
+    audio_timer_start(timer_id,(unsigned64)(delay_time_ms*(unsigned64)1000000), false);
 }
 
 /*****************************************************************************
@@ -185,7 +115,7 @@ void audio_one_shot_timer_start(unsigned32 aml_timer_id, unsigned32 delay_time_m
 *   Parameters:     unsigned32:timer_id
 *   Return value:   void
 ******************************************************************************/
-void audio_timer_stop(unsigned32 aml_timer_id)
+void audio_timer_stop(unsigned32 timer_id)
 {
     struct itimerspec       i_timer_spec;
 
@@ -194,10 +124,10 @@ void audio_timer_stop(unsigned32 aml_timer_id)
     i_timer_spec.it_interval.tv_sec = 0;
     i_timer_spec.it_interval.tv_nsec = 0;
 
-    if (timer_settime(aml_timer_list[aml_timer_id].timer, 0, &(i_timer_spec), NULL) == -1) {
+    if (timer_settime(aml_timer[timer_id].timer, 0, &(i_timer_spec), NULL) == -1) {
         ALOGE("func:%s  stop timer fail. errno:%d(%s)", __func__, errno, strerror(errno));
     } else {
-        ALOGD("func:%s  stop timer success. ", __func__);
+        ALOGV("func:%s  stop timer success. ", __func__);
     }
 }
 
@@ -207,40 +137,152 @@ void audio_timer_stop(unsigned32 aml_timer_id)
 *   Parameters:     unsigned32:timer_id
 *   Return value:   unsigned32: remaining time
 ******************************************************************************/
-unsigned32 audio_timer_remaining_time(unsigned32 aml_timer_id)
+unsigned32 audio_timer_remaining_time(unsigned32 timer_id)
 {
     struct itimerspec       i_timer_spec;
     unsigned32  remaining_time = 0;
 
-    if (timer_gettime(aml_timer_list[aml_timer_id].timer, &(i_timer_spec)) == -1) {
+    if (timer_gettime(aml_timer[timer_id].timer, &(i_timer_spec)) == -1) {
         ALOGE("func:%s  gettime fail. errno:%d(%s)", __func__, errno, strerror(errno));
     } else {
         ALOGV("func:%s  timer id:%u,  time tv_sec:%ld, tv_nsec:%ld ", __func__,
-                aml_timer_id, i_timer_spec.it_value.tv_sec, i_timer_spec.it_value.tv_nsec);
+                timer_id, i_timer_spec.it_value.tv_sec, i_timer_spec.it_value.tv_nsec);
         remaining_time = (unsigned32)(i_timer_spec.it_value.tv_sec * 1000 + i_timer_spec.it_value.tv_nsec/1000000LL);
     }
 
     return remaining_time;
 }
 
-/*****************************************************************************
-*   Function Name:  audio_timer_delete
-*   Description:    delete a timer.
-*   Parameters:     unsigned32:timer_id
-*   Return value:   0: Success, -1:Error
-******************************************************************************/
-signed32 audio_timer_delete(unsigned32 aml_timer_id)
+
+//dynamic timer.
+signed32 audio_timer_delete(unsigned32 timer_id)
 {
     int ret = 0;
-    ret = timer_delete(&aml_timer_list[aml_timer_id].timer);
+    ret = timer_delete(aml_timer[timer_id].timer);
     if (ret < 0) {
-        ALOGE("func:%s  delete timer.%d fail. errno:%d(%s)", __func__, aml_timer_id, errno, strerror(errno));
+        ALOGE("func:%s  delete timer.%d fail. errno:%d(%s)", __func__, timer_id, errno, strerror(errno));
     } else {
-        ALOGD("func:%s  delete timer.%d success.", __func__, aml_timer_id);
+        ALOGD("func:%s  delete timer.%d success.", __func__, timer_id);
     }
 
     return ret;
 }
+
+/*****************************************************************************
+*   Function Name:  aml_audio_timer_delete
+*   Description:    delete a timer.
+*   Parameters:     unsigned32:timer_id
+*   Return value:   0: Success, -1:Error
+******************************************************************************/
+int aml_audio_timer_delete(unsigned int timer_id)
+{
+    int ret = 0;
+    int err = 0;
+
+    if (timer_id >= AML_TIMER_ID_NUM) {
+        ALOGE("func:%s invalid timer_id:%u",__func__, timer_id);
+        return -1;
+    }
+
+    if (aml_timer[timer_id].state == TIMER_STATE_ACTIVE) {
+        ret = audio_timer_delete(timer_id);
+    }
+    if (ret < 0) {
+        ALOGE("func:%s timer_id:%d fail",__func__, timer_id);
+        return -1;
+    }
+
+    aml_timer[timer_id].timer = 0;
+    aml_timer[timer_id].id = AML_TIMER_ID_INVALID;
+    aml_timer[timer_id].state = TIMER_STATE_INACTIVE;
+
+    return timer_id;
+}
+
+/*****************************************************************************
+*   Function Name:  aml_audio_all_timer_delete
+*   Description:    delete all timer.
+*   Parameters:     void
+*   Return value:   0: Success, -1:Error
+******************************************************************************/
+int aml_audio_all_timer_delete(void)
+{
+    unsigned int timer_id = 0;
+    int ret = 0;
+    int err = 0;
+
+    for (timer_id = 0; timer_id < AML_TIMER_ID_NUM; timer_id++)
+    {
+        ret = aml_audio_timer_delete(timer_id);
+        if (ret < 0)
+        {
+            ALOGE("func:%s timer_id:%d fail",__func__, timer_id);
+            err = -1;
+            break;
+        }
+    }
+
+    return err;
+}
+
+static int audio_timer_create(unsigned32 timer_id, func_timer_callback_handler cb_handler)
+{
+    struct sigevent sig_event;
+    int ret = 0;
+
+    memset(&sig_event, 0, sizeof(sig_event));
+    sig_event.sigev_notify = SIGEV_THREAD;
+    sig_event.sigev_notify_function = cb_handler;
+    sig_event.sigev_value.sival_int = timer_id; /*callback function can get the value.*/
+    //sig_event.sigev_value.sival_ptr = pointer;
+
+    ret = timer_create(CLOCK_MONOTONIC, &sig_event, &aml_timer[timer_id].timer);
+    if (ret < 0) {
+        ALOGE("func:%s  create timer.%d fail. errno:%d(%s)", __func__, timer_id, errno, strerror(errno));
+    } else {
+        ALOGD("func:%s  create timer.%d success.", __func__, timer_id);
+    }
+
+    return ret;
+}
+
+/*****************************************************************************
+*   Function Name:  aml_audio_timer_create
+*   Description:    create timer for audio hal.
+*   Parameters:     func_timer_callback_handler: callback function handler.
+*   Return value:   0: timer_id, -1: error
+******************************************************************************/
+int aml_audio_timer_create(func_timer_callback_handler cb_handler)
+{
+    unsigned int timer_id = 0;
+    int ret = 0;
+    int err = 0;
+
+    for (timer_id = 0; timer_id < AML_TIMER_ID_NUM; timer_id++) {
+        if (aml_timer[timer_id].state == TIMER_STATE_INACTIVE) {
+            //lookup and get a timer that is not used.
+            break;
+        }
+    }
+    if (timer_id >= AML_TIMER_ID_NUM) {
+        ALOGE("func:%s no valid timer for use, create fail",__func__);
+        return -1;
+    }
+
+    aml_timer[timer_id].timer = 0;
+    ret = audio_timer_create(timer_id, cb_handler);
+    if (ret < 0) {
+        ALOGE("func:%s timer_id:%d fail",__func__, timer_id);
+        return -1;
+    }
+
+    aml_timer[timer_id].id = timer_id;
+    aml_timer[timer_id].state = TIMER_STATE_ACTIVE;
+
+    return timer_id;
+}
+
+
 
 /* these code below are moved from the old aml_audio_timer.c. */
 uint64_t aml_audio_get_systime(void)

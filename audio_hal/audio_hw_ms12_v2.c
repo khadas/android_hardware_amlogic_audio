@@ -992,6 +992,10 @@ int get_the_dolby_ms12_prepared(
     }
     adev->ms12_out = out;
     ALOGI("%s adev->ms12_out =  %p", __func__, adev->ms12_out);
+
+    ms12->ms12_timer_id = aml_audio_timer_create(ms12_timer_callback_handler);
+    ALOGI("func:%s  timer_id:%d", __func__, ms12->ms12_timer_id);
+
     /************end**************/
     /*set the system app sound mixing enable*/
     if (adev->continuous_audio_mode) {
@@ -1840,10 +1844,12 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     /* check timers is running or not,
     ** timer should be stopped if running.
     **/
-    remaining_time = audio_timer_remaining_time(AML_TIMER_ID_1);
+    remaining_time = audio_timer_remaining_time(ms12->ms12_timer_id);
     if (remaining_time > 0) {
-        audio_timer_stop(AML_TIMER_ID_1);
+        audio_timer_stop(ms12->ms12_timer_id);
     }
+    int ret = aml_audio_timer_delete(ms12->ms12_timer_id);
+    ALOGD("func:%s timer_id:%d  ret:%d",__func__, ms12->ms12_timer_id, ret);
 
     ALOGI("%s() dolby_ms12_set_quit_flag %d", __FUNCTION__, is_quit);
     dolby_ms12_set_quit_flag(is_quit);

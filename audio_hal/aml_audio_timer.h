@@ -17,6 +17,8 @@
 #define __AUDIO_TIMER_H__
 
 #include <stdint.h>
+#include <signal.h>
+#include <time.h>
 
 #define MSEC_PER_SEC    1000L
 #define USEC_PER_MSEC   1000L
@@ -36,14 +38,58 @@ typedef unsigned short        unsigned16;
 typedef signed char            signed8;
 typedef unsigned char        unsigned8;
 
-void audio_timer_init(void);
-int audio_timer_create(unsigned32 aml_timer_id);
+typedef enum timer_type {
+    TIMER_TYPE_NONE = -1,
+    TIMER_TYPE_ONE_SHOT = 0,
+    TIMER_TYPE_PERIODIC,
+
+    TIMER_TYPE_MAX = 0xf
+} t_timer_type;
+
+typedef enum timer_state {
+    TIMER_STATE_NONE = -1,
+    TIMER_STATE_INACTIVE = 0,
+    TIMER_STATE_ACTIVE,
+
+    TIMER_STATE_MAX = 0xf
+} t_timer_STATE;
+
+/*
+ *@brief
+ *define the aml timer.
+ */
+#define AML_TIMER_ID_NUM (16)
+static struct
+{
+    unsigned int id;
+    unsigned int state;
+    timer_t timer;
+}aml_timer[AML_TIMER_ID_NUM];
+
+
+#define AML_TIMER_ID_INVALID                  (UINT_MAX)
+#define AML_TIMER_ID_1                        (0)
+#define AML_TIMER_ID_2                        (1)
+#define AML_TIMER_ID_3                        (2)
+#define AML_TIMER_ID_4                        (3)
+
+//delay time ms
+#define AML_TIMER_DELAY     (3000)
+#define AML_TIMER_CONSUME_DATA_DELAY (32)
+
+typedef void (*func_timer_callback_handler)(union sigval sigv);
+
 void audio_timer_stop(unsigned32 aml_timer_id);
 void audio_periodic_timer_start(unsigned32 aml_timer_id, unsigned32 delay_time_ms);
 void audio_one_shot_timer_start(unsigned32 aml_timer_id, unsigned32 delay_time_ms);
 int audio_timer_delete(unsigned32 aml_timer_id);
 unsigned32 audio_timer_remaining_time(unsigned32 aml_timer_id);
 
+int aml_audio_timer_create(func_timer_callback_handler cb_handler);
+int aml_audio_timer_delete(unsigned int timer_id);
+int aml_audio_all_timer_delete(void);
+
+//sleep and time function.
 int aml_audio_sleep(uint64_t us);
 uint64_t aml_audio_get_systime(void);
 uint64_t aml_audio_get_systime_ns(void);

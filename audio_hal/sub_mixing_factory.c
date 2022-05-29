@@ -25,8 +25,12 @@
 #include "aml_audio_timer.h"
 #include "karaoke_manager.h"
 
+#include "audio_hwsync_wrap.h"
+
+
 //#define DEBUG_TIME
 
+#define WRITE_COUNT_LATENCY_THRESHOLD  (6)
 #define SUBMIX_USECASE_MASK            (0xffffff7e)  /* PCM_NORMAL(0) and PCM_MMAP(7) have been cleared*/
 static int on_notify_cbk(void *data);
 static int on_input_avail_cbk(void *data);
@@ -176,6 +180,29 @@ static int consume_meta_data(void *cookie,
     return 0;
 }
 
+void sm_timer_callback_handler(union sigval sigv)
+{
+    struct aml_audio_device *adev = aml_adev_get_handle();
+    struct aml_stream_out *out = NULL;
+    bool is_hwsync_lpcm = false;
+
+    AM_LOGD("func:%s sigv:%d ~~~~~~~~~~", __func__, sigv.sival_int);
+    for (int i = 0 ; i < STREAM_USECASE_MAX; i++) {
+        out = adev->active_outputs[i];
+        if (out && audio_is_linear_pcm(out->hal_internal_format)
+            && (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)) {
+            is_hwsync_lpcm = true;
+            break;
+        }
+    }
+
+    if (is_hwsync_lpcm) {
+        out->frame_write_sum_updated = false;
+    }
+    AM_LOGD("%s is_hwsync_lpcm:%d frame_write_sum_updated:%d", __func__, is_hwsync_lpcm, out->frame_write_sum_updated);
+    return ;
+}
+
 static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
 {
     ssize_t written = 0;
@@ -268,22 +295,18 @@ exit:
     out->lasttimestamp.tv_sec = out->timestamp.tv_sec;
     out->lasttimestamp.tv_nsec = out->timestamp.tv_nsec;
     if (written >= 0) {
-        //TODO
-        if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)
-            latency_frames = mixer_get_inport_latency_frames(audio_mixer, out->inputPortID)
-                    + a2dp_out_get_latency(adev) * out->hal_rate / 1000;
-        else
-            latency_frames = mixer_get_inport_latency_frames(audio_mixer, out->inputPortID)
-                    + mixer_get_outport_latency_frames(audio_mixer);
         out->frame_write_sum += written / frame_size;
 
-        if (out->frame_write_sum > latency_frames)
-            out->last_frames_position = out->frame_write_sum - latency_frames;
-        else
-            out->last_frames_position = 0;//out->frame_write_sum;
+        //start the timer to monitor frame_write_sum_updated
+        uint32_t remaining_time = audio_timer_remaining_time(out->timer_id);
+        if (remaining_time > 0) {
+            audio_timer_stop(out->timer_id);
+        }
+        audio_one_shot_timer_start(out->timer_id, AML_TIMER_CONSUME_DATA_DELAY);
+        out->frame_write_sum_updated = true;
     }
     if (out->debug_stream) {
-        AM_LOGD("frames sum %" PRId64 ", last frames %" PRId64 "", out->frame_write_sum, out->last_frames_position);
+        AM_LOGD("(frames sum %" PRId64 " - latency_frames:%llu), = last frames %" PRId64 "", out->frame_write_sum, latency_frames, out->last_frames_position);
     }
     return written;
 }
@@ -305,16 +328,16 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
     // bt stream mediasync is set to adev->hw_mediasync, and it would be
     // release in hdmi stream close, so bt stream mediasync is invalid
     if (out->hwsync->mediasync != NULL && adev->hw_mediasync == NULL) {
-        adev->hw_mediasync = aml_hwsync_mediasync_create();
+        adev->hw_mediasync = aml_audio_hwsync_create();
         out->hwsync->use_mediasync = true;
         out->hwsync->mediasync = adev->hw_mediasync;
-        ret = aml_audio_hwsync_set_id(out->hwsync, out->hwsync->hwsync_id);
+        ret = aml_hwsync_wrap_set_id(out->hwsync, out->hwsync->hwsync_id);
         if (!ret) {
-            ALOGD("%s: aml_audio_hwsync_set_id fail: ret=%d, id=%d", __func__, ret, out->hwsync->hwsync_id);
-            ret = aml_audio_hwsync_get_id(out->hwsync->mediasync, &out->hwsync->hwsync_id);
+            ALOGD("%s: aml_hwsync_wrap_set_id fail: ret=%d, id=%d", __func__, ret, out->hwsync->hwsync_id);
+            ret = aml_hwsync_wrap_get_id(out->hwsync->mediasync, &out->hwsync->hwsync_id);
             if (ret && ret != -1) {
-                adev->hw_mediasync_id = out->hwsync->hwsync_id;
-                ret = aml_audio_hwsync_set_id(out->hwsync, out->hwsync->hwsync_id);
+                adev->hw_sync_id = out->hwsync->hwsync_id;
+                ret = aml_hwsync_wrap_set_id(out->hwsync, out->hwsync->hwsync_id);
             }
         }
         aml_audio_hwsync_init(out->hwsync, out);
@@ -647,21 +670,53 @@ static int out_get_presentation_position_port(
         }
         *timestamp = adjusted_timestamp;
     } else if (!adev->audio_patching) {
-        ret = mixer_get_presentation_position(audio_mixer,
-                out->inputPortID, frames, timestamp);
-        tuning_latency_frame = aml_audio_get_pcm_latency_offset(adev->sink_format, adev->is_netflix, out->usecase)*48;
-        AM_LOGV("usecase:%s tuning_latency_frame:%d", usecase2Str(out->usecase), tuning_latency_frame);
-        if (tuning_latency_frame > 0 && *frames < (uint64_t)tuning_latency_frame) {
-            *frames = 0;
-        } else {
-            *frames = *frames - tuning_latency_frame;
-        }
+        if (out->hw_sync_mode || out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
+            if (!out->frame_write_sum_updated || out->pause_status || out->standby) {
+                *frames = frames_written_hw;
+                *timestamp = out->timestamp;
+            } else {
+                if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)
+                    frame_latency = mixer_get_inport_latency_frames(audio_mixer, out->inputPortID)
+                            + a2dp_out_get_latency(adev) * out->hal_rate / 1000;
+                else
+                    frame_latency = mixer_get_inport_latency_frames(audio_mixer, out->inputPortID)
+                            + mixer_get_outport_latency_frames(audio_mixer);
 
-        if (ret == 0) {
-            out->last_frames_position = *frames;
+                AM_LOGV("%s latency_frames:%d, inport latency:%u, outport latency:%u", __func__, frame_latency,
+                    mixer_get_inport_latency_frames(audio_mixer, out->inputPortID), mixer_get_outport_latency_frames(audio_mixer));
+
+                /*add this line calculation to simulate really latency,
+                **when start playing. Fixed TunneledAudioTimestamp/ptsGaps of SWPL-72028 jira.
+                */
+                if (out->write_count < WRITE_COUNT_LATENCY_THRESHOLD) { // 6 --> 4
+                    frame_latency = frame_latency / (WRITE_COUNT_LATENCY_THRESHOLD - out->write_count);
+                }
+                if (out->frame_write_sum > frame_latency)
+                    out->last_frames_position = out->frame_write_sum - frame_latency;
+                else
+                    out->last_frames_position = 0;
+
+                *frames = out->last_frames_position;
+                *timestamp = out->timestamp;
+            }
+            AM_LOGV("%s out->standby:%d pause_status:%d frame_write_sum_updated:%d, frames:%llu = (frame_write_sum:%llu - latency_frames:%d)", __func__, out->standby, out->pause_status, out->frame_write_sum_updated, *frames, out->frame_write_sum, frame_latency);
         } else {
-            *frames = out->last_frames_position;
-            AM_LOGW("pts not valid yet");
+            ret = mixer_get_presentation_position(audio_mixer,
+                    out->inputPortID, frames, timestamp);
+            tuning_latency_frame = aml_audio_get_pcm_latency_offset(adev->sink_format, adev->is_netflix, out->usecase)*48;
+            AM_LOGV("usecase:%s tuning_latency_frame:%d", usecase2Str(out->usecase), tuning_latency_frame);
+            if (tuning_latency_frame > 0 && *frames < (uint64_t)tuning_latency_frame) {
+                *frames = 0;
+            } else {
+                *frames = *frames - tuning_latency_frame;
+            }
+
+            if (ret == 0) {
+                out->last_frames_position = *frames;
+            } else {
+                *frames = out->last_frames_position;
+                AM_LOGW("pts not valid yet");
+            }
         }
     } else {
         *frames = frames_written_hw;
@@ -679,7 +734,7 @@ static int out_get_presentation_position_port(
         *frames += frame_latency ;
     }
     if (adev->debug_flag) {
-         AM_LOGI("tuned_latency_ms %d ",latency_ms);
+         AM_LOGI("tunning_latency_ms %d, frame_latency:%d", latency_ms, frame_latency);
     }
 
     if (adev->debug_flag) {
@@ -724,8 +779,8 @@ static int initSubMixingInputPcm(
     out->stream.resume = out_resume_subMixingPCM;
     out->stream.flush = out_flush_subMixingPCM;
     out->stream.common.standby = out_standby_subMixingPCM;
-    if (flags & AUDIO_OUTPUT_FLAG_PRIMARY) {
-        AM_LOGI("primary presentation");
+    if (flags & AUDIO_OUTPUT_FLAG_PRIMARY || flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
+        AM_LOGI("primary/tunnel stream presentation");
         out->stream.get_presentation_position = out_get_presentation_position_port;
     }
     list_init(&out->mdata_list);
@@ -1276,7 +1331,16 @@ static ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
             AM_LOGD("out_stream(%p) bytes(%zu), write_time:%" PRIu64 ", count:%d",
                        stream, bytes, aml_out->write_time, aml_out->write_count);
         }
-        aml_out->write_count++;
+    }
+    aml_out->write_count++;
+
+    if (aml_out->standby) {
+        uint8_t *temp_buf = (uint8_t *)buffer;
+        bool is_hwsync_header = hwsync_header_valid(temp_buf);
+        //tunnel stream and hwsync is null, prepare the tunnel resource.
+        if (is_hwsync_header && aml_out->hwsync == NULL) {
+            output_stream_hwsync_prepare(aml_out, adev->hw_sync_id);
+        }
     }
 
     /**
@@ -1304,7 +1368,7 @@ static ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
         aml_out->total_write_size += ret;
     }
     if (adev->debug_flag > 1) {
-        AM_LOGI("-ret %zd,%p %"PRIu64"\n", ret, stream, aml_out->total_write_size);
+        AM_LOGI("- aml_out->write_count:%d,  ret %zd,%p %"PRIu64"\n", aml_out->write_count, ret, stream, aml_out->total_write_size);
     }
     aml_audio_trace_int("out_write_subMixingPCM", 0);
     return ret;
@@ -1378,9 +1442,9 @@ static int out_pause_subMixingPCM(struct audio_stream_out *stream)
             aml_out, aml_out->standby, aml_out->pause_status, usecase2Str(aml_out->usecase));
 
     aml_audio_trace_int("out_pause_subMixingPCM", 1);
+    aml_out->write_count = 0;
     if (aml_audio_trace_debug_level() > 0)
     {
-        aml_out->write_count = 0;
         aml_out->pause_time = aml_audio_get_systime() / 1000; //us --> ms
         if (aml_out->pause_time > aml_out->write_time && (aml_out->pause_time - aml_out->write_time < 5*1000)) { //continually write time less than 5s, audio gap
             AM_LOGD("out_stream(%p) AudioGap pause_time:%" PRIu64 ",  diff_time(pause - write):%" PRIu64 " ms",

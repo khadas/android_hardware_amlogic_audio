@@ -7,7 +7,10 @@
 #include <cutils/properties.h>
 #include <inttypes.h>
 #include "hw_avsync_callbacks.h"
+
 #include "audio_hwsync.h"
+#include "audio_hwsync_wrap.h"
+
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
 #include "aml_malloc_debug.h"
@@ -137,7 +140,7 @@ int on_meta_data_cbk(void *cookie,
             latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
             latency += tunning_latency * 90;
 
-            ALOGD("%s(), out:%p set tsync start pts %" PRId64 ", latency %d, last position %" PRId64 "",
+            ALOGD("%s(), out:%p set media start pts %" PRId64 ", latency %d, last position %" PRId64 "",
                 __func__, out, pts64, latency, out->last_frames_position);
             if (latency < 0) {
                 pts64 += abs(latency);
@@ -192,8 +195,8 @@ int on_meta_data_cbk(void *cookie,
             pts64 = 1 * 90;
         }
 
-        ret = aml_hwsync_get_tsync_pts(out->hwsync, &pcr);
-        aml_hwsync_reset_tsync_pcrscr(out->hwsync, pts64);
+        ret = aml_hwsync_wrap_get_pts(out->hwsync, &pcr);
+        aml_hwsync_wrap_reset_pcrscr(out->hwsync, pts64);
         pcr_pts_gap = ((int)(pts64 - pcr)) / 90;
         if (abs(pcr_pts_gap) > 50) {
             ALOGI("%s out:%p pcr =%" PRIu64 " pts =%" PRIu64 " diff =%d", __func__, out, pcr/90, pts64/90, pcr_pts_gap);
@@ -219,9 +222,9 @@ int on_meta_data_cbk(void *cookie,
             }
             pts64 -= latency;
         }
-        aml_hwsync_set_tsync_start_pts(out->hwsync, pts64);
+        aml_hwsync_wrap_set_tsync_init(out->hwsync);
+        aml_hwsync_wrap_set_start_pts(out->hwsync, pts64);
         out->first_pts_set = true;
-        //*delay_ms = 40;
     } else {
         enum hwsync_status sync_status = CONTINUATION;
         struct hw_avsync_header_extractor *hwsync_extractor;
@@ -245,7 +248,7 @@ int on_meta_data_cbk(void *cookie,
 
         hwsync_extractor = out->hwsync_extractor;
         hwsync_extractor = out->hwsync_extractor;
-        ret = aml_hwsync_get_tsync_pts_by_handle(adev->tsync_fd, &pcr);
+        ret = aml_hwsync_wrap_get_tsync_pts_by_handle(adev->tsync_fd, &pcr);
         if (ret != 0) {
             ALOGE("%s() get tsync(fd %d) pts failed err %d",
                     __func__, adev->tsync_fd, ret);
@@ -285,7 +288,7 @@ int on_meta_data_cbk(void *cookie,
             } else {
                 ALOGW("audio gap: pcr > apts %dms", apts_gap / 90);
                 *delay_ms = -(int)apts_gap / 90;
-                aml_hwsync_reset_tsync_pcrscr(out->hwsync, pts64);
+                aml_hwsync_wrap_reset_pcrscr(out->hwsync, pts64);
             }
         } else if (sync_status == RESYNC){
             ALOGI("%s(), tsync -> reset pcrscr %" PRIu64 " ms -> %" PRIu64 " ms",
@@ -293,9 +296,9 @@ int on_meta_data_cbk(void *cookie,
             /*during video stop, pcr has been reset to 0 by video,
               we need ignore such pcr value*/
             if (pcr != 0) {
-                int ret_val = aml_hwsync_reset_tsync_pcrscr(out->hwsync, pts64);
+                int ret_val = aml_hwsync_wrap_reset_pcrscr(out->hwsync, pts64);
                 if (ret_val < 0) {
-                    ALOGE("aml_hwsync_reset_tsync_pcrscr,err: %s", strerror(errno));
+                    ALOGE("aml_hwsync_wrap_reset_pcrscr,err: %s", strerror(errno));
                 }
             }
         }
