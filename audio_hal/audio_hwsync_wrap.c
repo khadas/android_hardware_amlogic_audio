@@ -14,131 +14,28 @@
  * limitations under the License.
  */
 
-
-
 #define LOG_TAG "audio_hwsync_wrap"
 //#define LOG_NDEBUG 0
-#include <errno.h>
-#include <pthread.h>
-#include <sys/time.h>
+
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <time.h>
+#include <stdio.h>
+#include <errno.h>
 #include <stdint.h>
 #include <inttypes.h>
 #include <cutils/log.h>
-#include <string.h>
-#include <errno.h>
-#include <utils/Timers.h>
+#include <cutils/properties.h>
+#include <sys/utsname.h>
+
 #include "audio_hw_utils.h"
 #include "audio_hwsync.h"
-#include "audio_hw.h"
-#include "audio_hwsync_wrap.h"
 #include "audio_mediasync_wrap.h"
+#include "audio_tsync_wrap.h"
 #include "aml_audio_sysfs.h"
+#include "dolby_lib_api.h"
 
-
-#define NEW_MEDIASYNC
-
-#ifdef NEW_MEDIASYNC
-
-static void aml_hwsync_wrap_single_set_tsync_init(void)
-{
-    ALOGI("%s(), send tsync enable", __func__);
-    sysfs_set_sysfs_str(TSYNC_ENABLE, "1"); // enable avsync
-    sysfs_set_sysfs_str(TSYNC_MODE, "1"); // enable avsync
-}
-
-static void aml_hwsync_wrap_single_set_tsync_pause(void)
-{
-    ALOGI("%s(), send pause event", __func__);
-    sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_PAUSE");
-}
-
-static void aml_hwsync_wrap_single_set_tsync_resume(void)
-{
-    ALOGI("%s(), send resume event", __func__);
-    sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_RESUME");
-}
-
-static void aml_hwsync_wrap_single_set_tsync_stop(void)
-{
-    ALOGI("%s(), send stop event", __func__);
-    sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_STOP");
-}
-
-static int aml_hwsync_wrap_single_set_tsync_start_pts(uint32_t pts)
-{
-    char buf[64] = {0};
-
-    snprintf(buf, 64, "AUDIO_START:0x%x", pts);
-    ALOGI("tsync -> %s", buf);
-    return sysfs_set_sysfs_str(TSYNC_EVENT, buf);
-}
-
-static int aml_hwsync_wrap_single_set_tsync_start_pts64(uint64_t pts)
-{
-    char buf[64] = {0};
-    sprintf (buf, "AUDIO_START:0x%"PRIx64"", pts & 0xffffffff);
-    ALOGI("tsync -> %s", buf);
-    return sysfs_set_sysfs_str(TSYNC_EVENT, buf);
-}
-
-
-static int aml_hwsync_wrap_single_get_tsync_pts(uint32_t *pts)
-{
-    if (!pts) {
-        ALOGE("%s(), NULL pointer", __func__);
-        return -EINVAL;
-    }
-
-    return get_sysfs_uint(TSYNC_PCRSCR, pts);
-}
-
-static int aml_hwsync_wrap_single_get_tsync_vpts(uint32_t *pts)
-{
-    if (!pts) {
-        ALOGE("%s(), NULL pointer", __func__);
-        return -EINVAL;
-    }
-
-    return get_sysfs_uint(TSYNC_VPTS, pts);
-}
-
-static int aml_hwsync_wrap_single_get_tsync_firstvpts(uint32_t *pts)
-{
-    if (!pts) {
-        ALOGE("%s(), NULL pointer", __func__);
-        return -EINVAL;
-    }
-
-    return get_sysfs_uint(TSYNC_FIRSTVPTS, pts);
-}
-
-static int aml_hwsync_wrap_single_reset_tsync_pcrscr(uint64_t pts)
-{
-    char buf[64] = {0};
-
-    uint32_t pts32 = (uint32_t)pts;
-    snprintf(buf, 64, "0x%x", pts32);
-    ALOGI("tsync -> reset pcrscr 0x%x", pts32);
-    return sysfs_set_sysfs_str(TSYNC_APTS, buf);
-}
-
-void* aml_hwsync_wrap_mediasync_create (void) {
-    return mediasync_wrap_create();
-}
-
-void aml_hwsync_wrap_set_tsync_init(audio_hwsync_t *p_hwsync)
-{
-    ALOGI("%s(), send tsync enable", __func__);
-    if (!p_hwsync->use_mediasync) {
-        return aml_hwsync_wrap_single_set_tsync_init();
-    }
-}
-
-void aml_hwsync_wrap_set_tsync_pause(audio_hwsync_t *p_hwsync)
+/***************  wrap hwsync interfaces.   *****************/
+//wrap hwsync interfaces.
+void aml_hwsync_wrap_set_pause(audio_hwsync_t *p_hwsync)
 {
     ALOGI("%s(), send pause event", __func__);
     if (!p_hwsync || (p_hwsync && !p_hwsync->use_mediasync)) {
@@ -147,7 +44,7 @@ void aml_hwsync_wrap_set_tsync_pause(audio_hwsync_t *p_hwsync)
     mediasync_wrap_setPause(p_hwsync->mediasync, true);
 }
 
-void aml_hwsync_wrap_set_tsync_resume(audio_hwsync_t *p_hwsync)
+void aml_hwsync_wrap_set_resume(audio_hwsync_t *p_hwsync)
 {
     ALOGI("%s(), send resume event", __func__);
     bool ret = false;
@@ -163,7 +60,7 @@ void aml_hwsync_wrap_set_tsync_resume(audio_hwsync_t *p_hwsync)
     mediasync_wrap_setPause(p_hwsync->mediasync, false);
 }
 
-void aml_hwsync_wrap_set_tsync_stop(audio_hwsync_t *p_hwsync)
+void aml_hwsync_wrap_set_stop(audio_hwsync_t *p_hwsync)
 {
     ALOGI("%s(), send stop event", __func__);
     if (!p_hwsync->use_mediasync) {
@@ -172,7 +69,7 @@ void aml_hwsync_wrap_set_tsync_stop(audio_hwsync_t *p_hwsync)
     mediasync_wrap_clearAnchor(p_hwsync->mediasync);
 }
 
-int aml_hwsync_wrap_set_tsync_start_pts(audio_hwsync_t *p_hwsync, uint32_t pts)
+int aml_hwsync_wrap_set_start_pts(audio_hwsync_t *p_hwsync, uint32_t pts)
 {
     ALOGI("%s(), set tsync start pts: %d", __func__, pts);
     if (!p_hwsync->use_mediasync) {
@@ -183,7 +80,7 @@ int aml_hwsync_wrap_set_tsync_start_pts(audio_hwsync_t *p_hwsync, uint32_t pts)
     return 0;
 }
 
-int aml_hwsync_wrap_set_tsync_start_pts64(audio_hwsync_t *p_hwsync, uint64_t pts)
+int aml_hwsync_wrap_set_start_pts64(audio_hwsync_t *p_hwsync, uint64_t pts)
 {
     ALOGI("%s(), set tsync start pts64: %" PRId64 "", __func__, pts);
     if (!p_hwsync->use_mediasync) {
@@ -194,8 +91,7 @@ int aml_hwsync_wrap_set_tsync_start_pts64(audio_hwsync_t *p_hwsync, uint64_t pts
     return 0;
 }
 
-
-int aml_hwsync_wrap_get_tsync_pts(audio_hwsync_t *p_hwsync, uint64_t *pts)
+int aml_hwsync_wrap_get_pts(audio_hwsync_t *p_hwsync, uint64_t *pts)
 {
     int64_t timeus = 0;
     ALOGV("%s(), get tsync pts", __func__);
@@ -211,7 +107,7 @@ int aml_hwsync_wrap_get_tsync_pts(audio_hwsync_t *p_hwsync, uint64_t *pts)
     return 0;
 }
 
-int aml_hwsync_wrap_get_tsync_vpts(audio_hwsync_t *p_hwsync, uint32_t *pts)
+int aml_hwsync_wrap_get_vpts(audio_hwsync_t *p_hwsync, uint32_t *pts)
 {
     ALOGI("%s(), [To do ]get tsync vpts", __func__);
     if (!p_hwsync->use_mediasync) {
@@ -223,7 +119,7 @@ int aml_hwsync_wrap_get_tsync_vpts(audio_hwsync_t *p_hwsync, uint32_t *pts)
     return 0;
 }
 
-int aml_hwsync_wrap_get_tsync_firstvpts(audio_hwsync_t *p_hwsync, uint32_t *pts)
+int aml_hwsync_wrap_get_firstvpts(audio_hwsync_t *p_hwsync, uint32_t *pts)
 {
     ALOGI("%s(), [To do ]get tsync firstvpts", __func__);
     if (!p_hwsync->use_mediasync) {
@@ -235,7 +131,7 @@ int aml_hwsync_wrap_get_tsync_firstvpts(audio_hwsync_t *p_hwsync, uint32_t *pts)
     return 0;
 }
 
-int aml_hwsync_wrap_reset_tsync_pcrscr(audio_hwsync_t *p_hwsync, uint64_t pts)
+int aml_hwsync_wrap_reset_pcrscr(audio_hwsync_t *p_hwsync, uint64_t pts)
 {
     ALOGV("%s(), reset tsync pcr:(%" PRIu64 ")", __func__, pts);
     if (!p_hwsync->use_mediasync) {
@@ -245,6 +141,50 @@ int aml_hwsync_wrap_reset_tsync_pcrscr(audio_hwsync_t *p_hwsync, uint64_t pts)
     mediasync_wrap_updateAnchor(p_hwsync->mediasync, timeus, 0, 0);
 
     return 0;
+}
+
+
+
+/***************  mediasync interfaces.   *****************/
+//mediasync interfaces.
+void* aml_hwsync_wrap_mediasync_create (void) {
+    return mediasync_wrap_create();
+}
+
+bool check_support_mediasync(void)
+{
+    /*************************************************/
+    /*    check_support_mediasync                    */
+    /*    1. vendor.media.omx.use.omx2 be set true   */
+    /*    2. android R use 5.4 kernel                */
+    /*************************************************/
+    struct utsname info;
+    int kernel_version_major = 4;
+    int kernel_version_minor = 9;
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+
+    if (uname(&info) || sscanf(info.release, "%d.%d", &kernel_version_major, &kernel_version_minor) <= 0) {
+        ALOGW("Could not get linux version: %s", strerror(errno));
+    }
+
+    ALOGI("%s kernel_version_major:%d", __func__, kernel_version_major);
+    if (kernel_version_major > 4) {
+        ALOGI("%s kernel 5.4 use mediasync", __func__);
+        return true;
+    }
+    return false;
+}
+
+void* aml_hwsync_mediasync_create(void)
+{
+    ALOGI("%s", __func__);
+    if (check_support_mediasync()) {
+        ALOGI("%s use mediasync", __func__);
+        return aml_hwsync_wrap_mediasync_create();
+    }
+    ALOGI("%s use do not use mediasync", __func__);
+    return NULL;
 }
 
 
@@ -373,93 +313,164 @@ void aml_hwsync_wrap_wait_video_drop(audio_hwsync_t *p_hwsync, uint64_t cur_pts,
 }
 
 
-
-#else
-void aml_hwsync_wrap_set_tsync_init(void)
+void aml_hwsync_wait_video_start(audio_hwsync_t *p_hwsync)
 {
-    ALOGI("%s(), send tsync enable", __func__);
-    sysfs_set_sysfs_str(TSYNC_ENABLE, "1"); // enable avsync
-    sysfs_set_sysfs_str(TSYNC_MODE, "1"); // enable avsync
-}
+    int waitcount = 0;
+    int ret = -1;
 
-void aml_hwsync_wrap_set_tsync_pause(void)
-{
-    ALOGI("%s(), send pause event", __func__);
-    sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_PAUSE");
-}
-
-void aml_hwsync_wrap_set_tsync_resume(void)
-{
-    ALOGI("%s(), send resume event", __func__);
-    sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_RESUME");
-}
-
-void aml_hwsync_wrap_set_tsync_stop(void)
-{
-    ALOGI("%s(), send stop event", __func__);
-    sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_STOP");
-}
-
-int aml_hwsync_wrap_set_tsync_start_pts(uint32_t pts)
-{
-    char buf[64] = {0};
-
-    snprintf(buf, 64, "AUDIO_START:0x%x", pts);
-    ALOGI("tsync -> %s", buf);
-    return sysfs_set_sysfs_str(TSYNC_EVENT, buf);
-}
-
-int aml_hwsync_wrap_set_tsync_start_pts64(uint64_t pts)
-{
-    char buf[64] = {0};
-    sprintf (buf, "AUDIO_START:0x%"PRIx64"", pts & 0xffffffff);
-    ALOGI("tsync -> %s", buf);
-    return sysfs_set_sysfs_str(TSYNC_EVENT, buf);
-}
-
-
-int aml_hwsync_wrap_get_tsync_pts(uint64_t *pts)
-{
-    uint32_t pts32;
-    int ret = 0;
-    if (!pts) {
-        ALOGE("%s(), NULL pointer", __func__);
-        return -EINVAL;
+    if (!p_hwsync->use_mediasync) {
+        return;
     }
 
-    ret = get_sysfs_uint(TSYNC_PCRSCR, &pts32);
-    *pts = (uint64_t)pts32;
+    waitcount = property_get_int32("vendor.media.audio.hal.waitvpts.count", 100);
+    aml_hwsync_wrap_wait_video_start(p_hwsync, waitcount);
+    return;
+}
+
+void aml_hwsync_wait_video_drop(audio_hwsync_t *p_hwsync, uint64_t cur_pts)
+{
+    int waitcount = 0;
+    int ret = -1;
+
+    if (!p_hwsync->use_mediasync) {
+        return;
+    }
+
+    waitcount = property_get_int32("vendor.media.audio.hal.waitvpts.count", 100);
+    aml_hwsync_wrap_wait_video_drop(p_hwsync, cur_pts, waitcount);
+    return;
+}
+
+
+bool aml_audio_hwsync_set_time_gap_threshold(audio_hwsync_t *p_hwsync, int64_t threshold_value)
+{
+    int64_t value = 0;
+    bool ret = false;
+
+    ret = mediasync_wrap_getUpdateTimeThreshold(p_hwsync->mediasync, &value);
+    if (ret && value != threshold_value) {
+        ret = mediasync_wrap_setUpdateTimeThreshold(p_hwsync->mediasync, threshold_value);
+        ALOGD("%s, ret:%d threshold value is changed from %" PRId64 " to %" PRId64 "", __func__,ret, value, threshold_value);
+    } else {
+        ALOGV("%s, ret:%d, threshold value is same %" PRId64 ", not to set again.", __func__, ret, value);
+    }
+
     return ret;
 }
 
-int aml_hwsync_wrap_get_tsync_vpts(uint32_t *pts)
+bool aml_audio_hwsync_update_threshold(audio_hwsync_t *p_hwsync)
 {
-    if (!pts) {
-        ALOGE("%s(), NULL pointer", __func__);
-        return -EINVAL;
+    bool ret = false;
+    int64_t avsync_time_threshold_value = 0;
+    struct aml_audio_device *adev = p_hwsync->aout->dev;
+    /* the threshold default value is 50ms,
+     * it will be changed to 100ms for drop when pass through mode.
+     * this modification is for MiBox plist passthrough of NTS cases
+     */
+    if (adev && (BYPASS == adev->digital_audio_format || eDolbyMS12Lib != adev->dolby_lib_type)) {
+        avsync_time_threshold_value = 100*1000;
+        ret = aml_audio_hwsync_set_time_gap_threshold(p_hwsync, avsync_time_threshold_value);
+    } else {
+        avsync_time_threshold_value = 50*1000;
+        ret = aml_audio_hwsync_set_time_gap_threshold(p_hwsync, avsync_time_threshold_value);
+    }
+    ALOGV("%s, avsync_time_threshold_value:%" PRId64 ", update threshold finished.",
+            __func__, avsync_time_threshold_value);
+
+    return ret;
+}
+
+
+
+/***************  tsync interfaces.   *****************/
+//tsync interfaces.
+int aml_hwsync_get_tsync_pcr(audio_hwsync_t *p_hwsync, uint64_t *value)
+{
+    return aml_hwsync_tsync_get_pcr(p_hwsync, value);
+}
+
+int aml_hwsync_wrap_get_tsync_pts_by_handle(int fd, uint64_t *pts)
+{
+    return aml_hwsync_get_tsync_pts_by_handle(fd, pts);
+}
+
+int aml_hwsync_wrap_set_tsync_open(void)
+{
+    return aml_hwsync_open_tsync();
+}
+
+void aml_hwsync_wrap_set_tsync_close(int fd)
+{
+    aml_hwsync_close_tsync(fd);
+}
+
+void aml_hwsync_wrap_set_tsync_init(audio_hwsync_t *p_hwsync)
+{
+    ALOGI("%s(), send tsync enable", __func__);
+    if (!p_hwsync->use_mediasync) {
+        return aml_hwsync_wrap_single_set_tsync_init();
+    }
+}
+
+
+int aml_audio_start_trigger(void *stream)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    char tempbuf[128];
+    ALOGI("reset alsa to set the audio start\n");
+    pcm_stop(aml_out->pcm);
+    sprintf(tempbuf, "AUDIO_START:0x%x", adev->first_apts);
+    ALOGI("audio start set tsync -> %s", tempbuf);
+
+    aml_hwsync_wrap_set_tsync_init(aml_out->hwsync);
+
+    if (aml_hwsync_wrap_set_start_pts(aml_out->hwsync, adev->first_apts)  == -1) {
+        ALOGE("set AUDIO_START failed \n");
+        return -1;
+    }
+    return 0;
+}
+
+/*FIXME: not use them currently*/
+/*wrap the tsync/mediasync create and release interfaces*/
+int aml_audio_hwsync_wrap_create(void)
+{
+    struct aml_audio_device *adev = (struct aml_audio_device *)aml_adev_get_handle();
+
+    //try to create mediasync firstly.
+    adev->hw_mediasync = aml_hwsync_mediasync_create();
+    if (adev->hw_mediasync) {
+        ALOGI("%s  create mediasync successful\n",__func__);
+        return 0;
     }
 
-    return get_sysfs_uint(TSYNC_VPTS, pts);
+    //then try to open tsync
+    adev->tsync_fd = aml_hwsync_wrap_set_tsync_open();
+    if (adev->tsync_fd < 0) {
+        ALOGE("%s() open tsync failed", __func__);
+    } else {
+        ALOGI("%s  open tsync successful\n",__func__);
+    }
+    return 0;
 }
 
-int aml_hwsync_wrap_get_tsync_firstvpts(uint32_t *pts)
+void aml_audio_hwsync_wrap_release(audio_hwsync_t *p_hwsync)
 {
-    if (!pts) {
-        ALOGE("%s(), NULL pointer", __func__);
-        return -EINVAL;
+    struct aml_audio_device *adev = (struct aml_audio_device *)aml_adev_get_handle();
+
+    ALOGI("%s", __func__);
+    if (p_hwsync) {
+        //close the mediasync
+        aml_hwsync_wrap_release(p_hwsync);
+        ALOGI("%s release mediasync done", __func__);
+        return;
     }
 
-    return get_sysfs_uint(TSYNC_FIRSTVPTS, pts);
-}
+    //try to close the tsync
+    aml_hwsync_wrap_set_tsync_close(adev->tsync_fd);
 
-int aml_hwsync_wrap_reset_tsync_pcrscr(uint64_t pts)
-{
-    char buf[64] = {0};
-
-    uint32_t pts32 = (uint32_t)pts;
-    snprintf(buf, 64, "0x%x", pts32);
-    ALOGV("tsync -> reset pcrscr 0x%x", pts32);
-    return sysfs_set_sysfs_str(TSYNC_APTS, buf);
+    ALOGI("%s close tsync done", __func__);
+    return;
 }
-#endif
 

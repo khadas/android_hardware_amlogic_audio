@@ -31,6 +31,7 @@
 #include "aml_ringbuffer.h"
 #include "audio_hw_utils.h"
 #include "audio_hwsync.h"
+#include "audio_hwsync_wrap.h"
 #include "aml_malloc_debug.h"
 #include "karaoke_manager.h"
 
@@ -196,7 +197,7 @@ int remove_all_inport_messages(input_port *port)
         p_msg = node_to_item(node, port_message, list);
         AM_LOGI("msg what %s", port_msg_to_str(p_msg->msg_what));
         if (p_msg->msg_what == MSG_PAUSE)
-            aml_hwsync_set_tsync_pause(NULL);
+            aml_hwsync_wrap_set_pause(NULL);
         list_remove(&p_msg->list);
         aml_audio_free(p_msg);
     }

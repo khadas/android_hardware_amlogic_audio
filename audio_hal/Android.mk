@@ -139,6 +139,7 @@ include $(BUILD_PREBUILT)
         libfmq
 
     LOCAL_SRC_FILES += \
+        audio_tsync_wrap.c \
         audio_hwsync_wrap.c \
         audio_mediasync_wrap.c \
 

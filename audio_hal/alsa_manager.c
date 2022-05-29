@@ -33,7 +33,9 @@
 #include "alsa_config_parameters.h"
 #include "audio_hw_dtv.h"
 #include "aml_audio_timer.h"
+#include "audio_hwsync_wrap.h"
 #include "aml_hfp.h"
+
 
 #define AML_ZERO_ADD_MIN_SIZE 1024
 
@@ -361,7 +363,7 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
     }
 
     // video not coming. skip audio
-    aml_hwsync_get_tsync_firstvpts(aml_out->hwsync, &first_vpts);
+    aml_hwsync_wrap_get_firstvpts(aml_out->hwsync, &first_vpts);
     if (first_vpts == 0) {
         ALOGI("[audio-startup] video not coming - skip this packet. size:%zu\n", bytes);
         aml_out->dropped_size += bytes;
@@ -372,8 +374,8 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
     // av both coming. check need add zero or skip
     //get_sysfs_uint(TSYNC_FIRSTAPTS, (unsigned int *)&(first_apts));
     first_apts = adev->first_apts;
-    aml_hwsync_get_tsync_vpts(aml_out->hwsync, &cur_vpts);
-    aml_hwsync_get_tsync_pts(aml_out->hwsync, &cur_pcr);
+    aml_hwsync_wrap_get_vpts(aml_out->hwsync, &cur_vpts);
+    aml_hwsync_wrap_get_pts(aml_out->hwsync, &cur_pcr);
     if (cur_vpts <= first_vpts) {
         cur_vpts = first_vpts;
     }
@@ -442,7 +444,7 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
     pretime = aml_gettime();
     while (1) {
         usleep(MIN_WRITE_SLEEP_US);
-        aml_hwsync_get_tsync_pts(aml_out->hwsync, &cur_pcr2);
+        aml_hwsync_wrap_get_pts(aml_out->hwsync, &cur_pcr2);
         if (cur_pcr2 > cur_apts - 10 * 90) {
             break;
         }

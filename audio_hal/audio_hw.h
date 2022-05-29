@@ -556,7 +556,8 @@ struct aml_audio_device {
     struct volume_ease volume_ease;
     float last_sink_gain;
     struct usb_audio_device usb_audio;
-    int32_t hw_mediasync_id;
+    //change variable name from hw_mediasync_id to hw_sync_id for more easy to extension.
+    int32_t hw_sync_id;
     /* mute flag after insert policy */
     bool insert_mute_flag;
     struct timespec mute_start_ts;
@@ -577,7 +578,6 @@ struct aml_audio_device {
     unsigned int direct_mode;
     bool audio_patch_2_af_stream;
     int stream_bitrate; // current offload stream bitrate
-
     /* Early suspend */
     pthread_mutex_t wake_lock;
     pthread_cond_t wake_cond;
@@ -776,6 +776,8 @@ struct aml_stream_out {
     int demux_id;
     struct timespec cbs_cmd_timestamp;
     char stream_dump_file[128];
+    bool frame_write_sum_updated;
+    uint32_t timer_id;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
@@ -1031,6 +1033,8 @@ int get_audio_patch_by_src_dev(struct audio_hw_device *dev, audio_devices_t dev_
 int create_patch(struct audio_hw_device *dev, audio_devices_t input, audio_devices_t output);
 int release_patch(struct aml_audio_device *aml_dev);
 int aml_audio_input_routing(struct audio_hw_device *dev, enum IN_PORT inport);
+int output_stream_hwsync_prepare(struct aml_stream_out *out, int hw_sync_id);
+
 
 /* 'bytes' are the number of bytes written to audio FIFO, for which 'timestamp' is valid.
  * 'available' is the number of frames available to read (for input) or yet to be played

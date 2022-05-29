@@ -24,19 +24,6 @@
 
 #include "audio_hw.h"
 
-#define AML_TIMER_ID_1                        (0)
-#define AML_TIMER_ID_2                        (1)
-#define AML_TIMER_ID_3                        (2)
-#define AML_TIMER_ID_4                        (3)
-
-#define AML_TIMER_MK_EVT(ID)                   ((unsigned int)1<<(unsigned int)((ID)+1))
-#define AML_TIMER_ID_01_EVT                    AML_TIMER_MK_EVT(AML_TIMER_ID_1)
-#define AML_TIMER_ID_02_EVT                    AML_TIMER_MK_EVT(AML_TIMER_ID_2)
-#define AML_TIMER_ID_03_EVT                    AML_TIMER_MK_EVT(AML_TIMER_ID_3)
-#define AML_TIMER_ID_04_EVT                    AML_TIMER_MK_EVT(AML_TIMER_ID_4)
-
-//delay time ms
-#define AML_TIMER_DELAY     (3000)
 
 #define DISABLE_CONTINUOUS_OUTPUT "persist.vendor.audio.continuous.disable"
 
@@ -101,12 +88,10 @@ int audiohal_send_msg_2_ms12(struct dolby_ms12_desc *ms12, ms12_mesg_type_t mesg
 int ms12_mesg_thread_create(struct dolby_ms12_desc *ms12);
 int ms12_mesg_thread_destroy(struct dolby_ms12_desc *ms12);
 
-int aml_audio_timer_create(void);
-void aml_audio_timer_init(void);
 int aml_send_ms12_scheduler_state_2_ms12(void);
-int aml_audio_timer_delete(void);
-bool is_ad_data_available(int digital_audio_format);
+void ms12_timer_callback_handler(union sigval sigv);
 
+bool is_ad_data_available(int digital_audio_format);
 void set_continuous_audio_mode(struct aml_audio_device *adev, int enable, int is_suspend);
 
 /* @brief set ms12 full dap disable as full_dap_disable [0/1] */
