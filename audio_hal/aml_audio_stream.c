@@ -1650,6 +1650,7 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
                 if (adev->audio_patch && (adev->patch_src == SRC_HDMIIN)) {
                     ALOGI("%s, create hdmi-dvi patching dev->dev", __func__);
                     release_patch(adev);
+                    aml_audio_input_routing(dev, INPORT_LINEIN);
                     create_patch(dev, AUDIO_DEVICE_IN_LINE, pAudPatchTmp->sinks[0].ext.device.type);
                 }
             }
@@ -1658,7 +1659,6 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
             adev->active_inport = INPORT_LINEIN;
             pAudPatchTmp->sources[0].ext.device.type = AUDIO_DEVICE_IN_LINE;
             set_audio_source(&adev->alsa_mixer, LINEIN, alsa_device_is_auge());
-
         } else if (strncmp(value, "hdmi", 4) == 0 && adev->audio_patch) {
 
             get_audio_patch_by_src_dev(dev, AUDIO_DEVICE_IN_LINE, &pAudPatchTmp);
@@ -1678,6 +1678,7 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
                 if (adev->audio_patch && (adev->patch_src == SRC_LINEIN)) {
                     ALOGI("%s, create dvi-hdmi patching dev->dev", __func__);
                     release_patch(adev);
+                    aml_audio_input_routing(dev, INPORT_HDMIIN);
                     create_patch(dev, AUDIO_DEVICE_IN_HDMI, pAudPatchTmp->sinks[0].ext.device.type);
                 }
             }
@@ -1686,7 +1687,6 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
             adev->active_inport = INPORT_HDMIIN;
             pAudPatchTmp->sources[0].ext.device.type = AUDIO_DEVICE_IN_HDMI;
             set_audio_source(&adev->alsa_mixer, HDMIIN, alsa_device_is_auge());
-
         }
         goto exit;
     }

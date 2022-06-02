@@ -3735,7 +3735,7 @@ static int aml_audio_output_routing(struct audio_hw_device *dev,
     return 0;
 }
 
-static int aml_audio_input_routing(struct audio_hw_device *dev,
+int aml_audio_input_routing(struct audio_hw_device *dev,
                                     enum IN_PORT inport)
 {
     struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
