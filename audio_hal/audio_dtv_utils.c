@@ -42,20 +42,20 @@
 int dtv_package_list_flush(package_list *list)
 {
     pthread_mutex_lock(&(list->tslock));
-    struct package * dtv_pacakge = NULL;
+    struct package * dtv_package = NULL;
     while (list->pack_num && list->first) {
-        dtv_pacakge = list->first;
+        dtv_package = list->first;
         list->first = list->first->next;
-        if (dtv_pacakge->data) {
-            aml_audio_free(dtv_pacakge->data);
-            dtv_pacakge->data = NULL;
+        if (dtv_package->data) {
+            aml_audio_free(dtv_package->data);
+            dtv_package->data = NULL;
         }
-        if (dtv_pacakge->ad_data) {
-            aml_audio_free(dtv_pacakge->ad_data);
-            dtv_pacakge->ad_data = NULL;
+        if (dtv_package->ad_data) {
+            aml_audio_free(dtv_package->ad_data);
+            dtv_package->ad_data = NULL;
         }
-        aml_audio_free(dtv_pacakge);
-        dtv_pacakge = NULL;
+        aml_audio_free(dtv_package);
+        dtv_package = NULL;
         list->pack_num--;
     }
     pthread_mutex_unlock(&(list->tslock));

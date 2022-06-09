@@ -36,7 +36,7 @@ typedef struct aml_demux__audiopara {
     int ad_package_status;
     struct mAudioEsDataInfo *mEsData;
     struct mAudioEsDataInfo *mADEsData;
-    struct package *dtv_pacakge;
+    struct package *dtv_package;
 } aml_demux_audiopara_t;
 
 
