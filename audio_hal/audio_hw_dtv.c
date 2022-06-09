@@ -2729,7 +2729,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
     int nInBufferSize = read_bytes; //full buffer size
     char *inbuf = NULL;//real buffer
     char *ad_buffer = NULL;
-    struct package *dtv_pacakge = NULL;
+    struct package *dtv_package = NULL;
     struct mAudioEsDataInfo *mEsData = NULL ,*mAdEsData = NULL;
     int trycount = 0;
     int max_trycount = 2;
@@ -2739,6 +2739,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
     aml_dtvsync_t *Dtvsync = NULL ;
     aml_demux_audiopara_t *demux_info = NULL;
     int path_index = 0, working_path_index = 0;
+    int64_t last_queue_es_apts = 0;
     ALOGI("[audiohal_kpi]++%s start input now patch->input_thread_exit %d!!!\n ",
           __FUNCTION__, patch->input_thread_exit);
 
@@ -2753,10 +2754,10 @@ void *audio_dtv_patch_input_threadloop(void *data)
         int nRet = 0;
         if (!aml_dev->is_multi_demux) {
             pthread_mutex_lock(&patch->mutex);
-            if (dtv_pacakge == NULL) {
-                dtv_pacakge = aml_audio_calloc(1, sizeof(struct package));
-                if (!dtv_pacakge) {
-                    ALOGI("dtv_pacakge malloc failed ");
+            if (dtv_package == NULL) {
+                dtv_package = aml_audio_calloc(1, sizeof(struct package));
+                if (!dtv_package) {
+                    ALOGI("dtv_package malloc failed ");
                     pthread_mutex_unlock(&patch->mutex);
                     goto exit;
                 }
@@ -2791,8 +2792,8 @@ void *audio_dtv_patch_input_threadloop(void *data)
             }
 
             trycount = 0;
-            dtv_pacakge->size = nInBufferSize;
-            dtv_pacakge->data = (char *)inbuf;
+            dtv_package->size = nInBufferSize;
+            dtv_package->data = (char *)inbuf;
 
             if (demux_info->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
                if (ad_buffer != NULL) {
@@ -2807,27 +2808,27 @@ void *audio_dtv_patch_input_threadloop(void *data)
                }
                ret = dtv_assoc_read((unsigned char *)ad_buffer , nInBufferSize);
                if (ret == 0) {
-                    dtv_pacakge->ad_size = 0;
-                    dtv_pacakge->ad_data  = NULL;
+                    dtv_package->ad_size = 0;
+                    dtv_package->ad_data  = NULL;
                } else {
-                    dtv_pacakge->ad_size = ret;
-                    dtv_pacakge->ad_data = ad_buffer;
+                    dtv_package->ad_size = ret;
+                    dtv_package->ad_data = ad_buffer;
                }
-               if (dtv_pacakge->ad_size == 0) {
+               if (dtv_package->ad_size == 0) {
                    ALOGV("ad data not enough,filled with mute frame ");
                    if (patch->aformat == AUDIO_FORMAT_AC3) {
                        memcpy(ad_buffer, mute_dd_frame, sizeof(mute_dd_frame));
-                       dtv_pacakge->ad_size = sizeof(mute_dd_frame);
-                       dtv_pacakge->ad_data = ad_buffer;
+                       dtv_package->ad_size = sizeof(mute_dd_frame);
+                       dtv_package->ad_data = ad_buffer;
                    } else if (patch->aformat == AUDIO_FORMAT_E_AC3) {
                        memcpy(ad_buffer, mute_ddp_frame, sizeof(mute_ddp_frame));
-                       dtv_pacakge->ad_size = sizeof(mute_dd_frame);
-                       dtv_pacakge->ad_data = ad_buffer;
+                       dtv_package->ad_size = sizeof(mute_dd_frame);
+                       dtv_package->ad_data = ad_buffer;
                    }
                }
             }
 
-            ret = dtv_package_add(list, dtv_pacakge);
+            ret = dtv_package_add(list, dtv_package);
             if (ret == 0) {
                 inbuf = NULL;
             }
@@ -2850,23 +2851,23 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     Dtvsync->mediasync = Dtvsync->mediasync_new;
                 }
 
-                dtv_pacakge = demux_info->dtv_pacakge;
+                dtv_package = demux_info->dtv_package;
                 mEsData = demux_info->mEsData;
                 mAdEsData = demux_info->mADEsData;
 
                 if (demux_handle == NULL) {
-                    if (dtv_pacakge) {
-                       if (dtv_pacakge->data) {
-                           aml_audio_free(dtv_pacakge->data);
-                           dtv_pacakge->data = NULL;
+                    if (dtv_package) {
+                       if (dtv_package->data) {
+                           aml_audio_free(dtv_package->data);
+                           dtv_package->data = NULL;
                        }
-                       if (dtv_pacakge->ad_data) {
-                           aml_audio_free(dtv_pacakge->ad_data);
-                           dtv_pacakge->ad_data = NULL;
+                       if (dtv_package->ad_data) {
+                           aml_audio_free(dtv_package->ad_data);
+                           dtv_package->ad_data = NULL;
                        }
-                       aml_audio_free(dtv_pacakge);
-                       dtv_pacakge = NULL;
-                       demux_info->dtv_pacakge = NULL;
+                       aml_audio_free(dtv_package);
+                       dtv_package = NULL;
+                       demux_info->dtv_package = NULL;
                     }
                     if (demux_info->mEsData) {
                        aml_audio_free(demux_info->mEsData);
@@ -2886,10 +2887,10 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     }
                     continue;
                 } else {
-                    if (dtv_pacakge == NULL) {
-                        dtv_pacakge = aml_audio_calloc(1, sizeof(struct package));
-                        if (!dtv_pacakge) {
-                            ALOGI("dtv_pacakge malloc failed ");
+                    if (dtv_package == NULL) {
+                        dtv_package = aml_audio_calloc(1, sizeof(struct package));
+                        if (!dtv_package) {
+                            ALOGI("dtv_package malloc failed ");
                             goto exit;
                         }
 
@@ -2972,21 +2973,21 @@ void *audio_dtv_patch_input_threadloop(void *data)
                          /* dtv pack main ad and data data */
                         {
                             if (mEsData) {
-                                dtv_pacakge->size = mEsData->size;
-                                dtv_pacakge->data = (char *)mEsData->data;
-                                dtv_pacakge->pts = mEsData->pts;
+                                dtv_package->size = mEsData->size;
+                                dtv_package->data = (char *)mEsData->data;
+                                dtv_package->pts = mEsData->pts;
                                 aml_audio_free(mEsData);
                                 mEsData = NULL;
                                 demux_info->mEsData = NULL;
-                                demux_info->dtv_pacakge = dtv_pacakge;
+                                demux_info->dtv_package = dtv_package;
                             } else {
                                 if (aml_dev->debug_flag > 0)
                                     ALOGI(" do not get mEsData");
-                                if (dtv_pacakge) {
-                                    aml_audio_free(dtv_pacakge);
-                                    dtv_pacakge = NULL;
+                                if (dtv_package) {
+                                    aml_audio_free(dtv_package);
+                                    dtv_package = NULL;
                                 }
-                                demux_info->dtv_pacakge = NULL;
+                                demux_info->dtv_package = NULL;
                                 demux_info->mEsData = NULL;
                                 pthread_mutex_unlock(&aml_dev->dtv_lock);
                                 usleep(10000);
@@ -2994,20 +2995,20 @@ void *audio_dtv_patch_input_threadloop(void *data)
                             }
 
                             if (mAdEsData) {
-                                demux_info->ad_package_status = check_ad_package_status(dtv_pacakge->pts, mAdEsData->pts, demux_info);
+                                demux_info->ad_package_status = check_ad_package_status(dtv_package->pts, mAdEsData->pts, demux_info);
                                 if (demux_info->ad_package_status == AD_PACK_STATUS_HOLD) {
-                                    dtv_pacakge->ad_size = 0;
-                                    dtv_pacakge->ad_data = NULL;
+                                    dtv_package->ad_size = 0;
+                                    dtv_package->ad_data = NULL;
                                 } else {
-                                    dtv_pacakge->ad_size = mAdEsData->size;
-                                    dtv_pacakge->ad_data = (char *)mAdEsData->data;
+                                    dtv_package->ad_size = mAdEsData->size;
+                                    dtv_package->ad_data = (char *)mAdEsData->data;
                                     aml_audio_free(mAdEsData);
                                     mAdEsData = NULL;
                                 }
                                 demux_info->mADEsData = mAdEsData;
                             } else {
-                                dtv_pacakge->ad_size = 0;
-                                dtv_pacakge->ad_data = NULL;
+                                dtv_package->ad_size = 0;
+                                dtv_package->ad_data = NULL;
                                 demux_info->mADEsData = NULL;
                             }
                         }
@@ -3016,40 +3017,48 @@ void *audio_dtv_patch_input_threadloop(void *data)
 
                      /* mediasyn check dmx package */
                      {
-                        audio_queue_info.apts = dtv_pacakge->pts;
+                        audio_queue_info.apts = dtv_package->pts;
                         audio_queue_info.duration = Dtvsync->duration;
-                        audio_queue_info.size = dtv_pacakge->size;
+                        audio_queue_info.size = dtv_package->size;
                         audio_queue_info.isneedupdate = false;
 
                         if (path_index == dtv_audio_instances->demux_index_working)
                             audio_queue_info.isworkingchannel = true;
-                        else
+                        else {
                             audio_queue_info.isworkingchannel = false;
+
+                            if (Get_Audio_LastES_Apts(demux_handle, &last_queue_es_apts) == 0) {
+                                audio_queue_info.duration = (int)(last_queue_es_apts - dtv_package->pts);
+                            }
+                        }
                         audio_queue_info.tunit = MEDIASYNC_UNIT_PTS;
                         aml_dtvsync_queue_audio_frame(Dtvsync, &audio_queue_info);
                         if (aml_dev->debug_flag > 0)
-                             ALOGI("queue pts:%" PRIx64 ", size:%d, dur:%d isneedupdate %d\n",
-                                 dtv_pacakge->pts, dtv_pacakge->size, Dtvsync->duration,audio_queue_info.isneedupdate);
+                             ALOGI("workingchannel:%d,queue pts:[%" PRIx64 ",%" PRIx64 "], size:%d,"
+                                   "dur:%d ms, isneedupdate %d.\n",\
+                                   audio_queue_info.isworkingchannel, dtv_package->pts,last_queue_es_apts,\
+                                   dtv_package->size, audio_queue_info.duration/90,audio_queue_info.isneedupdate);
+
                         if (path_index != dtv_audio_instances->demux_index_working ) {
                             if (aml_dev->debug_flag > 0)
                                 ALOGI("path_index  %d dtv_audio_instances->demux_index_working %d",
                                 path_index, dtv_audio_instances->demux_index_working);
                             if (audio_queue_info.isneedupdate) {
-                                if (dtv_pacakge) {
-                                   if (dtv_pacakge->data) {
-                                       aml_audio_free(dtv_pacakge->data);
-                                       dtv_pacakge->data = NULL;
+                                if (dtv_package) {
+                                   if (dtv_package->data) {
+                                       aml_audio_free(dtv_package->data);
+                                       dtv_package->data = NULL;
                                    }
-                                   if (dtv_pacakge->ad_data) {
-                                       aml_audio_free(dtv_pacakge->ad_data);
-                                       dtv_pacakge->ad_data = NULL;
+                                   if (dtv_package->ad_data) {
+                                       aml_audio_free(dtv_package->ad_data);
+                                       dtv_package->ad_data = NULL;
                                    }
-                                   aml_audio_free(dtv_pacakge);
-                                   dtv_pacakge = NULL;
+                                   aml_audio_free(dtv_package);
+                                   dtv_package = NULL;
                                 }
                             }
 
-                            demux_info->dtv_pacakge = dtv_pacakge;
+                            demux_info->dtv_package = dtv_package;
                             pthread_mutex_unlock(&aml_dev->dtv_lock);
                             if (dtv_audio_instances->demux_index_working == -1) {
                                 usleep(5000);
@@ -3061,16 +3070,16 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     /* add dtv package to package list */
                     while (!patch->input_thread_exit &&
                         path_index == dtv_audio_instances->demux_index_working) {
-                        if (dtv_pacakge) {
+                        if (dtv_package) {
                             pthread_mutex_lock(&patch->mutex);
-                            ret = dtv_package_add(list, dtv_pacakge);
+                            ret = dtv_package_add(list, dtv_package);
                             if (ret == 0) {
                                 if (aml_dev->debug_flag > 0)
-                                    ALOGI("pthread_cond_signal dtv_pacakge %p ", dtv_pacakge);
+                                    ALOGI("pthread_cond_signal dtv_package %p ", dtv_package);
                                 pthread_cond_signal(&patch->cond);
                                 pthread_mutex_unlock(&patch->mutex);
-                                dtv_pacakge = NULL;
-                                demux_info->dtv_pacakge = NULL;
+                                dtv_package = NULL;
+                                demux_info->dtv_package = NULL;
                                 break;
                             } else {
                                 ALOGI("list->pack_num %d full !!!", list->pack_num);
@@ -3101,38 +3110,38 @@ exit:
         ad_buffer = NULL;
     }
     if (!aml_dev->is_multi_demux ) {
-        if (dtv_pacakge) {
-           if (dtv_pacakge->data) {
-               aml_audio_free(dtv_pacakge->data);
-               dtv_pacakge->data = NULL;
+        if (dtv_package) {
+           if (dtv_package->data) {
+               aml_audio_free(dtv_package->data);
+               dtv_package->data = NULL;
            }
-           if (dtv_pacakge->ad_data) {
-               aml_audio_free(dtv_pacakge->ad_data);
-               dtv_pacakge->ad_data = NULL;
+           if (dtv_package->ad_data) {
+               aml_audio_free(dtv_package->ad_data);
+               dtv_package->ad_data = NULL;
            }
-           aml_audio_free(dtv_pacakge);
-           dtv_pacakge = NULL;
+           aml_audio_free(dtv_package);
+           dtv_package = NULL;
         }
     } else {
         for (path_index = 0; path_index < DVB_DEMUX_SUPPORT_MAX_NUM; path_index++ ) {
 
             pthread_mutex_lock(&aml_dev->dtv_lock);
             demux_info = &dtv_audio_instances->demux_info[path_index];
-            dtv_pacakge = demux_info->dtv_pacakge;
+            dtv_package = demux_info->dtv_package;
 
-            if (dtv_pacakge) {
-               if (dtv_pacakge->data) {
-                   aml_audio_free(dtv_pacakge->data);
-                   dtv_pacakge->data = NULL;
+            if (dtv_package) {
+               if (dtv_package->data) {
+                   aml_audio_free(dtv_package->data);
+                   dtv_package->data = NULL;
                }
-               if (dtv_pacakge->ad_data) {
-                   aml_audio_free(dtv_pacakge->ad_data);
-                   dtv_pacakge->ad_data = NULL;
+               if (dtv_package->ad_data) {
+                   aml_audio_free(dtv_package->ad_data);
+                   dtv_package->ad_data = NULL;
                }
-               aml_audio_free(dtv_pacakge);
-               dtv_pacakge = NULL;
+               aml_audio_free(dtv_package);
+               dtv_package = NULL;
             }
-            demux_info->dtv_pacakge = NULL;
+            demux_info->dtv_package = NULL;
             pthread_mutex_unlock(&aml_dev->dtv_lock);
         }
     }
