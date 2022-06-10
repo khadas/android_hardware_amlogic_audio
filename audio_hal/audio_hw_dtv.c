@@ -4472,13 +4472,13 @@ int audio_decoder_status(unsigned int *perror_count)
     return ret;
 }
 
-int audio_get_sample_rate_channles(int *sample_rate, int *channles, int *lfepresent)
+int audio_get_sample_rate_channels(int *sample_rate, int *channels, int *lfepresent)
 {
     int ret = 0;
-    if (sample_rate == NULL && channles == NULL && lfepresent == NULL) {
+    if (sample_rate == NULL && channels == NULL && lfepresent == NULL) {
         return -1;
     }
-    ret = dtv_audio_decpara_get(sample_rate, channles, lfepresent);
+    ret = dtv_audio_decpara_get(sample_rate, channels, lfepresent);
     return ret;
 }
 
@@ -4494,7 +4494,7 @@ void get_dtv_amadec_audio_info (struct aml_audio_device *aml_dev ) {
                    unsigned int errcount;
                    audio_decoder_status(&errcount);
                    UpdateDecodedInfo_DecodedErr(errcount);
-                   audio_get_sample_rate_channles(&sample_rate, &pch, &lfepresent);
+                   audio_get_sample_rate_channels(&sample_rate, &pch, &lfepresent);
                    pch = pch + lfepresent;
                }
                if (pch != 0 && sample_rate != 0) {

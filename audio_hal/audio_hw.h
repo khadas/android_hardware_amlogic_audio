@@ -835,7 +835,7 @@ struct aml_stream_in {
 typedef  int (*do_standby_func)(struct aml_stream_out *out);
 typedef  int (*do_startup_func)(struct aml_stream_out *out);
 
-inline int continous_mode(struct aml_audio_device *adev)
+inline int continuous_mode(struct aml_audio_device *adev)
 {
     return adev->continuous_audio_mode;
 }

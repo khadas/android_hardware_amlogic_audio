@@ -698,7 +698,7 @@ uint32_t out_get_ms12_latency_frames(struct audio_stream_out *stream)
     struct pcm_config *config = &adev->ms12_config;
     int mul = 1;
 
-    if (continous_mode(adev)) {
+    if (continuous_mode(adev)) {
         ms12_out = adev->ms12_out;
     } else {
         ms12_out = hal_out;
@@ -825,7 +825,7 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
     if (adev->is_TV) {
         video_delay = get_ms12_tunnel_video_delay() * 48;
     } else if (!adev->bDVEnable) {
-        // Temporary patch, shoud re-tunnel non-dv and dv parameters
+        // Temporary patch, should re-tunnel non-dv and dv parameters
         dv_delay = get_sink_dv_latency_offset(true, adev->is_netflix) * 48;
     }
 

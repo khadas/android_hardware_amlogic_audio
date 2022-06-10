@@ -280,54 +280,54 @@ int DolbyMS12::GetLibHandle(char *dolby_ms12_path)
 
     FuncDolbyMS12GetNBytesConsumedSysSound = (unsigned long long (*)(void))  dlsym(mDolbyMS12LibHanle, "get_n_bytes_consumed_of_sys_sound");
     if (!FuncDolbyMS12GetNBytesConsumedSysSound) {
-        ALOGW("%s, dlsym FuncDolbyMS12GetNBytesConsumedSysSound fail,ingore it as version difference\n", __FUNCTION__);
+        ALOGW("%s, dlsym FuncDolbyMS12GetNBytesConsumedSysSound fail,ignore it as version difference\n", __FUNCTION__);
     }
 
     FuncDolbyMS12GetTotalNFramesDelay  = (int (*)(void *))  dlsym(mDolbyMS12LibHanle, "get_ms12_total_nframes_delay");
     if (!FuncDolbyMS12GetTotalNFramesDelay) {
-        ALOGW("%s, dlsym get_ms12_total_delay fail, ingore it as version difference\n", __FUNCTION__);
+        ALOGW("%s, dlsym get_ms12_total_delay fail, ignore it as version difference\n", __FUNCTION__);
     }
 
     FuncDolbyMS12HWSyncInit = (int (*)(void))  dlsym(mDolbyMS12LibHanle, "ms12_hwsync_init");
     if (!FuncDolbyMS12HWSyncInit) {
-        ALOGW("%s, dlsym FuncDolbyMS12HWSyncInit fail,ingore it as version difference\n", __FUNCTION__);
+        ALOGW("%s, dlsym FuncDolbyMS12HWSyncInit fail,ignore it as version difference\n", __FUNCTION__);
     }
 
     FuncDolbyMS12HWSyncRelease = (int (*)(void))  dlsym(mDolbyMS12LibHanle, "ms12_hwsync_release");
     if (!FuncDolbyMS12HWSyncRelease) {
-        ALOGW("%s, dlsym FuncDolbyMS12HWSyncRelease fail,ingore it as version difference\n", __FUNCTION__);
+        ALOGW("%s, dlsym FuncDolbyMS12HWSyncRelease fail,ignore it as version difference\n", __FUNCTION__);
     }
 
     FuncDolbyMS12HWSyncCheckinPTS = (int (*)(int,  int))  dlsym(mDolbyMS12LibHanle, "ms12_hwsync_checkin_pts");
     if (!FuncDolbyMS12HWSyncCheckinPTS) {
-        ALOGW("%s, dlsym FuncDolbyMS12HWSyncCheckinPTS fail,ingore it as version difference\n", __FUNCTION__);
+        ALOGW("%s, dlsym FuncDolbyMS12HWSyncCheckinPTS fail,ignore it as version difference\n", __FUNCTION__);
     }
 
     /* MAT Encoder API Begin */
     FuncDolbyMS12MATEncoderInit = (int (*)(int, int, unsigned int *, int, int, void **))  dlsym(mDolbyMS12LibHanle, "mat_encoder_init");
     if (!FuncDolbyMS12MATEncoderInit) {
-        ALOGW("%s, dlsym FuncDolbyMS12MATEncoderInit fail,ingore it as version difference\n", __FUNCTION__);
+        ALOGW("%s, dlsym FuncDolbyMS12MATEncoderInit fail,ignore it as version difference\n", __FUNCTION__);
     }
 
     FuncDolbyMS12MATEncoderCleanup = (int (*)(void *))  dlsym(mDolbyMS12LibHanle, "mat_encoder_cleanup");
     if (!FuncDolbyMS12MATEncoderCleanup) {
-        ALOGW("%s, dlsym FuncDolbyMS12MATEncoderCleanup fail,ingore it as version difference\n", __FUNCTION__);
+        ALOGW("%s, dlsym FuncDolbyMS12MATEncoderCleanup fail,ignore it as version difference\n", __FUNCTION__);
     }
 
     FuncDolbyMS12MATEncoderProcess = (int (*)(void *, const unsigned char *, int, const unsigned char *, int *, int, int *))  dlsym(mDolbyMS12LibHanle, "mat_encoder_process");
     if (!FuncDolbyMS12MATEncoderProcess) {
-        ALOGW("%s, dlsym FuncDolbyMS12MATEncoderProcess fail,ingore it as version difference\n", __FUNCTION__);
+        ALOGW("%s, dlsym FuncDolbyMS12MATEncoderProcess fail,ignore it as version difference\n", __FUNCTION__);
     }
 
     FuncDolbyMS12MATEncoderConfig = (int (*)(void *, mat_enc_config_type_t, mat_enc_config_t *))  dlsym(mDolbyMS12LibHanle, "mat_encoder_config");
     if (!FuncDolbyMS12MATEncoderConfig) {
-        ALOGW("%s, dlsym FuncDolbyMS12MATEncoderConfig fail,ingore it as version difference\n", __FUNCTION__);
+        ALOGW("%s, dlsym FuncDolbyMS12MATEncoderConfig fail,ignore it as version difference\n", __FUNCTION__);
     }
     /* MAT Encoder API End */
 
     FunDolbMS12GetVersion = (char * (*)(void)) dlsym(mDolbyMS12LibHanle, "ms12_get_version");
     if (!FunDolbMS12GetVersion) {
-        ALOGW("%s, dlsym FunDolbMS12GetVersion fail, ingore it as version difference\n", __FUNCTION__);
+        ALOGW("%s, dlsym FunDolbMS12GetVersion fail, ignore it as version difference\n", __FUNCTION__);
     }
 
     ALOGD("-%s() line %d get libdolbyms12 success!", __FUNCTION__, __LINE__);
