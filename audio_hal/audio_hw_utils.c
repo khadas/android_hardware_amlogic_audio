@@ -73,6 +73,7 @@ static const char *str_compmode[] = {"custom mode, analog dialnorm","custom mode
 
 #define DD_MUTE_FRAME_SIZE 1536
 #define DDP_MUTE_FRAME_SIZE 6144
+#define AUDIO_HAL_DUMP_DEFAULT_PATH "/data/vendor/audiohal/"
 
 //add array of chip name,index is chip id
 static const char* aml_chip_name[]= {
@@ -2049,5 +2050,54 @@ int get_media_video_delay(struct aml_mixer_handle *mixer_handle)
     delay = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_MEDIA_VIDEO_DELAY);
 
     return (delay > 0) ? delay : 0;
+}
+
+
+/*****************************************************************************
+*   Function Name:  aml_get_stream_dump_file_name
+*   Description:    get the stream dump file name
+*   Parameters:
+            audio_format_t audio_format[IN]: output stream foramt
+            char *file_name[out]: stream dump file name
+*   Return value:   return 0
+******************************************************************************/
+
+int aml_get_stream_dump_file_name(audio_format_t audio_format, char *file_name)
+{
+    char audio_type[32] = { 0 };
+
+    if (audio_format == AUDIO_FORMAT_AC3) {
+        snprintf(audio_type, 32, "%s", "dd");
+    }
+    else if ((audio_format == AUDIO_FORMAT_E_AC3) || (audio_format == AUDIO_FORMAT_E_AC3_JOC)) {
+        snprintf(audio_type, 32, "%s", "ddp");
+    }
+    else if (audio_format == AUDIO_FORMAT_AC4) {
+        snprintf(audio_type, 32, "%s", "ac4");
+    }
+    else if (audio_format == AUDIO_FORMAT_DOLBY_TRUEHD) {
+        snprintf(audio_type, 32, "%s", "mlp");
+    }
+    else if ((audio_format == AUDIO_FORMAT_AAC) ||
+        (audio_format == AUDIO_FORMAT_AAC_LATM) ||
+        (audio_format == AUDIO_FORMAT_HE_AAC_V1) ||
+        (audio_format == AUDIO_FORMAT_HE_AAC_V2)) {
+        snprintf(audio_type, 32, "%s", "aac");
+    }
+    else if (audio_format == AUDIO_FORMAT_MAT) {
+        snprintf(audio_type, 32, "%s", "mat");
+    }
+    else if ((audio_format == AUDIO_FORMAT_DTS) || (audio_format == AUDIO_FORMAT_DTS_HD)) {
+        snprintf(audio_type, 32, "%s", "dts");
+    }
+    else {
+        snprintf(audio_type, 32, "%s", "pcm");
+    }
+
+    if (file_name)
+        snprintf(file_name, 128, "%sstream_pid%d_tid%d.%s", AUDIO_HAL_DUMP_DEFAULT_PATH, getpid(), gettid(), audio_type);
+
+    ALOGI("%s line %d file_name %s\n", __func__, __LINE__, file_name);
+    return 0;
 }
 

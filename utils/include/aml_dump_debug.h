@@ -42,6 +42,7 @@ typedef enum AML_DUMP_DEBUG_INFO {
     AML_DEBUG_AUDIOHAL_MATENC,
     AML_DEBUG_AUDIOHAL_TRACE,
     AML_DEBUG_AUDIOINFO_REPORT,
+    AML_DUMP_AUDIO_STREAM,
     AML_DEBUG_DUMP_MAX,
 } AML_DUMP_DEBUG_INFO_T;
 
@@ -79,6 +80,7 @@ typedef enum AML_DUMP_DEBUG_INFO {
 #define AML_DEBUG_AUDIOHAL_MATENC_PROPERTY          "vendor.media.audiohal.matenc.debug"
 #define AML_DEBUG_AUDIOHAL_TRACE_PROPERTY           "vendor.media.audiohal.trace.debug"
 #define AML_DEBUG_AUDIOINFO_REPORT_PROPERTY         "vendor.media.audio.info.report.debug"
+#define AML_DUMP_AUDIO_STREAM_PROPERTY              "vendor.media.audio.stream.dump"
 
 
 
