@@ -1367,7 +1367,7 @@ int stream_check_reconfig_param(struct audio_stream_out *stream)
                 AUDIO_FORMAT_PCM_16_BIT,
                 audio_channel_count_from_out_mask(ms12->output_channelmask),
                 ms12->output_samplerate,
-                out->is_tv_platform, continous_mode(adev),
+                out->is_tv_platform, continuous_mode(adev),
                 adev->game_mode);
 
             alsa_out_reconfig_params(stream);
@@ -1406,7 +1406,7 @@ int update_sink_format_after_hotplug(struct aml_audio_device *adev)
         get_sink_format(stream);
     }
     else {
-        if (adev->ms12_out && continous_mode(adev)) {
+        if (adev->ms12_out && continuous_mode(adev)) {
             ALOGD("%s() active stream is ms12_out %p\n", __FUNCTION__, adev->ms12_out);
             get_sink_format((struct audio_stream_out *)adev->ms12_out);
         }

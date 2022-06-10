@@ -617,7 +617,7 @@ void set_continuous_audio_mode(struct aml_audio_device *adev, int enable, int is
             ALOGI("%s[%s] disable_continuous %d\n", DISABLE_CONTINUOUS_OUTPUT, buf, disable_continuous);
         }
         pthread_mutex_lock(&adev->lock);
-        if (continous_mode(adev) && disable_continuous) {
+        if (continuous_mode(adev) && disable_continuous) {
             // If the Netflix application is terminated, your platform must disable Atmos locking.
             // For more information, see When to enable/disable Atmos lock.
             // The following Netflix application state transition scenarios apply (state definitions described in Always Ready):
@@ -641,7 +641,7 @@ void set_continuous_audio_mode(struct aml_audio_device *adev, int enable, int is
                 usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
             //continuous_stream_do_standby(adev);
         } else {
-            if ((!disable_continuous) && !continous_mode(adev)) {
+            if ((!disable_continuous) && !continuous_mode(adev)) {
                 adev->mix_init_flag = false;
                 adev->continuous_audio_mode = 1;
             }

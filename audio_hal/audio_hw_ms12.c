@@ -824,7 +824,7 @@ int get_the_dolby_ms12_prepared(
     dolby_ms12_set_atmos_lock_flag(adev->atoms_lock_flag);
     /* create  the ms12 output stream here */
     /*************************************/
-    if (continous_mode(adev)) {
+    if (continuous_mode(adev)) {
         // TODO: zz: Might have memory leak, not clear route to release this pointer
         out = (struct aml_stream_out *)aml_audio_calloc(1, sizeof(struct aml_stream_out));
         if (!out) {
@@ -906,10 +906,10 @@ int get_the_dolby_ms12_prepared(
             , adev->default_alsa_ch
             , ms12->output_samplerate
             , out->is_tv_platform
-            , continous_mode(adev)
+            , continuous_mode(adev)
             , false);
 
-        if (continous_mode(adev)) {
+        if (continuous_mode(adev)) {
             ms12->dolby_ms12_thread_exit = false;
             ret = pthread_create(&(ms12->dolby_ms12_threadID), NULL, &dolby_ms12_threadloop, out);
             if (ret != 0) {
@@ -953,7 +953,7 @@ int get_the_dolby_ms12_prepared(
     ms12->lpcm_temp_buffer = (unsigned char*)aml_audio_malloc(ms12->dolby_ms12_out_max_size);
     if (!ms12->lpcm_temp_buffer) {
         ALOGE("%s malloc lpcm_temp_buffer failed", __func__);
-        if (continous_mode(adev))
+        if (continuous_mode(adev))
             goto Err_dolby_ms12_thread;
         else
             goto Err;
@@ -986,7 +986,7 @@ int get_the_dolby_ms12_prepared(
     return ret;
 
 Err_dolby_ms12_thread:
-    if (continous_mode(adev)) {
+    if (continuous_mode(adev)) {
         if (ms12->dolby_ms12_enable) {
             ALOGE("%s() %d exit dolby_ms12_thread\n", __FUNCTION__, __LINE__);
             ms12->dolby_ms12_thread_exit = true;
@@ -2600,7 +2600,7 @@ static void *dolby_ms12_threadloop(void *data)
         ALOGV("%s() dolby_ms12_scheduler_run end", __FUNCTION__);
     }
     ALOGI("%s remove   ms12 stream %p", __func__, aml_out);
-    if (continous_mode(adev)) {
+    if (continuous_mode(adev)) {
         pthread_mutex_lock(&adev->alsa_pcm_lock);
         aml_alsa_output_close((struct audio_stream_out*)aml_out);
         adev->spdif_encoder_init_flag = false;
