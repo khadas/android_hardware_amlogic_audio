@@ -7798,6 +7798,11 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         ALOGI("-<OUT>%s() ret %zd,%p %"PRIu64"\n", __func__, ret, stream, aml_out->total_write_size);
     }
 
+    if (get_debug_value(AML_DUMP_AUDIO_STREAM)) {
+        if (buffer && (bytes > 0)) {
+            aml_audio_dump_audio_bitstreams(aml_out->stream_dump_file, buffer, bytes);
+        }
+    }
     return ret;
 }
 
@@ -7920,6 +7925,9 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
 
     aml_out->codec_type = get_codec_type(aml_out->hal_internal_format);
     aml_out->continuous_mode_check = true;
+
+    aml_get_stream_dump_file_name((int)aml_out->hal_internal_format, aml_out->stream_dump_file);
+
 
     /* init ease for stream */
     if (aml_audio_ease_init(&aml_out->audio_stream_ease) < 0) {

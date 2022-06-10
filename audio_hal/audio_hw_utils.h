@@ -184,4 +184,6 @@ static inline void endian16_convert(void *buf, int size)
 }
 int get_media_video_delay(struct aml_mixer_handle *mixer_handle);
 
+int aml_get_stream_dump_file_name(audio_format_t audio_format, char *file_name);
+
 #endif
