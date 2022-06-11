@@ -1315,13 +1315,21 @@ static uint32_t out_get_latency (const struct audio_stream_out *stream)
     }
 
     snd_pcm_sframes_t frames = out_get_latency_frames (stream);
-    ms12_latency = get_ms12_buffer_latency((struct aml_stream_out *)out);
-    ms12_pipeline_latnecy = HAL_MS12_PIPELINE_LATENCY;
     alsa_latency = (frames * 1000) / out->config.rate;
-    whole_latency =  ms12_latency + ms12_pipeline_latnecy + alsa_latency;
 
-    ALOGV("%s  stream:%p frames:%lu out->config.rate:%u whole_latency:%u, alsa_latency:%u, ms12_latency:%u", __func__,
-        stream, frames,out->config.rate, whole_latency, alsa_latency, ms12_latency);
+    if (adev->is_TV) {
+        ms12_latency = get_ms12_buffer_latency((struct aml_stream_out *)out);
+        ms12_pipeline_latnecy = HAL_MS12_PIPELINE_LATENCY;
+        whole_latency =  ms12_latency + ms12_pipeline_latnecy + alsa_latency;
+
+        ALOGV("%s  stream:%p frames:%lu out->config.rate:%u whole_latency:%u, alsa_latency:%u, ms12_latency:%u", __func__,
+            stream, frames, out->config.rate, whole_latency, alsa_latency, ms12_latency);
+    } else {
+        whole_latency = alsa_latency;
+        ALOGV("%s  stream:%p frames:%lu out->config.rate:%u whole_latency:%u, alsa_latency:%u, ", __func__,
+            stream, frames, out->config.rate, whole_latency, alsa_latency);
+    }
+
     return whole_latency;
 
 }
