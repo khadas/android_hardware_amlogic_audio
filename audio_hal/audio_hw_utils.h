@@ -81,6 +81,13 @@
     }
 
 
+#define AVSYNC_NONMS12_AUDIO_HAL_EARC_LATENCY_DDP_PROPERTY "vendor.media.audio.hal.nonms12.earc_latency.ddp"
+#define AVSYNC_NONMS12_AUDIO_HAL_EARC_LATENCY_DDP (-40)
+
+#define AVSYNC_NONMS12_AUDIO_HAL_ARC_LATENCY_DDP_PROPERTY "vendor.media.audio.hal.nonms12.arc_latency.ddp"
+#define AVSYNC_NONMS12_AUDIO_HAL_ARC_LATENCY_DDP (-35)
+
+
 
 int64_t aml_gettime(void);
 int get_sysfs_uint(const char *path, uint *value);
@@ -118,7 +125,7 @@ uint64_t get_systime_ns(void);
 int aml_audio_get_hdmi_latency_offset(audio_format_t source_format,
 	                                  audio_format_t sink_format,int ms12_enable);
 int aml_audio_get_latency_offset(enum OUT_PORT port,audio_format_t source_format,
-	                                  audio_format_t sink_format,int ms12_enable);
+	                                  audio_format_t sink_format,int ms12_enable, int is_eARC);
 uint32_t tspec_diff_to_us(struct timespec tval_old,
         struct timespec tval_new);
 int aml_audio_get_dolby_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost);

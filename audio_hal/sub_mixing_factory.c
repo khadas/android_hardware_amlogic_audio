@@ -614,6 +614,7 @@ static int out_get_presentation_position_port(
     int frame_latency = 0;
     R_CHECK_POINTER_LEGAL(-EINVAL, frames, "");
     R_CHECK_POINTER_LEGAL(-EINVAL, timestamp, "");
+    bool is_earc = 0;//(ATTEND_TYPE_EARC == aml_audio_earctx_get_type(adev));
 
     /* add this code for VTS. */
     if (0 == frames_written_hw) {
@@ -672,7 +673,8 @@ static int out_get_presentation_position_port(
         latency_ms = aml_audio_get_latency_offset(adev->active_outport,
                                                          out->hal_internal_format,
                                                          adev->sink_format,
-                                                         adev->ms12.dolby_ms12_enable);
+                                                         adev->ms12.dolby_ms12_enable,
+                                                         is_earc);
         frame_latency = latency_ms * (out->hal_rate / MSEC_PER_SEC);
         *frames += frame_latency ;
     }
