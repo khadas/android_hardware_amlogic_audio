@@ -680,6 +680,26 @@ int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t by
 
     return 0;
 }
+
+//Tune the eRAC with non-tunnel for earc-ddp
+int aml_audio_get_earc_latency_offset(int aformat)
+{
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    (void)aformat;
+
+    prop_name = AVSYNC_NONMS12_AUDIO_HAL_EARC_LATENCY_DDP_PROPERTY;
+    latency_ms = AVSYNC_NONMS12_AUDIO_HAL_EARC_LATENCY_DDP;
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0) {
+        latency_ms = atoi(buf);
+    }
+    return latency_ms;
+}
+
+//Tune the eRAC with non-tunnel for arc-ddp
 int aml_audio_get_arc_latency_offset(int aformat)
 {
     char buf[PROPERTY_VALUE_MAX];
@@ -687,8 +707,9 @@ int aml_audio_get_arc_latency_offset(int aformat)
     int latency_ms = 0;
     char *prop_name = NULL;
     (void)aformat;
-    prop_name = "vendor.media.audio.hal.arc_latency.ddp";
-    latency_ms = 0;
+
+    prop_name = AVSYNC_NONMS12_AUDIO_HAL_ARC_LATENCY_DDP_PROPERTY;
+    latency_ms = AVSYNC_NONMS12_AUDIO_HAL_ARC_LATENCY_DDP;
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
         latency_ms = atoi(buf);
@@ -1080,12 +1101,17 @@ int aml_audio_get_speaker_latency_offset(int aformat ,int ms12_enable)
     return latency_ms;
 }
 int aml_audio_get_latency_offset( enum OUT_PORT port,audio_format_t source_format,
-                                      audio_format_t sink_format,int ms12_enable)
+                                      audio_format_t sink_format,int ms12_enable, int is_eARC)
 {
     int latency_ms = 0;
     switch (port)  {
         case OUTPORT_HDMI_ARC:
-            latency_ms = aml_audio_get_arc_latency_offset(source_format);
+            if (is_eARC) {
+                latency_ms = aml_audio_get_earc_latency_offset(source_format);
+            }
+            else {
+                latency_ms = aml_audio_get_arc_latency_offset(source_format);
+            }
             break;
         case OUTPORT_HDMI:
             latency_ms = aml_audio_get_hdmi_latency_offset(source_format,sink_format,ms12_enable);

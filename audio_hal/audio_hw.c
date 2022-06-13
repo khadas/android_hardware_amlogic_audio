@@ -1986,6 +1986,9 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
     int video_delay_frames = 0;
     int64_t origin_tv_nsec = 0;
     int origin_vdelay_frames = 0;
+    /* Fixme, use the tinymix inside aml_audio_earctx_get_type() everytime!!! */
+    bool is_earc = (ATTEND_TYPE_EARC == aml_audio_earctx_get_type(adev));
+
     if (!frames || !timestamp) {
         ALOGI("%s, !frames || !timestamp\n", __FUNCTION__);
         return -EINVAL;
@@ -2007,7 +2010,8 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
              timems_latency = aml_audio_get_latency_offset(adev->active_outport,
                                                              out->hal_internal_format,
                                                              adev->sink_format,
-                                                             adev->ms12.dolby_ms12_enable);
+                                                             adev->ms12.dolby_ms12_enable,
+                                                             is_earc);
              if (is_audio_type_dolby) {
                 frame_latency = timems_latency * (out->hal_rate * out->rate_convert / 1000);
              }

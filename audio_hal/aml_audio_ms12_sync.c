@@ -836,30 +836,87 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
     return latency_frames;
 }
 
-int get_nonms12_port_latency( enum OUT_PORT port, audio_format_t output_format)
+int get_nonms12_port_latency(enum OUT_PORT port, audio_format_t output_format, bool is_eARC)
 {
+    int attend_type, earc_latency;
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
     int latency_ms = 0;
-    switch (port)  {
+    char *prop_name = NULL;
+    switch (port) {
         case OUTPORT_HDMI_ARC:
-            if (output_format == AUDIO_FORMAT_AC3)
-                latency_ms = AVSYNC_NONMS12_HDMI_ARC_OUT_DD_LATENCY;
-            else if (output_format == AUDIO_FORMAT_E_AC3)
-                latency_ms = AVSYNC_NONMS12_HDMI_ARC_OUT_DDP_LATENCY;
-            else
-                latency_ms = AVSYNC_NONMS12_HDMI_ARC_OUT_PCM_LATENCY;
+        {
+            if (is_eARC) {
+                if (output_format == AUDIO_FORMAT_AC3) {
+                    latency_ms = AVSYNC_NONMS12_HDMI_EARC_OUT_DD_LATENCY;
+                    prop_name = AVSYNC_NONMS12_HDMI_EARC_OUT_DD_LATENCY_PROPERTY;
+                }
+                else if (output_format == AUDIO_FORMAT_E_AC3) {
+                    latency_ms = AVSYNC_NONMS12_HDMI_EARC_OUT_DDP_LATENCY;
+                    prop_name = AVSYNC_NONMS12_HDMI_EARC_OUT_DDP_LATENCY_PROPERTY;
+                }
+                else if (output_format == AUDIO_FORMAT_MAT) {
+                    latency_ms = AVSYNC_NONMS12_HDMI_EARC_OUT_MAT_LATENCY;
+                    prop_name = AVSYNC_NONMS12_HDMI_EARC_OUT_MAT_LATENCY_PROPERTY;
+                }
+                else {
+                    latency_ms = AVSYNC_NONMS12_HDMI_EARC_OUT_PCM_LATENCY;
+                    prop_name = AVSYNC_NONMS12_HDMI_EARC_OUT_PCM_LATENCY_PROPERTY;
+                }
+            }
+            else {
+                if (output_format == AUDIO_FORMAT_AC3) {
+                    latency_ms = AVSYNC_NONMS12_HDMI_ARC_OUT_DD_LATENCY;
+                    prop_name = AVSYNC_NONMS12_HDMI_ARC_OUT_DD_LATENCY_PROPERTY;
+                }
+                else if (output_format == AUDIO_FORMAT_E_AC3) {
+                    latency_ms = AVSYNC_NONMS12_HDMI_ARC_OUT_DDP_LATENCY;
+                    prop_name = AVSYNC_NONMS12_HDMI_ARC_OUT_DDP_LATENCY_PROPERTY;
+                }
+                else {
+                    latency_ms = AVSYNC_NONMS12_HDMI_ARC_OUT_PCM_LATENCY;
+                    prop_name = AVSYNC_NONMS12_HDMI_ARC_OUT_PCM_LATENCY_PROPERTY;
+                }
+            }
             break;
+        }
         case OUTPORT_HDMI:
-            latency_ms = AVSYNC_NONMS12_HDMI_OUT_LATENCY;
+        {
+            if (output_format == AUDIO_FORMAT_AC3) {
+                latency_ms = AVSYNC_NONMS12_HDMI_OUT_DD_LATENCY;
+                prop_name = AVSYNC_NONMS12_HDMI_OUT_DD_LATENCY_PROPERTY;
+            }
+            else if (output_format == AUDIO_FORMAT_E_AC3) {
+                latency_ms = AVSYNC_NONMS12_HDMI_OUT_DDP_LATENCY;
+                prop_name = AVSYNC_NONMS12_HDMI_OUT_DDP_LATENCY_PROPERTY;
+            }
+            else {
+                latency_ms = AVSYNC_NONMS12_HDMI_OUT_PCM_LATENCY;
+                prop_name = AVSYNC_NONMS12_HDMI_OUT_PCM_LATENCY_PROPERTY;
+            }
             break;
+        }
         case OUTPORT_SPEAKER:
         case OUTPORT_AUX_LINE:
-            latency_ms = AVSYNC_NONMS12_HDMI_SPEAKER_LATENCY;
+        {
+            latency_ms = AVSYNC_NONMS12_SPEAKER_LATENCY;
+            prop_name = AVSYNC_NONMS12_SPEAKER_LATENCY_PROPERTY;
             break;
+        }
         default :
             break;
     }
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+
     return latency_ms;
 }
+
 
 static int get_nonms12_netflix_tunnel_input_latency(audio_format_t input_format) {
     char buf[PROPERTY_VALUE_MAX];
@@ -995,7 +1052,8 @@ static int get_nonms12_tunnel_latency_offset(enum OUT_PORT port
     , audio_format_t output_format
     , bool is_netflix
     , bool is_output_ddp_atmos
-    , device_type_t platform_type)
+    , device_type_t platform_type
+    , bool is_eARC)
 {
     int latency_ms = 0;
     int input_latency_ms = 0;
@@ -1008,7 +1066,7 @@ static int get_nonms12_tunnel_latency_offset(enum OUT_PORT port
         //output_latency_ms = get_nonms12_netflix_output_latency(output_format);
     } else {
         input_latency_ms  = get_nonms12_tunnel_input_latency(input_format, platform_type, port);
-        port_latency_ms   = get_nonms12_port_latency(port, output_format);
+        port_latency_ms   = get_nonms12_port_latency(port, output_format, is_eARC);
         if (platform_type == STB) {
             output_latency_ms = get_nonms12_output_latency(output_format);
         }
@@ -1037,6 +1095,7 @@ int aml_audio_get_nonms12_tunnel_latency(struct audio_stream_out * stream)
     int latency_frames = 0;
     bool is_output_ddp_atmos = aml_audio_output_ddp_atmos(stream);
     device_type_t platform_type = STB;
+    bool is_earc = (ATTEND_TYPE_EARC == aml_audio_earctx_get_type(adev));
 
     if (adev->is_STB) {
         platform_type = STB;
@@ -1055,7 +1114,8 @@ int aml_audio_get_nonms12_tunnel_latency(struct audio_stream_out * stream)
                                                       adev->sink_format,
                                                       adev->is_netflix,
                                                       is_output_ddp_atmos,
-                                                      platform_type) * 48;
+                                                      platform_type,
+                                                      is_earc) * 48;
 
     latency_frames = alsa_delay + tunning_delay;
 
