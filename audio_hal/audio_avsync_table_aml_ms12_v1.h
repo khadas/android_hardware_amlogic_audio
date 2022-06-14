@@ -49,11 +49,11 @@
  *so, change the value from 90 to 40ms.
  *The result is about +9ms.
  */
-#define  AVSYNC_MS12_TUNNEL_DDP_CVBS_LATENCY                  (40)
+#define  AVSYNC_MS12_TUNNEL_DDP_CVBS_LATENCY                  (30)
 /*AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY works in HDMI port:*/
 /*For DDP source under HDMI output*/
 /*40->90, the result change from +25ms to -25ms*/
-#define  AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY                  (90)
+#define  AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY                  (55)
 #define  AVSYNC_MS12_TUNNEL_ATMOS_LATENCY                (20)
 
 #define  AVSYNC_MS12_NONTUNNEL_AC4_LATENCY               (70)
@@ -64,7 +64,7 @@
 #define  AVSYNC_MS12_TUNNEL_AC4_HDMI_LATENCY                  (50)
 
 #define  AVSYNC_MS12_NONTUNNEL_BYPASS_LATENCY            (-130)
-#define  AVSYNC_MS12_TUNNEL_BYPASS_LATENCY               (-220)
+#define  AVSYNC_MS12_TUNNEL_BYPASS_LATENCY               (-60)
 
 
 #define  AVSYNC_MS12_NETFLIX_NONTUNNEL_BYPASS_LATENCY            (-130)
@@ -72,7 +72,7 @@
 
 #define  AVSYNC_MS12_PCM_OUT_LATENCY                     (0)
 #define  AVSYNC_MS12_DD_OUT_LATENCY                      (50)
-#define  AVSYNC_MS12_DDP_OUT_LATENCY                     (75)
+#define  AVSYNC_MS12_DDP_OUT_LATENCY                     (15)
 #define  AVSYNC_MS12_MAT_OUT_LATENCY                     (10)
 
 #define  AVSYNC_MS12_HDMI_ARC_OUT_PCM_LATENCY            (0)
