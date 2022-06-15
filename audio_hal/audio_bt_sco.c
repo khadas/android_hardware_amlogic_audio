@@ -161,10 +161,10 @@ ssize_t write_to_sco(struct aml_audio_device *adev, audio_config_base_t *config,
     struct aml_bt_output *bt = &adev->bt_output;
     size_t frame_size = audio_channel_count_from_out_mask(config->channel_mask) * audio_bytes_per_sample(config->format);
     size_t in_frames = bytes / frame_size;
-    size_t out_frames = in_frames * bt->cfg.rate / MM_FULL_POWER_SAMPLING_RATE + 1;;
     int16_t *in_buffer = (int16_t *)buffer;
     int16_t *out_buffer = (int16_t *)bt->bt_out_buffer;
-    unsigned int i;
+    size_t out_frames = 0;
+    unsigned int i = 0;
     int ret = 0;
 
     if (adev->debug_flag) {
@@ -179,10 +179,13 @@ ssize_t write_to_sco(struct aml_audio_device *adev, audio_config_base_t *config,
         }
     }
 
+    out_frames = in_frames * bt->cfg.rate / MM_FULL_POWER_SAMPLING_RATE + 1;
+
     /* Discard right channel */
-    for (i = 1; i < in_frames; i++) {
+    for (i = 0; i < in_frames; i++) {
         in_buffer[i] = in_buffer[i * 2];
     }
+
     /* The frame size is now half */
     frame_size /= 2;
 
