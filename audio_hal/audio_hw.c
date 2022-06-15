@@ -7727,11 +7727,15 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         if (adev->debug_flag > 1) {
             ALOGD("%s:patching %d, adev:%p, out->dev:%p, patch:%p.finish write", __func__, aml_out->dev->audio_patching, adev, aml_out->dev, adev->audio_patch);
         }
+        ret = out_write_dtv_stream_for_tunerframework(stream, buffer, bytes);
         if (aml_out->standby) {
             out_start_dtv_stream_for_tunerframework(stream);
             aml_out->standby = false;
         }
-        return bytes;
+        if (getprop_bool("vendor.media.audiohal.cbs.dump")) {
+            aml_audio_dump_audio_bitstreams("/data/cbs_data.raw", buffer, ret);
+        }
+        return ret;
     }
 #endif
 #endif

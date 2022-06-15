@@ -350,6 +350,15 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
 
             demux_info->associate_audio_mixing_enable = val;
             ALOGI("associate_audio_mixing_enable set to %d\n", demux_info->associate_audio_mixing_enable);
+            if (dtv_audio_instances->dtv_scene == DTV_TUNER_FRAMEWORK) {
+               if (demux_info->dual_decoder_support) {
+                    Init_Dmx_AD_Audio(demux_handle, demux_info->ad_fmt, demux_info->ad_pid);
+                    Start_Dmx_AD_Audio(demux_handle);
+                } else {
+                   Stop_Dmx_AD_Audio(demux_handle);
+                   Destroy_Dmx_AD_Audio(demux_handle);(demux_handle);
+                }
+            }
             break;
         case AUDIO_DTV_PATCH_CMD_SET_AD_VOL_LEVEL:
             if (val < 0) {
@@ -3628,41 +3637,14 @@ static void *audio_dtv_patch_process_threadloop_v3(void *data)
     struct aml_audio_patch *patch = (struct aml_audio_patch *)data;
     struct audio_hw_device *dev = patch->dev;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
-    ring_buffer_t *ringbuffer = &(patch->aml_ringbuffer);
-    struct audio_stream_in *stream_in = NULL;
     struct audio_config stream_config;
-    // FIXME: add calc for read_bytes;
-    int read_bytes = DEFAULT_CAPTURE_PERIOD_SIZE * CAPTURE_PERIOD_COUNT;
-    int ret = 0, retry = 0;
-    audio_format_t cur_aformat;
     int cmd = AUDIO_DTV_PATCH_CMD_NUM;
     int path_id  = 0;
-    aml_dtvsync_t *dtvsync;
     struct mediasync_audio_format audio_format;
     patch->sample_rate = stream_config.sample_rate = 48000;
     patch->chanmask = stream_config.channel_mask = AUDIO_CHANNEL_IN_STEREO;
     patch->aformat = stream_config.format = AUDIO_FORMAT_PCM_16_BIT;
 
-    int switch_flag = property_get_int32("vendor.media.audio.strategy.switch", 0);
-    int show_first_nosync = property_get_int32("vendor.media.video.show_first_frame_nosync", 1);
-    patch->pre_latency = property_get_int32(PROPERTY_PRESET_AC3_PASSTHROUGH_LATENCY, 30);
-    patch->a_discontinue_threshold = property_get_int32(
-                                        PROPERTY_AUDIO_DISCONTINUE_THRESHOLD, 30 * 90000);
-    patch->sync_para.cur_pts_diff = 0;
-    patch->sync_para.in_out_underrun_flag = 0;
-    patch->sync_para.pcr_adjust_max = property_get_int32(
-                                        PROPERTY_AUDIO_ADJUST_PCR_MAX, 1 * 90000);
-    patch->sync_para.underrun_mute_time_min = property_get_int32(
-                                        PROPERTY_UNDERRUN_MUTE_MINTIME, 200);
-    patch->sync_para.underrun_mute_time_max = property_get_int32(
-                                        PROPERTY_UNDERRUN_MUTE_MAXTIME, 1000);
-    patch->sync_para.underrun_max_time =  property_get_int32(
-                                        PROPERTY_UNDERRUN_MAX_TIME, 5000);
-
-    ALOGI("switch_flag=%d, show_first_nosync=%d, pre_latency=%d,discontinue:%d\n",
-        switch_flag, show_first_nosync, patch->pre_latency,
-        patch->a_discontinue_threshold);
-    ALOGI("sync:pcr_adjust_max=%d\n", patch->sync_para.pcr_adjust_max);
     ALOGI("[audiohal_kpi]++%s Enter.\n", __FUNCTION__);
     patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_INIT;
     aml_demux_audiopara_t *demux_info = NULL;
@@ -3697,11 +3679,12 @@ static void *audio_dtv_patch_process_threadloop_v3(void *data)
                 continue;
             }
 
-            ring_buffer_reset(&patch->aml_ringbuffer);
             if (cmd == AUDIO_DTV_PATCH_CMD_START) {
                 patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_RUNNING;
                 aml_dev->patch_start = false;
-
+                if (dtv_audio_instances->demux_index_working == -1 ) {
+                    dtv_audio_instances->demux_index_working = path_id;
+                }
                 if (patch->dtv_aformat == ACODEC_FMT_AC3) {
                     patch->aformat = AUDIO_FORMAT_AC3;
                     patch->decoder_offset = 0;
@@ -3780,7 +3763,6 @@ static void *audio_dtv_patch_process_threadloop_v3(void *data)
                 dtv_package_list_flush(patch->dtv_package_list);//free the data
                 dtv_audio_instances->demux_index_working = -1;
                 dtv_adjust_output_clock(patch, DIRECT_NORMAL, DEFAULT_DTV_ADJUST_CLOCK, false);
-                dtv_check_audio_reset();
                 patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_INIT;
            } else {
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
@@ -3839,7 +3821,7 @@ exit:
     ALOGI("[audiohal_kpi]++%s now  live  release  the audio decoder", __FUNCTION__);
     release_dtv_input_stream_thread(patch);
     release_dtv_output_stream_thread(patch);
-    aml_dev->ad_start_enable = 0;
+
     ALOGI("[audiohal_kpi]++%s Exit", __FUNCTION__);
     pthread_exit(NULL);
 }
@@ -4424,6 +4406,137 @@ int out_stop_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
     }
     return ret;
 }
+
+int out_get_audio_description_mix_level(struct audio_stream_out *stream, float *leveldB)
+{
+    ALOGD("func:%s  stream:%p leveldB:%p", __func__, stream, leveldB);
+    int path_id = 0;
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
+    aml_demux_audiopara_t *dmx_info = &dtv_audio_instances->demux_info[path_id];
+    *leveldB = AmplToDb(dmx_info->mixing_level/100.0f);
+    return 0;
+}
+
+int out_set_audio_description_mix_level(struct audio_stream_out *stream, const float leveldB)
+{
+    int ret = 0,cmd = 0,path_id = 0;
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    ALOGI("stream %p leveldB %f ", stream, leveldB);
+
+    if (adev && adev->audio_patch) {
+        ALOGD("%s[%d]:the audio_patching: %d, patch: %p. decoder state: %d", __func__, __LINE__, adev->audio_patching, adev->audio_patch, adev->audio_patch->dtv_decoder_state);
+        if (dtv_tuner_framework(stream)) {
+            int mixing_level = 0;
+            mixing_level = DbToAmpl(leveldB) * 100;
+            mixing_level = (path_id << DVB_DEMUX_ID_BASE | mixing_level);
+            ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_MIX_LEVEL, cmd);
+        }
+    } else {
+        ALOGE("%s[%d]:adev %p, patch %p", __func__, __LINE__, adev, adev->audio_patch);
+    }
+
+    return ret;
+}
+
+int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, const void *buffer, size_t bytes) {
+
+    int ret = 0,cmd = 0,path_id = 0, val = 0;
+    size_t total_bytes = bytes;
+    size_t bytes_cost = 0;
+    size_t hwsync_cost_bytes = 0;
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
+    aml_demux_audiopara_t *dmx_info = &dtv_audio_instances->demux_info[path_id];
+    audio_hwsync_t *hw_sync = aml_out->hwsync;
+    struct aml_audio_patch *audio_patch = adev->audio_patch;
+
+    while (bytes_cost < total_bytes) {
+        uint64_t  cur_pts = ULLONG_MAX;//defined in limits.h
+        int outsize = 0;
+        ALOGV("before aml_audio_hwsync_find_frame bytes %zu\n", total_bytes - bytes_cost);
+        hwsync_cost_bytes = aml_audio_hwsync_find_frame(aml_out->hwsync, (char *)buffer + bytes_cost, total_bytes - bytes_cost, &cur_pts, &outsize);
+        bytes_cost += hwsync_cost_bytes;
+        if (cur_pts > ULLONG_MAX) {
+            ALOGE("APTS exeed the max 64bit value");
+        }
+        ALOGV("after aml_audio_hwsync_find_frame bytes remain %zu,cost %zu,outsize %d,pts %"PRIx64"\n",
+               total_bytes - bytes_cost - hwsync_cost_bytes, hwsync_cost_bytes, outsize, cur_pts);
+
+        if (hw_sync->hw_sync_metadata_unit_type == AUDIO_ENCAPSULATION_METADATA_TYPE_FRAMEWORK_TUNER) {
+             hw_avsync_metadata_unit_info_t *current_metadata_unit = &hw_sync->current_metadata_unit;
+             if (current_metadata_unit->broadcast_type == AUDIO_BROADCAST_MAIN) {
+                 if ((current_metadata_unit->stream_id & 0xFFFF) != dmx_info->main_pid) {
+                    ALOGW("main_pid %d need to == stream_id %d ",dmx_info->main_pid,current_metadata_unit->stream_id);
+                 }
+             } else if (current_metadata_unit->broadcast_type == AUDIO_BROADCAST_AUDIO_DESCRIPTION) {
+                 int ad_debug_enable = property_get_int32("vendor.media.audio.ad.enble", -1);
+                 if (current_metadata_unit->stream_id != 0 && ad_debug_enable == -1) {
+                     if ((current_metadata_unit->stream_id & 0xff) != dmx_info->ad_pid) {
+                         ALOGI("stream_id  %d ad_pid %d", current_metadata_unit->stream_id, dmx_info->ad_pid);
+                         int  dmx_id  = current_metadata_unit->stream_id >> 16;//demux id
+                         dmx_info->ad_pid = current_metadata_unit->stream_id & 0xFFFF;
+                         val = dmx_info->ad_pid;
+                         val = (path_id << DVB_DEMUX_ID_BASE | val);
+                         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_PID, val);
+                         val = 1;
+                         val = (path_id << DVB_DEMUX_ID_BASE | val);
+                         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_SUPPORT, val);
+                         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_ENABLE, val);
+                         if (is_dolby_ms12_support_compression_format(audio_patch->aformat))  {
+                            cmd = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_STOP);
+                            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, cmd);
+                            cmd = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_START);
+                            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, cmd);
+                         }
+                     } else {
+                         ALOGV("current_metadata_unit->stream_id %d",current_metadata_unit->stream_id);
+                     }
+                 } else {
+                     if (ad_debug_enable != -1) {
+                         val = ad_debug_enable;
+                     } else {
+                         val = 0;
+                     }
+                     if (val == 0) {
+                         dmx_info->ad_pid = current_metadata_unit->stream_id & 0xFF;
+                     }
+                     if (val != dmx_info->dual_decoder_support) {
+                         val = (path_id << DVB_DEMUX_ID_BASE | val);
+                         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_SUPPORT, val);
+                         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_ENABLE, val);
+                         ALOGI("current_metadata_unit->stream_id %d",current_metadata_unit->stream_id);
+                         if (is_dolby_ms12_support_compression_format(audio_patch->aformat))  {
+                            cmd = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_STOP);
+                            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, cmd);
+                            cmd = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_START);
+                            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, cmd);
+                         }
+                     }
+                 }
+             }
+        } else if (hw_sync->hw_sync_metadata_unit_type == AUDIO_ENCAPSULATION_METADATA_TYPE_DVB_AD_DESCRIPTOR) {
+             hw_avsync_metadata_dvb_ad_t *metadata_dvb_ad_info = &hw_sync->metadata_dvb_ad_info;
+             //to do fade and pan
+        } else if (hw_sync->hw_sync_metadata_unit_type == ENCAPSULATION_METADATA_TYPE_AD_PLACEMENT) {
+             dmx_info->output_mode =  hw_sync->hw_sync_metadata_placement;
+             ALOGV("hw_sync_metadata_placement %d",  hw_sync->hw_sync_metadata_placement);
+        }
+        if (outsize > 0) {
+            //to do package data
+        }
+        hw_sync->hw_sync_metadata_unit_type  = AUDIO_ENCAPSULATION_METADATA_TYPE_NONE;
+    }
+
+    return bytes_cost;
+}
+
 
 #endif
 
