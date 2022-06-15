@@ -850,7 +850,7 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
     config->rate     = rate;
     if (config->rate == 0 || config->channels == 0) {
 
-        ALOGE("Invalid sampleate=%d channel=%d\n", config->rate, config->channels);
+        ALOGE("Invalid samplerate=%d channel=%d\n", config->rate, config->channels);
         goto exit;
     }
 

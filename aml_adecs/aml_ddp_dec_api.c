@@ -846,7 +846,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
                 int frame_size = 0;
                 /* this 'frame_size' is the size of one frame. but In a IEC61937 package,
                    sometimes there are multi frames in one package */
-                Get_Parameters(read_pointer, &mSample_rate, &mFrame_size, &mChMask, &is__aml_eac3, &isDependentFrame, &ad_substream_supported);
+                Get_Parameters(read_pointer + read_offset, &mSample_rate, &mFrame_size, &mChMask, &is__aml_eac3, &isDependentFrame, &ad_substream_supported);
                 mChNum = popcount(mChMask);
             }
         }
