@@ -5668,6 +5668,11 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             }
             *output_buffer = aml_out->tmp_buffer_8ch;
             *output_buffer_bytes = 8 * bytes;
+            /* use original information */
+            if (is_sco_port(adev->active_outport)) {
+                *output_buffer =(void *)buffer;
+                *output_buffer_bytes = bytes;
+            }
         } else {
             if (adev->patch_src == SRC_DTV && adev->audio_patch != NULL) {
                 aml_audio_switch_output_mode((int16_t *)buffer, bytes, adev->audio_patch->mode);
@@ -5923,6 +5928,8 @@ ssize_t hw_write (struct audio_stream_out *stream
         if (adev->active_outport == OUTPORT_A2DP) {
             ret = a2dp_out_write(adev, &in_data_config, buffer, bytes);
         } else if (is_sco_port(adev->active_outport)) {
+            in_data_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+            in_data_config.format = AUDIO_FORMAT_PCM_16_BIT;
             ret = write_to_sco(adev, &in_data_config, buffer, bytes);
         } else {
             ret = aml_alsa_output_write(stream, (void *) buffer, bytes);
