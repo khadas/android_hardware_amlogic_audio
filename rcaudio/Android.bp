@@ -46,7 +46,6 @@ cc_library_shared {
     ],
 
     header_libs: [
-        "libaudioclient_headers",
         "libhardware_headers",
         "libhardware_legacy_headers",
     ],
