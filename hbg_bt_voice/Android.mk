@@ -26,7 +26,9 @@ endif
 
 LOCAL_CFLAGS := -Werror -Wall
 LOCAL_MODULE_TAGS := optional
-
+LOCAL_LICENSE_KINDS := legacy_by_exception_only legacy_proprietary
+LOCAL_LICENSE_CONDITIONS := by_exception_only proprietary
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../LICENSE
 include $(BUILD_SHARED_LIBRARY)
 
 endif
