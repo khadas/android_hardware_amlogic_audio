@@ -772,11 +772,21 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
 
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
     struct aml_audio_device *adev = in->dev;
+    hdmiin_audio_packet_t last_audio_packet = AUDIO_PACKET_AUDS;
+    last_audio_packet = in->last_audio_packet_type;
+    bool is_audio_packet_changed = false;
+
+    hdmiin_audio_packet_t cur_audio_packet = get_hdmiin_audio_packet(&adev->alsa_mixer);
+
+    is_audio_packet_changed = (((cur_audio_packet == AUDIO_PACKET_AUDS) || (cur_audio_packet == AUDIO_PACKET_HBR)) &&
+                               (last_audio_packet != cur_audio_packet));
+
     if (in_device & AUDIO_DEVICE_IN_HDMI) {
         bool hw_stable = is_hdmi_in_stable_hw(stream);
-        if (!hw_stable) {
+        if ((!hw_stable) || is_audio_packet_changed) {
             ALOGV("%s() hdmi in hw unstable\n", __func__);
             *mute_time = 1000;
+            in->last_audio_packet_type = cur_audio_packet;
             return false;
         }
     }

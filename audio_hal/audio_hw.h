@@ -831,6 +831,7 @@ struct aml_stream_in {
     uint64_t timestamp_nsec;
     bool bt_sco_active;
     hdmiin_audio_packet_t audio_packet_type;
+    hdmiin_audio_packet_t last_audio_packet_type;
 };
 typedef  int (*do_standby_func)(struct aml_stream_out *out);
 typedef  int (*do_startup_func)(struct aml_stream_out *out);
