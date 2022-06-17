@@ -7869,7 +7869,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
                 int retry_count = 0;
                 /* when dvb switch to neflix,dvb send cmd stop and dtv decoder_state
                     AUDIO_DTV_PATCH_DECODER_STATE_INIT, but when hdmi plug in and out dvb
-                    do not send cmd stop and only relase audiopatch,dtv decoder_state AUDIO_DTV_PATCH_DECODER_STATE_RUNING*/
+                    do not send cmd stop and only relase audiopatch,dtv decoder_state AUDIO_DTV_PATCH_DECODER_STATE_RUNNING*/
                 while  (adev->audio_patch && adev->audio_patching
                     && adev->patch_src == SRC_DTV && retry_count < 50
                     && adev->audio_patch->dtv_decoder_state == AUDIO_DTV_PATCH_DECODER_STATE_INIT) {

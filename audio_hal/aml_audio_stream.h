@@ -339,7 +339,7 @@ struct aml_audio_patch {
     unsigned char dtv_NchOriginal;
     unsigned char dtv_lfepresent;
     unsigned int dtv_first_apts;
-    unsigned int dtv_pcm_writed;
+    unsigned int dtv_pcm_wrote;
     unsigned int dtv_pcm_readed;
     unsigned int dtv_decoder_ready;
     unsigned int input_thread_created;
@@ -348,7 +348,7 @@ struct aml_audio_patch {
     unsigned int outlen_after_last_validpts;
     unsigned long last_valid_pts;
     unsigned int first_apts_lookup_over; /*cache audio data before start-play flag*/
-    int dtv_symple_rate;
+    int dtv_sample_rate;
     int dtv_pcm_channel;
     bool dtv_replay_flag;  //set for the first play
     unsigned int dtv_output_clock;
@@ -362,7 +362,7 @@ struct aml_audio_patch {
     int dtv_apts_lookup;
     int dtv_audio_tune;
     int pll_state;
-    unsigned int last_chenkin_apts;
+    unsigned int last_checkin_apts;
     unsigned int last_apts;
     unsigned int last_pcrpts;
     unsigned int cur_outapts;

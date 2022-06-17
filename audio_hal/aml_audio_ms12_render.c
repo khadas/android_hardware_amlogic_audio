@@ -428,7 +428,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                     out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
 #ifdef ENABLE_DVB_PATCH
                     if (dtv_stream_flag)
-                        patch->dtv_pcm_writed += dec_pcm_data->data_len;
+                        patch->dtv_pcm_wrote += dec_pcm_data->data_len;
                     aml_dec->out_frame_pts = aml_dec->in_frame_pts + (90 * out_frames /(dec_pcm_data->data_sr / 1000));
                     //aml_audio_dump_audio_bitstreams("/data/mixing_data.raw", dec_data, dec_pcm_data->data_len);
                     /* audio data/apts, we send the APTS at first*/

@@ -1338,7 +1338,7 @@ void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_out* st
 
     int switch_flag = property_get_int32("vendor.media.audio.strategy.switch", 0);
 
-    if (patch->dtv_decoder_state != AUDIO_DTV_PATCH_DECODER_STATE_RUNING) {
+    if (patch->dtv_decoder_state != AUDIO_DTV_PATCH_DECODER_STATE_RUNNING) {
         return;
     }
 
