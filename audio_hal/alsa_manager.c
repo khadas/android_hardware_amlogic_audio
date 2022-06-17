@@ -529,9 +529,17 @@ write:
         }
 
         /* add mute after insert policy */
+        /* add mute when start_mute_flag is true in single demux */
         if (adev->patch_src == SRC_DTV && (adev->discontinue_mute_flag ||
-            adev->underrun_mute_flag || adev->insert_mute_flag)) {
+            adev->underrun_mute_flag || adev->insert_mute_flag ||
+            (!adev->is_multi_demux && adev->start_mute_flag))) {
             memset(buffer, 0x0, bytes);
+            if (debug_enable) {
+                ALOGI("[%s:%d] mute audio, discontinue_mute:%d, underrun_mute:%d, insert_mute:%d, is_multi:%d, start_mute:%d",
+                    __func__, __LINE__,
+                    adev->discontinue_mute_flag, adev->underrun_mute_flag, adev->insert_mute_flag,
+                    adev->is_multi_demux, adev->start_mute_flag);
+            }
         }
 
         if (get_debug_value(AML_DUMP_AUDIOHAL_ALSA)) {
