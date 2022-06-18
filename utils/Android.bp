@@ -76,7 +76,8 @@ cc_library_shared {
         "SPDIFEncoderAD.cpp",
         "aml_effects_util.cpp",
         "aml_audio_report.c",
-        "aml_audio_sysfs.c"
+        "aml_audio_sysfs.c",
+        "cJSON/cJSON.c"
     ],
 
     shared_libs: [

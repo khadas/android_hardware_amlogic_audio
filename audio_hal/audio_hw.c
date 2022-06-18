@@ -96,7 +96,7 @@
 #include "aml_audio_ms12_render.h"
 #include "aml_audio_nonms12_render.h"
 #include "aml_vad_wakeup.h"
-
+#include "aml_config_data.h"
 #include "aml_hfp.h"
 
 #define ENABLE_NANO_NEW_PATH 1
@@ -4605,13 +4605,13 @@ static void adev_get_hal_control_volume_en(struct aml_audio_device *adev, char *
         if (adev->dolby_lib_type != eDolbyMS12Lib ||
             (adev->dolby_lib_type == eDolbyMS12Lib && adev->digital_audio_format == BYPASS)) {
             enum AML_SPDIF_FORMAT format = AML_STEREO_PCM;
-            enum AML_SPDIF_TO_HDMITX spdif_index = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_TO_HDMI);
+            enum AML_SRC_TO_HDMITX spdif_index = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_AUDIO_SRC_TO_HDMI);
             if (spdif_index == AML_SPDIF_A_TO_HDMITX) {
                 format = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT);
             } else if (spdif_index == AML_SPDIF_B_TO_HDMITX) {
                 format = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_B_FORMAT);
             } else {
-                AM_LOGW("unsupported spdif index:%d, use the 2ch PCM.", spdif_index);
+                format = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_I2S2HDMI_FORMAT);
             }
             hal_control_vol_en = (format == AML_STEREO_PCM) ? true : false;
         }
@@ -9970,6 +9970,13 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     pthread_mutex_unlock(&adev_mutex);
 
     adev->insert_mute_flag = false;
+    adev->hdmitx_src = -1;
+    if (aml_audio_config_parser("/vendor/etc/aml_audio_config.json") == 0) {
+        adev->hdmitx_src = aml_get_jason_int_value("HDMITX_Src_Select", -1);
+        if (adev->hdmitx_src != -1) {
+            adev->spdif_independent = true;
+        }
+    }
 
     ALOGD("%s: exit", __func__);
     return 0;

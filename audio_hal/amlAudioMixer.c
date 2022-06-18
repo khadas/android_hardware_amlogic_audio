@@ -338,7 +338,7 @@ int init_mixer_output_port(struct amlAudioMixer *audio_mixer,
     //set_port_input_avail_cbk(port, on_input_avail_cbk, input_avail_data);
     audio_mixer->out_ports[output_type] = out_port;
     if (config->channelCnt > 2) {
-        aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, AML_MULTI_CH_LPCM);
+        aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_I2S2HDMI_FORMAT, AML_MULTI_CH_LPCM);
     } else {
         aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_FORMAT, AML_STEREO_PCM);
     }

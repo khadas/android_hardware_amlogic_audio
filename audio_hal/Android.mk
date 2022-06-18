@@ -89,6 +89,8 @@ include $(BUILD_PREBUILT)
         aml_audio_nonms12_render.c \
         karaoke_manager.c \
         audio_usb_hal.c \
+        aml_config_parser.c \
+        aml_config_data.c
 
     LOCAL_C_INCLUDES += \
         hardware/amlogic/audio/aml_speed/include \
@@ -108,6 +110,7 @@ include $(BUILD_PREBUILT)
         $(LOCAL_PATH)/../utils/tinyalsa/include \
         $(LOCAL_PATH)/../amlogic_AQ_tools \
         $(LOCAL_PATH)/../amlogic_AQ_tools/ini \
+        $(LOCAL_PATH)/../utils/cJSON \
         vendor/amlogic/common/frameworks/av/libaudioeffect/VirtualX \
         hardware/amlogic/audio/aml_adecs/include \
         hardware/amlogic/audio/aml_resampler/include \

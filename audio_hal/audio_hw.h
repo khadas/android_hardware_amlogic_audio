@@ -592,6 +592,10 @@ struct aml_audio_device {
     /*used to restore the continuous_audio_mode after system resume(early suspend case)*/
     int continuous_audio_mode_backup;
     bool aml_truehd_passthrough_support;  /*whether dolby truehd passthrough can be supported*/
+
+    /* board specific json configs */
+    int hdmitx_src; /* HDMITX src select for TDM */
+    bool spdif_independent;  /*spdif output can be independent with HDMI output*/
 };
 
 struct meta_data {

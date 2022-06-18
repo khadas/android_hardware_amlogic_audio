@@ -61,7 +61,7 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_ATV_IN_AUDIO_STABLE,  "ATV audio stable"},
     {AML_MIXER_ID_SPDIF_FORMAT,         "Audio spdif format"},
     {AML_MIXER_ID_SPDIF_B_FORMAT,       "Audio spdif_b format"},
-    {AML_MIXER_ID_SPDIF_TO_HDMI,        "Spdif to HDMITX Select"},
+    {AML_MIXER_ID_AUDIO_SRC_TO_HDMI,    "HDMITX Audio Source Select"},
 
     /* for AV status */
     {AML_MIXER_ID_AV_IN_AUDIO_STABLE,   "AV audio stable"},
@@ -102,6 +102,7 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_VAD_SOURCE_SEL,       "VAD Source sel"},
     {AML_MIXER_ID_VAD_SWITCH,           "VAD Switch"},
     {AML_MIXER_ID_DTV_CLK_TUNING,       "DTV clk force MPLL"},
+    {AML_MIXER_ID_I2S2HDMI_FORMAT,    "Audio I2S to HDMITX Format"},
 };
 
 static char *get_mixer_name_by_id(int mixer_id)
