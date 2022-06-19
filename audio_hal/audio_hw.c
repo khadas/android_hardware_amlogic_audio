@@ -6263,44 +6263,46 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                 aml_out->hal_channel_mask,
                 aml_out->hal_rate);
 
-            if (is_dolby_ms12_main_stream(stream) && continuous_mode(adev)) {
-                adev->ms12.main_input_start_offset_ns = aml_out->main_input_ns;
-                adev->ms12.main_input_bytes_offset    = aml_out->input_bytes_size;
-                ALOGI("main start offset ns =%" PRId64 "", adev->ms12.main_input_start_offset_ns);
-            }
-
-            /*set the volume to current one*/
-            if (!audio_is_linear_pcm(aml_out->hal_internal_format)
-                || (is_ms12_pcm_volume_control && !is_a2dp_device)
-                /*The volume step is sent to BT module and BT moudle will
-                **handle the volume.
-                **So AudioHal should pass the audio data with volume fullscale.
-                **AudioPolicy send vol 0.0/1.0 to AudioHal when BT connect,
-                **In fact, just vol 1.0 is useful,so add this vol filter.
-                */
-                || (is_a2dp_device && (aml_out->volume_l == 1.0))) {
-                set_ms12_main_volume(&adev->ms12, aml_out->volume_l);
-            }
-            if (continuous_mode(adev) && adev->ms12.dolby_ms12_enable) {
-                dolby_ms12_set_main_dummy(0, main1_dummy);
-                dolby_ms12_set_main_dummy(1, !ott_input);
-            }
-
-            /*netflix always ddp 5.1 output, other case we need output ddp 2ch*/
-            if (continuous_mode(adev) && main1_dummy && !adev->is_netflix) {
-                pthread_mutex_lock(&ms12->lock);
-                set_ms12_acmod2ch_lock(&adev->ms12, true);
-                pthread_mutex_unlock(&ms12->lock);
-            }
-            if (adev->ms12_out != NULL && adev->ms12_out->hwsync) {
-                //aml_audio_hwsync_init(adev->ms12_out->hwsync, adev->ms12_out);
-                adev->ms12_out->hwsync->aout = adev->ms12_out;
-                adev->ms12_out->hw_sync_mode = aml_out->hw_sync_mode;
+            pthread_mutex_lock(&ms12->lock);
+            if (adev->ms12.dolby_ms12_enable) {
                 if (is_dolby_ms12_main_stream(stream) && continuous_mode(adev)) {
-                    adev->ms12_out->hwsync->aout = ( struct aml_stream_out *)stream;
+                    adev->ms12.main_input_start_offset_ns = aml_out->main_input_ns;
+                    adev->ms12.main_input_bytes_offset    = aml_out->input_bytes_size;
+                    ALOGI("main start offset ns =%" PRId64 "", adev->ms12.main_input_start_offset_ns);
                 }
-                ALOGI("set ms12 hwsync out to %p set its hw_sync_mode %d",adev->ms12_out->hwsync->aout, adev->ms12_out->hw_sync_mode);
+
+                /*set the volume to current one*/
+                if (!audio_is_linear_pcm(aml_out->hal_internal_format)
+                    || (is_ms12_pcm_volume_control && !is_a2dp_device)
+                    /*The volume step is sent to BT module and BT module will
+                    **handle the volume.
+                    **So AudioHal should pass the audio data with volume fullscale.
+                    **AudioPolicy send vol 0.0/1.0 to AudioHal when BT connect,
+                    **In fact, just vol 1.0 is useful,so add this vol filter.
+                    */
+                    || (is_a2dp_device && (aml_out->volume_l == 1.0))) {
+                    set_ms12_main_volume(&adev->ms12, aml_out->volume_l);
+                }
+                if (continuous_mode(adev)) {
+                    dolby_ms12_set_main_dummy(0, main1_dummy);
+                    dolby_ms12_set_main_dummy(1, !ott_input);
+                }
+
+                /*netflix always ddp 5.1 output, other case we need output ddp 2ch*/
+                if (continuous_mode(adev) && main1_dummy && !adev->is_netflix) {
+                    set_ms12_acmod2ch_lock(&adev->ms12, true);
+                }
+                if (adev->ms12_out != NULL && adev->ms12_out->hwsync) {
+                    //aml_audio_hwsync_init(adev->ms12_out->hwsync, adev->ms12_out);
+                    adev->ms12_out->hwsync->aout = adev->ms12_out;
+                    adev->ms12_out->hw_sync_mode = aml_out->hw_sync_mode;
+                    if (is_dolby_ms12_main_stream(stream) && continuous_mode(adev)) {
+                        adev->ms12_out->hwsync->aout = ( struct aml_stream_out *)stream;
+                    }
+                    ALOGI("set ms12 hwsync out to %p set its hw_sync_mode %d",adev->ms12_out->hwsync->aout, adev->ms12_out->hw_sync_mode);
+                }
             }
+            pthread_mutex_unlock(&ms12->lock);
 
             adev->mix_init_flag = true;
             ALOGI("%s() get_the_dolby_ms12_prepared %s, ott_enable = %d, main1_dummy = %d", __FUNCTION__, (ret == 0) ? "succuss" : "fail", ott_input, main1_dummy);
