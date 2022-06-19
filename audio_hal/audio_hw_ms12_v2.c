@@ -1063,15 +1063,6 @@ int get_the_dolby_ms12_prepared(
             , continuous_mode(adev)
             , adev->game_mode);
 
-        if (continuous_mode(adev)) {
-            ms12->dolby_ms12_thread_exit = false;
-            ret = pthread_create(&(ms12->dolby_ms12_threadID), NULL, &dolby_ms12_threadloop, out);
-            if (ret != 0) {
-                ALOGE("%s, Create dolby_ms12_thread fail!\n", __FUNCTION__);
-                goto Err_dolby_ms12_thread;
-            }
-            ALOGI("%s() thread is builded, get dolby_ms12_threadID %ld\n", __FUNCTION__, ms12->dolby_ms12_threadID);
-        }
         if (ms12->dual_decoder_support == true) {
             set_ms12_ad_vol(ms12, adev->advol_level);
             ALOGI("%s ad vol=%d", __FUNCTION__, adev->advol_level);
@@ -1114,6 +1105,18 @@ int get_the_dolby_ms12_prepared(
     if (ms12->iec61937_ddp_buf == NULL) {
         goto Err;
     }
+
+    /*ms12 related resources are prepared, we can start ms12 thread*/
+    if (continuous_mode(adev) && ms12->dolby_ms12_enable) {
+        ms12->dolby_ms12_thread_exit = false;
+        ret = pthread_create(&(ms12->dolby_ms12_threadID), NULL, &dolby_ms12_threadloop, out);
+        if (ret != 0) {
+            ALOGE("%s, Create dolby_ms12_thread fail!\n", __FUNCTION__);
+            goto Err_dolby_ms12_thread;
+        }
+        ALOGI("%s() thread is build, get dolby_ms12_threadID %ld\n", __FUNCTION__, ms12->dolby_ms12_threadID);
+    }
+
 
     aml_ac3_parser_open(&ms12->ac3_parser_handle);
     aml_spdif_decoder_open(&ms12->spdif_dec_handle);
