@@ -1289,7 +1289,7 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
     if (aml_dev->mode_reconfig_in) {
         int play_buffer_size = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
 
-        if (aml_dev->game_mode) {
+        if (is_game_mode(aml_dev)) {
             period_size = LOW_LATENCY_CAPTURE_PERIOD_SIZE;
             buf_size = 2 * 4 * LOW_LATENCY_PLAYBACK_PERIOD_SIZE;
         } else {
@@ -1297,8 +1297,17 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
             buf_size = 4 * 2 * 2 * play_buffer_size * PATCH_PERIOD_COUNT;
         }
         ALOGD("%s(), game pic mode %d, period size %d",
-                __func__, aml_dev->game_mode, period_size);
+                __func__, is_game_mode(aml_dev), period_size);
         stream_in->config.period_size = period_size;
+        if (!stream_in->standby) {
+            do_input_standby(stream_in);
+        }
+        s32Ret = start_input_stream(stream_in);
+        stream_in->standby = 0;
+        if (s32Ret < 0) {
+            ALOGE("[%s:%d] start input stream failed! ret:%#x", __func__, __LINE__, s32Ret);
+        }
+
         if (ringbuffer) {
             ring_buffer_reset_size(ringbuffer, buf_size);
         }
@@ -1370,19 +1379,18 @@ int stream_check_reconfig_param(struct audio_stream_out *stream)
     int period_size = 0;
 
     if (adev->mode_reconfig_out) {
-        ALOGD("%s(), game reconfig out", __func__);
+        ALOGD("%s(), game mode reconfig out", __func__);
         if (ms12->dolby_ms12_enable && !is_bypass_dolbyms12(stream)) {
-            ALOGD("%s(), game reconfig out line %d", __func__, __LINE__);
             get_hardware_config_parameters(&(adev->ms12_config),
                 AUDIO_FORMAT_PCM_16_BIT,
-                audio_channel_count_from_out_mask(ms12->output_channelmask),
+                adev->default_alsa_ch,
                 ms12->output_samplerate,
                 out->is_tv_platform, continuous_mode(adev),
-                adev->game_mode);
+                is_game_mode(adev));
 
-            alsa_out_reconfig_params(stream);
             adev->mode_reconfig_ms12 = true;
         }
+        alsa_out_reconfig_params(stream);
         adev->mode_reconfig_out = false;
     }
     return 0;
@@ -1767,3 +1775,42 @@ void tv_do_ease_out(struct aml_audio_device *aml_dev)
         }
     }
 }
+
+bool is_game_mode(struct aml_audio_device *aml_dev)
+{
+    if (!aml_dev->audio_patch ||
+        aml_dev->audio_patch->input_src != AUDIO_DEVICE_IN_HDMI ||
+        aml_dev->audio_patch->IEC61937_format == true) {
+        return false;
+    }
+
+    return (aml_dev->audio_patch->pic_mode == PQ_GAME);
+
+}
+
+void aml_check_pic_mode(struct aml_audio_patch *patch)
+{
+    struct aml_audio_device *aml_dev = (struct aml_audio_device *)patch->dev;
+
+    if (!patch || patch->input_src != AUDIO_DEVICE_IN_HDMI) {
+        return;
+    }
+
+    if (aml_dev->pic_mode == PQ_GAME && patch->mode_reconfig_flag == true) {
+        ALOGD("%s(), IEC61937 data, reconfig audio path", __func__);
+        aml_dev->mode_reconfig_in = true;
+        aml_dev->mode_reconfig_out = true;
+        patch->mode_reconfig_flag = false;
+        return;
+    }
+
+    /* in PCM data case, picture mode setting changed */
+    if (patch->IEC61937_format == false && patch->pic_mode != aml_dev->pic_mode) {
+        ALOGD("%s(), pic mode changes from %d to %d", __func__, patch->pic_mode, aml_dev->pic_mode);
+        aml_dev->mode_reconfig_in = true;
+        aml_dev->mode_reconfig_out = true;
+        patch->pic_mode = aml_dev->pic_mode;
+    }
+
+}
+
