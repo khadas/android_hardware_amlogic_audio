@@ -2546,8 +2546,11 @@ int audio_dtv_patch_output_single_decoder(struct aml_audio_patch *patch,
          ALOGI("cur_package->data NULL !!!");
          return ret;
     }
-    if (!aml_out->aml_dec && patch->aformat == AUDIO_FORMAT_E_AC3) {
+    if (!aml_out->aml_dec && patch->aformat == AUDIO_FORMAT_E_AC3 && !aml_out->ad_substream_supported) {
         aml_out->ad_substream_supported = is_ad_substream_supported((unsigned char *)cur_package->data, cur_package->size);
+        if (aml_out->ad_substream_supported) {
+            aml_dev->mixing_level = -32;
+        }
     }
     ALOGV("p_package->data %p p_package->ad_data %p", cur_package->data, cur_package->ad_data);
 
