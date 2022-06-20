@@ -980,7 +980,7 @@ int dcv_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, a
     switch (config_type) {
     case AML_DEC_CONFIG_MIXER_LEVEL: {
         int  mixer_level = dec_config->mixer_level;
-        if (!dec_config->ad_mixing_enable)
+        if (!dec_config->ad_mixing_enable && (ddp_dec->decoding_mode != DDP_DECODE_MODE_AD_SUBSTREAM))
             mixer_level = -32;
         ALOGI("dec_config->mixer_level %d", mixer_level);
         ret = (*ddp_decoder_config)(handle, DDP_CONFIG_MIXER_LEVEL, (ddp_config_t *)&mixer_level);
@@ -994,7 +994,7 @@ int dcv_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, a
     }
     case AML_DEC_CONFIG_MIXING_ENABLE: {
         int  mixer_level = dec_config->mixer_level;
-        if (!dec_config->ad_mixing_enable)
+        if (!dec_config->ad_mixing_enable && (ddp_dec->decoding_mode != DDP_DECODE_MODE_AD_SUBSTREAM))
             mixer_level = -32;
         ALOGI("dec_config->mixer_level %d",mixer_level);
         ret = (*ddp_decoder_config)(handle, DDP_CONFIG_MIXER_LEVEL, (ddp_config_t *)&mixer_level);
@@ -1179,7 +1179,7 @@ int parse_report_info_samplerate_channelnum (unsigned char *read_pointer, struct
                 if ((ddp_dec->Same_ChNum_Count > UPDATE_THRESHOLD) && (ddp_dec->Same_SampleRate_Count > UPDATE_THRESHOLD) ) {
                     ddp_dec->stream_info.stream_ch = ddp_dec->ChannelNum;
                     ddp_dec->stream_info.stream_sr = ddp_dec->Sample_Rate;
-                    ALOGI("ddp_dec->ChannelNum = %d, ddp_dec->Sample_Rate = %d", ddp_dec->ChannelNum, ddp_dec->Sample_Rate);
+                    ALOGV("ddp_dec->ChannelNum = %d, ddp_dec->Sample_Rate = %d", ddp_dec->ChannelNum, ddp_dec->Sample_Rate);
                 }
 
                 ddp_dec->Frame_Count = 0;
