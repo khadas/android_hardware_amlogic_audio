@@ -1061,7 +1061,7 @@ int get_the_dolby_ms12_prepared(
             , ms12->output_samplerate
             , out->is_tv_platform
             , continuous_mode(adev)
-            , adev->game_mode);
+            , is_game_mode(adev));
 
         if (ms12->dual_decoder_support == true) {
             set_ms12_ad_vol(ms12, adev->advol_level);

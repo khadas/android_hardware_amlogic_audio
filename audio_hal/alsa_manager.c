@@ -140,7 +140,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
                 , aml_out->config.rate
                 , aml_out->is_tv_platform
                 , continuous_mode(adev)
-                , adev->game_mode);
+                , is_game_mode(adev));
             switch (output_format) {
                 case AUDIO_FORMAT_E_AC3:
                     device = DIGITAL_DEVICE;
@@ -173,6 +173,16 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
             config_raw.format = PCM_FORMAT_S16_LE;
             config = &config_raw;
             device = DIGITAL_DEVICE;
+        } else if (is_game_mode(adev) && (aml_out->hal_format == AUDIO_FORMAT_PCM_16_BIT) &&
+                                  (aml_out->alsa_output_format == AUDIO_FORMAT_PCM_16_BIT)) {
+            get_hardware_config_parameters(&(adev->dcv_config),
+                                 AUDIO_FORMAT_PCM_16_BIT,
+                                   adev->default_alsa_ch,
+                                    aml_out->config.rate,
+                                 aml_out->is_tv_platform,
+                                    continuous_mode(adev),
+                                     is_game_mode(adev));
+            config = &(adev->dcv_config);
         }
     }
     int card = aml_out->card;
@@ -837,7 +847,7 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
     channels = audio_channel_count_from_out_mask(stream_config->config.channel_mask);
     rate     = stream_config->config.sample_rate;
     get_hardware_config_parameters(config, format, adev->default_alsa_ch/*channels*/, rate, platform_is_tv,
-                continuous_mode(adev), adev->game_mode);
+                continuous_mode(adev), is_game_mode(adev));
 
     /*
      * when eARC output MAT, should increase the mat output buffer.

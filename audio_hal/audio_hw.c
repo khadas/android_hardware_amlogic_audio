@@ -4349,31 +4349,13 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     if (ret >= 0) {
         if (strncmp(value, "PQ_MODE_STANDARD", 16) == 0) {
             adev->pic_mode = PQ_STANDARD;
-            adev->game_mode = false;
-        } else if (strncmp(value, "PQ_MODE_MOVIE", 13) == 0) {
-            adev->pic_mode = PQ_MOVIE;
-            adev->game_mode = false;
-        } else if (strncmp(value, "PQ_MODE_DYNAMIC", 15) == 0) {
-            adev->pic_mode = PQ_DYNAMIC;
-            adev->game_mode = false;
-        } else if (strncmp(value, "PQ_MODE_NATURAL", 15) == 0) {
-            adev->pic_mode = PQ_NATURAL;
-            adev->game_mode = false;
         } else if (strncmp(value, "PQ_MODE_GAME", 12) == 0) {
             adev->pic_mode = PQ_GAME;
-            adev->game_mode = true;
-        } else if (strncmp(value, "PQ_MODE_PC", 10) == 0) {
-            adev->pic_mode = PQ_PC;
-            adev->game_mode = false;
-        } else if (strncmp(value, "PQ_MODE_CUSTOMER", 16) == 0) {
-            adev->pic_mode = PQ_CUSTOM;
-            adev->game_mode = false;
         } else {
             adev->pic_mode = PQ_STANDARD ;
-            adev->game_mode = false;
             ALOGE("%s() unsupport value %s choose pic mode (default) standard\n", __func__, value);
         }
-        ALOGI("%s(), set pic mode to: %d, is game mode = %d\n", __func__, adev->pic_mode, adev->game_mode);
+        ALOGI("%s(), set pic mode to: %d\n", __func__, adev->pic_mode);
         goto exit;
     }
 
@@ -4564,7 +4546,17 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
     } else if (strstr (keys, "hdmi_format") ) {
         sprintf (temp_buf, "digital_audio_format=%d", adev->digital_audio_format);
         return strdup (temp_buf);
-    } else if (strstr (keys, "spdif_format") ) {
+    } else if (strstr (keys, "digital_output_format") ) {
+        if (adev->digital_audio_format == PCM) {
+            return strdup ("digital_output_format=pcm");
+        } else if (adev->digital_audio_format == DD) {
+            return strdup ("digital_output_format=dd");
+        } else if (adev->digital_audio_format == AUTO) {
+            return strdup ("digital_output_format=auto");
+        } else if (adev->digital_audio_format == BYPASS) {
+            return strdup ("digital_output_format=bypass");
+        }
+    }  else if (strstr (keys, "spdif_format") ) {
         sprintf (temp_buf, "spdif_format=%d", adev->spdif_format);
         return strdup (temp_buf);
     } else if (strstr (keys, "hdmi_is_passthrough_active") ) {
@@ -6794,12 +6786,15 @@ hwsync_rewrite:
             ALOGI ("hal_format changed from %#x to %#x\n", aml_out->hal_format, cur_aformat);
             if (cur_aformat != AUDIO_FORMAT_PCM_16_BIT && cur_aformat != AUDIO_FORMAT_PCM_32_BIT) {
                 aml_out->hal_format = AUDIO_FORMAT_IEC61937;
+                patch->IEC61937_format = true;
             } else {
                 aml_out->hal_format = cur_aformat ;
+                patch->IEC61937_format = false;
             }
+            patch->mode_reconfig_flag = true;
             aml_out->hal_internal_format = cur_aformat;
             aml_out->hal_channel_mask = audio_parse_get_audio_channel_mask (patch->audio_parse_para);
-            ALOGI ("%s hal_channel_mask %#x\n", __FUNCTION__, aml_out->hal_channel_mask);
+            ALOGI ("%s hal_channel_mask %#x, mode_reconfig_flag %d\n", __FUNCTION__, aml_out->hal_channel_mask, patch->mode_reconfig_flag);
             if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS ||
                 aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
                 /*when switch from ms12 to dts, we should clean ms12 first*/
@@ -8080,7 +8075,11 @@ void *audio_patch_input_threadloop(void *data)
         /* Todo: read bytes should reconfig with period size */
         int period_mul = 1;//convert_audio_format_2_period_mul(patch->aformat);
         int read_threshold = 0;
-        read_bytes = in->config.period_size * audio_stream_in_frame_size(&in->stream) * period_mul;
+        aml_check_pic_mode(patch);
+        if (!is_game_mode(aml_dev))
+            read_bytes = DEFAULT_CAPTURE_PERIOD_SIZE * audio_stream_in_frame_size(&in->stream) * period_mul;
+        else
+            read_bytes = LOW_LATENCY_CAPTURE_PERIOD_SIZE * audio_stream_in_frame_size(&in->stream) * period_mul;
         bool hdmi_raw_in_flag = patch && (patch->input_src == AUDIO_DEVICE_IN_HDMI) && (!audio_is_linear_pcm(patch->aformat));
         if (hdmi_raw_in_flag) {
             read_bytes = read_bytes / 2;
@@ -8286,7 +8285,7 @@ void *audio_patch_output_threadloop(void *data)
         else
             period_mul = 1;
 
-        if (aml_dev->game_mode)
+        if (is_game_mode(aml_dev))
             write_bytes = LOW_LATENCY_PLAYBACK_PERIOD_SIZE * audio_stream_out_frame_size(&out->stream);
 
         // buffer size diff from allocation size, need to resize.
@@ -8328,6 +8327,7 @@ void *audio_patch_output_threadloop(void *data)
                 }
             }
 
+            /* reconfig output in picture mode switch */
             if (patch && patch->input_src == AUDIO_DEVICE_IN_HDMI) {
                 stream_check_reconfig_param(stream_out);
             }
@@ -8392,7 +8392,6 @@ static int create_patch_l(struct audio_hw_device *dev,
      * patch signal is unstable, it need do avsync
      */
     patch->need_do_avsync = true;
-    patch->game_mode = patch->game_mode;
 
     if (aml_dev->useSubMix) {
         // switch normal stream to old tv mode writing
@@ -8400,8 +8399,8 @@ static int create_patch_l(struct audio_hw_device *dev,
     }
 
     if (patch->out_format == AUDIO_FORMAT_PCM_16_BIT) {
-        ALOGD("%s: init audio ringbuffer game %d", __func__, patch->game_mode);
-        if (!patch->game_mode)
+        ALOGE("%s: init audio ringbuffer game %d", __func__, is_game_mode(aml_dev));
+        if (!is_game_mode(aml_dev))
             ret = ring_buffer_init(&patch->aml_ringbuffer, 4 * 2 * play_buffer_size * PATCH_PERIOD_COUNT);
         else
             ret = ring_buffer_init(&patch->aml_ringbuffer, 2 * 4 * LOW_LATENCY_PLAYBACK_PERIOD_SIZE);

@@ -327,7 +327,7 @@ struct aml_audio_patch {
     bool is_avsync_start;
     bool skip_frames;
     int timeout_avsync_cnt;
-    bool game_mode;
+
     struct audio_patch_latency_detail audio_latency;
     /* end of AVSYNC tuning */
     /*for dtv play parameters */
@@ -417,6 +417,11 @@ struct aml_audio_patch {
     int adec_handle;
     void * ac3_parser_handle;
     void * ad_ac3_parser_handle;
+    /* user setting picture mode */
+    picture_mode_t pic_mode;
+    bool IEC61937_format;
+    bool mode_reconfig_flag;
+    /* user setting picture mode end */
 };
 
 struct audio_stream_out;
@@ -495,6 +500,8 @@ int update_sink_format_after_hotplug(struct aml_audio_device *adev);
 
 int stream_check_reconfig_param(struct audio_stream_out *stream);
 
+void aml_check_pic_mode(struct aml_audio_patch *patch);
+bool is_game_mode(struct aml_audio_device *aml_dev);
 
 void create_tvin_buffer(struct aml_audio_patch *patch);
 void release_tvin_buffer(struct aml_audio_patch *patch);

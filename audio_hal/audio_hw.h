@@ -410,6 +410,7 @@ struct aml_audio_device {
     struct dolby_ms12_desc ms12;
     bool dolby_ms12_status;
     struct pcm_config ms12_config;
+    struct pcm_config dcv_config;
     int mixing_level;
     int advol_level;
     bool ad_switch_enable;
@@ -532,7 +533,6 @@ struct aml_audio_device {
 
     /* user setting picture mode */
     picture_mode_t pic_mode;
-    bool game_mode;
     bool mode_reconfig_in;
     bool mode_reconfig_out;
     bool mode_reconfig_ms12;
