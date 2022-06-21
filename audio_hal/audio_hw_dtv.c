@@ -279,6 +279,10 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
     aml_dtvsync_t *dtvsync =  &dtv_audio_instances->dtvsync[path_id];
     val = val & ((1 << DVB_DEMUX_ID_BASE) - 1);
     switch (cmd) {
+        case AUDIO_DTV_PATCH_CMD_SET_DTV_LATENCYMS_ID:
+            dtv_audio_instances->dtv_latencyms_id = val;
+            ALOGI("dtv_audio_instances->dtv_latencyms_id %d", dtv_audio_instances->dtv_latencyms_id);
+            break;
         case AUDIO_DTV_PATCH_CMD_SET_MEDIA_SYNC_ID:
             demux_info->media_sync_id = val;
             ALOGI("demux_info->media_sync_id  %d", demux_info->media_sync_id);
@@ -547,11 +551,13 @@ static int dtv_patch_status_info(void *args, INFO_TYPE_E info_flag)
 int dtv_patch_get_latency(struct aml_audio_device *aml_dev)
 {
     struct aml_audio_patch *patch = aml_dev->audio_patch;
-    if (patch == NULL ) {
+    aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)aml_dev->aml_dtv_audio_instances;
+    if (patch == NULL) {
         ALOGI("dtv patch == NULL");
         return -1;
     } else {
-         if (patch->output_thread_exit && (patch->output_thread_created = 0)) {
+         if ((patch->output_thread_exit && (patch->output_thread_created == 0)) ||
+            (dtv_audio_instances->dtv_latencyms_id != dtv_audio_instances->demux_index_working)) {
              return -1;
          }
     }
@@ -4638,6 +4644,12 @@ int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms)
     ret = str_parms_get_int(parms, "hal_param_dtv_audio_volume", &val);
     if (ret >= 0) {
         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_VOLUME, val);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "hal_param_dtv_latencyms_id", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_DTV_LATENCYMS_ID, val);
         goto exit;
     }
     /* dvb cmd deal with end */
