@@ -63,7 +63,7 @@
 #define MS12_MAIN_INPUT_BUF_NS_UPTHRESHOLD (160000000LL)
 #define MS12_MAIN_INPUT_BUF_NS_UPTHRESHOLD_AC4 (256000000LL)
 
-/*if we choose 96ms, it will cause audio filnger underrun,
+/*if we choose 96ms, it will cause audio flinger underrun,
   if we choose 64ms, it will cause ms12 underrun,
   so we choose 84ms now
 */
@@ -88,9 +88,9 @@
 
 #define DUMP_MS12_OUTPUT_SPEAKER_PCM     0x1
 #define DUMP_MS12_OUTPUT_SPDIF_PCM       0x2
-#define DUMP_MS12_OUTPUT_BITSTREAN       0x4
-#define DUMP_MS12_OUTPUT_BITSTREAN2      0x8
-#define DUMP_MS12_OUTPUT_BITSTREAN_MAT   0x10
+#define DUMP_MS12_OUTPUT_BITSTREAM       0x4
+#define DUMP_MS12_OUTPUT_BITSTREAM2      0x8
+#define DUMP_MS12_OUTPUT_BITSTREAM_MAT   0x10
 #define DUMP_MS12_INPUT_MAIN             0x100
 #define DUMP_MS12_INPUT_SYS              0x200
 #define DUMP_MS12_INPUT_APP              0x400
@@ -305,7 +305,7 @@ static void ms12_spdif_encoder(void * in_buf, int in_size, audio_format_t output
 
     if (in_data[0] == 0x0b && in_data[1] == 0x77) {
         endian16_convert((char *)out_buf + offset, in_size);
-        /*if we want lillte endian, we can use below code*/
+        /*if we want little endian, we can use below code*/
         //endian16_convert(preamble, sizeof(preamble));
     }
 
@@ -815,11 +815,11 @@ int get_the_dolby_ms12_prepared(
         set_audio_associate_format(input_format);
         ALOGI("%s set_audio_associate_format %#x", __FUNCTION__, input_format);
     }
-    dolby_ms12_set_asscociated_audio_mixing(associate_audio_mixing_enable);
+    dolby_ms12_set_associated_audio_mixing(associate_audio_mixing_enable);
     dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(adev->mixing_level);
 
 
-    /*set the continous output flag*/
+    /*set the continuous output flag*/
     set_dolby_ms12_continuous_mode((bool)adev->continuous_audio_mode);
     dolby_ms12_set_atmos_lock_flag(adev->atoms_lock_flag);
     /* create  the ms12 output stream here */
@@ -839,7 +839,7 @@ int get_the_dolby_ms12_prepared(
         *the audio format should not be same as AUDIO_FORMAT_IEC61937.
         *this will leads some sink device sound abnormal.
         *this format is used in dolby_ms12_threadloop()
-        *to determine use the spdifencoder or not.
+        *to determine use the spdif encoder or not.
         */
         if (out->hal_format == AUDIO_FORMAT_IEC61937) {
             out->hal_format = aml_out->hal_internal_format;
@@ -918,7 +918,7 @@ int get_the_dolby_ms12_prepared(
             }
             ALOGI("%s() thread is builded, get dolby_ms12_threadID %ld\n", __FUNCTION__, ms12->dolby_ms12_threadID);
         }
-        //n bytes of dowmix output pcm frame, 16bits_per_sample / stereo, it value is 4btes.
+        //n bytes of downmix output pcm frame, 16bits_per_sample / stereo, it value is 4 bytes.
         ms12->nbytes_of_dmx_output_pcm_frame = nbytes_of_dolby_ms12_downmix_output_pcm_frame();
         ms12->ms12_digital_audio_format = adev->digital_audio_format;
         //ms12->optical_format = adev->optical_format;
@@ -969,7 +969,7 @@ int get_the_dolby_ms12_prepared(
     **  here should send SCHEDULER_RUNNING again to wakeup ms12 scheduler_run.
     **3)system_stream send the MS12_SCHEDULER_RUNNING message to ms12 and call ms12_cleanup/ms12_prepare
     **  when device bootup to config ms12. this patch add detecting(dolby_ms12_enable) logic in get_dolby_ms12_cleanup,
-    **  it lead to cleanup not excute finished. so the last_scheduler_state/MS12_SCHEDULER_RUNNING state can't
+    **  it lead to cleanup not execute finished. so the last_scheduler_state/MS12_SCHEDULER_RUNNING state can't
     **  send to ms12, ms12 always sleep status.
     **  the system stream data can't send to ms12/speaker when bootup,
     **  this lead to system stream always pop noise when playback YouTuBe.
@@ -1115,7 +1115,7 @@ int dolby_ms12_main_process(
         if (adev->continuous_audio_mode == 1) {
             uint64_t buf_max_threshold = MS12_MAIN_INPUT_BUF_NS_UPTHRESHOLD;
             /*why we add 1ms
-             *because the main_input_ns is not acurate enough, it lost the decimal part
+             *because the main_input_ns is not accurate enough, it lost the decimal part
              *so we add 1ms to compensate
              */
             uint64_t main_buffer_duration_ns = (ms12->main_input_ns + NANO_SECOND_PER_MILLISECOND - ms12->main_output_ns);
@@ -1146,7 +1146,7 @@ int dolby_ms12_main_process(
                              , &associate_frame_buffer
                              , &associate_frame_size);
             if (dual_input_ret) {
-                ALOGE("%s used size %zu dont find the iec61937 format header, rescan next time!\n", __FUNCTION__, *use_size);
+                ALOGE("%s used size %zu don't find the iec61937 format header, re-scan next time!\n", __FUNCTION__, *use_size);
                 goto  exit;
             }
         }
@@ -1186,7 +1186,7 @@ int dolby_ms12_main_process(
                 if (ac3_info.sample_rate != 0) {
                     sample_rate = ac3_info.sample_rate;
                 }
-                ALOGV("Input size =%d used_size =%d output size=%d rate=%d interl format=0x%x rate=%d",
+                ALOGV("Input size =%d used_size =%d output size=%d rate=%d internal format=0x%x rate=%d",
                     input_bytes, spdif_dec_used_size, main_frame_size, aml_out->hal_rate, aml_out->hal_internal_format, sample_rate);
 
                 if (main_frame_size != 0 && adev->continuous_audio_mode) {
@@ -1597,7 +1597,7 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     int is_quit = 1;
     int i = 0;
     struct aml_audio_device *adev = NULL;
-    unsigned int remaing_time = 0;
+    unsigned int remaining_time = 0;
     ALOGI("+%s()", __FUNCTION__);
     if (!ms12 || ms12->dolby_ms12_enable == false) {
         ALOGI("-%s()  exit.", __FUNCTION__);
@@ -1622,8 +1622,8 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     /* check timers is running or not,
     ** timer should be stopped if running.
     **/
-    remaing_time = audio_timer_remaining_time(AML_TIMER_ID_1);
-    if (remaing_time > 0) {
+    remaining_time = audio_timer_remaining_time(AML_TIMER_ID_1);
+    if (remaining_time > 0) {
         audio_timer_stop(AML_TIMER_ID_1);
     }
 
@@ -1647,11 +1647,11 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     ms12->dolby_ms12_enable = false;
     ms12->is_dolby_atmos = false;
     ms12->input_total_ms = 0;
-    ms12->bitsteam_cnt = 0;
+    ms12->bitstream_cnt = 0;
     ms12->nbytes_of_dmx_output_pcm_frame = 4; //2ch * 16bit, set a default one
     ms12->dual_bitstream_support = 0;
     ms12->is_bypass_ms12 = false;
-    ms12->last_frames_postion = 0;
+    ms12->last_frames_position = 0;
     ms12->main_input_ns = 0;
     ms12->main_output_ns = 0;
     ms12->main_input_rate = DDP_OUTPUT_SAMPLE_RATE;
@@ -1746,7 +1746,7 @@ static ssize_t aml_ms12_spdif_output_new (struct audio_stream_out *stream,
 
     /*some switch happen*/
     if (bitstream_desc->spdifout_handle != NULL && bitstream_desc->audio_format != output_format) {
-        ALOGI("spdif output format chamged from =0x%x to 0x%x", bitstream_desc->audio_format, output_format);
+        ALOGI("spdif output format changed from =0x%x to 0x%x", bitstream_desc->audio_format, output_format);
         aml_audio_spdifout_close(bitstream_desc->spdifout_handle);
         ALOGI("%s spdif format changed from 0x%x to 0x%x", __FUNCTION__, bitstream_desc->audio_format, output_format);
         bitstream_desc->spdifout_handle = NULL;
@@ -1756,7 +1756,7 @@ static ssize_t aml_ms12_spdif_output_new (struct audio_stream_out *stream,
     if (bitstream_desc->spdifout_handle == NULL) {
         /*we need update ms12 optical_format in the master pcm output*/
         if (ms12->optical_format != adev->optical_format) {
-            ALOGI("wait ms12 optical fomrat update");
+            ALOGI("wait ms12 optical format update");
             return -1;
         }
 
@@ -1799,7 +1799,7 @@ static ssize_t aml_ms12_spdif_output_new (struct audio_stream_out *stream,
             aml_audio_spdifout_mute(bitstream_desc->spdifout_handle, 0);
         }
     }
-    ret = aml_audio_spdifout_processs(bitstream_desc->spdifout_handle, buffer, byte);
+    ret = aml_audio_spdifout_process(bitstream_desc->spdifout_handle, buffer, byte);
 
 
     return ret;
@@ -1849,7 +1849,7 @@ int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, siz
         && !ms12->dual_decoder_support) {
         if (bytes != 0 && buffer != NULL) {
             if (bitstream_out->spdifout_handle != NULL && bitstream_out->audio_format != output_format) {
-                ALOGI("spdif output format chamged from =0x%x to 0x%x", bitstream_out->audio_format, output_format);
+                ALOGI("spdif output format changed from =0x%x to 0x%x", bitstream_out->audio_format, output_format);
                 aml_audio_spdifout_close(bitstream_out->spdifout_handle);
                 ALOGI("%s spdif format changed from 0x%x to 0x%x", __FUNCTION__, bitstream_out->audio_format, output_format);
                 bitstream_out->spdifout_handle = NULL;
@@ -1888,7 +1888,7 @@ int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, siz
         } else {
             aml_audio_spdifout_mute(bitstream_out->spdifout_handle, 0);
         }
-        ret = aml_audio_spdifout_processs(bitstream_out->spdifout_handle, buffer, bytes);
+        ret = aml_audio_spdifout_process(bitstream_out->spdifout_handle, buffer, bytes);
     }
 
     return 0;
@@ -2048,7 +2048,7 @@ static int ms12_debug_out_stereo_pcm_synced_frame_pts
             } else {
                ms12->out_synced_frame_count++;
                int actual_synced_frame_ms = timems + pre_zero_samples / (ms12_info->output_ch * (ms12_info->output_sr / 1000));
-               ALOGI("count %llu out_frame_pts %lld ms decoder out syned frame at %d ms pre_zero_samples %d actual_synced_frame %d ms master_pcm_frames %llu",
+               ALOGI("count %llu out_frame_pts %lld ms decoder out synced frame at %d ms pre_zero_samples %d actual_synced_frame %d ms master_pcm_frames %llu",
                    ms12->out_synced_frame_count, out_frame_pts / 90, timems, pre_zero_samples, actual_synced_frame_ms, ms12->master_pcm_frames);
                ms12->last_synced_frame_pts = out_frame_pts;
                ret = 0;
@@ -2147,7 +2147,7 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
         uint64_t ms12_total_delay_pts = (uint64_t)dolby_ms12_get_latency(output_format, ms12_info->pcm_type) * 1000 * MILLISECOND_2_PTS / sample_rate;
 
         /* ms12 tuning latency which is determined by different input-format/output-format/end-port */
-        int ms12_tuing_delay_pts = aml_audio_dtv_get_ms12_latency(stream) * 1000 * MILLISECOND_2_PTS / sample_rate;
+        int ms12_tuning_delay_pts = aml_audio_dtv_get_ms12_latency(stream) * 1000 * MILLISECOND_2_PTS / sample_rate;
         int force_setting_delay_pts = 0;
         if (adev->bHDMIARCon) {
            force_setting_delay_pts = aml_getprop_int(PROPERTY_LOCAL_PASSTHROUGH_LATENCY)  * MILLISECOND_2_PTS;
@@ -2175,15 +2175,15 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
             aml_dtvsync->cur_outapts = DTVSYNC_INIT_PTS;
         } else {
             aml_dtvsync->out_end_apts = aml_dtvsync->out_start_apts + cur_pcm_pts;
-            aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_tuing_delay_pts + force_setting_delay_pts;
+            aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_tuning_delay_pts + force_setting_delay_pts;
         }
 
         if (patch->cur_package && adev->debug_flag) {
             uint64_t pts_diff = patch->cur_package->pts / 90 - ms12_main_apts / 90;
-            ALOGI("%s package pts(ms) %llu ms12_main_apts(ms) %llu diff =%lld pcm-duration(ms)%u cur_outapts(ms) %llu, alsa_latency(ms) %d ms12_tuing_delay_pts(ms) %d\n",
-                __func__, patch->cur_package->pts / 90, ms12_main_apts / 90, pts_diff, cur_pcm_pts / 90 , aml_dtvsync->cur_outapts / 90, alsa_latency / 90, ms12_tuing_delay_pts / 90);
-            ALOGI("%s package pts %llx ms12_main_apts %llx pcm-duration %x cur_outapts %llx, alsa_latency %x ms12_tuing_delay_pts %x start-pts %llx end-pts %llx\n",
-                __func__, patch->cur_package->pts, ms12_main_apts, cur_pcm_pts, aml_dtvsync->cur_outapts, alsa_latency, ms12_tuing_delay_pts, aml_dtvsync->out_start_apts, aml_dtvsync->out_end_apts);
+            ALOGI("%s package pts(ms) %llu ms12_main_apts(ms) %llu diff =%lld pcm-duration(ms)%u cur_outapts(ms) %llu, alsa_latency(ms) %d ms12_tuning_delay_pts(ms) %d\n",
+                __func__, patch->cur_package->pts / 90, ms12_main_apts / 90, pts_diff, cur_pcm_pts / 90 , aml_dtvsync->cur_outapts / 90, alsa_latency / 90, ms12_tuning_delay_pts / 90);
+            ALOGI("%s package pts %llx ms12_main_apts %llx pcm-duration %x cur_outapts %llx, alsa_latency %x ms12_tuning_delay_pts %x start-pts %llx end-pts %llx\n",
+                __func__, patch->cur_package->pts, ms12_main_apts, cur_pcm_pts, aml_dtvsync->cur_outapts, alsa_latency, ms12_tuning_delay_pts, aml_dtvsync->out_start_apts, aml_dtvsync->out_end_apts);
 
         }
 
@@ -2218,7 +2218,7 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     if (adev->debug_flag > 1) {
         ALOGI("+%s() output size %zu,out format 0x%x.dual_output = %d, optical_format = 0x%x, sink_format = 0x%x, out total=%d main in=%d",
             __FUNCTION__, size,output_format, aml_out->dual_output_flag, adev->optical_format, adev->sink_format,
-            ms12->bitsteam_cnt, ms12->input_total_ms);
+            ms12->bitstream_cnt, ms12->input_total_ms);
     }
 
     if (output_format == 0) {
@@ -2397,7 +2397,7 @@ int bitstream_output_l(void *buffer, void *priv_data, size_t size)
     bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
     int ret = 0;
 
-    /* dtv avsync prechecking and processing */
+    /* dtv avsync pre-checking and processing */
     if (do_sync_flag && aml_out->dtvsync_enable) {
         aml_dtvsync_t *aml_dtvsync = patch->dtvsync;
         struct dtvsync_audio_policy *async_policy = NULL;
@@ -2424,11 +2424,11 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
     int ret = 0;
     int bitstream_delay_ms = 0;
     int out_size = 0;
-    ms12->bitsteam_cnt++;
+    ms12->bitstream_cnt++;
 
     if (adev->debug_flag > 1) {
         ALOGI("+%s() size %zu,dual_output = %d, optical_format = 0x%0x, sink_format = 0x%x out total=%d main in=%d",
-            __FUNCTION__, size, aml_out->dual_output_flag, adev->optical_format, adev->sink_format, ms12->bitsteam_cnt, ms12->input_total_ms);
+            __FUNCTION__, size, aml_out->dual_output_flag, adev->optical_format, adev->sink_format, ms12->bitstream_cnt, ms12->input_total_ms);
     }
 
     if (ms12->is_bypass_ms12) {
@@ -2453,7 +2453,7 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
     }
 
     /*dump ms12 bitstream output*/
-    if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_BITSTREAN)) {
+    if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_BITSTREAM)) {
         dump_ms12_output_data(buffer, size, MS12_OUTPUT_BITSTREAM_FILE);
     }
 
@@ -2481,7 +2481,7 @@ int spdif_bitstream_output_l(void *buffer, void *priv_data, size_t size)
     bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
     int ret = 0;
 
-    /* dtv avsync prechecking and processing */
+    /* dtv avsync pre-checking and processing */
     if (do_sync_flag && aml_out->dtvsync_enable) {
         aml_dtvsync_t *aml_dtvsync = patch->dtvsync;
         struct dtvsync_audio_policy *async_policy = NULL;
@@ -2509,7 +2509,7 @@ int spdif_bitstream_output(void *buffer, void *priv_data, size_t size)
 
     if (adev->debug_flag > 1) {
         ALOGI("+%s() size %zu,dual_output = %d, optical_format = 0x%x, sink_format = 0x%x out total=%d main in=%d",
-            __FUNCTION__, size, aml_out->dual_output_flag, adev->optical_format, adev->sink_format, ms12->bitsteam_cnt, ms12->input_total_ms);
+            __FUNCTION__, size, aml_out->dual_output_flag, adev->optical_format, adev->sink_format, ms12->bitstream_cnt, ms12->input_total_ms);
     }
 
     if (ms12->is_bypass_ms12) {
@@ -2550,7 +2550,7 @@ int spdif_bitstream_output(void *buffer, void *priv_data, size_t size)
     }
 
     /*dump ms12 bitstream output*/
-    if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_BITSTREAN2)) {
+    if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_BITSTREAM2)) {
         dump_ms12_output_data(buffer, size, MS12_OUTPUT_BITSTREAM2_FILE);
     }
 
@@ -2619,7 +2619,7 @@ static void *dolby_ms12_threadloop(void *data)
     return ((void *)0);
 
 Error:
-    ALOGI("-%s(), exit dolby_ms12_thread, because of erro input params\n", __FUNCTION__);
+    ALOGI("-%s(), exit dolby_ms12_thread, because of error input params\n", __FUNCTION__);
     return ((void *)0);
 }
 
@@ -2665,10 +2665,10 @@ int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_stat
 
 static int nbytes_of_dolby_ms12_downmix_output_pcm_frame()
 {
-    int pcm_out_chanenls = 2;
+    int pcm_out_channels = 2;
     int bytes_per_sample = 2;
 
-    return pcm_out_chanenls*bytes_per_sample;
+    return pcm_out_channels*bytes_per_sample;
 }
 
 int dolby_ms12_main_open(struct audio_stream_out *stream) {
@@ -2709,7 +2709,7 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
     aml_out->is_ms12_main_decoder = false;
 
     /** for low probability timing case, open1-->***-->open2->close1->****-->close2
-    *** like above case, the ms12_main_stream_out is setted null when close1 output_stream,
+    *** like above case, the ms12_main_stream_out is set null when close1 output_stream,
     *** it lead to ms12 flush/pause/resume message cant send to ms12 thread in open2 output_stream.
     *** so add ms12_main_stream_out address pointed check to protect this case.
     **/
@@ -2749,7 +2749,7 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream) {
     ms12->main_input_rate = DDP_OUTPUT_SAMPLE_RATE;
     ms12->main_buffer_min_level = 0xFFFFFFFF;
     ms12->main_buffer_max_level = 0;
-    ms12->last_frames_postion = 0;
+    ms12->last_frames_position = 0;
     ms12->last_ms12_pcm_out_position = 0;
     adev->ms12.ms12_position_update = false;
     adev->ms12.main_input_start_offset_ns = 0;
@@ -2781,7 +2781,7 @@ void dolby_ms12_app_flush()
     dolby_ms12_flush_app_input_buffer();
 }
 
-bool is_ms12_continous_mode(struct aml_audio_device *adev)
+bool is_ms12_continuous_mode(struct aml_audio_device *adev)
 {
     if ((eDolbyMS12Lib == adev->dolby_lib_type) && (adev->continuous_audio_mode)) {
         return true;
@@ -2943,7 +2943,7 @@ unsigned long long dolby_ms12_get_main_bytes_consumed(struct audio_stream_out *s
     uint64_t main_bytes_offset = ms12->main_input_bytes_offset;
     uint64_t main_bytes_consumed = dolby_ms12_get_consumed_payload();
     if (adev->debug_flag > 1) {
-        ALOGI("%s main bytes offset =%lld consued =%lld total =%lld",
+        ALOGI("%s main bytes offset =%lld consumed =%lld total =%lld",
             __func__, main_bytes_offset, main_bytes_consumed, (main_bytes_offset + main_bytes_consumed));
     }
 

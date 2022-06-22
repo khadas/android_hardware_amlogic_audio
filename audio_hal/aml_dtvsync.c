@@ -191,7 +191,7 @@ void* aml_dtvsync_create()
 	return mediasync_wrap_create();
 }
 
-bool aml_dtvsync_allocinstance(aml_dtvsync_t *p_dtvsync, int32_t* id)
+bool aml_dtvsync_allocInstance(aml_dtvsync_t *p_dtvsync, int32_t* id)
 {
     if (p_dtvsync && p_dtvsync->mediasync) {
 
@@ -200,7 +200,7 @@ bool aml_dtvsync_allocinstance(aml_dtvsync_t *p_dtvsync, int32_t* id)
     return false;
 }
 
-bool aml_dtvsync_bindinstance(aml_dtvsync_t *p_dtvsync, uint32_t id)
+bool aml_dtvsync_bindInstance(aml_dtvsync_t *p_dtvsync, uint32_t id)
 {
 
     if (p_dtvsync) {
@@ -320,7 +320,7 @@ bool aml_dtvsync_spdif_insertraw(struct audio_stream_out *stream,  void **spdifo
         ALOGI("non-packet ddp size = %d\n", size);
     }
     for (int i = 0; i < t1; i++)
-        aml_audio_spdifout_processs(*spdifout_handle, buffer, size);
+        aml_audio_spdifout_process(*spdifout_handle, buffer, size);
     return  true;
 }
 
@@ -336,7 +336,7 @@ bool aml_audio_spdif_insertpcm(struct audio_stream_out *stream,  void **spdifout
 
     if (insert_size <=  patch->out_buf_size) {
         memset(patch->out_buf, 0, patch->out_buf_size);
-        aml_audio_spdifout_processs(*spdifout_handle, patch->out_buf, insert_size);
+        aml_audio_spdifout_process(*spdifout_handle, patch->out_buf, insert_size);
         return true;
     }
 
@@ -351,7 +351,7 @@ bool aml_audio_spdif_insertpcm(struct audio_stream_out *stream,  void **spdifout
 
     for (int i = 0; i < t1; i++) {
         memset(patch->out_buf, 0, patch->out_buf_size);
-        aml_audio_spdifout_processs(*spdifout_handle, patch->out_buf, patch->out_buf_size);
+        aml_audio_spdifout_process(*spdifout_handle, patch->out_buf, patch->out_buf_size);
     }
     return true;
 }

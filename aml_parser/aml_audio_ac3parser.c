@@ -126,26 +126,26 @@ struct aml_ac3_parser {
 
 int aml_ac3_parser_open(void **pparser_handle)
 {
-    struct aml_ac3_parser *parser_hanlde = NULL;
+    struct aml_ac3_parser *aml_parser_handle = NULL;
 
-    parser_hanlde = (struct aml_ac3_parser *)aml_audio_calloc(1, sizeof(struct aml_ac3_parser));
-    if (parser_hanlde == NULL) {
+    aml_parser_handle = (struct aml_ac3_parser *)aml_audio_calloc(1, sizeof(struct aml_ac3_parser));
+    if (aml_parser_handle == NULL) {
         ALOGE("%s handle error", __func__);
         goto error;
     }
 
-    parser_hanlde->buf_size  = DOLBY_DDPP_MAXSIZE;
-    parser_hanlde->buf  = aml_audio_calloc(1, DOLBY_DDPP_MAXSIZE);
-    if (parser_hanlde->buf == NULL) {
+    aml_parser_handle->buf_size  = DOLBY_DDPP_MAXSIZE;
+    aml_parser_handle->buf  = aml_audio_calloc(1, DOLBY_DDPP_MAXSIZE);
+    if (aml_parser_handle->buf == NULL) {
         ALOGE("%s data buffer error", __func__);
-        aml_audio_free(parser_hanlde);
-        parser_hanlde = NULL;
+        aml_audio_free(aml_parser_handle);
+        aml_parser_handle = NULL;
         goto error;
     }
-    parser_hanlde->status = PARSER_SYNCING;
-    parser_hanlde->buf_remain = 0;
-    *pparser_handle = parser_hanlde;
-    ALOGI("%s exit =%p", __func__, parser_hanlde);
+    aml_parser_handle->status = PARSER_SYNCING;
+    aml_parser_handle->buf_remain = 0;
+    *pparser_handle = aml_parser_handle;
+    ALOGI("%s exit =%p", __func__, aml_parser_handle);
     return 0;
 error:
     *pparser_handle = NULL;
@@ -154,13 +154,13 @@ error:
 }
 int aml_ac3_parser_close(void *parser_handle)
 {
-    struct aml_ac3_parser *parser_hanlde = (struct aml_ac3_parser *)parser_handle;
+    struct aml_ac3_parser *aml_parser_handle = (struct aml_ac3_parser *)parser_handle;
 
-    if (parser_hanlde) {
-        if (parser_hanlde->buf) {
-            aml_audio_free(parser_hanlde->buf);
+    if (aml_parser_handle) {
+        if (aml_parser_handle->buf) {
+            aml_audio_free(aml_parser_handle->buf);
         }
-        aml_audio_free(parser_hanlde);
+        aml_audio_free(aml_parser_handle);
     }
     ALOGE("%s exit", __func__);
     return 0;
@@ -168,11 +168,11 @@ int aml_ac3_parser_close(void *parser_handle)
 
 int aml_ac3_parser_reset(void *parser_handle)
 {
-    struct aml_ac3_parser *parser_hanlde = (struct aml_ac3_parser *)parser_handle;
+    struct aml_ac3_parser *aml_parser_handle = (struct aml_ac3_parser *)parser_handle;
 
-    if (parser_hanlde) {
-        parser_hanlde->status = PARSER_SYNCING;
-        parser_hanlde->buf_remain = 0;
+    if (aml_parser_handle) {
+        aml_parser_handle->status = PARSER_SYNCING;
+        aml_parser_handle->buf_remain = 0;
     }
     ALOGE("%s exit", __func__);
     return 0;
@@ -213,7 +213,7 @@ static int check_ac3_syncword(const unsigned char *ptr, int size)
 /*
  *parse frame header[ATSC Standard,Digital Audio Compression (AC-3, E-AC-3)]
  */
-static int parse_dolby_frame_header
+static int aml_ac3_parser_frame_header
 (const unsigned char *frameBuf
  , int length
  , int *frame_offset
@@ -372,8 +372,8 @@ static int parse_dolby_frame_header
             }
             *numblks = numblk_per_frame;
             *frame_dependent = strmtyp;
-            /* TV-23269 the stream has substream id 0,1,2 and depedency frame, we use
-             * numblks to indicate the frame duration, for substrem id != 0, we dont need
+            /* TV-23269 the stream has substream id 0,1,2 and dependency frame, we use
+             * numblks to indicate the frame duration, for substream id != 0, we don't need
              * this info, so we keep it as 0.
              */
             if (substreamid != 0) {
@@ -398,7 +398,7 @@ error:
 
 int aml_ac3_parser_process(void *parser_handle, const void *in_buffer, int32_t numBytes, int32_t *used_size, void **output_buf, int32_t *out_size, struct ac3_parser_info * ac3_info)
 {
-    struct aml_ac3_parser *parser_hanlde = (struct aml_ac3_parser *)parser_handle;
+    struct aml_ac3_parser *aml_parser_handle = (struct aml_ac3_parser *)parser_handle;
     size_t remain = 0;
     uint8_t *buffer = (uint8_t *)in_buffer;
     uint8_t * parser_buf = NULL;
@@ -414,7 +414,7 @@ int aml_ac3_parser_process(void *parser_handle, const void *in_buffer, int32_t n
     int32_t frame_size = 0;
     int32_t frame_offset = 0;
 
-    if (parser_hanlde == NULL) {
+    if (aml_parser_handle == NULL) {
         goto error;
     }
 
@@ -424,80 +424,80 @@ int aml_ac3_parser_process(void *parser_handle, const void *in_buffer, int32_t n
 
     memset(ac3_info, 0, sizeof(struct ac3_parser_info));
 
-    parser_buf = parser_hanlde->buf;
+    parser_buf = aml_parser_handle->buf;
     buf_left     = numBytes;
 
-    ALOGV("%s input buf size=%d status=%d", __func__, numBytes, parser_hanlde->status);
+    ALOGV("%s input buf size=%d status=%d", __func__, numBytes, aml_parser_handle->status);
 
     /*we need at least 12 bytes*/
-    if (parser_hanlde->buf_remain < DOLBY_DDP_HEADER_SIZE) {
-        need_size = DOLBY_DDP_HEADER_SIZE - parser_hanlde->buf_remain;
+    if (aml_parser_handle->buf_remain < DOLBY_DDP_HEADER_SIZE) {
+        need_size = DOLBY_DDP_HEADER_SIZE - aml_parser_handle->buf_remain;
         /*input data is not enough, just copy to internal buf*/
         if (buf_left < need_size) {
-            memcpy(parser_buf + parser_hanlde->buf_remain, buffer + buf_offset, buf_left);
-            parser_hanlde->buf_remain += buf_left;
+            memcpy(parser_buf + aml_parser_handle->buf_remain, buffer + buf_offset, buf_left);
+            aml_parser_handle->buf_remain += buf_left;
             goto error;
         }
         /*make sure the remain buf has 12 bytes*/
-        memcpy(parser_buf + parser_hanlde->buf_remain, buffer + buf_offset, need_size);
-        parser_hanlde->buf_remain += need_size;
+        memcpy(parser_buf + aml_parser_handle->buf_remain, buffer + buf_offset, need_size);
+        aml_parser_handle->buf_remain += need_size;
         buf_offset += need_size;
         buf_left   = numBytes - buf_offset;
 
     }
 
-    if (parser_hanlde->status == PARSER_SYNCING) {
+    if (aml_parser_handle->status == PARSER_SYNCING) {
         sync_word_offset = -1;
         while (sync_word_offset < 0) {
             /*sync the header, we have at least period bytes*/
-            if (parser_hanlde->buf_remain < DOLBY_DDP_HEADER_SIZE) {
+            if (aml_parser_handle->buf_remain < DOLBY_DDP_HEADER_SIZE) {
                 ALOGE("we should not get there");
-                parser_hanlde->buf_remain = 0;
+                aml_parser_handle->buf_remain = 0;
                 goto error;
             }
-            sync_word_offset = seek_dolby_sync_word((char*)parser_buf, parser_hanlde->buf_remain);
+            sync_word_offset = seek_dolby_sync_word((char*)parser_buf, aml_parser_handle->buf_remain);
             /*if we don't find the header in period bytes, move the last 1 bytes to header*/
             if (sync_word_offset < 0) {
-                memmove(parser_buf, parser_buf + parser_hanlde->buf_remain - 1, 1);
-                parser_hanlde->buf_remain = 1;
-                need_size = DOLBY_DDP_HEADER_SIZE - parser_hanlde->buf_remain;
+                memmove(parser_buf, parser_buf + aml_parser_handle->buf_remain - 1, 1);
+                aml_parser_handle->buf_remain = 1;
+                need_size = DOLBY_DDP_HEADER_SIZE - aml_parser_handle->buf_remain;
                 /*input data is not enough, just copy to internal buf*/
                 if (buf_left < need_size) {
-                    memcpy(parser_buf + parser_hanlde->buf_remain, buffer + buf_offset, buf_left);
-                    parser_hanlde->buf_remain += buf_left;
+                    memcpy(parser_buf + aml_parser_handle->buf_remain, buffer + buf_offset, buf_left);
+                    aml_parser_handle->buf_remain += buf_left;
                     /*don't find the header, and there is no enough data*/
                     goto error;
                 }
                 /*make the buf has 12 bytes*/
-                memcpy(parser_buf + parser_hanlde->buf_remain, buffer + buf_offset, need_size);
-                parser_hanlde->buf_remain += need_size;
+                memcpy(parser_buf + aml_parser_handle->buf_remain, buffer + buf_offset, need_size);
+                aml_parser_handle->buf_remain += need_size;
                 buf_offset += need_size;
                 buf_left = numBytes - buf_offset;
             }
             loop_cnt++;
         }
         /*got here means we find the sync word*/
-        parser_hanlde->status = PARSER_SYNCED;
+        aml_parser_handle->status = PARSER_SYNCED;
 
-        data_valid = parser_hanlde->buf_remain - sync_word_offset;
+        data_valid = aml_parser_handle->buf_remain - sync_word_offset;
         /*move the header to the beginning of buf*/
         if (sync_word_offset != 0) {
             memmove(parser_buf, parser_buf + sync_word_offset, data_valid);
         }
-        parser_hanlde->buf_remain = data_valid;
+        aml_parser_handle->buf_remain = data_valid;
 
         need_size = DOLBY_DDP_HEADER_SIZE - data_valid;
         /*get some bytes to make sure it is at least 12 bytes*/
         if (need_size > 0) {
             /*check if input has enough data*/
             if (buf_left < need_size) {
-                memcpy(parser_buf + parser_hanlde->buf_remain, buffer + buf_offset, buf_left);
-                parser_hanlde->buf_remain += buf_left;
+                memcpy(parser_buf + aml_parser_handle->buf_remain, buffer + buf_offset, buf_left);
+                aml_parser_handle->buf_remain += buf_left;
                 goto error;
             }
             /*make sure the remain buf has 12 bytes*/
-            memcpy(parser_buf + parser_hanlde->buf_remain, buffer + buf_offset , need_size);
-            parser_hanlde->buf_remain += need_size;
+            memcpy(parser_buf + aml_parser_handle->buf_remain, buffer + buf_offset , need_size);
+            aml_parser_handle->buf_remain += need_size;
             buf_offset += need_size;
             buf_left = numBytes - buf_offset;
         }
@@ -506,18 +506,18 @@ int aml_ac3_parser_process(void *parser_handle, const void *in_buffer, int32_t n
     }
 
     /*double check here*/
-    sync_word_offset = seek_dolby_sync_word((char*)parser_buf, parser_hanlde->buf_remain);
+    sync_word_offset = seek_dolby_sync_word((char*)parser_buf, aml_parser_handle->buf_remain);
     if (sync_word_offset != 0) {
-        ALOGE("we can't get here remain=%d,resync dolby header", parser_hanlde->buf_remain);
-        parser_hanlde->buf_remain = 0;
-        parser_hanlde->status = PARSER_SYNCING;
+        ALOGE("we can't get here remain=%d,resync dolby header", aml_parser_handle->buf_remain);
+        aml_parser_handle->buf_remain = 0;
+        aml_parser_handle->status = PARSER_SYNCING;
         goto error;
     }
     /* we got here means we find the dolby header and
      * it is at the beginning of  parser buf and
      * it has at least 12 bytes, we can parse it
      */
-    ret = parse_dolby_frame_header(parser_buf, parser_hanlde->buf_remain,  &frame_offset, &ac3_info->frame_size,
+    ret = aml_ac3_parser_frame_header(parser_buf, aml_parser_handle->buf_remain,  &frame_offset, &ac3_info->frame_size,
                                    &ac3_info->channel_num, &ac3_info->numblks, &ac3_info->timeslice_61937,
                                    &ac3_info->framevalid_flag,
                                    &ac3_info->frame_dependent,
@@ -528,32 +528,32 @@ int aml_ac3_parser_process(void *parser_handle, const void *in_buffer, int32_t n
     /*check whether the input data has a complete ac3 frame*/
     if (ac3_info->frame_size == 0) {
         ALOGE("%s wrong frame size=%d", __func__, ac3_info->frame_size);
-        parser_hanlde->buf_remain = 0;
-        parser_hanlde->status = PARSER_SYNCING;
+        aml_parser_handle->buf_remain = 0;
+        aml_parser_handle->status = PARSER_SYNCING;
         goto error;
     }
 
     frame_size = ac3_info->frame_size;
 
     /*we have a complete payload*/
-    if ((parser_hanlde->buf_remain + buf_left) >= frame_size) {
-        need_size = frame_size - (parser_hanlde->buf_remain);
+    if ((aml_parser_handle->buf_remain + buf_left) >= frame_size) {
+        need_size = frame_size - (aml_parser_handle->buf_remain);
         if (need_size >= 0) {
-            new_buf_size = parser_hanlde->buf_remain + need_size;
-            if (new_buf_size > parser_hanlde->buf_size) {
-                parser_hanlde->buf = aml_audio_realloc(parser_hanlde->buf, new_buf_size);
-                if (parser_hanlde->buf == NULL) {
+            new_buf_size = aml_parser_handle->buf_remain + need_size;
+            if (new_buf_size > aml_parser_handle->buf_size) {
+                aml_parser_handle->buf = aml_audio_realloc(aml_parser_handle->buf, new_buf_size);
+                if (aml_parser_handle->buf == NULL) {
                     ALOGE("%s realloc buf failed =%d", __func__, new_buf_size);
-                    parser_hanlde->buf_remain = 0;
-                    parser_hanlde->status = PARSER_SYNCING;
+                    aml_parser_handle->buf_remain = 0;
+                    aml_parser_handle->status = PARSER_SYNCING;
                     goto error;
                 }
-                parser_hanlde->buf_size = new_buf_size;
-                parser_buf = parser_hanlde->buf;
+                aml_parser_handle->buf_size = new_buf_size;
+                parser_buf = aml_parser_handle->buf;
                 ALOGI("%s realloc buf =%d", __func__, new_buf_size);
             }
 
-            memcpy(parser_buf + parser_hanlde->buf_remain, buffer + buf_offset, need_size);
+            memcpy(parser_buf + aml_parser_handle->buf_remain, buffer + buf_offset, need_size);
             buf_offset += need_size;
             buf_left = numBytes - buf_offset;
 
@@ -562,8 +562,8 @@ int aml_ac3_parser_process(void *parser_handle, const void *in_buffer, int32_t n
             *used_size = buf_offset;
             ALOGV("OK framesize =%d used size=%d loop_cnt=%d", frame_size, buf_offset, loop_cnt);
             /*one frame has complete, need find next one*/
-            parser_hanlde->buf_remain = 0;
-            parser_hanlde->status = PARSER_SYNCING;
+            aml_parser_handle->buf_remain = 0;
+            aml_parser_handle->status = PARSER_SYNCING;
         } else {
             /*internal buf has more data than framsize, we only need part of it*/
             *output_buf = (void*)(parser_buf);
@@ -573,36 +573,36 @@ int aml_ac3_parser_process(void *parser_handle, const void *in_buffer, int32_t n
             ALOGV("wrap frame size=%d used size=%d back size =%d loop_cnt=%d", frame_size, buf_offset, need_size, loop_cnt);
             if (*used_size <= 0) {
                 ALOGE("%s wrong used size =%d", __func__, *used_size);
-                parser_hanlde->buf_remain = 0;
-                parser_hanlde->status = PARSER_SYNCING;
+                aml_parser_handle->buf_remain = 0;
+                aml_parser_handle->status = PARSER_SYNCING;
                 goto error;
             }
             /*one frame has complete, need find next one*/
-            parser_hanlde->buf_remain = 0;
-            parser_hanlde->status = PARSER_SYNCING;
+            aml_parser_handle->buf_remain = 0;
+            aml_parser_handle->status = PARSER_SYNCING;
         }
     } else {
         /*check whether the input buf size is big enough*/
-        new_buf_size = parser_hanlde->buf_remain + buf_left;
-        if (new_buf_size > parser_hanlde->buf_size) {
-            parser_hanlde->buf = aml_audio_realloc(parser_hanlde->buf, new_buf_size);
-            if (parser_hanlde->buf == NULL) {
+        new_buf_size = aml_parser_handle->buf_remain + buf_left;
+        if (new_buf_size > aml_parser_handle->buf_size) {
+            aml_parser_handle->buf = aml_audio_realloc(aml_parser_handle->buf, new_buf_size);
+            if (aml_parser_handle->buf == NULL) {
                 ALOGE("%s realloc buf failed =%d", __func__, new_buf_size);
-                parser_hanlde->buf_remain = 0;
-                parser_hanlde->status = PARSER_SYNCING;
+                aml_parser_handle->buf_remain = 0;
+                aml_parser_handle->status = PARSER_SYNCING;
                 goto error;
             }
-            parser_hanlde->buf_size = new_buf_size;
-            parser_buf = parser_hanlde->buf;
+            aml_parser_handle->buf_size = new_buf_size;
+            parser_buf = aml_parser_handle->buf;
             ALOGI("%s realloc buf =%d", __func__, new_buf_size);
         }
-        memcpy(parser_buf + parser_hanlde->buf_remain, buffer + buf_offset, buf_left);
-        parser_hanlde->buf_remain += buf_left;
-        parser_hanlde->status = PARSER_LACK_DATA;
+        memcpy(parser_buf + aml_parser_handle->buf_remain, buffer + buf_offset, buf_left);
+        aml_parser_handle->buf_remain += buf_left;
+        aml_parser_handle->status = PARSER_LACK_DATA;
         goto error;
     }
-    if (parser_hanlde->framesize != frame_size) {
-        parser_hanlde->framesize = frame_size;
+    if (aml_parser_handle->framesize != frame_size) {
+        aml_parser_handle->framesize = frame_size;
         ALOGV("New frame size =%d", frame_size);
     }
     return 0;

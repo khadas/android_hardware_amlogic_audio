@@ -45,7 +45,7 @@ static void aml_audio_stream_volume_process(struct audio_stream_out *stream, voi
 
     /*
     for non tv, system sound vol control at audioflinger, so dtv sound vol
-    control need to do before mxing.
+    control need to do before mixing.
     */
     if (!aml_dev->is_TV || aml_dev->is_BDS) {
         float port_gain = 1.0;
@@ -147,7 +147,7 @@ ssize_t aml_audio_spdif_output(struct audio_stream_out *stream, void **spdifout_
     }
 
     ALOGV("[%s:%d] format =0x%x length =%d", __func__, __LINE__, data_info->data_format, data_info->data_len);
-    aml_audio_spdifout_processs(*spdifout_handle, data_info->buf, data_info->data_len);
+    aml_audio_spdifout_process(*spdifout_handle, data_info->buf, data_info->data_len);
 
     return ret;
 }
@@ -283,7 +283,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                         } else {
                            aml_dec->out_synced_frame_count++;
                            int actual_synced_frame_ms = timems + pre_zero_samples / (2 * (dec_pcm_data->data_sr / 1000));
-                           ALOGI("count %d out_frame_pts %" PRId64 " ms decoder out syned frame at %d ms pre_zero_samples %d actual_synced_frame %d ms",
+                           ALOGI("count %d out_frame_pts %" PRId64 " ms decoder out synced frame at %d ms pre_zero_samples %d actual_synced_frame %d ms",
                                aml_dec->out_synced_frame_count, aml_dec->out_frame_pts / 90, timems, pre_zero_samples, actual_synced_frame_ms);
                            aml_dec->last_synced_frame_pts = aml_dec->out_frame_pts;
                         }
@@ -428,7 +428,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
             }
 
             // write raw data
-            /*for pcm case, we check whether it has muti channel pcm or 96k/88.2k pcm */
+            /*for pcm case, we check whether it has multi channel pcm or 96k/88.2k pcm */
             if (!dts_pcm_direct_output && !speed_enabled && audio_is_linear_pcm(aml_dec->format) && raw_in_data->data_ch > 2) {
                 aml_audio_stream_volume_process(stream, raw_in_data->buf, sizeof(int16_t), raw_in_data->data_ch, raw_in_data->data_len);
                 aml_audio_spdif_output(stream, &aml_out->spdifout_handle, raw_in_data);

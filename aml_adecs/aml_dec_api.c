@@ -91,7 +91,7 @@ int aml_decoder_init(aml_dec_t **ppaml_dec, audio_format_t format, aml_dec_confi
     int ret = -1;
     aml_dec_func_t *dec_fun = NULL;
     dec_fun = get_decoder_function(format);
-    aml_dec_t *aml_dec_handel = NULL;
+    aml_dec_t *aml_dec_handle = NULL;
     if (dec_fun == NULL) {
         ALOGE("%s got dec_fun as NULL!\n", __func__);
         return -1;
@@ -107,24 +107,24 @@ int aml_decoder_init(aml_dec_t **ppaml_dec, audio_format_t format, aml_dec_confi
         return -1;
     }
 
-    aml_dec_handel = *ppaml_dec;
-    aml_dec_handel->frame_cnt = 0;
-    aml_dec_handel->format = format;
-    aml_dec_handel->fragment_left_size = 0;
-    aml_dec_handel->in_frame_pts = 0;
+    aml_dec_handle = *ppaml_dec;
+    aml_dec_handle->frame_cnt = 0;
+    aml_dec_handle->format = format;
+    aml_dec_handle->fragment_left_size = 0;
+    aml_dec_handle->in_frame_pts = 0;
     dec_config->advol_level = 100;
     dec_config->mixer_level = 0;
     if (get_debug_value(AML_DEBUG_AUDIOHAL_SYNCPTS)) {
-        aml_dec_handel->debug_synced_frame_pts_flag = true;
+        aml_dec_handle->debug_synced_frame_pts_flag = true;
     } else {
-        aml_dec_handel->debug_synced_frame_pts_flag = false;
+        aml_dec_handle->debug_synced_frame_pts_flag = false;
     }
 
     return ret;
 
 ERROR:
-    if (dec_fun->f_release && aml_dec_handel) {
-        dec_fun->f_release(aml_dec_handel);
+    if (dec_fun->f_release && aml_dec_handle) {
+        dec_fun->f_release(aml_dec_handle);
     }
 
     return -1;
@@ -198,7 +198,7 @@ void get_audio_decoder_info (aml_dec_info_t dec_info, aml_dec_t *aml_dec) {
 
     char sysfs_buf[MAX_BUFF_LEN] = {0};
     memset(sysfs_buf, 0x00, MAX_BUFF_LEN);
-    aml_decoder_get_info(aml_dec, AML_DEC_STREMAM_INFO, &dec_info);
+    aml_decoder_get_info(aml_dec, AML_DEC_STREAM_INFO, &dec_info);
     sprintf(sysfs_buf, "bitrate %d", dec_info.dec_info.stream_bitrate);
     sysfs_set_sysfs_str(REPORT_DECODED_INFO, sysfs_buf);
     memset(sysfs_buf, 0x00, MAX_BUFF_LEN);
@@ -283,7 +283,7 @@ int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int
         aml_dec_info_t dec_info = {0};
         get_audio_decoder_info(dec_info, aml_dec);
         frame_size = audio_bytes_per_sample(dec_pcm_data->data_format) * dec_pcm_data->data_ch;
-        /*one decoded frame length is too big, we need seprate it*/
+        /*one decoded frame length is too big, we need separate it*/
         if ((dec_pcm_data->data_len >= AML_DEC_MAX_FRAMES * frame_size) &&
             (dec_raw_data->data_format == AUDIO_FORMAT_IEC61937) &&
             (dec_raw_data->data_len == dec_pcm_data->data_len)) {

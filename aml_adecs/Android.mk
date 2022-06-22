@@ -38,11 +38,11 @@ LOCAL_C_INCLUDES := \
 ifneq ($(TARGET_BUILD_DOLBY_MS12_V1), true)
     LOCAL_CFLAGS += -DMS12_V24_ENABLE
     LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12_v24/include \
-                        hardmare/amlogic/audio/libms12_v24/include
+                        hardware/amlogic/audio/libms12_v24/include
     LOCAL_SHARED_LIBRARIES += libms12api_v24
 else
     LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include \
-                        hardmare/amlogic/audio/libms12/include
+                        hardware/amlogic/audio/libms12/include
     LOCAL_SHARED_LIBRARIES += libms12api
 endif
 

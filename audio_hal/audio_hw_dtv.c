@@ -134,8 +134,8 @@ void decoder_set_latency(unsigned int latency)
     memset(tempbuf, 0, 128);
     sprintf(tempbuf, "%d", latency);
     ALOGI("latency=%u\n", latency);
-    if (aml_sysfs_set_str(TSYNC_PCR_LANTCY, tempbuf) == -1) {
-        ALOGE("set pcr lantcy failed %s\n", tempbuf);
+    if (aml_sysfs_set_str(TSYNC_PCR_LATENCY, tempbuf) == -1) {
+        ALOGE("set pcr latency failed %s\n", tempbuf);
     }
     return;
 }
@@ -146,11 +146,11 @@ unsigned int decoder_get_latency(void)
     int ret;
     char buff[64];
     memset(buff, 0, 64);
-    ret = aml_sysfs_get_str(TSYNC_PCR_LANTCY, buff, sizeof(buff));
+    ret = aml_sysfs_get_str(TSYNC_PCR_LATENCY, buff, sizeof(buff));
     if (ret > 0) {
         ret = sscanf(buff, "%u\n", &latency);
     }
-    //ALOGI("get lantcy %d", latency);
+    //ALOGI("get latency %d", latency);
     return (unsigned int)latency;
 }
 
@@ -359,7 +359,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                 val = 100;
             }
             adev->advol_level = val;
-            ALOGI("madvol_level set to %d\n", adev->advol_level);
+            ALOGI("ms12 ad vol_level set to %d\n", adev->advol_level);
             if (eDolbyMS12Lib == adev->dolby_lib_type_last && ms12->dolby_ms12_enable) {
                 pthread_mutex_lock(&ms12->lock);
                 set_ms12_ad_vol(ms12, adev->advol_level);
@@ -404,7 +404,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
             if (val == AUDIO_DTV_PATCH_CMD_OPEN) {
                 if (adev->is_multi_demux) {
                     Open_Dmx_Audio(&demux_handle,demux_info->demux_id, demux_info->security_mem_level);
-                    ALOGI("path_id %d demux_hanle %p ",path_id, demux_handle);
+                    ALOGI("path_id %d demux_handle %p ",path_id, demux_handle);
                     dtv_audio_instances->demux_handle[path_id] = demux_handle;
                     Init_Dmx_Main_Audio(demux_handle, demux_info->main_fmt, demux_info->main_pid);
                     if (demux_info->dual_decoder_support)
@@ -538,7 +538,7 @@ static int dtv_patch_status_info(void *args, INFO_TYPE_E info_flag)
         ret = get_buffer_read_space(ringbuffer);
     else if (info_flag == AD_MIXING_ENABLE) {
         ret = aml_dev->associate_audio_mixing_enable;
-    } else if (info_flag == AD_MIXING_LEVLE)
+    } else if (info_flag == AD_MIXING_LEVEL)
         ret = aml_dev->mixing_level;
     else if (info_flag == AD_MIXING_PCMSCALE)
         ret = aml_dev->advol_level;
@@ -679,7 +679,7 @@ static bool dtv_firstapts_lookup_over(struct aml_audio_patch *patch, struct aml_
 
     if ((first_checkinapts != 0xffffffff) && (demux_pcr != 0xffffffff)) {
         if (demux_pcr == 0 && first_checkinapts != 0 && last_checkinapts != 0) {
-            ALOGI("demux pcr not set, wait, tsync_mode=%d, use_tsdemux_pcr=%d\n", dtv_get_tsync_mode(), get_dtv_pcr_sync_mode());
+            ALOGI("demux pcr not set, wait, tsync_mode=%d, use_tsync_demux_pcr=%d\n", dtv_get_tsync_mode(), get_dtv_pcr_sync_mode());
             return false;
         }
         if (first_checkinapts > demux_pcr) {
@@ -715,7 +715,7 @@ static int dtv_set_audio_latency(int apts_diff)
     int ret, diff = 0;
     char buff[32];
 
-    /*[SE][BUG][SWPL-14828][chengshun.wang] add property
+    /*[SE][BUG][SWPL-14828] add property
      * to set start latency
      */
     int audio_latency = DEMUX_PCR_APTS_LATENCY;
@@ -917,7 +917,7 @@ static int dtv_do_drop_ac3_pcm(struct aml_audio_patch *patch,
         break;
     }
     if (patch->dtv_apts_lookup > AUDIO_PTS_DISCONTINUE_THRESHOLD) {
-        ALOGI("dtv_apts_looup = 0x%x > 5s,force set 5s \n", patch->dtv_apts_lookup);
+        ALOGI("dtv_apts_lookup = 0x%x > 5s,force set 5s \n", patch->dtv_apts_lookup);
         patch->dtv_apts_lookup = AUDIO_PTS_DISCONTINUE_THRESHOLD;
     }
     aml_out->need_drop_size = (patch->dtv_apts_lookup / 90) * 48 * frame_size;
@@ -1029,7 +1029,7 @@ static int do_audio_resample(int* ratio)
 }
 
 static int dtv_patch_pcm_write(unsigned char *pcm_data, int size,
-                               int symbolrate, int channel, int data_width, void *args)
+                               int samplerate, int channel, int data_width, void *args)
 {
     struct aml_audio_patch *patch = (struct aml_audio_patch *)args;
     struct audio_hw_device *dev = patch->dev;
@@ -1040,7 +1040,7 @@ static int dtv_patch_pcm_write(unsigned char *pcm_data, int size,
     unsigned char *write_buf;
     int16_t tmpbuf[OUTPUT_BUFFER_SIZE];
     char info_buf[MAX_BUFF_LEN] = {0};
-    int valid_paramters = 1;
+    int valid_parameters = 1;
     int ratio = 100;
     int enable_audio_resample = property_get_int32(PROPERTY_ENABLE_AUDIO_RESAMPLE, 0);
 
@@ -1053,14 +1053,14 @@ static int dtv_patch_pcm_write(unsigned char *pcm_data, int size,
         (patch->dtv_audio_tune == AUDIO_DROP && patch->pcm_inserting)) {
         return 0;
     }
-    patch->sample_rate = symbolrate;
+    patch->sample_rate = samplerate;
     // In the case of fast switching channels such as mpeg/dra/..., there may be an
-    // error "symbolrate" and "channel" paramters, so add the check to avoid it.
-    if (symbolrate > 96000 || symbolrate < 8000) {
-        valid_paramters = 0;
+    // error "samplerate" and "channel" parameters, so add the check to avoid it.
+    if (samplerate > 96000 || samplerate < 8000) {
+        valid_parameters = 0;
     }
     if (channel > 8 || channel < 1) {
-        valid_paramters = 0;
+        valid_parameters = 0;
     }
     patch->chanmask = channel;
     if (patch->sample_rate != 48000) {
@@ -1105,7 +1105,7 @@ static int dtv_patch_pcm_write(unsigned char *pcm_data, int size,
     return_size = write_size;
     if ((patch->aformat != AUDIO_FORMAT_E_AC3 &&
          patch->aformat != AUDIO_FORMAT_AC3 &&
-         patch->aformat != AUDIO_FORMAT_DTS) && valid_paramters) {
+         patch->aformat != AUDIO_FORMAT_DTS) && valid_parameters) {
         if (patch->chanmask == 1) {
             int16_t *buf = (int16_t *)write_buf;
             int i = 0, samples_num;
@@ -1171,7 +1171,7 @@ static int dtv_patch_pcm_write(unsigned char *pcm_data, int size,
             write_buf, write_size);
     }
     patch->dtv_pcm_wrote += return_size;
-    //ALOGI("[%s]ring_buffer_write now wirte %d to ringbuffer\
+    //ALOGI("[%s]ring_buffer_write now write %d to ringbuffer\
     //now, total:%d.\n", __FUNCTION__, write_size);
     if (patch->aformat != AUDIO_FORMAT_E_AC3 &&
          patch->aformat != AUDIO_FORMAT_AC3 &&
@@ -1183,7 +1183,7 @@ static int dtv_patch_pcm_write(unsigned char *pcm_data, int size,
     return return_size;
 }
 
-static int dtv_patch_raw_wirte(unsigned char *raw_data, int size, void *args)
+static int dtv_patch_raw_write(unsigned char *raw_data, int size, void *args)
 {
     struct aml_audio_patch *patch = (struct aml_audio_patch *)args;
     ring_buffer_t *ringbuffer = &(patch->aml_ringbuffer);
@@ -1275,7 +1275,7 @@ void audio_dtv_underrun_loop_mute_check(struct aml_audio_patch *patch,
             mutetime_ms = calc_time_interval_us(&(dtv_sync_para->underrun_mute_starttime),
                                                 &cur_time) / 1000;
             if (dtv_patch_get_audio_loop()) {
-                checkin_discontinue_apts = dtv_patch_get_checkin_dicontinue_apts();
+                checkin_discontinue_apts = dtv_patch_get_checkin_discontinue_apts();
                 if ((patch->cur_outapts >= checkin_discontinue_apts &&
                     (patch->cur_outapts - checkin_discontinue_apts) < 3000*90) ||
                     mutetime_ms > dtv_sync_para->underrun_mute_time_max) {
@@ -1319,28 +1319,28 @@ int audio_dtv_patch_output_default(struct aml_audio_patch *patch,
     struct aml_stream_out *aml_out;
     aml_out = (struct aml_stream_out *)stream_out;
     int avail = get_buffer_read_space(ringbuffer);
-    int video_valid_lantency = property_get_int32("vendor.media.audiohal.video.validtime",3);
+    int video_valid_latency = property_get_int32("vendor.media.audiohal.video.validtime",3);
     bool invalid_flag = property_get_bool("vendor.media.audiohal.video.invalidflag",0);
     if (avail >= (int)patch->out_buf_size) {
         write_len = (int)patch->out_buf_size;
         if (!patch->first_apts_lookup_over) {
             *apts_diff = dtv_set_audio_latency(0);
             if (invalid_flag) {
-                if ((!dtv_firstapts_lookup_over(patch, aml_dev, false, apts_diff) || avail < 48 * 4 * 50) && (patch->video_valid_time < video_valid_lantency * DEFAULT_VIDEO_VAILD_LANTENCY )) {
+                if ((!dtv_firstapts_lookup_over(patch, aml_dev, false, apts_diff) || avail < 48 * 4 * 50) && (patch->video_valid_time < video_valid_latency * DEFAULT_VIDEO_VALID_LATENCY )) {
                     pthread_mutex_unlock(&(patch->dtv_output_mutex));
                     patch->video_valid_time += 5000;
                     usleep(5000);
                     return -EAGAIN;
                 }
-                ALOGI("[audiohal_k patch->video_vaild_time  %d", patch->video_valid_time);
-                if ((patch->video_valid_time >= video_valid_lantency * DEFAULT_VIDEO_VAILD_LANTENCY)|| patch->video_invalid == 1 ) {
+                ALOGI("[audiohal_k patch->video_valid_time  %d", patch->video_valid_time);
+                if ((patch->video_valid_time >= video_valid_latency * DEFAULT_VIDEO_VALID_LATENCY)|| patch->video_invalid == 1 ) {
                     patch->dtv_has_video = 0;
                     patch->video_invalid = true;
                 }
             }
             else {
                 if (!dtv_firstapts_lookup_over(patch, aml_dev, false, apts_diff) || avail < 48 * 4 * 50) {
-                    ALOGI("[%d]hold the aduio for cache data, avail %d", __LINE__, avail);
+                    ALOGI("[%d]hold the audio for cache data, avail %d", __LINE__, avail);
                     pthread_mutex_unlock(&(patch->dtv_output_mutex));
                     usleep(5000);
                     return -EAGAIN;
@@ -1357,7 +1357,7 @@ int audio_dtv_patch_output_default(struct aml_audio_patch *patch,
             int a_discontinue = get_audio_discontinue();
             //dtv_set_audio_latency(*apts_diff);
             if (!dtv_firstapts_lookup_over(patch, aml_dev, true, apts_diff) && !a_discontinue) {
-                ALOGI("[%d]hold the aduio for cache data, avail %d", __LINE__, avail);
+                ALOGI("[%d]hold the audio for cache data, avail %d", __LINE__, avail);
                 pthread_mutex_unlock(&(patch->dtv_output_mutex));
                 usleep(5000);
                 return -EAGAIN;
@@ -1415,7 +1415,7 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream_out;
     int ret = 0;
 
-    int consume_size = 0,remain_size = 0,ms12_thredhold_size = 256;
+    int consume_size = 0,remain_size = 0,ms12_threshold_size = 256;
     char buff[32];
     int write_len, cur_frame_size = 0;
     unsigned long long all_pcm_len1 = 0;
@@ -1453,12 +1453,12 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
         }
 
         if (is_need_check_ad_substream (patch)) {
-            write_len = ADUIO_DOLBY_ADSUBFRAME_CHECKED_SIZE;
+            write_len = AUDIO_ADSUBFRAME_CHECKED_SIZE;
         }
         if (!patch->first_apts_lookup_over) {
             *apts_diff = dtv_set_audio_latency(0);
             if (!dtv_firstapts_lookup_over(patch, aml_dev, false, apts_diff) || avail < 512 * 2) {
-                ALOGI("hold the aduio for cache data, avail %d", avail);
+                ALOGI("hold the audio for cache data, avail %d", avail);
                 pthread_mutex_unlock(&(patch->dtv_output_mutex));
                 usleep(5000);
                 return -EAGAIN;
@@ -1472,7 +1472,7 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
         } else if (patch->dtv_audio_tune == AUDIO_BREAK) {
             int a_discontinue = get_audio_discontinue();
             int cur_diff = 0;
-            /*[SE][BUG][SWPL-26555][chengshun] ms12 happen underrun,if ms12 lib fix it, remove it*/
+            /*[SE][BUG][SWPL-26555] ms12 happen underrun,if ms12 lib fix it, remove it*/
             if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
                 cur_diff = *apts_diff / 2;
             } else {
@@ -1480,7 +1480,7 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
             }
             dtv_set_audio_latency(cur_diff);
             if (!dtv_firstapts_lookup_over(patch, aml_dev, true, &cur_diff) && !a_discontinue) {
-                ALOGI("hold the aduio for cache data, avail %d", avail);
+                ALOGI("hold the audio for cache data, avail %d", avail);
                 pthread_mutex_unlock(&(patch->dtv_output_mutex));
                 usleep(5000);
                 return -EAGAIN;
@@ -1534,14 +1534,14 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
         }
         if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
             consume_size = dolby_ms12_get_main_bytes_consumed(stream_out);
-            consume_size  = consume_size > ms12_thredhold_size ? consume_size - ms12_thredhold_size : 0;
+            consume_size  = consume_size > ms12_threshold_size ? consume_size - ms12_threshold_size : 0;
             if (is_bypass_dolbyms12(stream_out))
                 all_pcm_len1 = aml_out->frame_write_sum * AUDIO_IEC61937_FRAME_SIZE;
             else
                 dolby_ms12_get_pcm_output_size(&all_pcm_len1, &all_zero_len);
         }
 
-        /* +[SE] [BUG][SWPL-22893][yinli.xia]
+        /* +[SE] [BUG][SWPL-22893]
               add: reset decode data when replay video*/
         if (patch->dtv_replay_flag) {
             remain_size = 0;
@@ -1551,7 +1551,7 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
 
         if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
             int size = dolby_ms12_get_main_bytes_consumed(stream_out);
-            size  = size > ms12_thredhold_size ? size - ms12_thredhold_size : 0;
+            size  = size > ms12_threshold_size ? size - ms12_threshold_size : 0;
             dolby_ms12_get_pcm_output_size(&all_pcm_len2, &all_zero_len);
             if (is_bypass_dolbyms12(stream_out)) {
                 patch->decoder_offset += ret;
@@ -1604,7 +1604,7 @@ int audio_dtv_patch_output_dts(struct aml_audio_patch *patch, struct audio_strea
             apts_diff = dtv_set_audio_latency(0);
 
             if (!dtv_firstapts_lookup_over(patch, aml_dev, false, &apts_diff) || avail < 512 * 2) {
-                ALOGI("hold the aduio for cache data, avail %d", avail);
+                ALOGI("hold the audio for cache data, avail %d", avail);
                 pthread_mutex_unlock(&(patch->dtv_output_mutex));
                 usleep(5000);
                 return -EAGAIN;
@@ -1624,7 +1624,7 @@ int audio_dtv_patch_output_dts(struct aml_audio_patch *patch, struct audio_strea
         if (dtshd)
             remain_size = dtshd->remain_size;
 
-        /* +[SE] [BUG][SWPL-22893][yinli.xia]
+        /* +[SE] [BUG][SWPL-22893]
               add: reset decode data when replay video*/
         if (patch->dtv_replay_flag) {
             remain_size = 0;
@@ -1695,7 +1695,7 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
         if (!patch->first_apts_lookup_over) {
             *apts_diff = dtv_set_audio_latency(0);
             if (!dtv_firstapts_lookup_over(patch, aml_dev, false, apts_diff) || main_avail < 512 * 2) {
-                ALOGI("hold the aduio for cache data, avail %d", main_avail);
+                ALOGI("hold the audio for cache data, avail %d", main_avail);
                 pthread_mutex_unlock(&(patch->dtv_output_mutex));
                 usleep(5000);
                 return -EAGAIN;
@@ -1712,7 +1712,7 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
             if (a_discontinue == 0) {
                 ALOGI("audio is resumed\n");
             } else if (!dtv_firstapts_lookup_over(patch, aml_dev, true, apts_diff)) {
-                ALOGI("hold the aduio for cache data, avail %d", main_avail);
+                ALOGI("hold the audio for cache data, avail %d", main_avail);
                 pthread_mutex_unlock(&(patch->dtv_output_mutex));
                 usleep(5000);
                 return -EAGAIN;
@@ -1951,7 +1951,7 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
             || (mixbuffer[9] != 0xb && mixbuffer[9] != 0x77)
             || (mixbuffer[mix_size] != 0xb && mixbuffer[mix_size] != 0x77)
             || (mixbuffer[mix_size + 1] != 0xb && mixbuffer[mix_size + 1] != 0x77)) {
-            ALOGD("AD mix main_size=%d ad_size=%d wirte_size=%d 0x%x 0x%x 0x%x 0x%x", main_size, ad_size, ret,
+            ALOGD("AD mix main_size=%d ad_size=%d write_size=%d 0x%x 0x%x 0x%x 0x%x", main_size, ad_size, ret,
                   mixbuffer[8], mixbuffer[9], mixbuffer[mix_size], mixbuffer[mix_size + 1]);
         }
 
@@ -2010,7 +2010,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
         /*
         there are several output cases. if there are no ms12 or submixing modules.
         we will output raw/lpcm directly.we need close device directly.
-        we need call standy function to release the direct stream
+        we need call standby function to release the direct stream
         */
         out_standby_new((struct audio_stream *)aml_out);
         pthread_mutex_lock(&aml_dev->lock);
@@ -2202,7 +2202,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                                  dtv_patch_audio_info,patch);
             patch->adec_handle = adec_handle;
             patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_START;
-            /* +[SE] [BUG][SWPL-21070][yinli.xia] added: turn channel mute audio*/
+            /* +[SE] [BUG][SWPL-21070] added: turn channel mute audio*/
             if (switch_flag) {
                 if (patch->dtv_has_video == 1)
                     aml_dev->start_mute_flag = 1;
@@ -2334,7 +2334,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 goto exit;
             }
 
-            /*[SE][BUG][SWPL-17416][chengshun] maybe sometimes subafmt and subapid not set before dtv patch start*/
+            /*[SE][BUG][SWPL-17416] maybe sometimes sub ad fmt and sub ad pid not set before dtv patch start*/
             if (aml_dev->ad_start_enable == 0 && VALID_PID(demux_info->ad_pid) && VALID_AD_FMT(demux_info->ad_fmt)) {
                 if (aml_dev->dolby_lib_type == eDolbyMS12Lib) {
                     if (aml_dev->disable_pcm_mixing == false || aml_dev->digital_audio_format == PCM ||
@@ -2633,7 +2633,7 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
             mix_size += 8;
             ALOGV("main size %d p_package->size %d used_size %d",main_frame_size, p_package->size, used_size);
             if (main_frame_size + ad_frame_size + mix_size > EAC3_IEC61937_FRAME_SIZE) {
-                ALOGE("pakage size too large, main_size %d ad_size %d", main_frame_size, ad_frame_size);
+                ALOGE("package size too large, main_size %d ad_size %d", main_frame_size, ad_frame_size);
                 return ret;
             }
             if (main_frame_buffer) {
@@ -2903,7 +2903,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
                             goto exit;
                         }
 
-                        /* get dtv main and ad pakcage */
+                        /* get dtv main and ad package */
                         while (!patch->input_thread_exit) {
                             /* get main data */
                             if (mEsData == NULL) {
@@ -3024,7 +3024,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
 
                     }
 
-                     /* mediasyn check dmx package */
+                     /* mediasync check dmx package */
                      {
                         audio_queue_info.apts = dtv_package->pts;
                         audio_queue_info.duration = Dtvsync->duration;
@@ -3210,7 +3210,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
         /*
         there are several output cases. if there are no ms12 or submixing modules.
         we will output raw/lpcm directly.we need close device directly.
-        we need call standy function to release the direct stream
+        we need call standby function to release the direct stream
         */
         out_standby_new((struct audio_stream *)aml_out);
         pthread_mutex_lock(&aml_dev->lock);
@@ -3410,7 +3410,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 goto exit;
             }
             patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_START;
-            /* +[SE] [BUG][SWPL-21070][yinli.xia] added: turn channel mute audio*/
+            /* +[SE] [BUG][SWPL-21070] added: turn channel mute audio*/
             if (switch_flag) {
                 if (patch->dtv_has_video == 1)
                     aml_dev->start_mute_flag = 1;
@@ -3992,7 +3992,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
 
     if (aml_dev->dtv_i2s_clock == 0) {
         aml_dev->dtv_i2s_clock = aml_mixer_ctrl_get_int(&(aml_dev->alsa_mixer), AML_MIXER_ID_CHANGE_I2S_PLL);
-        aml_dev->dtv_spidif_clock = aml_mixer_ctrl_get_int(&(aml_dev->alsa_mixer), AML_MIXER_ID_CHANGE_SPIDIF_PLL);
+        aml_dev->dtv_spdif_clock = aml_mixer_ctrl_get_int(&(aml_dev->alsa_mixer), AML_MIXER_ID_CHANGE_SPDIF_PLL);
     }
 
 
@@ -4091,7 +4091,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     patch->mode = aml_dev->dtv_sound_mode;
     patch->dtv_output_clock = 0;
     patch->dtv_default_i2s_clock = aml_dev->dtv_i2s_clock;
-    patch->dtv_default_spdif_clock = aml_dev->dtv_spidif_clock;
+    patch->dtv_default_spdif_clock = aml_dev->dtv_spdif_clock;
     patch->spdif_format_set = 0;
     patch->avsync_callback = dtv_avsync_process;
     patch->spdif_step_clk = 0;
@@ -4102,7 +4102,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     patch->debug_para.debug_last_out_apts = 0;
     patch->debug_para.debug_last_out_vpts = 0;
     patch->debug_para.debug_last_demux_pcr = 0;
-    patch->debug_para.debug_time_interval = property_get_int32(PROPERTY_DEBUG_TIME_INTERVAL, DEFULT_DEBUG_TIME_INTERVAL);
+    patch->debug_para.debug_time_interval = property_get_int32(PROPERTY_DEBUG_TIME_INTERVAL, DEFAULT_DEBUG_TIME_INTERVAL);
 
     ALOGI("--%s", __FUNCTION__);
     return 0;
@@ -4496,7 +4496,7 @@ int audio_get_sample_rate_channels(int *sample_rate, int *channels, int *lfepres
     if (sample_rate == NULL && channels == NULL && lfepresent == NULL) {
         return -1;
     }
-    ret = dtv_audio_decpara_get(sample_rate, channels, lfepresent);
+    ret = dtv_audio_dec_para_get(sample_rate, channels, lfepresent);
     return ret;
 }
 

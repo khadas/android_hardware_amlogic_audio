@@ -134,7 +134,7 @@ void close_btSCO_device(struct aml_audio_device *adev)
     pthread_mutex_lock(&bt->lock);
     struct pcm *pcm = bt->pcm_bt;
     if (!bt->active) {
-        AM_LOGW("Alread has been closed.");
+        AM_LOGW("Already has been closed.");
         goto exit;
     }
     if (pcm) {
@@ -174,7 +174,7 @@ ssize_t write_to_sco(struct aml_audio_device *adev, audio_config_base_t *config,
     if (!bt->active) {
         ret = open_btSCO_device(adev, in_frames);
         if (ret) {
-            ALOGD("%s: open btsco pcm fail", __func__);
+            ALOGD("%s: open bt sco pcm fail", __func__);
             return bytes;
         }
     }

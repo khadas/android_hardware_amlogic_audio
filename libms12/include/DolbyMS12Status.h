@@ -31,17 +31,17 @@ public:
     DolbyMS12Status();
     virtual ~DolbyMS12Status();
     virtual void setMixerPlayBackStatus(int flags) {
-                mDoblyMS12StatusInputPCM = flags;
-                if (!mDoblyMS12StatusInputPCM) {
+                mDolbyMS12StatusInputPCM = flags;
+                if (!mDolbyMS12StatusInputPCM) {
                     mMixerAudioStreamOutformat = AUDIO_FORMAT_INVALID;
                     mMixerAudioChannelMask = AUDIO_CHANNEL_INVALID;
                     mMixerAudioStreamOutSampleRate = 0;
                     mMixerOutDevices = AUDIO_DEVICE_NONE ;
                 }
-                // ALOGV("%s mDoblyMS12StatusInputPCM %s", __FUNCTION__, (mDoblyMS12StatusInputPCM == 1)? "MixerPlayback(Input PCM) Start" : "MixerPlayback(Input PCM) Stop");
+                // ALOGV("%s mDolbyMS12StatusInputPCM %s", __FUNCTION__, (mDolbyMS12StatusInputPCM == 1)? "MixerPlayback(Input PCM) Start" : "MixerPlayback(Input PCM) Stop");
             }
     virtual int getMixerPlaybackStatus(void) {
-                return mDoblyMS12StatusInputPCM;
+                return mDolbyMS12StatusInputPCM;
             }
     virtual void setDirectOrOffloadPlaybackStatus(int flags) {
                 mDolbyMS12StatusInputRaw = flags;
@@ -217,7 +217,7 @@ private:
     DolbyMS12Status& operator = (const DolbyMS12Status&);
     static android::Mutex mLock;
     static DolbyMS12Status *gInstance;
-    int mDoblyMS12StatusInputPCM;
+    int mDolbyMS12StatusInputPCM;
     int mDolbyMS12StatusInputRaw;//dd/dd+/aac/heaac-v1/heaac-v2
 
     //mixer

@@ -524,7 +524,7 @@ int dcv_decoder_init_patch(aml_dec_t ** ppaml_dec, aml_dec_config_t * dec_config
     ddp_dec->curFrmSize = 0;
     ddp_dec->inbuf = NULL;
 
-    ddp_dec->dcv_pcm_writed = 0;
+    ddp_dec->dcv_pcm_wrote = 0;
     ddp_dec->dcv_decoded_samples = 0;
     ddp_dec->dcv_decoded_errcount = 0;
     //memset(ddp_dec->sysfs_buf, 0, sizeof(ddp_dec->sysfs_buf));
@@ -630,7 +630,7 @@ int dcv_decoder_release_patch(aml_dec_t * aml_dec)
         ddp_dec->curFrmSize = 0;
         ddp_dec->decoding_mode = DDP_DECODE_MODE_SINGLE;
         ddp_dec->mixer_level = 0;
-        ddp_dec->dcv_pcm_writed = 0;
+        ddp_dec->dcv_pcm_wrote = 0;
         ddp_dec->dcv_decoded_samples = 0;
         ddp_dec->dcv_decoded_errcount = 0;
         //memset(ddp_dec->sysfs_buf, 0, sizeof(ddp_dec->sysfs_buf));
@@ -773,7 +773,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
                  , &associate_frame_buffer
                  , &associate_frame_size);
         if (dual_input_ret) {
-            ALOGE("%s used size %d dont find the iec61937 format header, rescan next time!\n", __FUNCTION__, dual_decoder_used_bytes);
+            ALOGE("%s used size %d don't find the iec61937 format header, re-scan next time!\n", __FUNCTION__, dual_decoder_used_bytes);
             goto EXIT;
         }
         ALOGV("main frame size =%d ad frame size =%d", main_frame_size, associate_frame_size);
@@ -952,8 +952,8 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
             raw_in_data->data_len = 0;
         }
     }
-    ddp_dec->dcv_pcm_writed += ddp_dec->outlen_pcm;
-    ddp_dec->dcv_decoded_samples = (ddp_dec->dcv_pcm_writed * 8 ) / (2 * bit_width);
+    ddp_dec->dcv_pcm_wrote += ddp_dec->outlen_pcm;
+    ddp_dec->dcv_decoded_samples = (ddp_dec->dcv_pcm_wrote * 8 ) / (2 * bit_width);
 
     //sprintf(ddp_dec->sysfs_buf, "decoded_frames %llu", ddp_dec->dcv_decoded_samples);
     //sysfs_set_sysfs_str(REPORT_DECODED_INFO, ddp_dec->sysfs_buf);
@@ -1016,7 +1016,7 @@ int dcv_decoder_info(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_dec_
     case AML_DEC_REMAIN_SIZE:
         dec_info->remain_size = ddp_dec->remain_size;
         return 0;
-    case AML_DEC_STREMAM_INFO:
+    case AML_DEC_STREAM_INFO:
         memset(&dec_info->dec_info, 0x00, sizeof(aml_dec_stream_info_t));
         memcpy(&dec_info->dec_info, &ddp_dec->stream_info, sizeof(aml_dec_stream_info_t));
         if (ddp_dec->stream_info.stream_sr != 0 && ddp_dec->total_time < CALCULATE_BITRATE_NEED_TIME) { //we only calculate bitrate in the first five minutes

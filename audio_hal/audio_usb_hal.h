@@ -76,7 +76,7 @@
 
      struct listnode list_node;
 
-     /* We may need to read more data from the device in order to data reduce to 16bit, 4chan */
+     /* We may need to read more data from the device in order to data reduce to 16bit, 4 channels */
      void * conversion_buffer;           /* any conversions are put into here
                                           * they could come from here too if
                                           * there was a previous conversion */

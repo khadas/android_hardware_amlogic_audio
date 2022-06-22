@@ -51,7 +51,7 @@ typedef struct dra_decoder_operations {
     int (*decode)(void *, char *outbuf, int *outlen, char *inbuf, int inlen);
     int (*release)(void *);
     int (*getinfo)(void *, AudioInfo *pAudioInfo);
-    void * priv_data;//point to audec
+    void * priv_data;//point to audio dec
     void * priv_dec_data;//decoder private data
     void *pdecoder; // decoder instance
     int channels;

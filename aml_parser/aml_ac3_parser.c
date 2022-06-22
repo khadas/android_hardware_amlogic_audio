@@ -139,7 +139,7 @@ int scan_dolby_main_associate_frame (void *input_buffer
 
     if ( (ret == 0) && (payload_size > 0) ) {
         *main_frame_buffer = (void *) ( (char *) input_buffer + sync_word_offset + IEC61937_HEADER_SIZE);
-        if (0 == parse_dolby_frame_header (*main_frame_buffer, *used_size, &scan_frame_offset, &scan_frame_size
+        if (0 == aml_ac3_parser_frame_header (*main_frame_buffer, *used_size, &scan_frame_offset, &scan_frame_size
                                            , &scan_channel_num, &scan_numblks, &scan_timeslice_61937, &scan_framevalid_flag) ) {
             *main_frame_buffer = (void *) ( (char *) *main_frame_buffer + scan_frame_offset);
             *main_frame_size = scan_frame_size;

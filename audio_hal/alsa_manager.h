@@ -105,7 +105,7 @@ int aml_alsa_output_getinfo(void *handle, alsa_info_type_t type, alsa_output_inf
 int aml_alsa_output_pause_new(void *handle);
 int aml_alsa_output_resume_new(void *handle);
 int aml_alsa_output_stop_new(void *handle);
-int aml_alsa_output_data_handle(void *handle, void *output_buffer, size_t size, int vaule, bool is_mute);
+int aml_alsa_output_data_handle(void *handle, void *output_buffer, size_t size, int value, bool is_mute);
 
 void alsa_out_reconfig_params(struct audio_stream_out *stream);
 enum pcm_format convert_audio_format_2_alsa_format(audio_format_t format);

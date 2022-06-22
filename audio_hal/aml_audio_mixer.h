@@ -41,7 +41,7 @@ struct aml_audio_mixer;
 struct aml_audio_mixer *new_aml_audio_mixer(struct pcm *pcm_handle);
 
 /**
- * distructor to free the mixer
+ * destructor to free the mixer
  */
 void free_aml_audio_mixer(struct aml_audio_mixer *audio_mixer);
 void mixer_set_hwsync_input_port(struct aml_audio_mixer *audio_mixer,

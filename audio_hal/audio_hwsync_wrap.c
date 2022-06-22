@@ -58,7 +58,7 @@ static void aml_hwsync_wrap_single_set_tsync_pause(void)
 
 static void aml_hwsync_wrap_single_set_tsync_resume(void)
 {
-    ALOGI("%s(), send resuem event", __func__);
+    ALOGI("%s(), send resume event", __func__);
     sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_RESUME");
 }
 
@@ -157,7 +157,7 @@ void aml_hwsync_wrap_set_tsync_resume(audio_hwsync_t *p_hwsync)
     }
     ret = mediasync_wrap_getSyncMode(p_hwsync->mediasync, &mode);
     if (ret && (mode == MEDIA_SYNC_VMASTER)) {
-        ALOGI("%s(), vmaster do not send resuem event", __func__);
+        ALOGI("%s(), vmaster do not send resume event", __func__);
         return;
     }
     mediasync_wrap_setPause(p_hwsync->mediasync, false);
@@ -338,7 +338,7 @@ void aml_hwsync_wrap_wait_video_drop(audio_hwsync_t *p_hwsync, uint64_t cur_pts,
     }
     outMediaPts = outRealMediaUs / 1000LL * 90;
     audio_cur_pts = (int64_t)cur_pts;
-    ALOGI("====================, now audiopts %" PRId64 " vpts  %" PRId64 " ", audio_cur_pts, outMediaPts);
+    ALOGI("====================, now audio pts %" PRId64 " vpts  %" PRId64 " ", audio_cur_pts, outMediaPts);
     if ((audio_cur_pts - outMediaPts) > SYSTIME_CORRECTION_THRESHOLD) {
         bool ispause = false;
         bool ret = mediasync_wrap_getPause(p_hwsync->mediasync, &ispause);
@@ -358,7 +358,7 @@ void aml_hwsync_wrap_wait_video_drop(audio_hwsync_t *p_hwsync, uint64_t cur_pts,
                 break;
             usleep(20000);
             count++;
-            ALOGI("fisrt audio wait video %d ms,now audiopts %" PRId64 " vpts %" PRId64 " ", count * 20, audio_cur_pts, outMediaPts);
+            ALOGI("first audio wait video %d ms,now audiopts %" PRId64 " vpts %" PRId64 " ", count * 20, audio_cur_pts, outMediaPts);
         }
     } else {
         bool ispause = false;
@@ -390,7 +390,7 @@ void aml_hwsync_wrap_set_tsync_pause(void)
 
 void aml_hwsync_wrap_set_tsync_resume(void)
 {
-    ALOGI("%s(), send resuem event", __func__);
+    ALOGI("%s(), send resume event", __func__);
     sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_RESUME");
 }
 

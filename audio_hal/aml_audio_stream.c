@@ -299,7 +299,7 @@ bool is_sink_support_dolby_passthrough(audio_format_t sink_capability)
  *   btw, AUDIO_FORMAT_PCM_16_BIT < AUDIO_FORMAT_AC3 < AUDIO_FORMAT_MAT is true.
  *   we can use the min(a, b) to get an suitable output format.
  *3. if source format is AUDIO_FORMAT_AC4, we can not use the min(a,b) to get the
- *   suitable format but use the sink device max capbility format.
+ *   suitable format but use the sink device max capability format.
  */
 static audio_format_t get_suitable_output_format(struct aml_stream_out *out,
         audio_format_t source_format, audio_format_t sink_format)
@@ -620,7 +620,7 @@ bool check_digital_in_stream_signal(struct audio_stream_in *stream)
     audio_type_parse_t *audio_type_status = (audio_type_parse_t *)patch->audio_parse_para;
     enum audio_type cur_audio_type = LPCM;
 
-    /* paser thread may have exited ,add the code to avoid NULL point visit*/
+    /* parse thread may have exited ,add the code to avoid NULL point visit*/
     if (audio_type_status == NULL)  {
         return true;
     }
@@ -713,7 +713,7 @@ int get_hdmiin_channel(struct aml_mixer_handle *mixer_handle)
         return -1;
     }
 
-    /*hmdirx audio support: N/A, 2, 3, 4, 5, 6, 7, 8*/
+    /*hdmirx audio support: N/A, 2, 3, 4, 5, 6, 7, 8*/
     channel_index = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_HDMI_IN_CHANNELS);
     if (channel_index == 0) {
         return 0;
@@ -844,7 +844,7 @@ bool check_tv_stream_signal(struct audio_stream_in *stream)
     /*if need mute input source, don't read data from hardware anymore*/
     if (in_mute || parental_mute) {
 
-        /* when audio is unstable, start avaync*/
+        /* when audio is unstable, start avsync*/
         if (patch && in_mute) {
             patch->need_do_avsync = true;
             patch->input_signal_stable = false;
@@ -910,7 +910,7 @@ void aml_audio_port_config_dump(struct audio_port_config *port_config, int fd)
                port_config->ext.device.type, port_config->ext.device.address);
         break;
     case AUDIO_PORT_TYPE_MIX:
-        dprintf(fd, "\t-port mix: iohandle(%d)\n", port_config->ext.mix.handle);
+        dprintf(fd, "\t-port mix: io handle(%d)\n", port_config->ext.mix.handle);
         break;
     default:
         break;
@@ -1102,7 +1102,7 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     int update_type = get_codec_type(format);
     int update_threshold = DOLBY_FMT_UPDATE_THRESHOLD;
-    int cur_aml_dap_surround_virtuallizer = dolby_ms12_get_dap_surround_virtuallizer();
+    int cur_aml_dap_surround_virtualizer = dolby_ms12_get_dap_surround_virtualizer();
 
     if (is_dolby_ms12_support_compression_format(format)) {
         update_threshold = DOLBY_FMT_UPDATE_THRESHOLD;
@@ -1116,8 +1116,8 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
     }
 
     /* Check whether the update_type is stable or not as bellow. */
-    bool is_virt_updated_off_vs_onauto = (!!adev->audio_hal_info.aml_dap_surround_virtuallizer != !!cur_aml_dap_surround_virtuallizer);
-    bool is_virt_updated_for_aml_atmos = (atmos_flag && is_virt_updated_off_vs_onauto);
+    bool is_virt_updated_off_vs_on_auto = (!!adev->audio_hal_info.aml_dap_surround_virtualizer != !!cur_aml_dap_surround_virtualizer);
+    bool is_virt_updated_for_aml_atmos = (atmos_flag && is_virt_updated_off_vs_on_auto);
 
     if ((format != adev->audio_hal_info.format) ||
         (atmos_flag != adev->audio_hal_info.is_dolby_atmos) ||
@@ -1140,7 +1140,7 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
         }
     }
 
-    bool is_dolby_atmos_off = (MS12_DAP_SPEAKER_VIRTUALIZER_OFF == cur_aml_dap_surround_virtuallizer);
+    bool is_dolby_atmos_off = (MS12_DAP_SPEAKER_VIRTUALIZER_OFF == cur_aml_dap_surround_virtualizer);
     if (atmos_flag == 1) {
         if (format == AUDIO_FORMAT_E_AC3)
             update_type = (is_dolby_atmos_off) ? TYPE_DDP_ATMOS_PROMPT_ON_ATMOS : TYPE_DDP_ATMOS;
@@ -1159,7 +1159,7 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
     adev->audio_hal_info.format = format;
     adev->audio_hal_info.is_dolby_atmos = atmos_flag;
     adev->audio_hal_info.update_type = update_type;
-    adev->audio_hal_info.aml_dap_surround_virtuallizer = cur_aml_dap_surround_virtuallizer;
+    adev->audio_hal_info.aml_dap_surround_virtualizer = cur_aml_dap_surround_virtualizer;
 
     if (adev->audio_hal_info.update_cnt == update_threshold) {
 
@@ -1231,7 +1231,7 @@ void update_audio_format(struct aml_audio_device *adev, audio_format_t format)
      * }
      * **If Dolby steam is not active, the available format is LPCM or DTS
      * **The following case do not exit at all **
-     * else //(!is_dolby_acrive && is_dolby_format) {
+     //else //(!is_dolby_active && is_dolby_format) {
      * }
      */
 }
@@ -1471,7 +1471,7 @@ int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, s
 void create_tvin_buffer(struct aml_audio_patch *patch)
 {
     int ret = ring_buffer_init(&patch->tvin_ringbuffer, 4 * 48 * 64);
-    AM_LOGI("aring_buffer_init size:%d, ret=%d", 4 * 48 * 64, ret);
+    AM_LOGI("ring_buffer_init size:%d, ret=%d", 4 * 48 * 64, ret);
     if (ret == 0) {
         patch->tvin_buffer_inited = 1;
     }
@@ -1653,7 +1653,7 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
 
             get_audio_patch_by_src_dev(dev, AUDIO_DEVICE_IN_HDMI, &pAudPatchTmp);
             if (pAudPatchTmp == NULL) {
-                ALOGE("%s,There is no autio patch using HDMI as input", __func__);
+                ALOGE("%s,There is no audio patch using HDMI as input", __func__);
                 goto exit;
             }
             if (pAudPatchTmp->sources[0].ext.device.type != AUDIO_DEVICE_IN_HDMI) {
@@ -1681,7 +1681,7 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
 
             get_audio_patch_by_src_dev(dev, AUDIO_DEVICE_IN_LINE, &pAudPatchTmp);
             if (pAudPatchTmp == NULL) {
-                ALOGE("%s,There is no autio patch using LINEIN as input", __func__);
+                ALOGE("%s,There is no audio patch using LINEIN as input", __func__);
                 goto exit;
             }
             if (pAudPatchTmp->sources[0].ext.device.type != AUDIO_DEVICE_IN_LINE) {

@@ -80,7 +80,7 @@ static void ap_set_force_use(struct audio_policy *pol,
     ALOGD("%s", __FUNCTION__);
 }
 
-    /* retreive current device category forced for a given usage */
+/* retrieve current device category forced for a given usage */
 static audio_policy_forced_cfg_t ap_get_force_use(
                                                const struct audio_policy *pol,
                                                audio_policy_force_use_t usage)

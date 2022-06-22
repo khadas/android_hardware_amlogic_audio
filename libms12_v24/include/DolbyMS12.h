@@ -27,7 +27,7 @@ typedef enum  {
     MS12_CONFIG_MAIN_VOLUME,
     MS12_CONFIG_MAT_STREAM_PROFILE,
     MS12_CONFIG_GAME_MODE,
-    MS12_CONFIG_ATMOS_DROP,    /*drop the frist 2 frames for atmos case*/
+    MS12_CONFIG_ATMOS_DROP,    /*drop the first 2 frames for atmos case*/
     MS12_CONFIG_MIXER_MAX_SIZE_ENABLED, /*enable the mixer max size to 1536, this can save cpu bandwidth*/
     MS12_CONFIG_STEREO_OUT_LATENCY,
     MS12_CONFIG_MULTICHANNEL_OUT_LATENCY,
@@ -182,7 +182,7 @@ public:
 
     virtual int     DolbyMS12HWSyncInit(void);
     virtual int     DolbyMS12HWSyncRelease(void);
-    virtual int     DolbyMS12HWSyncChecinPTS(int offset, int apts);
+    virtual int     DolbyMS12HWSyncCheckinPTS(int offset, int apts);
     virtual int     DolbyMS12GetLatencyForStereoOut(int *latency);
     virtual int     DolbyMS12GetLatencyForMultiChannelOut(int *latency);
     virtual int     DolbyMS12GetLatencyForDAPSpeakerOut(int *latency);
@@ -228,7 +228,7 @@ private:
     // DolbyMS12& operator = (const DolbyMS12&);
     // static android::Mutex mLock;
     // static DolbyMS12 *gInstance;
-    void *mDolbyMS12LibHanle;
+    void *mDolbyMS12LibHandle;
 };  // class DolbyMS12
 
 }   // android

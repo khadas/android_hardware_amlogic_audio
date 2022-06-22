@@ -93,7 +93,7 @@ struct dolby_ms12_desc {
     bool is_continuous_paused;
     int device;//alsa_device_t
     struct timespec timestamp;
-    uint64_t last_frames_postion;
+    uint64_t last_frames_position;
     uint64_t last_ms12_pcm_out_position;
     bool     ms12_position_update;
 
@@ -112,7 +112,7 @@ struct dolby_ms12_desc {
     // the input signal atmos info
     int is_dolby_atmos;
     int input_total_ms;
-    int bitsteam_cnt;
+    int bitstream_cnt;
     void * system_virtual_buf_handle;
     int nbytes_of_dmx_output_pcm_frame;
     int need_resync; /*handle from pause to resume sync*/

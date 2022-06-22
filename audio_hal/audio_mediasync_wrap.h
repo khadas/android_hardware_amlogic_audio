@@ -45,7 +45,7 @@ bool mediasync_wrap_getMediaTime(void* handle, int64_t realUs,
 								bool allowPastMaxTime);
 bool mediasync_wrap_getRealTimeFor(void* handle, int64_t targetMediaUs, int64_t *outRealUs);
 bool mediasync_wrap_getRealTimeForNextVsync(void* handle, int64_t *outRealUs);
-bool mediasync_wrap_getTrackMediaTime(void* handle, int64_t *outMeidaUs);
+bool mediasync_wrap_getTrackMediaTime(void* handle, int64_t *outMediaUs);
 bool mediasync_wrap_setParameter(void* handle, mediasync_parameter type, void* arg);
 bool mediasync_wrap_getParameter(void* handle, mediasync_parameter type, void* arg);
 bool mediasync_wrap_queueAudioFrame(void* handle, struct mediasync_audio_queue_info* info);

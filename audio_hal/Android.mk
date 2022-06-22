@@ -38,7 +38,7 @@ include $(BUILD_PREBUILT)
 # libhardware/hardware.c
 #
 # The format of the name is audio.<type>.<hardware/etc>.so where the only
-# required type is 'primary'. Other possibilites are 'a2dp', 'usb', etc.
+# required type is 'primary'. Other possibilities are 'a2dp', 'usb', etc.
 	include $(CLEAR_VARS)
 
     LOCAL_MODULE := audio.primary.amlogic
@@ -202,13 +202,13 @@ ifneq ($(TARGET_BUILD_DOLBY_MS12_V1), true)
     LOCAL_SRC_FILES += audio_hw_ms12_v2.c
     LOCAL_CFLAGS += -DMS12_V24_ENABLE
     LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12_v24/include \
-                        hardmare/amlogic/audio/libms12_v24/include
+                        hardware/amlogic/audio/libms12_v24/include
     LOCAL_SHARED_LIBRARIES += libms12api_v24
 else
     LOCAL_SRC_FILES += audio_hw_ms12_common.c
     LOCAL_SRC_FILES += audio_hw_ms12.c
     LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include \
-                        hardmare/amlogic/audio/libms12/include
+                        hardware/amlogic/audio/libms12/include
     LOCAL_SHARED_LIBRARIES += libms12api
 endif
 

@@ -50,7 +50,7 @@ typedef struct faad_decoder_operations {
     int (*decode)(void *, char *outbuf, int *outlen, char *inbuf, int inlen);
     int (*release)(void *);
     int (*getinfo)(void *, AudioInfo *pAudioInfo);
-    void * priv_data;//point to audec
+    void * priv_data;//point to audio dec
     void * priv_dec_data;//decoder private data
     void *pdecoder; // decoder instance
     int channels;
@@ -519,7 +519,7 @@ static int faad_decoder_getinfo(aml_dec_t *aml_dec, aml_dec_info_type_t info_typ
     case AML_DEC_REMAIN_SIZE:
         //dec_info->remain_size = ddp_dec->remain_size;
         return 0;
-    case AML_DEC_STREMAM_INFO:
+    case AML_DEC_STREAM_INFO:
         memset(&dec_info->dec_info, 0x00, sizeof(aml_dec_stream_info_t));
         memcpy(&dec_info->dec_info, &aac_dec->stream_info, sizeof(aml_dec_stream_info_t));
         if (aac_dec->stream_info.stream_ch != 0 && aac_dec->stream_info.stream_sr != 0 && aac_dec->total_time < CALCULATE_BITRATE_NEED_TIME) { //we only calculate bitrate in the first five minutes

@@ -198,10 +198,10 @@ AUDIO_CHANNEL_OUT_7POINT1"
 AUDIO_CHANNEL_OUT_5POINT1|\
 AUDIO_CHANNEL_OUT_7POINT1"
 
-#define AUIDO_PROFILE_ITEM_NUM               (32)
+#define AUDIO_PROFILE_ITEM_NUM               (32)
 #define AUDIO_PROFILE_SAMPLERATE_NUM         (10)
 #define AUDIO_PROFILE_MAXCH_STRING           " %d ch"
-#define AUDIO_PROFILE_DEPVALUE_STRING        " DepVaule %x"
+#define AUDIO_PROFILE_DEPVALUE_STRING        " DepValue %x"
 
 /* Vendor Specific Audio Data Block Begin */
 /* Dolby Vendor-Specific Audio Data Block */
@@ -285,7 +285,7 @@ Table 15: Meanings of bit [7:0] of Dolby VSADB byte 7(sink device capabilities)
 */
 
 #define VSADB_LENGTH (7)/* vendor_specific_audio_data_block length is 7bytes*/
-#define VSADB_TOTAL_LINE_NUM_IN_AUD_CAP (7) //VSADB defination in the "/sys/class/amhdmitx/amhdmitx0/aud_cap"
+#define VSADB_TOTAL_LINE_NUM_IN_AUD_CAP (7) //VSADB definition in the "/sys/class/amhdmitx/amhdmitx0/aud_cap"
 #define DOLBY_VSADB_SYNC_WORD "e61146d000"
 /*
  *if the VSADB defined in "/sys/class/amhdmitx/amhdmitx0/aud_cap",
@@ -330,7 +330,7 @@ static audio_format_pair_t hdmi_format_table[] = {
     {"AAC"            , AUDIO_FORMAT_AAC          },
     {"DTS-HD"         , AUDIO_FORMAT_DTS_HD       }, /*put dts-hd before dts, we can check dts-hd first*/
     {"DTS"            , AUDIO_FORMAT_DTS          },
-    {"Dobly_Digital+" , AUDIO_FORMAT_E_AC3        },
+    {"Dolby_Digital+" , AUDIO_FORMAT_E_AC3        },
     {"MAT"            , AUDIO_FORMAT_MAT          },
     {"WMA_Pro"        , AUDIO_FORMAT_WMA_PRO      },
 };
@@ -355,7 +355,7 @@ typedef struct {
 
 
 struct hdmi_audio_profile_t{
-    audio_profile_cap_t audio_cap_item[AUIDO_PROFILE_ITEM_NUM];
+    audio_profile_cap_t audio_cap_item[AUDIO_PROFILE_ITEM_NUM];
 } ;
 
 static struct hdmi_audio_profile_t hdmi_audio_profile;
@@ -534,7 +534,7 @@ static int32_t edid_audio_info_parse(char * audio_info, audio_profile_cap_t * au
                     string_tok = strtok_r(NULL, ",", &saveptr);
                     if (string_tok) {
                         /*parse depvalue*/
-                        if (strstr(string_tok, "DepVaule")) {
+                        if (strstr(string_tok, "DepValue")) {
                             edid_audio_depvalue_parse(string_tok, audio_profile);
                         }
                     }
@@ -549,7 +549,7 @@ static int32_t edid_audio_info_parse(char * audio_info, audio_profile_cap_t * au
 
 static audio_profile_cap_t * get_edid_support_audio_format(audio_format_t audio_format) {
     int i = 0;
-    for (i = 0; i < AUIDO_PROFILE_ITEM_NUM; i++) {
+    for (i = 0; i < AUDIO_PROFILE_ITEM_NUM; i++) {
         if ((hdmi_audio_profile.audio_cap_item[i].audio_format == audio_format) &&
             hdmi_audio_profile.audio_cap_item[i].audio_format != AUDIO_FORMAT_INVALID &&
             hdmi_audio_profile.audio_cap_item[i].audio_format != AUDIO_FORMAT_DEFAULT) {
@@ -627,14 +627,14 @@ int  aml_hdmi_audio_profile_parser() {
             //vsadb has headphone & three speakers & version & Sink device capabilities & e61146d000xxxx(7bytes)
             vsadb_sub_index++;
 
-        /* if all the VSADB part is analysised, will to store new EDID infor with new audio_profile_cap_t*/
+        /* if all the VSADB part is analysed, will to store new EDID info with new audio_profile_cap_t*/
         if (vsadb_sub_index > VSADB_TOTAL_LINE_NUM_IN_AUD_CAP) {
             index_of_audio_cap_for_vsadb = i;
             i++;
             vsadb_sub_index = 0;
         }
 
-        if (i >= AUIDO_PROFILE_ITEM_NUM) {
+        if (i >= AUDIO_PROFILE_ITEM_NUM) {
             ALOGE("the HDMI EDID item is full\n");
             break;
         }
@@ -646,13 +646,13 @@ int  aml_hdmi_audio_profile_parser() {
     if (audio_cap_vsadb) {
         if (audio_cap_vsadb->vsadb.is_dolby_vsad && audio_cap_vsadb->vsadb.is_dolby_mat_pcm_48kHz) {
             //Byte3 bit0:1 bit1:0
-            //eg: "MAT, 8 ch, 348 kHz, DepVaule 0x1"
+            //eg: "MAT, 8 ch, 348 kHz, DepValue 0x1"
             /* According to Byte7 bit1 = 0, at table15
              * the sink device only support MAT PCM 48kHz decoding
              * and does not support Dolby TrueHD decoding
              * so, Dolby MS12 V2.4(or later), can output Dolby MAT.
              * TODO:
-             * If Dolby MS12 further version can output DOlby TrueHD,
+             * If Dolby MS12 further version can output dolby TrueHD,
              * this part should be modified as Dolby VSADB spec.
              */
             audio_cap_vsadb->audio_format = AUDIO_FORMAT_MAT;
@@ -767,7 +767,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
         if (audio_cap_item && (eDolbyMS12Lib == adev->dolby_lib_type)) {
             /*
              * when cat /sys/class/amhdmitx/amhdmitx0/aud_cap,
-             * "MAT, 8 ch, 44.1/48/88.2/96/176.4/192 kHz, DepVaule 0x1"
+             * eg: "AML_MAT, 8 ch, 44.1/48/88.2/96/176.4/192 kHz, DepValue 0x1"
              * would output MAT_1_0/MAT_2_0/MAT_2_1
              * here, call the AVR-TrueHD if AVR only supports MAT_1_0(DOLBY TRUEHD) not MAT_2_0/MAT_2_1,
              * If the AVR-TrueHD is broken or sick, we replace the AVR(Dolby ATMOS) with the property:
@@ -783,21 +783,21 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
             //DLB MAT and DLB TrueHD SAD
             if (audio_cap_item->dep_value == 0x1) {
                 //Byte3 bit0:1 bit1:0
-                //eg: "MAT, 8 ch, 32/44.1/48/88.2/96/176.4/192 kHz, DepVaule 0x1"
+                //eg: "MAT, 8 ch, 32/44.1/48/88.2/96/176.4/192 kHz, DepValue 0x1"
                 if (report_aml_truehd)
                     size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0");
                 p_hdmi_descs->mat_fmt.is_support = 1;
 
             } else if (audio_cap_item->dep_value == 0x0) {
                 //Byte3 bit0:0 bit1:0
-                //eg: "MAT, 8 ch, 48/96/192 kHz, DepVaule 0x0"
+                //eg: "MAT, 8 ch, 48/96/192 kHz, DepValue 0x0"
                 if (report_aml_truehd)
                     size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0");
                 p_hdmi_descs->mat_fmt.is_support = 0;//fixme about the mat_fmt.is_support
 
             } else if (audio_cap_item->dep_value == 0x3) {
                 //Byte3 bit0:0 bit1:1
-                //eg: "MAT, 8 ch, 48 kHz, DepVaule 0x3"
+                //eg: "MAT, 8 ch, 48 kHz, DepValue 0x3"
                 if (report_aml_truehd)
                     size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0|AUDIO_FORMAT_MAT_2_1");
                 p_hdmi_descs->mat_fmt.is_support = 1;
@@ -863,7 +863,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
             }
             break;
         default:
-            /* take the 2ch suppported as default */
+            /* take the 2ch supported as default */
             size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
             break;
         }
@@ -908,7 +908,7 @@ fail:
 #define MAX_CARD_NUM    2
 int get_external_card(int type)
 {
-    int card_num = 1;       // start num, 0 is defualt sound card.
+    int card_num = 1;       // start num, 0 is default sound card.
     struct stat card_stat;
     char fpath[256];
     int ret;
@@ -937,7 +937,7 @@ PCM, 8 ch, 32/44.1/48/88.2/96/176.4/192 kHz, 16/20/24 bit
 AC-3, 8 ch, 32/44.1/48 kHz,  bit
 DTS, 8 ch, 44.1/48 kHz,  bit
 OneBitAudio, 2 ch, 44.1 kHz,  bit
-Dobly_Digital+, 8 ch, 44.1/48 kHz, 16 bit
+Dolby_Digital+, 8 ch, 44.1/48 kHz, 16 bit
 DTS-HD, 8 ch, 44.1/48/88.2/96/176.4/192 kHz, 16 bit
 MAT, 8 ch, 32/44.1/48/88.2/96/176.4/192 kHz, 16 bit
 */
@@ -972,7 +972,7 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
             size += sprintf(aud_cap, "sup_formats=%s", "AUDIO_FORMAT_PCM_16_BIT");
             p_hdmi_descs->pcm_fmt.max_channels = 2;
             p_hdmi_descs->ddp_fmt.is_support = 0;
-            if (mystrstr(infobuf, "Dobly_Digital+")) {
+            if (mystrstr(infobuf, "Dolby_Digital+")) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3");
                 p_hdmi_descs->ddp_fmt.is_support = 1;
             }
@@ -1018,21 +1018,21 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
                     lseek(fd, mat_edid_offset, SEEK_SET);
                     int nread = read(fd, mat_edid_array, MAT_EDID_MAX_LEN);
                     if (nread >= 0) {
-                        if (mystrstr(mat_edid_array, "DepVaule 0x1")) {
+                        if (mystrstr(mat_edid_array, "DepValue 0x1")) {
                             //Byte3 bit0:1 bit1:0
-                            //eg: "MAT, 8 ch, 32/44.1/48/88.2/96/176.4/192 kHz, DepVaule 0x1"
+                            //eg: "MAT, 8 ch, 32/44.1/48/88.2/96/176.4/192 kHz, DepValue 0x1"
                             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0");
                             p_hdmi_descs->mat_fmt.is_support = 1;
                         }
-                        else if (mystrstr(mat_edid_array, "DepVaule 0x0")) {
+                        else if (mystrstr(mat_edid_array, "DepValue 0x0")) {
                             //Byte3 bit0:0 bit1:0
-                            //eg: "MAT, 8 ch, 48/96/192 kHz, DepVaule 0x0"
+                            //eg: "MAT, 8 ch, 48/96/192 kHz, DepValue 0x0"
                             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0");
                             p_hdmi_descs->mat_fmt.is_support = 0;//fixme about the mat_fmt.is_support
                         }
-                        else if (mystrstr(mat_edid_array, "DepVaule 0x3")) {
+                        else if (mystrstr(mat_edid_array, "DepValue 0x3")) {
                             //Byte3 bit0:0 bit1:1
-                            //eg: "MAT, 8 ch, 48 kHz, DepVaule 0x3"
+                            //eg: "MAT, 8 ch, 48 kHz, DepValue 0x3"
                             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0|AUDIO_FORMAT_MAT_2_1");
                             p_hdmi_descs->mat_fmt.is_support = 1;
                         }
@@ -1071,21 +1071,21 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
                 }
                 break;
             case AUDIO_FORMAT_E_AC3:
-                if (mystrstr(infobuf, "Dobly_Digital+")) {
+                if (mystrstr(infobuf, "Dolby_Digital+")) {
                     size += sprintf(aud_cap, "sup_channels=%s", EAC3_SUPPORT_CHANNEL);
                     p_hdmi_descs->ddp_fmt.max_channels = 8;
                 }
                 break;
             case AUDIO_FORMAT_E_AC3_JOC:
                 if (mystrstr(infobuf, "ATMOS") ||
-                    mystrstr(infobuf, "Dobly_Digital+")) {
+                    mystrstr(infobuf, "Dolby_Digital+")) {
                     size += sprintf(aud_cap, "sup_channels=%s", EAC3_JOC_SUPPORT_CHANNEL);
                     p_hdmi_descs->ddp_fmt.max_channels = 8;
                 }
                 break;
             case AUDIO_FORMAT_DOLBY_TRUEHD:
                 if (mystrstr(infobuf, "ATMOS") ||
-                    mystrstr(infobuf, "Dobly_Digital+")) {
+                    mystrstr(infobuf, "Dolby_Digital+")) {
                     size += sprintf(aud_cap, "sup_channels=%s", EAC3_JOC_SUPPORT_CHANNEL);
                     p_hdmi_descs->ddp_fmt.max_channels = 8;
                 }
@@ -1103,13 +1103,13 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
                 }
                 break;
             default:
-                /* take the 2ch suppported as default */
+                /* take the 2ch supported as default */
                 size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
                 break;
             }
         } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
             ALOGD("query hdmi sample_rate...\n");
-            /* take the 32/44.1/48 khz suppported as default */
+            /* take the 32/44.1/48 khz supported as default */
             size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
 
             if (format != AUDIO_FORMAT_IEC61937) {
@@ -1126,7 +1126,7 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
                     size += sprintf(aud_cap + size, "|%s", "192000");
                 }
             } else {
-              if((mystrstr(infobuf, "Dobly_Digital+") || mystrstr(infobuf, "DTS-HD") ||
+              if ((mystrstr(infobuf, "Dolby_Digital+") || mystrstr(infobuf, "DTS-HD") ||
                   mystrstr(infobuf, "MAT")) && format == AUDIO_FORMAT_IEC61937) {
                   size += sprintf(aud_cap + size, "|%s", "128000|176400|192000");
               }
@@ -1180,16 +1180,16 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
         int nread = read(fd, infobuf, 1024);
 
         /*hdmi device only support dd, not ddp, then we check whether we can do convert*/
-        if ((mystrstr(infobuf, "AC-3")) && !(mystrstr(infobuf, "Dobly_Digital+"))) {
+        if ((mystrstr(infobuf, "AC-3")) && !(mystrstr(infobuf, "Dolby_Digital+"))) {
             dolby_decoder_sup = conv_support;
-            ALOGI("dolby convet support =%d", dolby_decoder_sup);
+            ALOGI("dolby conv support =%d", dolby_decoder_sup);
         }
 
         /* check the format cap */
         if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS)) {
             ALOGD("query hdmi format...\n");
             size += sprintf(aud_cap, "sup_formats=%s", "AUDIO_FORMAT_PCM_16_BIT|AUDIO_FORMAT_IEC61937");
-            if (mystrstr(infobuf, "Dobly_Digital+") || dolby_decoder_sup) {
+            if (mystrstr(infobuf, "Dolby_Digital+") || dolby_decoder_sup) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3");
                 p_hdmi_descs->ddp_fmt.is_support = 1;
             }
@@ -1223,21 +1223,21 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
                     lseek(fd, mat_edid_offset, SEEK_SET);
                     int nread = read(fd, mat_edid_array, MAT_EDID_MAX_LEN);
                     if (nread >= 0) {
-                        if (mystrstr(mat_edid_array, "DepVaule 0x1")) {
+                        if (mystrstr(mat_edid_array, "DepValue 0x1")) {
                             //Byte3 bit0:1 bit1:0
-                            //eg: "MAT, 8 ch, 32/44.1/48/88.2/96/176.4/192 kHz, DepVaule 0x1"
+                            //eg: "MAT, 8 ch, 32/44.1/48/88.2/96/176.4/192 kHz, DepValue 0x1"
                             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0");
                             p_hdmi_descs->mat_fmt.is_support = 1;
                         }
-                        else if (mystrstr(mat_edid_array, "DepVaule 0x0")) {
+                        else if (mystrstr(mat_edid_array, "DepValue 0x0")) {
                             //Byte3 bit0:0 bit1:0
-                            //eg: "MAT, 8 ch, 48/96/192 kHz, DepVaule 0x0"
+                            //eg: "MAT, 8 ch, 48/96/192 kHz, DepValue 0x0"
                             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0");
                             p_hdmi_descs->mat_fmt.is_support = 0;//fixme about the mat_fmt.is_support
                         }
-                        else if (mystrstr(mat_edid_array, "DepVaule 0x3")) {
+                        else if (mystrstr(mat_edid_array, "DepValue 0x3")) {
                             //Byte3 bit0:0 bit1:1
-                            //eg: "MAT, 8 ch, 48 kHz, DepVaule 0x3"
+                            //eg: "MAT, 8 ch, 48 kHz, DepValue 0x3"
                             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0|AUDIO_FORMAT_MAT_2_1");
                             p_hdmi_descs->mat_fmt.is_support = 1;
                         }
@@ -1276,14 +1276,14 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
                 }
                 break;
             case AUDIO_FORMAT_E_AC3:
-                if (mystrstr(infobuf, "Dobly_Digital+") || dolby_decoder_sup) {
+                if (mystrstr(infobuf, "Dolby_Digital+") || dolby_decoder_sup) {
                     size += sprintf(aud_cap, "sup_channels=%s", EAC3_SUPPORT_CHANNEL);
                     p_hdmi_descs->ddp_fmt.max_channels = 8;
                 }
                 break;
             case AUDIO_FORMAT_E_AC3_JOC:
                 if (mystrstr(infobuf, "ATMOS") ||
-                    mystrstr(infobuf, "Dobly_Digital+") ||
+                    mystrstr(infobuf, "Dolby_Digital+") ||
                     dolby_decoder_sup) {
                     size += sprintf(aud_cap, "sup_channels=%s", EAC3_JOC_SUPPORT_CHANNEL);
                     p_hdmi_descs->ddp_fmt.max_channels = 8;
@@ -1302,7 +1302,7 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
                 }
                 break;
             default:
-                /* take the 2ch suppported as default */
+                /* take the 2ch supported as default */
                 size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
                 break;
             }
@@ -1393,7 +1393,7 @@ char*  get_hdmi_sink_cap_dolby_ms12(const char *keys,audio_format_t format,struc
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3_JOC");
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC4");
 
-            if (mystrstr(infobuf, "Dobly_Digital+")) {
+            if (mystrstr(infobuf, "Dolby_Digital+")) {
                 p_hdmi_descs->ddp_fmt.is_support = 1;
             }
             if (mystrstr(infobuf, "AC-3")) {
@@ -1421,21 +1421,21 @@ char*  get_hdmi_sink_cap_dolby_ms12(const char *keys,audio_format_t format,struc
                     lseek(fd, mat_edid_offset, SEEK_SET);
                     int nread = read(fd, mat_edid_array, MAT_EDID_MAX_LEN);
                     if (nread >= 0) {
-                        if (mystrstr(mat_edid_array, "DepVaule 0x1")) {
+                        if (mystrstr(mat_edid_array, "DepValue 0x1")) {
                             //Byte3 bit0:1 bit1:0
-                            //eg: "MAT, 8 ch, 32/44.1/48/88.2/96/176.4/192 kHz, DepVaule 0x1"
+                            //eg: "MAT, 8 ch, 32/44.1/48/88.2/96/176.4/192 kHz, DepValue 0x1"
                             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0");
                             p_hdmi_descs->mat_fmt.is_support = 1;
                         }
-                        else if (mystrstr(mat_edid_array, "DepVaule 0x0")) {
+                        else if (mystrstr(mat_edid_array, "DepValue 0x0")) {
                             //Byte3 bit0:0 bit1:0
-                            //eg: "MAT, 8 ch, 48/96/192 kHz, DepVaule 0x0"
+                            //eg: "MAT, 8 ch, 48/96/192 kHz, DepValue 0x0"
                             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0");
                             p_hdmi_descs->mat_fmt.is_support = 0;//fixme about the mat_fmt.is_support
                         }
-                        else if (mystrstr(mat_edid_array, "DepVaule 0x3")) {
+                        else if (mystrstr(mat_edid_array, "DepValue 0x3")) {
                             //Byte3 bit0:0 bit1:1
-                            //eg: "MAT, 8 ch, 48 kHz, DepVaule 0x3"
+                            //eg: "MAT, 8 ch, 48 kHz, DepValue 0x3"
                             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD|AUDIO_FORMAT_MAT_1_0|AUDIO_FORMAT_MAT_2_0|AUDIO_FORMAT_MAT_2_1");
                             p_hdmi_descs->mat_fmt.is_support = 1;
                         }
@@ -1565,7 +1565,7 @@ char*  get_offload_cap(const char *keys,audio_format_t format)
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC4");
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DOLBY_TRUEHD");
         } else {
-            /*todo if dcv decoder is supprted*/
+            /*todo if dcv decoder is supported*/
             //if (adev->dolby_decode_enable)
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC3");
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3");
@@ -1763,7 +1763,7 @@ char *strdup_a2dp_cap_default(struct aml_audio_device *adev, const char *keys, a
         }
         cap = strdup(fmt);
     } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
-        /* take the 2ch suppported as default */
+        /* take the 2ch supported as default */
         switch (format) {
         case AUDIO_FORMAT_AC4:
         case AUDIO_FORMAT_E_AC3:
@@ -1780,7 +1780,7 @@ char *strdup_a2dp_cap_default(struct aml_audio_device *adev, const char *keys, a
             break;
         }
     } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
-        /* take the 48 khz suppported as default */
+        /* take the 48 khz supported as default */
         switch (format) {
         case AUDIO_FORMAT_AC4:
         case AUDIO_FORMAT_E_AC3:
@@ -1857,7 +1857,7 @@ char *strdup_tv_platform_cap_default(const char *keys, audio_format_t format)
             break;
         }
     } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
-        /* take the 2ch suppported as default */
+        /* take the 2ch supported as default */
         switch (format) {
         case AUDIO_FORMAT_PCM_16_BIT:
             strcat(ch_mask, "AUDIO_CHANNEL_OUT_STEREO");
@@ -1893,7 +1893,7 @@ char *strdup_tv_platform_cap_default(const char *keys, audio_format_t format)
             break;
         }
     } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
-        /* take the 48 khz suppported as default */
+        /* take the 48 khz supported as default */
         switch (format) {
         case AUDIO_FORMAT_PCM_16_BIT:
             strcat(sr, "32000|44100|48000");

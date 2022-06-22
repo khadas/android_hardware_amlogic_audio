@@ -97,7 +97,7 @@ int aml_hw_mixer_get_content_l(struct aml_hw_mixer *mixer)
 }
 
 //we assume the cached size is always smaller than buffer size
-//need called by device mutux locked
+//need called by device mutex locked
 int aml_hw_mixer_write(struct aml_hw_mixer *mixer, const void *buffer, size_t bytes)
 {
     int retry = 5;
@@ -234,7 +234,7 @@ int aml_hw_mixer_mixing(struct aml_hw_mixer *mixer, void *buffer, int bytes, aud
     return 0;
 }
 
-//need called by device mutux locked
+//need called by device mutex locked
 int aml_hw_mixer_read(struct aml_hw_mixer *mixer, void *r_buf, uint size)
 {
     unsigned cached_size;

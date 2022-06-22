@@ -145,9 +145,9 @@ static int ringbuffer_seek(struct aml_audio_patch *patch, int tune_val)
     seek_space = ring_buffer_seek(&patch->aml_ringbuffer, space);
 
     if (seek_space == space) {
-        ALOGV("  --tunning audio ringbuffer %dms sucessfully!\n", tune_val);
+        ALOGV("  --tunning audio ringbuffer %dms successfully!\n", tune_val);
     } else {
-        ALOGV("  --tunning audio ringbuffer requre %d vs actual seek %d\n", space, seek_space);
+        ALOGV("  --tunning audio ringbuffer require %d vs actual seek %d\n", space, seek_space);
         tune_val = calc_frame_to_latency(seek_space/frame_size, patch->aformat);
     }
 
@@ -201,9 +201,9 @@ int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *la
 
         if (!audio_is_linear_pcm(format)) {
             if ((format == AUDIO_FORMAT_AC3) || (format == AUDIO_FORMAT_E_AC3))
-                ms12_ltcy += ms12_latency_decoder + MS12_DD_DDP_BUFERR_LATENCY;
+                ms12_ltcy += ms12_latency_decoder + MS12_DD_DDP_BUFFER_LATENCY;
             else if ((format == AUDIO_FORMAT_MAT) || (format == AUDIO_FORMAT_DOLBY_TRUEHD))
-                ms12_ltcy += ms12_latency_decoder + MS12_MAT_BUFERR_LATENCY;
+                ms12_ltcy += ms12_latency_decoder + MS12_MAT_BUFFER_LATENCY;
         }
 
         if (aml_dev->sink_format == AUDIO_FORMAT_PCM_16_BIT) {
@@ -377,12 +377,12 @@ static inline void aml_dev_accumulate_avsync_diff(struct aml_audio_patch *patch,
 {
     patch->vltcy += vltcy;
     patch->altcy += altcy;
-    patch->avsync_sample_accumed++;
-    patch->average_vltcy = patch->vltcy / patch->avsync_sample_accumed;
-    patch->average_altcy = patch->altcy / patch->avsync_sample_accumed;
+    patch->avsync_sample_accumulated++;
+    patch->average_vltcy = patch->vltcy / patch->avsync_sample_accumulated;
+    patch->average_altcy = patch->altcy / patch->avsync_sample_accumulated;
 
     ALOGV("  latency status[%d]: average average_vltcy = %dms, average_altcy = %dms\n\n",
-            patch->avsync_sample_accumed, patch->average_vltcy, patch->average_altcy);
+            patch->avsync_sample_accumulated, patch->average_vltcy, patch->average_altcy);
 }
 
 static int aml_dev_tune_video_path_latency(struct aml_mixer_handle *mixer_handle, unsigned int video_val)
@@ -396,7 +396,7 @@ static int aml_dev_tune_video_path_latency(struct aml_mixer_handle *mixer_handle
 
 static inline void aml_dev_avsync_reset(struct aml_audio_patch *patch)
 {
-    patch->avsync_sample_accumed = 0;
+    patch->avsync_sample_accumulated = 0;
     patch->vltcy = 0;
     patch->average_vltcy = 0;
     patch->need_do_avsync = false;
@@ -430,7 +430,7 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
         usleep(10*1000);
         if (patch->timeout_avsync_cnt > AVSYNC_TIMEOUT_CNT) {
             aml_dev_avsync_reset(patch);
-            ALOGI(" timeout to tune avsync! error statrus = %d", ret);
+            ALOGI(" timeout to tune avsync! error status = %d", ret);
         }
         return 0;
     }
@@ -450,7 +450,7 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
     int seek_duration = tune_val;
     int avDiff = 0;
 
-    if (patch->avsync_sample_accumed >= AVSYNC_SAMPLE_MAX_CNT) {
+    if (patch->avsync_sample_accumulated >= AVSYNC_SAMPLE_MAX_CNT) {
         tune_val += user_tune_val;
 
         avDiff = calc_diff(tune_val, patch->min_video_latency);

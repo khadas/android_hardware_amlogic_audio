@@ -250,7 +250,7 @@ int init_aec(int sampling_rate __unused, int num_reference_channels,
     struct aec_t *aec = init_aec_interface();
     if (!ret) {
         aec->num_reference_channels = num_reference_channels;
-        /* Set defaults, will be overridden by settings in init_aec_(mic|referece_config) */
+        /* Set defaults, will be overridden by settings in init_aec_(mic|reference_config) */
         /* Capture uses 2-ch, 32-bit frames */
         aec->mic_sampling_rate = CAPTURE_CODEC_SAMPLING_RATE;
         aec->mic_frame_size_bytes = CHANNEL_STEREO * sizeof(int32_t);

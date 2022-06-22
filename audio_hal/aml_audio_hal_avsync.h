@@ -70,7 +70,7 @@
 
 #define DEFAULT_DTV_OUTPUT_CLOCK    (1000*1000)
 #define DEFAULT_DTV_ADJUST_CLOCK    (1000)
-#define DEFALUT_DTV_MIN_OUT_CLOCK   (1000*1000-100*1000)
+#define DEFAULT_DTV_MIN_OUT_CLOCK   (1000*1000-100*1000)
 #define DEFAULT_DTV_MAX_OUT_CLOCK   (1000*1000+100*1000)
 #define DEFAULT_I2S_OUTPUT_CLOCK    (256*48000)
 #define DEFAULT_CLOCK_MUL    (4)
@@ -82,7 +82,7 @@
 #define DEFAULT_AUDIO_DROP_THRESHOLD_MS (60)
 #define DEFAULT_AUDIO_LEAST_CACHE_MS (50)
 #define AUDIO_PCR_LATENCY_MAX (3000)
-#define DEFULT_DEBUG_TIME_INTERVAL (5000)
+#define DEFAULT_DEBUG_TIME_INTERVAL (5000)
 
 //channel define
 #define DEFAULT_CHANNELS 2
@@ -135,7 +135,7 @@ struct avsync_para {
     unsigned long underrun_checkinpts; //the checkin apts when in underrun
     int underrun_mute_time_min; //not happen loop underrun mute time ms
     int underrun_mute_time_max; //happen loop underrun mute max time ms
-    int underrun_max_time;  //max time of underun to force clear
+    int underrun_max_time;  //max time of underrun to force clear
     struct timespec underrun_starttime; //input-output both underrun starttime
     struct timespec underrun_mute_starttime; //underrun mute start time
 };

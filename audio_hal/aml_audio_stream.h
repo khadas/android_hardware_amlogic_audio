@@ -319,7 +319,7 @@ struct aml_audio_patch {
     int altcy;
     int average_vltcy;
     int average_altcy;
-    int avsync_sample_accumed;
+    int avsync_sample_accumulated;
     int max_video_latency;
     int min_video_latency;
     bool need_do_avsync;
@@ -442,7 +442,7 @@ void get_sink_format(struct audio_stream_out *stream);
 
 /*@brief check the hdmi rx audio stability by HW register */
 bool is_hdmi_in_stable_hw(struct audio_stream_in *stream);
-/*@brief check the hdmix rx audio format stability by SW parser */
+/*@brief check the hdmi rx audio format stability by SW parser */
 bool is_hdmi_in_stable_sw(struct audio_stream_in *stream);
 /*@brief check the ATV audio stability by HW register */
 bool is_atv_in_stable_hw(struct audio_stream_in *stream);
@@ -493,7 +493,7 @@ int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, s
 
 
 /*
- *@brief update the sink format after HDMI/HDMI-ARC hot pluged
+ *@brief update the sink format after HDMI/HDMI-ARC hot plugged
  * return zero if success.
  */
 int update_sink_format_after_hotplug(struct aml_audio_device *adev);
@@ -511,19 +511,19 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
 void tv_do_ease_out(struct aml_audio_device *aml_dev);
 
 /*
-*@breif check tv signal need to mute or not
+*@brief check tv signal need to mute or not
 * return false if signal need to mute
 */
 bool check_tv_stream_signal (struct audio_stream_in *stream);
 
 /*
-*@breif check digital-in signal need to mute(PAUSE/MUTE) or not
+*@brief check digital-in signal need to mute(PAUSE/MUTE) or not
 * return false if signal need to mute
 */
 bool check_digital_in_stream_signal(struct audio_stream_in *stream);
 
 /*
- * @breif set HDMIIN audio mode: "SPDIF", "I2S", "TDM"
+ * @brief set HDMIIN audio mode: "SPDIF", "I2S", "TDM"
  * return negative if fails.
  */
 int set_hdmiin_audio_mode(struct aml_mixer_handle *mixer_handle, char *mode);

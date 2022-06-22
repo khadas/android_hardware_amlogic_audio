@@ -110,7 +110,7 @@ int on_meta_data_cbk(void *cookie,
     } else if ((offset > out->last_payload_offset) && out->last_pts != 0) {
         pts_delta = (offset - out->last_payload_offset) * 1000000000LL/(frame_size * sample_rate);
         pts = out->last_pts + pts_delta;
-        ALOGV("last pts=%" PRId64 " delat=%" PRId64 " pts=%" PRId64 " ", out->last_pts, pts_delta, pts);
+        ALOGV("last pts=%" PRId64 " delta=%" PRId64 " pts=%" PRId64 " ", out->last_pts, pts_delta, pts);
     } else {
         ret = -EINVAL;
         goto err_lock;
@@ -138,7 +138,7 @@ int on_meta_data_cbk(void *cookie,
             latency += tunning_latency * 90;
 
             ALOGD("%s(), out:%p set tsync start pts %" PRId64 ", latency %d, last position %" PRId64 "",
-                __func__, out, pts64, latency, out->last_frames_postion);
+                __func__, out, pts64, latency, out->last_frames_position);
             if (latency < 0) {
                 pts64 += abs(latency);
             } else {
@@ -209,7 +209,7 @@ int on_meta_data_cbk(void *cookie,
         latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
         latency += tunning_latency * 90;
         ALOGD("%s(), set tsync start pts %" PRIu64 ", latency %d, last position %" PRId64 "",
-            __func__, pts64, latency, out->last_frames_postion);
+            __func__, pts64, latency, out->last_frames_position);
         if (latency < 0) {
             pts64 += abs(latency);
         } else {
@@ -261,7 +261,7 @@ int on_meta_data_cbk(void *cookie,
             sync_status = pcm_check_hwsync_status1(pcr, pts64);
         }
         if (out->need_first_sync) {
-            /*when resume, we need do exactly sync fisrt*/
+            /*when resume, we need do exactly sync first*/
             out->need_first_sync = false;
             sync_status = ADJUSTMENT;
         } else if (pcr == 0) {
@@ -273,7 +273,7 @@ int on_meta_data_cbk(void *cookie,
         // limit the gap handle to 0.5~5 s.
         if (sync_status == ADJUSTMENT) {
             // two cases: apts leading or pcr leading
-            // apts leading needs inserting frame and pcr leading neads discarding frame
+            // apts leading needs inserting frame and pcr leading needs discarding frame
             if (pts64 > pcr) {
                 int insert_size = 0;
 

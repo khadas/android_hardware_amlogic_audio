@@ -41,7 +41,7 @@ struct dts_frame_info {
 
 ///< Keep the members of dca_config_type_e the same as structure in dca_decoder.h
 ///< static param: need to reset decoder
-///< dynamic param: do not neet to reset decoder
+///< dynamic param: do not need to reset decoder
 typedef enum  {
     DCA_CONFIG_OUT_BITDEPTH, //runtime/static param
     DCA_CONFIG_OUT_CH, //runtime/static param

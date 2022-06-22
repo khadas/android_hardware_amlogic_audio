@@ -77,7 +77,7 @@ typedef union ddp_config {
 struct dolby_ddp_dec {
     aml_dec_t  aml_dec;
     unsigned char *inbuf;
-    size_t dcv_pcm_writed;
+    size_t dcv_pcm_wrote;
     uint64_t dcv_decoded_samples;
     unsigned int dcv_decoded_errcount;
     aml_dec_stream_info_t stream_info;

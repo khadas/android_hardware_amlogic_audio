@@ -170,7 +170,7 @@ public:
     virtual unsigned long long DolbyMS12GetNBytesConsumedSysSound(void);
     virtual int     DolbyMS12HWSyncInit(void);
     virtual int     DolbyMS12HWSyncRelease(void);
-    virtual int     DolbyMS12HWSyncChecinPTS(int offset, int apts);
+    virtual int     DolbyMS12HWSyncCheckinPTS(int offset, int apts);
     virtual int     DolbyMS12GetLatencyForStereoOut(int *latency);
     virtual int     DolbyMS12GetLatencyForMultiChannelOut(int *latency);
     virtual int     DolbyMS12GetLatencyForDAPSpeakerOut(int *latency);
@@ -187,7 +187,7 @@ private:
     // DolbyMS12& operator = (const DolbyMS12&);
     // static android::Mutex mLock;
     // static DolbyMS12 *gInstance;
-    void *mDolbyMS12LibHanle;
+    void *mDolbyMS12LibHandle;
 };  // class DolbyMS12
 
 }   // android

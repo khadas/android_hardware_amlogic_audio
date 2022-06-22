@@ -431,7 +431,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     ret = proxy_read(&in->proxy, read_buff, num_read_buff_bytes);
     if (ret == 0) {
         if (num_device_channels != num_req_channels) {
-            // ALOGV("chans dev:%d req:%d", num_device_channels, num_req_channels);
+            // ALOGV("channels dev:%d req:%d", num_device_channels, num_req_channels);
 
             out_buff = buffer;
             /* Num Channels conversion */
@@ -464,7 +464,7 @@ int adev_open_usb_input_stream(struct usb_audio_device *hw_dev,
                                struct audio_stream_in **stream_in,
                                const char *address)
 {
-    ALOGV("++adev_open_usb_input_stream() rate:%" PRIu32 ", chanMask:0x%" PRIX32 ", fmt:%" PRIu8,
+    ALOGV("++adev_open_usb_input_stream() rate:%" PRIu32 ", channelMask:0x%" PRIX32 ", fmt:%" PRIu8,
           config->sample_rate, config->channel_mask, config->format);
 
     /* Pull out the card/device pair */

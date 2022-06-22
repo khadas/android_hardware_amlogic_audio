@@ -75,8 +75,8 @@ static struct aml_mixer_list gAmlMixerList[] = {
     /* SPDIF IN audio SRC select */
     {AML_MIXER_ID_SPDIFIN_SRC,          "Audio spdifin source"},
     {AML_MIXER_ID_HDMIIN_AUDIO_PACKET,  "HDMIIN Audio Packet"},
-    {AML_MIXER_ID_CHANGE_SPIDIF_PLL,    "SPDIF CLK Fine Setting"},
-    {AML_MIXER_ID_CHANGE_SPIDIFB_PLL,   "SPDIF_B CLK Fine Setting"},
+    {AML_MIXER_ID_CHANGE_SPDIF_PLL,     "SPDIF CLK Fine Setting"},
+    {AML_MIXER_ID_CHANGE_SPDIFB_PLL,    "SPDIF_B CLK Fine Setting"},
     {AML_MIXER_ID_CHANGE_I2S_PLL,       "TDM MCLK Fine Setting"},
     {AML_MIXER_ID_SPDIF_IN_SAMPLERATE,  "SPDIFIN audio samplerate"},
     {AML_MIXER_ID_HW_RESAMPLE_SOURCE,   "Hw resample module"},

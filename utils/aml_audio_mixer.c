@@ -124,7 +124,7 @@ void aml_delete_audio_mixer (struct aml_audio_mixer *audio_mixer)
 
 static void main_aux_buffer_mix (struct aml_audio_mixer *audio_mixer __unused)
 {
-    //TODO: do nothing now, only ouput main buffer data;
+    //TODO: do nothing now, only output main buffer data;
     //add mixing methods latter.
     return;
 }

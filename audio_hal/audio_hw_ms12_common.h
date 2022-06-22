@@ -49,7 +49,7 @@ typedef enum ms12_mesg_type {
     MS12_MESG_TYPE_PAUSE,
     MS12_MESG_TYPE_RESUME,
     MS12_MESG_TYPE_SET_MAIN_DUMMY,
-    MS12_MESG_TYPE_UPDATE_RUNTIIME_PARAMS,
+    MS12_MESG_TYPE_UPDATE_RUNTIME_PARAMS,
     MS12_MESG_TYPE_EXIT_THREAD,
     MS12_MESG_TYPE_SCHEDULER_STATE,
     MS12_MESG_TYPE_MAX,
@@ -61,7 +61,7 @@ typedef enum ms12_mesg_type {
 struct ms12_mesg_desc {
     struct listnode list;
     ms12_mesg_type_t mesg_type;
-    /* define a Zero Length Arry to extend for audio data in the future. */
+    /* define a Zero Length Array to extend for audio data in the future. */
     //char data[0];
 };
 
@@ -96,7 +96,7 @@ bool ms12_msg_list_is_empty(struct dolby_ms12_desc *ms12);
  */
 int audiohal_send_msg_2_ms12(struct dolby_ms12_desc *ms12, ms12_mesg_type_t mesg_type);
 /*
- *@brief ms12 message thread create and destory function.
+ *@brief ms12 message thread create and destroy function.
  */
 int ms12_mesg_thread_create(struct dolby_ms12_desc *ms12);
 int ms12_mesg_thread_destroy(struct dolby_ms12_desc *ms12);

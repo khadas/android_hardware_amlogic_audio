@@ -52,7 +52,7 @@ static int exitMixingThread(struct subMixing *sm)
     return pcm_mixer_thread_exit(sm->mixerData);
 }
 
-static int initSubMixngOutput(
+static int initSubMixingOutput(
         struct subMixing *sm,
         struct aml_audio_device *adev)
 {
@@ -118,10 +118,10 @@ static ssize_t aml_out_write_to_mixer(struct audio_stream_out *stream, const voi
              //       mixer_get_outport_latency_frames(audio_mixer);
             //pthread_mutex_lock(&out->lock);
             //clock_gettime(CLOCK_MONOTONIC, &out->timestamp);
-            //out->last_frames_postion += written / frame_size - latency_frames;
+            //out->last_frames_position += written / frame_size - latency_frames;
             //pthread_mutex_unlock(&out->lock);
         }
-        AM_LOGV("portindex(%d) written(%zu), written_total(%zu), bytes(%zu)",
+        AM_LOGV("port index(%d) written(%zu), written_total(%zu), bytes(%zu)",
             out->inputPortID, written, written_total, bytes);
 
         if (written_total >= bytes) {
@@ -221,7 +221,7 @@ static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
     }
 
     /*here may be a problem, after resample, the size write to mixer is changed,
-      to avoid some problem, we assume it is totally wirtten.
+      to avoid some problem, we assume it is totally written.
     */
     if (bResample) {
         written = bytes;
@@ -242,17 +242,17 @@ static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
     //latency_frames = mixer_get_inport_latency_frames(audio_mixer, out->port_index);
     //out->frame_write_sum += written;
 
-    //if (out->last_frames_postion > out->frame_write_sum)
-    //    out->last_frames_postion = out->frame_write_sum - latency_frames;
+    //if (out->last_frames_position > out->frame_write_sum)
+    //    out->last_frames_position = out->frame_write_sum - latency_frames;
     //else
-    //    out->last_frames_postion = out->frame_write_sum;
+    //    out->last_frames_position = out->frame_write_sum;
     AM_LOGV("++written = %zd", written);
     if (getprop_bool("vendor.media.audiohal.hwsync")) {
         aml_audio_dump_audio_bitstreams("/data/audio/consumeout.raw", buffer, written);
     }
     if (0) {
-        AM_LOGD("last_frames_postion(%" PRId64 ") latency_frames(%" PRId64 ")",
-            out->last_frames_postion, latency_frames);
+        AM_LOGD("last_frames_position(%" PRId64 ") latency_frames(%" PRId64 ")",
+            out->last_frames_position, latency_frames);
     }
     throttle_timeus = target_us - us_since_last_write;
     if (throttle_timeus > 0 && throttle_timeus < 200000) {
@@ -278,12 +278,12 @@ exit:
         out->frame_write_sum += written / frame_size;
 
         if (out->frame_write_sum > latency_frames)
-            out->last_frames_postion = out->frame_write_sum - latency_frames;
+            out->last_frames_position = out->frame_write_sum - latency_frames;
         else
-            out->last_frames_postion = 0;//out->frame_write_sum;
+            out->last_frames_position = 0;//out->frame_write_sum;
     }
     if (out->debug_stream) {
-        AM_LOGD("frames sum %" PRId64 ", last frames %" PRId64 "", out->frame_write_sum, out->last_frames_postion);
+        AM_LOGD("frames sum %" PRId64 ", last frames %" PRId64 "", out->frame_write_sum, out->last_frames_position);
     }
     return written;
 }
@@ -360,8 +360,8 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
         out->pause_status = false;
     }
     written_total = header_extractor_write(out->hwsync_extractor, buffer, bytes);
-    AM_LOGV("bytes %zu, out->last_frames_postion %" PRId64 " frame_sum %" PRId64 "",
-            bytes, out->last_frames_postion, out->frame_write_sum);
+    AM_LOGV("bytes %zu, out->last_frames_position %" PRId64 " frame_sum %" PRId64 "",
+            bytes, out->last_frames_position, out->frame_write_sum);
 
     if (getprop_bool("vendor.media.audiohal.hwsync")) {
         aml_audio_dump_audio_bitstreams("/data/audio/audiomain.raw", buffer, written_total);
@@ -391,7 +391,7 @@ static ssize_t out_write_system(struct audio_stream_out *stream, const void *buf
     struct amlAudioMixer *audio_mixer = sm->mixerData;
     struct timespec tval, new_tval;
     uint64_t us_since_last_write = 0;
-    //uint64_t begain_time, end_time;
+    //uint64_t begin_time, end_time;
     ssize_t written = 0;
     size_t remain = 0;
     size_t channel_count = audio_channel_count_from_out_mask(out->hal_channel_mask);
@@ -413,7 +413,7 @@ static ssize_t out_write_system(struct audio_stream_out *stream, const void *buf
     }
 
     clock_gettime(CLOCK_MONOTONIC, &tval);
-    //begain_time = get_systime_ns();
+    //begin_time = get_systime_ns();
     written = aml_out_write_to_mixer(stream, buffer, bytes);
     if (written >= 0) {
         remain = bytes - written;
@@ -475,12 +475,12 @@ exit:
         uint32_t latency_frames = mixer_get_inport_latency_frames(audio_mixer, out->inputPortID);
                 //+ mixer_get_outport_latency_frames(audio_mixer);
         if (out->frame_write_sum > latency_frames)
-            out->last_frames_postion = out->frame_write_sum - latency_frames;
+            out->last_frames_position = out->frame_write_sum - latency_frames;
         else
-            out->last_frames_postion = out->frame_write_sum;
+            out->last_frames_position = out->frame_write_sum;
 
         if (0) {
-            AM_LOGI("last position %" PRId64 ", latency_frames %d", out->last_frames_postion, latency_frames);
+            AM_LOGI("last position %" PRId64 ", latency_frames %d", out->last_frames_position, latency_frames);
         }
     }
 
@@ -496,7 +496,7 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
     struct amlAudioMixer *audio_mixer = sm->mixerData;
     struct timespec tval, new_tval;
     uint64_t us_since_last_write = 0;
-    //uint64_t begain_time, end_time;
+    //uint64_t begin_time, end_time;
     ssize_t written = 0;
     size_t remain = 0;
     int frame_size = 4;
@@ -511,7 +511,7 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
     }
 
     clock_gettime(CLOCK_MONOTONIC, &tval);
-    //begain_time = get_systime_ns();
+    //begin_time = get_systime_ns();
     written = aml_out_write_to_mixer(stream, buffer, bytes);
     if (written >= 0) {
         remain = bytes - written;
@@ -573,12 +573,12 @@ exit:
         uint32_t latency_frames = mixer_get_inport_latency_frames(audio_mixer, out->inputPortID);
                 //+ mixer_get_outport_latency_frames(audio_mixer);
         if (out->frame_write_sum > latency_frames)
-            out->last_frames_postion = out->frame_write_sum - latency_frames;
+            out->last_frames_position = out->frame_write_sum - latency_frames;
         else
-            out->last_frames_postion = out->frame_write_sum;
+            out->last_frames_position = out->frame_write_sum;
 
         if (0) {
-            AM_LOGI("last position %" PRId64 ", latency_frames %d", out->last_frames_postion, latency_frames);
+            AM_LOGI("last position %" PRId64 ", latency_frames %d", out->last_frames_position, latency_frames);
         }
     }
 
@@ -658,9 +658,9 @@ static int out_get_presentation_position_port(
         }
 
         if (ret == 0) {
-            out->last_frames_postion = *frames;
+            out->last_frames_position = *frames;
         } else {
-            *frames = out->last_frames_postion;
+            *frames = out->last_frames_position;
             AM_LOGW("pts not valid yet");
         }
     } else {
@@ -679,7 +679,7 @@ static int out_get_presentation_position_port(
         *frames += frame_latency ;
     }
     if (adev->debug_flag) {
-         AM_LOGI("tunned_latency_ms %d ",latency_ms);
+         AM_LOGI("tuned_latency_ms %d ",latency_ms);
     }
 
     if (adev->debug_flag) {
@@ -759,7 +759,7 @@ static int deleteSubMixingInputPcm(struct aml_stream_out *out)
             item = list_head(&out->mdata_list);
             mdata_list = node_to_item(item, struct meta_data_list, list);
             list_remove(item);
-            //AM_LOGI("free medata list=%p", mdata_list);
+            //AM_LOGI("free meta data list=%p", mdata_list);
             aml_audio_free(mdata_list);
         }
         pthread_mutex_unlock(&out->mdata_lock);
@@ -908,7 +908,7 @@ int initHalSubMixing(struct subMixing **smixer,
     R_CHECK_POINTER_LEGAL(-EINVAL, smixer, "");
     ret = newSubMixingFactory(smixer, type, NULL);
     R_CHECK_RET(ret, "fail to new mixer");
-    ret = initSubMixngOutput(*smixer, adev);
+    ret = initSubMixingOutput(*smixer, adev);
     if (ret < 0) {
         AM_LOGE("fail to init mixer");
         goto err1;
@@ -992,7 +992,7 @@ ssize_t mixer_main_buffer_write_sm (struct audio_stream_out *stream, const void 
     }
 
     if (popcount(adev->usecase_masks & SUBMIX_USECASE_MASK) > 1) {
-        AM_LOGE("usemask:%#x, not support two direct stream", adev->usecase_masks);
+        AM_LOGE("use mask:%#x, not support two direct stream", adev->usecase_masks);
         return bytes;
     }
 
@@ -1107,7 +1107,7 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
 #endif
 exit:
     aml_out->frame_write_sum += in_frames;
-    aml_out->last_frames_postion = aml_out->frame_write_sum;
+    aml_out->last_frames_position = aml_out->frame_write_sum;
     clock_gettime(CLOCK_MONOTONIC, &aml_out->timestamp);
     aml_out->lasttimestamp.tv_sec = aml_out->timestamp.tv_sec;
     aml_out->lasttimestamp.tv_nsec = aml_out->timestamp.tv_nsec;
@@ -1465,7 +1465,7 @@ static int out_flush_subMixingPCM(struct audio_stream_out *stream)
         return 0;
     }
     aml_out->frame_write_sum  = 0;
-    aml_out->last_frames_postion = 0;
+    aml_out->last_frames_position = 0;
     aml_out->spdif_enc_init_frame_write_sum =  0;
     aml_out->frame_skip_sum = 0;
     aml_out->skip_frame = 0;
@@ -1491,7 +1491,7 @@ static int out_flush_subMixingPCM(struct audio_stream_out *stream)
         if (!aml_out->standby)
             flush_hw_avsync_header_extractor(aml_out->hwsync_extractor);
         //mixer_set_inport_state(audio_mixer, out->port_index, FLUSHING);
-        aml_out->last_frames_postion = 0;
+        aml_out->last_frames_position = 0;
         aml_out->first_pts_set = false;
         aml_out->need_first_sync = false;
         aml_out->last_pts = 0;

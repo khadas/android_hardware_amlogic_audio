@@ -60,35 +60,35 @@ struct aml_spdif_decoder {
 
 int aml_spdif_decoder_open(void **spdifdec_handle)
 {
-    struct aml_spdif_decoder *spdif_dec_hanlde = NULL;
+    struct aml_spdif_decoder *spdif_dec_handle = NULL;
 
-    spdif_dec_hanlde = (struct aml_spdif_decoder *)aml_audio_calloc(1, sizeof(struct aml_spdif_decoder));
-    if (spdif_dec_hanlde == NULL) {
+    spdif_dec_handle = (struct aml_spdif_decoder *)aml_audio_calloc(1, sizeof(struct aml_spdif_decoder));
+    if (spdif_dec_handle == NULL) {
         ALOGE("%s handle error", __func__);
         goto ERROR;
     }
 
-    spdif_dec_hanlde->buf_size  = IEC61937_DEFAULT_SIZE;
-    spdif_dec_hanlde->buf  = aml_audio_calloc(1, IEC61937_DEFAULT_SIZE);
-    if (spdif_dec_hanlde->buf == NULL) {
+    spdif_dec_handle->buf_size  = IEC61937_DEFAULT_SIZE;
+    spdif_dec_handle->buf  = aml_audio_calloc(1, IEC61937_DEFAULT_SIZE);
+    if (spdif_dec_handle->buf == NULL) {
         ALOGE("%s data buffer error", __func__);
         goto ERROR;
     }
-    spdif_dec_hanlde->format = AUDIO_FORMAT_INVALID;
-    spdif_dec_hanlde->status = SPDIF_DEC_SYNCING;
-    spdif_dec_hanlde->buf_remain = 0;
-    spdif_dec_hanlde->payload_size = 0;
-    *spdifdec_handle = spdif_dec_hanlde;
-    ALOGI("%s exit =%p", __func__, spdif_dec_hanlde);
+    spdif_dec_handle->format = AUDIO_FORMAT_INVALID;
+    spdif_dec_handle->status = SPDIF_DEC_SYNCING;
+    spdif_dec_handle->buf_remain = 0;
+    spdif_dec_handle->payload_size = 0;
+    *spdifdec_handle = spdif_dec_handle;
+    ALOGI("%s exit =%p", __func__, spdif_dec_handle);
     return 0;
 ERROR:
-    if (spdif_dec_hanlde) {
-        if (spdif_dec_hanlde->buf) {
-            aml_audio_free(spdif_dec_hanlde->buf);
-            spdif_dec_hanlde->buf = NULL;
+    if (spdif_dec_handle) {
+        if (spdif_dec_handle->buf) {
+            aml_audio_free(spdif_dec_handle->buf);
+            spdif_dec_handle->buf = NULL;
         }
-        aml_audio_free(spdif_dec_hanlde);
-        spdif_dec_hanlde = NULL;
+        aml_audio_free(spdif_dec_handle);
+        spdif_dec_handle = NULL;
     }
     *spdifdec_handle = NULL;
     ALOGE("%s error", __func__);
@@ -96,15 +96,15 @@ ERROR:
 }
 int aml_spdif_decoder_close(void *phandle)
 {
-    struct aml_spdif_decoder *spdif_dec_hanlde = (struct aml_spdif_decoder *)phandle;
+    struct aml_spdif_decoder *spdif_dec_handle = (struct aml_spdif_decoder *)phandle;
 
-    if (spdif_dec_hanlde) {
-        if (spdif_dec_hanlde->buf) {
-            aml_audio_free(spdif_dec_hanlde->buf);
-            spdif_dec_hanlde->buf = NULL;
+    if (spdif_dec_handle) {
+        if (spdif_dec_handle->buf) {
+            aml_audio_free(spdif_dec_handle->buf);
+            spdif_dec_handle->buf = NULL;
         }
-        aml_audio_free(spdif_dec_hanlde);
-        spdif_dec_hanlde = NULL;
+        aml_audio_free(spdif_dec_handle);
+        spdif_dec_handle = NULL;
     }
     ALOGE("%s exit", __func__);
     return 0;
@@ -112,12 +112,12 @@ int aml_spdif_decoder_close(void *phandle)
 
 int aml_spdif_decoder_reset(void *phandle)
 {
-    struct aml_spdif_decoder *spdif_dec_hanlde = (struct aml_spdif_decoder *)phandle;
+    struct aml_spdif_decoder *spdif_dec_handle = (struct aml_spdif_decoder *)phandle;
 
-    if (spdif_dec_hanlde) {
-        spdif_dec_hanlde->status = SPDIF_DEC_SYNCING;
-        spdif_dec_hanlde->buf_remain = 0;
-        spdif_dec_hanlde->payload_size = 0;
+    if (spdif_dec_handle) {
+        spdif_dec_handle->status = SPDIF_DEC_SYNCING;
+        spdif_dec_handle->buf_remain = 0;
+        spdif_dec_handle->payload_size = 0;
     }
     ALOGE("%s exit", __func__);
     return 0;
@@ -168,7 +168,7 @@ static int get_iec61937_info(void *phandle, void * buf, int32_t size, int32_t *p
     uint32_t big_endian = 0;
     uint8_t data_type = 0;
     uint32_t tmp = 0;
-    struct aml_spdif_decoder *spdif_dec_hanlde = (struct aml_spdif_decoder *)phandle;
+    struct aml_spdif_decoder *spdif_dec_handle = (struct aml_spdif_decoder *)phandle;
 
     if (size < IEC61937_HEADER_SIZE) {
         return -1;
@@ -199,7 +199,7 @@ static int get_iec61937_info(void *phandle, void * buf, int32_t size, int32_t *p
             *package_size = AC3_PERIOD_SIZE;
             /*length code is in bits*/
             *payload_size = pd >> 3;
-            spdif_dec_hanlde->format = AUDIO_FORMAT_AC3;
+            spdif_dec_handle->format = AUDIO_FORMAT_AC3;
             break;
         }
         case IEC61937_EAC3:
@@ -207,7 +207,7 @@ static int get_iec61937_info(void *phandle, void * buf, int32_t size, int32_t *p
             *package_size = EAC3_PERIOD_SIZE;
             /*length code is in bytes*/
             *payload_size = pd;
-            spdif_dec_hanlde->format = AUDIO_FORMAT_E_AC3;
+            spdif_dec_handle->format = AUDIO_FORMAT_E_AC3;
             break;
         }
         case IEC61937_DTS1:
@@ -215,7 +215,7 @@ static int get_iec61937_info(void *phandle, void * buf, int32_t size, int32_t *p
             *package_size = DTS1_PERIOD_SIZE;
             /*length code is in bits*/
             *payload_size = pd >> 3;
-            spdif_dec_hanlde->format = AUDIO_FORMAT_DTS;
+            spdif_dec_handle->format = AUDIO_FORMAT_DTS;
             break;
         }
         case IEC61937_DTS2:
@@ -223,7 +223,7 @@ static int get_iec61937_info(void *phandle, void * buf, int32_t size, int32_t *p
             *package_size = DTS2_PERIOD_SIZE;
             /*length code is in bits*/
             *payload_size = pd >> 3;
-            spdif_dec_hanlde->format = AUDIO_FORMAT_DTS;
+            spdif_dec_handle->format = AUDIO_FORMAT_DTS;
             break;
         }
         case IEC61937_DTS3:
@@ -231,7 +231,7 @@ static int get_iec61937_info(void *phandle, void * buf, int32_t size, int32_t *p
             *package_size = DTS3_PERIOD_SIZE;
             /*length code is in bits*/
             *payload_size = pd >> 3;
-            spdif_dec_hanlde->format = AUDIO_FORMAT_DTS;
+            spdif_dec_handle->format = AUDIO_FORMAT_DTS;
             break;
         }
         case IEC61937_DTSHD:
@@ -240,7 +240,7 @@ static int get_iec61937_info(void *phandle, void * buf, int32_t size, int32_t *p
             tmp = (pc & 0x7ff) >> 8;
             /*refer to IEC 61937-5 pdf, table 6*/
             *package_size = DTSHD_PERIOD_SIZE << tmp ;
-            spdif_dec_hanlde->format = AUDIO_FORMAT_DTS_HD;
+            spdif_dec_handle->format = AUDIO_FORMAT_DTS_HD;
             break;
         }
         case IEC61937_MAT:
@@ -248,13 +248,13 @@ static int get_iec61937_info(void *phandle, void * buf, int32_t size, int32_t *p
             *package_size = MAT_PERIOD_SIZE;
             /*length code is in bytes*/
             *payload_size = pd;
-            spdif_dec_hanlde->format = AUDIO_FORMAT_MAT;
+            spdif_dec_handle->format = AUDIO_FORMAT_MAT;
             break;
         }
         default:
         {
             *package_size = 0;
-            spdif_dec_hanlde->format = AUDIO_FORMAT_INVALID;
+            spdif_dec_handle->format = AUDIO_FORMAT_INVALID;
             ALOGE("unsupport iec61937 PC =0x%x PD=0x%x", pc, pd);
             return -1;
         }
@@ -295,23 +295,23 @@ static int aml_spdif_decoder_do_quick_sync
     , int32_t *buf_left
     , int32_t *buf_offset)
 {
-    struct aml_spdif_decoder *spdif_dec_hanlde = (struct aml_spdif_decoder *)phandle;
+    struct aml_spdif_decoder *spdif_dec_handle = (struct aml_spdif_decoder *)phandle;
     uint8_t *spdifdec_buf = NULL;
     bool is_quick_sync_suitable = false;
     uint8_t *buffer = (uint8_t *)inbuf;
 
-    if (!spdif_dec_hanlde || !inbuf || !sync_word_offset || !buf_left || !buf_offset) {
-        ALOGE("%s line %d spdif_dec_hanlde %p inbuf %p sync_word_offset %p buf_left %p buf_offset %p\n",
-            __func__, __LINE__, spdif_dec_hanlde, inbuf, sync_word_offset, buf_left, buf_offset);
+    if (!spdif_dec_handle || !inbuf || !sync_word_offset || !buf_left || !buf_offset) {
+        ALOGE("%s line %d spdif_dec_handle %p inbuf %p sync_word_offset %p buf_left %p buf_offset %p\n",
+            __func__, __LINE__, spdif_dec_handle, inbuf, sync_word_offset, buf_left, buf_offset);
         return -1;
     }
 
-    spdifdec_buf = spdif_dec_hanlde->buf;
+    spdifdec_buf = spdif_dec_handle->buf;
     *buf_left = n_bytes_inbuf;
 
     /*if we have enough data and we are doing syncing, we can sync the header quickly in origial buf*/
-    is_quick_sync_suitable = ((spdif_dec_hanlde->buf_remain == 0) &&
-                            (spdif_dec_hanlde->status == SPDIF_DEC_SYNCING) &&
+    is_quick_sync_suitable = ((spdif_dec_handle->buf_remain == 0) &&
+                            (spdif_dec_handle->status == SPDIF_DEC_SYNCING) &&
                             (n_bytes_inbuf >= IEC61937_HEADER_SIZE));
 
     if (is_quick_sync_suitable) {
@@ -319,13 +319,13 @@ static int aml_spdif_decoder_do_quick_sync
         /*to avoid the case the sync word accross the input buf, we need copy the last 3 bytes*/
         if (*sync_word_offset < 0) {
             memcpy( spdifdec_buf, buffer + n_bytes_inbuf - IEC61937_HEADER_COPY_SIZE, IEC61937_HEADER_COPY_SIZE);
-            spdif_dec_hanlde->buf_remain += IEC61937_HEADER_COPY_SIZE;
+            spdif_dec_handle->buf_remain += IEC61937_HEADER_COPY_SIZE;
             return -1;
         }
 
         /*we have find the sync word, just copy the papb part*/
         memcpy(spdifdec_buf , buffer + *sync_word_offset, IEC61937_HEADER_SIZE / 2);
-        spdif_dec_hanlde->buf_remain += IEC61937_HEADER_SIZE / 2;
+        spdif_dec_handle->buf_remain += IEC61937_HEADER_SIZE / 2;
         *buf_offset += *sync_word_offset + IEC61937_HEADER_SIZE / 2;
         *buf_left = n_bytes_inbuf - *buf_offset;
         *sync_word_offset = 0;
@@ -342,103 +342,103 @@ static int aml_spdif_decoder_find_syncword(void *phandle
     , int32_t *buf_offset
     , uint8_t **spdifdec_buf)
 {
-    struct aml_spdif_decoder *spdif_dec_hanlde = (struct aml_spdif_decoder *)phandle;
+    struct aml_spdif_decoder *spdif_dec_handle = (struct aml_spdif_decoder *)phandle;
     int32_t loop_cnt = 0;
     int32_t data_valid = 0;
     int32_t need_size = 0;
     uint8_t *buffer = (uint8_t *)inbuf;
 
-    if (!spdif_dec_hanlde || !inbuf || !sync_word_offset || !buf_left || !buf_offset) {
-        ALOGE("%s line %d spdif_dec_hanlde %p inbuf %p sync_word_offset %p buf_left %p buf_offset %p\n",
-            __func__, __LINE__, spdif_dec_hanlde, inbuf, sync_word_offset, buf_left, buf_offset);
+    if (!spdif_dec_handle || !inbuf || !sync_word_offset || !buf_left || !buf_offset) {
+        ALOGE("%s line %d spdif_dec_handle %p inbuf %p sync_word_offset %p buf_left %p buf_offset %p\n",
+            __func__, __LINE__, spdif_dec_handle, inbuf, sync_word_offset, buf_left, buf_offset);
         return -1;
     }
 
     /*we need at least period bytes*/
-    if (spdif_dec_hanlde->buf_remain < IEC61937_HEADER_SYNC_PERIOD) {
-        need_size = IEC61937_HEADER_SYNC_PERIOD - spdif_dec_hanlde->buf_remain;
+    if (spdif_dec_handle->buf_remain < IEC61937_HEADER_SYNC_PERIOD) {
+        need_size = IEC61937_HEADER_SYNC_PERIOD - spdif_dec_handle->buf_remain;
         /*input data is not enough, just copy to internal buf*/
         if (*buf_left < need_size) {
-            memcpy(*spdifdec_buf + spdif_dec_hanlde->buf_remain, buffer + *buf_offset, *buf_left);
-            spdif_dec_hanlde->buf_remain += *buf_left;
+            memcpy(*spdifdec_buf + spdif_dec_handle->buf_remain, buffer + *buf_offset, *buf_left);
+            spdif_dec_handle->buf_remain += *buf_left;
             goto ERROR;
         }
         /*make sure the remain buf has period bytes*/
-        memcpy(*spdifdec_buf + spdif_dec_hanlde->buf_remain, buffer + *buf_offset, need_size);
-        spdif_dec_hanlde->buf_remain += need_size;
+        memcpy(*spdifdec_buf + spdif_dec_handle->buf_remain, buffer + *buf_offset, need_size);
+        spdif_dec_handle->buf_remain += need_size;
         *buf_offset += need_size;
         *buf_left = n_bytes_inbuf - *buf_offset;
 
     }
 
-    if (spdif_dec_hanlde->status == SPDIF_DEC_SYNCING) {
+    if (spdif_dec_handle->status == SPDIF_DEC_SYNCING) {
         *sync_word_offset = -1;
         while (*sync_word_offset < 0) {
             /*sync the header, we have at least period bytes*/
-            if (spdif_dec_hanlde->buf_remain < IEC61937_HEADER_SYNC_PERIOD) {
+            if (spdif_dec_handle->buf_remain < IEC61937_HEADER_SYNC_PERIOD) {
                 ALOGE("we should not get there");
                 goto DO_SYNC;
             }
-            *sync_word_offset = seek_61937_sync_word((char*)*spdifdec_buf, spdif_dec_hanlde->buf_remain);
+            *sync_word_offset = seek_61937_sync_word((char*)*spdifdec_buf, spdif_dec_handle->buf_remain);
             /*if we don't find the header in period bytes, move the last 3 bytes to header*/
             if (*sync_word_offset < 0) {
-                memmove(*spdifdec_buf, *spdifdec_buf + spdif_dec_hanlde->buf_remain - IEC61937_HEADER_COPY_SIZE, IEC61937_HEADER_COPY_SIZE);
-                spdif_dec_hanlde->buf_remain = IEC61937_HEADER_COPY_SIZE;
-                need_size = IEC61937_HEADER_SYNC_PERIOD - spdif_dec_hanlde->buf_remain;
+                memmove(*spdifdec_buf, *spdifdec_buf + spdif_dec_handle->buf_remain - IEC61937_HEADER_COPY_SIZE, IEC61937_HEADER_COPY_SIZE);
+                spdif_dec_handle->buf_remain = IEC61937_HEADER_COPY_SIZE;
+                need_size = IEC61937_HEADER_SYNC_PERIOD - spdif_dec_handle->buf_remain;
                 /*input data is not enough, just copy to internal buf*/
                 if (*buf_left < need_size) {
-                    memcpy(*spdifdec_buf + spdif_dec_hanlde->buf_remain, buffer + *buf_offset, *buf_left);
-                    spdif_dec_hanlde->buf_remain += *buf_left;
+                    memcpy(*spdifdec_buf + spdif_dec_handle->buf_remain, buffer + *buf_offset, *buf_left);
+                    spdif_dec_handle->buf_remain += *buf_left;
                     /*don't find the header, and there is no enough data*/
                     goto ERROR;
                 }
                 /*make the spdif dec buf has period bytes*/
-                memcpy(*spdifdec_buf + spdif_dec_hanlde->buf_remain, buffer + *buf_offset, need_size);
-                spdif_dec_hanlde->buf_remain += need_size;
+                memcpy(*spdifdec_buf + spdif_dec_handle->buf_remain, buffer + *buf_offset, need_size);
+                spdif_dec_handle->buf_remain += need_size;
                 *buf_offset += need_size;
                 *buf_left = n_bytes_inbuf - *buf_offset;
             }
             loop_cnt++;
         }
         /*got here means we find the sync word*/
-        spdif_dec_hanlde->status = SPDIF_DEC_SYNCED;
+        spdif_dec_handle->status = SPDIF_DEC_SYNCED;
 
-        data_valid = spdif_dec_hanlde->buf_remain - *sync_word_offset;
+        data_valid = spdif_dec_handle->buf_remain - *sync_word_offset;
         /*move the header to the beginning of buf*/
         if (*sync_word_offset != 0) {
             memmove(*spdifdec_buf, *spdifdec_buf + *sync_word_offset, data_valid);
         }
-        spdif_dec_hanlde->buf_remain = data_valid;
+        spdif_dec_handle->buf_remain = data_valid;
 
         need_size = IEC61937_HEADER_SYNC_PERIOD - data_valid;
         /*get some bytes to make sure it is at least period bytes*/
         if (need_size > 0) {
             /*check if input has enough data*/
             if (*buf_left < need_size) {
-                memcpy(*spdifdec_buf + spdif_dec_hanlde->buf_remain, buffer + *buf_offset, *buf_left);
-                spdif_dec_hanlde->buf_remain += *buf_left;
+                memcpy(*spdifdec_buf + spdif_dec_handle->buf_remain, buffer + *buf_offset, *buf_left);
+                spdif_dec_handle->buf_remain += *buf_left;
                 goto ERROR;
             }
             /*make sure the remain buf has period bytes*/
-            memcpy(*spdifdec_buf + spdif_dec_hanlde->buf_remain, buffer + *buf_offset , need_size);
-            spdif_dec_hanlde->buf_remain += need_size;
+            memcpy(*spdifdec_buf + spdif_dec_handle->buf_remain, buffer + *buf_offset , need_size);
+            spdif_dec_handle->buf_remain += need_size;
             *buf_offset += need_size;
             *buf_left = n_bytes_inbuf - *buf_offset;
         }
     }
 
     /*double check here*/
-    *sync_word_offset = seek_61937_sync_word((char*)*spdifdec_buf, spdif_dec_hanlde->buf_remain);
+    *sync_word_offset = seek_61937_sync_word((char*)*spdifdec_buf, spdif_dec_handle->buf_remain);
     if (*sync_word_offset != 0) {
-        ALOGE("we can't get here remain=%d,resync iec61937 header", spdif_dec_hanlde->buf_remain);
+        ALOGE("we can't get here remain=%d,resync iec61937 header", spdif_dec_handle->buf_remain);
         goto DO_SYNC;
     }
 
     return 0;
 
 DO_SYNC:
-    spdif_dec_hanlde->buf_remain = 0;
-    spdif_dec_hanlde->status = SPDIF_DEC_SYNCING;
+    spdif_dec_handle->buf_remain = 0;
+    spdif_dec_handle->status = SPDIF_DEC_SYNCING;
 
 ERROR:
     return -1;
@@ -455,7 +455,7 @@ static int aml_spdif_decoder_addbytes
     , void **output_buf
     , int32_t *out_size)
 {
-    struct aml_spdif_decoder *spdif_dec_hanlde = (struct aml_spdif_decoder *)phandle;
+    struct aml_spdif_decoder *spdif_dec_handle = (struct aml_spdif_decoder *)phandle;
     int32_t need_size = 0;
     uint8_t *buffer = (uint8_t *)inbuf;
     int32_t package_size = 0;
@@ -463,9 +463,9 @@ static int aml_spdif_decoder_addbytes
     int32_t new_buf_size = 0;
     int ret = 0;
 
-    if (!spdif_dec_hanlde || !inbuf || !spdifdec_buf || !buf_left || !buf_offset || !used_size || !out_size) {
-        ALOGE("%s line %d spdif_dec_hanlde %p inbuf %p spdifdec_buf %p buf_left %p buf_offset %p used_size %p out_size  %p\n",
-            __func__, __LINE__, spdif_dec_hanlde, inbuf, spdifdec_buf, buf_left, buf_offset, used_size, out_size);
+    if (!spdif_dec_handle || !inbuf || !spdifdec_buf || !buf_left || !buf_offset || !used_size || !out_size) {
+        ALOGE("%s line %d spdif_dec_handle %p inbuf %p spdifdec_buf %p buf_left %p buf_offset %p used_size %p out_size  %p\n",
+            __func__, __LINE__, spdif_dec_handle, inbuf, spdifdec_buf, buf_left, buf_offset, used_size, out_size);
         return -1;
     }
 
@@ -479,18 +479,18 @@ static int aml_spdif_decoder_addbytes
     }
 
     /*if it is DTS HD, we need more 12 bytes to calculate the payload size*/
-    if (spdif_dec_hanlde->format == AUDIO_FORMAT_DTS_HD) {
-        need_size = (IEC61937_HEADER_SIZE + IEC61937_DTSHD_HEAD_SIZE) - spdif_dec_hanlde->buf_remain;
+    if (spdif_dec_handle->format == AUDIO_FORMAT_DTS_HD) {
+        need_size = (IEC61937_HEADER_SIZE + IEC61937_DTSHD_HEAD_SIZE) - spdif_dec_handle->buf_remain;
         if (need_size > 0) {
             /*if there is no enough data, try to get more*/
             if (*buf_left < need_size) {
-                memcpy(spdifdec_buf + spdif_dec_hanlde->buf_remain, buffer + *buf_offset, *buf_left);
-                spdif_dec_hanlde->buf_remain += *buf_left;
-                spdif_dec_hanlde->status = SPDIF_DEC_LACK_DATA;
+                memcpy(spdifdec_buf + spdif_dec_handle->buf_remain, buffer + *buf_offset, *buf_left);
+                spdif_dec_handle->buf_remain += *buf_left;
+                spdif_dec_handle->status = SPDIF_DEC_LACK_DATA;
                 goto ERROR;
             }
-            memcpy(spdifdec_buf + spdif_dec_hanlde->buf_remain, buffer + *buf_offset, need_size);
-            spdif_dec_hanlde->buf_remain += need_size;
+            memcpy(spdifdec_buf + spdif_dec_handle->buf_remain, buffer + *buf_offset, need_size);
+            spdif_dec_handle->buf_remain += need_size;
             *buf_offset += need_size;
             *buf_left = n_bytes_inbuf - *buf_offset;
         }
@@ -503,27 +503,27 @@ static int aml_spdif_decoder_addbytes
 
     /*check whether the input data has a complete payload*/
     if (payload_size == 0) {
-        ALOGE("%s wrong format=%d package size =%d payload =%d", __func__, spdif_dec_hanlde->format, package_size, payload_size);
+        ALOGE("%s wrong format=%d package size =%d payload =%d", __func__, spdif_dec_handle->format, package_size, payload_size);
         goto DO_SYNC;
     }
 
     /*we have a complete payload*/
-    if ((spdif_dec_hanlde->buf_remain - IEC61937_HEADER_SIZE + *buf_left) >= payload_size) {
-        need_size = payload_size - (spdif_dec_hanlde->buf_remain - IEC61937_HEADER_SIZE);
+    if ((spdif_dec_handle->buf_remain - IEC61937_HEADER_SIZE + *buf_left) >= payload_size) {
+        need_size = payload_size - (spdif_dec_handle->buf_remain - IEC61937_HEADER_SIZE);
         if (need_size >= 0) {
-            new_buf_size = spdif_dec_hanlde->buf_remain + need_size;
-            if (new_buf_size > spdif_dec_hanlde->buf_size) {
-                spdif_dec_hanlde->buf = aml_audio_realloc(spdif_dec_hanlde->buf, new_buf_size);
-                if (spdif_dec_hanlde->buf == NULL) {
+            new_buf_size = spdif_dec_handle->buf_remain + need_size;
+            if (new_buf_size > spdif_dec_handle->buf_size) {
+                spdif_dec_handle->buf = aml_audio_realloc(spdif_dec_handle->buf, new_buf_size);
+                if (spdif_dec_handle->buf == NULL) {
                     ALOGE("%s realloc buf failed =%d", __func__, new_buf_size);
                     goto DO_SYNC;
                 }
                 ALOGI("%s realloc buf =%d", __func__, new_buf_size);
-                spdifdec_buf = spdif_dec_hanlde->buf;
-                spdif_dec_hanlde->buf_size = new_buf_size;
+                spdifdec_buf = spdif_dec_handle->buf;
+                spdif_dec_handle->buf_size = new_buf_size;
             }
 
-            memcpy(spdifdec_buf + spdif_dec_hanlde->buf_remain, buffer + *buf_offset, need_size);
+            memcpy(spdifdec_buf + spdif_dec_handle->buf_remain, buffer + *buf_offset, need_size);
             *buf_offset += need_size;
             *buf_left = n_bytes_inbuf - *buf_offset;
             /*we may have some stuffing data, we can skip it*/
@@ -542,53 +542,53 @@ static int aml_spdif_decoder_addbytes
             *output_buf = (void*)(spdifdec_buf + IEC61937_HEADER_SIZE);
             *out_size   = payload_size;
             *used_size = *buf_offset;
-            ALOGV("OK type=0x%x payload size=%d used size=%d\n", spdif_dec_hanlde->format, payload_size, *buf_offset);
+            ALOGV("OK type=0x%x payload size=%d used size=%d\n", spdif_dec_handle->format, payload_size, *buf_offset);
             /*one frame has complete, need find next one*/
-            spdif_dec_hanlde->buf_remain = 0;
-            spdif_dec_hanlde->status = SPDIF_DEC_SYNCING;
+            spdif_dec_handle->buf_remain = 0;
+            spdif_dec_handle->status = SPDIF_DEC_SYNCING;
         }else {
             /*internal buf has more data than payload, we only need part of it*/
             *output_buf = (void*)(spdifdec_buf + IEC61937_HEADER_SIZE);
             *out_size   = payload_size;
             /*move need_size bytes back to original buf*/
             *used_size = *buf_offset + need_size;
-            ALOGV("wrap data type=0x%x payload size=%d used size=%d back size =%d\n", spdif_dec_hanlde->format, payload_size, *buf_offset, need_size);
+            ALOGV("wrap data type=0x%x payload size=%d used size=%d back size =%d\n", spdif_dec_handle->format, payload_size, *buf_offset, need_size);
             if (*used_size <= 0) {
                 ALOGE("%s wrong used size =%d", __func__, *used_size);
                 goto DO_SYNC;
             }
             /*one frame has complete, need find next one*/
-            spdif_dec_hanlde->buf_remain = 0;
-            spdif_dec_hanlde->status = SPDIF_DEC_SYNCING;
+            spdif_dec_handle->buf_remain = 0;
+            spdif_dec_handle->status = SPDIF_DEC_SYNCING;
         }
     } else {
         /*check whether the input buf size is big enough*/
-        new_buf_size = spdif_dec_hanlde->buf_remain + *buf_left;
-        if (new_buf_size > spdif_dec_hanlde->buf_size) {
-            spdif_dec_hanlde->buf = aml_audio_realloc(spdif_dec_hanlde->buf, new_buf_size);
-            if (spdif_dec_hanlde->buf == NULL) {
+        new_buf_size = spdif_dec_handle->buf_remain + *buf_left;
+        if (new_buf_size > spdif_dec_handle->buf_size) {
+            spdif_dec_handle->buf = aml_audio_realloc(spdif_dec_handle->buf, new_buf_size);
+            if (spdif_dec_handle->buf == NULL) {
                 ALOGE("%s realloc buf failed =%d", __func__, new_buf_size);
                 goto DO_SYNC;
             }
             ALOGI("%s realloc buf =%d", __func__, new_buf_size);
-            spdifdec_buf = spdif_dec_hanlde->buf;
-            spdif_dec_hanlde->buf_size = new_buf_size;
+            spdifdec_buf = spdif_dec_handle->buf;
+            spdif_dec_handle->buf_size = new_buf_size;
         }
-        memcpy(spdifdec_buf + spdif_dec_hanlde->buf_remain, buffer + *buf_offset, *buf_left);
-        spdif_dec_hanlde->buf_remain += *buf_left;
-        spdif_dec_hanlde->status = SPDIF_DEC_LACK_DATA;
+        memcpy(spdifdec_buf + spdif_dec_handle->buf_remain, buffer + *buf_offset, *buf_left);
+        spdif_dec_handle->buf_remain += *buf_left;
+        spdif_dec_handle->status = SPDIF_DEC_LACK_DATA;
         goto ERROR;
     }
-    if (spdif_dec_hanlde->payload_size != payload_size) {
-        spdif_dec_hanlde->payload_size = payload_size;
-        ALOGV("IEC61937 format =0x%x package size=%d payload_size=%d", spdif_dec_hanlde->format, package_size, payload_size);
+    if (spdif_dec_handle->payload_size != payload_size) {
+        spdif_dec_handle->payload_size = payload_size;
+        ALOGV("IEC61937 format =0x%x package size=%d payload_size=%d", spdif_dec_handle->format, package_size, payload_size);
     }
     return 0;
 
 
 DO_SYNC:
-    spdif_dec_hanlde->buf_remain = 0;
-    spdif_dec_hanlde->status = SPDIF_DEC_SYNCING;
+    spdif_dec_handle->buf_remain = 0;
+    spdif_dec_handle->status = SPDIF_DEC_SYNCING;
 
 ERROR:
     return -1;
@@ -599,35 +599,35 @@ ERROR:
 
 int aml_spdif_decoder_process(void *phandle, const void *inbuf, int32_t n_bytes_inbuf, int32_t *used_size, void **output_buf, int32_t *out_size)
 {
-    struct aml_spdif_decoder *spdif_dec_hanlde = (struct aml_spdif_decoder *)phandle;
+    struct aml_spdif_decoder *spdif_dec_handle = (struct aml_spdif_decoder *)phandle;
     uint8_t *spdifdec_buf = NULL;
     int32_t sync_word_offset = -1;
     int32_t buf_left = 0;
     int32_t buf_offset = 0;
     int32_t ret = 0;
 
-    if (!spdif_dec_hanlde || !inbuf) {
+    if (!spdif_dec_handle || !inbuf) {
         goto ERROR;
     }
 
-    spdifdec_buf = spdif_dec_hanlde->buf;
+    spdifdec_buf = spdif_dec_handle->buf;
     buf_left = n_bytes_inbuf;
 
-    ALOGV("%s input buf size=%d status=%d", __func__, n_bytes_inbuf, spdif_dec_hanlde->status);
+    ALOGV("%s input buf size=%d status=%d", __func__, n_bytes_inbuf, spdif_dec_handle->status);
 
     if (aml_spdif_decoder_do_quick_sync(phandle, inbuf, n_bytes_inbuf, &sync_word_offset, &buf_left, &buf_offset)) {
-        ALOGV("%s aml_spdif_decoder_do_quick_sync error return status=%d", __func__, spdif_dec_hanlde->status);
+        ALOGV("%s aml_spdif_decoder_do_quick_sync error return status=%d", __func__, spdif_dec_handle->status);
         goto ERROR;
     }
 
     ret = aml_spdif_decoder_find_syncword(phandle, inbuf, n_bytes_inbuf, &sync_word_offset, &buf_left, &buf_offset, &spdifdec_buf);
     if (ret) {
-        ALOGV("%s aml_spdif_decoder_find_syncword return %d status=%d", __func__, ret, spdif_dec_hanlde->status);
+        ALOGV("%s aml_spdif_decoder_find_syncword return %d status=%d", __func__, ret, spdif_dec_handle->status);
         goto ERROR;
     }
 
     ret = aml_spdif_decoder_addbytes(phandle, inbuf, n_bytes_inbuf, spdifdec_buf, &buf_left, &buf_offset, used_size, output_buf, out_size);
-    ALOGV("%s aml_spdif_decoder_addbytes return %d status=%d", __func__, ret, spdif_dec_hanlde->status);
+    ALOGV("%s aml_spdif_decoder_addbytes return %d status=%d", __func__, ret, spdif_dec_handle->status);
     if (ret == 0) {
         return 0;
     }
@@ -641,10 +641,10 @@ ERROR:
 }
 
 int aml_spdif_decoder_getformat(void *phandle) {
-    struct aml_spdif_decoder *spdif_dec_hanlde = (struct aml_spdif_decoder *)phandle;
-    if (spdif_dec_hanlde == NULL) {
+    struct aml_spdif_decoder *spdif_dec_handle = (struct aml_spdif_decoder *)phandle;
+    if (spdif_dec_handle == NULL) {
         return -1;
     }
 
-    return (int)spdif_dec_hanlde->format;
+    return (int)spdif_dec_handle->format;
 }

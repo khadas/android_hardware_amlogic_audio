@@ -216,7 +216,7 @@ public:
     {
         mDownmixMode = val;    // 0 or 1
     }
-    virtual void setEvalutionMode(int val)
+    virtual void setEvaluationMode(int val)
     {
         mEvaluationMode = val;    // 0 or 1
     }
@@ -287,11 +287,11 @@ public:
     virtual void setSystemSoundMixerGainValuesForAppSoundsInput(MixGain *mixergain)
     {
         if (mixergain) {
-            memcpy(&mSysApppsMixGain, mixergain, sizeof(MixGain));
-            if (mSysApppsMixGain.target < -96) {
-                mSysApppsMixGain.target = -96;
+            memcpy(&mSysAppsMixGain, mixergain, sizeof(MixGain));
+            if (mSysAppsMixGain.target < -96) {
+                mSysAppsMixGain.target = -96;
             }
-            ALOGI("%s() set target %d duration %d shape %d", __FUNCTION__, mSysApppsMixGain.target, mSysApppsMixGain.duration, mSysApppsMixGain.shape);
+            ALOGI("%s() set target %d duration %d shape %d", __FUNCTION__, mSysAppsMixGain.target, mSysAppsMixGain.duration, mSysAppsMixGain.shape);
         }
     }
     virtual void setSystemSoundMixerGainValuesForSystemSoundsInput(MixGain *mixergain)
@@ -352,9 +352,9 @@ public:
     }
 
     //HE-AAC SWITCHES
-    virtual void setHEAACAsocciatedInstanceRestrictedTo2Channels(int val)
+    virtual void setHEAACAssociatedInstanceRestrictedTo2Channels(int val)
     {
-        mAssocInstanse = val;
+        mAssocInstance = val;
     }
     virtual void setHEAACDefaultDialnormValue(int val)
     {
@@ -378,20 +378,20 @@ public:
     {
         mDAPSurDecEnable = val;
     }
-    virtual void setDAPSurroundVirtualizer(DAPSurroundVirtualizer *dapVirtualizerParamters)
+    virtual void setDAPSurroundVirtualizer(DAPSurroundVirtualizer *aml_dapVirtualizerParameters)
     {
-        if (dapVirtualizerParamters) {
-            memcpy(&DeviceDAPSurroundVirtualizer, dapVirtualizerParamters, sizeof(DeviceDAPSurroundVirtualizer));
+        if (aml_dapVirtualizerParameters) {
+            memcpy(&DeviceDAPSurroundVirtualizer, aml_dapVirtualizerParameters, sizeof(DeviceDAPSurroundVirtualizer));
         }
     }
     virtual int getDAPSurroundVirtualizer(void)
     {
         return DeviceDAPSurroundVirtualizer.virtualizer_enable;
     }
-    virtual void setDAPGraphicEQ(DAPGraphicEQ *dapGraphicEQParamters)
+    virtual void setDAPGraphicEQ(DAPGraphicEQ *dapGraphicEQParameters)
     {
-        if (dapGraphicEQParamters) {
-            memcpy(&DeviceDAPGraphicEQ, dapGraphicEQParamters, sizeof(DeviceDAPGraphicEQ));
+        if (dapGraphicEQParameters) {
+            memcpy(&DeviceDAPGraphicEQ, dapGraphicEQParameters, sizeof(DeviceDAPGraphicEQ));
         }
     }
     virtual void setDAPBassEnhancer(DAPBassEnhancer *dapBassEnhancerParameters)
@@ -400,18 +400,18 @@ public:
             memcpy(&DeviceDAPBassEnhancer, dapBassEnhancerParameters, sizeof(DeviceDAPBassEnhancer));
         }
     }
-    virtual void setDAPVirtualBass(DAPVirtualBass *dapVirtualBassParamters)
+    virtual void setDAPVirtualBass(DAPVirtualBass *dapVirtualBassParameters)
     {
-        if (dapVirtualBassParamters) {
-            memcpy(&DeviceDAPVirtualBass, dapVirtualBassParamters, sizeof(DeviceDAPVirtualBass));
+        if (dapVirtualBassParameters) {
+            memcpy(&DeviceDAPVirtualBass, dapVirtualBassParameters, sizeof(DeviceDAPVirtualBass));
         }
     }
 
     //DAP SWITCHES (content specific)
-    virtual void setDAPMIStreering(DAPMISteering *dapMiSteeringParamters)
+    virtual void setDAPMISteering(DAPMISteering *dapMiSteeringParameters)
     {
-        if (dapMiSteeringParamters) {
-            memcpy(&ContentDAPMISteering, dapMiSteeringParamters, sizeof(ContentDAPMISteering));
+        if (dapMiSteeringParameters) {
+            memcpy(&ContentDAPMISteering, dapMiSteeringParameters, sizeof(ContentDAPMISteering));
         }
     }
     virtual void setDAPLeveler(DAPLeveler *dapLevelerParameters)
@@ -426,10 +426,10 @@ public:
             memcpy(&ContentDAPIEQ, dapIEQParameters, sizeof(ContentDAPIEQ));
         }
     }
-    virtual void setDAPDialogueEnhancer(DAPDialogueEnhancer *dapDialogueEnhancerParamters)
+    virtual void setDAPDialogueEnhancer(DAPDialogueEnhancer *dapDialogueEnhancerParameters)
     {
-        if (dapDialogueEnhancerParamters) {
-            memcpy(&ContenDAPDialogueEnhancer, dapDialogueEnhancerParamters, sizeof(ContenDAPDialogueEnhancer));
+        if (dapDialogueEnhancerParameters) {
+            memcpy(&ContentDAPDialogueEnhancer, dapDialogueEnhancerParameters, sizeof(ContentDAPDialogueEnhancer));
         }
     }
 
@@ -635,7 +635,7 @@ private:
         .duration = 0,
         .shape = 0,
     };//System sound mixer gain values for primary input (Input/AD mixer output)
-    MixGain mSysApppsMixGain = {
+    MixGain mSysAppsMixGain = {
         .target = 0,
         .duration = 0,
         .shape = 0,
@@ -652,7 +652,7 @@ private:
     int mCompressorProfile;//[pcm] Compressor profile
 
     //HE-AAC SWITCHES
-    int mAssocInstanse;//[he-aac] Associated instance restricted to 2 channels
+    int mAssocInstance;//[he-aac] Associated instance restricted to 2 channels
     int mDefDialnormVal;//[he-aac] Default dialnorm value (dB/4),  0 - 127; Default = 108 (-27dB)
     int mDualMonoreproductionMode;//[he-aac] Dual-mono reproduction mode, 0:Stereo(default), 1:Left/first, 2:Right/second
     int mAribChannelMappingFlag;//[he-aac] ARIB channel mapping flag, 0:standard(default), 1:ARIB (w/o attenuation)
@@ -715,7 +715,7 @@ private:
         .ieq_band_center = {32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000},
         .ieq_band_target = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     };
-    DAPDialogueEnhancer ContenDAPDialogueEnhancer = {
+    DAPDialogueEnhancer ContentDAPDialogueEnhancer = {
         .de_enable = 0,
         .de_amount = 0,
     };

@@ -219,7 +219,7 @@ int aml_ms12_bypass_checkin_data(void *phandle, const void *buffer, int32_t numB
     pthread_mutex_unlock(&bypass_handle->list_lock);
 
     if (new_frame) {
-        ALOGV("check in bypass frame start=%" PRId64 " end=%" PRId64 " size=%d depedency=%d", new_frame->offset_start, new_frame->offset_end, numBytes, new_frame->info.dependency_frame);
+        ALOGV("check in bypass frame start=%" PRId64 " end=%" PRId64 " size=%d dependency=%d", new_frame->offset_start, new_frame->offset_end, numBytes, new_frame->info.dependency_frame);
     }
     return ret;
 }

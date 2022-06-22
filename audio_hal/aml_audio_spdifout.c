@@ -73,12 +73,12 @@ static int select_digital_device(struct spdifout_handle *phandle) {
                 device_id = DIGITAL_DEVICE2;
             }
         } else {
-            /*defaut we only use spdif_a to output spdif/hdmi*/
+            /*default we only use spdif_a to output spdif/hdmi*/
             device_id = DIGITAL_DEVICE;
         }
         if (audio_is_linear_pcm(phandle->audio_format)) {
             if (phandle->channel_mask == AUDIO_CHANNEL_OUT_5POINT1 || phandle->channel_mask == AUDIO_CHANNEL_OUT_7POINT1)
-                device_id = TDM_DEVICE; /* TDM_DEVICE <-> i2stohdmi only support multi-channel */
+                device_id = TDM_DEVICE; /* TDM_DEVICE <-> i2s to hdmi only support multi-channel */
             else
                 device_id = DIGITAL_DEVICE;
         }
@@ -125,7 +125,7 @@ static int select_digital_device(struct spdifout_handle *phandle) {
             }
 
         } else {
-            /*defaut we only use spdif_a to output spdif/arc*/
+            /*default we only use spdif_a to output spdif/arc*/
             device_id = DIGITAL_DEVICE;
         }
     }
@@ -176,11 +176,11 @@ int aml_audio_get_spdif_port(eMixerSpdif_Format spdif_format)
 
     /*
      * there are 3 cases:
-       1. Soc deosn't support dual spdif, and its spdif port name is PORT_SPDIF
+       1. Soc doesn't support dual spdif, and its spdif port name is PORT_SPDIF
        2. Soc supports dual spdif, but it doesn't have spdif interface
        3. Soc supports dual spdif, and it has spdif interface
           spdif_a can be connected to spdif & hdmi, its name is PORT_SPDIF
-          spdif_b only can be conncted to hdmi, its name is PORT_SPDIFB
+          spdif_b only can be connected to hdmi, its name is PORT_SPDIFB
      */
     if (aml_dev->dual_spdif_support) {
         /*it means we have spdif_a & spdif_b & spdif out interface*/
@@ -456,7 +456,7 @@ error:
 
 }
 
-int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
+int aml_audio_spdifout_process(void *phandle, void *buffer, size_t byte)
 {
     int ret = -1;
     struct spdifout_handle *spdifout_phandle = (struct spdifout_handle *)phandle;
@@ -558,7 +558,7 @@ int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte)
         }
 #endif
         /*for earc multi channel pcm, we need do convert
-         *the orginal order is L R C LFE ***
+         *the original order is L R C LFE ***
          *the hdmi audio order is L R LFE C ***
          */
         if ((spdifout_phandle->spdif_port == PORT_EARC)
@@ -605,7 +605,7 @@ int aml_audio_spdifout_close(void *phandle)
 
     if (alsa_handle) {
         ALOGI("%s close spdif output bitstream id=%d handle %p", __func__, device_id, alsa_handle);
-        /*when spdif is closed, we need set raw to pcm flag, othwer spdif pcm may have problem*/
+        /*when spdif is closed, we need set raw to pcm flag, other spdif pcm may have problem*/
         aml_alsa_output_close_new(alsa_handle);
         aml_dev->alsa_handle[device_id] = NULL;
         aml_dev->raw_to_pcm_flag        = true;
@@ -621,7 +621,7 @@ int aml_audio_spdifout_close(void *phandle)
         aml_audio_select_spdif_to_hdmi(AML_SPDIF_A_TO_HDMITX);
     }
 
-    /*if spdif is muted when open, we need unmtue it when close*/
+    /*if spdif is muted when open, we need unmute it when close*/
     if (spdifout_phandle->spdif_mute) {
         audio_route_set_spdif_mute(&aml_dev->alsa_mixer, false);
         spdifout_phandle->spdif_mute = false;

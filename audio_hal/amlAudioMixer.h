@@ -54,7 +54,7 @@ typedef enum {
 struct amlAudioMixer *newAmlAudioMixer(struct aml_audio_device *adev);
 
 /**
- * distructor to free the mixer
+ * destructor to free the mixer
  */
 void freeAmlAudioMixer(struct amlAudioMixer *audio_mixer);
 void mixer_set_hwsync_input_port(struct amlAudioMixer *audio_mixer, uint8_t port_index);

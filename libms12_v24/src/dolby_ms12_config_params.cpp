@@ -329,7 +329,7 @@ extern "C" void dolby_ms12_config_params_cleanup_config_params(char **ConfigPara
         config_param->CleanupConfigParams(ConfigParams, max_raw_size);
     }
 }
-extern "C" int dolby_ms12_config_params_get_dobly_config_output_config(void)
+extern "C" int dolby_ms12_config_params_get_dolby_config_output_config(void)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
@@ -492,7 +492,7 @@ extern "C" void dolby_ms12_set_evalution_mode(int val)
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
     if (config_param) {
-        config_param->setEvalutionMode(val);
+        config_param->setEvaluationMode(val);
     }
 }
 
@@ -533,7 +533,7 @@ extern "C" void dolby_ms12_set_dual_mono_reproduction_mode(int val)
     }
 }
 
-extern "C" void dolby_ms12_set_asscociated_audio_mixing(int val)
+extern "C" void dolby_ms12_set_associated_audio_mixing(int val)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
@@ -709,7 +709,7 @@ extern "C" void dolby_ms12_set_heaac_associated_instance_restricted_to_2channels
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
     if (config_param) {
-        config_param->setHEAACAsocciatedInstanceRestrictedTo2Channels(val);
+        config_param->setHEAACAssociatedInstanceRestrictedTo2Channels(val);
     }
 }
 
@@ -761,17 +761,17 @@ extern "C" void dolby_ms12_set_dap_surround_decoder_enable(bool val)
 }
 
 
-extern "C" void dolby_ms12_set_dap_surround_virtuallizer(DAPSurroundVirtualizer *dapVirtualizerParamters)
+extern "C" void dolby_ms12_set_dap_surround_virtualizer(DAPSurroundVirtualizer *aml_dapVirtualizerParameters)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
     if (config_param) {
-        config_param->setDAPSurroundVirtualizer(dapVirtualizerParamters);
+        config_param->setDAPSurroundVirtualizer(aml_dapVirtualizerParameters);
     }
 }
 
 
-extern "C" int dolby_ms12_get_dap_surround_virtuallizer(void)
+extern "C" int dolby_ms12_get_dap_surround_virtualizer(void)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
@@ -783,12 +783,12 @@ extern "C" int dolby_ms12_get_dap_surround_virtuallizer(void)
 }
 
 
-extern "C" void dolby_ms12_set_dap_graphic_eq(DAPGraphicEQ *dapGraphicEQParamters)
+extern "C" void dolby_ms12_set_dap_graphic_eq(DAPGraphicEQ *dapGraphicEQParameters)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
     if (config_param) {
-        config_param->setDAPGraphicEQ(dapGraphicEQParamters);
+        config_param->setDAPGraphicEQ(dapGraphicEQParameters);
     }
 }
 
@@ -801,23 +801,23 @@ extern "C" void dolby_ms12_set_dap_bass_enhancer(DAPBassEnhancer *dapBassEnhance
     }
 }
 
-extern "C" void dolby_ms12_set_dap_virtual_bass(DAPVirtualBass *dapVirtualBassParamters)
+extern "C" void dolby_ms12_set_dap_virtual_bass(DAPVirtualBass *dapVirtualBassParameters)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
     if (config_param) {
-        config_param->setDAPVirtualBass(dapVirtualBassParamters);
+        config_param->setDAPVirtualBass(dapVirtualBassParameters);
     }
 }
 
 
 //DAP SWITCHES (content specific)
-extern "C" void dolby_ms12_set_dap_mi_streering(DAPMISteering *dapMiSteeringParamters)
+extern "C" void dolby_ms12_set_dap_mi_steering(DAPMISteering *dapMiSteeringParameters)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
     if (config_param) {
-        config_param->setDAPMIStreering(dapMiSteeringParamters);
+        config_param->setDAPMISteering(dapMiSteeringParameters);
     }
 }
 
@@ -839,12 +839,12 @@ extern "C" void dolby_ms12_set_dap_ieq(DAPIEQ *dapIEQParameters)
     }
 }
 
-extern "C" void dolby_ms12_set_dap_dialogue_enhancer(DAPDialogueEnhancer *dapDialogueEnhancerParamters)
+extern "C" void dolby_ms12_set_dap_dialogue_enhancer(DAPDialogueEnhancer *dapDialogueEnhancerParameters)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
     if (config_param) {
-        config_param->setDAPDialogueEnhancer(dapDialogueEnhancerParamters);
+        config_param->setDAPDialogueEnhancer(dapDialogueEnhancerParameters);
     }
 }
 

@@ -327,7 +327,7 @@ struct echo_reference_itfe *get_echo_reference(struct kara_manager *kara,
                 &echo);
         if (status == 0) {
             add_echo_reference(kara, echo);
-            ALOGI("%s() sucess", __func__);
+            ALOGI("%s() success", __func__);
         }
     }
 

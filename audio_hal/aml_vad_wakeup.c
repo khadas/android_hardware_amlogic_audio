@@ -115,7 +115,7 @@ int32_t aml_vad_suspend(struct aml_mixer_handle *mixer) {
     aml_mixer_ctrl_set_int(mixer, AML_MIXER_ID_VAD_SOURCE_SEL, source);
     ret = pthread_create(&g_pst_vad_wakeup->thread_id, NULL, aml_vad_thread, g_pst_vad_wakeup);
     if (ret) {
-        AM_LOGE("vadwake error creating thread: %s", strerror(ret));
+        AM_LOGE("vad wake error creating thread: %s", strerror(ret));
         return false;
     }
     return true;

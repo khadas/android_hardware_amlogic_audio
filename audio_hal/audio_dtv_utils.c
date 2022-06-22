@@ -164,7 +164,7 @@ int dtv_patch_add_cmd(struct cmd_node *dtv_cmd_list,int cmd, int path_id)
 int dtv_patch_get_cmd(struct cmd_node *dtv_cmd_list,int *cmd, int *path_id)
 {
     struct cmd_node *dtv_cmd = NULL;
-    ALOGI("enter dtv_patch_get_cmd funciton now\n");
+    ALOGI("enter dtv_patch_get_cmd function now\n");
     pthread_mutex_lock(&dtv_cmd_list->dtv_cmd_mutex);
     dtv_cmd = dtv_cmd_list->next;
     if (dtv_cmd != NULL) {

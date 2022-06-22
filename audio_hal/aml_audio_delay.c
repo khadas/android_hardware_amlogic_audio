@@ -75,24 +75,24 @@ int aml_audio_delay_set_time(aml_audio_delay_type_e enAudioDelayType, int s32Del
 
     if (s32DelayTimeMs > 0 && g_stAudioOutputDelay[enAudioDelayType].is_init_buffer == false)
     {
-        int s32BfferSize = 0;
+        int s32BufferSize = 0;
         unsigned int u32ChannelCnt = 2;
 
         if (AML_DELAY_OUTPORT_ALL == enAudioDelayType) {
             // calculate the max size for 8ch
             u32ChannelCnt = 8;
         }
-        s32BfferSize = 192 * u32ChannelCnt * 4 * g_u32OutDelayMaxDefault[enAudioDelayType]; // use max buffer size
-        ring_buffer_init(&g_stAudioOutputDelay[enAudioDelayType].stDelayRbuffer, s32BfferSize);
+        s32BufferSize = 192 * u32ChannelCnt * 4 * g_u32OutDelayMaxDefault[enAudioDelayType]; // use max buffer size
+        ring_buffer_init(&g_stAudioOutputDelay[enAudioDelayType].stDelayRbuffer, s32BufferSize);
         g_stAudioOutputDelay[enAudioDelayType].is_init_buffer = true;
 
         if (enAudioDelayType == AML_DELAY_OUTPORT_SPDIF) {
-            s32BfferSize = 48000 * 2 * 2 / 1000 * g_u32OutDelayMaxDefault[AML_DELAY_OUTPORT_SPDIF_RAW]; // use max buffer size
-            ring_buffer_init(&g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF_RAW].stDelayRbuffer, s32BfferSize);
+            s32BufferSize = 48000 * 2 * 2 / 1000 * g_u32OutDelayMaxDefault[AML_DELAY_OUTPORT_SPDIF_RAW]; // use max buffer size
+            ring_buffer_init(&g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF_RAW].stDelayRbuffer, s32BufferSize);
             g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF_RAW].is_init_buffer = true;
 
-            s32BfferSize = 192000 * 2 * 2 * 4 / 1000 * g_u32OutDelayMaxDefault[AML_DELAY_OUTPORT_SPDIF_B_RAW]; // use max buffer size for MAT
-            ring_buffer_init(&g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF_B_RAW].stDelayRbuffer, s32BfferSize);
+            s32BufferSize = 192000 * 2 * 2 * 4 / 1000 * g_u32OutDelayMaxDefault[AML_DELAY_OUTPORT_SPDIF_B_RAW]; // use max buffer size for AML_MAT
+            ring_buffer_init(&g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF_B_RAW].stDelayRbuffer, s32BufferSize);
             g_stAudioOutputDelay[AML_DELAY_OUTPORT_SPDIF_B_RAW].is_init_buffer = true;
         }
     }
@@ -122,7 +122,7 @@ int aml_audio_delay_set_time(aml_audio_delay_type_e enAudioDelayType, int s32Del
         }
     }
 
-    ALOGI("set audio output type:%d, delay time: %dms, has init buferr: %d",
+    ALOGI("set audio output type:%d, delay time: %dms, has init buffer: %d",
             enAudioDelayType, s32DelayTimeMs, g_stAudioOutputDelay[enAudioDelayType].is_init_buffer);
     return 0;
 }
