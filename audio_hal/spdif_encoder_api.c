@@ -59,7 +59,7 @@ static bool spdif_encoder_support_format(audio_format_t audio_format) {
 static int config_spdif_encoder_output_buffer(struct aml_spdif_encoder *spdif_enc, audio_format_t format)
 {
     /*
-     *audiofinger write 4096bytes to hal
+     *audioflinger write 4096bytes to hal
      *ac3 min frame size is 64bytes, so ac3 coefficient is 4096/64 = 64
      *eac3 min frame size is 128bytes, so ac3 coefficient is 4096/128 = 32
      */

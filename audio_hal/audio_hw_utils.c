@@ -463,7 +463,7 @@ void *convert_audio_sample_for_output(int input_frames, int input_format, int in
     int *p32 = (int*)input_buf;
     int max_ch =  input_ch;
     int i;
-    //ALOGV("intput frame %d,input ch %d,buf ptr %p,vol %f\n", input_frames, input_ch, input_buf, lvol);
+    //ALOGV("input frame %d,input ch %d,buf ptr %p,vol %f\n", input_frames, input_ch, input_buf, lvol);
     ALOG_ASSERT(input_buf);
     if (input_ch > 2) {
         max_ch = 8;
@@ -496,7 +496,7 @@ void *convert_audio_sample_for_output(int input_frames, int input_format, int in
         int *p32_temp = out_buf;
         float m_vol = lvol;
         NumSamps = input_frames * input_ch;
-        //here to swap the channnl data here
+        //here to swap the channel data here
         //actual now:L,missing,R,RS,RRS,,LS,LRS,missing
         //expect L,C,R,RS,RRS,LRS,LS,LFE (LFE comes from to center)
         //actual  audio data layout  L,R,C,none/LFE,LRS,RRS,LS,RS
@@ -620,16 +620,16 @@ int aml_audio_get_default_alsa_output_ch()
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
     /* default 8 channels for TV product */
-    int chan_num =  8;
+    int channel_num =  8;
     ret = property_get("ro.vendor.platform.alsa.spk.ch", buf, NULL);
     if (ret > 0) {
-        chan_num = atoi(buf);
+        channel_num = atoi(buf);
     }
-    return chan_num;
+    return channel_num;
 }
 
 /*
-this prop judgement is borrowed from CEC framework, which is used
+this prop judgment is borrowed from CEC framework, which is used
 to detect TV/SBR product, audio HAL can also use that.
 */
 bool aml_audio_check_sbr_product()
@@ -1316,7 +1316,7 @@ int aml_audio_data_handle(struct audio_stream_out *stream, const void* buffer, s
           out->usecase, usecase2Str(out->usecase), out->hal_format, out->hal_ch, out->hal_frame_size, out->hal_rate, DETECT_AUDIO_DATA_UNIT, bytes);
 
     while (out->audio_data_handle_state < AUDIO_DATA_HANDLE_FINISHED && remaining_size) {
-        ALOGD("%s remaing_size:%zu,  out->audio_data_handle_status:%u", __func__, remaining_size, out->audio_data_handle_state);
+        ALOGD("%s remaining_size:%zu,  out->audio_data_handle_status:%u", __func__, remaining_size, out->audio_data_handle_state);
         switch (out->audio_data_handle_state) {
             case AUDIO_DATA_HANDLE_START:
                 FALLTHROUGH_INTENDED; /* [[fallthrough]] */
@@ -1332,7 +1332,7 @@ int aml_audio_data_handle(struct audio_stream_out *stream, const void* buffer, s
                     ret = aml_audio_data_detect((int16_t *)((int8_t *)buffer + detected_size), unit_size , AML_DETECT_VALUE);
                     if (false == ret) {
                         out->audio_data_handle_state = AUDIO_DATA_HANDLE_DETECTED;
-                        ALOGD("%s  detected the nonzero data, remaing_size:%zu  detected_size:%u", __func__, remaining_size, detected_size);
+                        ALOGD("%s  detected the nonzero data, remaining_size:%zu  detected_size:%u", __func__, remaining_size, detected_size);
                         break;
                     }
 
@@ -1660,7 +1660,7 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
     default:
         if (AUDIO_DEVICE_BIT_IN & android_dev) {
             *hal_dev_port = INPORT_HDMIIN;
-            ALOGW("[%s:%d] unsupport input dev:%#x, return default HDMIN.", __func__, __LINE__, android_dev);
+            ALOGW("[%s:%d] unsupport input dev:%#x, return default HDMIIN.", __func__, __LINE__, android_dev);
         } else {
             *hal_dev_port = OUTPORT_SPEAKER;
             ALOGW("[%s:%d] unsupport output dev:%#x, return default SPEAKER.", __func__, __LINE__, android_dev);
@@ -1671,14 +1671,14 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
 }
 
 #if ANDROID_PLATFORM_SDK_VERSION > 29
-int android_fmt_convert_to_dmx_fmt(audio_format_t andorid_fmt) {
+int android_fmt_convert_to_dmx_fmt(audio_format_t android_fmt) {
 
-    if (andorid_fmt <= AUDIO_FORMAT_DEFAULT ||
-        andorid_fmt >= AUDIO_FORMAT_INVALID) {
+    if (android_fmt <= AUDIO_FORMAT_DEFAULT ||
+        android_fmt >= AUDIO_FORMAT_INVALID) {
         return ACODEC_FMT_NULL;
     }
 
-    switch (andorid_fmt) {
+    switch (android_fmt) {
         case AUDIO_FORMAT_AAC:
         case AUDIO_FORMAT_AAC_MAIN:
         case AUDIO_FORMAT_AAC_LC:

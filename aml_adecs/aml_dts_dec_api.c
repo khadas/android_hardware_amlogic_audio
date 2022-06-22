@@ -49,7 +49,7 @@
 #define DTS_TYPE_IV    0x11
 
 #define IEC61937_HEADER_LENGTH  8
-#define IEC_DTS_HD_APPEND_LNGTH 12
+#define IEC_DTS_HD_APPEND_LENGTH 12
 #define IEC61937_PA_OFFSET  0
 #define IEC61937_PA_SIZE    2
 #define IEC61937_PB_OFFSET  2
@@ -86,20 +86,20 @@ enum
     NO_ENOUGH_DATA = -1002,
 };
 
-///< From dtshd_dec_api_common.h. It belongs to the pubheader, so it won't change.
-enum DTS_STRMTYPE_MASK
+///< From dtshd_dec_api_common.h. It belongs to the pub header, so it won't change.
+enum AML_DTS_STREAMTYPE_MASK
 {
-    DTSSTRMTYPE_UNKNOWN              = 0x00000000,
-    DTSSTRMTYPE_DTS_LEGACY           = 0x00000001,
-    DTSSTRMTYPE_DTS_ES_MATRIX        = 0x00000002,
-    DTSSTRMTYPE_DTS_ES_DISCRETE      = 0x00000004,
-    DTSSTRMTYPE_DTS_9624             = 0x00000008,
-    DTSSTRMTYPE_DTS_ES_8CH_DISCRETE  = 0x00000010,
-    DTSSTRMTYPE_DTS_HIRES            = 0x00000020,
-    DTSSTRMTYPE_DTS_MA               = 0x00000040,
-    DTSSTRMTYPE_DTS_LBR              = 0x00000080,
-    DTSSTRMTYPE_DTS_LOSSLESS         = 0x00000100,
-    DTSSTRMTYPE_DTS_HEADPHONE        = 0x10000000   ///< for headphoneX, fake streamtype
+    DTSSTREAMTYPE_DTS_UNKNOWN              = 0x00000000,
+    DTSSTREAMTYPE_DTS_LEGACY           = 0x00000001,
+    DTSSTREAMTYPE_DTS_ES_MATRIX        = 0x00000002,
+    DTSSTREAMTYPE_DTS_ES_DISCRETE      = 0x00000004,
+    DTSSTREAMTYPE_DTS_9624             = 0x00000008,
+    DTSSTREAMTYPE_DTS_ES_8CH_DISCRETE  = 0x00000010,
+    DTSSTREAMTYPE_DTS_HIRES            = 0x00000020,
+    DTSSTREAMTYPE_DTS_MA               = 0x00000040,
+    DTSSTREAMTYPE_DTS_LBR              = 0x00000080,
+    DTSSTREAMTYPE_DTS_LOSSLESS         = 0x00000100,
+    DTSSTREAMTYPE_DTS_HEADPHONE        = 0x10000000   ///< for headphoneX, fake streamtype
 };
 
 struct dca_dts_debug {
@@ -250,7 +250,7 @@ static int _dts_frame_scan(struct dca_dts_dec *dts_dec)
                     // point to the address after pd
                     read_pointer = read_pointer + IEC61937_PD_SIZE;
                 } else if ((frame_info->iec61937_data_type == DTS_TYPE_IV)
-                            && (unuse_size > IEC_DTS_HD_APPEND_LNGTH + IEC61937_HEADER_LENGTH)) {
+                            && (unuse_size > IEC_DTS_HD_APPEND_LENGTH + IEC61937_HEADER_LENGTH)) {
                     /*refer kodi how to add 12 bytes header for DTS HD
                     01 00 00 00 00 00 00 00 fe fe ** **, last 2 bytes for data size
                     */
@@ -266,7 +266,7 @@ static int _dts_frame_scan(struct dca_dts_dec *dts_dec)
                     }
                     //ALOGD("size data=0x%x 0x%x\n",read_pointer[10],read_pointer[11]);
                     // point to the address after 12 bytes header
-                    read_pointer = read_pointer + IEC_DTS_HD_APPEND_LNGTH;
+                    read_pointer = read_pointer + IEC_DTS_HD_APPEND_LENGTH;
                 }
             }
 
@@ -344,7 +344,7 @@ static int _dts_frame_scan(struct dca_dts_dec *dts_dec)
         //ALOGD("check_pos:%d, syncword_pos:%d, read_pointer:%p, check_size:%d"
         //    , frame_info->check_pos, frame_info->syncword_pos, read_pointer, check_size);
 
-        // no valid frame was found beyond size of MAX_DCA_FRAME_LENGTH, meybe it is dirty data, so drop it
+        // no valid frame was found beyond size of MAX_DCA_FRAME_LENGTH, maybe it is dirty data, so drop it
         if ((frame_size <= 0) && (check_size >= MAX_DCA_FRAME_LENGTH)) {
             ring_buffer_seek(input_rbuffer, check_size);
             dts_dec->remain_size -= check_size;
@@ -532,29 +532,29 @@ static int _dts_stream_type_mapping(unsigned int stream_type)
     int dts_type = TYPE_DTS;
     int temp_stream_type;
 
-    temp_stream_type = stream_type & (~DTSSTRMTYPE_DTS_HEADPHONE);
+    temp_stream_type = stream_type & (~DTSSTREAMTYPE_DTS_HEADPHONE);
     switch (temp_stream_type) {
-        case DTSSTRMTYPE_DTS_LEGACY:
-        case DTSSTRMTYPE_DTS_ES_MATRIX:
-        case DTSSTRMTYPE_DTS_ES_DISCRETE:
-        case DTSSTRMTYPE_DTS_9624:
-        case DTSSTRMTYPE_DTS_ES_8CH_DISCRETE:
-        case DTSSTRMTYPE_DTS_HIRES:
+        case DTSSTREAMTYPE_DTS_LEGACY:
+        case DTSSTREAMTYPE_DTS_ES_MATRIX:
+        case DTSSTREAMTYPE_DTS_ES_DISCRETE:
+        case DTSSTREAMTYPE_DTS_9624:
+        case DTSSTREAMTYPE_DTS_ES_8CH_DISCRETE:
+        case DTSSTREAMTYPE_DTS_HIRES:
             dts_type = TYPE_DTS;
             break;
-        case DTSSTRMTYPE_DTS_MA:
-        case DTSSTRMTYPE_DTS_LOSSLESS:
+        case DTSSTREAMTYPE_DTS_MA:
+        case DTSSTREAMTYPE_DTS_LOSSLESS:
             dts_type = TYPE_DTS_HD;
             break;
-        case DTSSTRMTYPE_DTS_LBR:
+        case DTSSTREAMTYPE_DTS_LBR:
             dts_type = TYPE_DTS_EXPRESS;
             break;
 
-        case DTSSTRMTYPE_DTS_HEADPHONE:
+        case DTSSTREAMTYPE_DTS_HEADPHONE:
             dts_type = TYPE_DTS_HP;
             break;
 
-        case DTSSTRMTYPE_UNKNOWN:
+        case DTSSTREAMTYPE_DTS_UNKNOWN:
         default:
             dts_type = TYPE_DTS;
             break;
@@ -846,7 +846,7 @@ int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int byt
                 int ret = (*dts_decoder_getinfo)(DCA_STREAM_INFO, (dca_info_t *)&dca_info);
                 if (!ret) {
                     dts_dec->stream_type = _dts_stream_type_mapping(dca_info.stream_info.stream_type);
-                    dts_dec->is_headphone_x = !!(dca_info.stream_info.stream_type & DTSSTRMTYPE_DTS_HEADPHONE);
+                    dts_dec->is_headphone_x = !!(dca_info.stream_info.stream_type & DTSSTREAMTYPE_DTS_HEADPHONE);
                 } else {
                     dts_dec->stream_type = -1;
                     dts_dec->is_headphone_x = false;
@@ -932,7 +932,7 @@ int dca_decoder_getinfo(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_d
     }
 
     switch (info_type) {
-        case AML_DEC_STREMAM_INFO:
+        case AML_DEC_STREAM_INFO:
         {
             dca_info_t dca_info;
             struct aml_audio_device *adev = (struct aml_audio_device *)(aml_dec->dev);
@@ -946,7 +946,7 @@ int dca_decoder_getinfo(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_d
                 aml_dec_info->dec_info.stream_drop_num = dca_info.stream_info.dropped_frames;
                 aml_dec_info->dec_info.stream_decode_num = dca_info.stream_info.decode_frames;
                 dts_dec->stream_type = _dts_stream_type_mapping(dca_info.stream_info.stream_type);
-                dts_dec->is_headphone_x = !!(dca_info.stream_info.stream_type & DTSSTRMTYPE_DTS_HEADPHONE);
+                dts_dec->is_headphone_x = !!(dca_info.stream_info.stream_type & DTSSTREAMTYPE_DTS_HEADPHONE);
                 ///< aml_dec_info->dec_info.output_bLFE = // not support yet
             } else {
                 memset(aml_dec_info, 0, sizeof(aml_dec_info_t));

@@ -109,7 +109,7 @@ static uint64_t hwsync_header_get_apts(struct hw_avsync_header *header)
 void hwsync_header_set_frame_size(struct hw_avsync_header *header, uint32_t frame_size)
 {
     if (frame_size > HW_AVSYNC_FRAME_SIZE || frame_size == 0) {
-        ALOGE("%s(), invalid frame size (%d), 0 or exeeds %d",
+        ALOGE("%s(), invalid frame size (%d), 0 or exceeds %d",
                 __func__, frame_size, HW_AVSYNC_FRAME_SIZE);
     }
     header->frame_size = frame_size;
@@ -168,7 +168,7 @@ int hwsync_write_header_byte(struct hw_avsync_header *header, uint8_t byte)
             hwsync_header_extract(header);
         }
     } else {
-        ALOGE("%s(), invalid data %d, bytes_wrtten %zu",
+        ALOGE("%s(), invalid data %d, bytes_written %zu",
                 __func__, byte, header->bytes_written);
         header->bytes_written = 0;
         return -EINVAL;
@@ -278,7 +278,7 @@ ssize_t header_extractor_write(struct hw_avsync_header_extractor *header_extract
             bytes_remaining--;
             data++;
         } else {
-            ALOGV("start dealing body read, bytes_remaing %zu, sync_frame_written %zu",
+            ALOGV("start dealing body read, bytes_remaining %zu, sync_frame_written %zu",
                     bytes_remaining, header_extractor->sync_frame_written);
             size_t bytes_to_copy = MIN(bytes_remaining,
                     hwsync_header_get_frame_size(sync_header) - header_extractor->sync_frame_written);

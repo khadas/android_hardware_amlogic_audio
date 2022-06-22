@@ -786,7 +786,7 @@ static int retrieve_hwsync_header(struct amlAudioMixer *audio_mixer,
             AM_LOGE("meta_data_cbk fail err = %d!!", ret);
         return ret;
     }
-    AM_LOGV("meta data cbk, diffms = %d", diff_ms);
+    AM_LOGV("meta data cbk, diff ms = %d", diff_ms);
     if (diff_ms > 0) {
         in_port->bytes_to_insert = diff_ms * 48 * 4;
     } else if (diff_ms < 0) {
@@ -929,7 +929,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
             aml_audio_dump_audio_bitstreams("/data/audio/audiosyst.raw",
                     in_port_sys->data, mixing_len_bytes);
         }
-        // processing data and make convertion according to cfg
+        // processing data and make conversion according to cfg
         // processing_and_convert(data_mixed, data_sys, frames, in_port_sys->cfg, out_port->cfg);
         frames_written = do_mixing_2ch(audio_mixer->out_tmp_buffer, data_sys,
                 frames, in_port_sys->cfg.format, out_port->cfg.format);
@@ -949,7 +949,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
         extend_channel_2_8(data_mixed, audio_mixer->out_tmp_buffer, frames, 2, 8);
 
         if (DEBUG_DUMP) {
-            aml_audio_dump_audio_bitstreams("/data/audio/extandsys.raw",
+            aml_audio_dump_audio_bitstreams("/data/audio/extendsys.raw",
                     data_mixed, frames * out_port->cfg.frame_size);
         }
         in_port_sys->data_valid = 0;

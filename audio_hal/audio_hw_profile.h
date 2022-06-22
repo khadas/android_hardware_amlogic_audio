@@ -25,7 +25,7 @@ char*  get_hdmi_sink_cap_dolby_ms12(const char *keys,audio_format_t format,struc
 char *get_hdmi_arc_cap(struct audio_hw_device *dev, const char *keys, audio_format_t format);
 char *strdup_hdmi_arc_cap_default(const char *keys, audio_format_t format);
 
-/*@ brief get the TV board inside capbility
+/*@ brief get the TV board inside capability
  * return the strdup.
  */
 char *strdup_tv_platform_cap_default(const char *keys, audio_format_t format);

@@ -66,7 +66,7 @@ enum {
     AVSYNC_ACTION_HOLD,
 };
 enum {
-    DIRECT_SPEED = 0, // DERIECT_SPEED
+    DIRECT_SPEED = 0, // DIRECT_SPEED
     DIRECT_SLOW,
     DIRECT_NORMAL,
 };

@@ -96,7 +96,7 @@ typedef struct audio_type_parse {
     audio_devices_t input_dev;
 } audio_type_parse_t;
 
-int creat_pthread_for_audio_type_parse(
+int create_pthread_for_audio_type_parse(
     pthread_t *audio_type_parse_ThreadID,
                      void **status,
                      struct aml_mixer_handle *mixer,
@@ -118,9 +118,9 @@ char* audio_type_convert_to_string(int s32AudioType);
 /*
  *@brief convert android audio format to the audio type
  */
-int android_audio_format_t_convert_to_andio_type(audio_format_t format);
+int android_audio_format_t_convert_to_audio_type(audio_format_t format);
 /*
- *@brief get current android audio fromat from audio parser thread
+ *@brief get current android audio format from audio parser thread
  */
 audio_format_t audio_parse_get_audio_type(audio_type_parse_t *status);
 /*
@@ -128,7 +128,7 @@ audio_format_t audio_parse_get_audio_type(audio_type_parse_t *status);
  */
 audio_channel_mask_t audio_parse_get_audio_channel_mask(audio_type_parse_t *status);
 /*
- *@brief gget current audio fromat from audio parser thread
+ *@brief get current audio format from audio parser thread
  */
 int audio_parse_get_audio_type_direct(audio_type_parse_t *status);
 /*
@@ -136,7 +136,7 @@ int audio_parse_get_audio_type_direct(audio_type_parse_t *status);
  */
 int get_dts_stream_channels(const char *buffer, size_t bytes);
 /*
- *@brief gget current audio type from buffer data
+ *@brief get current audio type from buffer data
  */
 int audio_type_parse(void *buffer, size_t bytes, int *package_size, audio_channel_mask_t *cur_ch_mask);
 

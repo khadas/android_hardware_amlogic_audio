@@ -42,7 +42,7 @@
 #ifdef ENABLE_DVB_PATCH
 extern unsigned long decoder_apts_lookup(unsigned int offset);
 
-/*now th latency api is just used for DTV doing avsync by useing mediasync */
+/*now th latency api is just used for DTV doing avsync by using mediasync */
 int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
 
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
@@ -88,7 +88,7 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
     void *output_buffer = NULL;
     size_t output_buffer_bytes = 0;
     int ms12_write_failed = 0;
-    int consume_size = 0,remain_size = 0,ms12_thredhold_size = 256;
+    int consume_size = 0,remain_size = 0,ms12_threshold_size = 256;
     unsigned long long all_pcm_len1 = 0;
     unsigned long long all_pcm_len2 = 0;
     unsigned long long all_zero_len = 0;
@@ -194,7 +194,7 @@ re_write:
                     aml_audio_sleep(1000);
                 }
                 if (adev->debug_flag >= 2) {
-                    ALOGI("%s sleeep 1ms\n", __FUNCTION__);
+                    ALOGI("%s sleep 1ms\n", __FUNCTION__);
                 }
                 write_retry++;
                 if (adev->ms12.dolby_ms12_enable) {
@@ -267,7 +267,7 @@ static int aml_audio_ms12_process(struct audio_stream_out *stream, const void *w
          * please take care of the value of process_size(aml_audio_ms12_render: bytes).
          *
          * Issue:
-         * SWPL-60957: passthrough TrueHD format in Movieplayer.
+         * SWPL-60957: passthrough TrueHD format in Movie player.
          */
         int process_bytes = (aml_out->hal_format == AUDIO_FORMAT_DOLBY_TRUEHD) ? (write_bytes) : MS12_TRUNK_SIZE;
         while (1) {
@@ -357,7 +357,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
         ret = aml_audio_ms12_process(stream, buffer, bytes);
 #ifdef ENABLE_DVB_PATCH
         if (patch && patch->decoder_offset == 0) {
-           /*after ms12 process one frame, set mix leve and ad vol level*/
+           /*after ms12 process one frame, set mix level and ad vol level*/
             if (adev->dual_decoder_support) {
                 pthread_mutex_lock(&ms12->lock);
                 dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(adev->mixing_level);

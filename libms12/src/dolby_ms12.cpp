@@ -385,7 +385,7 @@ extern "C" void dolby_ms12_get_pcm_output_size(unsigned long long *all_output_si
     }
 }
 
-extern "C" void dolby_ms12_get_bitsteam_output_size(unsigned long long *all_output_size, unsigned long long *ms12_generate_zero_size)
+extern "C" void dolby_ms12_get_bitstream_output_size(unsigned long long *all_output_size, unsigned long long *ms12_generate_zero_size)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12* dolby_ms12_instance = getInstance();
@@ -513,7 +513,7 @@ extern "C" int dolby_ms12_hwsync_checkin_pts_internal(int offset, int apts)
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12* dolby_ms12_instance = getInstance();
     if (dolby_ms12_instance) {
-        return dolby_ms12_instance->DolbyMS12HWSyncChecinPTS(offset, apts);
+        return dolby_ms12_instance->DolbyMS12HWSyncCheckinPTS(offset, apts);
     } else {
         return -1;
     }

@@ -63,13 +63,13 @@ char * get_ms12_path (void)
 
 }
 
-bool is_ms12_lib_match(void *hDolbyMS12LibHanle) {
+bool is_ms12_lib_match(void *hDolbyMS12LibHandle) {
     bool b_match = false;
     char * (*FunDolbMS12GetVersion)(void) = NULL;
 
     /*get dolby version*/
-    if (hDolbyMS12LibHanle) {
-        FunDolbMS12GetVersion = (char * (*)(void)) dlsym(hDolbyMS12LibHanle, "ms12_get_version");
+    if (hDolbyMS12LibHandle) {
+        FunDolbMS12GetVersion = (char * (*)(void)) dlsym(hDolbyMS12LibHandle, "ms12_get_version");
         if (FunDolbMS12GetVersion) {
             if (strstr((*FunDolbMS12GetVersion)(), MS12_VERSION) != NULL) {
                 b_match = true;
@@ -94,8 +94,8 @@ bool is_ms12_lib_match(void *hDolbyMS12LibHanle) {
 enum eDolbyLibType detect_dolby_lib_type(void) {
     enum eDolbyLibType retVal = eDolbyNull;
 
-    void *hDolbyMS12LibHanle = NULL;
-    void *hDolbyDcvLibHanle = NULL;
+    void *hDolbyMS12LibHandle = NULL;
+    void *hDolbyDcvLibHandle = NULL;
 
     // the priority would be "MS12 > DCV" lib
     ALOGI("%s return lib %s", __func__, DOLBY_MS12_LIB_PATH_A);
@@ -108,14 +108,14 @@ enum eDolbyLibType detect_dolby_lib_type(void) {
     if (eDolbyMS12Lib == retVal)
     {
         //try to open lib see if it's OK?
-        hDolbyMS12LibHanle = dlopen(DOLBY_MS12_LIB_PATH_A, RTLD_NOW);
-        if (hDolbyMS12LibHanle != NULL)
+        hDolbyMS12LibHandle = dlopen(DOLBY_MS12_LIB_PATH_A, RTLD_NOW);
+        if (hDolbyMS12LibHandle != NULL)
         {
-            bool b_match = is_ms12_lib_match(hDolbyMS12LibHanle);
-            dlclose(hDolbyMS12LibHanle);
-            hDolbyMS12LibHanle = NULL;
+            bool b_match = is_ms12_lib_match(hDolbyMS12LibHandle);
+            dlclose(hDolbyMS12LibHandle);
+            hDolbyMS12LibHandle = NULL;
 
-            /*check ms12 verson*/
+            /*check ms12 version*/
             if (b_match) {
                 ALOGI("%s,FOUND libdolbyms12 lib\n", __FUNCTION__);
                 return eDolbyMS12Lib;
@@ -136,13 +136,13 @@ enum eDolbyLibType detect_dolby_lib_type(void) {
     if (eDolbyDcvLib == retVal)
     {
         //try to open lib see if it's OK?
-        hDolbyDcvLibHanle  = dlopen(DOLBY_DCV_LIB_PATH_A, RTLD_NOW);
+        hDolbyDcvLibHandle  = dlopen(DOLBY_DCV_LIB_PATH_A, RTLD_NOW);
     }
 
-    if (hDolbyDcvLibHanle != NULL)
+    if (hDolbyDcvLibHandle != NULL)
     {
-        dlclose(hDolbyDcvLibHanle);
-        hDolbyDcvLibHanle = NULL;
+        dlclose(hDolbyDcvLibHandle);
+        hDolbyDcvLibHandle = NULL;
         ALOGI("%s,FOUND libHwAudio_dcvdec lib\n", __FUNCTION__);
         return eDolbyDcvLib;
     }
@@ -226,7 +226,7 @@ int get_ms12_dap_init_mode(bool is_tv)
     return dap_init_mode;
 }
 
-bool is_ms12_tuning_dat_in_dut() //availabe in Dolby MS12 V2.4 or later
+bool is_ms12_tuning_dat_in_dut() //available in Dolby MS12 V2.4 or later
 {
     if (file_accessible(DOLBY_TUNING_DAT) == 0)
         return true;

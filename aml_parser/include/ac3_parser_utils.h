@@ -38,7 +38,7 @@
  *          0, success find one frame
  *          1, fail to find one frame
  */
-int parse_dolby_frame_header
+int aml_ac3_parser_frame_header
     (const unsigned char *frameBuf
     , int length
     , int *frame_offset

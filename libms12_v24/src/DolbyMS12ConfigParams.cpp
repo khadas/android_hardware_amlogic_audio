@@ -137,7 +137,7 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mCompressorProfile(0)
 
     //HE-AAC SWITCHES
-    , mAssocInstanse(1)/* Error restricting associated instance to 2 channels (-as: 0,1) */
+    , mAssocInstance(1)/* Error restricting associated instance to 2 channels (-as: 0,1) */
     , mDefDialnormVal(108)
     , mDualMonoreproductionMode(0)
     , mAribChannelMappingFlag(0)
@@ -829,7 +829,7 @@ int DolbyMS12ConfigParams::SetFunctionalSwitches(char **ConfigParams, int *row_i
     if (mAppSoundFlags == true) {
         sprintf(ConfigParams[*row_index], "%s", "-sys_apps_mixgain");
         (*row_index)++;
-        sprintf(ConfigParams[*row_index], "%d,%d,%d", mSysApppsMixGain.target, mSysApppsMixGain.duration, mSysApppsMixGain.shape);//choose mid-val
+        sprintf(ConfigParams[*row_index], "%d,%d,%d", mSysAppsMixGain.target, mSysAppsMixGain.duration, mSysAppsMixGain.shape);//choose mid-val
         (*row_index)++;
     }
 
@@ -1008,7 +1008,7 @@ int DolbyMS12ConfigParams::SetFunctionalSwitchesRuntime(char **ConfigParams, int
     if (mAppSoundFlags == true) {
         sprintf(ConfigParams[*row_index], "%s", "-sys_apps_mixgain");
         (*row_index)++;
-        sprintf(ConfigParams[*row_index], "%d,%d,%d", mSysApppsMixGain.target, mSysApppsMixGain.duration, mSysApppsMixGain.shape);//choose mid-val
+        sprintf(ConfigParams[*row_index], "%d,%d,%d", mSysAppsMixGain.target, mSysAppsMixGain.duration, mSysAppsMixGain.shape);//choose mid-val
         (*row_index)++;
     }
 
@@ -1049,7 +1049,7 @@ int DolbyMS12ConfigParams::SetFunctionalSwitchesRuntime_lite(char **ConfigParams
 
     sprintf(ConfigParams[*row_index], "%s", "-sys_apps_mixgain");
     (*row_index)++;
-    sprintf(ConfigParams[*row_index], "%d,%d,%d", mSysApppsMixGain.target, mSysApppsMixGain.duration, mSysApppsMixGain.shape);//choose mid-val
+    sprintf(ConfigParams[*row_index], "%d,%d,%d", mSysAppsMixGain.target, mSysAppsMixGain.duration, mSysAppsMixGain.shape);//choose mid-val
     (*row_index)++;
 
     sprintf(ConfigParams[*row_index], "%s", "-sys_syss_mixgain");
@@ -1194,7 +1194,7 @@ int DolbyMS12ConfigParams::SetHEAACSwitches(char **ConfigParams, int *row_index)
         {
             sprintf(ConfigParams[*row_index], "%s", "-as");
             (*row_index)++;
-            sprintf(ConfigParams[*row_index], "%d", mAssocInstanse);
+            sprintf(ConfigParams[*row_index], "%d", mAssocInstance);
             (*row_index)++;
         }
 
@@ -1437,10 +1437,10 @@ int DolbyMS12ConfigParams::SetDAPContentSwitches(char **ConfigParams, int *row_i
     }
 
 
-    if (ContenDAPDialogueEnhancer.de_enable == 1) {
+    if (ContentDAPDialogueEnhancer.de_enable == 1) {
         sprintf(ConfigParams[*row_index], "%s", "-dap_dialogue_enhancer");
         (*row_index)++;
-        sprintf(ConfigParams[*row_index], "%d,%d", ContenDAPDialogueEnhancer.de_enable, ContenDAPDialogueEnhancer.de_amount);
+        sprintf(ConfigParams[*row_index], "%d,%d", ContentDAPDialogueEnhancer.de_enable, ContentDAPDialogueEnhancer.de_amount);
         (*row_index)++;
     }
 
@@ -1473,8 +1473,8 @@ char *DolbyMS12ConfigParams::QueryDapParameters(const char *key)
               << ";";
         } else if (!strcmp(token, "dap_dialogue_enhancer")) {
             s << "dap_dialogue_enhancer="
-              << ContenDAPDialogueEnhancer.de_enable
-              << "," << ContenDAPDialogueEnhancer.de_amount
+              << ContentDAPDialogueEnhancer.de_enable
+              << "," << ContentDAPDialogueEnhancer.de_amount
               << ";";
         } else if (!strcmp(token, "dap_graphic_eq")) {
             s << "dap_graphic_eq="
@@ -1794,10 +1794,10 @@ char **DolbyMS12ConfigParams::UpdateDolbyMS12RuntimeConfigParams(int *argc, char
             if (sscanf(mConfigParams[index], "%d,%d",
                 &param[0], &param[1]) == 2) {
                 if ((param[0] >= 0) && (param[0] <= 1))
-                    ContenDAPDialogueEnhancer.de_enable = param[0];
+                    ContentDAPDialogueEnhancer.de_enable = param[0];
                 if ((param[1] >= 0) && (param[1] <= 16))
-                    ContenDAPDialogueEnhancer.de_amount = param[1];
-                ALOGI("-dap_dialogue_enhancer ContenDAPDialogueEnhancer: %d %d", param[0], param[1]);
+                    ContentDAPDialogueEnhancer.de_amount = param[1];
+                ALOGI("-dap_dialogue_enhancer ContentDAPDialogueEnhancer: %d %d", param[0], param[1]);
             }
         } else if (strcmp(opt, "dap_graphic_eq") == 0) {
             DAPGraphicEQ eq;

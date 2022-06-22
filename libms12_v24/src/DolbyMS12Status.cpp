@@ -39,7 +39,7 @@ namespace android
 
 
 DolbyMS12Status::DolbyMS12Status() :
-    mDoblyMS12StatusInputPCM(MIXER_PLAYBACK_START)
+    mDolbyMS12StatusInputPCM(MIXER_PLAYBACK_START)
     , mDolbyMS12StatusInputRaw(DIRECT_0R_OFFLOAD_PLAYBACK_STOP)
     , mMixerAudioStreamOutformat(AUDIO_FORMAT_INVALID)
     , mMixerAudioChannelMask(AUDIO_CHANNEL_NONE)

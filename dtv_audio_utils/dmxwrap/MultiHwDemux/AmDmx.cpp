@@ -290,7 +290,7 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_Open(int dev_no_t)
 
     if (open_count > 0)
     {
-        ALOGI("demux device %d has already been openned", dev_no);
+        ALOGI("demux device %d has already been opened", dev_no);
         open_count++;
         ret = AM_SUCCESS;
         goto final;
@@ -346,8 +346,6 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_Close(void)
     AM_ErrorCode_t ret = AM_SUCCESS;
     int i;
 
-//  AM_TRY(dmx_get_openned_dev(dev_no, &dev));
-
 //  pthread_mutex_lock(&am_gAdpLock);
 
     if (open_count == 1)
@@ -390,8 +388,6 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_AllocateFilter(int *fhandle)
     int fid;
 
     assert(fhandle);
-
-    //AM_TRY(dmx_get_openned_dev(dev_no, &dev));
 
     pthread_mutex_lock(&lock);
 
@@ -491,8 +487,6 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_SetPesFilter(int fhandle, const struct dmx_
 
     assert(params);
 
-    //AM_TRY(dmx_get_openned_dev(dev_no, &dev));
-
     //if(!drv->dvb_set_pes_filter)
     //{
     //  printf("demux do not support set_pes_filter");
@@ -525,8 +519,6 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_GetSTC(int fhandle)
     AM_DMX_Filter *filter;
     AM_ErrorCode_t ret = AM_SUCCESS;
 
-    //AM_TRY(dmx_get_openned_dev(dev_no, &dev));
-    //printf("%s line:%d\n", __FUNCTION__, __LINE__);
     //if(!dev->drv->get_stc)
     //{
     //  printf("demux do not support set_pes_filter");
@@ -561,8 +553,6 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_FreeFilter(int fhandle)
     AM_DMX_Filter *filter;
     AM_ErrorCode_t ret = AM_SUCCESS;
 
-    //AM_TRY(dmx_get_openned_dev(dev_no, &dev));
-
     pthread_mutex_lock(&lock);
 
     ret = dmx_get_used_filter(fhandle, &filter);
@@ -590,8 +580,6 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_StartFilter(int fhandle)
     //AM_DMX_Device_t *dev;
     AM_DMX_Filter *filter = NULL;
     AM_ErrorCode_t ret = AM_SUCCESS;
-
-    //AM_TRY(dmx_get_openned_dev(dev_no, &dev));
 
     pthread_mutex_lock(&lock);
 
@@ -632,7 +620,6 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_StopFilter(int fhandle)
     AM_DMX_Filter *filter = NULL;
     AM_ErrorCode_t ret = AM_SUCCESS;
 
-    //AM_TRY(dmx_get_openned_dev(dev_no, &dev));
     ret = dmx_get_used_filter(fhandle, &filter);
 
 
@@ -668,8 +655,6 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_SetBufferSize(int fhandle, int size)
     AM_DMX_Filter *filter;
     AM_ErrorCode_t ret = AM_SUCCESS;
 
-    //AM_TRY(dmx_get_openned_dev(dev_no, &dev));
-
     pthread_mutex_lock(&lock);
 
 //  if(!drv->set_buf_size)
@@ -704,8 +689,6 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_GetCallback(int fhandle, AM_DMX_DataCb *cb,
     AM_DMX_Filter *filter;
     AM_ErrorCode_t ret = AM_SUCCESS;
 
-    //AM_TRY(dmx_get_openned_dev(dev_no, &dev));
-
     pthread_mutex_lock(&lock);
 
     ret = dmx_get_used_filter(fhandle, &filter);
@@ -739,8 +722,6 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_SetCallback(int fhandle, AM_DMX_DataCb cb, 
     AM_DMX_Filter *filter;
     AM_ErrorCode_t ret = AM_SUCCESS;
 
-    //AM_TRY(dmx_get_openned_dev(dev_no, &dev));
-
     pthread_mutex_lock(&lock);
 
     ret = dmx_get_used_filter(fhandle, &filter);
@@ -770,8 +751,6 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_SetSource(AM_DMX_Source_t src)
 {
     //AM_DMX_Device_t *dev;
     AM_ErrorCode_t ret = AM_SUCCESS;
-
-//  AM_TRY(dmx_get_openned_dev(dev_no, &dev));
 
     pthread_mutex_lock(&lock);
 //if (!dev->drv->set_source)
@@ -808,8 +787,6 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_Sync()
     //AM_DMX_Device_t *dev;
     AM_ErrorCode_t ret = AM_SUCCESS;
 
-    //AM_TRY(dmx_get_openned_dev(dev_no, &dev));
-
     pthread_mutex_lock(&lock);
     if (thread != pthread_self())
     {
@@ -840,7 +817,7 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_GetScrambleStatus(AM_Bool_t dev_status[2])
                 dev_status[0] = vflag ? AM_TRUE : AM_FALSE;
             if (!dev_status[1])
                 dev_status[1] = aflag ? AM_TRUE : AM_FALSE;
-            //AM_DEBUG(1, "AM_DMX_GetScrambleStatus video scamble %d, audio scamble %d\n", vflag, aflag);
+            //AM_DEBUG(1, "AM_DMX_GetScrambleStatus video scramble %d, audio scramble %d\n", vflag, aflag);
             if (dev_status[0] && dev_status[1])
             {
                 return AM_SUCCESS;
@@ -849,7 +826,7 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_GetScrambleStatus(AM_Bool_t dev_status[2])
         }
         else
         {
-            printf("AM_DMX_GetScrambleStatus read scamble status failed\n");
+            printf("AM_DMX_GetScrambleStatus read scramble status failed\n");
             return AM_FAILURE;
         }
     }

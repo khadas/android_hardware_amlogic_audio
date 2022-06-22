@@ -31,7 +31,7 @@ typedef struct AML_MMAP_THREAD_PARAM {
 
 typedef struct AML_MMAP_AUDIO_PARAM {
     unsigned char               *pu8MmapAddr;
-    ion_user_handle_t           hIonHanndle;
+    ion_user_handle_t           hIonHandle;
     int                         s32IonFd;
     int                         s32IonShareFd;
     unsigned int                u32FramePosition;

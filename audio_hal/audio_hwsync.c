@@ -376,7 +376,7 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                     }
                 }
                 p_hwsync->hw_sync_frame_size = p_hwsync->hw_sync_body_cnt;
-                p_hwsync->body_align_cnt = 0; //  alisan zz
+                p_hwsync->body_align_cnt = 0;
                 p_hwsync->hw_sync_header_cnt = 0; //8.1
                 pts = hwsync_header_get_pts(&p_hwsync->hw_sync_header[0]);
                 /* do this covert to avoid pts overflow */
@@ -462,7 +462,7 @@ int aml_audio_hwsync_set_first_pts(audio_hwsync_t *p_hwsync, uint64_t pts)
     p_hwsync->first_apts_flag = true;
     p_hwsync->first_apts = pts;
 
-    /* this wait lead to medaivol case fail. TV-41815 */
+    /* this wait lead to media vol case fail. TV-41815 */
 #if 0 // here close this delay for tsync.
     if (!p_hwsync->use_mediasync) {
         while (delay_count < 10) {
@@ -514,7 +514,7 @@ bool aml_audio_hwsync_update_threshold(audio_hwsync_t *p_hwsync)
         avsync_time_threshold_value = 50*1000;
         ret = aml_audio_hwsync_set_time_gap_threshold(p_hwsync, avsync_time_threshold_value);
     }
-    ALOGV("%s, avsync_time_threshold_value:%" PRId64 ", udpate threshold finished.",
+    ALOGV("%s, avsync_time_threshold_value:%" PRId64 ", update threshold finished.",
             __func__, avsync_time_threshold_value);
 
     return ret;

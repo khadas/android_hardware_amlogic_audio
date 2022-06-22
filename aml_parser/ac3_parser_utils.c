@@ -132,7 +132,7 @@ static int check_ac3_syncword (const unsigned char *ptr, int size)
 /*
  *parse frame header[ATSC Standard,Digital Audio Compression (AC-3, E-AC-3)]
  */
-int parse_dolby_frame_header
+int aml_ac3_parser_frame_header
 (const unsigned char *frameBuf
  , int length
  , int *frame_offset

@@ -42,7 +42,7 @@
 #define TSYNC_FIRSTCHECKIN_VPTS "/sys/class/tsync/checkin_firstvpts"
 #define TSYNC_FIRST_VPTS  "/sys/class/tsync/firstvpts"
 #define TSYNC_DEMUX_PCR         "/sys/class/tsync/demux_pcr"
-#define TSYNC_PCR_LANTCY        "/sys/class/tsync/pts_latency"
+#define TSYNC_PCR_LATENCY        "/sys/class/tsync/pts_latency"
 #define AMSTREAM_AUDIO_PORT_RESET   "/sys/class/amstream/reset_audio_port"
 #define PROPERTY_ENABLE_AUDIO_RESAMPLE "vendor.media.audio.resample"
 #define PROPERTY_AUDIO_DISCONTINUE_THRESHOLD "vendor.media.audio.discontinue_threshold"
@@ -57,7 +57,7 @@
 #define DEMUX_PCR_APTS_LATENCY (300 * 90)
 
 #define DEFAULT_DTV_ADJUST_CLOCK    (1000)
-#define DEFALUT_DTV_MIN_OUT_CLOCK   (1000*1000-100*1000)
+#define DEFAULT_DTV_MIN_OUT_CLOCK   (1000*1000-100*1000)
 #define DEFAULT_DTV_MAX_OUT_CLOCK   (1000*1000+100*1000)
 #define DEFAULT_I2S_OUTPUT_CLOCK    (256*48000)
 #define DEFAULT_CLOCK_MUL    (4)
@@ -66,7 +66,7 @@
 #define AUDIO_TV_PCM_FRAME_SIZE 32
 #define AUDIO_DEFAULT_PCM_FRAME_SIZE 4
 #define AUDIO_IEC61937_FRAME_SIZE 4
-#define ADUIO_DOLBY_ADSUBFRAME_CHECKED_SIZE 2048
+#define AUDIO_ADSUBFRAME_CHECKED_SIZE 2048
 
 #define AUDIO_RESAMPLE_MIN_THRESHOLD 50
 #define AUDIO_RESAMPLE_MIDDLE_THRESHOLD 100
@@ -121,7 +121,7 @@ struct package {
     char *data;//buf ptr
     int size;  //package size
     char *ad_data;//ad buf ptr
-    int  ad_size;//apackage size
+    int  ad_size;//ad package size
     struct package * next;//next ptr
     uint64_t pts;
     uint64_t ad_pts;

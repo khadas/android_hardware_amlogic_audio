@@ -230,7 +230,7 @@ bool is_ms12_passthrough(struct audio_stream_out *stream);
 
 void set_ms12_atmos_lock(struct dolby_ms12_desc *ms12, bool is_atmos_lock_on);
 void set_ms12_acmod2ch_lock(struct dolby_ms12_desc *ms12, bool is_lock_on);
-bool is_ms12_continous_mode(struct aml_audio_device *adev);
+bool is_ms12_continuous_mode(struct aml_audio_device *adev);
 void set_ms12_main_volume(struct dolby_ms12_desc *ms12, float volume);
 
 /*
@@ -279,7 +279,7 @@ bool is_need_reset_ms12_continuous(struct audio_stream_out *stream);
 bool is_ms12_output_compatible(struct audio_stream_out *stream, audio_format_t new_sink_format, audio_format_t new_optical_format);
 
 /*
- *@brief dynamicly set dolby ms12 drc parameters
+ *@brief dynamically set dolby ms12 drc parameters
  */
 void dynamic_set_dolby_ms12_drc_parameters(struct dolby_ms12_desc *ms12);
 

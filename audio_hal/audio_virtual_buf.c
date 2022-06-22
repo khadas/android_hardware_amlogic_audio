@@ -28,7 +28,7 @@
 #include "audio_virtual_buf.h"
 #include "aml_malloc_debug.h"
 
-#define MAX_NAME_LENGHT  128
+#define MAX_NAME_LENGTH  128
 
 typedef enum {
     VIRTUAL_BUF_IDLE,
@@ -38,7 +38,7 @@ typedef enum {
 
 
 struct audio_virtual_buf {
-    char buf_name[MAX_NAME_LENGHT];
+    char buf_name[MAX_NAME_LENGTH];
     buf_state_t state;
     uint64_t buf_ns_cur;
     uint64_t buf_ns_begin;
@@ -62,8 +62,8 @@ int audio_virtual_buf_open(void ** pphandle, char * buf_name, uint64_t buf_ns_be
     }
     if (buf_name) {
         name_length = strlen(buf_name);
-        if (name_length >= (MAX_NAME_LENGHT - 1)) {
-            name_length = (MAX_NAME_LENGHT - 1);
+        if (name_length >= (MAX_NAME_LENGTH - 1)) {
+            name_length = (MAX_NAME_LENGTH - 1);
         }
 
         strncpy(phandle->buf_name, buf_name, name_length);

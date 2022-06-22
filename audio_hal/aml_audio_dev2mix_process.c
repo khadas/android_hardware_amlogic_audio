@@ -59,7 +59,7 @@ int aml_dev2mix_parser_create(struct audio_hw_device *dev, audio_devices_t input
         return -ENOMEM;
     }
     parser->temp_buffer = aml_audio_calloc(1, DEFAULT_CAPTURE_PERIOD_SIZE);
-    ret = creat_pthread_for_audio_type_parse(&parser->audio_parse_threadID,
+    ret = create_pthread_for_audio_type_parse(&parser->audio_parse_threadID,
             &parser->audio_parse_para, &aml_dev->alsa_mixer, input_dev);
     if (ret !=  0) {
         ALOGW("[%s:%d] create format parse thread fail", __func__, __LINE__);
@@ -151,19 +151,19 @@ size_t aml_dev2mix_parser_process(struct aml_stream_in *in, unsigned char *buffe
     size_t                  read_bytes = 0;
     do {
         aml_alsa_input_read(&in->stream, parser->temp_buffer, period_read_size);
-        int cur_writed_byte = 0;
-        int cur_writed_byte_cnt = 0;
+        int cur_wrote_byte = 0;
+        int cur_wrote_byte_cnt = 0;
         int decoder_ret = -1;
         do {
-            decoder_ret = aml_decoder_process(aml_dec, parser->temp_buffer + cur_writed_byte_cnt,
-                period_read_size - cur_writed_byte_cnt, &cur_writed_byte);
-            cur_writed_byte_cnt += cur_writed_byte;
-            ALOGV("[%s:%d] cur_writed_byte_cnt:%d, use:%d", __func__, __LINE__, cur_writed_byte_cnt, cur_writed_byte);
+            decoder_ret = aml_decoder_process(aml_dec, parser->temp_buffer + cur_wrote_byte_cnt,
+                period_read_size - cur_wrote_byte_cnt, &cur_wrote_byte);
+            cur_wrote_byte_cnt += cur_wrote_byte;
+            ALOGV("[%s:%d] cur_wrote_byte_cnt:%d, use:%d", __func__, __LINE__, cur_wrote_byte_cnt, cur_wrote_byte);
             if (decoder_ret == AML_DEC_RETURN_TYPE_CACHE_DATA) {
                 break;
             }
-            ALOGV("[%s:%d] data_len:%d, cur_writed_byte_cnt:%d, cur_writed_byte:%d, data_sr:%d", __func__, __LINE__,
-                dec_pcm_data->data_len, cur_writed_byte_cnt, cur_writed_byte, dec_pcm_data->data_sr);
+            ALOGV("[%s:%d] data_len:%d, cur_wrote_byte_cnt:%d, cur_wrote_byte:%d, data_sr:%d", __func__, __LINE__,
+                dec_pcm_data->data_len, cur_wrote_byte_cnt, cur_wrote_byte, dec_pcm_data->data_sr);
             void  *dec_data = (void *)dec_pcm_data->buf;
             if (dec_pcm_data->data_len > 0) {
                 if (dec_pcm_data->data_sr != OUTPUT_ALSA_SAMPLERATE) {
@@ -181,11 +181,11 @@ size_t aml_dev2mix_parser_process(struct aml_stream_in *in, unsigned char *buffe
                     ALOGW("[%s:%d] need written:%d, actually written:%d", __func__, __LINE__, dec_pcm_data->data_len, ret);
                 }
             }
-        } while (cur_writed_byte_cnt < period_read_size || aml_dec->fragment_left_size || decoder_ret == AML_DEC_RETURN_TYPE_NEED_DEC_AGAIN);
+        } while (cur_wrote_byte_cnt < period_read_size || aml_dec->fragment_left_size || decoder_ret == AML_DEC_RETURN_TYPE_NEED_DEC_AGAIN);
 
-        /* here to fix pcm switch to raw nosie issue ,it is caused by hardware format detection later than output
+        /* here to fix pcm switch to raw noise issue ,it is caused by hardware format detection later than output
         so we delay pcm output one frame to work around the issue,but it has a negative effect on av sync when normal
-        pcm playback. abouot delay audio 64 ms */
+        pcm playback. about delay audio 64 ms */
         if (get_buffer_read_space(&parser->aml_ringbuffer) >= 4 * 48 * 64) {
              read_bytes += ring_buffer_read(&parser->aml_ringbuffer, buffer + read_bytes, bytes - read_bytes);
         }

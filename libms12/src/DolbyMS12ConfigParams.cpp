@@ -128,7 +128,7 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mCompressorProfile(0)
 
     //HE-AAC SWITCHES
-    , mAssocInstanse(2)
+    , mAssocInstance(2)
     , mDefDialnormVal(108)
     , mTransportFormat(0)
 
@@ -706,7 +706,7 @@ int DolbyMS12ConfigParams::SetFunctionalSwitches(char **ConfigParams, int *row_i
     if (mAppSoundFlags == true) {
         sprintf(ConfigParams[*row_index], "%s", "-sys_apps_mixgain");
         (*row_index)++;
-        sprintf(ConfigParams[*row_index], "%d,%d,%d", mSysApppsMixGain.target, mSysApppsMixGain.duration, mSysApppsMixGain.shape);//choose mid-val
+        sprintf(ConfigParams[*row_index], "%d,%d,%d", mSysAppsMixGain.target, mSysAppsMixGain.duration, mSysAppsMixGain.shape);//choose mid-val
         (*row_index)++;
     }
 
@@ -893,7 +893,7 @@ int DolbyMS12ConfigParams::SetFunctionalSwitchesRuntime(char **ConfigParams, int
     if (mAppSoundFlags == true) {
         sprintf(ConfigParams[*row_index], "%s", "-sys_apps_mixgain");
         (*row_index)++;
-        sprintf(ConfigParams[*row_index], "%d,%d,%d", mSysApppsMixGain.target, mSysApppsMixGain.duration, mSysApppsMixGain.shape);//choose mid-val
+        sprintf(ConfigParams[*row_index], "%d,%d,%d", mSysAppsMixGain.target, mSysAppsMixGain.duration, mSysAppsMixGain.shape);//choose mid-val
         (*row_index)++;
     }
 
@@ -934,7 +934,7 @@ int DolbyMS12ConfigParams::SetFunctionalSwitchesRuntime_lite(char **ConfigParams
 
     sprintf(ConfigParams[*row_index], "%s", "-sys_apps_mixgain");
     (*row_index)++;
-    sprintf(ConfigParams[*row_index], "%d,%d,%d", mSysApppsMixGain.target, mSysApppsMixGain.duration, mSysApppsMixGain.shape);//choose mid-val
+    sprintf(ConfigParams[*row_index], "%d,%d,%d", mSysAppsMixGain.target, mSysAppsMixGain.duration, mSysAppsMixGain.shape);//choose mid-val
     (*row_index)++;
 
     sprintf(ConfigParams[*row_index], "%s", "-sys_syss_mixgain");
@@ -1031,7 +1031,7 @@ int DolbyMS12ConfigParams::SetHEAACSwitches(char **ConfigParams, int *row_index)
         {
             sprintf(ConfigParams[*row_index], "%s", "-as");
             (*row_index)++;
-            sprintf(ConfigParams[*row_index], "%d", mAssocInstanse);
+            sprintf(ConfigParams[*row_index], "%d", mAssocInstance);
             (*row_index)++;
         }
 
@@ -1306,10 +1306,10 @@ int DolbyMS12ConfigParams::SetDAPContentSwitches(char **ConfigParams, int *row_i
     }
 
 
-    if (ContenDAPDialogueEnhancer.de_enable == 1) {
+    if (ContentDAPDialogueEnhancer.de_enable == 1) {
         sprintf(ConfigParams[*row_index], "%s", "-dap_dialogue_enhancer");
         (*row_index)++;
-        sprintf(ConfigParams[*row_index], "%d,%d,%d", ContenDAPDialogueEnhancer.de_enable, ContenDAPDialogueEnhancer.de_amount, ContenDAPDialogueEnhancer.de_ducking);
+        sprintf(ConfigParams[*row_index], "%d,%d,%d", ContentDAPDialogueEnhancer.de_enable, ContentDAPDialogueEnhancer.de_amount, ContentDAPDialogueEnhancer.de_ducking);
         (*row_index)++;
     }
 
@@ -1516,12 +1516,12 @@ char **DolbyMS12ConfigParams::UpdateDolbyMS12RuntimeConfigParams(int *argc, char
             if (sscanf(mConfigParams[index], "%d,%d,%d",
                 &param[0], &param[1], &param[2]) == 3) {
                 if ((param[0] >= 0) && (param[0] <= 1))
-                    ContenDAPDialogueEnhancer.de_enable = param[0];
+                    ContentDAPDialogueEnhancer.de_enable = param[0];
                 if ((param[1] >= 0) && (param[1] <= 16))
-                    ContenDAPDialogueEnhancer.de_amount = param[1];
+                    ContentDAPDialogueEnhancer.de_amount = param[1];
                 if ((param[2] >= 0) && (param[2] <= 16))
-                    ContenDAPDialogueEnhancer.de_ducking = param[2];
-                ALOGI("-dap_dialogue_enhancer ContenDAPDialogueEnhancer: %d %d %d", param[0], param[1], param[2]);
+                    ContentDAPDialogueEnhancer.de_ducking = param[2];
+                ALOGI("-dap_dialogue_enhancer ContentDAPDialogueEnhancer: %d %d %d", param[0], param[1], param[2]);
             }
         } else if (strcmp(opt, "dap_graphic_eq") == 0) {
             DAPGraphicEQ eq;

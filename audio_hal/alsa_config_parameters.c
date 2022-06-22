@@ -43,7 +43,7 @@ static void get_dts_hd_hardware_config_parameters(
 {
     hardware_config->channels = 2;
     hardware_config->format = PCM_FORMAT_S16_LE;
-    //TODO, maybe we should use "/sys/class/audiodsp/digtal_codec" as 4
+    //TODO, maybe we should use "/sys/class/audiodsp/digital_codec" as 4
     hardware_config->rate = rate * 4;
     hardware_config->period_count = PLAYBACK_PERIOD_COUNT;
     hardware_config->period_size = PERIOD_SIZE * 4 * 2;
@@ -64,7 +64,7 @@ static void get_mat_hardware_config_parameters(
 {
     hardware_config->channels = 2;
     hardware_config->format = PCM_FORMAT_S16_LE;
-    // for android P, p212 platform found that the rate should not muliply by 4
+    // for android P, p212 platform found that the rate should not multiply by 4
     hardware_config->rate = rate;
     hardware_config->period_count = PLAYBACK_PERIOD_COUNT;
     //hardware_config->period_size = PERIOD_SIZE /* * 4 */;
@@ -158,7 +158,7 @@ static void get_pcm_hardware_config_parameters(
         hardware_config->channels = channels;
         hardware_config->format = PCM_FORMAT_S32_LE;
     }
-    hardware_config->rate = rate;//defualt sample rate = 48KHz
+    hardware_config->rate = rate;//default sample rate = 48KHz
     if (!game_mode)
         hardware_config->period_size = PERIOD_SIZE;
     else

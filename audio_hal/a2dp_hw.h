@@ -74,7 +74,7 @@ class BluetoothAudioPortOut {
 
   // When the Audio framework / HAL wants to change the stream state, it invokes
   // these 3 functions to control the Bluetooth stack (Audio Control Path).
-  // Note: Both Start() and Suspend() will return ture when there are no errors.
+  // Note: Both Start() and Suspend() will return true when there are no errors.
   // Called by Audio framework / HAL to start the stream
   bool Start();
   // Called by Audio framework / HAL to suspend the stream
@@ -85,7 +85,7 @@ class BluetoothAudioPortOut {
   // The audio data path to the Bluetooth stack (Software encoding)
   size_t WriteData(const void* buffer, size_t bytes) const;
 
-  // Called by the Audio framework / HAL to fetch informaiton about audio frames
+  // Called by the Audio framework / HAL to fetch information about audio frames
   // presented to an external sink.
   bool GetPresentationPosition(uint64_t* delay_ns, uint64_t* bytes,
                                timespec* timestamp) const;

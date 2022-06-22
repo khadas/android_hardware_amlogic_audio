@@ -164,7 +164,7 @@ void VirtualX_Channel_reconfig(struct aml_native_postprocess *native_postprocess
 
 bool Check_VX_lib(void)
 {
-    void *h_libvx_hanle = NULL;
+    void *h_libvx_handle = NULL;
 
     int fd = open(VIRTUALX_LICENSE_LIB_PATH, O_RDONLY);
     if (fd < 0) {
@@ -174,14 +174,14 @@ bool Check_VX_lib(void)
         close(fd);
     }
 
-    h_libvx_hanle = dlopen(VIRTUALX_LICENSE_LIB_PATH, RTLD_NOW);
-    if (!h_libvx_hanle) {
+    h_libvx_handle = dlopen(VIRTUALX_LICENSE_LIB_PATH, RTLD_NOW);
+    if (!h_libvx_handle) {
         ALOGE("%s, fail to dlopen %s(%s)", __func__, VIRTUALX_LICENSE_LIB_PATH, dlerror());
         return false;
     } else {
         ALOGD("%s, success to dlopen %s", __func__, VIRTUALX_LICENSE_LIB_PATH);
-        dlclose(h_libvx_hanle);
-        h_libvx_hanle = NULL;
+        dlclose(h_libvx_handle);
+        h_libvx_handle = NULL;
         /* VX effect lib is in system, set dts output as stream content */
         dca_set_out_ch_internal(0);
         return true;

@@ -484,9 +484,9 @@ bool mediasync_wrap_getRealTimeForNextVsync(void* handle, int64_t *outRealUs) {
      }
      return false;
 }
-bool mediasync_wrap_getTrackMediaTime(void* handle, int64_t *outMeidaUs) {
+bool mediasync_wrap_getTrackMediaTime(void* handle, int64_t *outMediaUs) {
      if (handle != NULL)  {
-         mediasync_result ret = gMediaSync_getTrackMediaTime(handle, outMeidaUs);
+         mediasync_result ret = gMediaSync_getTrackMediaTime(handle, outMediaUs);
          if (ret == AM_MEDIASYNC_OK) {
             return true;
          } else {

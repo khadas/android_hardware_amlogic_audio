@@ -153,7 +153,7 @@ char **dolby_ms12_config_params_get_runtime_config_params_lite(int *argc);
 /**
  * @brief Get dolby ms12 output config, its value is defined in "dolby_ms12_output_mask.h".
  */
-int dolby_ms12_config_params_get_dobly_config_output_config(void);
+int dolby_ms12_config_params_get_dolby_config_output_config(void);
 
 /**
  * @brief Get dolby ms12 output format
@@ -304,7 +304,7 @@ void dolby_ms12_set_dual_mono_reproduction_mode(int val);
  * 0 = Off
  * 1 = On (Default)
  */
-void dolby_ms12_set_asscociated_audio_mixing(int val);
+void dolby_ms12_set_associated_audio_mixing(int val);
 
 /**
  * @brief System / Application audio mixing
@@ -483,13 +483,13 @@ void dolby_ms12_set_dap_surround_decoder_enable(bool val);
  * - speaker_start (20...2000, def: 20)
  * - surround_boost (0...96, def: 96)
  */
-void dolby_ms12_set_dap_surround_virtuallizer(DAPSurroundVirtualizer *dapVirtualizerParamters);
+void dolby_ms12_set_dap_surround_virtualizer(DAPSurroundVirtualizer *aml_dapVirtualizerParameters);
 
 /**
  * @brief Virtualizer Parameter
  * - virtualizer_enable (0,1, def: 1)
  */
-int dolby_ms12_get_dap_surround_virtuallizer(void);
+int dolby_ms12_get_dap_surround_virtualizer(void);
 
 /**
  * @brief dap graphic eq
@@ -498,7 +498,7 @@ int dolby_ms12_get_dap_surround_virtuallizer(void);
  * - eq_band_center (20...20000, def: {32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000})
  * - eq_band_target (-576...576, def: {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
  */
-void dolby_ms12_set_dap_graphic_eq(DAPGraphicEQ *dapGraphicEQParamters);
+void dolby_ms12_set_dap_graphic_eq(DAPGraphicEQ *dapGraphicEQParameters);
 
 /**
  * @brief dap bass enhancer
@@ -520,7 +520,7 @@ void dolby_ms12_set_dap_bass_enhancer(DAPBassEnhancer *dapBassEnhancerParameters
  * - virtual_bass_low_mix_freq (0...375, def: 94)
  * - virtual_bass_high_mix_freq (281...938, def: 469)
  */
-void dolby_ms12_set_dap_virtual_bass(DAPVirtualBass *dapVirtualBassParamters);
+void dolby_ms12_set_dap_virtual_bass(DAPVirtualBass *dapVirtualBassParameters);
 
 //DAP SWITCHES (content specific)
 
@@ -531,7 +531,7 @@ void dolby_ms12_set_dap_virtual_bass(DAPVirtualBass *dapVirtualBassParamters);
  * - mi_de_enable (0,1, def: 0)
  * - mi_surround_enable (0,1, def: 0)
  */
-void dolby_ms12_set_dap_mi_streering(DAPMISteering *dapMiSteeringParamters);
+void dolby_ms12_set_dap_mi_steering(DAPMISteering *dapMiSteeringParameters);
 
 /**
  * @brief dap leveler
@@ -555,7 +555,7 @@ void dolby_ms12_set_dap_ieq(DAPIEQ *dapIEQParameters);
  * - de_enable (0,1, def: 0)
  * - de_amount (0...16, def: 0)
  */
-void dolby_ms12_set_dap_dialogue_enhancer(DAPDialogueEnhancer *dapDialogueEnhancerParamters);
+void dolby_ms12_set_dap_dialogue_enhancer(DAPDialogueEnhancer *dapDialogueEnhancerParameters);
 
 /**
  * @brief set dual output flag, when hdmi-arc not connected, and using the dolby ms12, that optical is always on.

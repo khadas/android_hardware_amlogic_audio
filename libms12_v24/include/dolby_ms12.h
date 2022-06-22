@@ -203,7 +203,7 @@ void dolby_ms12_get_pcm_output_size(unsigned long long *all_output_size, unsigne
     @*all_output_size, all the data from ms12
     @*ms12_generate_zero_size, all the ms12 generate zero size
 */
-void dolby_ms12_get_bitsteam_output_size(unsigned long long *all_output_size, unsigned long long *ms12_generate_zero_size);
+void dolby_ms12_get_bitstream_output_size(unsigned long long *all_output_size, unsigned long long *ms12_generate_zero_size);
 
 /*@@
     @brief get main buffer avail
@@ -336,7 +336,7 @@ int dolby_ms12_mat_encoder_init
     (int b_lfract_precision                     /**< [in] 0: disable lfract precision. 1: enable lfract precision */
     , int b_chmod_locking                       /**< [in] 0: disable chmod locking. 1: enable  chmod locking */
     , unsigned int *p_matenc_maxoutbufsize      /**< [out] Pointer of MAT encoder mat outbuf size */
-    , int b_iec_header                          /**< [in] 0: output raw mat format. 1: outptu IEC61937 format */
+    , int b_iec_header                          /**< [in] 0: output raw mat format. 1: output IEC61937 format */
     , int dbg_enable                            /**< [in] 0: disable debug. 1: enable debug */
     , void **mat_enc_handle                     /**< [out] Pointer of MAT encoder handle */
     );

@@ -39,7 +39,7 @@ void aml_audio_select_spdif_to_hdmi(int spdif_select);
 
 int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config);
 
-int aml_audio_spdifout_processs(void *phandle, void *buffer, size_t byte);
+int aml_audio_spdifout_process(void *phandle, void *buffer, size_t byte);
 
 int aml_audio_spdifout_close(void *phandle);
 
@@ -53,7 +53,7 @@ int aml_audio_spdifout_get_delay(void *phandle);
 
 /**
 * @brief convert the audio channel mask layout to earc channel allocation and set to arc
-* @param  phandle:   spidf handle
+* @param  phandle:   spdif handle
 *         channel_mask:  the channel mask for the data
 * @return [success]: 0 set success
 *         [fail]: -1

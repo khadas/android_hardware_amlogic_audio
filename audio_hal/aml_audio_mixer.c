@@ -521,7 +521,7 @@ static int mixer_inports_read1(struct aml_audio_mixer *audio_mixer)
             enum port_state state = get_inport_state(in_port);
 
             if (0)
-                ALOGI("port %d, bufferlvl %d state %d",
+                ALOGI("port %d, buffer level %d state %d",
                     port_index, inport_buffer_level(in_port), state);
 
             if (port_index == MIXER_INPUT_PORT_PCM_DIRECT) {
@@ -1056,8 +1056,8 @@ static void *mixer_key_threadloop(void *data)
     CPU_ZERO(&cpuSet);
     CPU_SET(2, &cpuSet);
     CPU_SET(3, &cpuSet);
-    int sastat = sched_setaffinity(0, sizeof(cpu_set_t), &cpuSet);
-    if (sastat) {
+    int set_affinity = sched_setaffinity(0, sizeof(cpu_set_t), &cpuSet);
+    if (set_affinity) {
         ALOGW("%s(), failed to set cpu affinity", __FUNCTION__);
     }
     while (!audio_mixer->exit_thread) {
@@ -1082,7 +1082,7 @@ static void *mixer_key_threadloop(void *data)
             notify_mixer_input_avail(audio_mixer);
         }
 
-        //Retrieve buffers to "bufferout", and fill them into shared buffer
+        //Retrieve buffers to "buffer out", and fill them into shared buffer
         mixer_output_write(audio_mixer);
 #endif
         // processing throttle

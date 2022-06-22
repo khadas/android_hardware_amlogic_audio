@@ -61,7 +61,7 @@ struct hw_avsync_header_extractor {
     //int tsync_fd;
 };
 
-void hwsync_header_set_frame_size(struct hw_avsync_header *header, uint32_t fream_size);
+void hwsync_header_set_frame_size(struct hw_avsync_header *header, uint32_t frame_size);
 void hwsync_header_set_pts(struct hw_avsync_header *header, uint64_t pts);
 
 ssize_t header_extractor_write(struct hw_avsync_header_extractor *header_extractor,

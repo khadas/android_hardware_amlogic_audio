@@ -151,9 +151,9 @@ void audio_timer_start(unsigned32 aml_timer_id, unsigned64 delay_time, bool type
     }
 
     if (timer_settime(aml_timer_list[aml_timer_id].timer, 0, &(i_timer_spec), NULL) == -1) {
-        ALOGE("func:%s  settimer fail. errno:%d(%s)", __func__, errno, strerror(errno));
+        ALOGE("func:%s  set timer fail. errno:%d(%s)", __func__, errno, strerror(errno));
     } else {
-        ALOGV("func:%s  settimer success.", __func__);
+        ALOGV("func:%s  set timer success.", __func__);
     }
 }
 
@@ -205,22 +205,22 @@ void audio_timer_stop(unsigned32 aml_timer_id)
 *   Function Name:  audio_timer_remaining_time
 *   Description:    get remaining timer of a timer.
 *   Parameters:     unsigned32:timer_id
-*   Return value:   unsigned32: remaing time
+*   Return value:   unsigned32: remaining time
 ******************************************************************************/
 unsigned32 audio_timer_remaining_time(unsigned32 aml_timer_id)
 {
     struct itimerspec       i_timer_spec;
-    unsigned32  remaing_time = 0;
+    unsigned32  remaining_time = 0;
 
     if (timer_gettime(aml_timer_list[aml_timer_id].timer, &(i_timer_spec)) == -1) {
         ALOGE("func:%s  gettime fail. errno:%d(%s)", __func__, errno, strerror(errno));
     } else {
-        ALOGV("func:%s  timerid:%u,  time tv_sec:%ld, tv_nsec:%ld ", __func__,
+        ALOGV("func:%s  timer id:%u,  time tv_sec:%ld, tv_nsec:%ld ", __func__,
                 aml_timer_id, i_timer_spec.it_value.tv_sec, i_timer_spec.it_value.tv_nsec);
-        remaing_time = (unsigned32)(i_timer_spec.it_value.tv_sec * 1000 + i_timer_spec.it_value.tv_nsec/1000000LL);
+        remaining_time = (unsigned32)(i_timer_spec.it_value.tv_sec * 1000 + i_timer_spec.it_value.tv_nsec/1000000LL);
     }
 
-    return remaing_time;
+    return remaining_time;
 }
 
 /*****************************************************************************

@@ -109,7 +109,7 @@ static audio_channel_mask_t get_dolby_channel_mask(const unsigned char *frameBuf
     if ((frameBuf == NULL) || (length <= 0)) {
         ret = -1;
     } else {
-        ret = parse_dolby_frame_header(frameBuf, length, &scan_frame_offset, &scan_frame_size
+        ret = aml_ac3_parser_frame_header(frameBuf, length, &scan_frame_offset, &scan_frame_size
                                        , &scan_channel_num, &scan_numblks, &scan_timeslice_61937, &scan_framevalid_flag);
         ALOGV("%s A:scan_channel_num %d scan_numblks %d scan_timeslice_61937 %d\n",
               __FUNCTION__, scan_channel_num, scan_numblks, scan_timeslice_61937);
@@ -120,7 +120,7 @@ static audio_channel_mask_t get_dolby_channel_mask(const unsigned char *frameBuf
     } else {
         total_channel_num += scan_channel_num;
         if (length - scan_frame_offset - scan_frame_size > 0) {
-            ret = parse_dolby_frame_header(frameBuf + scan_frame_offset + scan_frame_size
+            ret = aml_ac3_parser_frame_header(frameBuf + scan_frame_offset + scan_frame_size
                                            , length - scan_frame_offset - scan_frame_size, &scan_frame_offset, &scan_frame_size
                                            , &scan_channel_num, &scan_numblks, &scan_timeslice_61937, &scan_framevalid_flag);
             ALOGV("%s B:scan_channel_num %d scan_numblks %d scan_timeslice_61937 %d\n",
@@ -309,7 +309,7 @@ int get_dts_stream_channels(const char *buffer, size_t buffer_size) {
             count = bytes - frame_header_len - 1;
         }
 
-        //DTS frame header mybe 11 bytes, and align 2 bytes
+        //DTS frame header maybe 11 bytes, and align 2 bytes
         count = (count > 12) ? 12 : count;
         for (i = 0; i < count; i+=2) {
             temp_ch = temp_buffer[frame_header_len + i];
@@ -565,7 +565,7 @@ static int audio_type_parse_release(audio_type_parse_t *status)
     return 0;
 }
 
-static int audio_transer_samplerate (int hw_sr)
+static int audio_transfer_samplerate (int hw_sr)
 {
     int samplerate;
     switch (hw_sr) {
@@ -714,7 +714,7 @@ static void* audio_type_parse_threadloop(void *data)
         if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
             cur_audio_packet = get_hdmiin_audio_packet(audio_type_status->mixer_handle);
             cur_samplerate = get_hdmiin_samplerate(audio_type_status->mixer_handle);
-            audio_type_status->audio_samplerate = audio_transer_samplerate(cur_samplerate);
+            audio_type_status->audio_samplerate = audio_transfer_samplerate(cur_samplerate);
         } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_SPDIF) {
             cur_samplerate = get_spdifin_samplerate(audio_type_status->mixer_handle);
         } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI_ARC) {
@@ -833,13 +833,13 @@ static void* audio_type_parse_threadloop(void *data)
 int audio_parse_get_audio_samplerate(audio_type_parse_t *status)
 {
     if (!status) {
-        ALOGE("NULL pointer of audio_type_parse_t, return default samperate:48000\n");
+        ALOGE("NULL pointer of audio_type_parse_t, return default samplerate:48000\n");
         return 48000;
     }
     return status->audio_samplerate;
 }
 
-int creat_pthread_for_audio_type_parse(
+int create_pthread_for_audio_type_parse(
                      pthread_t *audio_type_parse_ThreadID,
                      void **status,
                      struct aml_mixer_handle *mixer,
@@ -929,7 +929,7 @@ audio_format_t audio_type_convert_to_android_audio_format_t(int codec_type)
 /*
  *@brief convert android audio format to the audio type
  */
-int android_audio_format_t_convert_to_andio_type(audio_format_t format)
+int android_audio_format_t_convert_to_audio_type(audio_format_t format)
 {
     switch (format) {
     case AUDIO_FORMAT_AC3:

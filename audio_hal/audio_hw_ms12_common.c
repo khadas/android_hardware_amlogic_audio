@@ -63,7 +63,7 @@ static struct
 
 /*
  *@brief
- *Convert from ms12 pointer to aml_auido_device pointer.
+ *Convert from ms12 pointer to aml_audio_device pointer.
  */
 #define ms12_to_adev(ms12_ptr)  (struct aml_audio_device *) (((char*) (ms12_ptr)) - offsetof(struct aml_audio_device, ms12))
 
@@ -79,7 +79,7 @@ const char *mesg_type_2_string[MS12_MESG_TYPE_MAX] = {
     "MS12_MESG_TYPE_PAUSE",
     "MS12_MESG_TYPE_RESUME",
     "MS12_MESG_TYPE_SET_MAIN_DUMMY",
-    "MS12_MESG_TYPE_UPDATE_RUNTIIME_PARAMS",
+    "MS12_MESG_TYPE_UPDATE_RUNTIME_PARAMS",
     "MS12_MESG_TYPE_EXIT_THREAD",
     "MS12_MESG_TYPE_SCHEDULER_STATE",
 };
@@ -96,7 +96,7 @@ const char *scheduler_state_2_string[MS12_SCHEDULER_MAX] = {
 
 /*****************************************************************************
 *   Function Name:  set_dolby_ms12_runtime_pause
-*   Description:    set pause or resume to dobly ms12.
+*   Description:    set pause or resume to dolby ms12.
 *   Parameters:     struct dolby_ms12_desc: ms12 variable pointer
 *                   int: state pause or resume
 *   Return value:   0: success, or else fail
@@ -154,7 +154,7 @@ int dolby_ms12_main_resume(struct audio_stream_out *stream)
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     int ms12_runtime_update_ret = 0;
 
-    /*flyaudio of NTS appear freeze ~1.5s fail, as send the resume
+    /*fly audio of NTS appear freeze ~1.5s fail, as send the resume
     **message to ms12 in flush/close_stream interface when exit stream.
     **here do tsync resume, this lead to video pcr not pause.
     **so add ms12_resume_state to distinguish resume/flush/close resume message.
@@ -184,15 +184,15 @@ int dolby_ms12_main_resume(struct audio_stream_out *stream)
 ******************************************************************************/
 bool ms12_msg_list_is_empty(struct dolby_ms12_desc *ms12)
 {
-    bool is_emtpy = true;
+    bool is_empty = true;
     if (0 != ms12->ms12_mesg_threadID) {
         pthread_mutex_lock(&ms12->mutex);
         if (!list_empty(&ms12->mesg_list)) {
-            is_emtpy = false;
+            is_empty = false;
         }
         pthread_mutex_unlock(&ms12->mutex);
     }
-    return is_emtpy;
+    return is_empty;
 }
 
 /*****************************************************************************
@@ -256,8 +256,8 @@ static void *ms12_message_threadloop(void *data)
     CPU_ZERO(&cpuSet);
     CPU_SET(2, &cpuSet);
     CPU_SET(3, &cpuSet);
-    int sastat = sched_setaffinity(0, sizeof(cpu_set_t), &cpuSet);
-    if (sastat) {
+    int set_affinity = sched_setaffinity(0, sizeof(cpu_set_t), &cpuSet);
+    if (set_affinity) {
         ALOGW("%s(), failed to set cpu affinity", __func__);
     }
 
@@ -305,7 +305,7 @@ Repop_Mesg:
                 break;
             case MS12_MESG_TYPE_SET_MAIN_DUMMY:
                 break;
-            case MS12_MESG_TYPE_UPDATE_RUNTIIME_PARAMS:
+            case MS12_MESG_TYPE_UPDATE_RUNTIME_PARAMS:
                 break;
             case MS12_MESG_TYPE_EXIT_THREAD:
                 ALOGD("%s mesg exit thread.", __func__);
@@ -347,11 +347,11 @@ int ms12_mesg_thread_create(struct dolby_ms12_desc *ms12)
     list_init(&ms12->mesg_list);
     ms12->CommThread_ExitFlag = false;
     if ((ret = pthread_mutex_init (&ms12->mutex, NULL)) != 0) {
-        ALOGE("%s  pthread_mutex_init fail, errono:%s", __func__, strerror(errno));
+        ALOGE("%s  pthread_mutex_init fail, errno:%s", __func__, strerror(errno));
     } else if((ret = pthread_cond_init(&ms12->cond, NULL)) != 0) {
-        ALOGE("%s  pthread_cond_init fail, errono:%s", __func__, strerror(errno));
+        ALOGE("%s  pthread_cond_init fail, errno:%s", __func__, strerror(errno));
     } else if((ret = pthread_create(&(ms12->ms12_mesg_threadID), NULL, &ms12_message_threadloop, (void *)ms12)) != 0) {
-        ALOGE("%s  pthread_create fail, errono:%s", __func__, strerror(errno));
+        ALOGE("%s  pthread_create fail, errno:%s", __func__, strerror(errno));
     } else {
         ALOGD("%s ms12 thread init & create successful, ms12_mesg_threadID:%#lx ret:%d", __func__, ms12->ms12_mesg_threadID, ret);
     }
@@ -438,7 +438,7 @@ int aml_set_ms12_scheduler_state(struct dolby_ms12_desc *ms12)
     int sch_state = ms12->ms12_scheduler_state;
     bool is_arc_connecting = (adev->bHDMIConnected == 1);/*(adev->active_outport == OUTPORT_HDMI_ARC);*/
     bool is_netflix = adev->is_netflix;
-    unsigned int remaing_time = 0;
+    unsigned int remaining_time = 0;
 
     if (sch_state <= MS12_SCHEDULER_NONE ||  sch_state >= MS12_SCHEDULER_MAX) {
           ALOGE("%s  sch_state:%d is an invalid scheduler state.", __func__, sch_state);
@@ -448,8 +448,8 @@ int aml_set_ms12_scheduler_state(struct dolby_ms12_desc *ms12)
        return 0;
     }
     if (!is_arc_connecting && !is_netflix) {
-        remaing_time = audio_timer_remaining_time(AML_TIMER_ID_1);
-        if (remaing_time > 0) {
+        remaining_time = audio_timer_remaining_time(AML_TIMER_ID_1);
+        if (remaining_time > 0) {
             audio_timer_stop(AML_TIMER_ID_1);
         }
 
@@ -462,8 +462,8 @@ int aml_set_ms12_scheduler_state(struct dolby_ms12_desc *ms12)
         ALOGI("%s  ms12_scheduler_state:%d, sch_state:%d %s is sent to ms12", __func__,
             ms12->ms12_scheduler_state, sch_state, scheduler_state_2_string[sch_state]);
     } else {
-        remaing_time = audio_timer_remaining_time(AML_TIMER_ID_1);
-        if (remaing_time > 0) {
+        remaining_time = audio_timer_remaining_time(AML_TIMER_ID_1);
+        if (remaining_time > 0) {
             audio_timer_stop(AML_TIMER_ID_1);
         }
 

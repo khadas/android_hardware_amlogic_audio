@@ -61,7 +61,7 @@ class AmlAudioOutPort : public RefBase
                         audio_channel_mask_t channelMask,
                         audio_output_flags_t flags);
 
-     //add for to get parament info
+     //add for to get parameter info
      AmlAudioOutPort();
 
      status_t    standby();

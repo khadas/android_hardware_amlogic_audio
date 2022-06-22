@@ -27,7 +27,7 @@ enum ng_status {
     NG_MUTE,
 };
 
-void* init_noise_gate(float noise_level, int attrack_time, int release_time);
+void* init_noise_gate(float noise_level, int attack_time, int release_time);
 void release_noise_gate(void *ng_handle);
 int noise_evaluation(void *ng_handle, void *buffer, int sample_counter);
 

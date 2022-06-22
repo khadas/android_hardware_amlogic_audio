@@ -470,7 +470,7 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
                 /* when arc is connected update AVR SAD to hdmi edid */
                 update_edid_after_edited_audio_sad(adev, fmt_desc);
                 /*
-                 * if the ARC capbility format is changed, it should not support HBR(MAT/DTS-HD)
+                 * if the ARC capability format is changed, it should not support HBR(MAT/DTS-HD)
                  * for the sequence is LPCM -> DD -> DTS -> DDP -> DTSHD,
                  * which is defined in "private void setAudioFormat()" at file:DroidLogicEarcService.java
                  * so, here we choose the DDP part to update the sink format.
@@ -494,7 +494,7 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
             hdmiFormat2Str(fmt_desc->fmt),fmt_desc->is_support, fmt_desc->max_channels,
             fmt_desc->sample_rate_mask, fmt_desc->max_bit_rate, fmt_desc->atmos_supported);
     }
-    /*when arc format is chaged, we need update it, then new output can be confguried*/
+    /*when arc format is changed, we need update it, then new output can be configured*/
     adev->arc_hdmi_updated = 1;
 
     return 0;

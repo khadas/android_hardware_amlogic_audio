@@ -36,7 +36,7 @@ static void getHwDevice() {
             ALOGI("get DevicesFactoryHal fail");
             return;
         } else
-            ALOGI("get DevicesFactoryHal sucess");
+            ALOGI("get DevicesFactoryHal success");
 
         int rc = mDevicesFactoryHal->openDevice("primary", &hwDevice);
         if (rc == NO_ERROR) {

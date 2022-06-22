@@ -33,9 +33,9 @@ typedef enum {
 
 void* aml_dtvsync_create();
 
-bool aml_dtvsync_allocinstance(aml_dtvsync_t *p_dtvsync, int32_t* id);
+bool aml_dtvsync_allocInstance(aml_dtvsync_t *p_dtvsync, int32_t* id);
 
-bool aml_dtvsync_bindinstance(aml_dtvsync_t *p_dtvsync, uint32_t id);
+bool aml_dtvsync_bindInstance(aml_dtvsync_t *p_dtvsync, uint32_t id);
 
 bool aml_dtvsync_setParameter(aml_dtvsync_t *p_dtvsync, mediasync_parameter type, void* arg);
 

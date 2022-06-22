@@ -312,7 +312,7 @@ static bool a2dp_state_process(struct aml_audio_device *adev, audio_config_base_
             first_start = true;
         }
         // a2dp_out_resume maybe cause over 100ms, so set last_write_time after resume,
-        // otherwise, the gap woud always over 64ms, and always standby in dtv
+        // otherwise, the gap would always over 64ms, and always standby in dtv
         hal->last_write_time = aml_audio_get_systime();
     }
     hal->state = cur_state;

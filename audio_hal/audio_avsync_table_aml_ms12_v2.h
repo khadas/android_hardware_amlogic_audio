@@ -372,7 +372,7 @@
 #define  AVSYNC_MS12_DTV_HDMI_ARC_OUT_PCM_LATENCY            (50)
 #define  AVSYNC_MS12_DTV_HDMI_ARC_OUT_DD_LATENCY             (0)
 #define  AVSYNC_MS12_DTV_HDMI_ARC_OUT_DDP_LATENCY            (0)
-#define  AVSYNC_MS12_DTV_HDMI_OUT_PCM_LATENCY                (-30) /* if 0,  result locats at [-10, 10] */
+#define  AVSYNC_MS12_DTV_HDMI_OUT_PCM_LATENCY                (-30) /* if 0,  result locates at [-10, 10] */
 #define  AVSYNC_MS12_DTV_HDMI_OUT_DD_LATENCY                 (0)
 #define  AVSYNC_MS12_DTV_HDMI_OUT_DDP_LATENCY                (0)
 #define  AVSYNC_MS12_DTV_HDMI_OUT_MAT_LATENCY                (0)

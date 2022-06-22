@@ -58,7 +58,7 @@
 /*private audio format extension for "hal format" defined in "audio_format_t" enum*/
 #define AUDIO_FORMAT_DRA 0xE0000000u
 
-#define DDP_DECODER_CACHE 32 * 90 /* ddp decoder cashe es data one frame 32ms */
+#define DDP_DECODER_CACHE 32 * 90 /* ddp decoder cache es data one frame 32ms */
 
 typedef enum {
     AML_DEC_CONFIG_MIXING_ENABLE,
@@ -69,7 +69,7 @@ typedef enum {
 
 typedef enum {
     AML_DEC_REMAIN_SIZE, //runtime param
-    AML_DEC_STREMAM_INFO,
+    AML_DEC_STREAM_INFO,
     AML_DEC_OUTPUT_INFO,
 } aml_dec_info_type_t;
 
@@ -200,7 +200,7 @@ typedef struct aml_dec_config {
 
 typedef union aml_dec_info {
     int remain_size;                         /* AML_DEC_REMAIN_SIZE */
-    aml_dec_stream_info_t dec_info;          /* AML_DEC_STREMAM_INFO*/
+    aml_dec_stream_info_t dec_info;          /* AML_DEC_STREAM_INFO*/
     aml_dec_output_info_t dec_output_info;   /* AML_DEC_OUTPUT_INFO */
 } aml_dec_info_t;
 

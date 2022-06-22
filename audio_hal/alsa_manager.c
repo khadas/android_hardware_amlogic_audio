@@ -246,7 +246,7 @@ void aml_alsa_output_close(struct audio_stream_out *stream) {
 
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         if (aml_out->is_device_differ_with_ms12) {
-            ALOGI("%s stream out device(%d) truely use device(%d)\n", __func__, aml_out->device, ms12->device);
+            ALOGI("%s stream out device(%d) truly use device(%d)\n", __func__, aml_out->device, ms12->device);
             device = ms12->device;
             aml_out->is_device_differ_with_ms12 = false;
         }
@@ -360,16 +360,16 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
         goto write;
     }
 
-    // video not comming. skip audio
+    // video not coming. skip audio
     aml_hwsync_get_tsync_firstvpts(aml_out->hwsync, &first_vpts);
     if (first_vpts == 0) {
-        ALOGI("[audio-startup] video not comming - skip this packet. size:%zu\n", bytes);
+        ALOGI("[audio-startup] video not coming - skip this packet. size:%zu\n", bytes);
         aml_out->dropped_size += bytes;
         //memset(audio_data, 0, bytes);
         return bytes;
     }
 
-    // av both comming. check need add zero or skip
+    // av both coming. check need add zero or skip
     //get_sysfs_uint(TSYNC_FIRSTAPTS, (unsigned int *)&(first_apts));
     first_apts = adev->first_apts;
     aml_hwsync_get_tsync_vpts(aml_out->hwsync, &cur_vpts);
@@ -382,7 +382,7 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
 
     cur_apts = (unsigned int)((int64_t)first_apts + (int64_t)(((int64_t)aml_out->dropped_size * 90) / (48 * frame_size)));
     av_diff = (int)((int64_t)cur_apts - (int64_t)cur_vpts);
-    ALOGI("[audio-startup] av both comming.fa:0x%x fv:0x%x ca:0x%x cv:0x%x cp:0x%" PRIx64 " d:%d fs:%zu diff:%d ms\n",
+    ALOGI("[audio-startup] av both coming.fa:0x%x fv:0x%x ca:0x%x cv:0x%x cp:0x%" PRIx64 " d:%d fs:%zu diff:%d ms\n",
           first_apts, first_vpts, cur_apts, cur_vpts, cur_pcr, aml_out->dropped_size, frame_size, av_diff / 90);
 
     // Exception
@@ -424,7 +424,7 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
             }
             return bytes;
         } else {
-            //emset(audio_data, 0, need_drop_inject);
+            //memset(audio_data, 0, need_drop_inject);
             ret = pcm_write(aml_out->pcm, audio_data + need_drop_inject, bytes - need_drop_inject);
             aml_out->dropped_size += bytes;
             cur_apts = first_apts + (aml_out->dropped_size * 90) / (48 * frame_size);
@@ -918,7 +918,7 @@ exit:
 
 
 void aml_alsa_output_close_new(void *handle) {
-    ALOGI("\n+%s() hanlde %p\n", __func__, handle);
+    ALOGI("\n+%s() handle %p\n", __func__, handle);
     alsa_handle_t * alsa_handle = NULL;
     struct pcm *pcm = NULL;
     struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
@@ -959,7 +959,7 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
     }
 #if 0
     //ALOGD("handle=%p pcm=%p\n",alsa_handle,alsa_handle->pcm);
-    /*add for work around ddp dd ouput ,ddp underrun issue */
+    /*add for work around ddp dd output ,ddp underrun issue */
     dd_pcm = alsa_handle->pcm;
     ddp_pcm = adev->pcm_handle[adev->ms12.device];
     if (is_sc2_chip() && eDolbyMS12Lib == adev->dolby_lib_type && dd_pcm && ddp_pcm && (alsa_handle->format != AUDIO_FORMAT_MAT)) {
@@ -976,7 +976,7 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
 
         if (delay_dd + write_frames >= alsa_handle->config.start_threshold * 2)
             overflow_flag = 1;
-        /* dd write blocked and ddp delay at a low level ,so skip dd data to avoid ddp underun*/
+        /* dd write blocked and ddp delay at a low level ,so skip dd data to avoid ddp underrun*/
         if (overflow_flag && delay_ddp <= 2 * 6144)
             underrun_flag = 1;
 
@@ -1069,7 +1069,7 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
     return ret;
 }
 
-int aml_alsa_output_data_handle(void *handle, void *output_buffer, size_t size, int vaule, bool is_mute)
+int aml_alsa_output_data_handle(void *handle, void *output_buffer, size_t size, int value, bool is_mute)
 {
     alsa_handle_t *alsa_handle = (alsa_handle_t *)handle;
 
@@ -1095,7 +1095,7 @@ int aml_alsa_output_data_handle(void *handle, void *output_buffer, size_t size, 
         }
         if (alsa_handle->pcm2_mute_cnt) {
             alsa_handle->pcm2_mute_cnt--;
-            memset(output_buffer, vaule, size);
+            memset(output_buffer, value, size);
         }
     }
 

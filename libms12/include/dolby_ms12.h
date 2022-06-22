@@ -226,7 +226,7 @@ void dolby_ms12_get_pcm_output_size(unsigned long long *all_output_size, unsigne
     @*all_output_size, all the data from ms12
     @*ms12_generate_zero_size, all the ms12 generate zero size
 */
-void dolby_ms12_get_bitsteam_output_size(unsigned long long *all_output_size, unsigned long long *ms12_generate_zero_size);
+void dolby_ms12_get_bitstream_output_size(unsigned long long *all_output_size, unsigned long long *ms12_generate_zero_size);
 
 /*@@
     @brief get main buffer avail

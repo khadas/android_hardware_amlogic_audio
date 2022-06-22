@@ -108,7 +108,7 @@ static void *outMmapThread(void *pArg) {
                 pu8CurReadAddr = pu8StartAddr + u32BurstSizeByte - u32RemainSizeByte;
             }
             pstParam->u32FramePosition += MMAP_WRITE_SIZE_FRAME;
-            // Absolutet time must be used when get timestamp.
+            // Absolute time must be used when get timestamp.
             clock_gettime(CLOCK_MONOTONIC, &timestamp);
             pstParam->time_nanoseconds = (long long)timestamp.tv_sec * NSEC_PER_SEC + (long long)timestamp.tv_nsec;
 
@@ -137,7 +137,7 @@ static void *outMmapThread(void *pArg) {
             struct timespec tv;
             clock_gettime(CLOCK_MONOTONIC, &tv);
             // The suspend time set to 30 sec, reduce cpu power consumption.
-            // And waitting time can be awakened by out_start func.
+            // And waiting time can be awakened by out_start func.
             tv.tv_sec += 30;
             pthread_mutex_lock(&pstThread->mutex);
             pthread_cond_timedwait(&pstThread->cond, &pstThread->mutex, &tv);
@@ -334,12 +334,12 @@ static int ion_buffer_allocate_legacy (aml_mmap_audio_param_st     *pstParam) {
     AM_LOGI("enter");
 
     ret = ion_alloc(pstParam->s32IonFd, pstParam->u32BufferSize, 32, ION_HEAP_SYSTEM_MASK, 0,
-                        &pstParam->hIonHanndle);
+                        &pstParam->hIonHandle);
     if (ret < 0) {
         ALOGE("[%s:%d] ion_alloc fail ret:%#x", __func__, __LINE__, ret);
         return -1;
     }
-    ret = ion_share(pstParam->s32IonFd, pstParam->hIonHanndle, &pstParam->s32IonShareFd);
+    ret = ion_share(pstParam->s32IonFd, pstParam->hIonHandle, &pstParam->s32IonShareFd);
     if (ret < 0) {
         ALOGE("[%s:%d] ion_share fail ret:%#x", __func__, __LINE__, ret);
         return -1;
@@ -405,7 +405,7 @@ int outMmapDeInit(struct aml_stream_out *out)
     munmap(pstParam->pu8MmapAddr, pstParam->u32BufferSize);
     close(pstParam->s32IonShareFd);
     if (ion_is_legacy(pstParam->s32IonFd))
-        ion_free(pstParam->s32IonFd, pstParam->hIonHanndle);
+        ion_free(pstParam->s32IonFd, pstParam->hIonHandle);
     ion_close(pstParam->s32IonFd);
     aml_audio_free(pstParam);
     out->pstMmapAudioParam = NULL;

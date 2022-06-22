@@ -69,7 +69,7 @@
  * test case test4_1MeasurePeakRms(android.media.cts.VisualizerTest)
  */
 #define DEFAULT_PLAYBACK_PERIOD_SIZE 512//1024
-#define DEFAULT_VIDEO_VAILD_LANTENCY 1000*1000  //1s
+#define DEFAULT_VIDEO_VALID_LATENCY 1000*1000  //1s
 #define DEFAULT_CAPTURE_PERIOD_SIZE  1024
 #define DEFAULT_PLAYBACK_PERIOD_CNT 6
 
@@ -119,7 +119,7 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 
 #define OFFLOAD_BUFFER_SIZE_DURATION_MS (50) // Unit:ms. Need to be able to cover the delay of the offload pipeline.
 #define DTS_OFFLOAD_BUFFER_MAX_SIZE     (32768)
-#define OFFLOAD_BUFFER_SIZE_ALIGMENT    (8)
+#define OFFLOAD_BUFFER_SIZE_ALIGNMENT    (8)
 
 #ifdef USB_KARAOKE
 #ifndef AUDIO_SOURCE_KARAOKE_SPEAKER
@@ -298,7 +298,7 @@ typedef struct audio_hal_info{
     bool is_dolby_atmos;
     int update_type;
     int update_cnt;
-    int aml_dap_surround_virtuallizer;
+    int aml_dap_surround_virtualizer;
 } audio_hal_info_t;
 
 struct aml_bt_output {
@@ -356,7 +356,7 @@ struct aml_audio_device {
     bool spdif_enable;
     int hdmi_is_pth_active;
     int disable_pcm_mixing;
-    /* mute/unmute for vchip  lock control */
+    /* mute/unmute for chip lock control */
     bool parental_control_av_mute;
     /* The HDMI ARC capability info currently set. */
     struct aml_arc_hdmi_desc hdmi_descs;
@@ -374,7 +374,7 @@ struct aml_audio_device {
     struct aml_native_postprocess native_postprocess;
     /* used only for real TV source */
     enum patch_src_assortion patch_src;
-    /* for port config infos */
+    /* for port config info */
     float sink_gain[OUTPORT_MAX];
     float speaker_volume;
     enum OUT_PORT active_outport;
@@ -447,14 +447,14 @@ struct aml_audio_device {
     bool mix_init_flag;
     struct eq_drc_data eq_data;
     int aml_dap_v1_enable;
-    /*used for high pricision A/V from amlogic amadec decoder*/
+    /*used for high precision A/V from amlogic amadec decoder*/
     unsigned first_apts;
     /*
     first apts flag for alsa hardware prepare,true,need set apts to hw.
     by default it is false as we do not need set the first apts in normal use case.
     */
     bool first_apts_flag;
-    size_t frame_trigger_thred;
+    size_t frame_trigger_thread;
     void *dev_to_mix_parser;
     int continuous_audio_mode;
     int continuous_audio_mode_default;
@@ -497,7 +497,7 @@ struct aml_audio_device {
     bool is_netflix;
     int dtv_aformat;
     unsigned int dtv_i2s_clock;
-    unsigned int dtv_spidif_clock;
+    unsigned int dtv_spdif_clock;
     unsigned int dtv_droppcm_size;
     int need_reset_ringbuffer;
     unsigned int tv_mute;
@@ -569,13 +569,13 @@ struct aml_audio_device {
     */
     float dtv_volume; // Todo: This parameter is not used yet
     /* -End- */
-    bool arc_connected_reconfig;  /*when arc conncted, set it as to true*/
+    bool arc_connected_reconfig;  /*when arc connected, set it as to true*/
 
     /*
-    for karaoke use case, the apk will acess
+    for karaoke use case, the apk will access
     the sound card device directly.the apk will
     send the direct mode flag to audio hal. the audio
-    hal need by-pass hw acess until the apk release flag
+    hal need by-pass hw access until the apk release flag
     */
     unsigned int direct_mode;
     bool audio_patch_2_af_stream;
@@ -644,7 +644,7 @@ struct aml_stream_out {
     int codec_type;
     uint64_t frame_write_sum;
     uint64_t frame_skip_sum;
-    uint64_t last_frames_postion;
+    uint64_t last_frames_position;
     uint64_t spdif_enc_init_frame_write_sum;
     int skip_frame;
     int32_t *tmp_buffer_8ch;
@@ -712,7 +712,7 @@ struct aml_stream_out {
     uint64_t us_used_last_write;
     bool offload_mute;
     bool need_convert;
-    size_t last_playload_used;
+    size_t last_payload_used;
     int ddp_frame_nblks;
     uint64_t total_ddp_frame_nblks;
     int framevalid_flag;
@@ -840,7 +840,7 @@ inline int continuous_mode(struct aml_audio_device *adev)
 {
     return adev->continuous_audio_mode;
 }
-inline bool direct_continous(struct audio_stream_out *stream)
+inline bool direct_continuous(struct audio_stream_out *stream)
 {
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = out->dev;
@@ -850,7 +850,7 @@ inline bool direct_continous(struct audio_stream_out *stream)
         return false;
     }
 }
-inline bool primary_continous(struct audio_stream_out *stream)
+inline bool primary_continuous(struct audio_stream_out *stream)
 {
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = out->dev;
@@ -1039,7 +1039,7 @@ int aml_audio_input_routing(struct audio_hw_device *dev, enum IN_PORT inport);
  * 'available' is the number of frames available to read (for input) or yet to be played
  * (for output) frames in the PCM buffer.
  * timestamp and available are updated by pcm_get_htimestamp(), so they use the same
- * datatypes as the corresponding arguments to that function. */
+ * data types as the corresponding arguments to that function. */
 struct aec_info {
     struct timespec timestamp;
     uint64_t timestamp_usec;

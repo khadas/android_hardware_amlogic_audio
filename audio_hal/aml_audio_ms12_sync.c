@@ -32,7 +32,7 @@
 
 #define MS12_OUTPUT_5_1_DDP "vendor.media.audio.ms12.output.5_1_ddp"
 
-typedef enum DEVICE_TPYE {
+typedef enum DEVICE_TYPE {
 STB = 0,
 TV = 1,
 SBR = 2
@@ -46,14 +46,14 @@ static int get_nonms12_dv_tunnel_input_latency(audio_format_t input_format) {
     char *prop_name = NULL;
     switch (input_format) {
     case AUDIO_FORMAT_PCM_16_BIT: {
-        /*for non tunnel ddp2h/heaac case:netlfix AL1 case */
+        /*for non tunnel ddp2h/heaac case:netflix AL1 case */
         prop_name = AVSYNC_NONMS12_DV_TUNNEL_PCM_LATENCY_PROPERTY;
         latency_ms = AVSYNC_NONMS12_DV_TUNNEL_PCM_LATENCY;
         break;
     }
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3: {
-        /*for non tunnel dolby ddp5.1 case:netlfix AL1 case*/
+        /*for non tunnel dolby ddp5.1 case:netflix AL1 case*/
         prop_name = AVSYNC_NONMS12_DV_TUNNEL_DDP_LATENCY_PROPERTY;
         latency_ms = AVSYNC_NONMS12_DV_TUNNEL_DDP_LATENCY;
         break;
@@ -112,14 +112,14 @@ static int get_ms12_dv_tunnel_input_latency(audio_format_t input_format) {
     char *prop_name = NULL;
     switch (input_format) {
     case AUDIO_FORMAT_PCM_16_BIT: {
-        /*for non tunnel ddp2h/heaac case:netlfix AL1 case */
+        /*for non tunnel ddp2h/heaac case:netflix AL1 case */
         prop_name = AVSYNC_MS12_DV_TUNNEL_PCM_LATENCY_PROPERTY;
         latency_ms = AVSYNC_MS12_DV_TUNNEL_PCM_LATENCY;
         break;
     }
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3: {
-        /*for non tunnel dolby ddp5.1 case:netlfix AL1 case*/
+        /*for non tunnel dolby ddp5.1 case:netflix AL1 case*/
         prop_name = AVSYNC_MS12_DV_TUNNEL_DDP_LATENCY_PROPERTY;
         latency_ms = AVSYNC_MS12_DV_TUNNEL_DDP_LATENCY;
         break;
@@ -224,7 +224,7 @@ static int get_ms12_tunnel_input_latency(audio_format_t input_format, enum OUT_P
     char *prop_name = NULL;
     switch (input_format) {
     case AUDIO_FORMAT_PCM_16_BIT: {
-        /*for non tunnel ddp2h/heaac case:netlfix AL1 case */
+        /*for non tunnel ddp2h/heaac case:netflix AL1 case */
         prop_name = AVSYNC_MS12_TUNNEL_PCM_LATENCY_PROPERTY;
         latency_ms = AVSYNC_MS12_TUNNEL_PCM_LATENCY;
         break;
@@ -318,14 +318,14 @@ static int get_ms12_netflix_tunnel_input_latency(audio_format_t input_format) {
     char *prop_name = NULL;
     switch (input_format) {
     case AUDIO_FORMAT_PCM_16_BIT: {
-        /*for non tunnel ddp2h/heaac case:netlfix AL1 case */
+        /*for non tunnel ddp2h/heaac case:netflix AL1 case */
         prop_name = AVSYNC_MS12_NETFLIX_TUNNEL_PCM_LATENCY_PROPERTY;
         latency_ms = AVSYNC_MS12_NETFLIX_TUNNEL_PCM_LATENCY;
         break;
     }
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3: {
-        /*for non tunnel dolby ddp5.1 case:netlfix AV1/HDR10/HEVC case*/
+        /*for non tunnel dolby ddp5.1 case:netflix AV1/HDR10/HEVC case*/
         prop_name = AVSYNC_MS12_NETFLIX_TUNNEL_DDP_LATENCY_PROPERTY;
         latency_ms = AVSYNC_MS12_NETFLIX_TUNNEL_DDP_LATENCY;
         break;
@@ -811,7 +811,7 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
     if ((adev->ms12.is_dolby_atmos && adev->ms12_main1_dolby_dummy == false) || adev->atoms_lock_flag) {
         /*
          * In DV AV sync, the ATMOS(DDP_JOC) item, it will add atmos_tunning_delay into the latency_frames.
-         * If other case choose an diff value, here seperate by is_netflix.
+         * If other case choose an diff value, here separate by is_netflix.
          */
         atmos_tunning_delay = get_ms12_atmos_latency_offset(true, adev->is_netflix) * 48;
     }
@@ -925,14 +925,14 @@ static int get_nonms12_netflix_tunnel_input_latency(audio_format_t input_format)
     char *prop_name = NULL;
     switch (input_format) {
     case AUDIO_FORMAT_PCM_16_BIT: {
-        /*for tunnel ddp2h/heaac case:netlfix AL1 case */
+        /*for tunnel ddp2h/heaac case:netflix AL1 case */
         prop_name = AVSYNC_NONMS12_NETFLIX_TUNNEL_PCM_LATENCY_PROPERTY;
         latency_ms = AVSYNC_NONMS12_NETFLIX_TUNNEL_PCM_LATENCY;
         break;
     }
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3: {
-        /*for tunnel dolby ddp5.1 case:netlfix AV1/HDR10/HEVC case*/
+        /*for tunnel dolby ddp5.1 case:netflix AV1/HDR10/HEVC case*/
         prop_name = AVSYNC_NONMS12_NETFLIX_TUNNEL_DDP_LATENCY_PROPERTY;
         latency_ms = AVSYNC_NONMS12_NETFLIX_TUNNEL_DDP_LATENCY;
         break;
@@ -1132,7 +1132,7 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
     int frame_latency = 0, timems_latency = 0;
     bool b_raw_in = false;
     bool b_raw_out = false;
-    uint64_t frames_written_hw = out->last_frames_postion;
+    uint64_t frames_written_hw = out->last_frames_position;
 
     if (frames_written_hw == 0) {
         ALOGV("%s(), not ready yet", __func__);
@@ -1142,8 +1142,8 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
     *timestamp = out->lasttimestamp;
 
     if (adev->continuous_audio_mode) {
-        if (direct_continous((struct audio_stream_out *)stream)) {
-            frames_written_hw = adev->ms12.last_frames_postion;
+        if (direct_continuous((struct audio_stream_out *)stream)) {
+            frames_written_hw = adev->ms12.last_frames_position;
             *timestamp = adev->ms12.timestamp;
         }
 

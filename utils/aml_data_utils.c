@@ -418,7 +418,7 @@ static int _data_remix_all_to_lr(void *buf,	size_t frames, size_t framesz, int c
      * L_out = 0.707*(L + 0.707*C + 0.707*Ls)
      * R_out = 0.707*(R + 0.707*C + 0.707*Rs)
      * --------------------------------------
-     * our channel sequeces:
+     * our channel sequences:
      * 0->L
      * 1->R
      * 2->C
