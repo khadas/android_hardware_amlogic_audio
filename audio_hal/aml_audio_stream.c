@@ -785,7 +785,7 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
         bool hw_stable = is_hdmi_in_stable_hw(stream);
         if ((!hw_stable) || is_audio_packet_changed) {
             ALOGV("%s() hdmi in hw unstable\n", __func__);
-            *mute_time = 1000;
+            *mute_time = 300;
             in->last_audio_packet_type = cur_audio_packet;
             return false;
         }
