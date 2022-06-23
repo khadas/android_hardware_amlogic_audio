@@ -289,7 +289,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                         }
                     }
                 }
-                if (do_sync_flag &&
+                if ( dtv_stream_flag &&
                     (adev->start_mute_flag == 1 || adev->tv_mute)) {
                     memset(dec_pcm_data->buf, 0, dec_pcm_data->data_len);
                 }
