@@ -239,6 +239,8 @@ ifeq ($(BOARD_ENABLE_FAR_FIELD_AEC), true)
     #     libgoogle_aec
 endif
 
+    LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+    LOCAL_LICENSE_CONDITIONS := notice
     include $(BUILD_SHARED_LIBRARY)
 
 endif # BOARD_ALSA_AUDIO

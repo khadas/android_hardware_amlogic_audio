@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_amlogic_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_amlogic_license"],
+}
+
 bootstrap_go_package {
     name: "soong-audio-hidl-interface-6.0",
     pkgPath: "android/soong/hardware/amlogic/audio/utils/hidl_interface_6_0/impl",
