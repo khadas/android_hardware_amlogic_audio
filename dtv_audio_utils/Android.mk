@@ -65,4 +65,7 @@ LOCAL_SHARED_LIBRARIES += \
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS += -DBUILD_IN_ANDROID -Werror -Wno-deprecated-declarations -Wno-deprecated-register \
                 -Wno-unused-parameter -Wall
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-LGPL legacy_by_exception_only legacy_proprietary legacy_unencumbered
+LOCAL_LICENSE_CONDITIONS := by_exception_only notice proprietary restricted unencumbered
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../LICENSE
 include $(BUILD_SHARED_LIBRARY)
