@@ -401,7 +401,7 @@ static int get_ms12_output_mask(audio_format_t sink_format,audio_format_t  optic
     else if (sink_format == AUDIO_FORMAT_MAT)
         output_config = MS12_OUTPUT_MASK_MAT;
     else if (sink_format == AUDIO_FORMAT_PCM_16_BIT && optical_format == AUDIO_FORMAT_AC3)
-        output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_SPEAKER;
+        output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_SPEAKER | MS12_OUTPUT_MASK_STEREO;
     else if (is_arc)
         output_config = MS12_OUTPUT_MASK_STEREO;
     else
