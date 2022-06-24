@@ -242,7 +242,6 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
     char *pt = NULL, *tmp = NULL;
     int i = 0;
     unsigned int *ptr = (unsigned int *)(&hdmi_desc->target_EDID_array[0]);
-
     if (strlen (value) > len) {
         ALOGE ("value array overflow!");
         return -EINVAL;
@@ -306,7 +305,7 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
             hdmi_desc->target_EDID_array[TLV_HEADER_SIZE + 3*i + 1],
             hdmi_desc->target_EDID_array[TLV_HEADER_SIZE + 3*i + 2]);
         }*/
-        adev->arc_hdmi_updated = 1;
+
     }
 
     return 0;
@@ -411,7 +410,6 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
     AML_HDMI_FORMAT_E format = AML_HDMI_FORMAT_LPCM;
     bool is_dolby_sad = false;
     bool is_dts_sad = false;
-
     if (strlen (value) > len) {
         ALOGW("[%s:%d] value array len:%zu overflow!", __func__, __LINE__, strlen(value));
         return -EINVAL;
@@ -437,6 +435,8 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
                 fmt_desc = &hdmi_desc->ddp_fmt;
             } else if (val == AML_HDMI_FORMAT_MAT) {
                 fmt_desc = &hdmi_desc->mat_fmt;
+                if (adev->arc_format_state == STARTED)
+                    adev->arc_format_state = FINISHED;
             } else if (val == AML_HDMI_FORMAT_LPCM) {
                 fmt_desc = &hdmi_desc->pcm_fmt;
             } else if (val == AML_HDMI_FORMAT_DTS) {
@@ -502,16 +502,18 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
         pt = strtok_r (NULL, "[], ", &tmp);
         i++;
     }
-
     memcpy(&adev->hdmi_arc_capability_desc, hdmi_desc, sizeof(struct aml_arc_hdmi_desc));
     if (fmt_desc) {
         ALOGI("----[%s] support:%d, ch:%d, sample_mask:%#x, bit_rate:%d, atmos:%d",
             hdmiFormat2Str(fmt_desc->fmt),fmt_desc->is_support, fmt_desc->max_channels,
             fmt_desc->sample_rate_mask, fmt_desc->max_bit_rate, fmt_desc->atmos_supported);
     }
-    /*when arc format is changed, we need update it, then new output can be configured*/
-    adev->arc_hdmi_updated = 1;
 
+    /*when arc format is changed, we need update it, then new output can be configured*/
+    if (adev->arc_format_state == FINISHED) {
+        adev->arc_format_state = INITED;
+        adev->arc_hdmi_updated = 1;
+    }
     return 0;
 }
 

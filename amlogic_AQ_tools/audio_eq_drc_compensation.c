@@ -390,6 +390,7 @@ int eq_drc_init(struct eq_drc_data *pdata)
     pdata->p_gain.speaker= 1.0;
     pdata->p_gain.spdif_arc = 1.0;
     pdata->p_gain.headphone = 1.0;
+    pdata->p_gain.media2spk_extra_gain = 1.0;
 
     ret = get_model_name(model_name, sizeof(model_name));
     if (ret < 0) {
@@ -414,6 +415,7 @@ int eq_drc_init(struct eq_drc_data *pdata)
                 pdata->p_gain.speaker = DbToAmpl(pdata->p_gain.speaker);
                 pdata->p_gain.spdif_arc = DbToAmpl(pdata->p_gain.spdif_arc);
                 pdata->p_gain.headphone = DbToAmpl(pdata->p_gain.headphone);
+                pdata->p_gain.media2spk_extra_gain = DbToAmpl(pdata->p_gain.media2spk_extra_gain);
             }
         }
 
@@ -554,6 +556,12 @@ void get_AQ_parameters(const struct audio_hw_device *dev, char *temp_buf, const 
             adev->eq_data.user_setting.drc.release_time);
         goto exit;
     }
+    parm = strstr(keys, "aq_tuning_dap_enable");
+    if (parm) {
+        value = !(adev->ms12.dap_bypass_enable);
+        sprintf(temp_buf, "aq_tuning_dap_enable=%d", value);
+        goto exit;
+    }
 
 exit:
     ALOGI("%s(), [%s]", __func__, temp_buf);
@@ -683,6 +691,22 @@ int set_AQ_parameters(struct audio_hw_device *dev, struct str_parms *parms)
             ALOGI("%s() Volume Curve Parameters:%s, %fdB [%f]", __func__, parm, volume, gain);
             goto exit;
         }
+
+        /* Audio DAP */
+        parm = strstr(value, "dap");
+        if (parm) {
+            parm += 4;
+            parm = strstr(value, "-enable");
+            if (parm) {
+                parm += 8;
+                int enable = 0;
+                sscanf(parm, "%d", &enable);
+                adev->ms12.dap_bypass_enable = !(enable & 0x1);
+                ALOGI("%s() DAP enable: %d", __func__, enable);
+                goto exit;
+            }
+        }
+
         /* Audio Pre_scaler */
         parm = strstr(value, "ap");
         if (parm) {

@@ -193,6 +193,7 @@ struct dolby_ms12_desc {
     int ms12_resume_state;
     bool need_ms12_resume;
     uint32_t ms12_timer_id;
+    bool sys_data_write2alsa_status;
 };
 
 /*

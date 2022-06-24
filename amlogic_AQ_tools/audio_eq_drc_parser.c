@@ -92,6 +92,9 @@ static int parse_audio_post_gain_data(dictionary *pIniParser, struct eq_drc_data
     p_attr->p_gain.headphone = iniparser_getdouble(pIniParser, "post_gain:headphone", 0);
     ITEM_LOGD("%s, headphone is (%f)\n", __FUNCTION__, p_attr->p_gain.headphone);
 
+    p_attr->p_gain.media2spk_extra_gain = iniparser_getdouble(pIniParser, "post_gain:media2spk_extra_gain", 0);
+    ITEM_LOGD("%s, media2spk_extra_gain is (%f)\n", __FUNCTION__, p_attr->p_gain.media2spk_extra_gain);
+
     return 0;
 }
 

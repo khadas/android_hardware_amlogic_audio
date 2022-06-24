@@ -543,7 +543,6 @@ write:
                     adev->is_multi_demux, adev->start_mute_flag);
             }
         }
-
         if (get_debug_value(AML_DUMP_AUDIOHAL_ALSA)) {
             aml_audio_dump_audio_bitstreams(ALSA_OUTPUT_PCM_FILE, buffer, bytes);
         }

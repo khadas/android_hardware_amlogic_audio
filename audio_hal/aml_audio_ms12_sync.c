@@ -476,7 +476,10 @@ int get_ms12_port_latency(enum OUT_PORT port, audio_format_t output_format, bool
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
-    switch (port) {
+    bool is_speaker_mute = aml_get_speaker_mute_status();
+
+    switch (port)  {
+
         case OUTPORT_HDMI_ARC:
         {
             if (is_eARC) {
@@ -535,8 +538,13 @@ int get_ms12_port_latency(enum OUT_PORT port, audio_format_t output_format, bool
             break;
         case OUTPORT_SPEAKER:
         case OUTPORT_AUX_LINE:
-            latency_ms = AVSYNC_MS12_SPEAKER_LATENCY;
-            prop_name = AVSYNC_MS12_SPEAKER_LATENCY_PROPERTY;
+            if (is_speaker_mute) {
+                latency_ms = AVSYNC_MS12_SPDIF_OUT_LATENCY;
+                prop_name = AVSYNC_MS12_SPDIF_OUT_LATENCY_PROPERTY;
+            } else {
+                latency_ms = AVSYNC_MS12_SPEAKER_LATENCY;
+                prop_name = AVSYNC_MS12_SPEAKER_LATENCY_PROPERTY;
+            }
         default :
             break;
     }
@@ -1229,7 +1237,11 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
 
         if (out->is_normal_pcm && adev->ms12.dolby_ms12_enable) {
             frames_written_hw = adev->ms12.sys_audio_frame_pos;
-            *timestamp = adev->ms12.sys_audio_timestamp;
+             //add this code for Youtube test.
+             if (adev->ms12.sys_data_write2alsa_status) {
+                 *timestamp = adev->ms12.sys_audio_timestamp;
+             }
+
         }
 
         *frames = frames_written_hw;

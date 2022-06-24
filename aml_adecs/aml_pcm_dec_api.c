@@ -196,10 +196,11 @@ static int pcm_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
     dec_pcm_data->data_len = 0;
     raw_in_data->data_len = 0;
 
-
     src_channel = pcm_config->channel;
     dst_channel = 2;
-    downmix_conf = src_channel / dst_channel;
+    if (src_channel > dst_channel) {
+        downmix_conf = src_channel / dst_channel;
+    }
     downmix_size = bytes / downmix_conf;
 
     if (dec_pcm_data->buf_size < downmix_size) {
@@ -214,7 +215,7 @@ static int pcm_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
     }
 
 
-    if (pcm_config->channel == 2) {
+    if (pcm_config->channel == 2 || pcm_config->channel == 1) {
         /*now we only support bypass PCM data*/
         memcpy(dec_pcm_data->buf, buffer, bytes);
     } else if (pcm_config->channel == 6) {

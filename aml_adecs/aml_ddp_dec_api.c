@@ -42,20 +42,6 @@ enum {
     EXITING_STATUS = -1001,
     NO_ENOUGH_DATA = -1002,
 };
-typedef enum ERROR_CODE
-{
-   AML_DDP_AUDEC_SUCCESS            =  0,
-   AML_DDP_AUDEC_OPEN_FAILURE       = 10,
-   AML_DDP_AUDEC_INIT_FAILURE       = 20,
-   AML_DDP_AUDEC_INVALID_HDR        = 30,
-   AML_DDP_AUDEC_FRM_PARAM_ERROR    = 40,
-   AML_DDP_AUDEC_INVALID_FRAME      = 50,
-   AML_DDP_AUDEC_INCOMPLETE_FRAME   = 60,
-   AML_DDP_AUDEC_FRM_CLEAN_FAILURE  = 70,
-   AML_DDP_AUDEC_FRM_CLOSE_FAILURE  = 80,
-   AML_DDP_AUDEC_QUIT_ERR          = 90,
-} ERROR_CODE;
-
 
 #define     BYTESPERWRD         2
 #define     BITSPERWRD          (BYTESPERWRD*8)
@@ -897,9 +883,9 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
                                              &outRAWLen,
                                              ddp_dec->nIsEc3,
                                              &ddp_dec->pcm_out_info);
-        if (AML_DDP_AUDEC_SUCCESS == decoder_frame) {
+        if (decoder_frame > 0) {
             ddp_dec->stream_info.stream_decode_num++;
-        } else if (AML_DDP_AUDEC_INVALID_FRAME == decoder_frame) {
+        } else {
             ddp_dec->stream_info.stream_error_num++;
             ddp_dec->stream_info.stream_drop_num++;
         }
