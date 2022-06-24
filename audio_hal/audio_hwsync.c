@@ -662,6 +662,11 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
                 if (debug_enable || gap_ms > 80) {
                     ALOGI("%s pcr 0x%" PRIx64 ",apts 0x%" PRIx64 ",gap 0x%x,gap duration %d ms", __func__, pcr, apts, gap, gap_ms);
                 }
+                if (adev->ms12_out && adev->ms12_out->standby) {
+                    ALOGW("%s  ms12_out stream is standby, not do adjust for hwsync",__func__);
+                    return ret;
+                }
+
                 /*resume from pause status, we can sync it exactly*/
                 if (adev->ms12.need_resync) {
                     adev->ms12.need_resync = 0;

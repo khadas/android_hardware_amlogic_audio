@@ -262,6 +262,10 @@ int aml_ms12_bypass_checkout_data(void *phandle, void **output_buf, int32_t *out
             find_frame = true;
             list_remove(&frame_item->list);
             delete_bypass_frame(frame_item);
+            /*for dd 48khz, we just checkout one frame, because it doesn't have dependency frame*/
+            if (frame_info->audio_format == AUDIO_FORMAT_AC3 && frame_info->samplerate == 48000) {
+                break;
+            }
         } else {
             break;
         }

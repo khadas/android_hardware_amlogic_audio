@@ -39,7 +39,9 @@
 #define VIDEO_FIRST_FRAME_SHOW  "/sys/module/amvideo/parameters/first_frame_toggled"
 #define VIDEO_FIRST_FRAME_SHOW_2  "/sys/module/aml_media/parameters/first_frame_toggled"
 #define VIDEO_DISPLAY_FRAME_CNT "/sys/module/amvideo/parameters/display_frame_count"
+#define VIDEO_DISPLAY_FRAME_CNT_2 "/sys/module/aml_media/parameters/display_frame_count"
 #define VIDEO_RECEIVE_FRAME_CNT "/sys/module/amvideo/parameters/receive_frame_count"
+#define VIDEO_RECEIVE_FRAME_CNT_2 "/sys/module/aml_media/parameters/receive_frame_count"
 #define VIDEO_SHOW_FIRST_FRAME "/sys/class/video/show_first_frame_nosync"
 
 
@@ -83,6 +85,10 @@
 #define DEFAULT_AUDIO_LEAST_CACHE_MS (50)
 #define AUDIO_PCR_LATENCY_MAX (3000)
 #define DEFAULT_DEBUG_TIME_INTERVAL (5000)
+#define DTV_AUDIO_START_MUTE_MAX_THRESHOLD    (3 * 1000) //ms
+#define DTV_AUDIO_RETUNE_DEFAULT_THRESHOLD    (200)  //ms
+#define DTV_AUDIO_DROP_DEFAULT_THRESHOLD      (200)  //ms
+
 
 //channel define
 #define DEFAULT_CHANNELS 2
@@ -138,6 +144,16 @@ struct avsync_para {
     int underrun_max_time;  //max time of underrun to force clear
     struct timespec underrun_starttime; //input-output both underrun starttime
     struct timespec underrun_mute_starttime; //underrun mute start time
+    struct timespec apts_discontinue_record;
+    struct timespec audio_tune_record;
+    struct timespec start_output_record;
+    struct timespec first_apts_record;
+    uint32_t last_validpts_duration;
+    uint32_t validpts_cnt_record;
+    uint32_t avsync_duration;
+    uint32_t audio_drop_sum;
+    int avsync_syncshow;
+    int show_first_nosync;
 };
 
 struct audiohal_debug_para {
@@ -160,8 +176,9 @@ extern unsigned long decoder_apts_lookup(unsigned int offset);
 
 void dtv_adjust_i2s_output_clock(struct aml_audio_patch* patch, int direct, int step);
 void dtv_adjust_spdif_output_clock(struct aml_audio_patch* patch, int direct, int step, bool spdifb);
+void dtv_avsync_param_init(struct audio_stream_out *stream);
 bool dtv_avsync_audio_freerun(struct aml_audio_patch* patch);
-int dtv_set_audio_latency(int apts_diff);
+int dtv_set_audio_latency(int apts_diff,  struct aml_audio_patch* patch);
 bool dtv_firstapts_lookup_over(struct aml_audio_patch *patch, struct aml_audio_device *aml_dev, bool a_discontinue, int *apts_diff);
 
 #endif

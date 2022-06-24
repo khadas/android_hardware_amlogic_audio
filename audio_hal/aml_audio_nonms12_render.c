@@ -612,6 +612,11 @@ static void pcm_decoder_config_prepare(struct audio_stream_out *stream, aml_pcm_
     pcm_config->samplerate = aml_out->hal_rate;
     pcm_config->pcm_format = aml_out->hal_format;
     pcm_config->max_out_channels = adev->hdmi_descs.pcm_fmt.max_channels;
+    if (ATTEND_TYPE_EARC  == aml_audio_earctx_get_type(adev)) {
+        pcm_config->max_out_channels = 8;
+    }
+    ALOGV("%s  max_out_channels:%d,  hdmi_descs max_channels:%d",
+        __func__, pcm_config->max_out_channels, adev->hdmi_descs.pcm_fmt.max_channels);
 
     return;
 }

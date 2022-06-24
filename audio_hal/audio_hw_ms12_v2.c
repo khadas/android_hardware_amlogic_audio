@@ -866,8 +866,6 @@ int get_the_dolby_ms12_prepared(
     struct aml_audio_patch *patch = adev->audio_patch;
     uint64_t dtv_decoder_offset_base = 0;
     unsigned int sink_max_channels = 2;
-    int t3_chip = check_chip_name("t3", 3, &adev->alsa_mixer);
-
     int ret = 0, associate_audio_mixing_enable = 0 , media_presentation_id = -1,mixing_level = 0,ad_vol = 100;
     bool output_5_1_ddp = getprop_bool(MS12_OUTPUT_5_1_DDP);
     ms12->tv_tuning_flag = getprop_bool(MS12_TV_TUNING);
@@ -994,6 +992,7 @@ int get_the_dolby_ms12_prepared(
         out = aml_out;
     }
     adev->ms12_out = out;
+    adev->ms12_out->standby = false;
     ALOGI("%s adev->ms12_out =  %p", __func__, adev->ms12_out);
 
     ms12->ms12_timer_id = aml_audio_timer_create(ms12_timer_callback_handler);
@@ -1025,8 +1024,8 @@ int get_the_dolby_ms12_prepared(
     if (adev->is_SBR)
         output_config = MS12_OUTPUT_MASK_SPEAKER|MS12_OUTPUT_MASK_STEREO;
 
-    /*t3 supports earc, so we enable multi channel pcm out*/
-    if (t3_chip) {
+    /* earc AVR connected, so we enable multi channel pcm out*/
+    if (ATTEND_TYPE_EARC == aml_audio_earctx_get_type(adev)) {
         output_config |= MS12_OUTPUT_MASK_MC;
     }
 
@@ -1048,6 +1047,12 @@ int get_the_dolby_ms12_prepared(
             dolby_ms12_set_enforce_timeslice(true);
             ALOGI("hdmi in ddp/dd case, use enforce timeslice");
         }
+    }
+
+     if (input_sample_rate != OUTPUT_ALSA_SAMPLERATE &&
+        (aml_out->usecase == STREAM_PCM_HWSYNC || aml_out->usecase == STREAM_PCM_DIRECT)) {
+        ALOGD("%s change SampleRate from %d to %d, for ms12 config.", __func__, input_sample_rate, OUTPUT_ALSA_SAMPLERATE);
+        input_sample_rate = OUTPUT_ALSA_SAMPLERATE;
     }
 
     if (input_sample_rate != OUTPUT_ALSA_SAMPLERATE &&
@@ -2063,10 +2068,7 @@ static ssize_t aml_ms12_spdif_output_new (struct audio_stream_out *stream,
     }
 
     bitstream_desc->audio_format = output_format;
-    if (bitstream_desc->need_drop_frame-- > 0) {
-        ALOGV("drop some bypass frame at the beginning");
-        return 0;
-    }
+
     if (bitstream_desc->is_bypass_ms12) {
         if (ms12->main_volume < FLOAT_ZERO) {
             aml_audio_spdifout_mute(bitstream_desc->spdifout_handle, 1);
@@ -2815,6 +2817,7 @@ int mat_bitstream_output(void *buffer, void *priv_data, size_t size)
     void *output_buffer = NULL;
     size_t output_buffer_bytes = 0;
     audio_format_t output_format = AUDIO_FORMAT_MAT;
+    bool is_earc_connected = (ATTEND_TYPE_EARC == aml_audio_earctx_get_type(adev));
     int ret = 0;
     int bitstream_delay_ms = 0;
 
@@ -2833,6 +2836,11 @@ int mat_bitstream_output(void *buffer, void *priv_data, size_t size)
     bitstream_out = &ms12->bitstream_out[bitstream_id];
 
     if (adev->optical_format == AUDIO_FORMAT_PCM_16_BIT) {
+        return 0;
+    }
+    if (is_earc_connected && (aml_out->hal_ch >= 6 && aml_out->hal_internal_format == AUDIO_FORMAT_PCM_SUB_16_BIT)) {
+        //for pcm multi channel when connected earc,
+        //not use mat output and the data send to alsa/earc by mc_pcm_output, Hazel FIXME.
         return 0;
     }
 
@@ -2948,7 +2956,7 @@ int mc_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_
             __FUNCTION__, size, aml_out->dual_output_flag, adev->optical_format, adev->sink_format, ms12->bitstream_cnt, ms12->input_total_ms);
     }
 
-    ALOGV("mc acmod =%d lfeon =%d", ms12_info->acmod, ms12_info->lfeon);
+    ALOGV("mc acmod =%d lfeon =%d, ch:%d", ms12_info->acmod, ms12_info->lfeon, ms12_info->output_ch);
 
     bitstream_out = &ms12->bitstream_out[bitstream_id];
 
@@ -3190,7 +3198,6 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     unsigned int main_apts_low32b = (ms12_info) ? ms12_info->main_apts_low32b : 0;
     unsigned int main1_apts_high32b = (ms12_info) ? ms12_info->main1_apts_high32b : 0;
     unsigned int main1_apts_low32b = (ms12_info) ? ms12_info->main1_apts_low32b : 0;
-
     int ret = 0;
 
     if (adev->debug_flag > 1) {
@@ -3722,7 +3729,8 @@ uint64_t dolby_ms12_get_main_pcm_generated(struct audio_stream_out *stream) {
                 latency_frames = (main_mixer_write_pcm_frame - master_pcm_frame);
                 ALOGV("ms12 pipe line mixer =%" PRId64 " master =%" PRId64 " latency_frames =%d", main_mixer_write_pcm_frame, master_pcm_frame, latency_frames);
             } else {
-                ALOGE("wrong ms12 pipe line delay decode =%" PRId64 " mixer =%" PRId64 "", main_mixer_write_pcm_frame, master_pcm_frame);
+                ALOGV("wrong ms12 pipe line delay decode =%" PRId64 " mixer =%" PRId64 "", main_mixer_write_pcm_frame, master_pcm_frame);
+
             }
             /*consider the delay from mixer to pcm write*/
             if (pcm_frame_generated > latency_frames) {
@@ -3879,7 +3887,8 @@ int dolby_ms12_main_pipeline_latency_frames(struct audio_stream_out *stream) {
                 latency_frames = (decoded_frame - master_pcm_frame);
                 ALOGV("ms12 pipe line decode =%" PRId64 " mixer =%" PRId64 " latency_frames =%d", decoded_frame, master_pcm_frame, latency_frames);
             } else {
-                ALOGE("wrong ms12 pipe line delay decode =%" PRId64 " mixer =%" PRId64 "", decoded_frame, master_pcm_frame);
+                ALOGV("wrong ms12 pipe line delay decode =%" PRId64 " mixer =%" PRId64 "", decoded_frame, master_pcm_frame);
+
             }
         } else {
             /*the main mixer consumed frames*/
@@ -3908,7 +3917,7 @@ int dolby_ms12_main_pipeline_latency_frames(struct audio_stream_out *stream) {
             if (main_mixer_write >= master_pcm_frame) {
                 latency_frames += (main_mixer_write - master_pcm_frame);
             } else {
-                ALOGE("wrong ms12 pipe line delay decode =%" PRId64 " mixer =%" PRId64 "", main_mixer_write, master_pcm_frame);
+                ALOGV("wrong ms12 pipe line delay decode =%" PRId64 " mixer =%" PRId64 "", main_mixer_write, master_pcm_frame);
             }
         }
 

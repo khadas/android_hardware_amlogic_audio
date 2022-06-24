@@ -153,7 +153,11 @@ enum audio_hal_format {
     TYPE_AAC  = 21,
     TYPE_HEAAC = 22,
 };
-
+typedef enum{
+    INITED,
+    STARTED,
+    FINISHED,
+}set_arc_format_status_t;
 #define FRAMESIZE_16BIT_STEREO 4
 #define FRAMESIZE_32BIT_STEREO 8
 #define FRAMESIZE_32BIT_3ch 12
@@ -400,6 +404,7 @@ struct aml_audio_device {
     unsigned int sink_max_channels;
     audio_format_t optical_format;
     audio_format_t sink_capability;
+    audio_format_t last_sink_capability;
     volatile int32_t next_unique_ID;
     /* list head for audio_patch */
     struct listnode patch_list;
@@ -585,6 +590,7 @@ struct aml_audio_device {
     /*used to restore the continuous_audio_mode after system resume(early suspend case)*/
     int continuous_audio_mode_backup;
     bool aml_truehd_passthrough_support;  /*whether dolby truehd passthrough can be supported*/
+    set_arc_format_status_t arc_format_state;
 };
 
 struct meta_data {
@@ -956,7 +962,6 @@ inline bool is_bypass_submix_active(struct aml_audio_device *adev)
     return false;
 }
 
-
 /*
  *@brief get_output_format get the output format always return the "sink_format" of adev
  */
@@ -1038,6 +1043,8 @@ int create_patch(struct audio_hw_device *dev, audio_devices_t input, audio_devic
 int release_patch(struct aml_audio_device *aml_dev);
 int aml_audio_input_routing(struct audio_hw_device *dev, enum IN_PORT inport);
 int output_stream_hwsync_prepare(struct aml_stream_out *out, int hw_sync_id);
+bool aml_get_speaker_mute_status(void);
+
 
 
 /* 'bytes' are the number of bytes written to audio FIFO, for which 'timestamp' is valid.

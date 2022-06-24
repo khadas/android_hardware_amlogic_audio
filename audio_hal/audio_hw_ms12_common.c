@@ -117,23 +117,22 @@ int dolby_ms12_main_pause(struct audio_stream_out *stream)
     //ms12_runtime_update_ret = aml_ms12_update_runtime_params(ms12);
     ms12_runtime_update_ret = set_dolby_ms12_runtime_pause(ms12, true);
     ms12->is_continuous_paused = true;
-    ALOGI("%s  ms12_runtime_update_ret:%d", __func__, ms12_runtime_update_ret);
 
-    if (aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_PAUSED) {
-        //ALOGI(" %s  delay 150ms", __func__);
-        //usleep(150 * 1000);
-        aml_hwsync_wrap_set_pause(aml_out->hwsync);
-        aml_out->tsync_status = TSYNC_STATUS_PAUSED;
-        ALOGV("%s tsync pause finished", __func__);
-    }
+    ALOGV("%s  ms12_runtime_update_ret:%d", __func__, ms12_runtime_update_ret);
 
     //1.audio easing duration is 32ms,
     //2.one loop for schedule_run cost about 32ms(contains the hardware costing),
     //3.if [pause, flush] too short, means it need more time to do audio easing
     //so, the delay time for 32ms(pause is completed after audio easing is done) is enough.
     aml_audio_sleep(64000);
+    ALOGI("%s  sleep 64ms finished", __func__);
 
-    ALOGI("%s  sleep 64ms finished and exit", __func__);
+    if (aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_PAUSED) {
+        aml_hwsync_wrap_set_pause(aml_out->hwsync);
+        aml_out->tsync_status = TSYNC_STATUS_PAUSED;
+        ALOGD("%s tsync pause finished", __func__);
+    }
+
     return 0;
 }
 

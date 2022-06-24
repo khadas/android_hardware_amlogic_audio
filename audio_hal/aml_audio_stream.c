@@ -1109,6 +1109,15 @@ void get_audio_indicator(struct aml_audio_device *dev, char *temp_buf) {
         sprintf (temp_buf, "audioindicator=DTS");
     else if (adev->audio_hal_info.update_type == TYPE_DTS_HD_MA)
         sprintf (temp_buf, "audioindicator=DTS HD");
+    else if (adev->audio_hal_info.update_type == TYPE_DDP_ATMOS_PROMPT_ON_ATMOS)
+        sprintf (temp_buf, "audioindicator=Dolby EAC3");
+    else if (adev->audio_hal_info.update_type == TYPE_TRUE_HD_ATMOS_PROMPT_ON_ATMOS)
+        sprintf (temp_buf, "audioindicator=Dolby THD");
+    else if (adev->audio_hal_info.update_type == TYPE_MAT_ATMOS_PROMPT_ON_ATMOS)
+        sprintf (temp_buf, "audioindicator=Dolby MAT");
+    else if (adev->audio_hal_info.update_type == TYPE_AC4_ATMOS_PROMPT_ON_ATMOS)
+        sprintf (temp_buf, "audioindicator=Dolby AC4");
+
     ALOGI("%s(), [%s]", __func__, temp_buf);
 }
 
@@ -1208,14 +1217,14 @@ void update_audio_format(struct aml_audio_device *adev, audio_format_t format)
             atmos_flag = adev->ms12.is_dolby_atmos;
         }
 
-        #ifdef MS12_V24_ENABLE
+#ifdef MS12_V24_ENABLE
         /* when DAP is not in audio postprocessing, there is no ATMOS Experience. */
         if (is_audio_postprocessing_add_dolbyms12_dap(adev) == 0) {
             atmos_flag = 0;
         }
-        #else
+#else
         atmos_flag = 0; /* Todo: MS12 V1, how to indicate the Dolby ATMOS? */
-        #endif
+#endif
 
         update_audio_hal_info(adev, format, atmos_flag);
     }

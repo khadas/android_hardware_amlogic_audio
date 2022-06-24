@@ -120,9 +120,8 @@ extern void dtv_do_insert_zero_pcm(struct aml_audio_patch *patch,
                             struct audio_stream_out *stream_out);
 extern void dtv_do_drop_pcm(int avail, struct aml_audio_patch *patch);
 extern void dtv_adjust_output_clock(struct aml_audio_patch * patch, int direct, int step, bool is_dual);
-extern void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_out* stream_out);
-
-extern void decoder_set_pcrsrc(unsigned int pcrsrc);
+extern void dtv_avsync_process(struct audio_stream_out *stream, size_t bytes, audio_format_t output_format);
+extern void decoder_set_pcrscr(unsigned int pcrscr);
 int get_audio_checkin_underrun(void);
 int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms);
 bool is_dtv_patch_alive(struct aml_audio_device *aml_dev);

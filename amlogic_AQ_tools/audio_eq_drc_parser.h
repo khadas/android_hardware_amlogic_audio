@@ -67,6 +67,7 @@ struct audio_post_gain_s {
     float speaker;
     float spdif_arc;
     float headphone;
+    float media2spk_extra_gain;
 };
 
 /*software noise gate in audio hal*/

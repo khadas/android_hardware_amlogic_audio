@@ -1302,7 +1302,7 @@ static uint32_t out_get_latency (const struct audio_stream_out *stream)
     struct aml_audio_device *adev = out->dev;
     uint32_t a2dp_delay = 0, alsa_latency = 0, ms12_latency = 0, ms12_pipeline_latency = 0, whole_latency = 0;
 
-     /* here to check if change the audio output device. */
+    /* here to check if change the audio output device. */
     if (adev->out_device != out->out_device) {
         ALOGI("%s(), output device from 0x%x to 0x%x", __func__, out->out_device, adev->out_device);
         out->out_device = adev->out_device;
@@ -1974,6 +1974,12 @@ static int out_get_next_write_timestamp (const struct audio_stream_out *stream _
     // So we return ESRCH (3) in order to pass VTS.
     ALOGI ("Amlogic_HAL - %s: return ESRCH (3) instead of -EINVAL (-22)", __FUNCTION__);
     return ESRCH;
+}
+
+bool aml_get_speaker_mute_status(void)
+{
+    struct aml_audio_device *adev = aml_adev_get_handle();
+    return adev->speaker_mute_user_setting;
 }
 
 // actually maybe it be not useful now  except pass CTS_TEST:
@@ -3760,14 +3766,14 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 }
 
 static int aml_audio_output_routing(struct audio_hw_device *dev,
-                                    enum OUT_PORT cur_outport,
-                                    bool user_setting)
+                                    enum OUT_PORT cur_outport)
+
 {
     struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
     enum OUT_PORT pre_outport = aml_dev->active_outport;
+    AM_LOGI("switch from %s to %s", outputPort2Str(pre_outport), outputPort2Str(cur_outport));
 
     if (pre_outport != cur_outport) {
-        AM_LOGI("switch from %s to %s", outputPort2Str(pre_outport), outputPort2Str(cur_outport));
         /* switch off the active output */
         switch (pre_outport) {
         case OUTPORT_SPEAKER:
@@ -3827,13 +3833,15 @@ static int aml_audio_output_routing(struct audio_hw_device *dev,
         if (cur_outport == OUTPORT_HDMI_ARC) {
             aml_dev->arc_connected_reconfig = true;
         }
-    } else if (cur_outport == OUTPORT_SPEAKER && user_setting) {
+    } else if (cur_outport == OUTPORT_SPEAKER) {
+
         /* In this case, user toggle the speaker_mute menu */
         if (!aml_dev->speaker_mute_user_setting)
                  audio_route_apply_path(aml_dev->ar, "speaker");
              else
                  audio_route_apply_path(aml_dev->ar, "speaker_off");
         audio_route_update_mixer(aml_dev->ar);
+        aml_dev->active_outport = cur_outport;
     } else {
         ALOGI("%s: outport %s already exists, do nothing", __func__, outputPort2Str(cur_outport));
     }
@@ -3950,6 +3958,7 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
         if (audio_is_output_device(device)) {
             if ((device & AUDIO_DEVICE_OUT_HDMI_ARC) || (device & AUDIO_DEVICE_OUT_HDMI)) {
                 adev->bHDMIConnected = 1;
+                adev->arc_format_state = STARTED;
                 adev->bHDMIConnected_update = 1;
                 if (device & AUDIO_DEVICE_OUT_HDMI_ARC) {
                     if (eDolbyMS12Lib == adev->dolby_lib_type) {
@@ -3968,12 +3977,16 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
                        device & AUDIO_DEVICE_OUT_WIRED_HEADPHONE ||
                        device & AUDIO_DEVICE_OUT_WIRED_HEADSET) {
                 adev->out_device |= device;
+            } else if (device & AUDIO_DEVICE_OUT_WIRED_HEADPHONE ||
+                       device & AUDIO_DEVICE_OUT_WIRED_HEADSET) {
+                adev->out_device |= device;
             }
         }
     } else {
         if (audio_is_output_device(device)) {
             if ((device & AUDIO_DEVICE_OUT_HDMI_ARC) || (device & AUDIO_DEVICE_OUT_HDMI)) {
                 adev->bHDMIConnected = 0;
+                adev->arc_format_state = STARTED;
                 adev->bHDMIConnected_update = 1;
                 adev->hdmi_descs.pcm_fmt.max_channels = 2;
                 if (device & AUDIO_DEVICE_OUT_HDMI_ARC) {
@@ -3990,6 +4003,9 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
                 a2dp_out_close(adev);
             } else if (device &  AUDIO_DEVICE_OUT_ALL_USB ||
                        device & AUDIO_DEVICE_OUT_WIRED_HEADPHONE||
+                       device & AUDIO_DEVICE_OUT_WIRED_HEADSET) {
+                adev->out_device &= (~device);
+            } else if (device & AUDIO_DEVICE_OUT_WIRED_HEADPHONE ||
                        device & AUDIO_DEVICE_OUT_WIRED_HEADSET) {
                 adev->out_device &= (~device);
             }
@@ -4698,6 +4714,8 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
             sprintf (temp_buf + strlen(temp_buf), "ac3;");
         }
 
+        ALOGI ("%s: atmos = %d, keys: [%s] \n", __func__,
+            fmtdesc->atmos_supported, temp_buf);
         return strdup (temp_buf);
     } else if (strstr (keys, "is_passthrough_active") ) {
         bool active = false;
@@ -5344,6 +5362,9 @@ int do_output_standby_l(struct audio_stream *stream)
     }
     aml_out->stream_status = STREAM_STANDBY;
     aml_out->standby= 1;
+    if (continuous_mode(adev) && aml_out->hw_sync_mode && adev->ms12_out) {
+        adev->ms12_out->standby = true;
+    }
 
     if (adev->continuous_audio_mode == 0) {
         aml_out->alsa_running_status = false;
@@ -5414,7 +5435,8 @@ int do_output_standby_l(struct audio_stream *stream)
     }
     aml_out->pause_status = false;//clear pause status
 
-    if (aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_STOP) {
+    //remove these code from standby, they have been invoked in close_stream interface.
+    /*if (aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_STOP) {
         ALOGI("%s set AUDIO_PAUSE\n",__func__);
         aml_hwsync_wrap_set_pause(aml_out->hwsync);
         aml_out->tsync_status = TSYNC_STATUS_PAUSED;
@@ -5422,7 +5444,7 @@ int do_output_standby_l(struct audio_stream *stream)
         ALOGI("%s set AUDIO_STOP\n",__func__);
         aml_hwsync_wrap_set_stop(aml_out->hwsync);
         aml_out->tsync_status = TSYNC_STATUS_STOP;
-    }
+    }*/
 
 #ifdef ENABLE_AEC_APP
     aec_set_spk_running(adev->aec, false);
@@ -5704,6 +5726,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             for (int dev = AML_AUDIO_OUT_DEV_TYPE_SPEAKER; dev < AML_AUDIO_OUT_DEV_TYPE_BUTT; dev++) {
                 memcpy(adev->out_16_buf, buffer, bytes);
                 float volume = aml_audio_get_s_gain_by_src(adev, adev->patch_src);
+
                 if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER || dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) {
                     /* apply volume for spk/hp, SPDIF/HDMI keep the max volume */
                     if (adev->active_outport == OUTPORT_A2DP) {
@@ -5718,6 +5741,11 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                       /* for BDS project with HDMITX output,we need apply with volume with HDMITX */
                         volume *= adev->sink_gain[OUTPORT_HDMI];
                     } else {
+                        /* special add external gain for media->speaker */
+                        if (adev->patch_src != SRC_DTV && adev->patch_src != SRC_ATV &&
+                            adev->patch_src != SRC_LINEIN && adev->patch_src != SRC_HDMIIN) {
+                            volume *= adev->eq_data.p_gain.media2spk_extra_gain;
+                        }
                         volume *= adev->eq_data.p_gain.speaker * adev->sink_gain[OUTPORT_SPEAKER];
                     }
 
@@ -5747,7 +5775,10 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                             aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audio_headphone.pcm", adev->out_16_buf, bytes);
                         }
                     }
+                } else if (dev == AML_AUDIO_OUT_DEV_TYPE_SPDIF) {
+                    volume *= adev->eq_data.p_gain.spdif_arc;
                 }
+
 #ifdef ADD_AUDIO_DELAY_INTERFACE
                 if (dev != AML_AUDIO_OUT_DEV_TYPE_OTHER) {
                     aml_audio_delay_process(out_dev_convert_to_delay_type(dev), adev->out_16_buf, bytes,
@@ -5855,7 +5886,7 @@ ssize_t hw_write (struct audio_stream_out *stream
     if (patch && !adev->is_multi_demux) {
         if (is_dtv && need_hw_mix(adev->usecase_masks)) {
         if (adev->audio_patch->avsync_callback && aml_out->dtvsync_enable)
-            adev->audio_patch->avsync_callback(adev->audio_patch,aml_out);
+            adev->audio_patch->avsync_callback(stream, bytes, output_format);
         }
         if (patch->skip_amadec_flag) {
             if (patch->dtv_apts_lookup >= 0 && !patch->pcm_inserting)  {
@@ -6184,6 +6215,7 @@ ssize_t hw_write (struct audio_stream_out *stream
             adev->ms12.sys_audio_timestamp.tv_nsec = ts.tv_nsec;
             /*FIXME. 2ch 16 bit audio */
             adev->ms12.sys_audio_frame_pos = adev->ms12.sys_audio_base_pos + adev->ms12.sys_audio_skip + sys_total_cost/4 - latency_frames;
+            adev->ms12.sys_data_write2alsa_status = true;
         }
         if (adev->debug_flag) {
             ALOGI("%s  ms12.last_frames_position:%" PRIu64 ",last_ms12_pcm_out_position:%" PRIu64 "; sys audio pos %"PRIu64" ms ,sys_total_cost %"PRIu64",base pos %"PRIu64",latency %d \n", __func__,
@@ -6305,9 +6337,6 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
         ALOGI("continuous_mode(adev) %d ms12->dolby_ms12_enable %d",continuous_mode(adev), ms12->dolby_ms12_enable);
         if (continuous_mode(adev) && ms12->dolby_ms12_enable) {
             is_compatible = is_ms12_output_compatible(stream, adev->sink_format, adev->optical_format);
-        }
-        if (is_compatible) {
-            reset_decoder = false;
         }
 
         if (!is_bypass_dolbyms12(stream) && (reset_decoder == true)) {
@@ -6554,6 +6583,9 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         }
 
         aml_out->standby = false;
+        if (adev->ms12_out) {
+            adev->ms12_out->standby = false;
+        }
     }
 
     if (aml_out->hw_sync_mode) {
@@ -7334,7 +7366,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
              *when disable_pcm_mixing is true and offload format is dolby
              *the system tone voice should not be mixed
              */
-            if ((adev->digital_audio_format == BYPASS) && (dolby_stream_active(adev) || hwsync_lpcm_active(adev))) {
+            if ((adev->digital_audio_format == BYPASS) && dolby_stream_active(adev)) {
                 memset((void *)buffer, 0, bytes);
                 if (adev->debug_flag) {
                     ALOGI("%s mute the mixer voice(system/alexa)\n", __FUNCTION__);
@@ -8904,7 +8936,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
          *  Solution: Do not update routing when there include a dev->dev path, do it when dev->dev released
          */
         if (outport != OUTPORT_SPDIF && !(src_config->type == AUDIO_PORT_TYPE_MIX && is_contain_d2d_patch(aml_dev))) {
-            ret = aml_audio_output_routing(dev, outport, aml_dev->speaker_mute_user_setting);
+            ret = aml_audio_output_routing(dev, outport);
         }
         aml_dev->out_device = 0;
         for (i = 0; i < num_sinks; i++) {
@@ -9203,7 +9235,7 @@ static int adev_release_patch_restore_resource(struct aml_audio_device *aml_dev)
         }
     }
     enum OUT_PORT outport = get_output_dev_for_strategy(aml_dev, sink_devs, num_sinks);
-    ret = aml_audio_output_routing(&aml_dev->hw_device, outport, aml_dev->speaker_mute_user_setting);
+    ret = aml_audio_output_routing(&aml_dev->hw_device, outport);
     if (ret < 0) {
         ALOGE("%s() routing failed", __func__);
         ret = -EINVAL;
@@ -9221,7 +9253,6 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
     struct audio_patch *patch = NULL;
     struct listnode *node = NULL;
     int ret = 0;
-
     if (list_empty(&aml_dev->patch_list)) {
         AM_LOGE("No patch in list to release");
         ret = -EINVAL;
@@ -9612,6 +9643,8 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
                         aml_dev->sink_gain[outport] = DbToAmpl(config->gain.values[0] / 100.0);
                     }
                 }
+                ALOGD("%s  aml_dev->dolby_lib_type:%d, audio_patching:%d, patch_src:%d", __func__,
+                    aml_dev->dolby_lib_type, aml_dev->audio_patching, aml_dev->patch_src);
                 if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
                     /* dev->dev and DTV src gain using MS12 primary gain */
                     if (aml_dev->audio_patching || aml_dev->patch_src == SRC_DTV) {
@@ -9619,9 +9652,9 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
                          /* Raw data from hdmi, alexa voice case, the source stream need duck about 20dB */
                         dolby_ms12_set_main_volume(DbToAmpl(config->gain.values[1]/100));
                         pthread_mutex_unlock(&aml_dev->lock);
-                        if (ret < 0) {
-                            ALOGE("set dolby primary gain failed");
-                        }
+
+                        ALOGD("%s set source gain to ms12, volume-> values:%d, gain:%f", __func__,
+                            config->gain.values[1], DbToAmpl(config->gain.values[1]/100));
                     }
                 }
                 ALOGI(" - set src device[%#x](inport:%s): gain[%f]",
@@ -9789,6 +9822,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->out_device = AUDIO_DEVICE_OUT_SPEAKER;
     adev->in_device = AUDIO_DEVICE_IN_BUILTIN_MIC & ~AUDIO_DEVICE_BIT_IN;
     adev->hi_pcm_mode = false;
+    adev->last_sink_capability = 0;
 
     adev->eq_data.card = adev->card;
     if (eq_drc_init(&adev->eq_data) == 0) {
@@ -9807,7 +9841,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
               adev->aml_ng_level, adev->aml_ng_attack_time, adev->aml_ng_release_time);
     }
 
-    ret = aml_audio_output_routing(&adev->hw_device, OUTPORT_SPEAKER, adev->speaker_mute_user_setting);
+    ret = aml_audio_output_routing(&adev->hw_device, OUTPORT_SPEAKER);
     if (ret < 0) {
         ALOGE("%s() routing failed", __func__);
         ret = -EINVAL;

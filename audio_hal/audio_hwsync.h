@@ -58,10 +58,13 @@
 
 
 //TODO: After precisely calc the pts, change it back to 1s
+//threshold 1.1s
 #define APTS_DISCONTINUE_THRESHOLD          (90000/10*11)
-#define APTS_DISCONTINUE_THRESHOLD_MIN    (90000/1000*100)
-#define APTS_DISCONTINUE_THRESHOLD_MIN_35MS    (90000/1000*35)
+//threshold min 100ms
+#define APTS_DISCONTINUE_THRESHOLD_MIN      (90000/1000*100)
+#define APTS_DISCONTINUE_THRESHOLD_MIN_35MS (90000/1000*35)
 
+//threshold max 5s
 #define APTS_DISCONTINUE_THRESHOLD_MAX    (5*90000)
 
 #define HWSYNC_APTS_NUM     512

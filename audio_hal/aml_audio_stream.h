@@ -248,7 +248,7 @@ static inline bool is_hdmi_out(enum OUT_PORT active_outport) {
     return (active_outport == OUTPORT_HDMI_ARC || active_outport == OUTPORT_HDMI);
 }
 
-typedef void (*dtv_avsync_process_cb)(struct aml_audio_patch* patch,struct aml_stream_out* stream_out);
+typedef void (*dtv_avsync_process_cb)(struct audio_stream_out *stream, size_t bytes, audio_format_t output_format);
 
 
 /* all latency in unit 'ms' */
@@ -433,6 +433,8 @@ struct aml_audio_patch {
     picture_mode_t pic_mode;
     bool IEC61937_format;
     bool mode_reconfig_flag;
+    /* user setting picture mode end */
+    int dtv_disable_tune_latency;
 };
 
 struct audio_stream_out;
