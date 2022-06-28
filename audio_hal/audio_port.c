@@ -441,6 +441,10 @@ size_t get_inport_consumed_size(input_port *port)
 
 static int output_port_start(output_port *port)
 {
+    if (port->pcm_handle) {
+        AM_LOGW("port:%s already started", mixerOutputType2Str(port->enOutPortType));
+        return 0;
+    }
     struct audioCfg cfg = port->cfg;
     struct pcm_config pcm_cfg;
     int card = port->cfg.card;
@@ -680,12 +684,6 @@ static struct pcm *output_open_alsa(struct audioCfg *config, int alsa_port)
     return pcm;
 }
 
-static int output_close_alsa(struct pcm *pcm)
-{
-    pcm_close(pcm);
-    return 0;
-}
-
 int output_get_default_config(struct audioCfg *cfg)
 {
     int card = alsa_device_get_card_index();
@@ -742,11 +740,8 @@ output_port *new_output_port(
     if (port_index == MIXER_OUTPUT_PORT_MULTI_PCM) {
         alsa_port = PORT_I2S2HDMI;
     }
+    config->device = alsa_device_update_pcm_index(alsa_port, PLAYBACK);
     memcpy(&port->cfg, config, sizeof(struct audioCfg));
-    //port->pcm_handle = output_open_alsa(config, alsa_port);
-    //if (port->pcm_handle == NULL) {
-    //    goto err_rbuf;
-    //}
     AM_LOGI("port:%s, frame_size:%d, format:%#x, sampleRate:%d, channels:%d", mixerOutputType2Str(port_index),
         config->frame_size, config->format, config->sampleRate, config->channelCnt);
     port->enOutPortType = port_index;
@@ -770,9 +765,9 @@ int free_output_port(output_port *port)
     R_CHECK_POINTER_LEGAL(-EINVAL, port, "");
     AM_LOGI("port:%s", mixerOutputType2Str(port->enOutPortType));
     if (port->pcm_handle) {
-        output_close_alsa(port->pcm_handle);
-        port->pcm_handle = NULL;
+        pcm_close(port->pcm_handle);
     }
+    port->pcm_handle = NULL;
     aml_audio_free(port->data_buf);
     aml_audio_free(port);
     return 0;
