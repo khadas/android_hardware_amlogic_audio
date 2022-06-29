@@ -9792,8 +9792,6 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     memset(&adev->dts_hd, 0, sizeof(struct dca_dts_dec));
     adev->sound_track_mode = 0;
     adev->dtv_sound_mode = 0;
-    adev->mixing_level = 0;
-    adev->advol_level = 100;
 #if ENABLE_DVB_PATCH
     adev->aml_dtv_audio_instances = aml_audio_calloc(1, sizeof(aml_dtv_audio_instances_t));
     if (adev->aml_dtv_audio_instances == NULL) {

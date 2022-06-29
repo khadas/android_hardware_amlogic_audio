@@ -357,12 +357,13 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
         ret = aml_audio_ms12_process(stream, buffer, bytes);
 #ifdef ENABLE_DVB_PATCH
         if (patch && patch->decoder_offset == 0) {
-           /*after ms12 process one frame, set mix level and ad vol level*/
-            if (adev->dual_decoder_support) {
+            aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
+           /*after ms12 process one frame, set mix level and ad vol level */
+            if (demux_info->dual_decoder_support) {
                 pthread_mutex_lock(&ms12->lock);
-                dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(adev->mixing_level);
-                set_ms12_ad_mixing_level(ms12, adev->mixing_level);
-                set_ms12_ad_vol(ms12, adev->advol_level);
+                dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(demux_info->mixing_level);
+                set_ms12_ad_mixing_level(ms12, demux_info->mixing_level);
+                set_ms12_ad_vol(ms12, demux_info->advol_level);
                 pthread_mutex_unlock(&ms12->lock);
             }
         }

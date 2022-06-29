@@ -625,9 +625,10 @@ int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t f
     if (demux_info) {
         dec_config->ad_decoder_supported = demux_info->dual_decoder_support;
         dec_config->ad_mixing_enable = demux_info->associate_audio_mixing_enable;
-        dec_config->mixer_level = adev->mixing_level;
-        dec_config->advol_level = adev->advol_level;
-        ALOGI("mixer_level %d adev->associate_audio_mixing_enable %d",adev->mixing_level, demux_info->associate_audio_mixing_enable);
+        dec_config->mixer_level = demux_info->mixing_level;
+        dec_config->advol_level = demux_info->advol_level;
+        ALOGI("mixer_level %d adev->associate_audio_mixing_enable %d demux_info->advol_level %d",
+            demux_info->mixing_level, demux_info->associate_audio_mixing_enable, demux_info->advol_level);
     }
 #endif
 
