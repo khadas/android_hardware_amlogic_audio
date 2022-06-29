@@ -775,7 +775,7 @@ int get_the_dolby_ms12_prepared(
     if (patch) {
         demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     }
-    int ret = 0, associate_audio_mixing_enable = 0;
+    int ret = 0, associate_audio_mixing_enable = 0,mixing_level = 0;
 
     ALOGI("\n+%s()", __FUNCTION__);
     pthread_mutex_lock(&ms12->lock);
@@ -797,7 +797,8 @@ int get_the_dolby_ms12_prepared(
     if (input_format == AUDIO_FORMAT_AC3 || input_format == AUDIO_FORMAT_E_AC3) {
         if (patch && demux_info) {
             ms12->dual_decoder_support = demux_info->dual_decoder_support;
-            associate_audio_mixing_enable = adev->associate_audio_mixing_enable;
+            associate_audio_mixing_enable = demux_info->associate_audio_mixing_enable;
+            mixing_level = demux_info->mixing_level;
             dtv_decoder_offset_base = patch->decoder_offset;
        } else {
             ms12->dual_decoder_support = 0;
@@ -815,9 +816,9 @@ int get_the_dolby_ms12_prepared(
         set_audio_associate_format(input_format);
         ALOGI("%s set_audio_associate_format %#x", __FUNCTION__, input_format);
     }
-    dolby_ms12_set_associated_audio_mixing(associate_audio_mixing_enable);
-    dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(adev->mixing_level);
 
+    dolby_ms12_set_associated_audio_mixing(associate_audio_mixing_enable);
+    dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(mixing_level);
 
     /*set the continuous output flag*/
     set_dolby_ms12_continuous_mode((bool)adev->continuous_audio_mode);

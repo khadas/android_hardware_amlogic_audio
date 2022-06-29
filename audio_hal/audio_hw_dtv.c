@@ -339,18 +339,17 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
             break;
         case AUDIO_DTV_PATCH_CMD_SET_AD_SUPPORT:
 
-            adev->dual_decoder_support = val;
             demux_info->dual_decoder_support = val;
-            ALOGI("dual_decoder_support set to %d\n", adev->dual_decoder_support);
+            ALOGI("dual_decoder_support set to %d\n", demux_info->dual_decoder_support);
             break;
         case AUDIO_DTV_PATCH_CMD_SET_AD_ENABLE:
 
             if (val == 0) {
                 dtv_assoc_audio_cache(-1);
             }
-            adev->associate_audio_mixing_enable = val;
-            demux_info->associate_audio_mixing_enable = adev->associate_audio_mixing_enable;
-            ALOGI("associate_audio_mixing_enable set to %d\n", adev->associate_audio_mixing_enable);
+
+            demux_info->associate_audio_mixing_enable = val;
+            ALOGI("associate_audio_mixing_enable set to %d\n", demux_info->associate_audio_mixing_enable);
             break;
         case AUDIO_DTV_PATCH_CMD_SET_AD_VOL_LEVEL:
             if (val < 0) {
@@ -358,11 +357,12 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
             } else if (val > 100) {
                 val = 100;
             }
-            adev->advol_level = val;
-            ALOGI("ms12 ad vol_level set to %d\n", adev->advol_level);
-            if (eDolbyMS12Lib == adev->dolby_lib_type_last && ms12->dolby_ms12_enable) {
+            demux_info->advol_level = val;
+            ALOGI("advol_level set to %d\n", demux_info->advol_level);
+            if ((eDolbyMS12Lib == adev->dolby_lib_type_last && ms12->dolby_ms12_enable) &&
+                (path_id == dtv_audio_instances->demux_index_working)) {
                 pthread_mutex_lock(&ms12->lock);
-                set_ms12_ad_vol(ms12, adev->advol_level);
+                set_ms12_ad_vol(ms12, demux_info->advol_level);
                 pthread_mutex_unlock(&ms12->lock);
             }
             break;
@@ -373,12 +373,14 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
             } else if (val > 100) {
                 val = 100;
             }
-            adev->mixing_level = (val * 64 - 32 * 100) / 100; //[0,100] mapping to [-32,32]
-            ALOGI("mixing_level set to %d\n", adev->mixing_level);
-            if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
+
+            demux_info->mixing_level = (val * 64 - 32 * 100) / 100; //[0,100] mapping to [-32,32]
+            ALOGI("mixing_level set to %d\n", demux_info->mixing_level);
+            if (eDolbyMS12Lib == adev->dolby_lib_type_last &&
+                (path_id == dtv_audio_instances->demux_index_working)) {
                 pthread_mutex_lock(&ms12->lock);
-                dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(adev->mixing_level);
-                set_ms12_ad_mixing_level(ms12, adev->mixing_level);
+                dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(demux_info->mixing_level);
+                set_ms12_ad_mixing_level(ms12, demux_info->mixing_level);
                 pthread_mutex_unlock(&ms12->lock);
             }
 
@@ -411,7 +413,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                         Init_Dmx_AD_Audio(demux_handle, demux_info->ad_fmt, demux_info->ad_pid);
 
                     Start_Dmx_Main_Audio(demux_handle);
-                    if (adev->dual_decoder_support)
+                    if (demux_info->dual_decoder_support)
                         Start_Dmx_AD_Audio(demux_handle);
                     if (dtvsync->mediasync_new == NULL) {
                         dtvsync->mediasync_new = aml_dtvsync_create();
@@ -446,7 +448,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                             dtv_patch_input_stop(patch->adec_handle);
                         }
                         Stop_Dmx_Main_Audio(demux_handle);
-                        if (adev->dual_decoder_support)
+                        if (demux_info->dual_decoder_support)
                             Stop_Dmx_AD_Audio(demux_handle);
                         Destroy_Dmx_Main_Audio(demux_handle);
                         if (demux_info->dual_decoder_support)
@@ -530,6 +532,7 @@ static int dtv_patch_status_info(void *args, INFO_TYPE_E info_flag)
     int ret = 0;
     struct aml_audio_patch *patch = (struct aml_audio_patch *)args;
     struct audio_hw_device *dev = patch->dev;
+    aml_demux_audiopara_t *demux_info  = patch->demux_info;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
     ring_buffer_t *ringbuffer = &(patch->aml_ringbuffer);
     if (info_flag == BUFFER_SPACE)
@@ -537,11 +540,11 @@ static int dtv_patch_status_info(void *args, INFO_TYPE_E info_flag)
     else if (info_flag == BUFFER_LEVEL)
         ret = get_buffer_read_space(ringbuffer);
     else if (info_flag == AD_MIXING_ENABLE) {
-        ret = aml_dev->associate_audio_mixing_enable;
+        ret = demux_info->associate_audio_mixing_enable;
     } else if (info_flag == AD_MIXING_LEVEL)
-        ret = aml_dev->mixing_level;
+        ret = demux_info->mixing_level;
     else if (info_flag == AD_MIXING_PCMSCALE)
-        ret = aml_dev->advol_level;
+        ret = demux_info->advol_level;
     else if (info_flag == SECURITY_MEM_LEVEL) {
         ret = aml_dev->security_mem_level;
     }
@@ -1888,7 +1891,7 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
         }
         dtv_assoc_set_ad_frame_size(ad_size);
         /*guess it is not necessary,left to do */
-        if (aml_dev->associate_audio_mixing_enable == 0) {
+        if (demux_info->associate_audio_mixing_enable == 0) {
             ad_size = 0;
         }
 
@@ -2071,8 +2074,8 @@ void *audio_dtv_patch_output_threadloop(void *data)
         if ((patch->aformat == AUDIO_FORMAT_AC3) ||
             (patch->aformat == AUDIO_FORMAT_E_AC3) ||
             (patch->aformat == AUDIO_FORMAT_AC4)) {
-            ALOGV("AD %d %d %d", aml_dev->dolby_lib_type, aml_dev->dual_decoder_support, demux_info->ad_pid);
-            if (aml_dev->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
+            ALOGV("AD %d %d %d", aml_dev->dolby_lib_type, demux_info->dual_decoder_support, demux_info->ad_pid);
+            if (demux_info->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
                 if (aml_dev->dolby_lib_type == eDolbyMS12Lib) {
                     if (aml_dev->disable_pcm_mixing == false || aml_dev->digital_audio_format == PCM ||
                         aml_dev->sink_capability == AUDIO_FORMAT_PCM_16_BIT || aml_dev->sink_capability == AUDIO_FORMAT_PCM_32_BIT) {
@@ -2098,16 +2101,16 @@ void *audio_dtv_patch_output_threadloop(void *data)
         }
 
         aml_dec_t *aml_dec = aml_out->aml_dec;
-        if (aml_dev->mixing_level != aml_out->dec_config.mixer_level ) {
-            aml_out->dec_config.mixer_level = aml_dev->mixing_level;
+        if (demux_info->mixing_level != aml_out->dec_config.mixer_level ) {
+            aml_out->dec_config.mixer_level = demux_info->mixing_level;
             aml_decoder_set_config(aml_dec, AML_DEC_CONFIG_MIXER_LEVEL, &aml_out->dec_config);
         }
-        if (aml_dev->associate_audio_mixing_enable != aml_out->dec_config.ad_mixing_enable) {
-           aml_out->dec_config.ad_mixing_enable = aml_dev->associate_audio_mixing_enable;
+        if (demux_info->associate_audio_mixing_enable != aml_out->dec_config.ad_mixing_enable) {
+           aml_out->dec_config.ad_mixing_enable = demux_info->associate_audio_mixing_enable;
            aml_decoder_set_config(aml_dec, AML_DEC_CONFIG_MIXING_ENABLE, &aml_out->dec_config);
         }
-        if (aml_dev->advol_level != aml_out->dec_config.advol_level) {
-           aml_out->dec_config.advol_level = aml_dev->advol_level;
+        if (demux_info->advol_level != aml_out->dec_config.advol_level) {
+           aml_out->dec_config.advol_level = demux_info->advol_level;
            aml_decoder_set_config(aml_dec, AML_DEC_CONFIG_AD_VOL, &aml_out->dec_config);
         }
     }
@@ -2270,8 +2273,8 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 }
 
                 demux_info = (aml_demux_audiopara_t *)patch->demux_info;
-                bool associate_mix = aml_dev->associate_audio_mixing_enable;
-                bool dual_decoder = aml_dev->dual_decoder_support;
+                bool associate_mix = demux_info->associate_audio_mixing_enable;
+                bool dual_decoder = demux_info->dual_decoder_support;
                 int demux_id  = demux_info->demux_id;
                 ALOGI("patch->demux_handle %p patch->aformat %0x", patch->demux_handle, patch->aformat);
                 if (aml_dev->dolby_lib_type == eDolbyMS12Lib) {
@@ -2297,7 +2300,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                                       demux_info->has_video,
                                       dual_decoder,
                                       associate_mix,
-                                      aml_dev->mixing_level,
+                                      demux_info->mixing_level,
                                       patch->demux_handle);
                 ALOGI("[audiohal_kpi]++%s live now  start the audio decoder now !\n",
                       __FUNCTION__);
@@ -2538,6 +2541,7 @@ int audio_dtv_patch_output_single_decoder(struct aml_audio_patch *patch,
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream_out;
     package_list *list = patch->dtv_package_list;
     struct package *cur_package = patch->cur_package;
+    aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     int ret = 0;
     if (!cur_package ) {
         ALOGI("cur_package NULL");
@@ -2555,7 +2559,7 @@ int audio_dtv_patch_output_single_decoder(struct aml_audio_patch *patch,
     if (!aml_out->aml_dec && patch->aformat == AUDIO_FORMAT_E_AC3 && !aml_out->ad_substream_supported) {
         aml_out->ad_substream_supported = is_ad_substream_supported((unsigned char *)cur_package->data, cur_package->size);
         if (aml_out->ad_substream_supported) {
-            aml_dev->mixing_level = -32;
+            demux_info->mixing_level = -32;
         }
     }
     ALOGV("p_package->data %p p_package->ad_data %p", cur_package->data, cur_package->ad_data);
@@ -3319,16 +3323,16 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
         }
 
         aml_dec_t *aml_dec = aml_out->aml_dec;
-        if (aml_dev->mixing_level != aml_out->dec_config.mixer_level ) {
-            aml_out->dec_config.mixer_level = aml_dev->mixing_level;
+        if (demux_info->mixing_level != aml_out->dec_config.mixer_level ) {
+            aml_out->dec_config.mixer_level = demux_info->mixing_level;
             aml_decoder_set_config(aml_dec, AML_DEC_CONFIG_MIXER_LEVEL, &aml_out->dec_config);
         }
         if (demux_info->associate_audio_mixing_enable != aml_out->dec_config.ad_mixing_enable) {
            aml_out->dec_config.ad_mixing_enable = demux_info->associate_audio_mixing_enable;
            aml_decoder_set_config(aml_dec, AML_DEC_CONFIG_MIXING_ENABLE, &aml_out->dec_config);
         }
-        if (aml_dev->advol_level != aml_out->dec_config.advol_level) {
-           aml_out->dec_config.advol_level = aml_dev->advol_level;
+        if (demux_info->advol_level != aml_out->dec_config.advol_level) {
+           aml_out->dec_config.advol_level = demux_info->advol_level;
            aml_decoder_set_config(aml_dec, AML_DEC_CONFIG_AD_VOL, &aml_out->dec_config);
         }
 

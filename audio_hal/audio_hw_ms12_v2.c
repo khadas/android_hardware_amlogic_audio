@@ -868,7 +868,7 @@ int get_the_dolby_ms12_prepared(
     unsigned int sink_max_channels = 2;
     int t3_chip = check_chip_name("t3", 3, &adev->alsa_mixer);
 
-    int ret = 0, associate_audio_mixing_enable = 0 , media_presentation_id = -1;
+    int ret = 0, associate_audio_mixing_enable = 0 , media_presentation_id = -1,mixing_level = 0,ad_vol = 100;
     bool output_5_1_ddp = getprop_bool(MS12_OUTPUT_5_1_DDP);
     ms12->tv_tuning_flag = getprop_bool(MS12_TV_TUNING);
 
@@ -910,6 +910,8 @@ int get_the_dolby_ms12_prepared(
         if (patch && demux_info) {
             ms12->dual_decoder_support = demux_info->dual_decoder_support;
             associate_audio_mixing_enable = demux_info->associate_audio_mixing_enable;
+            mixing_level = demux_info->mixing_level;
+            ad_vol = demux_info->advol_level;
             media_presentation_id = demux_info->media_presentation_id;
             dtv_decoder_offset_base = patch->decoder_offset;
        } else {
@@ -931,9 +933,9 @@ int get_the_dolby_ms12_prepared(
         set_audio_associate_format(input_format);
         ALOGI("%s set_audio_associate_format %#x", __FUNCTION__, input_format);
     }
-    dolby_ms12_set_associated_audio_mixing(associate_audio_mixing_enable);
-    dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(adev->mixing_level);
 
+    dolby_ms12_set_associated_audio_mixing(associate_audio_mixing_enable);
+    dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(mixing_level);
     /*set the continuous output flag*/
     set_dolby_ms12_continuous_mode((bool)adev->continuous_audio_mode);
     dolby_ms12_set_atmos_lock_flag(adev->atoms_lock_flag);
@@ -1064,8 +1066,8 @@ int get_the_dolby_ms12_prepared(
             , is_game_mode(adev));
 
         if (ms12->dual_decoder_support == true) {
-            set_ms12_ad_vol(ms12, adev->advol_level);
-            ALOGI("%s ad vol=%d", __FUNCTION__, adev->advol_level);
+            set_ms12_ad_vol(ms12, ad_vol);
+            ALOGI("%s ad vol=%d", __FUNCTION__, ad_vol);
         }
 
         //n bytes of downmix output pcm frame, 16bits_per_sample / stereo, it value is 4 bytes.

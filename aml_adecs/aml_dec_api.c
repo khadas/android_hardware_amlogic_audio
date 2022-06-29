@@ -112,8 +112,7 @@ int aml_decoder_init(aml_dec_t **ppaml_dec, audio_format_t format, aml_dec_confi
     aml_dec_handle->format = format;
     aml_dec_handle->fragment_left_size = 0;
     aml_dec_handle->in_frame_pts = 0;
-    dec_config->advol_level = 100;
-    dec_config->mixer_level = 0;
+
     if (get_debug_value(AML_DEBUG_AUDIOHAL_SYNCPTS)) {
         aml_dec_handle->debug_synced_frame_pts_flag = true;
     } else {
