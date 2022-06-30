@@ -744,10 +744,7 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
                 if (fade_out) {
                     struct aml_stream_out *out = (struct aml_stream_out *)in_port->notify_cbk_data;
                     audio_hwsync_t *hwsync = (out != NULL) ? (out->hwsync) : NULL;
-
                     AM_LOGI("output port:%s fade out, pausing->pausing_1, tsync pause audio", mixerInputType2Str(type));
-                    if (audio_mixer->adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)
-                        memset(in_port->r_buf->start_addr, 0, in_port->r_buf->size);
                     aml_hwsync_wrap_set_pause(hwsync);
                     audio_fade_func(in_port->data, ret, 0);
                     set_inport_state(in_port, PAUSED);

@@ -1411,12 +1411,6 @@ int out_standby_subMixingPCM(struct audio_stream *stream)
         delete_mixer_input_port(audio_mixer, aml_out->inputPortID);
         aml_out->inputPortID = -1;
     }
-
-    if ((aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && adev->a2dp_hal
-        && get_mixer_inport_count(audio_mixer) == 0) {
-        a2dp_out_standby(adev);
-    }
-
     if (aml_out->hwsync_extractor) {
         delete_hw_avsync_header_extractor(aml_out->hwsync_extractor);
         aml_out->hwsync_extractor = NULL;
@@ -1470,8 +1464,6 @@ static int out_pause_subMixingPCM(struct audio_stream_out *stream)
     send_mixer_inport_message(audio_mixer, aml_out->inputPortID, MSG_PAUSE);
 
     aml_out->pause_status = true;
-    if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)
-        a2dp_out_standby(aml_dev);
     AM_LOGI("-");
     aml_audio_trace_int("out_pause_subMixingPCM", 0);
     return 0;

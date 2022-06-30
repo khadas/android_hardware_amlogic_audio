@@ -856,8 +856,6 @@ static int do_output_standby (struct aml_stream_out *out)
 {
     struct aml_audio_device *adev = out->dev;
     ALOGD ("%s(%p)", __FUNCTION__, out);
-    if ((out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && adev->a2dp_hal)
-        a2dp_out_standby(adev);
 
     if (!out->standby) {
         //commit here for hwsync/mix stream hal mixer
@@ -3829,13 +3827,6 @@ static int aml_audio_output_routing(struct audio_hw_device *dev,
         if (cur_outport == OUTPORT_HDMI_ARC) {
             aml_dev->arc_connected_reconfig = true;
         }
-        /* Standby a2dp must wait for the active_outport variable to change. because in case the
-         * active_outport variable has not changed, a2dp is already standby and may trigger resume
-         * via the a2dp_out_write function next time.
-         */
-        if (pre_outport == OUTPORT_A2DP) {
-            a2dp_out_standby(aml_dev);
-        }
     } else if (cur_outport == OUTPORT_SPEAKER && user_setting) {
         /* In this case, user toggle the speaker_mute menu */
         if (!aml_dev->speaker_mute_user_setting)
@@ -5309,7 +5300,6 @@ int do_output_standby_l(struct audio_stream *stream)
             if ((eDolbyMS12Lib == adev->dolby_lib_type) && (ms12->dolby_ms12_enable == true)) {
                 get_dolby_ms12_cleanup(&adev->ms12, false);
             }
-            a2dp_out_standby(adev);
         }
     }
 
@@ -6936,11 +6926,6 @@ hwsync_rewrite:
             aml_audio_delay_clear(AML_DELAY_OUTPORT_SPDIF_B_RAW);
             aml_audio_delay_clear(AML_DELAY_OUTPORT_ALL);
 #endif
-            /* we need standby a2dp when switch the format, in order to prevent UNDERFLOW in a2dp stack. */
-            if (adev->active_outport == OUTPORT_A2DP) {
-                adev->need_reset_a2dp = true;
-            }
-
             // HDMI input && HDMI ARC output case, when input format change, output format need also change
             // for example: hdmi input DD+ => DD,  HDMI ARC DD +=> DD
             // so we need to notify to reset spdif output format here.
@@ -8264,8 +8249,6 @@ void *audio_patch_input_threadloop(void *data)
                     ret = reconfig_read_param_through_hdmiin(aml_dev, in, ringbuffer, ring_buffer_size);
                     pthread_mutex_unlock(&in->lock);
                     if (ret == 0) {
-                        /* we need standby a2dp when switch the hdmiin param, in order to prevent UNDERFLOW in a2dp stack. */
-                        aml_dev->need_reset_a2dp = true;
                         break;
                     }
                 }
