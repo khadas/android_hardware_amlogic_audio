@@ -309,6 +309,14 @@ uint64_t aml_audio_get_systime_ns(void)
     return sys_time;
 }
 
+struct timespec aml_audio_ns_to_time(uint64_t ns)
+{
+    struct timespec time;
+    time.tv_sec = ns / 1000000000;
+    time.tv_nsec = ns - (time.tv_sec * 1000000000);
+    return time;
+}
+
 int aml_audio_sleep(uint64_t us)
 {
     int ret = -1;

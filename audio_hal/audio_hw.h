@@ -366,7 +366,6 @@ struct aml_audio_device {
     char default_EDID_array[EDID_ARRAY_MAX_LEN];
     int arc_hdmi_updated;
     int a2dp_updated;
-    bool need_reset_a2dp;
     void * a2dp_hal;
     pthread_mutex_t a2dp_lock;
     bool bt_avrcp_supported;
