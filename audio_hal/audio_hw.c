@@ -5629,18 +5629,15 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     } else if (adev->audio_patch == NULL) {
                         aml_audio_switch_output_mode((int16_t *)adev->out_16_buf, bytes, adev->sound_track_mode);
                     }
-                    if (adev->active_outport != OUTPORT_A2DP && adev->active_outport != OUTPORT_HEADPHONE && \
-                        adev->active_outport != OUTPORT_HDMI && !bds) {
+                    if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER && adev->active_outport == OUTPORT_SPEAKER && !bds) {
                         out_frames = audio_post_process(&adev->native_postprocess, adev->out_16_buf, out_frames);
                         bytes = out_frames * 4;
                     }
                     if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-                        if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
-                            aml_audio_dump_audio_bitstreams("/data/audio/audio_spk.pcm", adev->out_16_buf, bytes);
-                        } else if (dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) {
-                            aml_audio_dump_audio_bitstreams("/data/audio/audio_headphone.pcm", adev->out_16_buf, bytes);
-                        } else {
-                           //do nothing.
+                        if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER && adev->active_outport == OUTPORT_SPEAKER) {
+                            aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audio_spk.pcm", adev->out_16_buf, bytes);
+                        } else if (dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE && adev->active_outport == OUTPORT_HEADPHONE) {
+                            aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audio_headphone.pcm", adev->out_16_buf, bytes);
                         }
                     }
                 }
