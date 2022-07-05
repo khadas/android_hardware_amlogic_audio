@@ -223,9 +223,3 @@ ssize_t write_to_sco(struct aml_audio_device *adev, audio_config_base_t *config,
     return bytes;
 }
 
-bool is_sco_port(enum OUT_PORT outport)
-{
-    return (outport == OUTPORT_BT_SCO_HEADSET) || (outport == OUTPORT_BT_SCO);
-}
-
-

@@ -356,11 +356,11 @@ int dolby_ms12_register_callback(struct aml_stream_out *aml_out)
 
 }
 
-bool is_platform_supported_ddp_atmos(bool atmos_supported, enum OUT_PORT current_out_port, bool is_tv)
+bool is_platform_supported_ddp_atmos(bool atmos_supported, audio_devices_t cur_out_devices, bool is_tv)
 {
     bool ret = false;
     //ALOGD("%s atmos_supported %d current_out_port %d", __func__, atmos_supported, current_out_port);
-    if ((current_out_port == OUTPORT_HDMI_ARC) || (current_out_port == OUTPORT_HDMI)) {
+    if ((cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0 || (cur_out_devices & AUDIO_DEVICE_OUT_HDMI) = 0) {
         /*ARC case*/
         ret = atmos_supported;
     }
@@ -980,7 +980,7 @@ int get_the_dolby_ms12_prepared(
     **  the system stream data can't send to ms12/speaker when bootup,
     **  this lead to system stream always pop noise when playback YouTuBe.
     */
-    if (adev->audio_patch_2_af_stream || OUTPORT_HDMI_ARC == adev->active_outport
+    if (adev->audio_patch_2_af_stream || (adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC)
         || ms12->ms12_scheduler_state == MS12_SCHEDULER_RUNNING) {
         ms12->last_scheduler_state = MS12_SCHEDULER_NONE;
         adev->audio_patch_2_af_stream = false;
@@ -2811,7 +2811,8 @@ bool is_dolby_ms12_main_stream(struct audio_stream_out *stream) {
 bool is_support_ms12_reset(struct audio_stream_out *stream) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
-    bool is_atmos_supported = is_platform_supported_ddp_atmos(adev->hdmi_descs.ddp_fmt.atmos_supported, adev->active_outport, adev->is_TV);
+    bool is_atmos_supported = is_platform_supported_ddp_atmos(adev->hdmi_descs.ddp_fmt.atmos_supported,
+        adev->cur_out_devices, adev->is_TV);
     bool need_reset_ms12_out = !is_ms12_out_ddp_5_1_suitable(is_atmos_supported);
     /* we meet 3 conditions:
      * 1. edid atmos support not match with currently ms12 output
@@ -2850,7 +2851,7 @@ bool is_support_ms12_reset(struct audio_stream_out *stream) {
 bool is_audio_postprocessing_add_dolbyms12_dap(struct aml_audio_device *adev)
 {
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-    bool is_dap_enable = (adev->active_outport == OUTPORT_SPEAKER) && (!adev->ms12.dap_bypass_enable);
+    bool is_dap_enable = (adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) && (!adev->ms12.dap_bypass_enable);
 
     if (ms12->dolby_ms12_enable && is_dap_enable && (ms12->output_config & MS12_OUTPUT_MASK_SPEAKER)) {
         is_dap_enable =  true;

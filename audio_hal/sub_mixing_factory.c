@@ -770,7 +770,7 @@ static int out_get_presentation_position_port(
 
     int latency_ms = 0;
     if (!adev->is_netflix && ret == 0) {
-        latency_ms = aml_audio_get_latency_offset(adev->active_outport,
+        latency_ms = aml_audio_get_latency_offset(adev->cur_out_devices,
                                                          out->hal_internal_format,
                                                          adev->sink_format,
                                                          adev->ms12.dolby_ms12_enable,
@@ -1135,10 +1135,10 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
             stream, aml_out->out_device, bytes);
     }
 
-    if (adev->out_device != aml_out->out_device) {
+    if (adev->cur_out_devices != aml_out->out_device) {
         AM_LOGD("stream:%p, switch from device:%#x to device:%#x",
-             stream, adev->out_device, aml_out->out_device);
-        aml_out->out_device = adev->out_device;
+             stream, adev->cur_out_devices, aml_out->out_device);
+        aml_out->out_device = adev->cur_out_devices;
         aml_out->stream.common.standby(&aml_out->stream.common);
         goto exit;
     } else if (aml_out->out_device == 0) {
@@ -1230,10 +1230,10 @@ ssize_t mixer_mmap_buffer_write_sm(struct audio_stream_out *stream, const void *
            stream, aml_out->out_device, bytes);
    }
 
-   if (adev->out_device != aml_out->out_device) {
+   if (adev->cur_out_devices != aml_out->out_device) {
        AM_LOGD("stream:%p, switch from device:%#x to device:%#x",
-            stream, adev->out_device, aml_out->out_device);
-       aml_out->out_device = adev->out_device;
+            stream, adev->cur_out_devices, aml_out->out_device);
+       aml_out->out_device = adev->cur_out_devices;
        aml_out->stream.common.standby(&aml_out->stream.common);
        return bytes;
    } else if (aml_out->out_device == 0) {

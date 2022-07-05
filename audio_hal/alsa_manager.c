@@ -859,7 +859,7 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
     /*
      * when eARC output MAT, should increase the mat output buffer.
      */
-    if ((adev->active_outport == OUTPORT_HDMI_ARC) && (format == AUDIO_FORMAT_MAT || format == AUDIO_FORMAT_DOLBY_TRUEHD)) {
+    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0 && (format == AUDIO_FORMAT_MAT || format == AUDIO_FORMAT_DOLBY_TRUEHD)) {
         config->period_count *= 2;
     }
 

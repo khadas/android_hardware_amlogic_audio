@@ -141,7 +141,7 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
         /*not continuous mode, we use sink gain control the volume*/
         if (!continuous_mode(adev)) {
             float out_gain = 1.0f;
-            out_gain = adev->sink_gain[adev->active_outport];
+            out_gain = adev->sink_gain[get_output_by_devices(adev->cur_out_devices)];
             if (adev->tv_mute && adev->audio_patch) {
                 out_gain = 0.0f;
             }

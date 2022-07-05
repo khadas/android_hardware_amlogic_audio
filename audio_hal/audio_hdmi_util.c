@@ -315,7 +315,6 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
             hdmi_desc->target_EDID_array[TLV_HEADER_SIZE + 3*i + 1],
             hdmi_desc->target_EDID_array[TLV_HEADER_SIZE + 3*i + 2]);
         }*/
-
     }
 
     return 0;

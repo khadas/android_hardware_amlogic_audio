@@ -370,15 +370,18 @@ static bool a2dp_state_process(struct aml_audio_device *adev, audio_config_base_
 static ssize_t a2dp_in_data_process(aml_a2dp_hal *hal, audio_config_base_t *config, const void *buffer, size_t bytes) {
     size_t frames = 0;
     if (config->channel_mask == AUDIO_CHANNEL_OUT_7POINT1 && config->format == AUDIO_FORMAT_PCM_32_BIT) {
-        int16_t *tmp_buffer = (int16_t *)buffer;
-        int32_t *tmp_buffer_8ch = (int32_t *)buffer;
         frames = bytes / (4 * 8);
+        aml_audio_check_and_realloc((void **)&hal->buff_conv_format, &hal->buff_size_conv_format, frames * 4);
+        int16_t *tmp_buffer = (int16_t *)hal->buff_conv_format;
+        int32_t *tmp_buffer_8ch = (int32_t *)buffer;
         for (int i=0; i<frames; i++) {
             tmp_buffer[2 * i]       = (tmp_buffer_8ch[8 *  i] >> 16);
             tmp_buffer[2 * i + 1]   = (tmp_buffer_8ch[8 * i + 1] >> 16);
         }
     } else if (config->channel_mask == AUDIO_CHANNEL_OUT_STEREO && config->format == AUDIO_FORMAT_PCM_16_BIT) {
         frames = bytes / (2 * 2);
+        aml_audio_check_and_realloc((void **)&hal->buff_conv_format, &hal->buff_size_conv_format, bytes);
+        memcpy(hal->buff_conv_format, buffer, bytes);
     } else {
         AM_LOGW("not support param, channel_cnt:%d, format:%#x",
             audio_channel_count_from_out_mask(config->channel_mask), config->format);
@@ -495,7 +498,7 @@ static ssize_t a2dp_out_write_l(struct aml_audio_device *adev, audio_config_base
         return bytes;
     }
 
-    resample_frames = a2dp_data_resample_process(hal, config, buffer, cur_frames, &wr_buff);
+    resample_frames = a2dp_data_resample_process(hal, config, hal->buff_conv_format, cur_frames, &wr_buff);
     if (resample_frames < 0) {
         return bytes;
     }

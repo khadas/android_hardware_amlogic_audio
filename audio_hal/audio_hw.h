@@ -222,7 +222,9 @@ enum OUT_PORT {
     OUTPORT_BT_SCO              = 8,
     OUTPORT_BT_SCO_HEADSET      = 9,
     OUTPORT_USB_HEADSET         = 10,
-    OUTPORT_MAX                 = 11,
+    OUTPORT_EARPIECE            = 11,
+    OUTPORT_ANLG_DOCK_HEADSET   = 12,
+    OUTPORT_MAX                 = 13,
 };
 
 enum IN_PORT {
@@ -381,7 +383,7 @@ struct aml_audio_device {
     /* for port config info */
     float sink_gain[OUTPORT_MAX];
     float speaker_volume;
-    enum OUT_PORT active_outport;
+    audio_devices_t cur_out_devices;
     float src_gain[INPORT_MAX];
     enum IN_PORT active_inport;
     /* message to handle usecase changes */
@@ -532,6 +534,7 @@ struct aml_audio_device {
     int FactoryChannelReverse;
     bool dual_spdif_support; /*1 means supports spdif_a & spdif_b & spdif interface*/
     bool ms12_force_ddp_out; /*1 force ms12 output ddp*/
+    bool spdif_coexist_other; /* spdif coexist other device */
 
     /* user setting picture mode */
     picture_mode_t pic_mode;
@@ -967,7 +970,6 @@ inline bool is_bypass_submix_active(struct aml_audio_device *adev)
  *@brief get_output_format get the output format always return the "sink_format" of adev
  */
 audio_format_t get_output_format(struct audio_stream_out *stream);
-void *audio_patch_output_threadloop(void *data);
 
 /*
  *@brief audio_hal_data_processing

@@ -796,7 +796,7 @@ int aml_audio_get_pcm_latency_offset(int aformat, bool is_netflix)
     struct aml_audio_device *adev = adev_get_handle();
 
     if (is_netflix) {
-        return aml_audio_get_netflix_port_latency(adev->active_outport, AUDIO_FORMAT_PCM_16_BIT);
+        return aml_audio_get_netflix_port_latency(get_output_by_devices(adev->cur_out_devices), AUDIO_FORMAT_PCM_16_BIT);
     }
 
     //32ms Omx decoder delay
@@ -1141,34 +1141,26 @@ int aml_audio_get_speaker_latency_offset(int aformat ,int ms12_enable)
 
     return latency_ms;
 }
-int aml_audio_get_latency_offset( enum OUT_PORT port,audio_format_t source_format,
-                                      audio_format_t sink_format,int ms12_enable, int is_eARC)
+
+int aml_audio_get_latency_offset(audio_devices_t devices, audio_format_t source_format,
+                                      audio_format_t sink_format, int ms12_enable, int is_eARC)
 {
     int latency_ms = 0;
     struct aml_audio_device *adev = adev_get_handle();
 
     if (!ms12_enable && adev->is_netflix) {
-        return aml_audio_get_netflix_port_latency(port, source_format);
+        return aml_audio_get_netflix_port_latency(get_output_by_devices(devices), source_format);
     }
-
-    switch (port)  {
-        case OUTPORT_HDMI_ARC:
-            if (is_eARC) {
-                latency_ms = aml_audio_get_earc_latency_offset(source_format);
-            }
-            else {
-                latency_ms = aml_audio_get_arc_latency_offset(source_format);
-            }
-            break;
-        case OUTPORT_HDMI:
-            latency_ms = aml_audio_get_hdmi_latency_offset(source_format,sink_format,ms12_enable);
-            break;
-        case OUTPORT_SPEAKER:
-        case OUTPORT_AUX_LINE:
-            latency_ms = aml_audio_get_speaker_latency_offset(source_format,ms12_enable);
-            break;
-        default :
-            break;
+    if ((devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0) {
+        if (is_eARC) {
+            latency_ms = aml_audio_get_earc_latency_offset(source_format);
+        } else {
+            latency_ms = aml_audio_get_arc_latency_offset(source_format);
+        }
+    } else if ((devices & AUDIO_DEVICE_OUT_HDMI) != 0) {
+        latency_ms = aml_audio_get_hdmi_latency_offset(source_format,sink_format,ms12_enable);
+    } else if ((devices & AUDIO_DEVICE_OUT_SPEAKER) != 0 || (devices & AUDIO_DEVICE_OUT_LINE) != 0) {
+        latency_ms = aml_audio_get_speaker_latency_offset(source_format,ms12_enable);
     }
     return latency_ms;
 }
@@ -1658,6 +1650,8 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
 {
     switch (android_dev) {
     /* audio hal output device port */
+    case AUDIO_DEVICE_OUT_EARPIECE:
+        *hal_dev_port = OUTPORT_EARPIECE;
     case AUDIO_DEVICE_OUT_HDMI_ARC:
         *hal_dev_port = OUTPORT_HDMI_ARC;
         break;
@@ -1689,6 +1683,9 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
     case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES:
     case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER:
         *hal_dev_port = OUTPORT_A2DP;
+        break;
+    case AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET:
+        *hal_dev_port = OUTPORT_ANLG_DOCK_HEADSET;
         break;
     /* audio hal input device port */
     case AUDIO_DEVICE_IN_HDMI:
@@ -1728,9 +1725,6 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
         break;
     case AUDIO_DEVICE_IN_USB_DEVICE:
         *hal_dev_port = INPORT_USB;
-        break;
-    case AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET:
-        *hal_dev_port = OUTPORT_HEADPHONE;
         break;
     default:
         if (AUDIO_DEVICE_BIT_IN & android_dev) {
@@ -1905,6 +1899,8 @@ const char* outputPort2Str(enum OUT_PORT type)
     ENUM_TYPE_TO_STR(OUTPORT_A2DP)
     ENUM_TYPE_TO_STR(OUTPORT_BT_SCO)
     ENUM_TYPE_TO_STR(OUTPORT_BT_SCO_HEADSET)
+    ENUM_TYPE_TO_STR(OUTPORT_EARPIECE)
+    ENUM_TYPE_TO_STR(OUTPORT_ANLG_DOCK_HEADSET)
     ENUM_TYPE_TO_STR(OUTPORT_MAX)
     ENUM_TYPE_TO_STR_END
 }
@@ -2037,6 +2033,75 @@ const char* audioPortType2Str(audio_port_type_t type)
     ENUM_TYPE_TO_STR_END
 }
 
+const char* audioDevType2Str(audio_devices_t type)
+{
+    ENUM_TYPE_TO_STR_START("AUDIO_DEVICE_");
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_EARPIECE)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_SPEAKER)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_WIRED_HEADSET)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_WIRED_HEADPHONE)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_BLUETOOTH_SCO)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_BLUETOOTH_SCO_CARKIT)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_HDMI)             // AUDIO_DEVICE_OUT_AUX_DIGITAL
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_USB_ACCESSORY)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_USB_DEVICE)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_REMOTE_SUBMIX)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_TELEPHONY_TX)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_LINE)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_HDMI_ARC)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_HDMI_EARC)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_SPDIF)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_FM)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_AUX_LINE)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_SPEAKER_SAFE)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_IP)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_BUS)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_PROXY)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_USB_HEADSET)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_HEARING_AID)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_ECHO_CANCELLER)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_BLE_HEADSET)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_BLE_SPEAKER)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_OUT_DEFAULT)
+
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_COMMUNICATION)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_AMBIENT)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_BUILTIN_MIC)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_WIRED_HEADSET)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_HDMI)              // AUDIO_DEVICE_IN_AUX_DIGITAL
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_VOICE_CALL)        // AUDIO_DEVICE_IN_TELEPHONY_RX
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_BACK_MIC)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_REMOTE_SUBMIX)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_DGTL_DOCK_HEADSET)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_USB_ACCESSORY)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_USB_DEVICE)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_FM_TUNER)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_TV_TUNER)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_LINE)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_SPDIF)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_BLUETOOTH_A2DP)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_LOOPBACK)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_IP)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_BUS)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_PROXY)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_USB_HEADSET)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_BLUETOOTH_BLE)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_HDMI_ARC)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_HDMI_EARC)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_ECHO_REFERENCE)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_BLE_HEADSET)
+    ENUM_TYPE_TO_STR(AUDIO_DEVICE_IN_DEFAULT)
+    ENUM_TYPE_TO_STR_END
+}
+
 /* Returns the position of each bit, counting from right to left.
  * Can be called repeatedly to iterate over.
  */
@@ -2155,7 +2220,6 @@ int get_media_video_delay(struct aml_mixer_handle *mixer_handle)
     return (delay > 0) ? delay : 0;
 }
 
-
 /*****************************************************************************
 *   Function Name:  aml_get_stream_dump_file_name
 *   Description:    get the stream dump file name
@@ -2202,5 +2266,32 @@ int aml_get_stream_dump_file_name(audio_format_t audio_format, char *file_name)
 
     ALOGI("%s line %d file_name %s\n", __func__, __LINE__, file_name);
     return 0;
+}
+
+enum OUT_PORT get_output_by_devices(audio_devices_t devices)
+{
+    int cnt = __builtin_popcount(devices);
+    if (cnt == 0) {
+        return OUTPORT_SPEAKER;
+    } else if (cnt == 1) {
+        if (devices == AUDIO_DEVICE_OUT_EARPIECE) {
+            return OUTPORT_SPEAKER;
+        } else {
+            int output_port;
+            android_dev_convert_to_hal_dev(devices, &output_port);
+            return output_port;
+        }
+    } else if (cnt == 2) {
+        if (devices & AUDIO_DEVICE_OUT_SPDIF) {
+            int output_port;
+            android_dev_convert_to_hal_dev(devices & (~AUDIO_DEVICE_OUT_SPDIF), &output_port);
+            return output_port;
+        } else {
+            return OUTPORT_SPEAKER;
+        }
+    } else {
+        AM_LOGW("devices nums:%d invalid, devices:%#x", cnt, devices);
+    }
+    return OUTPORT_SPEAKER;
 }
 

@@ -80,6 +80,19 @@
         return ret;                                                                             \
     }
 
+typedef bool (*CHECK_AUDIO_DEVICE_PTR)(audio_devices_t);
+
+enum {
+    AUDIO_DEVICE_OUT_XXXXXXXXXX                 = 0,
+#if ANDROID_PLATFORM_SDK_VERSION < 31 // < S(12)
+    AUDIO_DEVICE_OUT_HDMI_EARC                  = 0x40001u,
+    AUDIO_DEVICE_OUT_BLE_HEADSET                = 0x20000000u,
+    AUDIO_DEVICE_OUT_BLE_SPEAKER                = 0x20000001u,
+
+    AUDIO_DEVICE_IN_HDMI_EARC                   = 0x88000001u,
+    AUDIO_DEVICE_IN_BLE_HEADSET                 = 0xA0000000u,
+#endif
+};
 
 #define AVSYNC_NONMS12_AUDIO_HAL_EARC_LATENCY_DDP_PROPERTY "vendor.media.audio.hal.nonms12.earc_latency.ddp"
 #define AVSYNC_NONMS12_AUDIO_HAL_EARC_LATENCY_DDP (-40)
@@ -122,9 +135,9 @@ void ts_wait_time_us(struct timespec *ts, uint32_t time_us);
 int cpy_16bit_data_with_gain(int16_t *dst, int16_t *src, int size_in_bytes, float vol);
 uint64_t get_systime_ns(void);
 int aml_audio_get_hdmi_latency_offset(audio_format_t source_format,
-	                                  audio_format_t sink_format,int ms12_enable);
-int aml_audio_get_latency_offset(enum OUT_PORT port,audio_format_t source_format,
-	                                  audio_format_t sink_format,int ms12_enable, int is_eARC);
+                                    audio_format_t sink_format,int ms12_enable);
+int aml_audio_get_latency_offset(audio_devices_t devices, audio_format_t source_format,
+                                    audio_format_t sink_format,int ms12_enable, int is_eARC);
 uint32_t tspec_diff_to_us(struct timespec tval_old,
         struct timespec tval_new);
 int aml_audio_get_dolby_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost);
@@ -169,6 +182,7 @@ const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type);
 const char* hdmiFormat2Str(AML_HDMI_FORMAT_E type);
 const char* audioPortRole2Str(audio_port_role_t type);
 const char* audioPortType2Str(audio_port_type_t type);
+const char* audioDevType2Str(audio_devices_t type);
 bool aml_audio_check_sbr_product();
 void check_audio_level(const char *name, const void *buffer, size_t bytes);
 
@@ -191,5 +205,31 @@ static inline void endian16_convert(void *buf, int size)
 int get_media_video_delay(struct aml_mixer_handle *mixer_handle);
 
 int aml_get_stream_dump_file_name(audio_format_t audio_format, char *file_name);
+static inline bool is_include_filter_out_port(audio_devices_t devices, CHECK_AUDIO_DEVICE_PTR filter) {
+    int i = 0;
+    audio_devices_t device = AUDIO_DEVICE_NONE;
+    while ((device = (audio_devices_t)(1 << i)) != AUDIO_DEVICE_OUT_DEFAULT) {
+        if ((devices & device) != 0) {
+            if (filter(device)) {
+                return true;
+            }
+        }
+        i++;
+    }
+    return false;
+}
+
+static inline bool is_include_sco_out_port(audio_devices_t devices) {
+    return is_include_filter_out_port(devices, audio_is_bluetooth_out_sco_device);
+}
+
+static inline bool is_include_a2dp_out_port(audio_devices_t devices) {
+    return is_include_filter_out_port(devices, audio_is_a2dp_out_device);
+}
+
+static inline bool is_include_usb_out_port(audio_devices_t devices) {
+    return is_include_filter_out_port(devices, audio_is_usb_out_device);
+}
+enum OUT_PORT get_output_by_devices(audio_devices_t devices);
 
 #endif

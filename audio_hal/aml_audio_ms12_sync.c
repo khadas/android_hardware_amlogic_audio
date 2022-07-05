@@ -823,7 +823,7 @@ static int aml_audio_output_ddp_atmos(struct audio_stream_out *stream)
 
     bool is_atmos_supported = is_platform_supported_ddp_atmos(
                             adev->hdmi_descs.ddp_fmt.atmos_supported
-                            , adev->active_outport
+                            , adev->cur_out_devices
                             , adev->is_TV);
 
     bool is_ddp_atmos_format = (out->hal_format == AUDIO_FORMAT_E_AC3_JOC);
@@ -881,7 +881,7 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
     /*we need get the correct ms12 out pcm */
     alsa_delay = (int32_t)out_get_ms12_latency_frames(stream);
     //ALOGI("latency_frames =%d", latency_frames);
-    tunning_delay = get_ms12_tunnel_latency_offset(adev->active_outport,
+    tunning_delay = get_ms12_tunnel_latency_offset(get_output_by_devices(adev->cur_out_devices),
                                                       out->hal_internal_format,
                                                       adev->ms12.optical_format,
                                                       adev->is_netflix,
@@ -1189,7 +1189,7 @@ int aml_audio_get_nonms12_tunnel_latency(struct audio_stream_out * stream)
 
     //alsa_delay = (int32_t)out_get_latency(stream);
     //ALOGI("latency_frames =%d", latency_frames);
-    tunning_delay = get_nonms12_tunnel_latency_offset(adev->active_outport,
+    tunning_delay = get_nonms12_tunnel_latency_offset(get_output_by_devices(adev->cur_out_devices),
                                                       out->hal_internal_format,
                                                       adev->sink_format,
                                                       adev->is_netflix,
@@ -1253,7 +1253,7 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
         if (adev->ms12.is_bypass_ms12) {
             frame_latency = get_ms12_bypass_latency_offset(false, adev->is_netflix) * 48;
         } else {
-            frame_latency = get_ms12_nontunnel_latency_offset(adev->active_outport,
+            frame_latency = get_ms12_nontunnel_latency_offset(get_output_by_devices(adev->cur_out_devices),
                                                                out->hal_internal_format,
                                                                adev->sink_format,
                                                                adev->is_netflix,
@@ -1265,9 +1265,8 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
         }
     }
 
-
-    ALOGV("[%s]adev->active_outport %d out->hal_internal_format %x adev->ms12.sink_format %x adev->continuous_audio_mode %d \n",
-            __func__,adev->active_outport, out->hal_internal_format, adev->ms12.sink_format, adev->continuous_audio_mode);
+    ALOGV("[%s]cur_devices %#x out->hal_internal_format %x adev->ms12.sink_format %x adev->continuous_audio_mode %d \n",
+            __func__,adev->cur_out_devices, out->hal_internal_format, adev->ms12.sink_format, adev->continuous_audio_mode);
     ALOGV("[%s]adev->ms12.is_bypass_ms12 %d adev->ms12.is_dolby_atmos %d adev->ms12_main1_dolby_dummy %d adev->atmos_lock_flag %d\n",
             __func__,adev->ms12.is_bypass_ms12, adev->ms12.is_dolby_atmos, adev->ms12_main1_dolby_dummy, adev->atoms_lock_flag);
     ALOGV("[%s] frame_latency %d\n",__func__,frame_latency);
@@ -1519,7 +1518,7 @@ int aml_audio_dtv_get_ms12_latency(struct audio_stream_out *stream)
     int32_t tunning_frame_delay = 0;
 
     tunning_frame_delay = 48 * dtv_get_ms12_latency_offset(
-        stream, adev->active_outport, out->hal_internal_format, adev->ms12.optical_format);
+        stream, get_output_by_devices(adev->cur_out_devices), out->hal_internal_format, adev->ms12.optical_format);
 
     latency_frames = tunning_frame_delay;
     if (adev->is_TV) {
@@ -1710,7 +1709,7 @@ int aml_audio_dtv_get_nonms12_latency(struct audio_stream_out * stream)
     int latency_frames = 0;
 
     tunning_delay = 48 * dtv_get_nonms12_latency_offset(stream,
-        adev->active_outport, out->hal_internal_format, adev->sink_format);
+        get_output_by_devices(adev->cur_out_devices), out->hal_internal_format, adev->sink_format);
 
     latency_frames = tunning_delay;
     if (adev->is_TV) {

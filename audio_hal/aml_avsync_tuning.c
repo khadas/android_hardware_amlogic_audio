@@ -264,7 +264,7 @@ int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *la
         alsa_output_latency = alsa_out_i2s_ltcy;
         /* In AVR case, for PCM only AVR or UI setting to PCM */
         /* add more 10ms AVR latency */
-        if (aml_dev->active_outport == OUTPORT_HDMI_ARC) {
+        if (aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) {
             alsa_output_latency += AVR_LATENCY_PCM;
         }
     } else if (aml_dev->sink_format == AUDIO_FORMAT_AC3 ||

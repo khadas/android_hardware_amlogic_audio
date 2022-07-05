@@ -51,19 +51,19 @@ static void aml_audio_stream_volume_process(struct audio_stream_out *stream, voi
     */
     if (!aml_dev->is_TV || aml_dev->is_BDS) {
         float port_gain = 1.0;
-        if (aml_dev->active_outport == OUTPORT_HDMI) {
+        if ((aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI) != 0) {
             if (aml_dev->audio_patching == true) {
                port_gain = aml_dev->sink_gain[OUTPORT_HDMI];
             }
-        } else if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+        } else if (is_include_a2dp_out_port(aml_dev->cur_out_devices)) {
             if (aml_dev->audio_patching == true)
                port_gain = aml_dev->sink_gain[OUTPORT_A2DP];
-        } else  if (aml_dev->active_outport == OUTPORT_SPEAKER) {
+        } else  if ((aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0) {
             port_gain = aml_dev->sink_gain[OUTPORT_SPEAKER];
         }
         if (aml_dev->debug_flag > 100) {
-            ALOGI("[%s:%d] gain:%f, out_device:%#x, active_outport:%d", __func__, __LINE__,
-                port_gain, aml_out->out_device, aml_dev->active_outport);
+            ALOGI("[%s:%d] gain:%f, out_device:%#x, cur_out_devices:%#x", __func__, __LINE__,
+                port_gain, aml_out->out_device, aml_dev->cur_out_devices);
         }
         volume[0] *= port_gain;
         volume[1] *= port_gain;

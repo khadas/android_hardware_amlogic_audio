@@ -417,7 +417,7 @@ void get_sink_format(struct audio_stream_out *stream)
 
     /*when device is HDMI_ARC*/
     ALOGI("!!!%s() Sink devices %#x Source format %#x digital_format(hdmi_format) %#x Sink Capability %#x\n",
-          __FUNCTION__, adev->active_outport, aml_out->hal_internal_format, adev->digital_audio_format, sink_capability);
+          __FUNCTION__, adev->cur_out_devices, aml_out->hal_internal_format, adev->digital_audio_format, sink_capability);
 
     if ((source_format != AUDIO_FORMAT_PCM_16_BIT) && \
         (source_format != AUDIO_FORMAT_AC3) && \
@@ -443,7 +443,7 @@ void get_sink_format(struct audio_stream_out *stream)
     // condition 1: ARC port, single output.
     // condition 2: for STB case with dolby-ms12 libs
     // condition 3: T7 BDS with HDMITX case
-    if (adev->active_outport == OUTPORT_HDMI_ARC || !adev->is_TV || adev->is_BDS) {
+    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0 || !adev->is_TV || adev->is_BDS) {
         ALOGI("%s() HDMI ARC or mbox + dvb case", __FUNCTION__);
         switch (adev->digital_audio_format) {
         case PCM:
@@ -1043,7 +1043,7 @@ void audio_patch_dump(struct aml_audio_device* aml_dev, int fd)
     dprintf(fd, "[AML_HAL]      IN_SRC        : %#10x     | OUT_SRC   :%#10x\n", pstPatch->input_src, pstPatch->output_src);
     dprintf(fd, "[AML_HAL]      IN_Format     : %#10x     | OUT_Format:%#10x\n", pstPatch->aformat, pstPatch->out_format);
     dprintf(fd, "[AML_HAL]      sink format: %#x\n", aml_dev->sink_format);
-    if (aml_dev->active_outport == OUTPORT_HDMI_ARC) {
+    if ((aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0) {
         struct aml_arc_hdmi_desc *hdmi_desc = &aml_dev->hdmi_descs;
         bool dd_is_support = hdmi_desc->dd_fmt.is_support;
         bool ddp_is_support = hdmi_desc->ddp_fmt.is_support;
@@ -1232,8 +1232,8 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
         ALOGD("%s() audio hal format change to %x, atmos flag = %d, is_dolby_atmos = %d, dts_hp_x = %d, update_type = %d is_dolby_atmos_off = %d\n",
             __FUNCTION__, adev->audio_hal_info.format, adev->audio_hal_info.is_dolby_atmos, adev->ms12.is_dolby_atmos,
             adev->dts_hd.is_headphone_x, adev->audio_hal_info.update_type, is_dolby_atmos_off);
-        ALOGD("%s() active_outport %#x, dap_bypass_enable = %d, is_ms12_tuning_dat = %d, dolby_ms12_enable = %d, output_config = %#x\n",
-            __FUNCTION__, adev->active_outport, adev->ms12.dap_bypass_enable, adev->is_ms12_tuning_dat, ms12->dolby_ms12_enable, ms12->output_config);
+        ALOGD("%s() cur_out_devices %#x, dap_bypass_enable = %d, is_ms12_tuning_dat = %d, dolby_ms12_enable = %d, output_config = %#x\n",
+            __FUNCTION__, adev->cur_out_devices, adev->ms12.dap_bypass_enable, adev->is_ms12_tuning_dat, ms12->dolby_ms12_enable, ms12->output_config);
     }
 
     return 0;

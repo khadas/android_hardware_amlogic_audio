@@ -434,29 +434,11 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
     R_CHECK_POINTER_LEGAL(-1, out_port, "");
     struct aml_audio_device *adev = audio_mixer->adev;
-    int count = 3;
 
     out_port->sound_track_mode = audio_mixer->adev->sound_track_mode;
     while (out_port->bytes_avail > 0) {
         // out_write_callbacks();
-        if (adev->active_outport == OUTPORT_A2DP) {
-            if (out_port->cfg.channelCnt == 1) {
-                in_data_config.channel_mask = AUDIO_CHANNEL_OUT_MONO;
-            } else if (out_port->cfg.channelCnt == 2) {
-                in_data_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
-            } else {
-                AM_LOGW("not supported channel:%d", out_port->cfg.channelCnt);
-                pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
-                return out_port->bytes_avail;
-            }
-            in_data_config.sample_rate = out_port->cfg.sampleRate;
-            in_data_config.format = out_port->cfg.format;
-
-            int ret = a2dp_out_write(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
-            if (ret == 0 && count-- > 0) {
-                 continue;
-            }
-        } else if (is_sco_port(adev->active_outport)) {
+        if (is_include_sco_out_port(adev->cur_out_devices)) {
             if (out_port->cfg.channelCnt == 1) {
                 in_data_config.channel_mask = AUDIO_CHANNEL_OUT_MONO;
             } else if (out_port->cfg.channelCnt == 2) {
@@ -470,6 +452,20 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
             in_data_config.format = out_port->cfg.format;
             write_to_sco(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
         } else {
+            if (is_include_a2dp_out_port(adev->cur_out_devices)) {
+                if (out_port->cfg.channelCnt == 1) {
+                    in_data_config.channel_mask = AUDIO_CHANNEL_OUT_MONO;
+                } else if (out_port->cfg.channelCnt == 2) {
+                    in_data_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+                } else {
+                    AM_LOGW("not supported channel:%d", out_port->cfg.channelCnt);
+                    pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
+                    return out_port->bytes_avail;
+                }
+                in_data_config.sample_rate = out_port->cfg.sampleRate;
+                in_data_config.format = out_port->cfg.format;
+                a2dp_out_write(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
+            }
             pthread_mutex_lock(&audio_mixer->adev->alsa_pcm_lock);
             if (audio_mixer->submix_standby) {
                 pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
@@ -545,7 +541,7 @@ static int mixer_update_tstamp(struct amlAudioMixer *audio_mixer)
     }
 
     struct aml_audio_device *adev = audio_mixer->adev;
-    if (adev->active_outport == OUTPORT_A2DP) {
+    if (is_include_a2dp_out_port(adev->cur_out_devices)) {
         uint64_t a2dp_latency_frames = a2dp_out_get_latency(adev) * in_port->cfg.sampleRate / MSEC_PER_SEC;
         if (in_port->mix_consumed_frames + in_port->initial_frames > a2dp_latency_frames) {
             in_port->presentation_frames = in_port->mix_consumed_frames + in_port->initial_frames - a2dp_latency_frames;

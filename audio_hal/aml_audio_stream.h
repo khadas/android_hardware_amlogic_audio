@@ -289,8 +289,8 @@ static inline alsa_device_t usecase_to_device(stream_usecase_t usecase)
     }
 }
 
-static inline bool is_hdmi_out(enum OUT_PORT active_outport) {
-    return (active_outport == OUTPORT_HDMI_ARC || active_outport == OUTPORT_HDMI);
+static inline bool is_hdmi_out(audio_devices_t cur_out_devices) {
+    return (cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) || (cur_out_devices & AUDIO_DEVICE_OUT_HDMI);
 }
 
 typedef void (*dtv_avsync_process_cb)(struct audio_stream_out *stream, size_t bytes, audio_format_t output_format);

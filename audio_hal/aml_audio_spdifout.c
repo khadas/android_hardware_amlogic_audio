@@ -245,13 +245,15 @@ void aml_audio_set_spdif_format(int spdif_port, eMixerSpdif_Format aml_spdif_for
         if (aml_spdif_format == AML_DOLBY_DIGITAL_PLUS) {
             audio_route_set_spdif_mute(&aml_dev->alsa_mixer, 1);
         } else {
-            if (aml_dev->spdif_enable) {
+            if (aml_dev->spdif_enable && ((aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_SPDIF) != 0 ||
+                aml_dev->spdif_coexist_other)) {
                 audio_route_set_spdif_mute(&aml_dev->alsa_mixer, 0);
             }
         }
     } else if (spdif_port == PORT_SPDIFB) {
         spdif_format_ctr_id = AML_MIXER_ID_SPDIF_B_FORMAT;
-        if (aml_dev->spdif_enable) {
+        if (aml_dev->spdif_enable && ((aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_SPDIF) != 0 ||
+            aml_dev->spdif_coexist_other)) {
             audio_route_set_spdif_mute(&aml_dev->alsa_mixer, 0);
         }
     }
@@ -521,7 +523,7 @@ int aml_audio_spdifout_process(void *phandle, void *buffer, size_t byte)
 #endif
 
     if (aml_dev->audio_patch) {
-        if (aml_dev->sink_gain[aml_dev->active_outport] < FLOAT_ZERO && aml_dev->is_STB) {
+        if (aml_dev->sink_gain[get_output_by_devices(aml_dev->cur_out_devices)] < FLOAT_ZERO && aml_dev->is_STB) {
             b_mute = true;
         } else {
             if ((aml_dev->patch_src == SRC_DTV) &&
@@ -629,7 +631,7 @@ int aml_audio_spdifout_close(void *phandle)
     }
 
     /*if spdif is muted when open, we need unmute it when close*/
-    if (spdifout_phandle->spdif_mute) {
+    if (spdifout_phandle->spdif_mute /*&& (aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_SPDIF) != 0*/) {
         audio_route_set_spdif_mute(&aml_dev->alsa_mixer, false);
         spdifout_phandle->spdif_mute = false;
     }
