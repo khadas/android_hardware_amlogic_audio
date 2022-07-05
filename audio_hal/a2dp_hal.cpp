@@ -44,7 +44,7 @@ using ::android::hardware::bluetooth::audio::V2_0::SessionType;
 #define A2DP_RING_BUFFER_DELAY_TIME_MS              (64)
 #define A2DP_WAIT_STATE_DELAY_TIME_US               (8000)
 #define DEFAULT_A2DP_LATENCY_NS                     (100 * NSEC_PER_MSEC) // Default delay to use when BT device does not report a delay
-#define A2DP_STATIC_DELAY_MS                        (100) // Additional device-specific delay
+#define A2DP_STATIC_DELAY_MS                        (0) // Additional device-specific delay
 #define AUDIO_HAL_FIXED_CFG_CHANNEL                 (AUDIO_CHANNEL_OUT_STEREO)
 #define AUDIO_HAL_FIXED_CFG_FORMAT                  (AUDIO_FORMAT_PCM_16_BIT)
 
