@@ -1663,9 +1663,9 @@ int android_fmt_convert_to_dmx_fmt(audio_format_t android_fmt) {
         case AUDIO_FORMAT_AAC_MAIN:
         case AUDIO_FORMAT_AAC_LC:
         case AUDIO_FORMAT_AAC_HE_V2:
-        case AUDIO_FORMAT_AAC_HE_V1:
             return ACODEC_FMT_AAC;
-
+        case AUDIO_FORMAT_AAC_HE_V1:
+            return ACODEC_FMT_AAC_LATM;
         case AUDIO_FORMAT_AC3:
             return ACODEC_FMT_AC3;
 
