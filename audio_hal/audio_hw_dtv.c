@@ -4240,7 +4240,7 @@ int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct aud
         }
 
         /*4.parser demux id from offload_info, then set it. tuner/filter.cpp for reference.*/
-        val = config->offload_info.content_id >> 16;//demux id
+        val = (config->offload_info.content_id >> 16) & 0xF;//demux id
         val = (path_id << DVB_DEMUX_ID_BASE | val);
         ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_DEMUX_INFO, val);
 
@@ -4259,8 +4259,14 @@ int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct aud
         val = (path_id << DVB_DEMUX_ID_BASE | val);
         ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_FMT, val);
 
-        /*set security_mem_level. 0 for tunerframework.*/
-        ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_SECURITY_MEM_LEVEL, 0);
+        /*set security_mem_level. for tunerframework.*/
+        val = config->offload_info.content_id >> 20;
+        if (val == 1) {
+            val = 2 << 10;
+        } else {
+            val = 0;
+        }
+        ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_SECURITY_MEM_LEVEL, val);
 
         /*5.make dtv patch work via cmds.*/
         val = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_OPEN);
