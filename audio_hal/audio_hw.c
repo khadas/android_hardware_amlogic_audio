@@ -1296,6 +1296,45 @@ static char *out_get_parameters(const struct audio_stream *stream, const char *k
     }
 }
 
+
+/*
+ * This function is only used for Android-Framework.
+ * This latency value is fake(AudioTrack::updateLatency_l), so that
+ * netflix test cases can pass(fast-playback can start, Fly audio will not timeout)
+*/
+static uint32_t audiohal_get_latency (const struct audio_stream_out *stream)
+{
+    struct aml_stream_out *out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = out->dev;
+    uint32_t a2dp_delay = 0, alsa_latency = 0, whole_latency = 0;
+
+     /* here to check if change the audio output device. */
+    if (adev->out_device != out->out_device) {
+        ALOGI("%s(), output device from 0x%x to 0x%x", __func__, out->out_device, adev->out_device);
+        out->out_device = adev->out_device;
+    }
+
+    if (out->out_device & AUDIO_DEVICE_OUT_WIRED_HEADPHONE ||
+        out->out_device & AUDIO_DEVICE_OUT_WIRED_HEADSET) {
+        //do nothing.
+    } else if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+        a2dp_delay = a2dp_out_get_latency(adev);
+        return a2dp_delay;
+    } else if (out->out_device & AUDIO_DEVICE_OUT_USB_HEADSET) {
+        //do nothing.
+    }
+
+    snd_pcm_sframes_t frames = out_get_latency_frames (stream);
+    alsa_latency = (frames * 1000) / out->config.rate;
+
+    whole_latency = alsa_latency;
+    ALOGI("%s  stream:%p frames:%lu out->config.rate:%u whole_latency:%u, alsa_latency:%u, ", __func__,
+           stream, frames, out->config.rate, whole_latency, alsa_latency);
+
+    return whole_latency;
+}
+
+
 static uint32_t out_get_latency (const struct audio_stream_out *stream)
 {
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
@@ -3385,7 +3424,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->stream.common.get_parameters = out_get_parameters;
     out->stream.common.add_audio_effect = out_add_audio_effect;
     out->stream.common.remove_audio_effect = out_remove_audio_effect;
-    out->stream.get_latency = out_get_latency;
+    out->stream.get_latency = audiohal_get_latency; // out_get_latency;
     out->stream.set_volume = out_set_volume;
     out->stream.get_render_position = out_get_render_position;
     out->stream.get_next_write_timestamp = out_get_next_write_timestamp;
