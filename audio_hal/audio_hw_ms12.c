@@ -1600,7 +1600,7 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     struct aml_audio_device *adev = NULL;
     unsigned int remaining_time = 0;
     ALOGI("+%s()", __FUNCTION__);
-    if (!ms12 || ms12->dolby_ms12_enable == false) {
+    if (!ms12) {
         ALOGI("-%s()  exit.", __FUNCTION__);
         return -EINVAL;
     }
@@ -1608,7 +1608,7 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     pthread_mutex_lock(&ms12->lock);
     pthread_mutex_lock(&ms12->main_lock);
 
-    if (!ms12->dolby_ms12_init_flags) {
+    if (!ms12->dolby_ms12_init_flags || (ms12->dolby_ms12_enable == false)) {
         ALOGI("ms12 is not init, don't need cleanup");
         if (set_non_continuous) {
             adev->continuous_audio_mode = 0;
