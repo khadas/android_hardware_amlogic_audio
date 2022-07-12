@@ -306,7 +306,7 @@ exit:
         out->frame_write_sum_updated = true;
     }
     if (out->debug_stream) {
-        AM_LOGD("(frames sum %" PRId64 " - latency_frames:%llu), = last frames %" PRId64 "", out->frame_write_sum, latency_frames, out->last_frames_position);
+        AM_LOGD("(frames sum %" PRId64 " - latency_frames:%" PRIu64"), = last frames %" PRId64 "", out->frame_write_sum, latency_frames, out->last_frames_position);
     }
     return written;
 }
@@ -699,7 +699,7 @@ static int out_get_presentation_position_port(
                 *frames = out->last_frames_position;
                 *timestamp = out->timestamp;
             }
-            AM_LOGV("%s out->standby:%d pause_status:%d frame_write_sum_updated:%d, frames:%llu = (frame_write_sum:%llu - latency_frames:%d)", __func__, out->standby, out->pause_status, out->frame_write_sum_updated, *frames, out->frame_write_sum, frame_latency);
+            AM_LOGV("%s out->standby:%d pause_status:%d frame_write_sum_updated:%d, frames:%" PRIu64" = (frame_write_sum:%" PRIu64" - latency_frames:%d)", __func__, out->standby, out->pause_status, out->frame_write_sum_updated, *frames, out->frame_write_sum, frame_latency);
         } else {
             ret = mixer_get_presentation_position(audio_mixer,
                     out->inputPortID, frames, timestamp);
