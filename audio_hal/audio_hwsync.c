@@ -41,6 +41,7 @@
 #include "audio_hw_ms12.h"
 #include "audio_mediasync_wrap.h"
 #include "audio_hwsync_wrap.h"
+#include "aml_audio_hal_avsync.h"
 
 static int aml_audio_get_hwsync_flag()
 {
