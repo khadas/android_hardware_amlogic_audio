@@ -4638,7 +4638,7 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
     } else if (strstr (keys, AUDIO_PARAMETER_HW_AV_EAC3_SYNC) ) {
         return strdup ("HwAvSyncEAC3Supported=true");
     } else if (strstr (keys, "hdmi_format") ) {
-        sprintf (temp_buf, "digital_audio_format=%d", adev->digital_audio_format);
+        sprintf (temp_buf, "hdmi_format=%d", adev->digital_audio_format);
         return strdup (temp_buf);
     } else if (strstr (keys, "digital_output_format") ) {
         if (adev->digital_audio_format == PCM) {
