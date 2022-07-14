@@ -723,6 +723,11 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_E_AC3_JOC");
                 p_hdmi_descs->ddp_fmt.atmos_supported = 1;
             }
+            p_hdmi_descs->ddp_fmt.max_channels = audio_cap_item->max_channels;
+            /*patch for some tv only support 2ch ddp, but it can decode ddp 5.1*/
+            if (p_hdmi_descs->ddp_fmt.max_channels == 2) {
+                p_hdmi_descs->ddp_fmt.max_channels = 6;
+            }
         }
         ALOGD("%s ddp %s ddp-joc(atmos) %s\n", __func__,
             p_hdmi_descs->ddp_fmt.is_support ? "is supported;" : "is unsupported;",
@@ -831,6 +836,13 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
         case AUDIO_FORMAT_DTS_HD:
         case AUDIO_FORMAT_MAT:
             audio_cap_item = get_edid_support_audio_format(format);
+            /*patch for some tv only support 2ch ddp, but it can decode ddp 5.1*/
+            if (format == AUDIO_FORMAT_E_AC3 ||
+                format == AUDIO_FORMAT_E_AC3_JOC) {
+                if (audio_cap_item && audio_cap_item->max_channels == 2) {
+                    audio_cap_item->max_channels = 6;
+                }
+            }
             if (audio_cap_item) {
                 switch (audio_cap_item->max_channels) {
                 case 8:
