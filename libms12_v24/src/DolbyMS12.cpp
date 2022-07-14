@@ -1164,6 +1164,33 @@ int DolbyMS12::DolbyMS12MATEncoderConfig(void *mat_enc_handle
 
 /* MAT Encoder API End */
 
+int DolbyMS12::DolbyMS12GetAC4ActivePresentation(int *presentation_group_index)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12Config) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12Config)(MS12_CONFIG_AC4DEC_GET_ACTIVE_PRESENTATION, (ms12_config_t *)presentation_group_index);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
+int DolbyMS12::DolbyMS12AC4DecCheckThePgiIsPresent(int presentation_group_index)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12Config) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12Config)(MS12_CONFIG_AC4DEC_CHECK_THE_PGI_IS_PRESENT, (ms12_config_t *)&presentation_group_index);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
 
 
 /*--------------------------------------------------------------------------*/

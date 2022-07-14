@@ -319,3 +319,11 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, aml_d
     return ad_status;
 }
 
+void dtv_convert_language_to_string(int language_int, char *language_string)
+{
+   char *ptr = (char *)(&language_int);
+   for (int i = 0; i < DVB_MEDIA_LANG_SIZE; i ++ ) {
+          language_string[i] = ptr[DVB_MEDIA_LANG_SIZE - i -1];
+   }
+}
+

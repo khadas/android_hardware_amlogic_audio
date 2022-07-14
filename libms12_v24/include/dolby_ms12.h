@@ -374,6 +374,11 @@ int dolby_ms12_mat_encoder_config
     , int *config           /**< [in] mat encoder config value */
     );
 
+//brief This function get the active presentation group indext
+int dolby_ms12_get_ac4_active_presentation(int *presentation_group_index);
+//whether the given presentation group index is present in a bitstream
+int dolby_ms12_ac4dec_check_the_pgi_is_present(int presentation_group_index);
+
 #ifdef __cplusplus
 }
 #endif

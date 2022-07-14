@@ -603,3 +603,28 @@ void set_ms12_mc_enable(struct dolby_ms12_desc *ms12, int mc_enable)
         aml_ms12_update_runtime_params(ms12, parm);
 }
 
+void set_ms12_ac4_1st_preferred_language_code(struct dolby_ms12_desc *ms12, char *lang_iso639_code)
+{
+    char parm[64] = "";
+    sprintf(parm, "%s %s", "-lang", lang_iso639_code);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+void set_ms12_ac4_2nd_preferred_language_code(struct dolby_ms12_desc *ms12, char *lang_iso639_code)
+{
+    char parm[64] = "";
+    sprintf(parm, "%s %s", "-lang2", lang_iso639_code);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+void set_ms12_ac4_prefer_presentation_selection_by_associated_type_over_language(struct dolby_ms12_desc *ms12, int prefer_selection_type)
+{
+    char parm[64] = "";
+    sprintf(parm, "%s %d", "-pat", prefer_selection_type);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+

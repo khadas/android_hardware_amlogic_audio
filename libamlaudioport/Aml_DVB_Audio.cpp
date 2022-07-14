@@ -81,7 +81,7 @@ int dvb_audio_set_pre_mute(int mute) {
 }
 
 int dvb_audio_get_latencyms(int demux_id) {
-    ALOGI("demux_id %d",demux_id);
+    ALOGV("demux_id %d",demux_id);
     struct str_parms *parms;
     int latencyms;
     char temp_buf[64] = {0};
@@ -95,6 +95,24 @@ int dvb_audio_get_latencyms(int demux_id) {
         mString.clear();
         ALOGI("dvb_latencyms:%d ", latencyms);
         return latencyms;
+    } else {
+         mString.clear();
+         return -1;
+    }
+}
+
+int dvb_audio_get_ac4_active_pres_id(int demux_id) {
+    ALOGV("demux_id %d",demux_id);
+    int ac4_active_pres_id = -1;
+    struct str_parms *parms;
+    String8 mString = aml_audioport->getParameters(String8("get_ac4_active_pres_id"));
+    if (!mString.isEmpty()) {
+        parms = str_parms_create_str(mString.c_str());
+        str_parms_get_int(parms, "ac4_active_pres_id", &ac4_active_pres_id);
+        str_parms_destroy (parms);
+        mString.clear();
+        ALOGI("ac4_active_pres_id:%d ", ac4_active_pres_id);
+        return ac4_active_pres_id;
     } else {
          mString.clear();
          return -1;

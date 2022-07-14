@@ -48,6 +48,8 @@ int dvb_audio_set_pre_mute(int mute);
 
 int dvb_audio_get_latencyms(int demux_id);
 
+int dvb_audio_get_ac4_active_pres_id(int demux_id);
+
 int audio_hal_get_status(void *status);//TBD
 
 #ifdef  __cplusplus

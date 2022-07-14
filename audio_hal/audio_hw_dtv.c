@@ -73,6 +73,7 @@
 #include "aml_audio_report.h"
 #include "aml_audio_sysfs.h"
 #include "aml_audio_heaacparser.h"
+#include "audio_hw_ms12_common.h"
 
 #define IEC61937_PAPB (0xf8724e1f)
 
@@ -258,6 +259,8 @@ void  clean_dtv_demux_info(aml_demux_audiopara_t *demux_info) {
     demux_info->associate_audio_mixing_enable  = 0;
     demux_info->media_sync_id  = -1;
     demux_info->media_presentation_id  = -1;
+    demux_info->media_first_lang  = -1;
+    demux_info->media_second_lang  = -1;
     demux_info->ad_package_status  = -1;
 }
 
@@ -407,6 +410,30 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                 pthread_mutex_unlock(&ms12->lock);
             }
             break;
+        case AUDIO_DTV_PATCH_CMD_SET_MEDIA_FIRST_LANG:
+            demux_info->media_first_lang = val;
+            char first_lang[4] = {0};
+            dtv_convert_language_to_string(demux_info->media_first_lang,first_lang);
+            ALOGI("media_first_lang %s",first_lang);
+            if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
+                pthread_mutex_lock(&ms12->lock);
+                set_ms12_ac4_1st_preferred_language_code(ms12, first_lang);
+                pthread_mutex_unlock(&ms12->lock);
+            }
+            break;
+
+        case AUDIO_DTV_PATCH_CMD_SET_MEDIA_SECOND_LANG:
+            demux_info->media_second_lang = val;
+            char second_lang[4] = {0};
+            dtv_convert_language_to_string(demux_info->media_second_lang,second_lang);
+            ALOGI("media_second_lang %s",second_lang);
+            if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
+                pthread_mutex_lock(&ms12->lock);
+                set_ms12_ac4_2nd_preferred_language_code(ms12, second_lang);
+                pthread_mutex_unlock(&ms12->lock);
+            }
+            break;
+
         case AUDIO_DTV_PATCH_CMD_CONTROL:
             if (patch == NULL) {
                 ALOGI("%s()the audio patch is NULL \n", __func__);
@@ -5124,6 +5151,18 @@ int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms)
     ret = str_parms_get_int(parms, "hal_param_dtv_media_presentation_id", &val);
     if (ret >= 0) {
         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_MEDIA_PRESENTATION_ID, val);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "hal_param_dtv_media_first_lang", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_MEDIA_FIRST_LANG, val);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "hal_param_dtv_media_second_lang", &val);
+    if (ret >= 0) {
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_MEDIA_SECOND_LANG, val);
         goto exit;
     }
 

@@ -4836,6 +4836,15 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         sprintf(temp_buf, "ms12_version=%d", adev->support_ms12_version);
         ALOGD("temp_buf %s", temp_buf);
         return strdup(temp_buf);
+    } else if (strstr (keys, "ac4_active_pres_id")) {
+       int active_id_offset = -1;
+       if (eDolbyMS12Lib == adev->dolby_lib_type) {
+            if (0 == dolby_ms12_get_ac4_active_presentation(&active_id_offset)) {
+                ALOGI ("dolby_ms12_get_ac4_active_presentation index offset is %d\n", active_id_offset);
+            }
+        }
+        sprintf(temp_buf, "ac4_active_pres_id=%d", active_id_offset);
+        return strdup(temp_buf);
     }
 
     return strdup("");

@@ -38,6 +38,8 @@ typedef enum  {
     MS12_CONFIG_MAT_OUT_LATENCY,
     MS12_CONFIG_COMPRESSION_FORMAT,
     MS12_CONFIG_SCHEDULER_STATE,
+    MS12_CONFIG_AC4DEC_GET_ACTIVE_PRESENTATION,
+    MS12_CONFIG_AC4DEC_CHECK_THE_PGI_IS_PRESENT,
 }ms12_config_type_t;
 
 typedef union ms12_config {
@@ -219,6 +221,11 @@ public:
         );
 
     virtual char *  DolbMS12GetVersion(void);
+
+    virtual int DolbyMS12GetAC4ActivePresentation(int *presentation_group_index);
+
+    virtual int DolbyMS12AC4DecCheckThePgiIsPresent(int presentation_group_index);
+
 
     // protected:
 

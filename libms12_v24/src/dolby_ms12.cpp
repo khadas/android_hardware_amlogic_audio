@@ -667,6 +667,25 @@ extern "C" int dolby_ms12_mat_encoder_config(void *mat_enc_handle
     return -1;
 }
 
+extern "C" int dolby_ms12_get_ac4_active_presentation(int *presentation_group_index)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12GetAC4ActivePresentation(presentation_group_index);
+    }
+    return -1;
+}
+
+extern "C" int dolby_ms12_ac4dec_check_the_pgi_is_present(int presentation_group_index)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12AC4DecCheckThePgiIsPresent(presentation_group_index);
+    }
+    return -1;
+}
 
 
 

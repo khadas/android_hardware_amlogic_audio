@@ -156,5 +156,6 @@ int dtv_patch_get_cmd(struct cmd_node *dtv_cmd_list,int *cmd, int *path_id);
 int dtv_patch_cmd_is_empty(struct cmd_node *dtv_cmd_list);
 
 AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts,  aml_demux_audiopara_t *demux_info);
+void dtv_convert_language_to_string(int language_int, char * language_string);
 
 #endif

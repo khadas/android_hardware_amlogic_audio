@@ -7,8 +7,10 @@
 
 #define VALID_AD_FMT_UK(fmt)  ((fmt == ACODEC_FMT_MPEG) || (fmt == ACODEC_FMT_MPEG1) || \
     (fmt == ACODEC_FMT_MPEG2) || (fmt == ACODEC_FMT_AAC) || (fmt == ACODEC_FMT_AAC_LATM))
-#define  DVB_DEMUX_ID_BASE 20
-#define DVB_DEMUX_SUPPORT_MAX_NUM 6
+
+#define  DVB_DEMUX_ID_BASE 25
+#define  DVB_DEMUX_SUPPORT_MAX_NUM 6
+#define  DVB_MEDIA_LANG_SIZE 3
 
 typedef enum
 {
@@ -38,6 +40,8 @@ typedef struct aml_demux__audiopara {
     int media_sync_id;
     int media_presentation_id;
     int ad_package_status;
+    int media_first_lang;
+    int media_second_lang;
     struct mAudioEsDataInfo *mEsData;
     struct mAudioEsDataInfo *mADEsData;
     struct package *dtv_package;
