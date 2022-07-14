@@ -5728,7 +5728,6 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                         /* start audio volume easing */
                         float vol_now = aml_audio_ease_get_current_volume(adev->volume_ease.ease);
                         config_volume_easing(adev->volume_ease.ease, vol_now, volume);
-                        adev->volume_ease.ease->do_easing = true;
                         adev->volume_ease.config_easing = false;
                     }
 
