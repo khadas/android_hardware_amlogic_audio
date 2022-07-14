@@ -157,6 +157,7 @@ int aml_audio_ease_close(aml_audio_ease_t * ease_handle) {
         pthread_mutex_lock(&ease_handle->ease_lock);
         //stop easing
         ease_handle->ease_status = Invalid;
+        ease_handle->do_easing = false;
         pthread_mutex_unlock(&ease_handle->ease_lock);
         aml_audio_free(ease_handle);
         ease_handle = NULL;
@@ -167,6 +168,7 @@ int aml_audio_ease_close(aml_audio_ease_t * ease_handle) {
 int aml_audio_ease_config(aml_audio_ease_t * ease_handle, ease_setting_t *setting) {
 
     if (ease_handle == NULL || setting == NULL) {
+        ease_handle->do_easing = false;
         return -1;
     }
     pthread_mutex_lock(&ease_handle->ease_lock);
@@ -207,13 +209,17 @@ int aml_audio_ease_process(aml_audio_ease_t * ease_handle, void * in_data, size_
 
     if (ease_handle == NULL || in_data == NULL || ch == 0 || size == 0 || ease_handle->ease_status == Invalid
             || (format != AUDIO_FORMAT_PCM_16_BIT && format != AUDIO_FORMAT_PCM_32_BIT)) {
+         ease_handle->do_easing = false;
          return -1;
     }
+
+    ch = ease_handle->data_format.ch;
+    format = ease_handle->data_format.format;
     pthread_mutex_lock(&ease_handle->ease_lock);
     nframes  = size / (audio_bytes_per_sample(format) * ch);
 
-    if (ease_handle->ease_frames_elapsed >= ease_handle->ease_frames && ease_handle->ease_status == EaseIn) {
-        ease_handle->do_easing = 0;
+    if (ease_handle->ease_frames_elapsed >= ease_handle->ease_frames) {
+        ease_handle->do_easing = false;
         pthread_mutex_unlock(&ease_handle->ease_lock);
         return 0;
     }
@@ -265,8 +271,9 @@ int aml_audio_ease_process(aml_audio_ease_t * ease_handle, void * in_data, size_
             break;
     }
 
-    if (ease_handle->ease_frames_elapsed >= ease_handle->ease_frames && (ease_handle->ease_status == EaseIn || ease_handle->ease_status == EaseOut)) {
-        ease_handle->do_easing = 0;
+    if (ease_handle->ease_frames_elapsed >= ease_handle->ease_frames &&
+            (ease_handle->ease_status == EaseIn || ease_handle->ease_status == EaseOut)) {
+        ease_handle->do_easing = false;
     }
 
     pthread_mutex_unlock(&ease_handle->ease_lock);
@@ -338,6 +345,7 @@ int config_volume_easing(aml_audio_ease_t *audio_ease, float vol_start, float vo
     ALOGD("%s, vol_start %f, vol_end %f", __func__, vol_start, vol_end);
 
     pthread_mutex_lock(&audio_ease->ease_lock);
+    audio_ease->do_easing = true;
     audio_ease->data_format.format = AUDIO_FORMAT_PCM_32_BIT;
     audio_ease->data_format.ch = 2;
     audio_ease->data_format.sr = 48000;
