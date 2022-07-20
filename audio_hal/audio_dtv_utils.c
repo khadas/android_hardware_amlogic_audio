@@ -91,6 +91,15 @@ int dtv_package_add(package_list *list, struct package *p)
     return 0;
 }
 
+bool dtv_package_is_full(package_list *list)
+{
+    bool ret = false;
+    pthread_mutex_lock(&list->tslock);
+    ret = list->pack_num == INPUT_PACKAGE_MAXCOUNT;
+    pthread_mutex_unlock(&list->tslock);
+    return ret;
+}
+
 struct package * dtv_package_get(package_list *list)
 {
     pthread_mutex_lock(&(list->tslock));

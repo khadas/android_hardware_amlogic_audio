@@ -2744,7 +2744,6 @@ void *audio_dtv_patch_input_threadloop(void *data)
     char *ad_buffer = NULL;
     struct package *dtv_package = NULL;
     struct mAudioEsDataInfo *mEsData = NULL ,*mAdEsData = NULL;
-    int trycount = 0;
     int max_trycount = 2;
     int rlen = 0;//read buffer ret size
     struct mediasync_audio_queue_info audio_queue_info;
@@ -2788,6 +2787,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
 
             int nNextReadSize = nInBufferSize;
             rlen = 0;
+            int trycount = 0;
             while (nNextReadSize > 0 && !patch->input_thread_exit) {
                 nRet = uio_read_buffer((unsigned char *)(inbuf + rlen), nNextReadSize);
                 //ALOGI("nRet:%d",nRet);
@@ -2804,7 +2804,6 @@ void *audio_dtv_patch_input_threadloop(void *data)
                 nNextReadSize -= nRet;
             }
 
-            trycount = 0;
             dtv_package->size = nInBufferSize;
             dtv_package->data = (char *)inbuf;
 
@@ -2900,6 +2899,10 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     }
                     continue;
                 } else {
+                    if (path_index == dtv_audio_instances->demux_index_working && dtv_package_is_full(list)) {
+                        pthread_mutex_unlock(&aml_dev->dtv_lock);
+                        continue;
+                    }
                     if (dtv_package == NULL) {
                         dtv_package = aml_audio_calloc(1, sizeof(struct package));
                         if (!dtv_package) {
@@ -2913,22 +2916,8 @@ void *audio_dtv_patch_input_threadloop(void *data)
                             if (mEsData == NULL) {
                                 nRet = Get_MainAudio_Es(demux_handle,&mEsData);
                                 if (nRet != AM_AUDIO_Dmx_SUCCESS) {
-                                    if (path_index == dtv_audio_instances->demux_index_working) {
-                                        trycount++;
-                                        ALOGV("trycount %d", trycount);
-                                        if (trycount > 4 ) {
-                                            trycount = 0;
-                                            break;
-                                        } else {
-                                           usleep(5000);
-                                           continue;
-                                        }
-                                    } else {
-                                        trycount = 0;
-                                        break;
-                                    }
+
                                 } else {
-                                   trycount = 0;
                                    if (aml_dev->debug_flag)
                                        ALOGI("mEsData->size %d",mEsData->size);
                                 }
@@ -2939,21 +2928,14 @@ void *audio_dtv_patch_input_threadloop(void *data)
                                 if (demux_info->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
                                     nRet = Get_ADAudio_Es(demux_handle, &mAdEsData);
                                     if (nRet != AM_AUDIO_Dmx_SUCCESS) {
-                                         /*trycount++;
-                                        ALOGV("ad trycount %d", trycount);
-                                        if (trycount < max_trycount) {
-                                            usleep(10000);
-                                            continue;
-                                        }*/
+
                                     }
 
                                     if (mAdEsData == NULL) {
-                                        ALOGI("do not get ad es data trycount %d", trycount);
+                                        ALOGI("do not get ad es data");
                                         demux_info->ad_package_status = AD_PACK_STATUS_HOLD;
                                         break;
                                     } else {
-                                        ALOGV("ad trycount %d", trycount);
-
                                         if (aml_dev->debug_flag)
                                            ALOGI("ad mAdEsData->size %d mAdEsData->pts %0" PRIx64 "",mAdEsData->size, mAdEsData->pts);
                                         /* align ad and main data by pts compare */
@@ -2965,7 +2947,6 @@ void *audio_dtv_patch_input_threadloop(void *data)
                                             }
                                             aml_audio_free(mAdEsData);
                                             mAdEsData = NULL;
-                                            trycount = 0;
                                             demux_info->mADEsData = NULL;
                                             continue;
                                         } else if (demux_info->ad_package_status == AD_PACK_STATUS_HOLD) {
@@ -3003,7 +2984,6 @@ void *audio_dtv_patch_input_threadloop(void *data)
                                 demux_info->dtv_package = NULL;
                                 demux_info->mEsData = NULL;
                                 pthread_mutex_unlock(&aml_dev->dtv_lock);
-                                usleep(10000);
                                 continue;
                             }
 
@@ -3108,9 +3088,9 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     }
                 }
                 pthread_mutex_unlock(&aml_dev->dtv_lock);
-                usleep(5000);
             }
         }
+        usleep(1000);
     }
 exit:
 
