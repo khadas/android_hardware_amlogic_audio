@@ -140,6 +140,7 @@ int dtv_package_list_flush(package_list *list);
 
 int dtv_package_list_init(package_list *list);
 int dtv_package_add(package_list *list, struct package *p);
+bool dtv_package_is_full(package_list *list);
 
 struct package * dtv_package_get(package_list *list);
 
