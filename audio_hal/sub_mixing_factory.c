@@ -196,7 +196,7 @@ void sm_timer_callback_handler(union sigval sigv)
         }
     }
 
-    if (is_hwsync_lpcm) {
+    if (out && is_hwsync_lpcm) {
         out->frame_write_sum_updated = false;
     }
     AM_LOGD("%s is_hwsync_lpcm:%d frame_write_sum_updated:%d", __func__, is_hwsync_lpcm, out->frame_write_sum_updated);
@@ -691,10 +691,16 @@ static int out_get_presentation_position_port(
                 if (out->write_count < WRITE_COUNT_LATENCY_THRESHOLD) { // 6 --> 4
                     frame_latency = frame_latency / (WRITE_COUNT_LATENCY_THRESHOLD - out->write_count);
                 }
-                if (out->frame_write_sum > frame_latency)
-                    out->last_frames_position = out->frame_write_sum - frame_latency;
-                else
+                if (out->frame_write_sum > frame_latency) {
+                    if (out->last_frames_position < (out->frame_write_sum - frame_latency)) {
+                        out->last_frames_position = out->frame_write_sum - frame_latency;
+                    } else {
+                        out->last_frames_position += 8*48; //add 8ms data for latency not exact when just start play.
+                        AM_LOGD("%s  tunning frames position for unstable latency when just start play", __func__);
+                    }
+                } else {
                     out->last_frames_position = 0;
+                }
 
                 *frames = out->last_frames_position;
                 *timestamp = out->timestamp;

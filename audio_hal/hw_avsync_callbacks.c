@@ -301,6 +301,11 @@ int on_meta_data_cbk(void *cookie,
                     ALOGE("aml_hwsync_wrap_reset_pcrscr,err: %s", strerror(errno));
                 }
             }
+        } else {
+            if (out->hwsync->hwsync_need_resume) {
+                aml_hwsync_wrap_set_resume(out->hwsync);
+                out->hwsync->hwsync_need_resume = false;
+            }
         }
     }
 

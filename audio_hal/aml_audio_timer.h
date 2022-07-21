@@ -75,7 +75,7 @@ static struct
 
 //delay time ms
 #define AML_TIMER_DELAY     (3000)
-#define AML_TIMER_CONSUME_DATA_DELAY (32)
+#define AML_TIMER_CONSUME_DATA_DELAY (64)
 
 typedef void (*func_timer_callback_handler)(union sigval sigv);
 

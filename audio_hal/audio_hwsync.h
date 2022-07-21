@@ -90,6 +90,7 @@ typedef struct  audio_hwsync {
     uint64_t last_output_pts;
     struct timespec  last_timestamp;
     bool wait_video_done;
+    bool hwsync_need_resume;
 } audio_hwsync_t;
 static inline bool hwsync_header_valid(uint8_t *header)
 {

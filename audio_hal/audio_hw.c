@@ -3119,6 +3119,7 @@ int output_stream_hwsync_prepare(struct aml_stream_out *out, int hw_sync_id)
             adev->hw_sync_id = 12345678;
             out->hwsync->hwsync_id = adev->hw_sync_id;
             aml_audio_hwsync_init(out->hwsync, out);
+            out->hwsync->hwsync_need_resume = false;
         } else {
             ALOGI ("[%s] adev->hw_mediasync:%p\n", __FUNCTION__, adev->hw_mediasync);
             if (adev->hw_mediasync == NULL) {
