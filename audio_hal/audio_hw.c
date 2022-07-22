@@ -6716,9 +6716,7 @@ hwsync_rewrite:
                     bool valid_pts = true;
                     /*here we need add video delay*/
                     video_delay_ms = get_media_video_delay(&adev->alsa_mixer);
-                    if ((latency + tunning_latency) > video_delay_ms) {
-                        latency_pts = (latency + tunning_latency - video_delay_ms) * 90;
-                    }
+                    latency_pts = (latency + tunning_latency - video_delay_ms) * 90;
                     // check PTS discontinue, which may happen when audio track switching
                     // discontinue means PTS calculated based on first_apts and frame_write_sum
                     // does not match the timestamp of next audio samples
