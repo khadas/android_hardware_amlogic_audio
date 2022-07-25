@@ -469,24 +469,66 @@ int get_ms12_netflix_port_latency( enum OUT_PORT port, audio_format_t output_for
     return latency_ms;
 }
 
-int get_ms12_port_latency( enum OUT_PORT port, audio_format_t output_format)
+int get_ms12_port_latency(enum OUT_PORT port, audio_format_t output_format, bool is_eARC, bool is_tunnel)
 {
-    int latency_ms = 0;
-    int ret = 0;
-    char *prop_name = NULL;
+    int attend_type, earc_latency;
     char buf[PROPERTY_VALUE_MAX];
-
-    switch (port)  {
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    switch (port) {
         case OUTPORT_HDMI_ARC:
-            if (output_format == AUDIO_FORMAT_AC3)
-                latency_ms = AVSYNC_MS12_HDMI_ARC_OUT_DD_LATENCY;
-            else if (output_format == AUDIO_FORMAT_E_AC3)
-                latency_ms = AVSYNC_MS12_HDMI_ARC_OUT_DDP_LATENCY;
-            else
-                latency_ms = AVSYNC_MS12_HDMI_ARC_OUT_PCM_LATENCY;
-
-            prop_name = AVSYNC_MS12_HDMI_ARC_OUT_LATENCY_PROPERTY;
+        {
+            if (is_eARC) {
+                if (output_format == AUDIO_FORMAT_AC3) {
+                    latency_ms = AVSYNC_MS12_HDMI_EARC_OUT_DD_LATENCY;
+                    prop_name = AVSYNC_MS12_HDMI_EARC_OUT_DD_LATENCY_PROPERTY;
+                }
+                else if (output_format == AUDIO_FORMAT_E_AC3) {
+                    latency_ms = AVSYNC_MS12_HDMI_EARC_OUT_DDP_LATENCY;
+                    prop_name = AVSYNC_MS12_HDMI_EARC_OUT_DDP_LATENCY_PROPERTY;
+                }
+                else if (output_format == AUDIO_FORMAT_MAT) {
+                    latency_ms = AVSYNC_MS12_HDMI_EARC_OUT_MAT_LATENCY;
+                    prop_name = AVSYNC_MS12_HDMI_EARC_OUT_MAT_LATENCY_PROPERTY;
+                }
+                else {
+                    latency_ms = AVSYNC_MS12_HDMI_EARC_OUT_PCM_LATENCY;
+                    prop_name = AVSYNC_MS12_HDMI_EARC_OUT_PCM_LATENCY_PROPERTY;
+                }
+            }
+            else {
+                if (is_tunnel) {
+                    if (output_format == AUDIO_FORMAT_AC3) {
+                        latency_ms = AVSYNC_MS12_HDMI_ARC_OUT_DD_LATENCY;
+                        prop_name = AVSYNC_MS12_HDMI_ARC_OUT_DD_LATENCY_PROPERTY;
+                    }
+                    else if (output_format == AUDIO_FORMAT_E_AC3) {
+                        latency_ms = AVSYNC_MS12_HDMI_ARC_OUT_DDP_LATENCY;
+                        prop_name = AVSYNC_MS12_HDMI_ARC_OUT_DDP_LATENCY_PROPERTY;
+                    }
+                    else {
+                        latency_ms = AVSYNC_MS12_HDMI_ARC_OUT_PCM_LATENCY;
+                        prop_name = AVSYNC_MS12_HDMI_ARC_OUT_PCM_LATENCY_PROPERTY;
+                    }
+                }
+                else {
+                    if (output_format == AUDIO_FORMAT_AC3) {
+                        latency_ms = AVSYNC_MS12_NONTUNNEL_HDMI_ARC_OUT_DD_LATENCY;
+                        prop_name = AVSYNC_MS12_NONTUNNEL_HDMI_ARC_OUT_DD_LATENCY_PROPERTY;
+                    }
+                    else if (output_format == AUDIO_FORMAT_E_AC3) {
+                        latency_ms = AVSYNC_MS12_NONTUNNEL_HDMI_ARC_OUT_DDP_LATENCY;
+                        prop_name = AVSYNC_MS12_NONTUNNEL_HDMI_ARC_OUT_DDP_LATENCY_PROPERTY;
+                    }
+                    else {
+                        latency_ms = AVSYNC_MS12_NONTUNNEL_HDMI_ARC_OUT_PCM_LATENCY;
+                        prop_name = AVSYNC_MS12_NONTUNNEL_HDMI_ARC_OUT_PCM_LATENCY_PROPERTY;
+                    }
+                }
+            }
             break;
+        }
         case OUTPORT_HDMI:
             latency_ms = AVSYNC_MS12_HDMI_OUT_LATENCY; //default value as 0
             prop_name = AVSYNC_MS12_HDMI_LATENCY_PROPERTY;
@@ -510,19 +552,26 @@ int get_ms12_port_latency( enum OUT_PORT port, audio_format_t output_format)
     return latency_ms;
 }
 
-static int get_ms12_nontunnel_latency_offset(enum OUT_PORT port, audio_format_t input_format, audio_format_t output_format, bool is_netflix)
+static int get_ms12_nontunnel_latency_offset(enum OUT_PORT port
+    , audio_format_t input_format
+    , audio_format_t output_format
+    , bool is_netflix
+    , device_type_t platform_type __unused
+    , bool is_eARC)
 {
     int latency_ms = 0;
     int input_latency_ms = 0;
     int output_latency_ms = 0;
     int port_latency_ms = 0;
+    bool is_tunnel = false;
+
     if (is_netflix) {
         input_latency_ms  = get_ms12_netflix_nontunnel_input_latency(input_format);
         output_latency_ms = get_ms12_netflix_output_latency(output_format);
     } else {
         input_latency_ms  = get_ms12_nontunnel_input_latency(input_format);
         output_latency_ms = get_ms12_output_latency(output_format);
-        port_latency_ms   = get_ms12_port_latency(port, output_format);
+        port_latency_ms   = get_ms12_port_latency(port, output_format, is_eARC, is_tunnel);
     }
     latency_ms = input_latency_ms + output_latency_ms + port_latency_ms;
     ALOGV("%s total latency =%d ms in=%d ms out=%d ms port=%d ms", __func__,
@@ -534,13 +583,17 @@ static int get_ms12_tunnel_latency_offset(enum OUT_PORT port
     , audio_format_t input_format
     , audio_format_t output_format
     , bool is_netflix
-    , bool is_output_ddp_atmos)
+    , bool is_output_ddp_atmos
+    , device_type_t platform_type __unused
+    , bool is_eARC)
 {
     int latency_ms = 0;
     int input_latency_ms = 0;
     int output_latency_ms = 0;
     int port_latency_ms = 0;
     int is_dv = getprop_bool(MS12_OUTPUT_5_1_DDP); /* suppose that Dolby Vision is under test */
+    bool is_tunnel = true;
+
 
     //ALOGD("%s  prot:%d, is_netflix:%d, input_format:0x%x, output_format:0x%x", __func__,
     //            port, is_netflix, input_format, output_format);
@@ -568,7 +621,7 @@ static int get_ms12_tunnel_latency_offset(enum OUT_PORT port
         if (is_dv) {
             output_latency_ms += get_ms12_dv_tunnel_output_latency(output_format);
         }
-        port_latency_ms   = get_ms12_port_latency(port, output_format);
+        port_latency_ms   = get_ms12_port_latency(port, output_format, is_eARC, is_tunnel);
     }
     latency_ms = input_latency_ms + output_latency_ms + port_latency_ms;
     ALOGV("%s total latency =%d ms in=%d ms out=%d ms(is output ddp_atmos %d) port=%d ms", __func__,
@@ -798,6 +851,19 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
     int32_t video_delay = 0;
     int32_t dv_delay = 0;
     bool is_output_ddp_atmos = aml_audio_output_ddp_atmos(stream);
+    device_type_t platform_type = STB;
+    bool is_earc = (ATTEND_TYPE_EARC == aml_audio_earctx_get_type(adev));
+
+    if (adev->is_STB) {
+        platform_type = STB;
+    }
+    else if (adev->is_TV) {
+        platform_type = TV;
+    }
+    else if (adev->is_SBR) {
+        platform_type = SBR;
+    }
+
 
     /*we need get the correct ms12 out pcm */
     alsa_delay = (int32_t)out_get_ms12_latency_frames(stream);
@@ -806,7 +872,9 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
                                                       out->hal_internal_format,
                                                       adev->ms12.optical_format,
                                                       adev->is_netflix,
-                                                      is_output_ddp_atmos) * 48;
+                                                      is_output_ddp_atmos,
+                                                      platform_type,
+                                                      is_earc) * 48;
 
     if ((adev->ms12.is_dolby_atmos && adev->ms12_main1_dolby_dummy == false) || adev->atoms_lock_flag) {
         /*
@@ -1133,6 +1201,18 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
     bool b_raw_in = false;
     bool b_raw_out = false;
     uint64_t frames_written_hw = out->last_frames_position;
+    device_type_t platform_type = STB;
+    bool is_earc = (ATTEND_TYPE_EARC == aml_audio_earctx_get_type(adev));
+
+    if (adev->is_STB) {
+        platform_type = STB;
+    }
+    else if (adev->is_TV) {
+        platform_type = TV;
+    }
+    else if (adev->is_SBR) {
+        platform_type = SBR;
+    }
 
     if (frames_written_hw == 0) {
         ALOGV("%s(), not ready yet", __func__);
@@ -1160,7 +1240,9 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
             frame_latency = get_ms12_nontunnel_latency_offset(adev->active_outport,
                                                                out->hal_internal_format,
                                                                adev->ms12.sink_format,
-                                                               adev->is_netflix) * 48;
+                                                               adev->is_netflix,
+                                                               platform_type,
+                                                               is_earc) * 48;
             if ((adev->ms12.is_dolby_atmos && adev->ms12_main1_dolby_dummy == false) || adev->atoms_lock_flag) {
                 frame_latency += get_ms12_atmos_latency_offset(false, adev->is_netflix) * 48;
             }

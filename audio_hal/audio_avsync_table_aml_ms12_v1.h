@@ -75,12 +75,36 @@
 #define  AVSYNC_MS12_DDP_OUT_LATENCY                     (15)
 #define  AVSYNC_MS12_MAT_OUT_LATENCY                     (10)
 
-#define  AVSYNC_MS12_HDMI_ARC_OUT_PCM_LATENCY            (0)
-#define  AVSYNC_MS12_HDMI_ARC_OUT_DD_LATENCY             (0)
-#define  AVSYNC_MS12_HDMI_ARC_OUT_DDP_LATENCY            (120)
+/* HDMI ARC tune */
+//1.tunnel mode
+#define  AVSYNC_MS12_HDMI_ARC_OUT_PCM_LATENCY                    (0)
+#define  AVSYNC_MS12_HDMI_ARC_OUT_PCM_LATENCY_PROPERTY           "vendor.media.audio.hal.ms12.arc.pcm"
+#define  AVSYNC_MS12_HDMI_ARC_OUT_DD_LATENCY                     (0)
+#define  AVSYNC_MS12_HDMI_ARC_OUT_DD_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.arc.dd"
+#define  AVSYNC_MS12_HDMI_ARC_OUT_DDP_LATENCY                    (120)
+#define  AVSYNC_MS12_HDMI_ARC_OUT_DDP_LATENCY_PROPERTY           "vendor.media.audio.hal.ms12.arc.ddp"
+//2.no-tunnel mode
+#define  AVSYNC_MS12_NONTUNNEL_HDMI_ARC_OUT_PCM_LATENCY                    (0)
+#define  AVSYNC_MS12_NONTUNNEL_HDMI_ARC_OUT_PCM_LATENCY_PROPERTY           "vendor.media.audio.hal.ms12.nontunnel.arc.pcm"
+#define  AVSYNC_MS12_NONTUNNEL_HDMI_ARC_OUT_DD_LATENCY                     (0)
+#define  AVSYNC_MS12_NONTUNNEL_HDMI_ARC_OUT_DD_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.nontunnel.arc.dd"
+#define  AVSYNC_MS12_NONTUNNEL_HDMI_ARC_OUT_DDP_LATENCY                    (0)
+#define  AVSYNC_MS12_NONTUNNEL_HDMI_ARC_OUT_DDP_LATENCY_PROPERTY           "vendor.media.audio.hal.ms12.nontunnel.arc.ddp"
+
+
+/* HDMI eARC tune */
+#define  AVSYNC_MS12_HDMI_EARC_OUT_PCM_LATENCY                    (0)
+#define  AVSYNC_MS12_HDMI_EARC_OUT_PCM_LATENCY_PROPERTY           "vendor.media.audio.hal.ms12.earc.pcm"
+#define  AVSYNC_MS12_HDMI_EARC_OUT_DD_LATENCY                     (100)
+#define  AVSYNC_MS12_HDMI_EARC_OUT_DD_LATENCY_PROPERTY           "vendor.media.audio.hal.ms12.earc.dd"
+#define  AVSYNC_MS12_HDMI_EARC_OUT_DDP_LATENCY                    (100)
+#define  AVSYNC_MS12_HDMI_EARC_OUT_DDP_LATENCY_PROPERTY           "vendor.media.audio.hal.ms12.earc.ddp"
+#define  AVSYNC_MS12_HDMI_EARC_OUT_MAT_LATENCY                    (0)
+#define  AVSYNC_MS12_HDMI_EARC_OUT_MAT_LATENCY_PROPERTY           "vendor.media.audio.hal.ms12.earc.mat"
+
+
 #define  AVSYNC_MS12_HDMI_OUT_LATENCY                    (10)
 #define  AVSYNC_MS12_SPEAKER_LATENCY                     (-25)
-#define  AVSYNC_MS12_HDMI_ARC_OUT_LATENCY_PROPERTY    "vendor.media.audio.hal.ms12.hdmiarcout"
 #define  AVSYNC_MS12_HDMI_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.hdmiout"
 #define  AVSYNC_MS12_SPEAKER_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.speaker"
 
