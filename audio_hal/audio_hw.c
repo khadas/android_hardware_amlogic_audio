@@ -3826,6 +3826,7 @@ static int aml_audio_output_routing(struct audio_hw_device *dev,
         aml_dev->active_outport = cur_outport;
         if (cur_outport == OUTPORT_HDMI_ARC) {
             aml_dev->arc_connected_reconfig = true;
+            aml_dev->arc_hdmi_updated = 1;
         }
     } else if (cur_outport == OUTPORT_SPEAKER && user_setting) {
         /* In this case, user toggle the speaker_mute menu */
