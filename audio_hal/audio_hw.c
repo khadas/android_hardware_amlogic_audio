@@ -4546,6 +4546,21 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         unsigned int direct_mode = (unsigned int)atoi(value);
         ALOGI ("Amlogic_HAL - %s: direct-mode:%d.", __FUNCTION__,direct_mode);
         adev->direct_mode = direct_mode;
+
+        if (direct_mode == 1) {
+            // release alsa devices for KaraokeServiceManager
+            if (eDolbyMS12Lib == adev->dolby_lib_type) {
+                get_dolby_ms12_cleanup(&adev->ms12, !adev->continuous_audio_mode);
+            } else {
+                for (int i = 0; i < ALSA_DEVICE_CNT; i++) {
+                    if (adev->pcm_handle[i]) {
+                        pcm_close(adev->pcm_handle[i]);
+                        adev->pcm_handle[i] = NULL;
+                        adev->pcm_refs[i] = 0;
+                    }
+                }
+            }
+        }
         goto exit;
     }
 
