@@ -1011,6 +1011,17 @@ extern "C" void dolby_ms12_set_tv_tuning_flag(bool tv_tuning_flag)
     }
 }
 
+extern "C" void dolby_ms12_set_hdmi_output_type(int hdmi_output_type)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12ConfigParams *config_param = getInstance();
+    if (config_param) {
+        config_param->setHDMIOutoutType(hdmi_output_type);
+    }
+    else {
+        ALOGW("Found the config_param handle illegal\n");
+    }
+}
 
 /*****************************************************************************************************************/
 /*END*/

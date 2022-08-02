@@ -661,6 +661,16 @@ void dolby_ms12_set_enforce_timeslice(bool is_enforce);
  */
 void dolby_ms12_set_tv_tuning_flag(bool tv_tuning_flag);
 
+
+/**
+ * @brief set hdmi output type
+ * -hdmi_output_type     <int> DD/DD+ output is used for
+ *                           0 = Full HDMI (default)
+ *                           1 = HDMI ARC
+ *                           2 = HDMI E-ARC
+ */
+void dolby_ms12_set_hdmi_output_type(int hdmi_output_type);
+
 /*End*/
 
 #ifdef __cplusplus

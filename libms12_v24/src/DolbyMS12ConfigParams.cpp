@@ -169,6 +169,7 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mEnforceTimeslice(0)
     , mTVTuningFlag(false)
     , mFullDAPDisable(false)
+    , mHdmiOutputType(0)
 {
     ALOGD("+%s() mAudioOutFlags %d mAudioStreamOutFormat %#x mHasAssociateInput %d mHasSystemInput %d AppInput %d\n",
           __FUNCTION__, mAudioOutFlags, mAudioStreamOutFormat, mHasAssociateInput, mHasSystemInput, mHasAppInput);
@@ -728,6 +729,13 @@ int DolbyMS12ConfigParams::SetFunctionalSwitches(char **ConfigParams, int *row_i
         sprintf(ConfigParams[*row_index], "%s", "-legacy_ddplus_out");
         (*row_index)++;
         sprintf(ConfigParams[*row_index], "%d", mIsLegecyDDPOut);
+        (*row_index)++;
+    }
+
+    if (mHdmiOutputType) {
+        sprintf(ConfigParams[*row_index], "%s", "-hdmi_output_type");
+        (*row_index)++;
+        sprintf(ConfigParams[*row_index], "%d", mHdmiOutputType);
         (*row_index)++;
     }
 

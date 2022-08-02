@@ -538,6 +538,12 @@ public:
         return mIsLegecyDDPOut;
     }
 
+    virtual void setHDMIOutoutType(int HdmiOutputType)
+    {
+        mHdmiOutputType = HdmiOutputType;
+        ALOGI("%s() mHdmiOutputType %d\n", __FUNCTION__, mHdmiOutputType);
+    }
+
     virtual void setInputCMDMask(const char *input_cmd);
 
     virtual int getInputCMDMask(void)
@@ -744,6 +750,14 @@ private:
     bool mEnforceTimeslice;
     bool mTVTuningFlag;
     bool mFullDAPDisable;
+    /*
+       DD/DD+ output is used for
+       0 = Full HDMI (default)
+       1 = HDMI ARC
+       2 = HDMI E-ARC
+    */
+    int mHdmiOutputType;
+
 }; //class DolbyMS12ConfigParams
 
 

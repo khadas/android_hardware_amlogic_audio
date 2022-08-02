@@ -1057,6 +1057,8 @@ int get_the_dolby_ms12_prepared(
             dolby_ms12_set_enforce_timeslice(true);
             ALOGI("hdmi in ddp/dd case, use enforce timeslice");
         }
+        if (output_config & MS12_OUTPUT_MASK_DDP)
+            dolby_ms12_set_hdmi_output_type(HDMI_ARC_OUTPUT);
     }
 
     if (input_sample_rate != OUTPUT_ALSA_SAMPLERATE &&

@@ -206,7 +206,7 @@ bool is_ms12_out_ddp_5_1_suitable(bool is_ddp_atmos);
 /*
  *@brief bypass iec61937 audio data
  */
-int dolby_ms12_bypass_process();
+int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, size_t bytes);
 
 /*
  *@brief set dolby ms12 ad mixing enable

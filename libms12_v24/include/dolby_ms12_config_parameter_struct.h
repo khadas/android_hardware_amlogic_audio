@@ -112,5 +112,10 @@ typedef struct
     int boost; // (0..96, def: 96)
 }DAPSurVirtulizer;
 
+enum {
+    FULL_HDMI_OUTPUT,
+    HDMI_ARC_OUTPUT,
+    HDMI_EARC_OUTPUT,
+};
 
 #endif //end of _DOLBY_MS12_CONFIG_PARAMMETER_STRUCT_H_
