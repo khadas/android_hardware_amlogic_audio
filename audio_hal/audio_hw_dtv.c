@@ -2907,7 +2907,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
                             if (mEsData == NULL) {
                                 nRet = Get_MainAudio_Es(demux_handle,&mEsData);
                                 if (nRet != AM_AUDIO_Dmx_SUCCESS) {
-
+                                    break;
                                 } else {
                                    if (aml_dev->debug_flag)
                                        ALOGI("mEsData->size %d",mEsData->size);
