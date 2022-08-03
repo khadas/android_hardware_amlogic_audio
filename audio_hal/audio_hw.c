@@ -5342,23 +5342,6 @@ int do_output_standby_l(struct audio_stream *stream)
 
     ALOGI("[%s:%d] stream usecase:%s , continuous:%d", __func__, __LINE__,
         usecase2Str(aml_out->usecase), adev->continuous_audio_mode);
-
-    if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
-        int cnt = 0;
-        for (int i=0; i<STREAM_USECASE_MAX; i++) {
-            struct aml_stream_out *stream_temp = adev->active_outputs[i];
-            if (stream_temp != NULL && !stream_temp->standby) {
-                cnt++;
-            }
-        }
-        if (cnt <= 1) {
-            ALOGI("[%s:%d] stream cnt:%d", __func__, __LINE__, cnt);
-            if ((eDolbyMS12Lib == adev->dolby_lib_type) && (ms12->dolby_ms12_enable == true)) {
-                get_dolby_ms12_cleanup(&adev->ms12, false);
-            }
-        }
-    }
-
     /*
     if continuous mode,we need always have output.
     so we should not disable the output.
