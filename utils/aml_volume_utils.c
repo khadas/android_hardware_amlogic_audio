@@ -200,34 +200,34 @@ void apply_volume_16to32(float volume, int16_t *in_buf, int32_t *out_buf, int by
     return;
 }
 
-void apply_volume_fade(float last_volume, float volume, void *buf, int sample_size, int channels, int bytes)
+void apply_volume_fade(float *last_volume, float *volume, void *buf, int sample_size, int channels, int bytes)
 {
     int16_t *input16 = (int16_t *)buf;
     int32_t *input32 = (int32_t *)buf;
     unsigned int i = 0, j= 0;
-    float gain_step = 0.0;
-    float new_volume = 1.0;
+    float gain_step[8] =  {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
+    float new_volume[8] = {1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0};
     if (channels == 0 || sample_size == 0) {
         return;
     }
     int32_t out_frames = bytes/(channels * sample_size);
-
-    if (last_volume != volume) {
-        gain_step = (volume - last_volume)/out_frames;
+    for (j = 0; j < channels; j ++) {
+        if (last_volume[j] != volume[j]) {
+            gain_step[j] = (volume[j] - last_volume[j])/out_frames;
+        }
     }
-
     if (sample_size == 2) {
         for (i = 0; i < out_frames; i++) {
-            new_volume = last_volume + i * gain_step;
             for (j = 0; j < channels; j ++) {
-                input16[i * channels + j] = clamp16((int32_t)(new_volume * input16[i * channels + j]));
+                new_volume[j] = last_volume[j] + i * gain_step[j];
+                input16[i * channels + j] = clamp16((int32_t)(new_volume[j] * input16[i * channels + j]));
             }
         }
     } else if (sample_size == 4) {
         for (i = 0; i < out_frames; i++) {
-            new_volume = last_volume + i * gain_step;
             for (j = 0; j < channels; j ++) {
-                input32[i * channels + j] = clamp32((int64_t)(new_volume * input32[i * channels + j]));
+                new_volume[j] = last_volume[j] + i * gain_step[j];
+                input32[i * channels + j] = clamp32((int64_t)(new_volume[j] * input32[i * channels + j]));
             }
         }
     } else {

@@ -41,7 +41,9 @@ extern unsigned long decoder_apts_lookup(unsigned int offset);
 static void aml_audio_stream_volume_process(struct audio_stream_out *stream, void *buf, int sample_size, int channels, int bytes) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *aml_dev = aml_out->dev;
-    float volume_l = aml_out->volume_l;
+    float volume[8],last_volume[8];
+    volume[0]   = aml_out->volume_l;
+    volume[1]   = aml_out->volume_r;
 
     /*
     for non tv, system sound vol control at audioflinger, so dtv sound vol
@@ -63,20 +65,32 @@ static void aml_audio_stream_volume_process(struct audio_stream_out *stream, voi
             ALOGI("[%s:%d] gain:%f, out_device:%#x, active_outport:%d", __func__, __LINE__,
                 port_gain, aml_out->out_device, aml_dev->active_outport);
         }
-        volume_l *= port_gain;
+        volume[0] *= port_gain;
+        volume[1] *= port_gain;
     }
-
     /*
     Indeed,all the input source main need to be applied before the mixer
     need hdmi/av.. source gain here also.now only DTV available.
     */
     if (aml_dev->patch_src ==  SRC_DTV) {
-        volume_l *= aml_dev->dtv_volume;
+        volume[0] *= aml_dev->dtv_volume;
+        volume[1] *= aml_dev->dtv_volume;
     }
-    apply_volume_fade(aml_out->last_volume_l, volume_l, buf, sample_size, channels, bytes);
-    aml_out->last_volume_l = volume_l;
-    /*volume R is not used during this processing TBD*/
-    aml_out->last_volume_r = aml_out->volume_r;
+    last_volume[0] = aml_out->last_volume_l;
+    last_volume[1] = aml_out->last_volume_r;
+    /*
+    android only support max stereo stream volume configuration,we have to reuse left volume as
+    C/LFE/Ls/Rs/Lrs/Rrs volume
+    */
+    if (channels > 2) {
+        for (int ch = 2; ch < channels; ch ++) {
+            last_volume[ch] = last_volume[0];
+            volume[ch] = volume[0];
+        }
+    }
+    apply_volume_fade(last_volume, volume, buf, sample_size, channels, bytes);
+    aml_out->last_volume_l = volume[0];
+    aml_out->last_volume_r = volume[1];
     return;
 }
 

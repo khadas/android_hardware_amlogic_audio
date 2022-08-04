@@ -221,6 +221,12 @@ static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
     size_t out_size = bytes;
     int bResample = 0;
     int channels = audio_channel_count_from_out_mask(out->hal_channel_mask);
+    float volume[8];
+    float last_volume[8];
+    volume[0]   = out->volume_l;
+    volume[1]   = out->volume_r;
+    last_volume[0]   = out->last_volume_l;
+    last_volume[1]   = out->last_volume_r;
 
     AM_LOGV("++bytes = %zu", bytes);
     if (out->pause_status) {
@@ -228,8 +234,17 @@ static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
     }
 
     clock_gettime(CLOCK_MONOTONIC, &tval);
-
-    apply_volume_fade(out->last_volume_l, out->volume_l, in_buf_16, sizeof(uint16_t), channels, bytes);
+    /*
+    android only support max stereo stream volume configuration,we have to reuse left volume as
+    C/LFE/Ls/Rs/Lrs/Rrs volume
+    */
+    if (channels > 2) {
+        for (int ch = 2; ch < channels; ch ++) {
+            last_volume[ch] = last_volume[0];
+            volume[ch] = volume[0];
+        }
+    }
+    apply_volume_fade(last_volume, volume, in_buf_16, sizeof(uint16_t), channels, bytes);
     out->last_volume_l = out->volume_l;
     out->last_volume_r = out->volume_r;
     if (out->hw_sync_mode && out->resample_outbuf != NULL) {
