@@ -101,7 +101,7 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
     while (remain > 0) {
 
         if (p_hwsync->hw_sync_state == HW_SYNC_STATE_HEADER) {
-            ALOGV("Add to header buffer [%d], 0x%x", p_hwsync->hw_sync_header_cnt, *p);
+            ALOGV("Add to header buffer [%zu], 0x%x", p_hwsync->hw_sync_header_cnt, *p);
             p_hwsync->hw_sync_header[p_hwsync->hw_sync_header_cnt++] = *p++;
             remain--;
             if (p_hwsync->hw_sync_header_cnt == HW_SYNC_VERSION_SIZE ) {
@@ -409,7 +409,7 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                     if (p_hwsync->hw_sync_body_cnt ==  p_hwsync->hw_sync_metadata_total_size) {
                         p_hwsync->hw_sync_state = HW_SYNC_STATE_HEADER;
                         p_hwsync->hw_sync_body_cnt = 0;
-                        ALOGI("remain %d matched ,continue to header!!!", remain);
+                        ALOGI("remain %zu matched ,continue to header!!!", remain);
                     } else {
                         if (p_hwsync->header_flags & HW_AVSYNC_FLAG_PAYLOAD_PRESENT) {
                             p_hwsync->hw_sync_state = HW_SYNC_STATE_PAYLOAD;
