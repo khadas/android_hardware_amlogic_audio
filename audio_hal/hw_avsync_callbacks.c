@@ -190,6 +190,13 @@ int on_meta_data_cbk(void *cookie,
             hwsync_extractor = out->hwsync_extractor;
         }
 
+        {
+            if (out->hwsync->hwsync_need_resume) {
+                aml_hwsync_wrap_set_resume(out->hwsync);
+                out->hwsync->hwsync_need_resume = false;
+            }
+        }
+
         /*if the pts is zero, to avoid video pcr not set issue, we just set it as 1ms*/
         if (pts64 == 0) {
             pts64 = 1 * 90;
@@ -301,7 +308,8 @@ int on_meta_data_cbk(void *cookie,
                     ALOGE("aml_hwsync_wrap_reset_pcrscr,err: %s", strerror(errno));
                 }
             }
-        } else {
+        }
+        {
             if (out->hwsync->hwsync_need_resume) {
                 aml_hwsync_wrap_set_resume(out->hwsync);
                 out->hwsync->hwsync_need_resume = false;
