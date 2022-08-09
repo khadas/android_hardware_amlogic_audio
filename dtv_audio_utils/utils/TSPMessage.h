@@ -113,7 +113,7 @@ struct TSPMessage : public RefBase {
     // an error.
     dp_state postReply(const sp<TSPReplyToken> &replyID);
 
-    // Performs a deep-copy of "this", contained messages are in turn "dup'ed".
+    // Performs a deep-copy of "this", contained messages are in turn "duped".
     // Warning: RefBase items, i.e. "objects" are _not_ copied but only have
     // their refcount incremented.
     sp<TSPMessage> dup() const;

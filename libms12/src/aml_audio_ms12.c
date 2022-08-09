@@ -196,7 +196,7 @@ int aml_ms12_update_runtime_params_lite(struct dolby_ms12_desc *ms12_desc)
         if (ms12_desc->dolby_ms12_ptr) {
             // we still need to use this interface, it calls ms12 with lock, then gain can set correctly each time
             ret = dolby_ms12_update_runtime_params(ms12_desc->dolby_ms12_ptr, ms12_desc->dolby_ms12_init_argc, ms12_desc->dolby_ms12_init_argv);
-            // for thing like gain control, if continously setting volume in short time, we need no lock setting, or sound will break;
+            // for thing like gain control, if continuously setting volume in short time, we need no lock setting, or sound will break;
             //ret = dolby_ms12_update_runtime_params_nolock(ms12_desc->dolby_ms12_ptr, ms12_desc->dolby_ms12_init_argc, ms12_desc->dolby_ms12_init_argv);
         }
     }

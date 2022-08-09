@@ -47,9 +47,9 @@
 
 /* for parse device port
  * for i2s, i2s_playback, i2s_capture,  when select device, firstly to check i2s_playback,
- * i2s_capure, then i2s
+ * i2s_capture, then i2s
  */
-#define ALSAPORT_PCM              "alsaPORT-pcm"         /* usally for bt pcm */
+#define ALSAPORT_PCM              "alsaPORT-pcm"         /* usually for bt pcm */
 #define ALSAPORT_I2S              "alsaPORT-i2s"         /* i2s0, Playback,Capture */
 #define ALSAPORT_I2SPLAYPLAYBACK  "alsaPORT-i2s1"        /* i2s1 */
 #define ALSAPORT_I2SCAPTURE       "alsaPORT-i2s2"        /* i2s2 */

@@ -164,7 +164,7 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mPause(false)//Unpause(default) if mActivateOTTSignal is true
     , mMain1IsDummy(false)
     , mOTTSoundInputEnable(false)
-    , mIsLegecyDDPOut(false)
+    , mIsLegacyDDPOut(false)
     , mDolbyInputCMDMask(0)
     , mEnforceTimeslice(0)
     , mTVTuningFlag(false)
@@ -727,7 +727,7 @@ int DolbyMS12ConfigParams::SetFunctionalSwitches(char **ConfigParams, int *row_i
     if (mDolbyMS12OutConfig & (MS12_OUTPUT_MASK_DD|MS12_OUTPUT_MASK_DDP)) {
         sprintf(ConfigParams[*row_index], "%s", "-legacy_ddplus_out");
         (*row_index)++;
-        sprintf(ConfigParams[*row_index], "%d", mIsLegecyDDPOut);
+        sprintf(ConfigParams[*row_index], "%d", mIsLegacyDDPOut);
         (*row_index)++;
     }
 
@@ -1459,7 +1459,7 @@ char *DolbyMS12ConfigParams::QueryDapParameters(const char *key)
     std::istringstream key_str(key);
     std::string token_str;
 
-    // key is a set of parmaeters with comma as seperator
+    // key is a set of parameters with comma as separator
     while (std::getline(key_str, token_str, ';')) {
         const char *token = token_str.c_str();
         if (!strcmp(token, "dap_surround_decoder_enable")) {

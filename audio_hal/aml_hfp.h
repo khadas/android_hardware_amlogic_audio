@@ -17,7 +17,6 @@
 #ifndef _AUDIO_HFP_H_
 #define _AUDIO_HFP_H_
 extern void audio_extn_hfp_set_parameters(struct aml_audio_device *adev, struct str_parms *parms);
-#define AUDIO_PARAMATER_HFP_VALUE_MAX         128
 #include "audio_hw_utils.h"
 #include "alsa_device_parser.h"
 #include <tinyalsa/asoundlib.h>
@@ -44,7 +43,7 @@ extern void audio_extn_hfp_set_parameters(struct aml_audio_device *adev, struct 
 #define AUDIO_PARAMETER_HFP_SET_SAMPLING_RATE "hfp_set_sampling_rate"
 #define AUDIO_PARAMETER_KEY_HFP_VOLUME        "hfp_volume"
 #define AUDIO_PARAMETER_HFP_VOL_MIXER_CTL     "hfp_vol_mixer_ctl"
-#define AUDIO_PARAMATER_HFP_VALUE_MAX         128
+#define AUDIO_PARAMETER_HFP_VALUE_MAX         128
 
 #define AUDIO_PARAMETER_KEY_HFP_MIC_VOLUME "hfp_mic_volume"
 #define PLAYBACK_VOLUME_MAX 0x2000
@@ -81,7 +80,7 @@ struct hfp_module {
     struct pcm *hfp_pcm_tx;
     float  hfp_volume;
     float  mic_volume;
-    char   hfp_vol_mixer_ctl[AUDIO_PARAMATER_HFP_VALUE_MAX];
+    char   hfp_vol_mixer_ctl[AUDIO_PARAMETER_HFP_VALUE_MAX];
     bool   is_hfp_running;
     bool   mic_mute;
     unsigned int hfp_card;

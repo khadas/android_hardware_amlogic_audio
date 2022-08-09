@@ -234,7 +234,7 @@ static int _save_conf_to_maps(struct aml_channel_map *maps,
 }
 
 #if !defined (BUILDHOSTEXE)
-/* WARNNING: initial function, only need called once!! */
+/* WARNING: initial function, only need called once!! */
 struct aml_channel_map *data_load_product_config(void)
 {
 	struct parser *gParser = NULL;
@@ -602,7 +602,7 @@ int data_replace_lfe_data(
 	size_t  out_channels,
 	size_t  out_framesz,
 	void    *input_lfe_buffer,
-	size_t  in_channles,
+	size_t  in_channels,
 	size_t  in_framesz,
 	size_t  frames,
 	int     channel_insert_bit_mask)
@@ -622,7 +622,7 @@ int data_replace_lfe_data(
 	}
 
 	//TODO:
-	if (in_channles != 2) {
+	if (in_channels != 2) {
 		AMLOGE("%s: only support replace 2 channels\n", __func__);
 		return -1;
 	}
@@ -645,14 +645,14 @@ int data_replace_lfe_data(
 		case e16BitPerSample:
 			for (i=0; i<(int)frames; i++) {
 				for (j=0; j<lfe_cnt; j++) {
-					buf_out16[out_channels*i + lfe_base + j] = buf_in16[in_channles*i + j];
+					buf_out16[out_channels*i + lfe_base + j] = buf_in16[in_channels*i + j];
 				}
 			}
 			break;
 		case e32BitPerSample:
 			for (i=0; i<(int)frames; i++) {
 				for (j=0; j<lfe_cnt; j++) {
-					buf_out16[out_channels*i + lfe_base + j] = (int16_t)(buf_in16[in_channles*i + j] >> 16);
+					buf_out16[out_channels*i + lfe_base + j] = (int16_t)(buf_in16[in_channels*i + j] >> 16);
 				}
 			}
 			break;
@@ -665,14 +665,14 @@ int data_replace_lfe_data(
 		case e16BitPerSample:
 			for (i=0; i<(int)frames; i++) {
 				for (j=0; j<lfe_cnt; j++) {
-					buf_out32[out_channels*i + lfe_base + j] = ((int32_t)buf_in16[in_channles*i + j]) << 16;
+					buf_out32[out_channels*i + lfe_base + j] = ((int32_t)buf_in16[in_channels*i + j]) << 16;
 				}
 			}
 			break;
 		case e32BitPerSample:
 			for (i=0; i<(int)frames; i++) {
 				for (j=0; j<lfe_cnt; j++) {
-					buf_out32[out_channels*i + lfe_base + j] = buf_in32[in_channles*i + j];
+					buf_out32[out_channels*i + lfe_base + j] = buf_in32[in_channels*i + j];
 				}
 			}
 			break;
@@ -758,7 +758,7 @@ int data_concat_channels(
 	}
 
 	if (in_channels > out_channels) {
-		AMLOGE("%s: out_channels %zu < %zu inclannels\n", __func__, out_channels, in_channels);
+		AMLOGE("%s: out_channels %zu < %zu in_channels\n", __func__, out_channels, in_channels);
 		return -EINVAL;
 	}
 
@@ -970,7 +970,7 @@ int data_extend_channels(
 	int16_t *buf_out16  = (int16_t *)out_buf;
 	int32_t *buf_out32  = (int32_t *)out_buf;
 
-	//TODO: use one interfcae for data_extend_channels/data_extract_channels
+	//TODO: use one interface for data_extend_channels/data_extract_channels
 	if (out_channels < in_channels) {
 		AMLOGE("%s: only support extend channels\n", __func__);
 		return -1;
@@ -1064,7 +1064,7 @@ int data_extract_channels(
 	if (!map)
 		return 0;
 
-	//TODO: use one interfcae for data_extend_channels/data_extract_channels
+	//TODO: use one interface for data_extend_channels/data_extract_channels
 	if (out_channels > in_channels) {
 		AMLOGE("%s: only support extract channels\n", __func__);
 		return -1;
@@ -1076,7 +1076,7 @@ int data_extract_channels(
 		if (channel_extract_bit_mask & (AML_I2S_CHANNEL_0<<i))
 			cnt++;
 	if (cnt > (int)out_channels) {
-		AMLOGE("%s: need extract %d channels, but buf only have %zu chanels\n",
+		AMLOGE("%s: need extract %d channels, but buf only have %zu channels\n",
 			__func__, cnt, out_channels);
 		return -1;
 	}

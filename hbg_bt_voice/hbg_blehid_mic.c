@@ -366,7 +366,7 @@ int is_hbg_hidraw(){
     UNUSED(stream);
     // struct stub_stream_in *in = (struct stub_stream_in *)stream;
     int bsize =2048;
-    //LOGD("in_get_buffer_size %d",bsize); //pcm buff szie
+    //LOGD("in_get_buffer_size %d",bsize); //pcm buff size
 
     return bsize;//mRegAudioCB[in->hbg_channel].ptr->validDataLen;
 }

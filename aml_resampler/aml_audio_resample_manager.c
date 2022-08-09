@@ -210,7 +210,7 @@ int aml_audio_resample_process(aml_audio_resample_t * aml_audio_resample, void *
                                           &out_size);
     if (ret < 0) {
         aml_audio_resample->resample_size = 0;
-        ALOGE("resmaple error=%d, output size=%zu, buf size=%zu\n",
+        ALOGE("resample error=%d, output size=%zu, buf size=%zu\n",
             ret, out_size, aml_audio_resample->resample_buffer_size);
         return ret;
     }

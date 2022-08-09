@@ -121,11 +121,11 @@
 #include "audio_aec_process.h"
 #endif
 
-/*[SEI-zhaopf-2018-10-29] add for HBG remote audio support { */
+/*[SE-2018-10-29] add for HBG remote audio support { */
 #if defined(ENABLE_HBG_PATCH)
 #include "../hbg_bt_voice/hbg_blehid_mic.h"
 #endif
-/*[SEI-zhaopf-2018-10-29] add for HBG remote audio support } */
+/*[SEI-2018-10-29] add for HBG remote audio support } */
 
 #include "sub_mixing_factory.h"
 #include "amlAudioMixer.h"
@@ -1904,7 +1904,7 @@ static int out_add_audio_effect(const struct audio_stream *stream, effect_handle
             ALOGI("%s, add audio effect: Reorder VirtualX at the first of the effect chain.", __FUNCTION__);
         }
     }
-    //AML_DTS_index uses to selsect the effect_handle, so need to save it.
+    //AML_DTS_index uses to select the effect_handle, so need to save it.
     if (0 == strcmp(tmpdesc.name, str_true_sur)) {
         dev->native_postprocess.AML_DTS_index = i;
     }
@@ -5243,11 +5243,11 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
     if (in->ref_buf) {
         aml_audio_free(in->ref_buf);
     }
-/*[SEI-zhaopf-2018-10-29] add for HBG remote audio support { */
+/*[SEI-2018-10-29] add for HBG remote audio support { */
 #if defined(ENABLE_HBG_PATCH)
     unregist_callBack_stream(in->hbg_channel);
 #endif
-/*[SEI-zhaopf-2018-10-29] add for HBG remote audio support } */
+/*[SEI-2018-10-29] add for HBG remote audio support } */
 
 #ifdef ENABLE_AEC_APP
     if (in->device & AUDIO_DEVICE_IN_ECHO_REFERENCE) {
@@ -9431,7 +9431,7 @@ static int adev_close(hw_device_t *device)
         ALOGD("%s, wait_count:%d, ms12 resource should be released finish\n", __func__, wait_count);
     }
 
-/*[SEI-zhaopf-2018-10-29] add for HBG remote audio support { */
+/*[SEI-2018-10-29] add for HBG remote audio support { */
 #if defined(ENABLE_HBG_PATCH)
     stopReceiveAudioData();
 #endif
@@ -9616,7 +9616,7 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
                     /* dev->dev and DTV src gain using MS12 primary gain */
                     if (aml_dev->audio_patching || aml_dev->patch_src == SRC_DTV) {
                         pthread_mutex_lock(&aml_dev->lock);
-                         /* Raw data from hdmi, alexa voice case, the souece stream need duck about 20dB */
+                         /* Raw data from hdmi, alexa voice case, the source stream need duck about 20dB */
                         dolby_ms12_set_main_volume(DbToAmpl(config->gain.values[1]/100));
                         pthread_mutex_unlock(&aml_dev->lock);
                         if (ret < 0) {
@@ -9946,7 +9946,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->patch_src = SRC_INVAL;
     adev->audio_type = LPCM;
 
-/*[SEI-zhaopf-2018-10-29] add for HBG remote audio support { */
+/*[SEI-2018-10-29] add for HBG remote audio support { */
 #if defined(ENABLE_HBG_PATCH)
     startReceiveAudioData();
 #endif
@@ -9959,7 +9959,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     }
 #endif
 
-/*[SEI-zhaopf-2018-10-29] add for HBG remote audio support } */
+/*[SEI-2018-10-29] add for HBG remote audio support } */
 #if defined(TV_AUDIO_OUTPUT)
     adev->is_TV = true;
     /* by default, BDS will share the same audio feature as TV */

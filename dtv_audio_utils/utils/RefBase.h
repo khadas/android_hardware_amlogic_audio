@@ -206,7 +206,7 @@ inline bool operator _op_ (const U* o) const {                  \
 
 // ---------------------------------------------------------------------------
 
-// RefererenceRenamer is pure abstract, there is no virtual method
+// ReferenceRenamer is pure abstract, there is no virtual method
 // implementation to put in a translation unit in order to silence the
 // weak vtables warning.
 #if defined(__clang__)

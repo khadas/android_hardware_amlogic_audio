@@ -30,7 +30,7 @@
  *          length: data length
  *          frame_offset: frame begin offset
  *          frame_size: frame size
- *          chanenel_num: frame channel num
+ *          channel_num: frame channel num
  *          numblks: numblks of one frame
  *          timeslice_61937: time slice of iec61937
  *          framevalid_flag: frame valid flag

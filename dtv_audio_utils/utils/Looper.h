@@ -214,7 +214,7 @@ public:
     /**
      * Creates a looper.
      *
-     * If allowNonCallbaks is true, the looper will allow file descriptors to be
+     * If allowNonCallbacks is true, the looper will allow file descriptors to be
      * registered without associated callbacks.  This assumes that the caller of
      * pollOnce() is prepared to handle callback-less events itself.
      */

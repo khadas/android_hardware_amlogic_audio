@@ -707,7 +707,7 @@ static int transBufferData_float(const char *data_str, float *data_buf)
     return item_ind;
 }
 
-int parse_usersetting(char *file_name, struct audio_user_setting_s *user_setting)
+int parse_user_setting(char *file_name, struct audio_user_setting_s *user_setting)
 {
     dictionary *ini = NULL;
     const char  *str = NULL;

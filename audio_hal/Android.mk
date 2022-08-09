@@ -167,11 +167,11 @@ ifneq ($(BOARD_DISABLE_DVB_AUDIO), true)
 endif
 
 LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
-#/*[SEI-zhaopf-2018-12-18] add for HBG remote audio support { */
+#/*[SEI-2018-12-18] add for HBG remote audio support { */
 ifeq ($(BOARD_ENABLE_HBG), true)
     LOCAL_SHARED_LIBRARIES += libhbg
 endif
-#/*[SEI-zhaopf-2018-12-18] add for HBG remote audio support } */
+#/*[SEI-2018-12-18] add for HBG remote audio support } */
 
     LOCAL_MODULE_TAGS := optional
     LOCAL_CFLAGS += -Werror

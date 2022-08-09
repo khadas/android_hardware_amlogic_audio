@@ -27,11 +27,11 @@
 extern "C" {
 #endif
 /**
- * @brief Set assciate flag
+ * @brief Set associate flag
  */
 void dolby_ms12_config_params_set_associate_flag(bool flag);
 /**
- * @brief Get assciate flag
+ * @brief Get associate flag
  */
 bool dolby_ms12_config_params_get_associate_flag(void);
 
@@ -213,7 +213,7 @@ void dolby_ms12_set_downmix_modes(int val);
  * 0 = off (default)
  * 1 = on
  */
-void dolby_ms12_set_evalution_mode(int val);
+void dolby_ms12_set_evaluation_mode(int val);
 
 
 /**
@@ -359,7 +359,7 @@ void dolby_ms12_set_heaac_default_dialnorm_value(int val);
  * 2 = LOAS
  * 3 = RAW (Default for file playback)
  */
-void dolby_ms12_set_heaac_tranport_format(int val);
+void dolby_ms12_set_heaac_transport_format(int val);
 
 
 //DAP SWITCHES (device specific)

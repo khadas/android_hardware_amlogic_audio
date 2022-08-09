@@ -95,7 +95,7 @@ void android_resample_close(void *handle)
         ALOGE("android resample is NULL\n");
         return;
     }
-    ALOGD("resmaple close\n");
+    ALOGD("resample close\n");
     android_resample_release(handle);
 
     ring_buffer_release(&resample->ring_buf);

@@ -349,7 +349,7 @@ static bool a2dp_state_process(struct aml_audio_device *adev, audio_config_base_
             prepared = true;
         }
     } else if (cur_state == BluetoothStreamState::DISABLED) {
-        // TODO: A2DP is disconncted. do nothing.
+        // TODO: A2DP is disconnected. do nothing.
     } else {
         struct aml_audio_patch *patch = adev->audio_patch;
         if (!(adev->tv_mute && patch)) {

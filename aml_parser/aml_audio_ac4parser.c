@@ -433,7 +433,7 @@ int aml_ac4_parser_process(void *parser_handle, const void *in_buffer, int32_t n
             aml_parser_handle->buf_remain = 0;
             aml_parser_handle->status = PARSER_SYNCING;
         } else {
-            /*internal buf has more data than framsize, we only need part of it*/
+            /*internal buf has more data than framesize, we only need part of it*/
             *output_buf = (void*)(parser_buf);
             *out_size   = frame_size;
             /*move need_size bytes back to original buf*/

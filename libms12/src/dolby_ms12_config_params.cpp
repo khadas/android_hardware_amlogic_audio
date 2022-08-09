@@ -424,7 +424,7 @@ extern "C" void dolby_ms12_set_downmix_modes(int val)
     }
 }
 
-extern "C" void dolby_ms12_set_evalution_mode(int val)
+extern "C" void dolby_ms12_set_evaluation_mode(int val)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
@@ -600,7 +600,7 @@ extern "C" void dolby_ms12_set_heaac_default_dialnorm_value(int val)
     }
 }
 
-extern "C" void dolby_ms12_set_heaac_tranport_format(int val)
+extern "C" void dolby_ms12_set_heaac_transport_format(int val)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();

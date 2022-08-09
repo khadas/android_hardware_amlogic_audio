@@ -174,7 +174,7 @@ int parse_audio_eq_drc_status(char *file_name, struct audio_eq_drc_info_s *p_att
 int parse_audio_eq_drc_table(char *file_name, struct audio_eq_drc_info_s *p_attr);
 int parse_AMP_num(char *file_name, struct eq_drc_data *p_attr);
 void free_eq_drc_table(struct audio_eq_drc_info_s *p_attr);
-int parse_usersetting(char *file_name, struct audio_user_setting_s *user_setting);
+int parse_user_setting(char *file_name, struct audio_user_setting_s *user_setting);
 
 #ifdef __cplusplus
 }

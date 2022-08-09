@@ -43,7 +43,7 @@ void aml_hwsync_wrap_single_set_tsync_pause(void)
 
 void aml_hwsync_wrap_single_set_tsync_resume(void)
 {
-    ALOGI("%s(), send resuem event", __func__);
+    ALOGI("%s(), send resume event", __func__);
     sysfs_set_sysfs_str(TSYNC_EVENT, "AUDIO_RESUME");
 }
 

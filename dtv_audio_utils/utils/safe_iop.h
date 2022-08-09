@@ -21,7 +21,7 @@
  * = 0.3
  * - solidified code into a smaller number of macros and functions
  * - added typeless functions using gcc magic (typeof)
- * - deprecrated old interfaces (-DSAFE_IOP_COMPAT)
+ * - deprecated old interfaces (-DSAFE_IOP_COMPAT)
  * - discover size maximums automagically
  * - separated test cases for easier understanding
  * - significantly expanded test cases
@@ -432,7 +432,7 @@ typedef enum { SAFE_IOP_TYPE_S32 = 1,
     } \
     __sio(var)(ok); })
 
-/* Addreses div by zero and smin -1 */
+/* Addresses div by zero and smin -1 */
 #define safe_sdiv(_ptr, _a, _b) \
  ({ int __sio(var)(ok) = 0; \
     if ((_b) != 0 && \

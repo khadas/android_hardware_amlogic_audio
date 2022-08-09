@@ -115,13 +115,13 @@ status_t DeviceHalLocal::openOutputStream(
             handle, deviceType, flags,
             config->sample_rate, config->format, config->channel_mask,
             address);
-    int openResut = mDev->open_output_stream(
+    int openResult = mDev->open_output_stream(
             mDev, handle, deviceType, flags, config, &halStream, address);
-    if (openResut == OK) {
+    if (openResult == OK) {
         *outStream = new StreamOutHalLocal(halStream, this);
     }
-    ALOGV("open_output_stream status %d stream %p", openResut, halStream);
-    return openResut;
+    ALOGV("open_output_stream status %d stream %p", openResult, halStream);
+    return openResult;
 }
 
 status_t DeviceHalLocal::openInputStream(

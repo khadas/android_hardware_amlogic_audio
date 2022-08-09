@@ -1091,7 +1091,7 @@ int get_the_dolby_ms12_prepared(
         ms12->main_input_sr = input_sample_rate;
         update_drc_parameter_when_output_config_changed(ms12);
 
-        /*if arc is connected, we neesabld diseabl dap*/
+        /*if arc is connected, we need disable dap*/
         if (adev->active_outport == OUTPORT_HDMI_ARC && adev->bHDMIConnected == 1) {
             set_ms12_full_dap_disable(ms12, true);
         }

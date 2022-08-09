@@ -495,7 +495,7 @@ void audio_extn_hfp_set_parameters(struct aml_audio_device *adev, struct str_par
     int rate;
     int val;
     float vol;
-    char value[AUDIO_PARAMATER_HFP_VALUE_MAX] = {0, };
+    char value[AUDIO_PARAMETER_HFP_VALUE_MAX] = {0, };
     AM_LOGD("%s", __func__);
 
     ret = str_parms_get_str(parms, AUDIO_PARAMETER_HFP_ENABLE, value,

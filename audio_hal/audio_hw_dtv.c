@@ -754,7 +754,7 @@ void dtv_audio_gap_monitor(struct aml_audio_patch *patch)
     if (!patch) {
         return;
     }
-    /*[SE][BUG][OTT-7302][zhizhong.zhang] detect audio discontinue by pts-diff*/
+    /*[SE][BUG][OTT-7302] detect audio discontinue by pts-diff*/
     if (patch->dtv_has_video &&
         (patch->last_apts != 0  && patch->last_apts != (unsigned long) - 1) &&
         (patch->last_pcrpts != 0  && patch->last_pcrpts != (unsigned long) - 1)) {
@@ -798,7 +798,7 @@ void dtv_audio_gap_monitor(struct aml_audio_patch *patch)
     }
 }
 
-/*+[SE][BUG][SWPL-14811][zhizhong] add ac3/e-ac3 pcm drop function*/
+/*+[SE][BUG][SWPL-14811] add ac3/e-ac3 pcm drop function*/
 static int dtv_do_drop_ac3_pcm(struct aml_audio_patch *patch,
             struct audio_stream_out *stream_out)
 {
@@ -951,7 +951,7 @@ static int dtv_patch_pcm_write(unsigned char *pcm_data, int size,
     if (pcm_data == NULL || size == 0) {
         return 0;
     }
-    /*[SE][BUG][SWPL-22109][zhizhong] for only inserting case, no need to write*/
+    /*[SE][BUG][SWPL-22109] for only inserting case, no need to write*/
     if (patch->dtv_decoder_state == AUDIO_DTV_PATCH_DECODER_STATE_INIT ||
         (patch->dtv_audio_tune == AUDIO_DROP && patch->pcm_inserting)) {
         return 0;
@@ -3369,7 +3369,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
                         audio_queue_info.tunit = MEDIASYNC_UNIT_PTS;
                         aml_dtvsync_queue_audio_frame(Dtvsync, &audio_queue_info);
                         if (aml_dev->debug_flag > 0)
-                             ALOGI("workingchannel:%d,queue pts:[%" PRIx64 ",%" PRIx64 "], size:%d,"
+                             ALOGI("working_channel:%d,queue pts:[%" PRIx64 ",%" PRIx64 "], size:%d,"
                                    "dur:%d ms, isneedupdate %d.\n",\
                                    audio_queue_info.isworkingchannel, dtv_package->pts,last_queue_es_apts,\
                                    dtv_package->size, audio_queue_info.duration/90,audio_queue_info.isneedupdate);

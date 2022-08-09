@@ -2072,7 +2072,7 @@ int get_media_video_delay(struct aml_mixer_handle *mixer_handle)
 *   Function Name:  aml_get_stream_dump_file_name
 *   Description:    get the stream dump file name
 *   Parameters:
-            audio_format_t audio_format[IN]: output stream foramt
+            audio_format_t audio_format[IN]: output stream format
             char *file_name[out]: stream dump file name
 *   Return value:   return 0
 ******************************************************************************/

@@ -96,7 +96,7 @@ int DolbyMS12::GetLibHandle(char *dolby_ms12_path)
     ALOGD("+%s()", __FUNCTION__);
     //ReleaseLibHandle();
 
-    //here there are two paths, "the DOLBY_MS12_LIB_PATH_A/B", where could exit that dolby ms12 libary.
+    //here there are two paths, "the DOLBY_MS12_LIB_PATH_A/B", where could exit that dolby ms12 library.
     mDolbyMS12LibHandle = dlopen(dolby_ms12_path, RTLD_NOW);
     if (!mDolbyMS12LibHandle) {
         ALOGE("%s, failed to load libdolbyms12 lib %s\n", __FUNCTION__, dlerror());

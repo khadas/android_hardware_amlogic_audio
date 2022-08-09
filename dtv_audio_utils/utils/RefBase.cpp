@@ -45,7 +45,7 @@
 // ---------------------------------------------------------------------------
 // Observations, invariants, etc:
 
-// By default, obects are destroyed when the last strong reference disappears
+// By default, objects are destroyed when the last strong reference disappears
 // or, if the object never had a strong reference, when the last weak reference
 // disappears.
 //
@@ -563,7 +563,7 @@ bool RefBase::weakref_type::attemptIncStrong(const void* id)
                     break;
                 }
                 // the strong count has changed on us, we need to re-assert our
-                // situation (e.g.: another thread has inc/decStrong'ed us)
+                // situation (e.g.: another thread has inc/Strong us)
                 // curCount has been updated.
             }
 

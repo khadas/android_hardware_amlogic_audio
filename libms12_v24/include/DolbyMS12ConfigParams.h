@@ -529,13 +529,13 @@ public:
 
     virtual void setLegacyDDPOut(bool isLegacyDDPOut)
     {
-        mIsLegecyDDPOut = isLegacyDDPOut;
-        ALOGI("%s() mIsLegecyDDPOut %d\n", __FUNCTION__, mIsLegecyDDPOut);
+        mIsLegacyDDPOut = isLegacyDDPOut;
+        ALOGI("%s() mIsLegacyDDPOut %d\n", __FUNCTION__, mIsLegacyDDPOut);
     }
 
     virtual bool getLegacyDDPOut(void)
     {
-        return mIsLegecyDDPOut;
+        return mIsLegacyDDPOut;
     }
 
     virtual void setInputCMDMask(const char *input_cmd);
@@ -739,7 +739,7 @@ private:
         .duration = 0,
         .shape = 0,
     };//System sound mixer gain values for System Sounds input
-    bool mIsLegecyDDPOut;
+    bool mIsLegacyDDPOut;
     int mDolbyInputCMDMask;
     bool mEnforceTimeslice;
     bool mTVTuningFlag;

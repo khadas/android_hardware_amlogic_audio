@@ -23,7 +23,7 @@
 #include "sonic_speed_wrapper.h"
 
 
-#define OUPUT_BUF_SIZE (1024 * 64)
+#define OUTPUT_BUF_SIZE (1024 * 64)
 #define MINUM_SPEED_OUTPUT_FRAMES 512
 
 
@@ -118,9 +118,9 @@ int sonic_speed_process(void *handle, void * in_buffer, size_t bytes, void * out
     ALOGV("input_size = %zu, speed_frames = %d \n", bytes, speed_frames);
 
     *out_size = speed_frames * framesize;
-    if (*out_size > OUPUT_BUF_SIZE) {
+    if (*out_size > OUTPUT_BUF_SIZE) {
          ALOGW("sonic_speed out_size  %zu overflow !!", *out_size);
-         *out_size = OUPUT_BUF_SIZE;
+         *out_size = OUTPUT_BUF_SIZE;
     }
     return 0;
 }

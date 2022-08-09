@@ -471,7 +471,7 @@ write:
         ALOGE("%s: pcm is null", __func__);
         return bytes;
     }
-    /*+[SE][BUG][SWPL-14811][zhizhong] add drop ac3 pcm function*/
+    /*+[SE][BUG][SWPL-14811] add drop ac3 pcm function*/
     if (adev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0 && adev->audio_patch != NULL) {
         if (aml_out->need_drop_size >= (int)bytes) {
             aml_out->need_drop_size -= bytes;

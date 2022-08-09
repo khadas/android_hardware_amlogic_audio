@@ -24,7 +24,7 @@
 /*#define DEFAULT_READ_SIZE 1024
 int fp_cur_pos = 0;
 long file_length = 0;
-static int get_file_lenght(char *file_path) {
+static int get_file_length(char *file_path) {
     //char system_file_path[PROPERTY_VALUE_MAX];
     //memcpy(file_path,path,strlen(path));
     //int ret =property_get(FilePath, (char *)path, NULL);
@@ -155,7 +155,7 @@ int main(int argc, char** argv) {
     int read_size = 0;
     int actual_write_size = 0;
     ALOGI("argc:%d argv:%s",argc,argv[1]);
-    get_file_lenght(filepath);
+    get_file_length(filepath);
     do {
         read_size = read_data_from_test_file(filepath,(void *)buffer, size);
         //aml_audio_dump_audio_bitstreams("/data/dump.es", buffer, read_size);

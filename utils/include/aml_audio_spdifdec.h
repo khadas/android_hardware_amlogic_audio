@@ -24,7 +24,7 @@ int aml_spdif_decoder_getformat(void *phandle);
 int aml_spdif_decoder_reset(void *phandle);
 
 
-/*IEC61937 package presamble Pc value 0-4bit*/
+/*IEC61937 package preamble Pc value 0-4bit*/
 enum IEC61937_PC_Value {
     IEC61937_NULL               = 0x00,          ///< NULL data
     IEC61937_AC3                = 0x01,          ///< AC-3 data

@@ -26,7 +26,7 @@
 #include <aml_data_utils.h>
 
 /******************************************************************************
- * All parttens of channel maps@xiaomi
+ * All patterns of channel maps@xiaomi
  *****************************************************************************/
 struct aml_channel_map atmos_maps[8] = {
 	{AML_CH_IDX_L,   AML_I2S_PORT_IDX_01, AML_I2S_CHANNEL_0,                                    0,    AML_I2S_CHANNEL_0},
@@ -150,7 +150,7 @@ static int dump_channel_map(const char *prj, struct aml_channel_map *maps)
 	return 0;
 }
 
-static int testpartten_chmap(const char *prj, struct aml_channel_map *maps)
+static int testpattern_chmap(const char *prj, struct aml_channel_map *maps)
 {
 	int num, i;
 	int port;
@@ -182,7 +182,7 @@ static int testpartten_chmap(const char *prj, struct aml_channel_map *maps)
 }
 
 /******************************************************************************
- *  DATA TEST PARTTENS
+ *  DATA TEST PATTERNS
  *****************************************************************************/
 int16_t data16[8*8] = {
 	0x1101, 0x1102, 0x1103, 0x1104, 0x1105, 0x1106, 0x1107, 0x1108,
@@ -234,7 +234,7 @@ int _dump_data(void *buf, int channels, int framesz, int frames)
 /**
  **        empty
  */
-static int testpartten_empty(struct  aml_channel_map *map)
+static int testpattern_empty(struct  aml_channel_map *map)
 {
 	int bit_empty = 0;
 
@@ -262,7 +262,7 @@ static int testpartten_empty(struct  aml_channel_map *map)
 /**
  **        invert
  */
-static int testpartten_invert(struct  aml_channel_map *map)
+static int testpattern_invert(struct  aml_channel_map *map)
 {
 	int bit_mask = 0;
 
@@ -289,7 +289,7 @@ static int testpartten_invert(struct  aml_channel_map *map)
 /**
  **        exchange
  */
-static int testpartten_exchange(struct  aml_channel_map *map)
+static int testpattern_exchange(struct  aml_channel_map *map)
 {
 	if (map == NULL)
 		return -1;
@@ -322,7 +322,7 @@ int16_t remix16[6*8] = {
 	0x1171, 0x1172, 0x1173, 0x1174, 0x1175, 0x1176,
 };
 
-static int testpartten_remix(struct  aml_channel_map *map)
+static int testpattern_remix(struct  aml_channel_map *map)
 {
 	int16_t rdata_16[6*8] = {0};
 	int i;
@@ -353,7 +353,7 @@ static int testpartten_remix(struct  aml_channel_map *map)
 /**
  **        ditter
  */
-static int testpartten_ditter(struct aml_channel_map *map)
+static int testpattern_ditter(struct aml_channel_map *map)
 {
 	if (map == NULL)
 		return -1;
@@ -431,7 +431,7 @@ int32_t sub4_32[T_FRAMES*T_CHNUM_SUB4] = {
 	0x11111117, 0x11111118,
 };
 
-static int testpartten_concat(struct aml_channel_map *map)
+static int testpattern_concat(struct aml_channel_map *map)
 {
 	if (map == NULL)
 		return -1;
@@ -487,7 +487,7 @@ int16_t lfe_d_16[T_RP_LFE*T_RP_FRAMES] = {
 	0x0eee, 0x0ccc,
 };
 
-static int testpartten_replace(struct  aml_channel_map *map)
+static int testpattern_replace(struct  aml_channel_map *map)
 {
 	if (map == NULL)
 		return -1;
@@ -535,7 +535,7 @@ int16_t ex_in_d_16[8*2] = {
 	0x1171, 0x1172,
 };
 
-static int testpartten_extend(struct  aml_channel_map *map)
+static int testpattern_extend(struct  aml_channel_map *map)
 {
 	if (map == NULL)
 		return -1;
@@ -583,7 +583,7 @@ int16_t ext_16[8*2] = {
 	0x0000, 0x0000,
 };
 
-static int testpartten_extract(struct  aml_channel_map *map)
+static int testpattern_extract(struct  aml_channel_map *map)
 {
 	if (map == NULL)
 		return -1;
@@ -621,41 +621,41 @@ int main(void)
 #if 0
 	// case1: channel map, PASS
 #if 0
-	testpartten_chmap("Missionimpossible", mi_maps);
-	testpartten_chmap("Pulpfiction", pulpfiction_maps);
-	testpartten_chmap("Matrix", matrix_maps);
-	testpartten_chmap("Rainman", rainman_maps);
+	testpattern_chmap("Missionimpossible", mi_maps);
+	testpattern_chmap("Pulpfiction", pulpfiction_maps);
+	testpattern_chmap("Matrix", matrix_maps);
+	testpattern_chmap("Rainman", rainman_maps);
 #else
-	testpartten_chmap("Atmos", atmos_maps);
+	testpattern_chmap("Atmos", atmos_maps);
 #endif
 #endif
 
 #if 0
 	// case2: empty, PASS
-	testpartten_empty(map);
+	testpattern_empty(map);
 	// case3: invert, PASS
-	testpartten_invert(map);
+	testpattern_invert(map);
 	// case4: exchange, PASS
-	testpartten_exchange(map);
+	testpattern_exchange(map);
 	// case5: remix,                 !!!Support 16bit only
-	testpartten_remix(map);
+	testpattern_remix(map);
 #endif
 	// case6: ditter,                !!!Support 16bit/8ch only
-	testpartten_ditter(map);
+	testpattern_ditter(map);
 
 #if 0
 	// case7: concat,                !!!only support same frame sz
-	testpartten_concat(map);
+	testpattern_concat(map);
 #endif
 
 #if 0
 	// case8: replace lfe,           !!!only support all_6ch&lfe_2ch.
-	testpartten_replace(map);
+	testpattern_replace(map);
 	// case9: extend,                !!!16bit only now
-	testpartten_extend(map);
+	testpattern_extend(map);
 	// case10: extract,
 	map = mi_maps;
-	testpartten_extract(map);
+	testpattern_extract(map);
 #endif
 
 	return 0;

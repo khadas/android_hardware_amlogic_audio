@@ -1199,7 +1199,7 @@ int pcm_mmap_begin(struct pcm *pcm, void **areas, unsigned int *offset,
         avail = pcm->buffer_size;
     continuous = pcm->buffer_size - *offset;
 
-    /* we can only copy frames if the are availabale and continuos */
+    /* we can only copy frames if the are available and continuous */
     copy_frames = *frames;
     if (copy_frames > avail)
         copy_frames = avail;
