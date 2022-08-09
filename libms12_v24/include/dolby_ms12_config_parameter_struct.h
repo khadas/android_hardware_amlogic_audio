@@ -110,7 +110,7 @@ typedef struct
 {
     int mode; // (0,1,2, def 1)
     int boost; // (0..96, def: 96)
-}DAPSurVirtulizer;
+}DAPSurVirtualizer;
 
 enum {
     FULL_HDMI_OUTPUT,

@@ -82,7 +82,7 @@
  */
 struct HIDE _TSPUnion_impl {
     /**
-     * Calls placement constuctor for type T with arbitrary arguments for a storage at an address.
+     * Calls placement constructor for type T with arbitrary arguments for a storage at an address.
      * Storage MUST be large enough to contain T.
      * Also clears the slack space after type T. \todo This is not technically needed, so we may
      * choose to do this just for debugging.
@@ -100,7 +100,7 @@ struct HIDE _TSPUnion_impl {
     }
 
     /**
-     * Calls destuctor for an object of type T located at a specific address.
+     * Calls destructor for an object of type T located at a specific address.
      *
      * \note we do not clear the storage in this case as the storage should not be used
      * until another object is placed there, at which case the storage will be cleared.
@@ -715,7 +715,7 @@ public:
         static constexpr Flag flagFor(wp<T>*p) { return relaxedFlagFor(p, (T*)0); }
 
         /**
-         * Type support template that provodes the stored type for T.
+         * Type support template that provides the stored type for T.
          * This is itself if it is one of Ts, or the first type in Ts that T is convertible to.
          *
          * NOTE: This template may provide a base class for an unsupported type. Support is

@@ -7,7 +7,7 @@
 // libhardware/hardware.c
 //
 // The format of the name is audio.<type>.<hardware/etc>.so where the only
-// required type is 'primary'. Other possibilites are 'a2dp', 'usb', etc.
+// required type is 'primary'. Other possibilities are 'a2dp', 'usb', etc.
 
 package {
     // See: http://go/android-license-faq

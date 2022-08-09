@@ -245,7 +245,7 @@ private:
 ANDROID_TRIVIAL_MOVE_TRAIT(String8)
 
 // ---------------------------------------------------------------------------
-// No user servicable parts below.
+// No user serviceable parts below.
 
 inline int compare_type(const String8& lhs, const String8& rhs)
 {

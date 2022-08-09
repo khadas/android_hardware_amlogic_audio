@@ -15,7 +15,6 @@
  */
 
 /*
- * Author:  Shoufu Zhao <shoufu.zhao@amlogic.com>
  */
 
 #ifndef __INI_PARSER_H__

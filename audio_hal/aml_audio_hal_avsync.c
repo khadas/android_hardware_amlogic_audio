@@ -307,7 +307,7 @@ unsigned long dtv_hal_get_pts(struct aml_audio_patch *patch,
     }
 
     val = pts - latency * 90;
-    /*+[SE][BUG][SWPL-14811][zhizhong] set the real apts to last_valid_pts for sum cal*/
+    /*+[SE][BUG][SWPL-14811] set the real apts to last_valid_pts for sum cal*/
     patch->last_valid_pts = val;
     patch->outlen_after_last_validpts = 0;
     if (aml_audio_get_debug_flag()) {
@@ -1644,7 +1644,7 @@ void dtv_avsync_process(struct aml_audio_patch* patch, struct aml_stream_out* st
             is_dolby_ms12_support_compression_format(patch->aformat)) || patch->skip_amadec_flag) {
         if (stream_out != NULL) {
             if (!patch->skip_amadec_flag) {
-                /*+[SE][BUG][SWPL-26557][zhizhong] for the passthrough set pre latency default*/
+                /*+[SE][BUG][SWPL-26557] for the passthrough set pre latency default*/
                 if (aml_dev->sink_format == AUDIO_FORMAT_E_AC3 ||
                     aml_dev->sink_format == AUDIO_FORMAT_AC3)
                     audio_output_delay += patch->pre_latency;

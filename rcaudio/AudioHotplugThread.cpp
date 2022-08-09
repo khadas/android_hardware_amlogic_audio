@@ -288,7 +288,7 @@ bool AudioHotplugThread::getDeviceInfo(const unsigned int hidrawIndex,
     ALOGD("%s info.bustype:0x%x, info.vendor:0x%x, info.product:0x%x\n",
         __FUNCTION__, devInfo.bustype, devInfo.vendor, devInfo.product);
 
-    /*please define array for differnt vid&pid with the same rc platform*/
+    /*please define array for different vid&pid with the same rc platform*/
     if (devInfo.bustype == BUS_BLUETOOTH) {
         info->forVoiceRecognition = true;
         info->hidraw_index = hidrawIndex;

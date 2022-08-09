@@ -79,8 +79,8 @@ static void earc_cds_conf_to_str(char *earc_cds, char *cds_str, int hex)
     }
 
     if (!hex) {
-        int lenth = strlen(cds_str);
-        cds_str[lenth - 2] = '\0';
+        int length = strlen(cds_str);
+        cds_str[length - 2] = '\0';
     }
 
     ALOGI("%s, bytes:%d, cds_str:%s:end\n", __FUNCTION__, n, cds_str);
@@ -118,7 +118,7 @@ static void earc_cds_str_to_conf(char *cds_str, char *earc_cds)
     earc_cds[1] = 0x1;
     /* Block len */
     earc_cds[2] = len + 1;
-    /* Tag = 1, lenght of SADs */
+    /* Tag = 1, length of SADs */
     earc_cds[3] =  (0x1 << 5) | (len & 0x1f);
 
 }

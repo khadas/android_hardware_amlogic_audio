@@ -32,7 +32,7 @@ int spdif_encoder_ad_init(void **pphandle, audio_format_t format, const void *ou
 int spdif_encoder_ad_deinit(void *phandle);
 
 /*
- *@brief send the data to spdif encoder advaned
+ *@brief send the data to spdif encoder advanced
  */
 int spdif_encoder_ad_write(void *phandle, const void *buffer, size_t numBytes);
 

@@ -50,7 +50,7 @@ int _copy_file(const char *src_file_name, const char *des_file_name)
     FILE *fp_des = NULL;
 
     if ((NULL == src_file_name) || (NULL == des_file_name)) {
-        ALOGE("[%s:%d]sourece file doesn't exist!\n", __FUNCTION__, __LINE__);
+        ALOGE("[%s:%d]source file doesn't exist!\n", __FUNCTION__, __LINE__);
         return -1;
     }
 
@@ -237,7 +237,7 @@ int parser_load_from_file(struct parser *pParser, const char *filename)
 
     // parse line by line
     while (fgets(lineStr, MAX_INI_FILE_LINE_LEN, pParser->m_pIniFile) != NULL) {
-        /* remove invaild info */
+        /* remove invalid info */
         _delete_all_trim(lineStr);
 
         /* initial one new line structrue */

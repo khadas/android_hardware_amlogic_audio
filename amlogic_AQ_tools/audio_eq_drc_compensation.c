@@ -258,13 +258,13 @@ static int drc_set(struct eq_drc_data *pdata)
         name = pdata->aml_attr->mdrc.mdrc_table_name;
         table = pdata->aml_attr->mdrc.mdrc_table;
 
-        /*mulitband drc setting*/
+        /*multiband drc setting*/
         aml_table_set(table, pdata->card, name);
 
         name = pdata->aml_attr->mdrc.crossover_table_name;
         table = pdata->aml_attr->mdrc.crossover_table;
 
-        /*mulitband drc crossover setting*/
+        /*multiband drc crossover setting*/
         aml_table_set(table, pdata->card, name);
     }
     return 0;
@@ -430,7 +430,7 @@ int eq_drc_init(struct eq_drc_data *pdata)
         parse_audio_eq_drc_table(dev_cfg[0].ini_file, pdata->aml_attr);
         eq_mode_set(pdata, 0);
         drc_set(pdata);
-        parse_usersetting(dev_cfg[0].ini_file, &pdata->user_setting);
+        parse_user_setting(dev_cfg[0].ini_file, &pdata->user_setting);
     }
 
     ret = parse_audio_sum(filename, model_name, &dev_cfg[1]);
@@ -569,11 +569,11 @@ int set_AQ_parameters(struct audio_hw_device *dev, struct str_parms *parms)
 
     ret = str_parms_get_str(parms, "aq_tuning", value, sizeof(value));
     if (ret >= 0) {
-        /* DTS Trusurround */
+        /* DTS Tru_surround */
         parm = strstr(value, "dts_ts");
         if (parm) {
             parm += 7;
-            ALOGI("%s() DTS Trusurround Parameters:%s", __func__, parm);
+            ALOGI("%s() DTS Tru_surround Parameters:%s", __func__, parm);
             set_aml_dts_effect_param(&adev->native_postprocess, parm);
             goto exit;
         }
@@ -683,11 +683,11 @@ int set_AQ_parameters(struct audio_hw_device *dev, struct str_parms *parms)
             ALOGI("%s() Volume Curve Parameters:%s, %fdB [%f]", __func__, parm, volume, gain);
             goto exit;
         }
-        /* Audio Prescaler */
+        /* Audio Pre_scaler */
         parm = strstr(value, "ap");
         if (parm) {
             parm += 3;
-            ALOGI("%s() Audio Prescaler Parameters:%s", __func__, parm);
+            ALOGI("%s() Audio Pre_scaler Parameters:%s", __func__, parm);
             parm = strstr(value, "-spk");
             if (parm) {
                 parm += 5;

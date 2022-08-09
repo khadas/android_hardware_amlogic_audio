@@ -20,7 +20,7 @@ func audio_hidl_Defaults(ctx android.LoadHookContext) {
     }
     p := &propsE{}
 
-    // After Andriod T, PlatformVndkVersion return string like "Tiramisu", not string number like "32"
+    // After Android T, PlatformVndkVersion return string like "Tiramisu", not string number like "32"
     PlatformVndkVersion := ctx.DeviceConfig().PlatformVndkVersion()
     //fmt.Println("PlatformVndkVersion:", PlatformVndkVersion)
 

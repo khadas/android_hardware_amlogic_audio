@@ -309,14 +309,14 @@ static int aml_spdif_decoder_do_quick_sync
     spdifdec_buf = spdif_dec_handle->buf;
     *buf_left = n_bytes_inbuf;
 
-    /*if we have enough data and we are doing syncing, we can sync the header quickly in origial buf*/
+    /*if we have enough data and we are doing syncing, we can sync the header quickly in original buf*/
     is_quick_sync_suitable = ((spdif_dec_handle->buf_remain == 0) &&
                             (spdif_dec_handle->status == SPDIF_DEC_SYNCING) &&
                             (n_bytes_inbuf >= IEC61937_HEADER_SIZE));
 
     if (is_quick_sync_suitable) {
         *sync_word_offset = seek_61937_sync_word((char*)buffer, n_bytes_inbuf);
-        /*to avoid the case the sync word accross the input buf, we need copy the last 3 bytes*/
+        /*to avoid the case the sync word across the input buf, we need copy the last 3 bytes*/
         if (*sync_word_offset < 0) {
             memcpy( spdifdec_buf, buffer + n_bytes_inbuf - IEC61937_HEADER_COPY_SIZE, IEC61937_HEADER_COPY_SIZE);
             spdif_dec_handle->buf_remain += IEC61937_HEADER_COPY_SIZE;

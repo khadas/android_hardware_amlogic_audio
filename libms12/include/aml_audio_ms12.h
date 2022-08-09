@@ -83,7 +83,7 @@ struct dolby_ms12_desc {
     */
     pthread_mutex_t lock;
     /*
-    for higher effiency we dot use the the lock for main write
+    for higher efficiency we dot use the the lock for main write
     function,as ms clear up may called by binder  thread
     we need protect the risk situation
     */
@@ -107,7 +107,7 @@ struct dolby_ms12_desc {
 
     // for DDP stream, the input frame is 768/1537/1792(each 32ms)
     // May change through playback.
-    // here to caculate average frame size;
+    // here to calculate average frame size;
     int avgDdpFramesize;
     // the input signal atmos info
     int is_dolby_atmos;
@@ -182,10 +182,10 @@ struct dolby_ms12_desc {
 };
 
 /*
- *@brief this function is get the ms12 suitalbe output format
+ *@brief this function is get the ms12 suitable output format
  *       1.input format
  *       2.EDID pcm/dd/dd+
- *       3.system settting
+ *       3.system setting
  * TODO, get the suitable format
  */
 audio_format_t get_dolby_ms12_suitable_output_format(void);

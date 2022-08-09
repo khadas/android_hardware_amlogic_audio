@@ -15,7 +15,6 @@
  */
 
 /*
- * Author:  Shoufu Zhao <shoufu.zhao@amlogic.com>
  */
 
 #define LOG_TAG "IniParser"

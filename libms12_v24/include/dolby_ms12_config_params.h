@@ -27,11 +27,11 @@
 extern "C" {
 #endif
 /**
- * @brief Set assciate flag
+ * @brief Set associate flag
  */
 void dolby_ms12_config_params_set_associate_flag(bool flag);
 /**
- * @brief Get assciate flag
+ * @brief Get associate flag
  */
 bool dolby_ms12_config_params_get_associate_flag(void);
 
@@ -268,7 +268,7 @@ void dolby_ms12_set_downmix_modes(int val);
  * 0 = off (default)
  * 1 = on
  */
-void dolby_ms12_set_evalution_mode(int val);
+void dolby_ms12_set_evaluation_mode(int val);
 
 /**
  * @brief Downmix 7.1 PCM signal to 5.1 on the multichannel outputs
@@ -397,7 +397,7 @@ void dolby_ms12_set_ac4_ac(int val);
 
 /**
  * @brief [ac4] Preferred presentation selection by associated type over language
- * 0: Perfer selection by language
+ * 0: Prefer selection by language
  * 1: Prefer selection by associated type (default)
  */
 void dolby_ms12_set_ac4_pat(int val);

@@ -190,7 +190,7 @@ bool Check_VX_lib(void)
 
 typedef enum {
     SRS_PARAM_MODE = 0,
-    SRS_PARAM_DIALOGCLARTY_MODE,
+    SRS_PARAM_DIALOG_CLARITY_MODE,
     SRS_PARAM_SURROUND_MODE,
     SRS_PARAM_VOLUME_MODE,
     SRS_PARAM_ENABLE,
@@ -199,7 +199,7 @@ typedef enum {
     SRS_PARAM_TRUEBASS_SPKER_SIZE,
     SRS_PARAM_TRUEBASS_GAIN,
     SRS_PARAM_DIALOG_CLARITY_ENABLE,
-    SRS_PARAM_DIALOGCLARTY_GAIN,
+    SRS_PARAM_DIALOG_CLARITY_GAIN,
     SRS_PARAM_DEFINITION_ENABLE,
     SRS_PARAM_DEFINITION_GAIN,
     SRS_PARAM_SURROUND_ENABLE,
@@ -284,7 +284,7 @@ int set_aml_dts_effect_param(struct aml_native_postprocess *native_postprocess, 
     if (ptr) {
         sscanf(ptr + 5, "%d", &value);
         ALOGI("%s() Set DTS Parameters:%s, Dialog Clarity Gain = %d", __func__, ptr, value);
-        *(int32_t *)p->data = SRS_PARAM_DIALOGCLARTY_GAIN;
+        *(int32_t *)p->data = SRS_PARAM_DIALOG_CLARITY_GAIN;
         *((float *)p->data + 1) = (float) value/100;
         (*effect)->command(effect, EFFECT_CMD_SET_PARAM, cmdSize, (void *)p, &replySize, &replyData);
         goto exit;
@@ -416,7 +416,7 @@ int get_aml_dts_effect_param(struct aml_native_postprocess *native_postprocess, 
     }
     ptr = strstr(keys, "aq_tuning_dts_ts_dcv");
     if (ptr) {
-        *(int32_t *)p->data = SRS_PARAM_DIALOGCLARTY_GAIN;
+        *(int32_t *)p->data = SRS_PARAM_DIALOG_CLARITY_GAIN;
         (*effect)->command(effect, EFFECT_CMD_GET_PARAM, cmdSize, (void *)p, &replySize, (void *)p);
         scale = *((float *)p->data + 1);
         value = (int)round(scale * 100);

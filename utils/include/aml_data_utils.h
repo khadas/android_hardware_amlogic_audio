@@ -76,9 +76,9 @@ typedef enum CHANNEL_ON_I2S_BIT_MASK{
 
 struct aml_channel_map {
 	eChannelContentIdx channel_idx;
-	// WARNNING: support map to only one i2s data line
+	// WARNING: support map to only one i2s data line
 	eI2SDataLineIdx    i2s_idx;
-	// WARNNING: may be one channel will map to 2 i2s data channel
+	// WARNING: may be one channel will map to 2 i2s data channel
 	// eg, i2s_23 -> lfe/lfe
 	eChOnI2SBitMask    bit_mask;
 	// invert
@@ -200,10 +200,10 @@ int data_exchange_i2s_channels(
  * Description:
  *     replace lfe data
  * Input:
- *     out_channles            - channel count of putput data
+ *     out_channels            - channel count of putput data
  *     out_framesz             - frame size of output
  *     input_lfe_buffer        - input lfe data
- *     in_channles             - channel count of input data
+ *     in_channels             - channel count of input data
  *     in_framesz              - frame size of input
  *     frames                  - frame count
  *     channel_insert_bit_mask - eChOnI2SBitMask, bit mask of lfe channel
@@ -213,10 +213,10 @@ int data_exchange_i2s_channels(
  *****************************************************************************/
 int data_replace_lfe_data(
 	void    *out_buf,
-	size_t  out_channles,
+	size_t  out_channels,
 	size_t  out_framesz,
 	void    *input_lfe_buffer,
-	size_t  in_channles,
+	size_t  in_channels,
 	size_t  in_framesz,
 	size_t  frames,
 	int     channel_insert_bit_mask);
@@ -323,7 +323,7 @@ int data_extend_channels(
  *     out_framesz              - frame size of output data
  *     in_buf                   - input buffer
  *     in_channels              - channel count of input
- *     in_framesz               - frame szie of input data
+ *     in_framesz               - frame size of input data
  *     frames                   - frame count
  *     channel_extract_bit_mask - eChOnI2SBitMask, ch mask will be extract
  * Output:
