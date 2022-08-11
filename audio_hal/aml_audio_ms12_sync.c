@@ -751,7 +751,7 @@ uint32_t out_get_ms12_latency_frames(struct audio_stream_out *stream)
     struct pcm_config *config = &adev->ms12_config;
     int mul = 1;
 
-    if (continuous_mode(adev)) {
+    if (continuous_mode(adev) && adev->ms12.dolby_ms12_enable) {
         ms12_out = adev->ms12_out;
     } else {
         ms12_out = hal_out;
