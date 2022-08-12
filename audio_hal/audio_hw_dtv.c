@@ -541,7 +541,7 @@ static int dtv_patch_status_info(void *args, INFO_TYPE_E info_flag)
         ret = get_buffer_read_space(ringbuffer);
     else if (info_flag == AD_MIXING_ENABLE) {
         ret = demux_info->associate_audio_mixing_enable;
-    } else if (info_flag == AD_MIXING_LEVLE)
+    } else if (info_flag == AD_MIXING_LEVEL)
         ret = demux_info->mixing_level;
     else if (info_flag == AD_MIXING_PCMSCALE)
         ret = demux_info->advol_level;
@@ -1278,7 +1278,7 @@ void audio_dtv_underrun_loop_mute_check(struct aml_audio_patch *patch,
             mutetime_ms = calc_time_interval_us(&(dtv_sync_para->underrun_mute_starttime),
                                                 &cur_time) / 1000;
             if (dtv_patch_get_audio_loop()) {
-                checkin_discontinue_apts = dtv_patch_get_checkin_dicontinue_apts();
+                checkin_discontinue_apts = dtv_patch_get_checkin_discontinue_apts();
                 if ((patch->cur_outapts >= checkin_discontinue_apts &&
                     (patch->cur_outapts - checkin_discontinue_apts) < 3000*90) ||
                     mutetime_ms > dtv_sync_para->underrun_mute_time_max) {
@@ -4486,7 +4486,7 @@ int audio_get_sample_rate_channels(int *sample_rate, int *channels, int *lfepres
     if (sample_rate == NULL && channels == NULL && lfepresent == NULL) {
         return -1;
     }
-    ret = dtv_audio_decpara_get(sample_rate, channels, lfepresent);
+    ret = dtv_audio_dec_para_get(sample_rate, channels, lfepresent);
     return ret;
 }
 
