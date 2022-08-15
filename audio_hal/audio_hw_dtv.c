@@ -4454,8 +4454,15 @@ int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, con
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
     aml_demux_audiopara_t *dmx_info = &dtv_audio_instances->demux_info[path_id];
-    audio_hwsync_t *hw_sync = aml_out->hwsync;
     struct aml_audio_patch *audio_patch = adev->audio_patch;
+    if (aml_out->hwsync == NULL) {
+        aml_out->hwsync = aml_audio_calloc(1, sizeof(audio_hwsync_t));
+        if (!aml_out->hwsync) {
+            ALOGE("%s,malloc hwsync failed", __func__);
+            return total_bytes;
+        }
+    }
+    audio_hwsync_t *hw_sync = aml_out->hwsync;
 
     while (bytes_cost < total_bytes) {
         uint64_t  cur_pts = ULLONG_MAX;//defined in limits.h
