@@ -1251,7 +1251,7 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
         } else {
             frame_latency = get_ms12_nontunnel_latency_offset(adev->active_outport,
                                                                out->hal_internal_format,
-                                                               adev->ms12.sink_format,
+                                                               adev->sink_format,
                                                                adev->is_netflix,
                                                                platform_type,
                                                                is_earc) * 48;
