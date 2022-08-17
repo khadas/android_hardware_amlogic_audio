@@ -1268,6 +1268,25 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
             pthread_mutex_unlock(&adev->lock);
             goto exit;
         }
+
+        int presentation_id = -1;
+        ret = str_parms_get_int(parms, AUDIO_PARAMETER_STREAM_PRESENTATION_ID, &presentation_id);
+        if (ret >= 0) {
+            struct dolby_ms12_desc *ms12 = &(adev->ms12);
+            ALOGI("presentation_id %d ", presentation_id);
+            pthread_mutex_lock(&ms12->lock);
+            set_ms12_ac4_presentation_group_index(ms12, presentation_id);
+            pthread_mutex_unlock(&ms12->lock);
+            int program_id = -1;
+            ret = str_parms_get_int (parms, AUDIO_PARAMETER_STREAM_PROGRAM_ID, &program_id);
+            if (ret >= 0) {
+                 ALOGI("program_id %d ", program_id);
+                  pthread_mutex_lock(&ms12->lock);
+                  set_ms12_ac4_short_prog_identifier(ms12, program_id);
+                  pthread_mutex_unlock(&ms12->lock);
+            }
+            goto exit;
+        }
     }
 exit:
     str_parms_destroy (parms);

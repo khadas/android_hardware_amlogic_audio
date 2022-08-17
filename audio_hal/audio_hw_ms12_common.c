@@ -626,4 +626,11 @@ void set_ms12_ac4_prefer_presentation_selection_by_associated_type_over_language
         aml_ms12_update_runtime_params(ms12, parm);
 }
 
+void set_ms12_ac4_short_prog_identifier(struct dolby_ms12_desc *ms12, int short_program_identifier)
+{
+    char parm[64] = "";
+    sprintf(parm, "%s %d", "-ac4_short_prog_id", short_program_identifier);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
 

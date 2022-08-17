@@ -100,6 +100,7 @@ void set_ms12_full_dap_disable(struct dolby_ms12_desc *ms12, int full_dap_disabl
 /* @brief set ms12 multi_channel enable [0/1] */
 void set_ms12_mc_enable(struct dolby_ms12_desc *ms12, int mc_enable);
 
+
 //-lang               * <str> [ac4] 1st Preferred Language code (3 Letter ISO 639)
 void set_ms12_ac4_1st_preferred_language_code(struct dolby_ms12_desc *ms12, char *lang_iso639_code);
 //-lang2              * <str> [ac4] 2nd Preferred Language code (3 Letter ISO 639)
@@ -111,5 +112,7 @@ void set_ms12_ac4_2nd_preferred_language_code(struct dolby_ms12_desc *ms12, char
 #define PERFER_SELECTION_BY_AD_TYPE  (1)
 void set_ms12_ac4_prefer_presentation_selection_by_associated_type_over_language(struct dolby_ms12_desc *ms12, int prefer_selection_type);
 
+//-ac4_short_prog_id  * <int> [ac4] The short program identifier as an 16 bit unsigned value or -1 for no program ID (default)
+void set_ms12_ac4_short_prog_identifier(struct dolby_ms12_desc *ms12, int short_program_identifier);
 
 #endif //end of _AUDIO_HW_MS12_COMMON_H_
