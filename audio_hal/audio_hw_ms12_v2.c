@@ -1423,7 +1423,7 @@ int dolby_ms12_main_process(
             aml_audio_dump_audio_bitstreams("/data/audio/ms12_in_audio_ad.es",
             associate_frame_buffer, associate_frame_size);*/
             if (adev->debug_flag >= 2) {
-                ALOGI("%s line %d input_bytes %d syncword %d + 4bytes + main len %d + 4bytes + ad len %d", __func__, __LINE__, input_bytes, 2 * sizeof(uint32_t), main_frame_size, associate_frame_size);
+                ALOGI("%s line %d input_bytes %zu syncword %zu + 4bytes + main len %d + 4bytes + ad len %d", __func__, __LINE__, input_bytes, 2 * sizeof(uint32_t), main_frame_size, associate_frame_size);
             }
         }
         /*

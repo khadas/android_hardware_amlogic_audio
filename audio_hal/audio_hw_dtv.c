@@ -2786,7 +2786,7 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
 
             if (8 + sizeof(int32_t) + main_frame_size + sizeof(int32_t) + ad_frame_size > EAC3_IEC61937_FRAME_SIZE) {
                 ALOGE("package size too large, main_size %d ad_size %d total %d\n",
-                    main_frame_size, ad_frame_size, 8 + sizeof(int32_t) + main_frame_size + sizeof(int32_t) + ad_frame_size);
+                    main_frame_size, ad_frame_size, 8 + (int )sizeof(int32_t) + main_frame_size + (int )sizeof(int32_t) + ad_frame_size);
                 return ret;
             }
 
@@ -2947,7 +2947,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
 
         int nRet = 0;
         if (!aml_dev->is_multi_demux) {
-            ALOGV("patch->input_skipped_bytes %llu",patch->input_skipped_bytes);
+            //ALOGV("patch->input_skipped_bytes %llu",patch->input_skipped_bytes);
             pthread_mutex_lock(&patch->mutex);
             path_index = dtv_audio_instances->demux_index_working;
             demux_handle = dtv_audio_instances->demux_handle[path_index];
@@ -3116,11 +3116,11 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     if (mAdEsData) {
                         demux_info->ad_package_status = AD_PACK_STATUS_NORMAL;
                         if (need_ad_main_align) {
-                            ALOGV("mAdEsData %p patch->cur_outapts %u  mAdEsData->pts %lld diff %lldms",mAdEsData,patch->cur_outapts,mAdEsData->pts,(patch->cur_outapts - mAdEsData->pts)/90);
+                            ALOGV("mAdEsData %p patch->cur_outapts %u  mAdEsData->pts %" PRId64 " diff %" PRId64 "ms",mAdEsData,patch->cur_outapts,mAdEsData->pts,(patch->cur_outapts - mAdEsData->pts)/90);
                             if (patch->cur_outapts > 0) {
                                 demux_info->ad_package_status = check_ad_package_status(patch->cur_outapts, mAdEsData->pts, demux_info);
                                 if (demux_info->ad_package_status == AD_PACK_STATUS_DROP) {
-                                    ALOGD("drop ad mAdEsData->size %d mAdEsData->pts%lld  patch->cur_outapts %u",mAdEsData->size,mAdEsData->pts,patch->cur_outapts);
+                                    ALOGD("drop ad mAdEsData->size %d mAdEsData->pts%" PRId64 " patch->cur_outapts %u",mAdEsData->size,mAdEsData->pts,patch->cur_outapts);
                                     if (mAdEsData->data) {
                                         aml_audio_free(mAdEsData->data);
                                         mAdEsData->data = NULL;
