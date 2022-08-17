@@ -402,11 +402,11 @@ static int get_ms12_output_mask(audio_format_t sink_format,audio_format_t  optic
 {
     int  output_config;
     if (sink_format == AUDIO_FORMAT_E_AC3) /* ARC with DDP Sink-cap */
-        output_config =  MS12_OUTPUT_MASK_DDP;
+        output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP;
     else if (sink_format == AUDIO_FORMAT_AC3) /* ARC with DD Sink-cap */
         output_config = MS12_OUTPUT_MASK_DD;
     else if (sink_format == AUDIO_FORMAT_MAT) /* E-ARC with DD Sink-cap */
-        output_config = MS12_OUTPUT_MASK_MAT;
+        output_config = MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_MAT;
     else if (sink_format == AUDIO_FORMAT_PCM_16_BIT && optical_format == AUDIO_FORMAT_AC3) /* Speaker or Optical Sink */
         output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_SPEAKER | MS12_OUTPUT_MASK_STEREO;
     else if (is_arc) {
