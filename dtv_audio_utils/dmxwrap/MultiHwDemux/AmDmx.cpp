@@ -11,6 +11,7 @@
 #include <AmDmx.h>
 #include <dmx.h>
 #include <AmHwMultiDemuxWrapper.h>
+#include <inttypes.h>
 #include "pes.h"
 #include "aml_malloc_debug.h"
 #define PESBUFFERLEN 2048
@@ -263,7 +264,7 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_handlePESpacket(AM_DMX_Device *dev, AM_DMX_
         paddata->adpts = outpts;
         paddata->pan = pan;
         paddata->fade = fade;
-        ALOGV("PES_header_len  %d,%d,%d,%lld \n",PES_header_len,pan,fade,outpts);
+        ALOGV("PES_header_len  %d,%d,%d,%" PRId64 "\n",PES_header_len,pan,fade,outpts);
     }
     #define SKIPLEN 3
     *eslen = PES_packet_length -SKIPLEN-PES_header_len ;

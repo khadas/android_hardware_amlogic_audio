@@ -38,7 +38,7 @@ bool static inline fillReservoir(struct audio_bit_parser * bit_parser)
 
     bit_parser->num_bitsleft = 8 * i;
     bit_parser->num_reservoir <<= 32 - bit_parser->num_bitsleft;
-    ALOGV("%s num_bitsleft %d num_reservoir %x\n", __FUNCTION__, bit_parser->num_bitsleft, bit_parser->num_reservoir);
+    ALOGV("%s num_bitsleft %zu num_reservoir %x\n", __FUNCTION__, bit_parser->num_bitsleft, bit_parser->num_reservoir);
     return true;
 }
 
@@ -64,12 +64,12 @@ bool static inline getBitsGraceful(struct audio_bit_parser * bit_parser, size_t 
         result = (result << m) | (bit_parser->num_reservoir >> (32 - m));
         bit_parser->num_reservoir <<= m;
         bit_parser->num_bitsleft -= m;
-        ALOGV("%s num_bitsleft %d num_reservoir %x\n", __FUNCTION__, bit_parser->num_bitsleft, bit_parser->num_reservoir);
+        ALOGV("%s num_bitsleft %zu num_reservoir %x\n", __FUNCTION__, bit_parser->num_bitsleft, bit_parser->num_reservoir);
 
         n -= m;
     }
     *out = result;
-    ALOGV("%s n %d *out 0x%x\n", __FUNCTION__, n, *out);
+    ALOGV("%s n %zu *out 0x%x\n", __FUNCTION__, n, *out);
     return true;
 }
 

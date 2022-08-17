@@ -13,6 +13,7 @@
 #include <dmx.h>
 #include "List.h"
 #include "RefBase.h"
+#include <inttypes.h>
 extern "C" {
 #include "aml_malloc_debug.h"
 }
@@ -132,13 +133,13 @@ static void getAudioADEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, cons
         mEsData->adfade= paddata->fade;
         mEsData->adpan= paddata->pan;
         dump_demux_data((void *)data, len, DEMUX_AD_AUDIO_DUMP_PATH);
-        ALOGV("getADAudioEsData %d mEsData->size %d mEsData->pts %lld\n",len,mEsData->size,mEsData->pts);
+        ALOGV("getADAudioEsData %d mEsData->size %d mEsData->pts %" PRId64 " \n",len,mEsData->size,mEsData->pts);
     }
 
     {
         TSPMutex::Autolock l(mDemuxWrapper->mAudioADEsDataQueueLock);
         mDemuxWrapper->queueEsData(mDemuxWrapper->mAudioADEsDataQueue,mEsData);
-        ALOGV("mAudioADEsDataQueue size %d",mDemuxWrapper->mAudioADEsDataQueue.size());
+        ALOGV("mAudioADEsDataQueue size %zu",mDemuxWrapper->mAudioADEsDataQueue.size());
     }
 
 }
@@ -237,7 +238,7 @@ AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperReadData(int pid, mEsData
         }
     } else if (pid == mDemuxPara.aud_ad_id) {
         TSPMutex::Autolock l(mAudioADEsDataQueueLock);
-         ALOGV("%s mAudioADEsDataQueue size %d mDemuxPara.aud_ad_id %d", __FUNCTION__,mAudioADEsDataQueue.size(), mDemuxPara.aud_ad_id);
+         ALOGV("%s mAudioADEsDataQueue size %zu mDemuxPara.aud_ad_id %d", __FUNCTION__,mAudioADEsDataQueue.size(), mDemuxPara.aud_ad_id);
         *mEsData = dequeueEsData(mAudioADEsDataQueue);
     }
     return AM_Dmx_SUCCESS;
