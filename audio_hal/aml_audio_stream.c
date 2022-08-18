@@ -1062,7 +1062,8 @@ bool is_dolby_ms12_support_compression_format(audio_format_t format)
             format == AUDIO_FORMAT_E_AC3 ||
             format == AUDIO_FORMAT_E_AC3_JOC ||
             format == AUDIO_FORMAT_DOLBY_TRUEHD ||
-            format == AUDIO_FORMAT_AC4 );
+            format == AUDIO_FORMAT_AC4 ||
+            format == AUDIO_FORMAT_MAT);
 }
 
 bool is_dolby_ddp_support_compression_format(audio_format_t format)
