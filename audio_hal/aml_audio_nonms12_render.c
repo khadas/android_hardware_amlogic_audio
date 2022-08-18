@@ -380,6 +380,13 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                         if (patch->output_thread_exit) {
                             break;
                         }
+
+                        if (aml_out->alsa_status_changed) {
+                            ALOGI("aml_out->alsa_running_status %d", aml_out->alsa_running_status);
+                            aml_dtvsync_setParameter(patch->dtvsync, MEDIASYNC_KEY_ALSAREADY, &aml_out->alsa_running_status);
+                            aml_out->alsa_status_changed = false;
+                        }
+
                         process_result = aml_dtvsync_nonms12_process(stream, duration, &speed_enabled);
                         if (process_result == DTVSYNC_AUDIO_DROP)
                             continue;

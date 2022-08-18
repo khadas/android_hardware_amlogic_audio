@@ -463,6 +463,11 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                         }
 
                         if (patch->dtvsync->sync_type == DTVSYNC_MEDIASYNC) {
+                            if (aml_out->alsa_status_changed) {
+                                ALOGI("aml_out->alsa_running_status %d", aml_out->alsa_running_status);
+                                aml_dtvsync_setParameter(patch->dtvsync, MEDIASYNC_KEY_ALSAREADY, &aml_out->alsa_running_status);
+                                aml_out->alsa_status_changed = false;
+                            }
                             patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90 + force_setting_delayms * 90;//need consider the alsa delay
                             if (adev->debug_flag)
                                 ALOGI("patch->dtvsync->cur_outapts %" PRId64 "", patch->dtvsync->cur_outapts);
