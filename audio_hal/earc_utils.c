@@ -26,7 +26,7 @@
 #define CDS_VERSION 0x1
 #define CDS_MAX  256
 
-static void earc_cds_conf_to_str(char *earc_cds, char *cds_str, int hex)
+static void earc_cds_conf_to_str(char *earc_cds, char *cds_str, int hex, struct aml_arc_hdmi_desc *hdmi_descs)
 {
     char *cds_blocks;
     char *audio_blocks;
@@ -65,6 +65,19 @@ static void earc_cds_conf_to_str(char *earc_cds, char *cds_str, int hex)
                             sprintf(cds_str, "%s%d, ", cds_str, audio_blocks[1 + j + m]);
                         }
                     }
+                    /* Dolby Audio and Dolby Atmos
+                     * over HDMI Specification.
+                     * The audio_hw_profile.c fils also
+                     * has the detail description.
+                     */
+                    if (tag_code == 0x7) {
+                        if (audio_blocks[j + 1] == 0x11 &&
+                            audio_blocks[j + 2] == 0x46 &&
+                            audio_blocks[j + 3] == 0xD0 &&
+                            audio_blocks[j + 4] == 0x00 &&
+                            audio_blocks[j + 6] == 0x01)
+                            hdmi_descs->mat_fmt.MAT_PCM_48kHz_only = true;
+                    }
                     if (tag_code == 1)
                         n += dlen;
                     j += dlen + 1;
@@ -84,7 +97,6 @@ static void earc_cds_conf_to_str(char *earc_cds, char *cds_str, int hex)
     }
 
     ALOGI("%s, bytes:%d, cds_str:%s:end\n", __FUNCTION__, n, cds_str);
-
 }
 
 /*
@@ -127,13 +139,13 @@ static void earc_cds_str_to_conf(char *cds_str, char *earc_cds)
  * fetch CDS from eARC_RX, and will update CDS to EDID
  * cds_str: CTA short audio descriptor
  */
-int earctx_fetch_cds(struct aml_mixer_handle *amixer, char *cds_str, int hex)
+int earctx_fetch_cds(struct aml_mixer_handle *amixer, char *cds_str, int hex, struct aml_arc_hdmi_desc *hdmi_descs)
 {
     char earc_cds[CDS_MAX] = {0};
 
     aml_mixer_ctrl_get_array(amixer, AML_MIXER_ID_EARCTX_CDS, earc_cds, CDS_MAX);
 
-    earc_cds_conf_to_str(earc_cds, cds_str, hex);
+    earc_cds_conf_to_str(earc_cds, cds_str, hex, hdmi_descs);
 
     return 0;
 }

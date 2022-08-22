@@ -129,8 +129,10 @@ static audio_format_t get_sink_capability (struct aml_audio_device *adev)
         mat_is_support = hdmi_desc->mat_fmt.is_support;
 
     } else {
-        if (mat_is_support) {
+        if (mat_is_support || adev->hdmi_descs.mat_fmt.MAT_PCM_48kHz_only) {
             sink_capability = AUDIO_FORMAT_MAT;
+            mat_is_support = true;
+            hdmi_desc->mat_fmt.is_support = true;
         } else if (ddp_is_support) {
             sink_capability = AUDIO_FORMAT_E_AC3;
         } else if (dd_is_support) {

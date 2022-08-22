@@ -82,6 +82,7 @@ include $(BUILD_PREBUILT)
         audio_format_parse.c \
         aml_audio_dev2mix_process.c \
         audio_hdmi_util.c  \
+        earc_utils.c \
         aml_vad_wakeup.c \
         aml_audio_ms12_render.c \
         aml_audio_nonms12_render.c \

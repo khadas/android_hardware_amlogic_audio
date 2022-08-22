@@ -4049,6 +4049,7 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
                 adev->arc_format_state = STARTED;
                 adev->bHDMIConnected_update = 1;
                 adev->hdmi_descs.pcm_fmt.max_channels = 2;
+                adev->hdmi_descs.mat_fmt.MAT_PCM_48kHz_only = false;
                 if (device & AUDIO_DEVICE_OUT_HDMI_ARC) {
                     if (eDolbyMS12Lib == adev->dolby_lib_type) {
                         /*when arc is connected, disable dap*/
@@ -4858,7 +4859,7 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
     } else if (strstr (keys, "hal_param_get_earctx_cds") ) {
         char cds[AUDIO_HAL_CHAR_MAX_LEN] = {0};
 
-        earctx_fetch_cds(&adev->alsa_mixer, cds, 0);
+        earctx_fetch_cds(&adev->alsa_mixer, cds, 0, &adev->hdmi_descs);
         sprintf(temp_buf, "hal_param_get_earctx_cds=%s", cds);
         return strdup(temp_buf);
     } else if (strstr (keys, "hal_param_get_earctx_attend_type") ) {

@@ -22,11 +22,12 @@
 #include <string.h>
 #include <cutils/log.h>
 #include <aml_alsa_mixer.h>
+#include "audio_hw_utils.h"
 
 int earcrx_config_latency(struct mixer *pMixer, int latency);
 int earctx_fetch_latency(struct mixer * pMixer);
 int earcrx_config_cds(struct mixer *pMixer, char *cds_str);
 int earcrx_fetch_cds(struct mixer *pMixer, char *cds_str);
-int earctx_fetch_cds(struct aml_mixer_handle *amixer, char *cds_str, int hex);
+int earctx_fetch_cds(struct aml_mixer_handle *amixer, char *cds_str, int hex, struct aml_arc_hdmi_desc *hdmi_descs);
 
 #endif

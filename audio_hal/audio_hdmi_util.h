@@ -64,6 +64,13 @@ struct format_desc {
     unsigned int max_bit_rate;
     /* only used by dd+ format */
     bool   atmos_supported;
+    /* parse Dolby Vendor-Specific Audio Data Block.
+     * Dolby Audio and Dolby Atmos over HDMI Specification doc.
+     * The audio_hw_profile.c fils also has the detail description.
+     * Sink device supports Dolby MAT PCM decoding at 48 kHz only,
+     * and does not support Dolby TrueHD decoding.
+     */
+    bool   MAT_PCM_48kHz_only;
 };
 
 /*
