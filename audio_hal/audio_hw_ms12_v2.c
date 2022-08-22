@@ -2207,12 +2207,11 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
             }
         }
 
-        ms12_do_dtv_sync(stream);
-
         if (do_sync_flag && aml_out->dtvsync_enable) {
             aml_dtvsync_t *aml_dtvsync = patch->dtvsync;
             struct dtvsync_audio_policy *async_policy = NULL;
              if (aml_dtvsync != NULL) {
+                 ms12_do_dtv_sync(stream);
                  async_policy = &(aml_dtvsync->apolicy);
                  if (async_policy->audiopolicy == DTVSYNC_AUDIO_DROP_PCM) {
                     return 0;
