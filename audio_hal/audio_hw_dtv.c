@@ -3651,7 +3651,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
         }
         last_out_speed = aml_audio_get_output_speed(aml_out);
         aml_out->output_speed = last_out_speed;
-        //pthread_mutex_unlock(&patch->mutex);
+        pthread_mutex_unlock(&patch->mutex);
         pthread_mutex_lock(&(patch->dtv_output_mutex));
 
         aml_out->codec_type = get_codec_type(patch->aformat);
@@ -3714,7 +3714,6 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
         }
 
         pthread_mutex_unlock(&(patch->dtv_output_mutex));
-        pthread_mutex_unlock(&patch->mutex);
     }
     aml_audio_free(patch->out_buf);
 
