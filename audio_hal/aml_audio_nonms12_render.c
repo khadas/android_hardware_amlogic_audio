@@ -450,8 +450,14 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                         if (dec_raw_data->data_len > 0)
                             aml_audio_spdif_output(stream, &aml_out->spdifout2_handle, dec_raw_data);
                     } else {
-                        if (raw_in_data->data_len)
-                            aml_audio_spdif_output(stream, &aml_out->spdifout_handle, raw_in_data);
+                        if (aml_dec->format == AUDIO_FORMAT_E_AC3 && aml_out->optical_format == AUDIO_FORMAT_AC3) {
+                            /* DDP transcode to DD data for spdif or DD support only output */
+                            if (dec_raw_data->data_len)
+                                aml_audio_spdif_output(stream, &aml_out->spdifout_handle, dec_raw_data);
+                        } else {
+                            if (raw_in_data->data_len)
+                                aml_audio_spdif_output(stream, &aml_out->spdifout_handle, raw_in_data);
+                        }
                     }
                 } else {
                     aml_audio_spdif_output(stream, &aml_out->spdifout_handle, dec_raw_data);
