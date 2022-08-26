@@ -867,7 +867,7 @@ static int dtv_do_drop_ac3_pcm(struct aml_audio_patch *patch,
     }
     if (patch->tsync_pcr_debug || patch->ac3_pcm_dropping == 0) {
         ALOGI("%s, cur_diff %d ms, dropped %d ms, avail %d, cur_pcr %x, cur_apts = %x, dmx_apts %x, cached %d ms",
-            __func__, diff_ms, (int)(patch->sync_para.audio_drop_sum - aml_out->need_drop_size) / 48 / frame_size,
+            __func__, diff_ms, (patch->sync_para.audio_drop_sum - aml_out->need_drop_size) / 48 / (int)frame_size,
             avail, cur_pcr, patch->cur_outapts, demux_apts, (int)(demux_apts - patch->cur_outapts) / 90);
     }
     if (patch->ac3_pcm_dropping == 0) {
