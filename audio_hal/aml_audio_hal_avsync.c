@@ -425,7 +425,7 @@ unsigned long dtv_hal_get_pts(struct audio_stream_out *stream, unsigned int late
     val = pts - latency * 90;
     /*+[SE][BUG][SWPL-14811] set the real apts to last_valid_pts for sum cal*/
     if (aml_audio_get_debug_flag() || patch->tsync_pcr_debug) {
-        ALOGI("====get pts:%lx offset:%lld lan %d, origin:apts:%lx \n",
+        ALOGI("====get pts:%lx offset:%" PRId64 " lan %d, origin:apts:%lx \n",
                val, patch->decoder_offset, latency, pts);
 
     }
@@ -634,7 +634,7 @@ void dtv_adjust_output_clock(struct aml_audio_patch * patch, int direct, int ste
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) adev;
     bool spdif_b = dual;
     if (aml_audio_get_debug_flag())
-        ALOGI("dtv_adjust_output_clock not set,%llx,%x",patch->decoder_offset,patch->dtv_pcm_readed);
+        ALOGI("dtv_adjust_output_clock not set,%" PRIx64 ",%x",patch->decoder_offset,patch->dtv_pcm_readed);
     if (!aml_dev || step <= 0 || patch->dtv_audio_mode) {
         return;
     }
