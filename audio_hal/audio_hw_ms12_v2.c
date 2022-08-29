@@ -944,14 +944,16 @@ int get_the_dolby_ms12_prepared(
     if (input_format == AUDIO_FORMAT_AC4) {
         set_ms12_ac4_presentation_group_index(ms12, media_presentation_id);
 #ifdef ENABLE_DVB_PATCH
-        char first_lang[4] = {0};
-        dtv_convert_language_to_string(demux_info->media_first_lang,first_lang);
-        set_ms12_ac4_1st_preferred_language_code(ms12, first_lang);
-        char second_lang[4] = {0};
-        dtv_convert_language_to_string(demux_info->media_second_lang,second_lang);
-        set_ms12_ac4_2nd_preferred_language_code(ms12, second_lang);
-        int prefer_selection_type = (patch->is_dtv_src) ? PERFER_SELECTION_BY_LANGUAGE : PERFER_SELECTION_BY_AD_TYPE;
-        set_ms12_ac4_prefer_presentation_selection_by_associated_type_over_language(ms12, prefer_selection_type);
+        if (patch && demux_info) {
+            char first_lang[4] = {0};
+            dtv_convert_language_to_string(demux_info->media_first_lang,first_lang);
+            set_ms12_ac4_1st_preferred_language_code(ms12, first_lang);
+            char second_lang[4] = {0};
+            dtv_convert_language_to_string(demux_info->media_second_lang,second_lang);
+            set_ms12_ac4_2nd_preferred_language_code(ms12, second_lang);
+            int prefer_selection_type = (patch->is_dtv_src) ? PERFER_SELECTION_BY_LANGUAGE : PERFER_SELECTION_BY_AD_TYPE;
+            set_ms12_ac4_prefer_presentation_selection_by_associated_type_over_language(ms12, prefer_selection_type);
+        }
 #endif
     }
 
