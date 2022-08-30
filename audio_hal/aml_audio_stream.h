@@ -180,6 +180,20 @@ inline bool is_dts_format(audio_format_t format) {
     }
 }
 
+inline bool is_aac_format(audio_format_t format) {
+    switch (format) {
+    case AUDIO_FORMAT_AAC:
+    case AUDIO_FORMAT_HE_AAC_V1:
+    case AUDIO_FORMAT_HE_AAC_V2:
+    case AUDIO_FORMAT_AAC_HE_V1:
+    case AUDIO_FORMAT_AAC_HE_V2:
+    case AUDIO_FORMAT_AAC_LATM:
+        return true;
+    default:
+        return false;
+    }
+}
+
 static inline stream_usecase_t attr_to_usecase(uint32_t devices __unused,
         audio_format_t format, uint32_t flags)
 {

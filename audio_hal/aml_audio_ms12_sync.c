@@ -1322,6 +1322,16 @@ static int dtv_get_ms12_input_latency(audio_format_t input_format) {
         latency_ms = AVSYNC_MS12_DTV_AC4_LATENCY;
         break;
     }
+    case AUDIO_FORMAT_AAC:
+    case AUDIO_FORMAT_AAC_LATM:
+    case AUDIO_FORMAT_AAC_HE_V1:
+    case AUDIO_FORMAT_AAC_HE_V2:
+    case AUDIO_FORMAT_HE_AAC_V1:
+    case AUDIO_FORMAT_HE_AAC_V2: {
+        prop_name = AVSYNC_MS12_DTV_AAC_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_DTV_AAC_LATENCY;
+        break;
+    }
     default:
         break;
     }
@@ -1464,6 +1474,10 @@ static int dtv_get_ms12_latency_offset(
     //ALOGD("%s  prot:%d, is_netflix:%d, input_format:0x%x, output_format:0x%x", __func__,
     //            port, is_netflix, input_format, output_format);
     input_latency_ms  = dtv_get_ms12_input_latency(input_format);
+    /*for dtv with aac, we only need tune ARC output case.*/
+    if (port != OUTPORT_HDMI_ARC && is_aac_format(input_format)) {
+        input_latency_ms = 0;
+    }
     output_latency_ms = dtv_get_ms12_output_latency(output_format);
     port_latency_ms   = dtv_get_ms12_port_latency(stream, port, output_format);
 
