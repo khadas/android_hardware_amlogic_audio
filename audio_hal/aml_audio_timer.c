@@ -117,6 +117,9 @@ void audio_one_shot_timer_start(unsigned32 timer_id, unsigned32 delay_time_ms)
 ******************************************************************************/
 void audio_timer_stop(unsigned32 timer_id)
 {
+    if (aml_timer[timer_id].state == TIMER_STATE_INACTIVE) {
+        return;
+    }
     struct itimerspec       i_timer_spec;
 
     i_timer_spec.it_value.tv_sec = 0;
@@ -141,7 +144,9 @@ unsigned32 audio_timer_remaining_time(unsigned32 timer_id)
 {
     struct itimerspec       i_timer_spec;
     unsigned32  remaining_time = 0;
-
+    if (aml_timer[timer_id].state == TIMER_STATE_INACTIVE) {
+        return 0;
+    }
     if (timer_gettime(aml_timer[timer_id].timer, &(i_timer_spec)) == -1) {
         ALOGE("func:%s  gettime fail. errno:%d(%s)", __func__, errno, strerror(errno));
     } else {
