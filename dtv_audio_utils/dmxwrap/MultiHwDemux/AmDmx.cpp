@@ -413,7 +413,7 @@ void* AM_DMX_Device::dmx_data_thread(void *arg)
                         sec[5], sec[6], sec[7], sec[8], sec[9]);*/
                     cb(dev->mDemuxWrapper, id, sec, sec_len, data);
                     if (id && sec)
-                        ALOGI("filter %d data callback ok", id);
+                        ALOGV("filter %d data callback ok", id);
                 }
             }
 #if defined(DMX_WAIT_CB) || defined(DMX_SYNC)

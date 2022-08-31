@@ -214,7 +214,7 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, aml_d
     bool is_dolby_format = (demux_info->main_fmt == ACODEC_FMT_AC3 ||
                             demux_info->main_fmt == ACODEC_FMT_EAC3||
                             demux_info->main_fmt == ACODEC_FMT_AC4 ||
-                             demux_info->main_fmt == ACODEC_FMT_AAC_LATM);
+                            demux_info->main_fmt == ACODEC_FMT_AAC_LATM);
 
     if (is_dolby_format) {
        drop_threshold_ms = AD_PACK_STATUS_DROP_THRESHOLD_MS;
@@ -233,8 +233,8 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, aml_d
 
     if (timems_diff > AD_PACK_STATUS_UNNORMAL_THRESHOLD_MS) {
         if (is_dolby_format) {
-            ALOGI("timems_diff %d it is impossible so drop", timems_diff);
-            return AD_PACK_STATUS_DROP;
+           ALOGI("timems_diff %d it is impossible so drop", timems_diff);
+           return AD_PACK_STATUS_DROP;
         } else {
             ALOGI("timems_diff %d it is impossible so do not check", timems_diff);
             return AD_PACK_STATUS_NORMAL;
@@ -300,11 +300,7 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, aml_d
                     && timems_diff < hold_threshold_ms) {
                     ad_status = AD_PACK_STATUS_NORMAL;
                 } else if (timems_diff >= hold_threshold_ms) {
-                    if (is_dolby_format) {
-                        ad_status = AD_PACK_STATUS_DROP;
-                    } else {
-                        ad_status = AD_PACK_STATUS_NORMAL;
-                    }
+                    ad_status = AD_PACK_STATUS_NORMAL;
                 } else {
                     ad_status = AD_PACK_STATUS_HOLD;
                 }
