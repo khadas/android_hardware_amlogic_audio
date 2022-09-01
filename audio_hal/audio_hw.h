@@ -153,11 +153,6 @@ enum audio_hal_format {
     TYPE_AAC  = 21,
     TYPE_HEAAC = 22,
 };
-typedef enum{
-    INITED,
-    STARTED,
-    FINISHED,
-}set_arc_format_status_t;
 #define FRAMESIZE_16BIT_STEREO 4
 #define FRAMESIZE_32BIT_STEREO 8
 #define FRAMESIZE_32BIT_3ch 12
@@ -370,6 +365,9 @@ struct aml_audio_device {
     struct aml_arc_hdmi_desc hdmi_arc_capability_desc;
     /* HDMIRX default EDID */
     char default_EDID_array[EDID_ARRAY_MAX_LEN];
+    /*it is used to save the string of last set_arc_hdmi and to check whether ARC or EARC status has changed*/
+    char last_arc_hdmi_array[EDID_ARRAY_MAX_LEN];
+    bool need_to_update_arc_status;
     int arc_hdmi_updated;
     int a2dp_updated;
     void * a2dp_hal;
@@ -590,7 +588,6 @@ struct aml_audio_device {
     /*used to restore the continuous_audio_mode after system resume(early suspend case)*/
     int continuous_audio_mode_backup;
     bool aml_truehd_passthrough_support;  /*whether dolby truehd passthrough can be supported*/
-    set_arc_format_status_t arc_format_state;
 };
 
 struct meta_data {
