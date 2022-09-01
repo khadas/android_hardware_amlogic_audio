@@ -3958,7 +3958,7 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
         if (audio_is_output_device(device)) {
             if ((device & AUDIO_DEVICE_OUT_HDMI_ARC) || (device & AUDIO_DEVICE_OUT_HDMI)) {
                 adev->bHDMIConnected = 1;
-                adev->arc_format_state = STARTED;
+                memset(adev->last_arc_hdmi_array, 0, EDID_ARRAY_MAX_LEN);
                 adev->bHDMIConnected_update = 1;
                 if (device & AUDIO_DEVICE_OUT_HDMI_ARC) {
                     if (eDolbyMS12Lib == adev->dolby_lib_type) {
@@ -3986,8 +3986,8 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
         if (audio_is_output_device(device)) {
             if ((device & AUDIO_DEVICE_OUT_HDMI_ARC) || (device & AUDIO_DEVICE_OUT_HDMI)) {
                 adev->bHDMIConnected = 0;
-                adev->arc_format_state = STARTED;
                 adev->bHDMIConnected_update = 1;
+                memset(adev->last_arc_hdmi_array, 0, EDID_ARRAY_MAX_LEN);
                 adev->hdmi_descs.pcm_fmt.max_channels = 2;
                 if (device & AUDIO_DEVICE_OUT_HDMI_ARC) {
                     if (eDolbyMS12Lib == adev->dolby_lib_type) {

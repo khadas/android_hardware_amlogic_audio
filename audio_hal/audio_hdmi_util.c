@@ -252,6 +252,16 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
         return 0;
     }
 
+    /*if the latest set_arc_hdmi string is same as the last, do not update the EDID*/
+    /*if not, we need to update the EDID and copy the string to last_arc_hdmi_array*/
+    if (strcmp(value,adev->last_arc_hdmi_array) == 0) {
+        adev->need_to_update_arc_status = false;
+        return 0;
+    } else {
+        adev->need_to_update_arc_status = true;
+        memcpy(adev->last_arc_hdmi_array, value, EDID_ARRAY_MAX_LEN);
+    }
+
     memset(hdmi_desc->target_EDID_array, 0, EDID_ARRAY_MAX_LEN);
 
     /* if dts decoder doesn't support, don't update dts edid */
@@ -435,8 +445,11 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
                 fmt_desc = &hdmi_desc->ddp_fmt;
             } else if (val == AML_HDMI_FORMAT_MAT) {
                 fmt_desc = &hdmi_desc->mat_fmt;
-                if (adev->arc_format_state == STARTED)
-                    adev->arc_format_state = FINISHED;
+                /*if arc format is changed or ARC switch to EARC, we need update it, then new output can be configured*/
+                if (adev->need_to_update_arc_status) {
+                    adev->need_to_update_arc_status = false;
+                    adev->arc_hdmi_updated = 1;
+                }
             } else if (val == AML_HDMI_FORMAT_LPCM) {
                 fmt_desc = &hdmi_desc->pcm_fmt;
             } else if (val == AML_HDMI_FORMAT_DTS) {
@@ -507,12 +520,6 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
         ALOGI("----[%s] support:%d, ch:%d, sample_mask:%#x, bit_rate:%d, atmos:%d",
             hdmiFormat2Str(fmt_desc->fmt),fmt_desc->is_support, fmt_desc->max_channels,
             fmt_desc->sample_rate_mask, fmt_desc->max_bit_rate, fmt_desc->atmos_supported);
-    }
-
-    /*when arc format is changed, we need update it, then new output can be configured*/
-    if (adev->arc_format_state == FINISHED) {
-        adev->arc_format_state = INITED;
-        adev->arc_hdmi_updated = 1;
     }
     return 0;
 }
