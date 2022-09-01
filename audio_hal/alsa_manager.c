@@ -957,6 +957,18 @@ void aml_alsa_output_close_new(void *handle) {
     ALOGI("-%s()\n\n", __func__);
 }
 
+
+static size_t pcm_write_insert_zero(struct pcm *pcm, size_t bytes) {
+    if (bytes != 0 && pcm != NULL) {
+        void *zero = malloc(bytes);
+        memset(zero, 0, bytes);
+        pcm_write(pcm, zero, bytes);
+        free(zero);
+    }
+    return 0;
+}
+
+
 size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes) {
     int ret = -1;
     int write_frames = bytes / 4;
@@ -1002,6 +1014,38 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
         }
     }
 #endif
+    /*SWPL-91704
+     * There is underrun when play dolby truehd stream,
+     * because the input and output is not match in mat dec, we need
+     * to get its latency and insert such data to avoid the underrun.
+     * The original start threshold is 42 ms, it need 2 frame and begin
+     * to play, so we add another 32ms and the mat delay
+     */
+    if (eDolbyMS12Lib == adev->dolby_lib_type)
+    {
+        struct aml_audio_patch *patch = adev->audio_patch;
+        if ((alsa_handle->write_cnt == 0)
+            && patch
+            && adev->audio_patching
+            && (adev->patch_src == SRC_HDMIIN)
+            && (patch->aformat == AUDIO_FORMAT_MAT)
+            && (adev->sink_format == alsa_handle->format)
+            && (alsa_handle->format != AUDIO_FORMAT_MAT)) {
+
+            int rate_multiply = 1;
+            int aml_mat_dec_delay = get_ms12_mat_dec_delay();
+            int insert_ms = 32 + aml_mat_dec_delay;
+            int rate = alsa_handle->config.rate;
+            if (alsa_handle->format == AUDIO_FORMAT_E_AC3) {
+                rate_multiply = 4;
+            }
+            int insert_frames = insert_ms * (rate / 1000) * rate_multiply;
+            int insert_bytes = pcm_frames_to_bytes(alsa_handle->pcm, insert_frames);
+            ALOGI("Insert zero data at the beginning =%d mat_dec_delay=%d", insert_bytes, aml_mat_dec_delay);
+            pcm_write_insert_zero(alsa_handle->pcm, insert_bytes);
+        }
+    }
+
     {
         struct snd_pcm_status status;
         pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_STATUS, &status);

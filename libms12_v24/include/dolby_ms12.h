@@ -232,6 +232,12 @@ int dolby_ms12_get_input_atmos_info();
 
 
 /*@@
+    @brief get dolby mat dec latency
+*/
+int dolby_ms12_get_mat_dec_latency();
+
+
+/*@@
     @brief set the main audio volume
 */
 int dolby_ms12_set_main_volume(float volume);

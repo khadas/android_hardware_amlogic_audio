@@ -651,6 +651,10 @@ void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, uint6
         aml_ms12_update_runtime_params(ms12, parm);
 }
 
+int get_ms12_mat_dec_delay() {
+    return dolby_ms12_get_mat_dec_latency();
+}
+
 static void ms12_close_all_spdifout(struct dolby_ms12_desc *ms12) {
     int i = 0;
     for (i = 0; i < BITSTREAM_OUTPUT_CNT; i++) {

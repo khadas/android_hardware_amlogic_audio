@@ -170,6 +170,7 @@ public:
     virtual int     DolbyMS12SetMATStreamProfile(int stream_profile);
     virtual int     DolbyMS12SetAtmosDrop(int atmos_drop);
     virtual int     DolbyMS12GetInputISDolbyAtmos();
+    virtual int     DolbyMS12GetMATDecLatency();
     virtual int     DolbyMS12EnableMixerMaxSize(int enable);
     virtual int     DolbyMS12SetCompressionFormat(int compression_format);
     virtual int     DolbyMS12SetSchedulerState(int sch_state);

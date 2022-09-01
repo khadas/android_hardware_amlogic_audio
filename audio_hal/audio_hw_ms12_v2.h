@@ -363,4 +363,9 @@ void set_ms12_main_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute, unsigne
 
 audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format);
 
+/*
+ *@brief get the mat decoder delay
+ */
+int get_ms12_mat_dec_delay();
+
 #endif //end of _AUDIO_HW_MS12_H_

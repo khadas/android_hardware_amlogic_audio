@@ -512,6 +512,11 @@ void set_ms12_ac4_presentation_group_index(struct dolby_ms12_desc *ms12, int ind
 
 }
 
+int get_ms12_mat_dec_delay()
+{
+    return 0;
+}
+
 static inline alsa_device_t usecase_device_adapter_with_ms12(alsa_device_t usecase_device, audio_format_t output_format)
 {
     ALOGI("%s usecase_device %d output_format %#x", __func__, usecase_device, output_format);

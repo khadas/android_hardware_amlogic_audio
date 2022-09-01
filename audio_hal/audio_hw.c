@@ -8304,7 +8304,9 @@ void *audio_patch_input_threadloop(void *data)
         bool hdmi_raw_in_flag = patch && (patch->input_src == AUDIO_DEVICE_IN_HDMI) && (!audio_is_linear_pcm(patch->aformat));
         if (hdmi_raw_in_flag) {
             read_bytes = read_bytes / 2;
-
+            if (patch->aformat == AUDIO_FORMAT_MAT) {
+                read_bytes = read_bytes * 4;
+            }
         }
 
         if (patch->input_src == AUDIO_DEVICE_IN_LINE) {
@@ -8328,7 +8330,6 @@ void *audio_patch_input_threadloop(void *data)
         }
 
         bytes_avail = read_bytes;
-
         /* if audio is unstable, don't read data from hardware */
         if (aml_dev->tv_mute || !check_tv_stream_signal(&in->stream)) {
             memset(patch->in_buf, 0, bytes_avail);
@@ -8356,8 +8357,8 @@ void *audio_patch_input_threadloop(void *data)
             /*if (ng_status == NG_MUTE)
                 ALOGI("noise gate is working!");*/
         }
-        ALOGV("++%s in read over read_bytes = %d, in_read returns = %d, threshold %d",
-              __FUNCTION__, read_bytes, bytes_avail, read_threshold);
+        ALOGV("++%s in read over read_bytes = %d, in_read returns = %d, threshold %d avail data=%d",
+              __FUNCTION__, read_bytes, bytes_avail, read_threshold, get_buffer_read_space(ringbuffer));
 
         if (bytes_avail > 0) {
             //DoDumpData(patch->in_buf, bytes_avail, CC_DUMP_SRC_TYPE_INPUT);
@@ -8545,7 +8546,6 @@ void *audio_patch_output_threadloop(void *data)
                     patch->need_do_avsync = 0;
                 }
             }
-
             /* reconfig output in picture mode switch */
             if (patch && patch->input_src == AUDIO_DEVICE_IN_HDMI) {
                 stream_check_reconfig_param(stream_out);

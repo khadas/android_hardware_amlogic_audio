@@ -67,6 +67,8 @@ int (*FuncDolbyMS12GetSystemBufferAvail)(int *);
 int (*FuncDolbyMS12GetGain)(int);
 int (*FuncDolbyMS12Config)(ms12_config_type_t, ms12_config_t *);
 int (*FuncDolbyMS12GetAudioInfo)(struct aml_audio_info *);
+int (*FuncDolbyMS12GetMATDecLatency)(void);
+
 void (*FuncDolbyMS12SetDebugLevel)(int);
 unsigned long long (*FuncDolbyMS12GetNBytesConsumedSysSound)(void);
 int (*FuncDolbyMS12GetTotalNFramesDelay)(void *);
@@ -268,6 +270,12 @@ int DolbyMS12::GetLibHandle(char *dolby_ms12_path)
         goto ERROR;
     }
 
+    FuncDolbyMS12GetMATDecLatency = (int (*)(void))  dlsym(mDolbyMS12LibHandle, "get_mat_dec_delay");
+    if (!FuncDolbyMS12GetMATDecLatency) {
+        ALOGE("%s, dlsym get_mat_dec_delay fail\n", __FUNCTION__);
+    }
+
+
     FuncDolbyMS12GetNFramesPCMOutput = (unsigned long long (*)(void *, int, int))  dlsym(mDolbyMS12LibHandle, "get_decoder_n_frames_pcm_output");
     if (!FuncDolbyMS12GetNFramesPCMOutput) {
         ALOGE("%s, dlsym get_decoder_nframes_pcm_output fail\n", __FUNCTION__);
@@ -367,6 +375,7 @@ void DolbyMS12::ReleaseLibHandle(void)
     FuncDolbyMS12SetMainDummy = NULL;
     FuncDolbyMS12Config = NULL;
     FuncDolbyMS12GetAudioInfo = NULL;
+    FuncDolbyMS12GetMATDecLatency = NULL;
     FunDolbMS12GetVersion = NULL;
     FuncDolbyMS12GetNFramesPCMOutput = NULL;
     FuncDolbyMS12SetDebugLevel = NULL;
@@ -858,6 +867,20 @@ int DolbyMS12::DolbyMS12GetInputISDolbyAtmos()
     ALOGV("-%s() ret %d atmos Detected %d", __FUNCTION__, ret, p_aml_audio_info.is_dolby_atmos);
     return p_aml_audio_info.is_dolby_atmos;
 }
+
+int DolbyMS12::DolbyMS12GetMATDecLatency()
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12GetMATDecLatency) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return ret;
+    }
+
+    ret = (*FuncDolbyMS12GetMATDecLatency)();
+    return ret;
+}
+
 
 int DolbyMS12::DolbyMS12EnableMixerMaxSize(int enable)
 {
