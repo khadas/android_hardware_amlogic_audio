@@ -684,6 +684,65 @@ int aml_audio_get_earc_latency_offset(int aformat)
     return latency_ms;
 }
 
+
+int aml_audio_get_netflix_port_latency(enum OUT_PORT port, audio_format_t output_format)
+{
+    int latency_ms = 0;
+    int ret = 0;
+    char *prop_name = NULL;
+    char buf[PROPERTY_VALUE_MAX];
+
+    switch (port)  {
+        case OUTPORT_HDMI_ARC:
+            if (output_format == AUDIO_FORMAT_AC3) {
+                latency_ms = AVSYNC_NONMS12_NETFLIX_HDMI_ARC_OUT_DD_LATENCY;
+                prop_name = AVSYNC_NONMS12_NETFLIX_HDMI_ARC_OUT_DD_LATENCY_PROPERTY;
+            } else if (output_format == AUDIO_FORMAT_E_AC3) {
+                latency_ms = AVSYNC_NONMS12_NETFLIX_HDMI_ARC_OUT_DDP_LATENCY;
+                prop_name = AVSYNC_NONMS12_NETFLIX_HDMI_ARC_OUT_DDP_LATENCY_PROPERTY;
+            } else {
+                latency_ms = AVSYNC_NONMS12_NETFLIX_HDMI_ARC_OUT_PCM_LATENCY;
+                prop_name = AVSYNC_NONMS12_NETFLIX_HDMI_ARC_OUT_PCM_LATENCY_PROPERTY;
+            }
+            break;
+        case OUTPORT_HDMI:
+            if (output_format == AUDIO_FORMAT_AC3) {
+                latency_ms = AVSYNC_NONMS12_NETFLIX_HDMI_OUT_DD_LATENCY;
+                prop_name = AVSYNC_NONMS12_NETFLIX_HDMI_OUT_DD_LATENCY_PROPERTY;
+            } else if (output_format == AUDIO_FORMAT_E_AC3) {
+                latency_ms = AVSYNC_NONMS12_NETFLIX_HDMI_OUT_DDP_LATENCY;
+                prop_name = AVSYNC_NONMS12_NETFLIX_HDMI_OUT_DDP_LATENCY_PROPERTY;
+            } else {
+                latency_ms = AVSYNC_NONMS12_NETFLIX_HDMI_OUT_PCM_LATENCY;
+                prop_name = AVSYNC_NONMS12_NETFLIX_HDMI_OUT_PCM_LATENCY_PROPERTY;
+            }
+            break;
+        case OUTPORT_SPEAKER:
+        case OUTPORT_AUX_LINE:
+            if ((output_format == AUDIO_FORMAT_PCM_16_BIT) || (output_format == AUDIO_FORMAT_PCM_32_BIT)) {
+                latency_ms = AVSYNC_NONMS12_NETFLIX_SPEAKER_OUT_PCM_LATENCY;
+                prop_name = AVSYNC_NONMS12_NETFLIX_SPEAKER_OUT_PCM_LATENCY_PROPERTY;
+            } else {
+                latency_ms = AVSYNC_NONMS12_NETFLIX_SPEAKER_OUT_RAW_LATENCY;
+                prop_name = AVSYNC_NONMS12_NETFLIX_SPEAKER_OUT_RAW_LATENCY_PROPERTY;
+            }
+            break;
+        default :
+            break;
+    }
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+    ALOGV("%s : port = %d, output format =0x%x, latency ms =%d", __func__, port, output_format, latency_ms);
+
+    return latency_ms;
+}
+
+
 //Tune the eRAC with non-tunnel for arc-ddp
 int aml_audio_get_arc_latency_offset(int aformat)
 {
@@ -726,30 +785,26 @@ int aml_audio_get_ddp_latency_offset(int aformat,  bool dual_spdif)
     return latency_ms;
 }
 
-int aml_audio_get_pcm_latency_offset(int aformat, bool is_netflix, stream_usecase_t usecase)
+int aml_audio_get_pcm_latency_offset(int aformat, bool is_netflix)
 {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
     (void)aformat;
-    prop_name = "vendor.media.audio.hal.latency.pcm";
-    if (!is_netflix) {
-        //32ms Omx decoder delay
-        //16ms video delay
-        //16ms Sub Mix delay
-        /* 384Bytes*8 = 16ms*48kHz(newAmlAudioMixer tmp_buffer size is MIXER_FRAME_COUNT * MIXER_OUT_FRAME_SIZE) */
-        latency_ms = 64;
-    } else {
-        switch (usecase) {
-            case STREAM_PCM_NORMAL:
-                latency_ms = 5;
-                break;
-            default:
-               latency_ms = -50;
-               break;
-        };
+    struct aml_audio_device *adev = adev_get_handle();
+
+    if (is_netflix) {
+        return aml_audio_get_netflix_port_latency(adev->active_outport, AUDIO_FORMAT_PCM_16_BIT);
     }
+
+    //32ms Omx decoder delay
+    //16ms video delay
+    //16ms Sub Mix delay
+    /* 384Bytes*8 = 16ms*48kHz(newAmlAudioMixer tmp_buffer size is MIXER_FRAME_COUNT * MIXER_OUT_FRAME_SIZE) */
+    latency_ms = 64;
+
+    prop_name = "vendor.media.audio.hal.latency.pcm";
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
         latency_ms = atoi(buf);
@@ -1089,6 +1144,12 @@ int aml_audio_get_latency_offset( enum OUT_PORT port,audio_format_t source_forma
                                       audio_format_t sink_format,int ms12_enable, int is_eARC)
 {
     int latency_ms = 0;
+    struct aml_audio_device *adev = adev_get_handle();
+
+    if (!ms12_enable && adev->is_netflix) {
+        return aml_audio_get_netflix_port_latency(port, source_format);
+    }
+
     switch (port)  {
         case OUTPORT_HDMI_ARC:
             if (is_eARC) {

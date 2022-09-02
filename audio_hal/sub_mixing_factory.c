@@ -735,7 +735,7 @@ static int out_get_presentation_position_port(
         } else {
             ret = mixer_get_presentation_position(audio_mixer,
                     out->inputPortID, frames, timestamp);
-            tuning_latency_frame = aml_audio_get_pcm_latency_offset(adev->sink_format, adev->is_netflix, out->usecase)*48;
+            tuning_latency_frame = aml_audio_get_pcm_latency_offset(adev->sink_format, adev->is_netflix)*48;
             AM_LOGV("usecase:%s tuning_latency_frame:%d", usecase2Str(out->usecase), tuning_latency_frame);
             if (tuning_latency_frame > 0 && *frames < (uint64_t)tuning_latency_frame) {
                 *frames = 0;
@@ -764,9 +764,9 @@ static int out_get_presentation_position_port(
                                                          is_earc);
         frame_latency = latency_ms * (out->hal_rate / MSEC_PER_SEC);
         *frames += frame_latency ;
-    }
-    if (adev->debug_flag) {
-         AM_LOGI("tunning_latency_ms %d, frame_latency:%d", latency_ms, frame_latency);
+        if (adev->debug_flag) {
+            AM_LOGI("tunning_latency_ms %d, frame_latency:%d", latency_ms, frame_latency);
+        }
     }
 
     if (adev->debug_flag) {
@@ -1149,6 +1149,7 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
         AM_LOGI("stream %p input port:%s", stream,
             mixerInputType2Str(get_input_port_type(&aml_out->audioCfg, aml_out->flags)));
         aml_out->standby = false;
+        adev->debug_flag = aml_audio_get_debug_flag();
 #ifdef ENABLE_AEC_APP
         aec_set_spk_running(adev->aec, true);
 #endif
