@@ -21,7 +21,7 @@ extern "C" {
 #endif
 #include <hardware/audio_effect.h>
 
-bool getEffectStatus(effect_handle_t effect);
+bool getEffectStatus(effect_handle_t effect, int audio_effectchain_length);
 
 #ifdef __cplusplus
 };

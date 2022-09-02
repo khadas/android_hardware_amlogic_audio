@@ -20,12 +20,13 @@
 
 #define MAX_POSTPROCESSORS 10
 
-bool getEffectStatus(effect_handle_t effect) {
-    for (int i = 0; i < MAX_POSTPROCESSORS; i++) {
+bool getEffectStatus(effect_handle_t effect, int audio_effectchain_length) {
+    for (int i = 0; i <= audio_effectchain_length; i++) {
         effect_handle_t halEffect = android::EffectMap::getInstance().get(i);
         ALOGV("i %d halEffect %p effect %p",i,halEffect,effect);
-        if (halEffect == effect)
+        if (halEffect == effect) {
             return true;
-    }
-    return false;
+        }
+     }
+     return false;
 }

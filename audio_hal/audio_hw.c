@@ -1923,54 +1923,12 @@ static int out_add_audio_effect(const struct audio_stream *stream, effect_handle
 {
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *dev = out->dev;
-    int i;
     int status = 0;
-    char *str_vx = "VirtualX";
-    char *str_true_sur = "True Surround HD";
 
     pthread_mutex_lock (&dev->lock);
     pthread_mutex_lock (&out->lock);
 
-    if (dev->native_postprocess.num_postprocessors >= MAX_POSTPROCESSORS) {
-        status = -ENOSYS;
-        goto exit;
-    }
-
-    /* save audio effect handle in audio hal. if it is saved, skip this. */
-    for (i = 0; i < dev->native_postprocess.num_postprocessors; i++) {
-        if (dev->native_postprocess.postprocessors[i] == effect) {
-            status = 0;
-            goto exit;
-        }
-    }
-
-    dev->native_postprocess.postprocessors[dev->native_postprocess.num_postprocessors++] = effect;
-
-    effect_descriptor_t tmpdesc;
-    (*effect)->get_descriptor(effect, &tmpdesc);
-    if (0 == strcmp(tmpdesc.name, str_vx)) {
-        dev->native_postprocess.libvx_exist = Check_VX_lib();
-        ALOGI("%s, add audio effect: '%s' exist flag : %s", __FUNCTION__, VIRTUALX_LICENSE_LIB_PATH,
-            (dev->native_postprocess.libvx_exist) ? "true" : "false");
-        /* specify effect order for virtualx. VX does downmix from 5.1 to 2.0 */
-        if (dev->native_postprocess.num_postprocessors > 1 && dev->native_postprocess.num_postprocessors < MAX_POSTPROCESSORS) {
-            i = dev->native_postprocess.num_postprocessors - 1;
-            effect_handle_t tmp;
-            tmp = dev->native_postprocess.postprocessors[i];
-            dev->native_postprocess.postprocessors[i] = dev->native_postprocess.postprocessors[0];
-            dev->native_postprocess.postprocessors[0] = tmp;
-            ALOGI("%s, add audio effect: Reorder VirtualX at the first of the effect chain.", __FUNCTION__);
-        }
-    }
-    //AML_DTS_index uses to select the effect_handle, so need to save it.
-    if (0 == strcmp(tmpdesc.name, str_true_sur)) {
-        dev->native_postprocess.AML_DTS_index = i;
-    }
-    ALOGI("%s, add audio effect: %s in audio hal, effect_handle: %p, total num of effects: %d",
-        __FUNCTION__, tmpdesc.name, effect, dev->native_postprocess.num_postprocessors);
-
-    if (dev->native_postprocess.num_postprocessors > dev->native_postprocess.total_postprocessors)
-        dev->native_postprocess.total_postprocessors = dev->native_postprocess.num_postprocessors;
+    status = aml_add_audio_effect(&dev->native_postprocess, effect);
 
 exit:
     pthread_mutex_unlock (&out->lock);

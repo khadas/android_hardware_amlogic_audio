@@ -50,6 +50,89 @@ static int check_dts_config(struct aml_native_postprocess *native_postprocess) {
     return 0;
 }
 
+int aml_add_audio_effect(struct aml_native_postprocess *native_postprocess, effect_handle_t effect)
+{
+    int i;
+    int status = 0;
+    char *str_vx = "VirtualX";
+    char *str_true_sur = "True Surround HD";
+
+    char *str_effects[] = {"VirtualX", "True Surround HD", "Hpeq",  "Balance", "TrebleBass", "DBX", "DPE", "MS12v2 DAP", "Virtualsurround"};
+    int j;
+
+    native_postprocess->audio_effectchain_length += 1;
+
+    if (native_postprocess->num_postprocessors >= MAX_POSTPROCESSORS) {
+        status = -ENOSYS;
+        return status;
+    }
+
+    /* save audio effect handle in audio hal. if it is saved, skip this. */
+    for (i = 0; i < native_postprocess->num_postprocessors; i++) {
+        if (native_postprocess->postprocessors[i] == effect) {
+            status = 0;
+            return status;
+        }
+    }
+
+    native_postprocess->postprocessors[native_postprocess->num_postprocessors++] = effect;
+
+    effect_descriptor_t tmpdesc;
+    (*effect)->get_descriptor(effect, &tmpdesc);
+
+    for (j = 0; j < MAX_POSTPROCESSORS; j++) {
+        if (0 == strcmp(tmpdesc.name, str_effects[j])) {
+            if (native_postprocess->effect_info[j].effect_is_repeat_create == false) {
+                native_postprocess->effect_info[j].effect_index = native_postprocess->num_postprocessors;
+                native_postprocess->effect_info[j].effect_is_repeat_create = true;
+                if (0 == strcmp(tmpdesc.name, str_vx)) {
+                    native_postprocess->libvx_exist = Check_VX_lib();
+                    ALOGI("%s, add audio effect: '%s' exist flag : %s", __FUNCTION__, VIRTUALX_LICENSE_LIB_PATH,
+                        (native_postprocess->libvx_exist) ? "true" : "false");
+
+                    /* specify effect order for virtualx. VX does downmix from 5.1 to 2.0 */
+                    if (native_postprocess->num_postprocessors > 1 && native_postprocess->num_postprocessors < MAX_POSTPROCESSORS) {
+                        i = native_postprocess->num_postprocessors - 1;
+                        effect_handle_t tmp;
+                        tmp = native_postprocess->postprocessors[i];
+                        native_postprocess->postprocessors[i] = native_postprocess->postprocessors[0];
+                        native_postprocess->postprocessors[0] = tmp;
+                        for (int k = 0; k < MAX_POSTPROCESSORS; k++) {
+                            if (native_postprocess->effect_info[k].effect_index == 1) {
+                                //first effect index and vx effect index swap
+                                native_postprocess->effect_info[k].effect_index = native_postprocess->num_postprocessors;
+                                native_postprocess->effect_info[j].effect_index = 1;
+                            }
+                        }
+                        ALOGI("%s, add audio effect: Reorder VirtualX at the first of the effect chain.", __FUNCTION__);
+                    }
+                }
+            } else if (native_postprocess->effect_info[j].effect_is_repeat_create == true) {
+                if (native_postprocess->num_postprocessors > 1 && native_postprocess->num_postprocessors < MAX_POSTPROCESSORS) {
+                    i = native_postprocess->num_postprocessors - 1;
+                    native_postprocess->postprocessors[native_postprocess->effect_info[j].effect_index - 1] = native_postprocess->postprocessors[i];
+                    native_postprocess->postprocessors[i] = NULL;
+                    native_postprocess->num_postprocessors --;
+                }
+            }
+            break;
+        }
+    }
+
+    //AML_DTS_index uses to select the effect_handle, so need to save it.
+    if (0 == strcmp(tmpdesc.name, str_true_sur)) {
+        native_postprocess->AML_DTS_index = i;
+    }
+
+    ALOGI("%s, add audio effect: %s in audio hal, effect_handle: %p, total num of effects: %d",
+        __FUNCTION__, tmpdesc.name, effect, native_postprocess->num_postprocessors);
+
+    if (native_postprocess->num_postprocessors > native_postprocess->total_postprocessors)
+        native_postprocess->total_postprocessors = native_postprocess->num_postprocessors;
+
+    return status;
+}
+
 size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t in_frames)
 {
     int ret = 0, j = 0;
@@ -68,8 +151,8 @@ size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int
 
     for (j = 0; j < native_postprocess->num_postprocessors; j++) {
         effect_handle_t effect = native_postprocess->postprocessors[j];
-        if (!getEffectStatus(effect)) {
-             continue;
+        if (!getEffectStatus(effect, native_postprocess->audio_effectchain_length)) {
+              continue;
         }
         if (effect && (*effect) && (*effect)->process && in_buffer) {
             if (native_postprocess->libvx_exist && native_postprocess->effect_in_ch == 6 && j == 0) {

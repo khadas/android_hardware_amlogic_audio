@@ -25,6 +25,12 @@
 * 32bit multich  case need to do
 */
 #define EFFECT_PROCESS_BLOCK_SIZE (256 *  4)
+
+struct aml_post_effect_info {
+    bool effect_is_repeat_create;
+    int effect_index;
+};
+
 struct aml_native_postprocess {
     int num_postprocessors;
     effect_handle_t postprocessors[MAX_POSTPROCESSORS];
@@ -37,6 +43,10 @@ struct aml_native_postprocess {
     /* channel num of effect input */
     int effect_in_ch;
     int AML_DTS_index;
+    /* audio flinger effect chain length*/
+    int audio_effectchain_length;
+    /*  0 vx; 1 tru_sur; 2 hpeq; 3 balance; 4 treblebass; 5 dbx; 6 dpe ;7 dapv2; 8 virtual_sur */
+    struct aml_post_effect_info effect_info[MAX_POSTPROCESSORS];
 };
 
 /*
@@ -53,6 +63,7 @@ struct aml_native_postprocess {
  */
 size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t in_frames);
 int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t bytes);
+int aml_add_audio_effect(struct aml_native_postprocess *native_postprocess, effect_handle_t effect);
 
 /* VirtualX: */
 /* path of virtualx effect license library */
