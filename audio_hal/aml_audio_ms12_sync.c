@@ -1229,7 +1229,7 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
     *frames = frames_written_hw;
     *timestamp = out->lasttimestamp;
 
-    if (adev->continuous_audio_mode) {
+    {
         if (direct_continuous((struct audio_stream_out *)stream)) {
             frames_written_hw = adev->ms12.last_frames_position;
             *timestamp = adev->ms12.timestamp;
@@ -1260,6 +1260,7 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
             }
         }
     }
+
 
     ALOGV("[%s]adev->active_outport %d out->hal_internal_format %x adev->ms12.sink_format %x adev->continuous_audio_mode %d \n",
             __func__,adev->active_outport, out->hal_internal_format, adev->ms12.sink_format, adev->continuous_audio_mode);
