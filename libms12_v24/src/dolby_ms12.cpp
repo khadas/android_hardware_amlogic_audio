@@ -426,6 +426,15 @@ extern "C" int dolby_ms12_enable_atmos_drop(int atmos_drop)
     return -1;
 }
 
+extern "C" int dolby_ms12_info_dump(int fd)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        dolby_ms12_instance->DumpDolbyMS12Info(fd);
+    }
+    return -1;
+}
 
 extern "C" int dolby_ms12_get_input_atmos_info()
 {

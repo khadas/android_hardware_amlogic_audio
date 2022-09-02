@@ -258,6 +258,11 @@ unsigned long long dolby_ms12_get_n_bytes_pcmout_of_udc();
 int dolby_ms12_set_main_volume(float volume);
 
 /*@@
+    @brief dump ms12 info
+*/
+int dolby_ms12_info_dump(int fd);
+
+/*@@
     @brief get dolby atmos info
 */
 int dolby_ms12_get_input_atmos_info();

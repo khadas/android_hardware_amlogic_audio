@@ -178,6 +178,7 @@ public:
     virtual unsigned long long DolbyMS12GetDecoderNFramesPcmOutput(void *ms12_pointer, int format, int is_main);
 
     virtual void DolbyMS12SetDebugLevel(int);
+    virtual void DumpDolbyMS12Info(int);
 
     virtual unsigned long long DolbyMS12GetNBytesConsumedSysSound(void);
 

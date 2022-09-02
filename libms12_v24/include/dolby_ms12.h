@@ -224,12 +224,15 @@ void dolby_ms12_set_main_dummy(int type, int dummy);
 
 int dolby_ms12_get_gain(int idx);
 
+/*@@
+    @brief dump ms12 info
+*/
+int dolby_ms12_info_dump(int fd);
 
 /*@@
     @brief get dolby atmos info
 */
 int dolby_ms12_get_input_atmos_info();
-
 
 /*@@
     @brief get dolby mat dec latency

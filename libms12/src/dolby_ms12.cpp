@@ -455,6 +455,11 @@ extern "C" int dolby_ms12_enable_atmos_drop(int atmos_drop __unused)
     return 0;
 }
 
+extern "C" int dolby_ms12_info_dump(int fd __unused)
+{
+    return 0;
+}
+
 extern "C" int dolby_ms12_get_input_atmos_info()
 {
     ALOGV("%s()\n", __FUNCTION__);
