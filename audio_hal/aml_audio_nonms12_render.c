@@ -217,7 +217,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
             }
             aml_dec->last_synced_frame_pts = -1;
             aml_dec->out_synced_frame_count = 0;
-            ALOGI("first_in_frame_pts %" PRId64 " ms" , aml_dec->first_in_frame_pts / 90);
+            ALOGV("first_in_frame_pts %" PRId64 " ms" , aml_dec->first_in_frame_pts / 90);
         }
         if (do_sync_flag) {
             if(patch->skip_amadec_flag) {
