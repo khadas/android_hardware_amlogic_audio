@@ -2072,25 +2072,35 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         ret = aml_audio_get_ms12_presentation_position(stream, frames, timestamp);
     } else {
-         bool is_audio_type_dolby = (adev->audio_type == EAC3 || adev->audio_type == AC3);
-         bool is_hal_format_dolby = (out->hal_format == AUDIO_FORMAT_AC3 || out->hal_format == AUDIO_FORMAT_E_AC3);
-         if (is_audio_type_dolby || is_hal_format_dolby) {
-             timems_latency = aml_audio_get_latency_offset(adev->active_outport,
-                                                             out->hal_internal_format,
-                                                             adev->sink_format,
-                                                             adev->ms12.dolby_ms12_enable,
-                                                             is_earc);
-             if (is_audio_type_dolby) {
+        bool is_audio_type_dolby = (adev->audio_type == EAC3 || adev->audio_type == AC3);
+        bool is_hal_format_dolby = (out->hal_format == AUDIO_FORMAT_AC3 || out->hal_format == AUDIO_FORMAT_E_AC3);
+        if (is_audio_type_dolby || is_hal_format_dolby) {
+            timems_latency = aml_audio_get_latency_offset(adev->active_outport,
+                                                            out->hal_internal_format,
+                                                            adev->sink_format,
+                                                            adev->ms12.dolby_ms12_enable,
+                                                            is_earc);
+            if (is_audio_type_dolby) {
                 frame_latency = timems_latency * (out->hal_rate * out->rate_convert / 1000);
-             }
-             else if (is_hal_format_dolby) {
+            } else if (is_hal_format_dolby) {
                 frame_latency = timems_latency * (out->hal_rate / 1000);
-             }
-         }
-         if ((frame_latency < 0) && (frames_written_hw < abs(frame_latency))) {
-             ALOGV("%s(), not ready yet", __func__);
-             return -EINVAL;
-         }
+            }
+        }
+
+        /* SWPL-88828
+         * If out_get_presentation_position() and hw_write()
+         * are called by different threads, frames_written_hw
+         * and timestamp may not be updated synchronously. This can cause jitter.
+         */
+        pthread_mutex_lock(&out->apts_update_lock);
+        frames_written_hw = out->last_frames_position;
+        *timestamp = out->lasttimestamp;
+        pthread_mutex_unlock(&out->apts_update_lock);
+
+        if ((frame_latency < 0) && (frames_written_hw < abs(frame_latency))) {
+            ALOGV("%s(), not ready yet", __func__);
+            return -EINVAL;
+        }
 
         if (frame_latency >= 0)
             *frames = frame_latency + frames_written_hw;
@@ -2103,7 +2113,6 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
 
         unsigned int output_sr = (out->config.rate) ? (out->config.rate) : (MM_FULL_POWER_SAMPLING_RATE);
         *frames = *frames * out->hal_rate / output_sr;
-        *timestamp = out->lasttimestamp;
     }
 
     /*here we need add video delay*/
@@ -3272,6 +3281,10 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         ALOGE("%s pthread_mutex_init failed", __func__);
     }
 
+    if (pthread_mutex_init(&out->apts_update_lock, NULL)) {
+        ALOGE("%s pthread_mutex_init(apts_update_lock) failed", __func__);
+    }
+
     if (address && !strncmp(address, "AML_", 4)) {
         ALOGI("%s(): aml TV source stream", __func__);
         out->is_tv_src_stream = true;
@@ -3583,6 +3596,9 @@ err:
 
     pthread_mutex_unlock(&out->lock);
     pthread_mutex_destroy(&out->lock);
+
+    pthread_mutex_unlock(&out->apts_update_lock);
+    pthread_mutex_destroy(&out->apts_update_lock);
 
     aml_audio_free(out);
     ALOGE("%s exit failed =%d", __func__, ret);
@@ -6229,6 +6245,12 @@ ssize_t hw_write (struct audio_stream_out *stream
     }
     /*we should also to calculate the alsa latency*/
     {
+        /* SWPL-88828
+         * If out_get_presentation_position() and hw_write()
+         * are called by different threads, frames_written_hw
+         * and timestamp may not be updated synchronously. This can cause jitter.
+         */
+        pthread_mutex_lock(&aml_out->apts_update_lock);
         clock_gettime (CLOCK_MONOTONIC, &aml_out->timestamp);
         aml_out->lasttimestamp.tv_sec = aml_out->timestamp.tv_sec;
         aml_out->lasttimestamp.tv_nsec = aml_out->timestamp.tv_nsec;
@@ -6238,6 +6260,7 @@ ssize_t hw_write (struct audio_stream_out *stream
             aml_out->last_frames_position = 0;
         }
         aml_out->position_update = 1;
+        pthread_mutex_unlock(&aml_out->apts_update_lock);
         //ALOGI("position =%lld time sec = %ld, nanosec = %ld", aml_out->last_frames_position, aml_out->lasttimestamp.tv_sec , aml_out->lasttimestamp.tv_nsec);
     }
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
@@ -7487,6 +7510,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
     aml_out->input_bytes_size += bytes;
     aml_out->frame_write_sum += in_frames;
 
+    pthread_mutex_lock(&aml_out->apts_update_lock);
     clock_gettime (CLOCK_MONOTONIC, &aml_out->timestamp);
     aml_out->lasttimestamp.tv_sec = aml_out->timestamp.tv_sec;
     aml_out->lasttimestamp.tv_nsec = aml_out->timestamp.tv_nsec;
@@ -7509,12 +7533,14 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
         if (aml_out->last_frames_position >= alsa_latency_frame) {
             aml_out->last_frames_position -= alsa_latency_frame;
         }
+        pthread_mutex_unlock(&aml_out->apts_update_lock);
         if (adev->debug_flag) {
             ALOGI("%s stream audio presentation %"PRIu64" latency_frame %d.ms12 system latency_frame %d,total frame=%" PRId64 " %" PRId64 " ms",
                   __func__,aml_out->last_frames_position, alsa_latency_frame, system_latency,aml_out->frame_write_sum, aml_out->frame_write_sum/48);
         }
     } else {
         aml_out->last_frames_position = aml_out->frame_write_sum;
+        pthread_mutex_unlock(&aml_out->apts_update_lock);
     }
 
     /*if system sound return too quickly, it will causes audio flinger underrun*/

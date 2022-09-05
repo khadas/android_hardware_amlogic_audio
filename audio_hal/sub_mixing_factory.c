@@ -506,6 +506,7 @@ static ssize_t out_write_system(struct audio_stream_out *stream, const void *buf
 
 exit:
     // update new timestamp
+    pthread_mutex_lock(&out->apts_update_lock);
     clock_gettime(CLOCK_MONOTONIC, &out->timestamp);
     out->lasttimestamp.tv_sec = out->timestamp.tv_sec;
     out->lasttimestamp.tv_nsec = out->timestamp.tv_nsec;
@@ -521,7 +522,7 @@ exit:
             AM_LOGI("last position %" PRId64 ", latency_frames %d", out->last_frames_position, latency_frames);
         }
     }
-
+    pthread_mutex_unlock(&out->apts_update_lock);
     return written;
 }
 
@@ -604,6 +605,7 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
 
 exit:
     // update new timestamp
+    pthread_mutex_lock(&out->apts_update_lock);
     clock_gettime(CLOCK_MONOTONIC, &out->timestamp);
     out->lasttimestamp.tv_sec = out->timestamp.tv_sec;
     out->lasttimestamp.tv_nsec = out->timestamp.tv_nsec;
@@ -619,6 +621,7 @@ exit:
             AM_LOGI("last position %" PRId64 ", latency_frames %d", out->last_frames_position, latency_frames);
         }
     }
+    pthread_mutex_unlock(&out->apts_update_lock);
 
     return written;
 }
@@ -662,7 +665,9 @@ static int out_get_presentation_position_port(
     }
 
     if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
+        pthread_mutex_lock(&out->apts_update_lock);
         ret = mixer_get_presentation_position(audio_mixer, out->inputPortID, frames, timestamp);
+        pthread_mutex_unlock(&out->apts_update_lock);
         struct timespec adjusted_timestamp;
         // libaudioclient code expects HAL position to lag behind server position.
         // If the two are the same, it resets timestamp to the current time.
@@ -687,8 +692,10 @@ static int out_get_presentation_position_port(
     } else if (!adev->audio_patching) {
         if (out->hw_sync_mode || out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
             if (!out->frame_write_sum_updated|| out->is_insert_0_data || out->pause_status || out->standby) {
+                pthread_mutex_lock(&out->apts_update_lock);
                 *frames = frames_written_hw;
                 *timestamp = out->timestamp;
+                pthread_mutex_unlock(&out->apts_update_lock);
             } else {
                 if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)
                     frame_latency = mixer_get_inport_latency_frames(audio_mixer, out->inputPortID)
@@ -728,13 +735,17 @@ static int out_get_presentation_position_port(
                     out->last_frames_position = 0;
                 }
 
+                pthread_mutex_lock(&out->apts_update_lock);
                 *frames = out->last_frames_position;
                 *timestamp = out->timestamp;
+                pthread_mutex_unlock(&out->apts_update_lock);
             }
             AM_LOGV("%s out->standby:%d pause_status:%d frame_write_sum_updated:%d, frames:%" PRIu64" = (frame_write_sum:%" PRIu64" - latency_frames:%d)", __func__, out->standby, out->pause_status, out->frame_write_sum_updated, *frames, out->frame_write_sum, frame_latency);
         } else {
+            pthread_mutex_lock(&out->apts_update_lock);
             ret = mixer_get_presentation_position(audio_mixer,
                     out->inputPortID, frames, timestamp);
+            pthread_mutex_unlock(&out->apts_update_lock);
             tuning_latency_frame = aml_audio_get_pcm_latency_offset(adev->sink_format, adev->is_netflix)*48;
             AM_LOGV("usecase:%s tuning_latency_frame:%d", usecase2Str(out->usecase), tuning_latency_frame);
             if (tuning_latency_frame > 0 && *frames < (uint64_t)tuning_latency_frame) {
@@ -751,8 +762,10 @@ static int out_get_presentation_position_port(
             }
         }
     } else {
+        pthread_mutex_lock(&out->apts_update_lock);
         *frames = frames_written_hw;
         *timestamp = out->timestamp;
+        pthread_mutex_unlock(&out->apts_update_lock);
     }
 
     int latency_ms = 0;
@@ -1194,11 +1207,13 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
     aml_out->us_used_last_write = us_since_last_write;
 #endif
 exit:
+    pthread_mutex_lock(&aml_out->apts_update_lock);
     aml_out->frame_write_sum += in_frames;
     aml_out->last_frames_position = aml_out->frame_write_sum;
     clock_gettime(CLOCK_MONOTONIC, &aml_out->timestamp);
     aml_out->lasttimestamp.tv_sec = aml_out->timestamp.tv_sec;
     aml_out->lasttimestamp.tv_nsec = aml_out->timestamp.tv_nsec;
+    pthread_mutex_unlock(&aml_out->apts_update_lock);
     AM_LOGV("frame write sum %" PRId64 "", aml_out->frame_write_sum);
     return bytes;
 }

@@ -783,6 +783,8 @@ struct aml_stream_out {
     bool frame_write_sum_updated;
     bool is_insert_0_data;
     uint32_t timer_id;
+
+    pthread_mutex_t apts_update_lock; /*SWPL-88828: Make sure audio timestamps and frame positions are updated synchronously.*/
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
