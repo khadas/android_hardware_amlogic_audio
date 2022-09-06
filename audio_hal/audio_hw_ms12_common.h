@@ -115,4 +115,10 @@ void set_ms12_ac4_prefer_presentation_selection_by_associated_type_over_language
 //-ac4_short_prog_id  * <int> [ac4] The short program identifier as an 16 bit unsigned value or -1 for no program ID (default)
 void set_ms12_ac4_short_prog_identifier(struct dolby_ms12_desc *ms12, int short_program_identifier);
 
+/*
+ *@brief get the mat decoder delay
+ */
+int get_ms12_mat_dec_delay(void);
+
+
 #endif //end of _AUDIO_HW_MS12_COMMON_H_

@@ -35,6 +35,7 @@
 #include "aml_audio_timer.h"
 #include "audio_hwsync_wrap.h"
 #include "aml_hfp.h"
+#include "audio_hw_ms12_common.h"
 
 
 #define AML_ZERO_ADD_MIN_SIZE 1024
