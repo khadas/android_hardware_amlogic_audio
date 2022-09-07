@@ -534,7 +534,6 @@ void set_continuous_audio_mode(struct aml_audio_device *adev, int enable, int is
     }
 
     ALOGI("%s ignore the continuous_audio_mode!\n", __func__ );
-    adev->is_netflix = enable;
     /*in netflix case, we enable atmos drop at the beginning*/
     dolby_ms12_enable_atmos_drop(enable);
 
