@@ -6381,7 +6381,9 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
         if (continuous_mode(adev) && ms12->dolby_ms12_enable) {
             is_compatible = is_ms12_output_compatible(stream, adev->sink_format, adev->optical_format);
         }
-
+        if (is_compatible) {
+            reset_decoder = false;
+        }
         if (!is_bypass_dolbyms12(stream) && (reset_decoder == true)) {
             pthread_mutex_lock(&adev->lock);
             get_dolby_ms12_cleanup(&adev->ms12, false);

@@ -3888,7 +3888,8 @@ bool is_ms12_output_compatible(struct audio_stream_out *stream, audio_format_t n
         return true;
     }
     output_config = get_ms12_output_mask(new_sink_format, new_optical_format, false);
-    is_compatible = (ms12->output_config & output_config);
+    /*The stereo bit does not compare*/
+    is_compatible = ((ms12->output_config & ~MS12_OUTPUT_MASK_STEREO) & (output_config & ~MS12_OUTPUT_MASK_STEREO));
     ALOGI("ms12 current out=%#x new output=%#x is_compatible=%d", ms12->output_config, output_config, is_compatible);
     return is_compatible;
 
