@@ -609,3 +609,13 @@ extern "C" int dolby_ms12_set_audio_hal_version(int version)
     return -1;
 }
 
+extern "C" int dolby_ms12_get_ac4_active_presentation(int *presentation_group_index  __unused)
+{
+    return 0;
+}
+
+extern "C" int dolby_ms12_ac4dec_check_the_pgi_is_present(int presentation_group_index __unused)
+{
+    return 0;
+}
+

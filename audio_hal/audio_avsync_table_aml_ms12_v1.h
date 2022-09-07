@@ -104,8 +104,10 @@
 
 
 #define  AVSYNC_MS12_HDMI_OUT_LATENCY                    (10)
+#define  AVSYNC_MS12_SPDIF_OUT_LATENCY                   (0)
 #define  AVSYNC_MS12_SPEAKER_LATENCY                     (-25)
 #define  AVSYNC_MS12_HDMI_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.hdmiout"
+#define  AVSYNC_MS12_SPDIF_OUT_LATENCY_PROPERTY       "vendor.media.audio.hal.ms12.spdifout"
 #define  AVSYNC_MS12_SPEAKER_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.speaker"
 
 #define  AVSYNC_MS12_NONTUNNEL_PCM_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.nontunnel.pcm"

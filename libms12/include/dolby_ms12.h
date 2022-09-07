@@ -320,6 +320,10 @@ char * dolby_ms12_get_version(void);
 /* brief set the audio hal's version to ms12 */
 void dolby_ms12_set_audio_hal_version(int version);
 
+//brief This function get the active presentation group indext
+int dolby_ms12_get_ac4_active_presentation(int *presentation_group_index);
+//whether the given presentation group index is present in a bitstream
+int dolby_ms12_ac4dec_check_the_pgi_is_present(int presentation_group_index);
 
 #ifdef __cplusplus
 }
