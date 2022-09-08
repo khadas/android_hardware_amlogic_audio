@@ -152,7 +152,7 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
             if (!adev->is_TV) {
                 if (adev->audio_patch && adev->patch_src == SRC_DTV) {
                     out_gain *= adev->dtv_volume;
-                    dolby_ms12_set_main_volume(out_gain);
+                    set_ms12_main_volume(&adev->ms12, out_gain);
                     aml_out->ms12_vol_ctrl = true;
                 }
             }

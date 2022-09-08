@@ -9696,7 +9696,7 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
                     if (aml_dev->audio_patching || aml_dev->patch_src == SRC_DTV) {
                         pthread_mutex_lock(&aml_dev->lock);
                          /* Raw data from hdmi, alexa voice case, the source stream need duck about 20dB */
-                        dolby_ms12_set_main_volume(DbToAmpl(config->gain.values[1]/100));
+                        set_ms12_main_volume(&aml_dev->ms12, DbToAmpl(config->gain.values[1]/100));
                         pthread_mutex_unlock(&aml_dev->lock);
 
                         ALOGD("%s set source gain to ms12, volume-> values:%d, gain:%f", __func__,
