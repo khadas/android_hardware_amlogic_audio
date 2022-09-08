@@ -398,7 +398,7 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
         out->pause_status = false;
     }
     written_total = header_extractor_write(out->hwsync_extractor, buffer, bytes);
-    AM_LOGV("bytes %zu, out->last_frames_position %" PRId64 " frame_sum %" PRId64 "",
+    AM_LOGV("bytes %zu, out->last_frames_position %" PRId64 " frame_sum %" PRId64 " ",
             bytes, out->last_frames_position, out->frame_write_sum);
 
     if (getprop_bool("vendor.media.audiohal.hwsync")) {
@@ -686,7 +686,7 @@ static int out_get_presentation_position_port(
         *timestamp = adjusted_timestamp;
     } else if (!adev->audio_patching) {
         if (out->hw_sync_mode || out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
-            if (!out->frame_write_sum_updated || out->pause_status || out->standby) {
+            if (!out->frame_write_sum_updated|| out->is_insert_0_data || out->pause_status || out->standby) {
                 *frames = frames_written_hw;
                 *timestamp = out->timestamp;
             } else {
@@ -703,15 +703,26 @@ static int out_get_presentation_position_port(
                 /*add this line calculation to simulate really latency,
                 **when start playing. Fixed TunneledAudioTimestamp/ptsGaps of SWPL-72028 jira.
                 */
-                if (out->write_count < WRITE_COUNT_LATENCY_THRESHOLD) { // 6 --> 4
+                if (out->write_count < WRITE_COUNT_LATENCY_THRESHOLD) {
                     frame_latency = frame_latency / (WRITE_COUNT_LATENCY_THRESHOLD - out->write_count);
                 }
                 if (out->frame_write_sum > frame_latency) {
-                    if (out->last_frames_position < (out->frame_write_sum - frame_latency)) {
+                    //AM_LOGD("%s  out->last_frames_position:%llu (%llu ms) <-->  out->frame_write_sum:%llu (%llu ms), frame_latency:%d (%d ms)", __func__,
+                    //    out->last_frames_position, out->last_frames_position/48, out->frame_write_sum, out->frame_write_sum/48, frame_latency, frame_latency/48);
+                    if (out->last_frames_position <= (out->frame_write_sum - frame_latency)) {
                         out->last_frames_position = out->frame_write_sum - frame_latency;
                     } else {
-                        out->last_frames_position += 8*48; //add 8ms data for latency not exact when just start play.
-                        AM_LOGD("%s  tunning frames position for unstable latency when just start play", __func__);
+                        struct timespec current_ts;
+                        clock_gettime(CLOCK_MONOTONIC, &current_ts);
+                        int64_t last_update_time_ms = (out->timestamp.tv_sec * 1000LL + out->timestamp.tv_nsec/1000000LL);
+                        int64_t current_time_ms = (current_ts.tv_sec * 1000LL + current_ts.tv_nsec/1000000LL);
+                        int64_t diff_us = calc_time_interval_us(&out->timestamp, &current_ts);
+                        AM_LOGV("%s   diff:%lld and %lld, last_update_time_ms:%lld  current_time_ms:%lld ",__func__,
+                            diff_us, diff_us/1000, last_update_time_ms, current_time_ms);
+
+                        out->timestamp = current_ts;
+                        out->last_frames_position += (diff_us/1000LL)*48;//add realtime data for latency not exact when just start play.
+                        AM_LOGD("%s  compensate %dms frames for retrograde position", __func__, (int)diff_us/1000);
                     }
                 } else {
                     out->last_frames_position = 0;

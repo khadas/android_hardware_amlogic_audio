@@ -3484,6 +3484,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->inputPortID = -1;
     out->write_count = 0;
     out->frame_write_sum_updated = false;
+    out->is_insert_0_data = false;
 
     //prepare hwsync resource for tunnel mode.
     //FIXME, normal design should be put here for hwsync.

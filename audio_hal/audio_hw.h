@@ -781,6 +781,7 @@ struct aml_stream_out {
     struct timespec cbs_cmd_timestamp;
     char stream_dump_file[128];
     bool frame_write_sum_updated;
+    bool is_insert_0_data;
     uint32_t timer_id;
 };
 

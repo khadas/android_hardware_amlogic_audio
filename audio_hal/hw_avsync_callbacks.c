@@ -146,7 +146,7 @@ int on_meta_data_cbk(void *cookie,
                 pts64 += abs(latency);
             } else {
                 if (pts64 < latency) {
-                    ALOGI("pts32 = %" PRIu64 " latency=%d", pts64/90, latency);
+                    ALOGI("pts = %" PRIu64 " latency=%d", pts64/90, latency);
                     return 0;
                 }
                 pts64 -= latency;
@@ -203,11 +203,23 @@ int on_meta_data_cbk(void *cookie,
         }
 
         ret = aml_hwsync_wrap_get_pts(out->hwsync, &pcr);
-        aml_hwsync_wrap_reset_pcrscr(out->hwsync, pts64);
         pcr_pts_gap = ((int)(pts64 - pcr)) / 90;
         if (abs(pcr_pts_gap) > 50) {
             ALOGI("%s out:%p pcr =%" PRIu64 " pts =%" PRIu64 " diff =%d", __func__, out, pcr/90, pts64/90, pcr_pts_gap);
         }
+        if (abs(pcr_pts_gap) > (APTS_DISCONTINUE_THRESHOLD_MIN_35MS/90) && pts64 > pcr && pcr != 0) {
+            int insert_size = 0;
+            insert_size = pcr_pts_gap * 48 * 4;
+            insert_size = insert_size & (~63);
+            ALOGI("%s(), pcrscr %" PRIu64 " ms adjusted_apts %" PRIu64 " ms", __func__, pcr/90, pts64/90);
+            ALOGI("audio gap: pcr < apts %d ms, need insert data %d\n", pcr_pts_gap, insert_size);
+            *delay_ms = pcr_pts_gap;
+            out->is_insert_0_data = true;
+        } else {
+            aml_hwsync_wrap_reset_pcrscr(out->hwsync, pts64);
+            out->is_insert_0_data = false;
+        }
+
         return 0;
     }
 
