@@ -714,11 +714,11 @@ static int out_get_presentation_position_port(
                     } else {
                         struct timespec current_ts;
                         clock_gettime(CLOCK_MONOTONIC, &current_ts);
-                        int64_t last_update_time_ms = (out->timestamp.tv_sec * 1000LL + out->timestamp.tv_nsec/1000000LL);
-                        int64_t current_time_ms = (current_ts.tv_sec * 1000LL + current_ts.tv_nsec/1000000LL);
+                        //int64_t last_update_time_ms = (out->timestamp.tv_sec * 1000LL + out->timestamp.tv_nsec/1000000LL);
+                        //int64_t current_time_ms = (current_ts.tv_sec * 1000LL + current_ts.tv_nsec/1000000LL);
                         int64_t diff_us = calc_time_interval_us(&out->timestamp, &current_ts);
-                        AM_LOGV("%s   diff:%lld and %lld, last_update_time_ms:%lld  current_time_ms:%lld ",__func__,
-                            diff_us, diff_us/1000, last_update_time_ms, current_time_ms);
+                        //AM_LOGV("%s   diff:%lld and %lld, last_update_time_ms:%lld  current_time_ms:%lld ",__func__,
+                        //    diff_us, diff_us/1000, last_update_time_ms, current_time_ms);
 
                         out->timestamp = current_ts;
                         out->last_frames_position += (diff_us/1000LL)*48;//add realtime data for latency not exact when just start play.
