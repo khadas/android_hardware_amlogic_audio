@@ -4103,7 +4103,6 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
             continuous_audio_mode = 0;
         }
 
-        ALOGI("%s : %s continuous_audio_mode(%d) dolby_lib_type(%d)", __func__, kvpairs, continuous_audio_mode, adev->dolby_lib_type);
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             set_continuous_audio_mode(adev, continuous_audio_mode, 1);
         }

@@ -124,12 +124,10 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
     struct pcm_config config_raw;
     unsigned int device = aml_out->device;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-    ALOGI("\n+%s stream %p,device %d", __func__, stream,device);
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         if (adev->ms12.dolby_ms12_enable) {
             config = &(adev->ms12_config);
             device = ms12->device;
-            ALOGI("%s indeed choose ms12 [config and device(%d)]", __func__, ms12->device);
             if (aml_out->device != device) {
                 ALOGI("%s stream device(%d) differ with current device(%d)!", __func__, aml_out->device, device);
                 aml_out->is_device_differ_with_ms12 = true;
@@ -190,7 +188,6 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
     }
     int card = aml_out->card;
     struct pcm *pcm = adev->pcm_handle[device];
-    ALOGI("%s pcm %p", __func__, pcm);
 
     // close former and open with configs
     // TODO: check pcm configs and if no changes, do nothing
@@ -260,8 +257,6 @@ void aml_alsa_output_close(struct audio_stream_out *stream) {
     ALOGI("+%s, adev->pcm_handle[%d] %p", __func__, device, adev->pcm_handle[device]);
 
     adev->pcm_refs[device]--;
-    ALOGI("+%s, audio out(%p) device(%d), refs(%d) is_normal_pcm %d,handle %p",
-          __func__, aml_out, device, adev->pcm_refs[device], aml_out->is_normal_pcm, aml_out->pcm);
     if (adev->pcm_refs[device] < 0) {
         adev->pcm_refs[device] = 0;
         ALOGI("%s, device(%d) refs(%d)\n", __func__, device, adev->pcm_refs[device]);
@@ -476,18 +471,13 @@ write:
     if (adev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0 && adev->audio_patch != NULL) {
         if (aml_out->need_drop_size >= (int)bytes) {
             aml_out->need_drop_size -= bytes;
-            ALOGI("av sync drop %d pcm, need drop:%d more,apts:0x%x,pcr:0x%x\n",
-                (int)bytes, aml_out->need_drop_size, adev->audio_patch->last_apts, adev->audio_patch->last_pcrpts);
             if (adev->audio_patch->last_apts >= adev->audio_patch->last_pcrpts) {
-                ALOGI("pts already ok, drop finish\n");
                 aml_out->need_drop_size = 0;
             } else
                 return bytes;
         } else {
             ALOGI("bytes:%zu, need_drop_size=%d\n", bytes, aml_out->need_drop_size);
             if (adev->discontinue_mute_flag) {
-                ALOGI("drop mute discontinue_mute_flag=%d\n",
-                adev->discontinue_mute_flag);
                 memset(audio_data + aml_out->need_drop_size, 0x0,
                         bytes - aml_out->need_drop_size);
             }
@@ -514,18 +504,13 @@ write:
             if (adev->audio_discontinue) {
                 adev->discontinue_mute_flag = 1;
                 adev->no_underrun_count = 0;
-                ALOGD("output_write, audio discontinue, underrun, begin mute");
             }
         } else if (adev->discontinue_mute_flag == 1 && adev->patch_src ==  SRC_DTV ) {
             if (adev->audio_patch != NULL && adev->audio_discontinue == 0 &&
                 adev->audio_patch->dtv_audio_tune == AUDIO_RUNNING) {
-                ALOGD("[%s:%d] no underrun, not mute, dtv_audio_tune is RUNNING, audio_discontinue=%d",
-                    __func__, __LINE__, adev->audio_discontinue);
                 adev->discontinue_mute_flag = 0;
                 adev->no_underrun_count = 0;
             } else if (adev->no_underrun_count++ >= adev->no_underrun_max) {
-                ALOGD("[%s:%d] no underrun, not mute, audio_discontinue:%d >= count:%d", __func__, __LINE__,
-                        adev->audio_discontinue, adev->no_underrun_count);
                 adev->discontinue_mute_flag = 0;
                 adev->no_underrun_count = 0;
             }
@@ -703,8 +688,6 @@ void aml_close_continuous_audio_device(struct audio_hw_device *dev) {
     int spdif_index = 1;
     struct pcm *continuous_pcm_device = adev->pcm_handle[pcm_index];
     struct pcm *continuous_spdif_device = adev->pcm_handle[1];
-    ALOGI("\n+%s() choose device %d pcm %p\n", __FUNCTION__, pcm_index, continuous_pcm_device);
-    ALOGI("%s maybe also choose device %d pcm %p\n", __FUNCTION__, spdif_index, continuous_spdif_device);
     if (continuous_pcm_device) {
         pcm_close(continuous_pcm_device);
         continuous_pcm_device = NULL;
@@ -717,7 +700,6 @@ void aml_close_continuous_audio_device(struct audio_hw_device *dev) {
         adev->pcm_handle[spdif_index] = NULL;
         adev->pcm_refs[spdif_index] = 0;
     }
-    ALOGI("-%s(), when continuous is at end, the pcm/spdif devices(single/dual output) are closed!\n\n", __FUNCTION__);
     return ;
 }
 
