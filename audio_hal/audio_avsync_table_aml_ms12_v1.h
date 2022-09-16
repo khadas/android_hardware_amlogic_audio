@@ -320,6 +320,20 @@
 #define  AVSYNC_MS12_NETFLIX_TUNNEL_ATMOS_LATENCY_PROPERTY       "vendor.media.audio.hal.ms12.netflix.tunnel.atmos"
 
 
+#define  AVSYNC_MS12_TV_NETFLIX_NONTUNNEL_PCM_LATENCY    (30)
+#define  AVSYNC_MS12_TV_NETFLIX_NONTUNNEL_DDP_LATENCY    (40)
+
+#define  AVSYNC_MS12_TV_NETFLIX_TUNNEL_PCM_LATENCY       (20)
+#define  AVSYNC_MS12_TV_NETFLIX_TUNNEL_DDP_LATENCY       (75)
+
+#define  AVSYNC_MS12_TV_NETFLIX_NONTUNNEL_PCM_LATENCY_PROPERTY   "vendor.media.audio.hal.ms12.tv.netflix.nontunnel.pcm"
+#define  AVSYNC_MS12_TV_NETFLIX_NONTUNNEL_DDP_LATENCY_PROPERTY   "vendor.media.audio.hal.ms12.tv.netflix.nontunnel.ddp"
+
+#define  AVSYNC_MS12_TV_NETFLIX_TUNNEL_PCM_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.tv.netflix.tunnel.pcm"
+#define  AVSYNC_MS12_TV_NETFLIX_TUNNEL_DDP_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.tv.netflix.tunnel.ddp"
+
+
+
 /*below DDP tunning is for NonMS12*/
 //  0 --> 3
 #define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_PCM_LATENCY                 (3)
