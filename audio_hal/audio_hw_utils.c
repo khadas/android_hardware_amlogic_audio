@@ -444,14 +444,15 @@ int check_chip_name(char *chip_name, unsigned int length,
     return false;
 }
 
-int is_multi_demux()
+bool is_multi_demux()
 {
-    if (access("/sys/module/dvb_demux/",F_OK) == 0) {
+    if (access("/sys/module/dvb_demux/",F_OK) == 0 ||
+        access("/sys/module/amlogic_dvb_demux/",F_OK) == 0) {
         ALOGI("use AmHwMultiDemux mode\n");
-        return 1;
+        return true;
     }
     ALOGI("use AmHwDemux mode\n");
-    return 0;
+    return false;
 }
 
 /*
