@@ -15,7 +15,7 @@
  */
 
 #define LOG_TAG  "a2dp_hal"
-
+//#define LOG_NDEBUG 0
 #include <system/audio.h>
 #include <cinttypes>
 #include <cutils/log.h>
@@ -42,6 +42,7 @@ using ::android::bluetooth::audio::BluetoothAudioSessionInstance;
 using ::android::hardware::bluetooth::audio::V2_0::SessionType;
 
 #define A2DP_RING_BUFFER_DELAY_TIME_MS              (64)
+#define A2DP_SEND_DATA_TIMEOUT_RESET_MS             (300)
 #define A2DP_WAIT_STATE_DELAY_TIME_US               (8000)
 #define DEFAULT_A2DP_LATENCY_NS                     (100 * NSEC_PER_MSEC) // Default delay to use when BT device does not report a delay
 #define A2DP_STATIC_DELAY_MS                        (100) // Additional device-specific delay
@@ -58,6 +59,7 @@ struct aml_a2dp_hal {
     char * buff_conv_format;
     size_t buff_size_conv_format;
     BluetoothStreamState state;
+    bool is_sending_data;
     bool exit_out_monitor_thread;
     pthread_t out_monitor_thread_id;
     pthread_mutex_t out_monitor_thread_mutex;
@@ -124,8 +126,9 @@ static void dump_a2dp_output_data(aml_a2dp_hal *hal, const void *buffer, uint32_
     }
 }
 
-static void a2dp_notify_monitor(aml_a2dp_hal *hal) {
+static void a2dp_notify_monitor(aml_a2dp_hal *hal, bool is_sending = false) {
     pthread_mutex_lock(&hal->out_monitor_thread_mutex);
+    hal->is_sending_data = is_sending;
     pthread_cond_signal(&hal->out_monitor_thread_cond);
     pthread_mutex_unlock(&hal->out_monitor_thread_mutex);
 }
@@ -134,23 +137,38 @@ static void *a2dp_out_monitor_thread(void *arg) {
     struct aml_audio_device *adev = (struct aml_audio_device *)arg;
     aml_a2dp_hal *hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
     struct timespec next_time;
+    uint32_t timeout_ms = 0;
     bool is_standby = true;
     int ret = 0;
     AM_LOGI("Start monitoring the write rate+++");
+    uint64_t time_ns;
     while (hal->exit_out_monitor_thread == false) {
         pthread_mutex_lock(&hal->out_monitor_thread_mutex);
         if (is_standby) {
             ret = pthread_cond_wait(&hal->out_monitor_thread_cond, &hal->out_monitor_thread_mutex);
         } else {
+            timeout_ms = A2DP_RING_BUFFER_DELAY_TIME_MS; // 64 ms
+            if (hal->is_sending_data) {
+                timeout_ms = A2DP_SEND_DATA_TIMEOUT_RESET_MS; // 300ms
+            }
             /* Here is an empirical value 64ms, when each write interval is greater than this value, we think standby BT,
              * needed to reduce power consumption.
              */
-            next_time = aml_audio_ns_to_time(aml_audio_get_systime_ns() + 64 * NSEC_PER_MSEC);
+            time_ns = aml_audio_get_systime_ns();
+            next_time = aml_audio_ns_to_time(time_ns + timeout_ms * NSEC_PER_MSEC);
             ret = pthread_cond_timedwait(&hal->out_monitor_thread_cond, &hal->out_monitor_thread_mutex, &next_time);
+        }
+
+        if (timeout_ms == A2DP_SEND_DATA_TIMEOUT_RESET_MS) {
+            AM_LOGV("send bt elapsed time: %lld ms", (aml_audio_get_systime_ns() - time_ns) / NSEC_PER_MSEC);
         }
         pthread_mutex_unlock(&hal->out_monitor_thread_mutex);
         if (ret == ETIMEDOUT && hal->exit_out_monitor_thread == false) {
-            AM_LOGI("write timeout, need standby, cur_state:%s", a2dpStatus2String(hal->state));
+            if (timeout_ms == A2DP_SEND_DATA_TIMEOUT_RESET_MS) {
+                AM_LOGW("send BT stack timeout %dms, need standby, cur_state:%s", timeout_ms, a2dpStatus2String(hal->state));
+            } else {
+                AM_LOGI("audio write timeout %dms, need standby, cur_state:%s", timeout_ms, a2dpStatus2String(hal->state));
+            }
             a2dp_out_standby(adev);
             is_standby = true;
         } else {
@@ -204,6 +222,7 @@ int a2dp_out_open(struct aml_audio_device *adev) {
     pthread_cond_init(&hal->out_monitor_thread_cond, &condattr);
     pthread_condattr_destroy(&condattr);
     hal->exit_out_monitor_thread = false;
+    hal->is_sending_data = false;
     pthread_create(&hal->out_monitor_thread_id, NULL, &a2dp_out_monitor_thread, adev);
     AM_LOGI("Rx param rate:%d, bytes_per_sample:%zu, ch:%d", hal->config.sample_rate,
         audio_bytes_per_sample(hal->config.format), audio_channel_count_from_out_mask(hal->config.channel_mask));
@@ -303,7 +322,6 @@ static int a2dp_out_standby(struct aml_audio_device *adev) {
 }
 
 static bool a2dp_state_process(struct aml_audio_device *adev, audio_config_base_t *config, size_t cur_frames) {
-    static bool             first_start = true;
     aml_a2dp_hal            *hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
     BluetoothStreamState    cur_state = hal->a2dphw.GetState();
     const int64_t           cur_write_time_us = aml_audio_get_systime();
@@ -328,23 +346,10 @@ static bool a2dp_state_process(struct aml_audio_device *adev, audio_config_base_
             usleep(data_delta_time_us);
         }
     } else if (cur_state == BluetoothStreamState::STARTED) {
-         if (adev->audio_patch) {
+         if (adev->audio_patch && adev->tv_mute) {
             /* tv_mute for atv switch channel */
-            if (adev->tv_mute) {
-                AM_LOGI("tv_mute:%d, start standby", adev->tv_mute);
-                a2dp_out_standby_l(adev);
-            } else {
-                /* The first startup needs to be filled. BT stack is 40ms buffer.*/
-                if (first_start) {
-                    first_start = false;
-                    size_t empty_data_40ms_bytes = 40 * hal->config.sample_rate * 4 / 1000;
-                    char *pTempBuffer = (char *)aml_audio_calloc(1, empty_data_40ms_bytes);
-                    hal->a2dphw.WriteData(pTempBuffer, empty_data_40ms_bytes);
-                    aml_audio_free(pTempBuffer);
-                    AM_LOGI("Insert empty data ensures that underrun does not occur.");
-                }
-                prepared = true;
-            }
+            AM_LOGI("tv_mute:%d, start standby", adev->tv_mute);
+            a2dp_out_standby_l(adev);
         } else {
             prepared = true;
         }
@@ -354,7 +359,6 @@ static bool a2dp_state_process(struct aml_audio_device *adev, audio_config_base_
         struct aml_audio_patch *patch = adev->audio_patch;
         if (!(adev->tv_mute && patch)) {
             a2dp_out_resume_l(adev);
-            first_start = true;
         }
         // a2dp_out_resume maybe cause over 100ms, so set last_write_time after resume,
         // otherwise, the gap would always over 64ms, and always standby in dtv
@@ -507,7 +511,9 @@ static ssize_t a2dp_out_write_l(struct aml_audio_device *adev, audio_config_base
     dump_a2dp_output_data(hal, wr_buff, wr_size);
     pre_time_us = aml_audio_get_systime();
     while (bytes_written < wr_size) {
+        a2dp_notify_monitor(hal, true);
         sent = hal->a2dphw.WriteData((char *)wr_buff + bytes_written, wr_size - bytes_written);
+        a2dp_notify_monitor(hal);
         bytes_written += sent;
         /* The cache of BT stack is about 40ms data, and exit from writing data
          * after timeout of 64ms here. */
@@ -516,7 +522,6 @@ static ssize_t a2dp_out_write_l(struct aml_audio_device *adev, audio_config_base
             break;
         }
     }
-    a2dp_notify_monitor(hal);
     return bytes;
 }
 
