@@ -47,7 +47,7 @@ LOCAL_SRC_FILES  +=               \
     sync/audio_dtv_sync.c \
 
 LOCAL_MODULE := libdvbaudioutils
-LOCAL_MULTILIB := both
+LOCAL_MULTILIB := 32
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
     LOCAL_PROPRIETARY_MODULE := true
 endif
