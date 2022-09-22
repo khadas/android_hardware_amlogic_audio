@@ -2213,10 +2213,6 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                     aml_dev->start_mute_flag = 1;
             }
             aml_dev->underrun_mute_flag = 0;
-            if (show_first_nosync) {
-                sysfs_set_sysfs_str(VIDEO_SHOW_FIRST_FRAME, "1");
-                ALOGI("show_first_frame_nosync set 1\n");
-            }
         }
         break;
         case AUDIO_DTV_PATCH_DECODER_STATE_START:

@@ -680,7 +680,7 @@ static void dtv_adjust_output_clock_continue(struct aml_audio_patch * patch, int
     static int last_div = 0;
     int adjust_interval = 0;
     patch->i2s_div_factor = property_get_int32(PROPERTY_AUDIO_TUNING_CLOCK_FACTOR, DEFAULT_TUNING_CLOCK_FACTOR);
-    adjust_interval = property_get_int32("vendor.media.audio_hal.adjtime", 1000);
+    adjust_interval = property_get_int32("vendor.media.audio.hal.adjtime", 1000);
     if (last_div != patch->i2s_div_factor) {
         ALOGI("new_div=%d, adjust_interval=%d ms,spdif_format_set=%d\n",
             patch->i2s_div_factor, adjust_interval, patch->spdif_format_set);
@@ -1528,8 +1528,6 @@ void dtv_out_apts_biggerthan_vpts(struct aml_audio_patch* patch)
             if (patch->startplay_pcrpts >= patch->startplay_firstvpts) {
                 //when pcr bigger than vpts,output normal
             }
-        } else if (strategy_mode == STRATEGY_A_NORMAL_V_SHOW_QUICK) {
-                sysfs_set_sysfs_str(VIDEO_SHOW_FIRST_FRAME, "1");
         }
         if (patch->startplay_pcrpts >= patch->startplay_first_checkinapts) {
             aml_dev->start_mute_flag = 0;
@@ -1550,7 +1548,6 @@ void dtv_out_vpts_biggerthan_apts(struct aml_audio_patch* patch)
         if ((strategy_mode >= STRATEGY_A_NORMAL_V_SHOW_BLOCK) &&
             (strategy_mode <= STRATEGY_A_MUTE_V_SHOW_BLOCK)) {
             if (strategy_mode == STRATEGY_A_NORMAL_V_SHOW_BLOCK) {
-                sysfs_set_sysfs_str(VIDEO_SHOW_FIRST_FRAME, "1");
                 aml_dev->start_mute_flag = 0;
             } else if (strategy_mode == STRATEGY_A_NORMAL_V_NOSHOW) {
                 //if (patch->startplay_pcrpts >= patch->startplay_first_checkinapts) {
@@ -1559,7 +1556,6 @@ void dtv_out_vpts_biggerthan_apts(struct aml_audio_patch* patch)
             } else if (strategy_mode == STRATEGY_A_MUTE_V_SHOW_BLOCK) {
                 if (patch->startplay_pcrpts >= patch->startplay_first_checkinapts) {
                     aml_dev->start_mute_flag = 1;
-                    sysfs_set_sysfs_str(VIDEO_SHOW_FIRST_FRAME, "1");
                 }
             }
             if (patch->startplay_pcrpts >= patch->startplay_firstvpts) {
@@ -1570,8 +1566,6 @@ void dtv_out_vpts_biggerthan_apts(struct aml_audio_patch* patch)
         }
         if ((strategy_mode == STRATEGY_A_DROP_V_SHOW_BLOCK) ||
             (strategy_mode == STRATEGY_A_DROP_V_NOSHOW)) {
-            if (strategy_mode == STRATEGY_A_DROP_V_SHOW_BLOCK)
-                sysfs_set_sysfs_str(VIDEO_SHOW_FIRST_FRAME, "1");
             if (patch->startplay_apts_lookup >= patch->startplay_firstvpts) {
                 decoder_set_latency(DEMUX_PCR_APTS_LATENCY);
                 aml_dev->start_mute_flag = 0;
