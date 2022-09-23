@@ -802,7 +802,7 @@ int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int byt
         }
     }
 
-    if (frame_size) {
+    if (frame_size > 0) {
         used_size = dts_dec->decoder_process(dts_dec->inbuf + dts_dec->half_frame_used_size,
                                 frame_size,
                                 dec_pcm_data->buf,
