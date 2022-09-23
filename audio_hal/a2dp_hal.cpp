@@ -160,7 +160,7 @@ static void *a2dp_out_monitor_thread(void *arg) {
         }
 
         if (timeout_ms == A2DP_SEND_DATA_TIMEOUT_RESET_MS) {
-            AM_LOGV("send bt elapsed time: %lld ms", (aml_audio_get_systime_ns() - time_ns) / NSEC_PER_MSEC);
+            AM_LOGV("send bt elapsed time: %" PRIu64 " ms", (aml_audio_get_systime_ns() - time_ns) / NSEC_PER_MSEC);
         }
         pthread_mutex_unlock(&hal->out_monitor_thread_mutex);
         if (ret == ETIMEDOUT && hal->exit_out_monitor_thread == false) {
