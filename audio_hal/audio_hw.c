@@ -3645,10 +3645,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     } */
 
     pthread_mutex_lock(&out->lock);
-    if (out->audioeffect_tmp_buffer) {
-        aml_audio_free(out->audioeffect_tmp_buffer);
-        out->audioeffect_tmp_buffer = NULL;
-    }
 
 #if ENABLE_DVB_PATCH
 #if ANDROID_PLATFORM_SDK_VERSION > 29
@@ -3665,11 +3661,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 #endif
 #endif
 
-    if (out->tmp_buffer_8ch) {
-        aml_audio_free(out->tmp_buffer_8ch);
-        out->tmp_buffer_8ch = NULL;
-    }
-
     if (out->spdifenc_init) {
         aml_spdif_encoder_close(out->spdifenc_handle);
         out->spdifenc_handle = NULL;
@@ -3682,14 +3673,8 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         out->ac3_parser_init = false;
     }
 
-
     if (out->flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) {
         outMmapDeInit(out);
-    }
-
-    if (out->resample_outbuf) {
-        aml_audio_free(out->resample_outbuf);
-        out->resample_outbuf = NULL;
     }
 
     if (out->hal_format == AUDIO_FORMAT_AC4) {
@@ -3816,6 +3801,21 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             out->restore_continuous = true;
             clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
         }
+    }
+
+    if (out->audioeffect_tmp_buffer) {
+        aml_audio_free(out->audioeffect_tmp_buffer);
+        out->audioeffect_tmp_buffer = NULL;
+    }
+
+    if (out->tmp_buffer_8ch) {
+        aml_audio_free(out->tmp_buffer_8ch);
+        out->tmp_buffer_8ch = NULL;
+    }
+
+    if (out->resample_outbuf) {
+        aml_audio_free(out->resample_outbuf);
+        out->resample_outbuf = NULL;
     }
 
     /*all the ms12 related function is done */

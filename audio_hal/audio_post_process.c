@@ -156,6 +156,10 @@ void VirtualX_Channel_reconfig(struct aml_native_postprocess *native_postprocess
                                     ch_num, EFFECT_CMD_SET_PARAM);
         if (ret != ch_num) {
             ALOGE("Set VX input channel error: channel %d, ret = %d\n", ch_num, ret);
+            /* if VX can't set input mode, force dts decoder stereo output */
+            if (ret == 2) {
+                dca_set_out_ch_internal(2);
+            }
         }
     }
 
