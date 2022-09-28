@@ -1071,7 +1071,7 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
         goto exit;
     }
     // Detect and set AUDIO_PARAMETER_STREAM_FORMAT for passing VTS
-    audio_format_t fmt = 0;
+    int fmt = 0;
     ret = str_parms_get_int (parms, AUDIO_PARAMETER_STREAM_FORMAT, (int *) &fmt);
     if (ret >= 0) {
         if (fmt > 0) {
