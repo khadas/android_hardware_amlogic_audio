@@ -4402,6 +4402,13 @@ static int release_dtv_input_stream_thread(struct aml_audio_patch * patch)
     return 0;
 }
 
+void set_dtv_audio_clk_tuning(struct audio_hw_device *dev, int en)
+{
+    struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
+
+    aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_DTV_CLK_TUNING, !!en);
+}
+
 int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
                        audio_devices_t output __unused)
 {
@@ -4421,6 +4428,8 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
             release_patch_l(aml_dev);
         }
     }
+
+    set_dtv_audio_clk_tuning(dev, 1);
     patch = aml_audio_calloc(1, sizeof(*patch));
     if (!patch) {
         ret = -1;
@@ -4613,6 +4622,8 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
     if (aml_dev->useSubMix) {
         switchNormalStream(aml_dev->active_outputs[STREAM_PCM_NORMAL], 1);
     }
+
+    set_dtv_audio_clk_tuning(dev, 0);
     return 0;
 }
 

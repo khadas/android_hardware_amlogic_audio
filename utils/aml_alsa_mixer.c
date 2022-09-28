@@ -101,6 +101,7 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_VAD_ENABLE,           "VAD enable"},
     {AML_MIXER_ID_VAD_SOURCE_SEL,       "VAD Source sel"},
     {AML_MIXER_ID_VAD_SWITCH,           "VAD Switch"},
+    {AML_MIXER_ID_DTV_CLK_TUNING,       "DTV clk force MPLL"},
 };
 
 static char *get_mixer_name_by_id(int mixer_id)
