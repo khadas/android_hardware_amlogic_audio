@@ -180,6 +180,39 @@ static int get_ms12_dv_tunnel_output_latency(audio_format_t output_format) {
     return latency_ms;
 }
 
+
+int get_sink_dv_latency_offset(bool tunnel, bool is_netflix)
+{
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int latency_ms = 0;
+    char *prop_name = NULL;
+
+    if (is_netflix) {
+        if (tunnel) {
+            prop_name = AVSYNC_DV_NETFLIX_TUNNEL_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_DV_NETFLIX_TUNNEL_LATENCY;
+        } else {
+            prop_name = AVSYNC_DV_NETFLIX_NONTUNNEL_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_DV_NETFLIX_NONTUNNEL_LATENCY;
+        }
+    } else {
+        if (tunnel) {
+            prop_name = AVSYNC_DV_TUNNEL_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_DV_TUNNEL_LATENCY;
+        } else {
+            prop_name = AVSYNC_DV_NONTUNNEL_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_DV_NONTUNNEL_LATENCY;
+        }
+    }
+    ret = property_get(prop_name, buf, NULL);
+    if (ret > 0) {
+        latency_ms = atoi(buf);
+    }
+    return latency_ms;
+}
+
+
 static int get_ms12_nontunnel_input_latency(audio_format_t input_format) {
     char buf[PROPERTY_VALUE_MAX];
     int ret = -1;
@@ -572,10 +605,14 @@ static int get_ms12_nontunnel_latency_offset(enum OUT_PORT port
     int output_latency_ms = 0;
     int port_latency_ms = 0;
     bool is_tunnel = false;
+    struct aml_audio_device *adev = adev_get_handle();
 
     if (is_netflix) {
         input_latency_ms  = get_ms12_netflix_nontunnel_input_latency(input_format);
         output_latency_ms = get_ms12_netflix_output_latency(output_format);
+        if (adev->bDVEnable && !adev->is_TV) {
+            output_latency_ms += get_sink_dv_latency_offset(false, true);
+        }
     } else {
         input_latency_ms  = get_ms12_nontunnel_input_latency(input_format);
         output_latency_ms = get_ms12_output_latency(output_format);
@@ -699,38 +736,6 @@ int get_ms12_bypass_latency_offset(bool tunnel, bool is_netflix)
             /*non tunnel atmos case*/
             prop_name = AVSYNC_MS12_NONTUNNEL_BYPASS_LATENCY_PROPERTY;
             latency_ms = AVSYNC_MS12_NONTUNNEL_BYPASS_LATENCY;
-        }
-    }
-    ret = property_get(prop_name, buf, NULL);
-    if (ret > 0) {
-        latency_ms = atoi(buf);
-    }
-    return latency_ms;
-}
-
-
-int get_sink_dv_latency_offset(bool tunnel, bool is_netflix)
-{
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
-    int latency_ms = 0;
-    char *prop_name = NULL;
-
-    if (is_netflix) {
-        if (tunnel) {
-            prop_name = AVSYNC_DV_NETFLIX_TUNNEL_LATENCY_PROPERTY;
-            latency_ms = AVSYNC_DV_NETFLIX_TUNNEL_LATENCY;
-        } else {
-            prop_name = AVSYNC_DV_NETFLIX_NONTUNNEL_LATENCY_PROPERTY;
-            latency_ms = AVSYNC_DV_NETFLIX_NONTUNNEL_LATENCY;
-        }
-    } else {
-        if (tunnel) {
-            prop_name = AVSYNC_DV_TUNNEL_LATENCY_PROPERTY;
-            latency_ms = AVSYNC_DV_TUNNEL_LATENCY;
-        } else {
-            prop_name = AVSYNC_DV_NONTUNNEL_LATENCY_PROPERTY;
-            latency_ms = AVSYNC_DV_NONTUNNEL_LATENCY;
         }
     }
     ret = property_get(prop_name, buf, NULL);
@@ -900,8 +905,7 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
 
     if (adev->is_TV) {
         video_delay = get_ms12_tunnel_video_delay() * 48;
-    } else if (!adev->bDVEnable) {
-        // Temporary patch, should re-tunnel non-dv and dv parameters
+    } else if (adev->bDVEnable) {
         dv_delay = get_sink_dv_latency_offset(true, adev->is_netflix) * 48;
     }
 

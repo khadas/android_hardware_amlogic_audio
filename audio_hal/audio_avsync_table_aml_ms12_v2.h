@@ -294,16 +294,16 @@
 /******************************************************************************************************/
 /* NETFLIX tunning part*/
 /******************************************************************************************************/
-// right offset. 10-->30
-#define  AVSYNC_MS12_NETFLIX_NONTUNNEL_PCM_LATENCY       (10)
-// right offset. 20-->40-->30
-#define  AVSYNC_MS12_NETFLIX_NONTUNNEL_DDP_LATENCY       (30)
+// right offset. 10-->30->25
+#define  AVSYNC_MS12_NETFLIX_NONTUNNEL_PCM_LATENCY       (25)
+// right offset. 20-->40
+#define  AVSYNC_MS12_NETFLIX_NONTUNNEL_DDP_LATENCY       (40)
 // left offset. -18-->-29
 #define  AVSYNC_MS12_NETFLIX_NONTUNNEL_ATMOS_LATENCY     (-29) /*for atmos we remove 32ms at the beginning*/
-// right offset. -10-->20->-8
-#define  AVSYNC_MS12_NETFLIX_TUNNEL_PCM_LATENCY          (-8)
-// right offset. 65-->95-->75-->65-->55
-#define  AVSYNC_MS12_NETFLIX_TUNNEL_DDP_LATENCY          (55)
+// right offset. -10-->20->15
+#define  AVSYNC_MS12_NETFLIX_TUNNEL_PCM_LATENCY          (15)
+// right offset. 65-->95-->75-->65
+#define  AVSYNC_MS12_NETFLIX_TUNNEL_DDP_LATENCY          (65)
 // right offset. -5-->5
 #define  AVSYNC_MS12_NETFLIX_TUNNEL_ATMOS_LATENCY        (5)
 
@@ -374,8 +374,8 @@
 #define  AVSYNC_NONMS12_NETFLIX_TUNNEL_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.netflix.tunnel.ddp"
 
 
-#define  AVSYNC_DV_NETFLIX_TUNNEL_LATENCY                   (15)
-#define  AVSYNC_DV_NETFLIX_NONTUNNEL_LATENCY                (0)
+#define  AVSYNC_DV_NETFLIX_TUNNEL_LATENCY                   (-15)
+#define  AVSYNC_DV_NETFLIX_NONTUNNEL_LATENCY                (-25)
 
 #define  AVSYNC_DV_NETFLIX_TUNNEL_LATENCY_PROPERTY                  "vendor.media.audio.hal.dv.netflix.tunnel"
 #define  AVSYNC_DV_NETFLIX_NONTUNNEL_LATENCY_PROPERTY               "vendor.media.audio.hal.dv.netflix.nontunnel"

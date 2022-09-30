@@ -130,6 +130,9 @@ int dolby_ms12_main_pause(struct audio_stream_out *stream)
     if (aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_PAUSED) {
         aml_hwsync_wrap_set_pause(aml_out->hwsync);
         aml_out->tsync_status = TSYNC_STATUS_PAUSED;
+        if (aml_out->hwsync) {
+            aml_out->hwsync->first_apts_flag = false;
+        }
         ALOGD("%s tsync pause finished", __func__);
     }
 
