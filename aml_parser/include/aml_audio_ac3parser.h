@@ -25,6 +25,7 @@ struct ac3_parser_info {
     int framevalid_flag;
     int frame_dependent;
     int sample_rate;
+    int nIsEc3;
 };
 
 

@@ -2111,7 +2111,7 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     struct bitstream_out_desc *bitstream_out = &ms12->bitstream_out[BITSTREAM_OUTPUT_A];
     audio_format_t output_format =  ms12_get_audio_hal_format(aml_out->hal_format);
-    ALOGV("output_format=0x%x hal_format=0x%#x internal=0x%x", output_format, aml_out->hal_format, aml_out->hal_internal_format);
+    ALOGV("[%s:%d]output_format=0x%x hal_format=0x%#x internal=0x%x",__FUNCTION__,__LINE__, output_format, aml_out->hal_format, aml_out->hal_internal_format);
     bool is_dolby = (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3) || (aml_out->hal_internal_format == AUDIO_FORMAT_AC3);
     struct aml_audio_patch *patch = adev->audio_patch;
     bool do_sync_flag = ((adev->patch_src == SRC_DTV) && patch && patch->skip_amadec_flag);
@@ -2141,6 +2141,21 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
 
             if (ac3_info.sample_rate != 0 && main_frame_size) {
                 aml_out->hal_rate = ac3_info.sample_rate;
+            }
+
+            //for Tv-61707, the format of PMT table is different with the actual format,
+            //case 1: the aml_out->hal_internal_format is AUDIO_FORMAT_AC3 and the actual format is AUDIO_FORMAT_E_AC3,
+            //case 2: the aml_out->hal_internal_format is AUDIO_FORMAT_E_AC3 and the actual format is AUDIO_FORMAT_AC3,
+            //so we need to judge the format whether or not there are accurate depending on the ac3_info.nIsEc3.
+
+            if (ac3_info.nIsEc3 == 1 && aml_out->hal_internal_format == AUDIO_FORMAT_AC3) {
+                ALOGV("output_format=0x%x hal_format=0x%#x internal=0x%x nIsEc3 = %d",output_format, aml_out->hal_format, aml_out->hal_internal_format,ac3_info.nIsEc3);
+                aml_out->hal_internal_format = AUDIO_FORMAT_E_AC3;
+                output_format = AUDIO_FORMAT_E_AC3;
+                if (patch && patch->is_dtv_src) {
+                    patch->aformat = AUDIO_FORMAT_E_AC3;
+                }
+
             }
         } while(bytes_left != 0);
 

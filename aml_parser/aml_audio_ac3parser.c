@@ -223,11 +223,11 @@ static int aml_ac3_parser_frame_header
  , int *timeslice_61937
  , int *framevalid_flag
  , int *frame_dependent
- , int *sample_rate)
+ , int *sample_rate
+ , int *nIsEc3)
 {
     int acmod = 0;
     int lfeOn = 0;
-    int nIsEc3 = 0;
     int frame_size_code = 0;
     int sr_code = 0;
     int substreamid = 0;
@@ -289,12 +289,12 @@ static int aml_ac3_parser_frame_header
             goto error;    //invalid bitstream_id
         }
         if (bsid <= 8) {
-            nIsEc3 = 0;
+            *nIsEc3 = 0;
         } else if ((bsid <= 16) && (bsid > 10)) {
-            nIsEc3 = 1;
+            *nIsEc3 = 1;
         }
 
-        if (nIsEc3 == 0) {
+        if (*nIsEc3 == 0) {
             int use_bits = 0;
 
             substreamid = 0;
@@ -521,7 +521,8 @@ int aml_ac3_parser_process(void *parser_handle, const void *in_buffer, int32_t n
                                    &ac3_info->channel_num, &ac3_info->numblks, &ac3_info->timeslice_61937,
                                    &ac3_info->framevalid_flag,
                                    &ac3_info->frame_dependent,
-                                   &ac3_info->sample_rate);
+                                   &ac3_info->sample_rate,
+                                   &ac3_info->nIsEc3);
 
 
 
