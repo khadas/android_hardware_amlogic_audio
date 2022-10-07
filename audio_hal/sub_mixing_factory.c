@@ -1508,8 +1508,10 @@ static int out_pause_subMixingPCM(struct audio_stream_out *stream)
         return 0;
     }
 
-    audio_mixer = sm->mixerData;
-    send_mixer_inport_message(audio_mixer, aml_out->inputPortID, MSG_PAUSE);
+    if (aml_out->inputPortID != -1) {
+        audio_mixer = sm->mixerData;
+        send_mixer_inport_message(audio_mixer, aml_out->inputPortID, MSG_PAUSE);
+    }
 
     aml_out->pause_status = true;
     AM_LOGI("-");
@@ -1540,8 +1542,10 @@ static int out_resume_subMixingPCM(struct audio_stream_out *stream)
         return 0;
     }
 
-    audio_mixer = sm->mixerData;
-    send_mixer_inport_message(audio_mixer, aml_out->inputPortID, MSG_RESUME);
+    if (aml_out->inputPortID != -1) {
+        audio_mixer = sm->mixerData;
+        send_mixer_inport_message(audio_mixer, aml_out->inputPortID, MSG_RESUME);
+    }
 
     aml_out->pause_status = false;
     aml_out->need_first_sync = true;
@@ -1590,8 +1594,10 @@ static int out_flush_subMixingPCM(struct audio_stream_out *stream)
             }
             pthread_mutex_unlock(&aml_out->mdata_lock);
         }
-        audio_mixer = sm->mixerData;
-        send_mixer_inport_message(audio_mixer, aml_out->inputPortID, MSG_FLUSH);
+        if (aml_out->inputPortID != -1) {
+            audio_mixer = sm->mixerData;
+            send_mixer_inport_message(audio_mixer, aml_out->inputPortID, MSG_FLUSH);
+        }
         if (!aml_out->standby)
             flush_hw_avsync_header_extractor(aml_out->hwsync_extractor);
         //mixer_set_inport_state(audio_mixer, out->port_index, FLUSHING);
