@@ -6105,6 +6105,15 @@ ssize_t hw_write (struct audio_stream_out *stream
             }
         }
         if (adev->active_outport == OUTPORT_A2DP) {
+            /* mediasync need to now the real running status of devices for
+            both alsa and bt. alsa running status PCM_STATE_RUNNING is
+            the same as BluetoothStreamState STARTED.
+            */
+            int  cur_status = a2dp_out_get_status(adev);
+            if (cur_status != aml_out->alsa_running_status) {
+                aml_out->alsa_running_status = cur_status;
+                aml_out->alsa_status_changed = true;
+            }
             ret = a2dp_out_write(adev, &in_data_config, buffer, bytes);
         } else if (is_sco_port(adev->active_outport)) {
             in_data_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
@@ -9695,7 +9704,8 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
                 }
                 ALOGD("%s  aml_dev->dolby_lib_type:%d, audio_patching:%d, patch_src:%d", __func__,
                     aml_dev->dolby_lib_type, aml_dev->audio_patching, aml_dev->patch_src);
-                if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
+                /*stb ms12 version use ms12 api control vol and do not need set source gain */
+                if (eDolbyMS12Lib == aml_dev->dolby_lib_type && aml_dev->is_TV) {
                     /* dev->dev and DTV src gain using MS12 primary gain */
                     if (aml_dev->audio_patching || aml_dev->patch_src == SRC_DTV) {
                         pthread_mutex_lock(&aml_dev->lock);

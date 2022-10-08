@@ -566,6 +566,16 @@ uint32_t a2dp_out_get_latency(struct aml_audio_device *adev __unused) {
     return static_cast<uint32_t>(remote_delay_report_ns / NSEC_PER_MSEC + A2DP_STATIC_DELAY_MS);
 }
 
+
+int a2dp_out_get_status(struct aml_audio_device *adev) {
+    struct aml_a2dp_hal * hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
+    if (!hal) {
+        AM_LOGW("a2dp_hal is null");
+        return -1;
+    }
+    return (int)hal->state;
+}
+
 int a2dp_out_set_parameters(struct aml_audio_device *adev, const char *kvpairs) {
     struct aml_a2dp_hal * hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
     R_CHECK_POINTER_LEGAL(-1, hal, "a2dp hw is released");
