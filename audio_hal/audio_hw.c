@@ -8235,6 +8235,7 @@ void *audio_patch_input_threadloop(void *data)
     int ret = 0, retry = 0;
     audio_format_t cur_aformat;
     int ring_buffer_size = 0;
+    bool stable_flag = false;
 
     ALOGI("++%s", __FUNCTION__);
 
@@ -8315,7 +8316,10 @@ void *audio_patch_input_threadloop(void *data)
 
         bytes_avail = read_bytes;
         /* if audio is unstable, don't read data from hardware */
-        if (aml_dev->tv_mute || !check_tv_stream_signal(&in->stream)) {
+
+        stable_flag = check_tv_stream_signal(&in->stream);
+
+        if (aml_dev->tv_mute || !stable_flag) {
             memset(patch->in_buf, 0, bytes_avail);
             ring_buffer_clear(ringbuffer);
             usleep(20*1000);
