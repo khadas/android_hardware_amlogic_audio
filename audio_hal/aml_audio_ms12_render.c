@@ -425,6 +425,13 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                     if (dtv_stream_flag)
                         patch->dtv_pcm_wrote += dec_pcm_data->data_len;
                     aml_dec->out_frame_pts = aml_dec->in_frame_pts + (90 * out_frames /(dec_pcm_data->data_sr / 1000));
+                    if (get_debug_value(AML_DEBUG_AUDIOHAL_AUT)) {
+                        ALOGI("pes_pts: %" PRIx64 ", frame_pts: %" PRIx64 ", pcm[len:%d, pcm_dur:%dms, total_dur:%dms].",\
+                            aml_dec->in_frame_pts, aml_dec->out_frame_pts, dec_pcm_data->data_len,\
+                            dec_pcm_data->data_len * 1000 /( 2 * dec_pcm_data->data_ch * dec_pcm_data->data_sr),\
+                            out_frames /(dec_pcm_data->data_sr / 1000));
+                    }
+
                     //aml_audio_dump_audio_bitstreams("/data/mixing_data.raw", dec_data, dec_pcm_data->data_len);
                     /* audio data/apts, we send the APTS at first*/
                     if (ms12 && aml_dec) {
@@ -454,6 +461,12 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                                 aml_out->alsa_status_changed = false;
                             }
                             patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90 - alsa_latency + force_setting_delayms * 90;
+                            if (get_debug_value(AML_DEBUG_AUDIOHAL_AUT)) {
+                                ALOGI("frame_pts:%" PRIx64 ", output_pts:%" PRIx64 ", latency:%" PRId64 " ms.",\
+                                    aml_dec->out_frame_pts, patch->dtvsync->cur_outapts,\
+                                    (aml_dec->out_frame_pts - patch->dtvsync->cur_outapts) / 90);
+                            }
+
                             if (adev->debug_flag)
                                 ALOGI("patch->dtvsync->cur_outapts %" PRId64 ", ms12_delayms:%d ms, alsa_latency:%d ms", patch->dtvsync->cur_outapts, ms12_delayms, alsa_latency/90);
                             if (aml_out->dtvsync_enable)

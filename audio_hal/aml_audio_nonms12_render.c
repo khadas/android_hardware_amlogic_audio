@@ -293,6 +293,12 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 aml_dec->out_frame_pts = aml_dec->in_frame_pts + (90 * out_frames /(dec_pcm_data->data_sr / 1000));
                 if (dec_pcm_data->data_ch != 0)
                     out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
+                if (get_debug_value(AML_DEBUG_AUDIOHAL_AUT)) {
+                    ALOGI("pes_pts: %" PRIx64 ", frame_pts: %" PRIx64 ", pcm[len:%d, dur:%dms, total_dur:%dms].",\
+                        aml_dec->in_frame_pts, aml_dec->out_frame_pts, dec_pcm_data->data_len,\
+                        dec_pcm_data->data_len * 1000 /( 2 * dec_pcm_data->data_ch * dec_pcm_data->data_sr),\
+                        out_frames /(dec_pcm_data->data_sr / 1000));
+                }
                 if (is_dolby_ddp_support_compression_format(aml_out->hal_internal_format)) {
                     decoder_remain_cache = (decoder_remain_size > raw_in_data->data_len / 2) ? DDP_DECODER_CACHE : 0;
                     decoder_latency = DDP_DECODER_CACHE + decoder_remain_cache;
@@ -384,6 +390,11 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                         }
 
                         patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - decoder_latency - alsa_latency + ddp_tuning_latency + force_setting_delay;
+                        if (get_debug_value(AML_DEBUG_AUDIOHAL_AUT)) {
+                            ALOGI("frame_pts:%" PRIx64 ", output_pts:%" PRIx64 ", latency:%" PRId64 " ms.",\
+                                aml_dec->out_frame_pts, patch->dtvsync->cur_outapts,\
+                                (aml_dec->out_frame_pts - patch->dtvsync->cur_outapts) / 90);
+                        }
 
                     }
                     //sync process here

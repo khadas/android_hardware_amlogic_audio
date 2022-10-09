@@ -3247,6 +3247,7 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
         int ch_num = ms12_info->output_ch ? ms12_info->output_ch : 2;
         int sample_rate = ms12_info->output_sr ? ms12_info->output_sr : 48000;
         size_t cur_pcm_pts = size * 90000 / (2 * ch_num) / sample_rate;
+        static uint64_t total_pcm_dur = 0;
         if (output_format == AUDIO_FORMAT_MAT) {
             cur_pcm_pts = correct_the_duration_by_align_the_mat_frame_header((char *)buffer, size);
         }
@@ -3276,6 +3277,8 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
                 aml_dtvsync->out_start_apts = (int64_t)ms12_main_apts - (int64_t)ms12_total_delay_pts;
             else
                 aml_dtvsync->out_start_apts = (int64_t)ms12_main_apts;
+
+            total_pcm_dur = cur_pcm_pts / 90;
         }
         else {
             /* SWPL-71715, if package_pts is bigger than out_end_apts a certain range,
@@ -3291,6 +3294,8 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
             } else {
                 aml_dtvsync->out_start_apts = aml_dtvsync->out_end_apts;
             }
+
+            total_pcm_dur += cur_pcm_pts / 90;
         }
         if (aml_dtvsync->out_start_apts == DTVSYNC_INIT_PTS) {
             /*invalid pts */
@@ -3298,6 +3303,21 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
         } else {
             aml_dtvsync->out_end_apts = aml_dtvsync->out_start_apts + cur_pcm_pts;
             aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_tuning_delay_pts + force_setting_delay_pts;
+        }
+
+        if (get_debug_value(AML_DEBUG_AUDIOHAL_AUT)) {
+            if (ms12_main_apts) {
+                ALOGI("pts lookup success. pkg_pts:%" PRIx64 ", lookup_pts:%" PRIx64 ", pkg-lookup_pts:%" PRIx64 ", frame_pts:%" PRIx64 ","
+                    "pcm[len:%zu, dur:%zums, total_dur:%" PRIu64 "ms], output_pts:%" PRIx64 ". ",\
+                    patch->cur_package->pts, ms12_main_apts, patch->cur_package->pts - ms12_main_apts,\
+                    aml_dtvsync->out_start_apts, size, cur_pcm_pts/90,\
+                    total_pcm_dur, aml_dtvsync->cur_outapts);
+            } else {
+                ALOGI("pts lookup fail. pkg_pts:%" PRIx64 ", frame_pts:%" PRIx64 ","
+                    "pcm[len:%zu, dur:%zums, total_dur:%" PRIu64 "ms], output_pts:%" PRIx64 ". ",\
+                    patch->cur_package->pts, aml_dtvsync->out_start_apts, size, cur_pcm_pts/90,\
+                    total_pcm_dur, aml_dtvsync->cur_outapts);
+            }
         }
 
         if (patch->cur_package && adev->debug_flag && (patch->cur_package->pts != ULLONG_MAX)) {
