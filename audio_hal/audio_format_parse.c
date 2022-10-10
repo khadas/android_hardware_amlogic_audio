@@ -495,7 +495,7 @@ static int get_config_by_params(struct pcm_config *config_in, bool normal_pcm)
     config_in->rate = 48000;
     config_in->format = PCM_FORMAT_S16_LE;
     config_in->period_size = PARSER_DEFAULT_PERIOD_SIZE;
-    config_in->period_count = 4;
+    config_in->period_count = 16;
 
     return 0;
 }
@@ -639,12 +639,18 @@ static int reconfig_pcm_by_packet_type(audio_type_parse_t *audio_type_status,
             hdmiin_audio_packet_t cur_audio_packet)
 {
     hdmiin_audio_packet_t last_packet_type = audio_type_status->hdmi_packet;
+    hdmiin_audio_packet_t last_reconfig_packet_type = audio_type_status->last_reconfig_hdmi_packet;
     bool reopen = false;
 
     if (cur_audio_packet == AUDIO_PACKET_HBR && is_normal_config(last_packet_type)) {
         get_config_by_params(&audio_type_status->config_in, 0);
         reopen = true;
     } else if (is_normal_config(cur_audio_packet) && last_packet_type == AUDIO_PACKET_HBR) {
+        get_config_by_params(&audio_type_status->config_in, 1);
+        reopen = true;
+    } else if ((cur_audio_packet == AUDIO_PACKET_AUDS) && (last_reconfig_packet_type == AUDIO_PACKET_HBR)){
+        /* For this case,it just uses by DVD device. For DVD device,the packet type doesn't change from current value to the target directly. It will change for several type. Finally, it changes to the target value.
+        During this change, it will trigger pcm reconfig for the middle value. Use this process to recover the pcm config.*/
         get_config_by_params(&audio_type_status->config_in, 1);
         reopen = true;
     }
@@ -667,6 +673,7 @@ static int reconfig_pcm_by_packet_type(audio_type_parse_t *audio_type_status,
             return -EINVAL;
         }
         audio_type_status->in = in;
+        audio_type_status->last_reconfig_hdmi_packet = cur_audio_packet;
     }
 
     return 0;
@@ -680,6 +687,7 @@ static void* audio_type_parse_threadloop(void *data)
     int cur_samplerate = HW_RESAMPLE_DISABLE;
     int last_cur_samplerate = HW_RESAMPLE_DISABLE;
     hdmiin_audio_packet_t cur_audio_packet = AUDIO_PACKET_NONE;
+    audio_type_status->last_reconfig_hdmi_packet = AUDIO_PACKET_NONE;
     int read_bytes = 0, read_back, nodata_count;
     int txlx_chip = check_chip_name("txlx", 4, audio_type_status->mixer_handle);
     int txl_chip = check_chip_name("txl", 3, audio_type_status->mixer_handle);

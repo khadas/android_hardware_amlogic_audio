@@ -79,6 +79,7 @@ typedef struct audio_type_parse {
     unsigned int flags;
     int soft_parser;
     hdmiin_audio_packet_t hdmi_packet;
+    hdmiin_audio_packet_t last_reconfig_hdmi_packet;
 
     int period_bytes;
     char *parse_buffer;
