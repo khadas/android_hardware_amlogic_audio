@@ -9683,7 +9683,7 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
                             break;
                         case OUTPORT_A2DP:
                             /* For scenarios that do not support AVRCP, audio_hal control is required. */
-                            if (aml_dev->bt_avrcp_supported) {
+                            if (aml_dev->bt_avrcp_supported && volume > FLOAT_ZERO) {
                                 aml_dev->sink_gain[outport] = 1.0;
                             } else {
                                 aml_dev->sink_gain[outport] = volume;
@@ -9697,11 +9697,12 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
                     }
                 } else if (patch->num_sinks == 1) {
                     outport = sink_devs[0];
+                    float volume = DbToAmpl(config->gain.values[0] / 100.0);
                     if (OUTPORT_HDMI_ARC == outport || OUTPORT_SPDIF == outport ||
-                        (OUTPORT_A2DP == outport && aml_dev->bt_avrcp_supported)) {
-                        aml_dev->sink_gain[outport] =  1.0;
+                        (OUTPORT_A2DP == outport && aml_dev->bt_avrcp_supported && volume > FLOAT_ZERO)) {
+                        aml_dev->sink_gain[outport] = 1.0;
                     } else {
-                        aml_dev->sink_gain[outport] = DbToAmpl(config->gain.values[0] / 100.0);
+                        aml_dev->sink_gain[outport] = volume;
                     }
                 }
                 ALOGD("%s  aml_dev->dolby_lib_type:%d, audio_patching:%d, patch_src:%d", __func__,
