@@ -53,7 +53,7 @@
 /*AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY works in HDMI port:*/
 /*For DDP source under HDMI output*/
 /*40->90, the result change from +25ms to -25ms*/
-#define  AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY                  (105)
+#define  AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY                  (90)
 #define  AVSYNC_MS12_TUNNEL_ATMOS_LATENCY                (20)
 
 #define  AVSYNC_MS12_NONTUNNEL_AC4_LATENCY               (70)
@@ -82,13 +82,13 @@
  * 75 -> 35 for result as +20 -> +40
  * 75 -> 115 for result as +20 -> -20
  */
-#define  AVSYNC_MS12_DDP_OUT_LATENCY                     (75)
+#define  AVSYNC_MS12_DDP_OUT_LATENCY                     (70)
 
 /*
  * 10 -> -20 for result as +20 -> +50
  * 10 -> 30 for result as +20 -> -10
  */
-#define  AVSYNC_MS12_MAT_OUT_LATENCY                     (30)
+#define  AVSYNC_MS12_MAT_OUT_LATENCY                     (25)
 
 /* HDMI ARC tune */
 //1.tunnel mode
