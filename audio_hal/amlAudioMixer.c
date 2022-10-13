@@ -1231,12 +1231,6 @@ static void *mixer_32b_threadloop(void *data)
     prctl(PR_SET_NAME, "amlAudioMixer32");
     aml_audio_set_cpu23_affinity();
     while (!audio_mixer->exit_thread) {
-        if (adev->low_power) {
-            ALOGI("%s(), low_power mode, wait forever (line %d)", __func__, __LINE__);
-            pthread_cond_wait(&adev->wake_cond, &adev->wake_lock);
-            ALOGI("%s(), system resume,  wakeup (line %d)", __func__, __LINE__);
-        }
-
         //pthread_mutex_lock(&audio_mixer->lock);
         //mixer_procs_msg_queue(audio_mixer);
         // processing throttle
@@ -1307,11 +1301,6 @@ static void *mixer_16b_threadloop(void *data)
             audio_virtual_buf_open((void **)&pstVirtualBuffer, "mixer_16bit_thread",
                     MIXER_WRITE_PERIOD_TIME_NANO * 4, MIXER_WRITE_PERIOD_TIME_NANO * 4, 0, 0);
             audio_virtual_buf_process((void *)pstVirtualBuffer, MIXER_WRITE_PERIOD_TIME_NANO * 4);
-        }
-        if (adev->low_power) {
-            ALOGI("%s(), low_power mode, wait forever (line %d)", __func__, __LINE__);
-            pthread_cond_wait(&adev->wake_cond, &adev->wake_lock);
-            ALOGI("%s(), system resume,  wakeup (line %d)", __func__, __LINE__);
         }
 
         pthread_mutex_lock(&audio_mixer->lock);

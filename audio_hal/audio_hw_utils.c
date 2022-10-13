@@ -822,7 +822,7 @@ int aml_audio_get_hwsync_latency_offset(bool b_raw)
     char *prop_name = NULL;
     if (!b_raw) {
         prop_name = "vendor.media.audio.hal.hwsync_latency.pcm";
-        latency_ms = -22; // left offset 0 --> -15 --> -27 --> -22
+        latency_ms = -7; // left offset 0 --> -15 --> -27 --> -22 --> -7
     } else {
         prop_name = "vendor.media.audio.hal.hwsync_latency.ddp";
         latency_ms = -45; // left offset -30 --> -50 --> -45
