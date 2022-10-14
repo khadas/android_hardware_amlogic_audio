@@ -4863,7 +4863,8 @@ int out_start_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
             if (dtvsync->mediasync_new != NULL) {
                 audio_format.format = dmx_info->main_fmt;
                 mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_AUDIOFORMAT, &audio_format);
-                mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_HASVIDEO, &dmx_info->has_video);
+                if (!adev->audio_patch->cbs_patch)
+                    mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_HASVIDEO, &dmx_info->has_video);
                 dtvsync->mediasync = dtvsync->mediasync_new;
                 adev->audio_patch->dtvsync = dtvsync;
                 aml_dtvsync_setPause(dtvsync, false);
