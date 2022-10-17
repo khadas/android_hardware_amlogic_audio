@@ -7027,6 +7027,7 @@ hwsync_rewrite:
             need_reset_decoder = true;
             /* reset audio patch ringbuffer */
             ring_buffer_reset(&patch->aml_ringbuffer);
+            memset((void *)buffer, 0, bytes);
 #ifdef ADD_AUDIO_DELAY_INTERFACE
             // fixed switch between RAW and PCM noise, drop delay residual data
             aml_audio_delay_clear(AML_DELAY_OUTPORT_SPDIF);

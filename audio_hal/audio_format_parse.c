@@ -426,7 +426,7 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size,
             tmp = (pc & 0x7ff) >> 8;
             AudioType = DTSHD;
             /*refer to IEC 61937-5 pdf, table 6*/
-            *package_size = DTSHD_PERIOD_SIZE << tmp ;
+            *package_size = DTSHD_TYPE_IV_PERIOD_SIZE << tmp ;
             break;
         case IEC61937_MAT:
             AudioType = MAT;
