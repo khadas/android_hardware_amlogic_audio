@@ -2086,6 +2086,7 @@ static ssize_t aml_ms12_spdif_output_new (struct audio_stream_out *stream,
     }
 
     bitstream_desc->audio_format = output_format;
+    bitstream_desc->sub_format = sub_format;
 
     if (bitstream_desc->is_bypass_ms12) {
         if (ms12->main_volume < FLOAT_ZERO) {

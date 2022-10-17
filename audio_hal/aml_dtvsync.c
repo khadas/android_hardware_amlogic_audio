@@ -408,6 +408,7 @@ bool aml_dtvsync_ms12_adjust_clock(struct audio_stream_out *stream, int direct)
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     struct bitstream_out_desc *bitstream_out;
     int i = 0;
+    audio_format_t audio_format;
 
     ALOGI("func:%s, direct = %d\n", __FUNCTION__, direct);
     if (direct >= 0 && direct <= 2) {
@@ -415,16 +416,21 @@ bool aml_dtvsync_ms12_adjust_clock(struct audio_stream_out *stream, int direct)
         dtv_adjust_i2s_output_clock(patch, direct, patch->i2s_step_clk / patch->i2s_div_factor);
         for (i = 0; i < BITSTREAM_OUTPUT_CNT; i++) {
             bitstream_out = &ms12->bitstream_out[i];
+            audio_format = bitstream_out->audio_format;
+            /*now ms12 ddp output set audio format AUDIO_FORMAT_IEC61937, since it has been packed*/
+            if (audio_format == AUDIO_FORMAT_IEC61937) {
+                audio_format =  bitstream_out->sub_format;
+            }
             if (bitstream_out->spdifout_handle != NULL) {
-                if (bitstream_out->audio_format == AUDIO_FORMAT_E_AC3) {
+                if (audio_format == AUDIO_FORMAT_E_AC3) {
                     dtv_adjust_spdif_output_clock(patch, direct,
                             4 * patch->i2s_step_clk / patch->i2s_div_factor , true);
 
-                } else if (bitstream_out->audio_format == AUDIO_FORMAT_AC3) {
+                } else if (audio_format == AUDIO_FORMAT_AC3) {
                     dtv_adjust_spdif_output_clock(patch, direct,
                             patch->i2s_step_clk / patch->i2s_div_factor, false);
 
-                } else if (bitstream_out->audio_format == AUDIO_FORMAT_MAT) {
+                } else if (audio_format == AUDIO_FORMAT_MAT) {
                     dtv_adjust_spdif_output_clock(patch, direct,
                             16 * patch->i2s_step_clk / patch->i2s_div_factor , true);
                 }

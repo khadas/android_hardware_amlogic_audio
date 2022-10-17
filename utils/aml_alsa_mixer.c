@@ -78,6 +78,7 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_CHANGE_SPDIF_PLL,     "SPDIF CLK Fine Setting"},
     {AML_MIXER_ID_CHANGE_SPDIFB_PLL,    "SPDIF_B CLK Fine Setting"},
     {AML_MIXER_ID_CHANGE_I2S_PLL,       "TDM MCLK Fine Setting"},
+    {AML_MIXER_ID_CHANGE_EARC_PLL,      "eARC_TX CLK Fine Setting"},
     {AML_MIXER_ID_SPDIF_IN_SAMPLERATE,  "SPDIFIN audio samplerate"},
     {AML_MIXER_ID_HW_RESAMPLE_SOURCE,   "Hw resample module"},
     {AML_MIXER_ID_EARCRX_AUDIO_CODING_TYPE,   "eARC_RX Audio Coding Type"},

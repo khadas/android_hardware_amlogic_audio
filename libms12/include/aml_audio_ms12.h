@@ -54,6 +54,7 @@ enum {
 
 struct bitstream_out_desc {
     audio_format_t audio_format;
+    audio_format_t sub_format;
     void *spdifout_handle;
     int  need_drop_frame;
     bool is_bypass_ms12;

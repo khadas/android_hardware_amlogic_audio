@@ -2518,11 +2518,17 @@ int audio_set_spdif_clock(struct aml_stream_out *stream, int type)
                 DEFAULT_I2S_OUTPUT_CLOCK;
         }
     }
+
+    dev->audio_patch->dtv_default_arc_clock = DEFAULT_EARC_OUTPUT_CLOCK;
+
     dev->audio_patch->spdif_step_clk =
         dev->audio_patch->dtv_default_spdif_clock / (property_get_int32(
                                         PROPERTY_AUDIO_TUNING_PCR_CLOCK_STEPS, DEFAULT_TUNING_PCR_CLOCK_STEPS));
     dev->audio_patch->i2s_step_clk =
         DEFAULT_I2S_OUTPUT_CLOCK / (property_get_int32(
+                                        PROPERTY_AUDIO_TUNING_PCR_CLOCK_STEPS, DEFAULT_TUNING_PCR_CLOCK_STEPS));
+    dev->audio_patch->arc_step_clk =
+        dev->audio_patch->dtv_default_arc_clock / (property_get_int32(
                                         PROPERTY_AUDIO_TUNING_PCR_CLOCK_STEPS, DEFAULT_TUNING_PCR_CLOCK_STEPS));
     ALOGI("[%s] type=%d,spdif %d,dual %d, arc %d", __FUNCTION__, type, dev->audio_patch->spdif_step_clk,
           is_dual_spdif, dev->bHDMIARCon);
