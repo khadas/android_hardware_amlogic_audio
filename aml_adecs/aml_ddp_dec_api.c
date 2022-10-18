@@ -827,9 +827,10 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
                 read_pointer++;
                 total_used_size++;
             }
-            read_offset = 8;
+
             if (in_sync) {
                 int frame_size = 0;
+                read_offset = 8;
                 /* this 'frame_size' is the size of one frame. but In a IEC61937 package,
                    sometimes there are multi frames in one package */
                 Get_Parameters(read_pointer + read_offset, &mSample_rate, &frame_size, &mChMask, &is__aml_eac3, &isDependentFrame, &ad_substream_supported);
@@ -840,8 +841,9 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
     ALOGV("remain %d, frame size %d, in sync %d\n", ddp_dec->remain_size, mFrame_size, in_sync);
     //we do not have one complete dolby frames.we need cache the
     //data and combine with the next input data.
-    if (ddp_dec->remain_size < mFrame_size || in_sync == 0) {
-        //ALOGI("remain %d,frame size %d, read more\n",remain_size,mFrame_size);
+
+    if ((ddp_dec->remain_size - read_offset) < mFrame_size || in_sync == 0) {
+        ALOGV("remain %d,frame size %d, read_offset:%d, need read more\n",ddp_dec->remain_size,mFrame_size, read_offset);
         memcpy(ddp_dec->inbuf, read_pointer, ddp_dec->remain_size);
         return AML_DEC_RETURN_TYPE_CACHE_DATA;
     }
