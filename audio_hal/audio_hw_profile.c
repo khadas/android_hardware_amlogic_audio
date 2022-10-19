@@ -760,7 +760,12 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC3");
                 p_hdmi_descs->dd_fmt.is_support = 1;
             }
-        }
+        } else if (p_hdmi_descs->ddp_fmt.is_support) {
+            /*for some tv report ddp only, but it can decode dd*/
+            size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_AC3");
+            p_hdmi_descs->dd_fmt.is_support = 1;
+            p_hdmi_descs->dd_fmt.max_channels = 6;
+         }
 
         /*check dts-hd/dts*/
         audio_cap_item = get_edid_support_audio_format(AUDIO_FORMAT_DTS_HD);
@@ -894,8 +899,12 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
                 }
 
             } else {
-                ALOGE("%s not found support channel for 0x%x", __func__, format);
-                size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
+                if (format == AUDIO_FORMAT_AC3 && p_hdmi_descs->dd_fmt.is_support) {
+                    size += sprintf(aud_cap, "sup_channels=%s", SUPPORT_MAX_CHANNEL_6CH);
+                } else {
+                    ALOGE("%s not found support channel for 0x%x", __func__, format);
+                    size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
+                }
             }
             break;
         case AUDIO_FORMAT_IEC61937:
