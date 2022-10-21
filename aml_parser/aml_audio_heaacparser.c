@@ -1038,14 +1038,14 @@ int aml_heaac_parser_process(void *parser_handle, const void *in_buffer, int32_t
     heaac_info->frame_size = 0;
     heaac_info->sample_rate = 0;
     heaac_info->channel_mask = 0;
-
     parser_buf = heaac_parser_handle->buf;
     buf_left   = numBytes;
+    *used_size = 0;
 
     if (heaac_info->debug_print) {
         ALOGD("%s input buf size %d status %d is_loas %d is_adts %d\n", __func__, numBytes, heaac_parser_handle->status, is_loas, is_adts);
     }
-
+resync:
     /*we need at least HEAAC_HEADER_SIZE bytes*/
     if (heaac_parser_handle->buf_remain < HEAAC_HEADER_SIZE) {
         need_size = HEAAC_HEADER_SIZE - heaac_parser_handle->buf_remain;
@@ -1059,8 +1059,7 @@ int aml_heaac_parser_process(void *parser_handle, const void *in_buffer, int32_t
         memcpy(parser_buf + heaac_parser_handle->buf_remain, buffer + buf_offset, need_size);
         heaac_parser_handle->buf_remain += need_size;
         buf_offset += need_size;
-        buf_left   = numBytes - buf_offset;
-
+        buf_left = numBytes - buf_offset;
     }
 
     if (heaac_parser_handle->status == PARSER_SYNCING) {
@@ -1110,7 +1109,7 @@ int aml_heaac_parser_process(void *parser_handle, const void *in_buffer, int32_t
 
         data_valid = heaac_parser_handle->buf_remain - sync_word_offset;
         /*move the header to the beginning of buf*/
-        if (sync_word_offset != 0) {
+        if (sync_word_offset > 0) {
             memmove(parser_buf, parser_buf + sync_word_offset, data_valid);
         }
         heaac_parser_handle->buf_remain = data_valid;
@@ -1130,8 +1129,6 @@ int aml_heaac_parser_process(void *parser_handle, const void *in_buffer, int32_t
             buf_offset += need_size;
             buf_left = numBytes - buf_offset;
         }
-
-
     }
 
     /*double check here*/
@@ -1150,7 +1147,7 @@ int aml_heaac_parser_process(void *parser_handle, const void *in_buffer, int32_t
     }
 
     if (sync_word_offset != 0) {
-        ALOGE("we can't get here remain=%d,resync dolby header", heaac_parser_handle->buf_remain);
+        ALOGE("we can't get here remain=%d,resync heaac header", heaac_parser_handle->buf_remain);
         heaac_parser_handle->buf_remain = 0;
         heaac_parser_handle->status = PARSER_SYNCING;
         goto error;
@@ -1168,9 +1165,18 @@ int aml_heaac_parser_process(void *parser_handle, const void *in_buffer, int32_t
 
     /*check whether the input data has a complete heaac frame*/
     if (ret != 0 || heaac_info->frame_size == 0) {
-        ALOGE("%s wrong frame size=%d", __func__, heaac_info->frame_size);
-        heaac_parser_handle->buf_remain = 0;
+        ALOGE("%s wrong frame size=%d ", __func__, heaac_info->frame_size);
         heaac_parser_handle->status = PARSER_SYNCING;
+        if (is_loas && heaac_info->frame_size > 0) {
+            if (buf_left >= (heaac_info->frame_size - heaac_parser_handle->buf_remain)) {
+                buf_offset += (heaac_info->frame_size - heaac_parser_handle->buf_remain);
+                buf_left = numBytes - buf_offset;
+                *used_size = buf_offset;
+                heaac_parser_handle->buf_remain = 0;
+                goto resync;
+            }
+        }
+        heaac_parser_handle->buf_remain = 0;
         goto error;
     }
     frame_size = heaac_info->frame_size;
