@@ -8068,6 +8068,8 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
     aml_out->usecase = attr_to_usecase(aml_out->device, aml_out->hal_format, aml_out->flags);
     aml_out->is_normal_pcm = (aml_out->usecase == STREAM_PCM_NORMAL) ? 1 : 0;
     aml_out->out_cfg = *config;
+    aml_out->card = adev->card;
+
     if (adev->useSubMix) {
         // In V1.1, android out lpcm stream and hwsync pcm stream goes to aml mixer,
         // tv source keeps the original way.
