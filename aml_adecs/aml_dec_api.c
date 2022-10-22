@@ -50,7 +50,7 @@
 
 static aml_dec_func_t * get_decoder_function(audio_format_t format, int dts_decode_enable)
 {
-    switch (format) {
+    switch ((uint32_t)format) {
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3: {
         return &aml_dcv_func;

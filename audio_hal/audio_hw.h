@@ -159,6 +159,7 @@ enum audio_hal_format {
 #define FRAMESIZE_32BIT_5ch 20
 #define FRAMESIZE_32BIT_8ch 32
 
+
 /* copy from VTS */
 /* hardware/interfaces/audio/core/all-versions/default/include/core/default/Util.h */
 /*

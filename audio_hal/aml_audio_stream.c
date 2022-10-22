@@ -207,7 +207,7 @@ static audio_format_t get_sink_mpegh_capability (struct aml_audio_device *adev)
         cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_FORMATS, 0, &(adev->hdmi_descs), true);
         if (cap) {
             if (adev->hdmi_descs.mpegh_fmt.is_support) {
-                sink_capability = AUDIO_FORMAT_MPEGH;
+                sink_capability = (audio_format_t)AUDIO_FORMAT_MPEGH;
             }
             ALOGI("%s mbox+dvb case sink_capability %#x\n", __FUNCTION__, sink_capability);
             aml_audio_free(cap);
@@ -215,7 +215,7 @@ static audio_format_t get_sink_mpegh_capability (struct aml_audio_device *adev)
         }
     } else {
         if (mpegh_is_support) {
-            sink_capability = AUDIO_FORMAT_MPEGH;
+            sink_capability = (audio_format_t)AUDIO_FORMAT_MPEGH;
         }
         ALOGI ("%s mpegh support %d\n", __FUNCTION__, mpegh_is_support);
     }

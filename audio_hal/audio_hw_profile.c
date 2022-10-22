@@ -335,7 +335,7 @@ static audio_format_pair_t hdmi_format_table[] = {
     {"Dolby_Digital+" , AUDIO_FORMAT_E_AC3        },
     {"MAT"            , AUDIO_FORMAT_MAT          },
     {"WMA_Pro"        , AUDIO_FORMAT_WMA_PRO      },
-    {"MPEG-H"         , AUDIO_FORMAT_MPEGH        },
+    {"MPEG-H"         , (audio_format_t)AUDIO_FORMAT_MPEGH        },
 };
 
 typedef  struct {
@@ -703,7 +703,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
         format == AUDIO_FORMAT_MPEGH_BL_L4 ||
         format == AUDIO_FORMAT_MPEGH_LC_L3 ||
         format == AUDIO_FORMAT_MPEGH_LC_L4) {
-        format = AUDIO_FORMAT_MPEGH;
+        format = (audio_format_t)AUDIO_FORMAT_MPEGH;
     }
 
     /*currently we treat eac3_joc as eac3*/
@@ -826,7 +826,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
         }
 
         /*check mpegh*/
-        audio_cap_item = get_edid_support_audio_format(AUDIO_FORMAT_MPEGH);
+        audio_cap_item = get_edid_support_audio_format((audio_format_t)AUDIO_FORMAT_MPEGH);
         if (audio_cap_item) {
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_MPEGH_BL_L3|AUDIO_FORMAT_MPEGH_BL_L4|AUDIO_FORMAT_MPEGH_LC_L3|AUDIO_FORMAT_MPEGH_LC_L4");
             p_hdmi_descs->mpegh_fmt.is_support = 1;
@@ -835,7 +835,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
     /*check the channel cap */
     else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
         ALOGD("query hdmi channels..., format %#x\n", format);
-        switch (format) {
+        switch ((uint32_t)format) {
         case AUDIO_FORMAT_PCM_16_BIT:
         case AUDIO_FORMAT_PCM_32_BIT:
             audio_cap_item = get_edid_support_audio_format(AUDIO_FORMAT_PCM_16_BIT);
