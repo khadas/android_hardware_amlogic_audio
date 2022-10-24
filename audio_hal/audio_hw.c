@@ -1709,8 +1709,8 @@ static int out_resume_new (struct audio_stream_out *stream)
         goto exit;
     }
     if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
-        if (aml_dev->continuous_audio_mode == 1) {
-            if ((aml_dev->ms12.dolby_ms12_enable == true) && (aml_dev->ms12.is_continuous_paused || aml_out->pause_status)) {
+        if ((aml_dev->continuous_audio_mode == 1) && (aml_dev->ms12.is_continuous_paused || aml_out->pause_status)) {
+            if (aml_dev->ms12.dolby_ms12_enable == true) {
                 if (audio_is_linear_pcm(aml_out->hal_internal_format)) {
                     /*pcm data case, directly send resume message*/
                     pthread_mutex_lock(&ms12->lock);
@@ -1727,6 +1727,9 @@ static int out_resume_new (struct audio_stream_out *stream)
                     ALOGI("%s resume raw data later", __func__);
                     aml_dev->ms12.need_ms12_resume = true;
                 }
+            } else {
+                ALOGI("%s : ms12 is not ready, resume it later", __func__);
+                aml_dev->ms12.need_ms12_resume = true;
             }
         }
     }
