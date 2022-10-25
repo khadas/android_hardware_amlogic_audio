@@ -2589,7 +2589,6 @@ static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_
         ALOGV("format = 0x%x ms12_dec_out_nframes=%" PRId64 "", aml_out->hal_internal_format, ms12_dec_out_nframes);
     }
 
-    ms12->is_dolby_atmos = (dolby_ms12_get_input_atmos_info() == 1);
     //TODO support 24/32 bit sample  */
     ALOGV("dap pcm =%" PRId64 " stereo pcm =%" PRId64 " master =%" PRId64 "", ms12->dap_pcm_frames, ms12->stereo_pcm_frames, ms12->master_pcm_frames);
 
@@ -2712,8 +2711,6 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
     if (ms12->is_bypass_ms12) {
         return 0;
     }
-
-    ms12->is_dolby_atmos = (dolby_ms12_get_input_atmos_info() == 1);
 
     if (adev->optical_format == AUDIO_FORMAT_PCM_16_BIT) {
         return 0;
@@ -3253,6 +3250,8 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
         ms12_close_all_spdifout(ms12);
         adev->arc_connected_reconfig = false;
     }
+
+    ms12->is_dolby_atmos = (dolby_ms12_get_input_atmos_info() == 1);
 
     /*update the master pcm frame, which is used for av sync*/
     if (audio_is_linear_pcm(output_format)) {
