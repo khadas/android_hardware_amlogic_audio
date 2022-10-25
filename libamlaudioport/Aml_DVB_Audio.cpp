@@ -54,9 +54,9 @@ int dvb_audio_set_volume(float volume) {
 
 int dvb_audio_set_mute(int mute) {
    if (mute) {
-       return aml_audioport->setParameters(String8("parental_control_av_mute=true"));
+       return aml_audioport->setParameters(String8("hal_param_tv_mute=1"));
    } else {
-       return aml_audioport->setParameters(String8("parental_control_av_mute=false"));
+       return aml_audioport->setParameters(String8("hal_param_tv_mute=0"));
    }
 
 }
@@ -74,9 +74,9 @@ int dvb_audio_set_pre_gain(int gain) {
 
 int dvb_audio_set_pre_mute(int mute) {
     if (mute ) {
-       return aml_audioport->setParameters(String8("parental_control_av_mute=1"));
+       return aml_audioport->setParameters(String8("hal_param_tv_mute=1"));
     } else {
-       return aml_audioport->setParameters(String8("parental_control_av_mute=0"));
+       return aml_audioport->setParameters(String8("hal_param_tv_mute=0"));
     }
 }
 

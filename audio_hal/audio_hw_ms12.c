@@ -1738,7 +1738,6 @@ int set_dolby_ms12_primary_input_db_gain(struct dolby_ms12_desc *ms12, int db_ga
         return -EINVAL;
     }
 
-    //pthread_mutex_lock(&ms12->lock);
     if (!ms12->dolby_ms12_enable) {
         ret = -EINVAL;
         goto exit;
@@ -1755,7 +1754,6 @@ int set_dolby_ms12_primary_input_db_gain(struct dolby_ms12_desc *ms12, int db_ga
     //ret = aml_ms12_update_runtime_params_lite(ms12);
 
 exit:
-    //pthread_mutex_unlock(&ms12->lock);
     return ret;
 }
 
@@ -2472,10 +2470,10 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
         return 0;
     }
 
-    if (adev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0) {
+    if (adev->patch_src == SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
         if (adev->debug_flag > 1)
             ALOGI("func:%s, av sync drop data,need_drop_size=%d\n",
-                __FUNCTION__, aml_out->need_drop_size);
+                __FUNCTION__, adev->audio_patch->need_drop_size);
         return ret;
     }
 
@@ -2569,10 +2567,10 @@ int spdif_bitstream_output(void *buffer, void *priv_data, size_t size)
         return 0;
     }
 
-    if (adev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0) {
+    if (adev->patch_src == SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
         if (adev->debug_flag > 1)
             ALOGI("func:%s, av sync drop data,need_drop_size=%d\n",
-                __FUNCTION__, aml_out->need_drop_size);
+                __FUNCTION__, adev->audio_patch->need_drop_size);
         return ret;
     }
 
@@ -2678,9 +2676,7 @@ int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_stat
     dolby_ms12_set_system_app_audio_mixing(system_app_mixing_status);
 
     if (ms12->dolby_ms12_enable) {
-        pthread_mutex_lock(&ms12->lock);
         set_dolby_ms12_runtime_system_mixing_enable(ms12, system_app_mixing_status);
-        pthread_mutex_unlock(&ms12->lock);
         ALOGI("%s return %d stream-status %d set system-app-audio-mixing %d\n",
               __func__, ret, stream_status, system_app_mixing_status);
         return ret;

@@ -1301,8 +1301,20 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
 
     {
         if (direct_continuous((struct audio_stream_out *)stream)) {
+            clock_gettime(CLOCK_MONOTONIC, timestamp);
             frames_written_hw = adev->ms12.last_frames_position;
-            *timestamp = adev->ms12.timestamp;
+            if (adev->ms12.ms12_position_update) {
+                int diff_ms = calc_time_interval_us(&adev->ms12.timestamp, timestamp) / MSEC_PER_SEC;
+                /*ms12 output is 32ms, so we only consider the below drift*/
+                if (adev->debug_flag) {
+                    ALOGI(" original frames:%"PRIu64" , diff_ms = %d", *frames, diff_ms);
+                }
+                if (diff_ms > 32) {
+                    diff_ms = 32;
+                }
+                frames_written_hw += diff_ms * (MM_FULL_POWER_SAMPLING_RATE/MSEC_PER_SEC);
+            }
+
         }
 
         if (out->is_normal_pcm && adev->ms12.dolby_ms12_enable) {

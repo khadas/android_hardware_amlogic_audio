@@ -477,6 +477,17 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
         return -EINVAL;
     }
 
+    /*because pcm format is not updated now, so we add a check here, we can remove this after pcm format is added
+     * when it is set arc mode, we should use 2ch pcm
+     */
+    if (adev->bHDMIARCon) {
+        if (aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_ATTENDED_TYPE) == ATTEND_TYPE_EARC) {
+            hdmi_desc->pcm_fmt.max_channels = 8;
+        } else {
+            hdmi_desc->pcm_fmt.max_channels = 2;
+        }
+    }
+
     /*
      * ex: adev_set_parameters with (const char *kvpairs = "set_ARC_format=[10, 1, 7, 6, 3]")
      * after the progress: str_parms_get_str with (const char *key = "set_ARC_format")
@@ -584,6 +595,7 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
             hdmiFormat2Str(fmt_desc->fmt),fmt_desc->is_support, fmt_desc->max_channels,
             fmt_desc->sample_rate_mask, fmt_desc->max_bit_rate, fmt_desc->atmos_supported);
     }
+
     return 0;
 }
 

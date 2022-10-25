@@ -513,6 +513,7 @@ struct aml_audio_patch {
     pthread_mutex_t dtv_cmd_process_mutex;
     pthread_mutex_t assoc_mutex;
     pthread_mutex_t apts_cal_mutex;
+    int need_drop_size;
     /*end dtv play*/
     struct resample_para dtv_resample;
     unsigned char *resample_outbuf;
@@ -688,5 +689,7 @@ enum hdmiin_audio_mode get_hdmiin_audio_mode(struct aml_mixer_handle *mixer_hand
 int aml_audio_earctx_get_type(struct aml_audio_device *adev);
 int aml_audio_earc_get_latency(struct aml_audio_device *adev);
 const char *write_func_to_str(enum stream_write_func func);
+bool is_HBR_stream(struct audio_stream_in *stream);
+bool is_hdmi_in_sample_rate_changed(struct audio_stream_in *stream);
 
 #endif /* _AML_AUDIO_STREAM_H_ */

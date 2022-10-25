@@ -972,23 +972,6 @@ int get_the_dolby_ms12_prepared(
     /*set the continuous output flag*/
     set_dolby_ms12_continuous_mode((bool)adev->continuous_audio_mode);
     dolby_ms12_set_atmos_lock_flag(adev->atoms_lock_flag);
-
-    if (input_format == AUDIO_FORMAT_AC4) {
-        set_ms12_ac4_presentation_group_index(ms12, media_presentation_id);
-#ifdef ENABLE_DVB_PATCH
-        if (patch && demux_info) {
-            char first_lang[4] = {0};
-            dtv_convert_language_to_string(demux_info->media_first_lang,first_lang);
-            set_ms12_ac4_1st_preferred_language_code(ms12, first_lang);
-            char second_lang[4] = {0};
-            dtv_convert_language_to_string(demux_info->media_second_lang,second_lang);
-            set_ms12_ac4_2nd_preferred_language_code(ms12, second_lang);
-            int prefer_selection_type = (patch->is_dtv_src) ? PERFER_SELECTION_BY_LANGUAGE : PERFER_SELECTION_BY_AD_TYPE;
-            set_ms12_ac4_prefer_presentation_selection_by_associated_type_over_language(ms12, prefer_selection_type);
-        }
-#endif
-    }
-
     /*set the dolby ms12 debug level*/
     dolby_ms12_enable_debug();
 
@@ -1087,8 +1070,9 @@ int get_the_dolby_ms12_prepared(
             dolby_ms12_set_hdmi_output_type(HDMI_ARC_OUTPUT);
     }
 
-     if (input_sample_rate != OUTPUT_ALSA_SAMPLERATE &&
-        (aml_out->usecase == STREAM_PCM_HWSYNC || aml_out->usecase == STREAM_PCM_DIRECT)) {
+    if (input_sample_rate != OUTPUT_ALSA_SAMPLERATE &&
+        (aml_out->usecase == STREAM_PCM_HWSYNC || aml_out->usecase == STREAM_PCM_DIRECT)
+        && !is_multi_channel_pcm((struct audio_stream_out *)aml_out)) {
         ALOGD("%s change SampleRate from %d to %d, for ms12 config.", __func__, input_sample_rate, OUTPUT_ALSA_SAMPLERATE);
         input_sample_rate = OUTPUT_ALSA_SAMPLERATE;
     }
@@ -1123,12 +1107,7 @@ int get_the_dolby_ms12_prepared(
             , continuous_mode(adev)
             , is_game_mode(adev));
 
-        if (ms12->dual_decoder_support == true) {
-            set_ms12_ad_vol(ms12, ad_vol);
-            ALOGI("%s ad vol=%d", __FUNCTION__, ad_vol);
-        }
-
-        //n bytes of downmix output pcm frame, 16bits_per_sample / stereo, it value is 4 bytes.
+        //n bytes of downmix output pcm frame, 16bits_per_sample / stereo, it value is 4bytes.
         ms12->nbytes_of_dmx_output_pcm_frame = nbytes_of_dolby_ms12_downmix_output_pcm_frame();
         ms12->ms12_digital_audio_format = adev->digital_audio_format;
         //ms12->optical_format = adev->optical_format;
@@ -1142,10 +1121,6 @@ int get_the_dolby_ms12_prepared(
         ms12->main_input_sr = input_sample_rate;
         update_drc_parameter_when_output_config_changed(ms12);
 
-        /*if arc is connected, we need disable dap*/
-        if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0 && adev->bHDMIConnected == 1) {
-            set_ms12_full_dap_disable(ms12, true);
-        }
     }
     ms12->sys_audio_base_pos = adev->sys_audio_frame_written;
     ms12->sys_audio_skip     = 0;
@@ -1207,6 +1182,36 @@ int get_the_dolby_ms12_prepared(
     }
     ALOGI("--%s(), locked", __FUNCTION__);
     pthread_mutex_unlock(&ms12->lock);
+
+    //update the runtime parameters after ms12 initialization is completed.
+    if (input_format == AUDIO_FORMAT_AC4) {
+        set_ms12_ac4_presentation_group_index(ms12, media_presentation_id);
+        ALOGI("%s line %d\n",__func__, __LINE__);
+#ifdef ENABLE_DVB_PATCH
+        if (patch && demux_info) {
+            char first_lang[4] = {0};
+            dtv_convert_language_to_string(demux_info->media_first_lang,first_lang);
+            set_ms12_ac4_1st_preferred_language_code(ms12, first_lang);
+            char second_lang[4] = {0};
+            dtv_convert_language_to_string(demux_info->media_second_lang,second_lang);
+            set_ms12_ac4_2nd_preferred_language_code(ms12, second_lang);
+
+            int prefer_selection_type = (patch->is_dtv_src) ? PERFER_SELECTION_BY_LANGUAGE : PERFER_SELECTION_BY_AD_TYPE;
+            ALOGI("%s line %d 1st %c %c %c 2nd %c %c %c pat %d\n",__func__, __LINE__, first_lang[0], first_lang[1], first_lang[2], second_lang[0], second_lang[1], second_lang[2], prefer_selection_type);
+            set_ms12_ac4_prefer_presentation_selection_by_associated_type_over_language(ms12, prefer_selection_type);
+        }
+#endif
+    }
+
+    if (ms12->dolby_ms12_enable && (ms12->dual_decoder_support == true)) {
+        set_ms12_ad_vol(ms12, ad_vol);
+        ALOGI("%s ad vol=%d", __FUNCTION__, ad_vol);
+    }
+
+    /*if arc is connected, we need disable dap*/
+    if (ms12->dolby_ms12_enable && adev->cur_out_devices == OUTPORT_HDMI_ARC && adev->bHDMIConnected == 1) {
+        set_ms12_full_dap_disable(ms12, true);
+    }
 
     /*1)switch AudioPatch to AF stream, need send SCHEDULER_RUNNING state again.
     **  to avoid ms12 not wakeup, so that the device no sound.
@@ -2227,7 +2232,7 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
         if (bytes != 0 && buffer != NULL) {
             if ((bitstream_out->spdifout_handle != NULL )&&
                 ((bitstream_out->audio_format != output_format) ||
-                (output_format != AUDIO_FORMAT_IEC61937 && bitstream_out->sample_rate !=  aml_out->hal_rate))) {
+                (bitstream_out->sample_rate !=  aml_out->hal_rate))) {
                 aml_audio_spdifout_close(bitstream_out->spdifout_handle);
                 ALOGI("%s spdif format changed from 0x%x to 0x%x", __FUNCTION__, bitstream_out->audio_format, output_format);
                 bitstream_out->spdifout_handle = NULL;
@@ -2267,7 +2272,7 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
         } else {
             aml_audio_spdifout_mute(bitstream_out->spdifout_handle, 0);
         }
-        if (aml_out->need_drop_size > 0) {
+        if (adev->patch_src == SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
             return 0;
         }
 #ifdef ENABLE_DVB_PATCH
@@ -2408,7 +2413,7 @@ int dolby_truehd_bypass_process(struct audio_stream_out *stream, void *buffer, s
         } else {
             aml_audio_spdifout_mute(bitstream_out->spdifout_handle, 0);
         }
-        if (aml_out->need_drop_size > 0) {
+        if (adev->patch_src == SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
             return 0;
         }
 
@@ -2817,10 +2822,10 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
         return 0;
     }
 
-    if (adev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0) {
+    if (adev->patch_src == SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
         if (adev->debug_flag > 1)
             ALOGI("func:%s, av sync drop data,need_drop_size=%d\n",
-                __FUNCTION__, aml_out->need_drop_size);
+                __FUNCTION__, adev->audio_patch->need_drop_size);
         return ret;
     }
 
@@ -2897,10 +2902,10 @@ int spdif_bitstream_output(void *buffer, void *priv_data, size_t size)
         return 0;
     }
 
-    if (adev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0) {
+    if (adev->patch_src ==  SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
         if (adev->debug_flag > 1)
             ALOGI("func:%s, av sync drop data,need_drop_size=%d\n",
-                __FUNCTION__, aml_out->need_drop_size);
+                __FUNCTION__, adev->audio_patch->need_drop_size);
         return ret;
     }
 
@@ -2954,10 +2959,10 @@ int mat_bitstream_output(void *buffer, void *priv_data, size_t size)
         return 0;
     }
 
-    if (adev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0) {
+    if (adev->patch_src ==  SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
         if (adev->debug_flag > 1)
             ALOGI("func:%s, av sync drop data,need_drop_size=%d\n",
-                __FUNCTION__, aml_out->need_drop_size);
+                __FUNCTION__, adev->audio_patch->need_drop_size);
         return ret;
     }
 
@@ -3068,9 +3073,12 @@ int mc_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_
 
     ALOGV("mc acmod =%d lfeon =%d, ch:%d", ms12_info->acmod, ms12_info->lfeon, ms12_info->output_ch);
 
-    bitstream_out = &ms12->bitstream_out[bitstream_id];
+    data_ch = ms12_info->output_ch;
+    ch_mask = acmod_convert_to_channel_mask(ms12_info->acmod, ms12_info->lfeon);
 
-    if ((adev->sink_format != AUDIO_FORMAT_PCM_16_BIT) || (adev->sink_max_channels < 8) || ms12->is_bypass_ms12) {
+    bitstream_out = &ms12->bitstream_out[bitstream_id];
+    if ((adev->optical_format != AUDIO_FORMAT_PCM_16_BIT) || (adev->sink_max_channels < 8) || ms12->is_bypass_ms12
+        || (ch_mask == AUDIO_CHANNEL_OUT_STEREO)) {
         if (bitstream_out->spdifout_handle) {
             ALOGI("%s close mc spdif handle =%p", __func__, bitstream_out->spdifout_handle);
             aml_audio_spdifout_close(bitstream_out->spdifout_handle);
@@ -3079,15 +3087,13 @@ int mc_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_
         return 0;
     }
 
-    if (adev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0) {
+    if (adev->patch_src ==  SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
         if (adev->debug_flag > 1)
             ALOGI("func:%s, av sync drop data,need_drop_size=%d\n",
-                __FUNCTION__, aml_out->need_drop_size);
+                __FUNCTION__, adev->audio_patch->need_drop_size);
         return ret;
     }
 
-    data_ch = ms12_info->output_ch;
-    ch_mask = acmod_convert_to_channel_mask(ms12_info->acmod, ms12_info->lfeon);
 
     /*dump ms12 mc output*/
     if (get_ms12_dump_enable(DUMP_MS12_OUTPUT_MC_PCM)) {
@@ -3566,10 +3572,7 @@ int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_stat
     dolby_ms12_set_system_app_audio_mixing(system_app_mixing_status);
 
     if (ms12->dolby_ms12_enable) {
-        pthread_mutex_lock(&ms12->lock);
         set_dolby_ms12_runtime_system_mixing_enable(ms12, system_app_mixing_status);
-        /*coverity[double_unlock]*/
-        pthread_mutex_unlock(&ms12->lock);
         ALOGI("%s return %d stream-status %d set system-app-audio-mixing %d\n",
               __func__, ret, stream_status, system_app_mixing_status);
         return ret;

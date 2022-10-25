@@ -496,32 +496,27 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
 
 write:
 
-    // SWPL-412, when input source is DTV, and UI set "parental_control_av_mute" command to audio hal
-    // we need to mute audio output for PCM output here
-    if (adev->patch_src == SRC_DTV && adev->parental_control_av_mute) {
-        memset(buffer,0x0,bytes);
-    }
 
     if (aml_out->pcm == NULL) {
         ALOGE("%s: pcm is null", __func__);
         return bytes;
     }
     /*+[SE][BUG][SWPL-14811] add drop ac3 pcm function*/
-    if (adev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0 && adev->audio_patch != NULL) {
-        if (aml_out->need_drop_size >= (int)bytes) {
-            aml_out->need_drop_size -= bytes;
+    if (adev->patch_src == SRC_DTV && adev->audio_patch != NULL && adev->audio_patch->need_drop_size > 0) {
+        if (adev->audio_patch->need_drop_size >= (int)bytes) {
+            adev->audio_patch->need_drop_size -= bytes;
             if (adev->audio_patch->last_apts >= adev->audio_patch->last_pcrpts) {
-                aml_out->need_drop_size = 0;
+                adev->audio_patch->need_drop_size = 0;
             } else
                 return bytes;
         } else {
-            ALOGI("bytes:%zu, need_drop_size=%d\n", bytes, aml_out->need_drop_size);
+            ALOGI("bytes:%zu, need_drop_size=%d\n", bytes, adev->audio_patch->need_drop_size);
             if (adev->discontinue_mute_flag) {
-                memset(audio_data + aml_out->need_drop_size, 0x0,
-                        bytes - aml_out->need_drop_size);
+                memset(audio_data + adev->audio_patch->need_drop_size, 0x0,
+                        bytes - adev->audio_patch->need_drop_size);
             }
-            ret = pcm_write(aml_out->pcm, audio_data + aml_out->need_drop_size,
-                    bytes - aml_out->need_drop_size);
+            ret = pcm_write(aml_out->pcm, audio_data + adev->audio_patch->need_drop_size,
+                    bytes - adev->audio_patch->need_drop_size);
             if (ret < 0) {
                 const char *err_str = pcm_get_error(aml_out->pcm);
                 ALOGE("%s alsa write fail when drop ac3, err=%s", __func__, err_str);
@@ -529,7 +524,7 @@ write:
                 if (strstr(err_str, "pipe") > 0)
                     pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_PREPARE);
             }
-            aml_out->need_drop_size = 0;
+            adev->audio_patch->need_drop_size = 0;
             ALOGI("drop finish\n");
             return bytes;
         }
@@ -1322,13 +1317,19 @@ int aml_alsa_output_stop_new(void *handle) {
 
 void alsa_out_reconfig_params(struct audio_stream_out *stream)
 {
-    ALOGD("%s()!", __func__);
+    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = aml_out->dev;
     int ret = 0;
+
+    ALOGD("%s()!", __func__);
+    pthread_mutex_lock(&adev->alsa_pcm_lock);
     aml_alsa_output_close(stream);
     ret = aml_alsa_output_open(stream);
     if (ret < 0) {
         ALOGE("%s() open failed", __func__);
     }
+    pthread_mutex_unlock(&adev->alsa_pcm_lock);
+
 }
 
 enum pcm_format convert_audio_format_2_alsa_format(audio_format_t format)

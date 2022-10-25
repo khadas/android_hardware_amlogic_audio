@@ -687,7 +687,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, uint64_t offset, in
                 /*resume from pause status, we can sync it exactly*/
                 if (adev->ms12.need_resync) {
                     adev->ms12.need_resync = 0;
-                    if (apts > pcr) {
+                    if (apts > pcr && (pcr != 0)) {
                         *p_adjust_ms = gap_ms;
                         ALOGE("%s resync p_adjust_ms %d\n", __func__, *p_adjust_ms);
                     }
@@ -711,6 +711,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, uint64_t offset, in
                         }
                     }
                 } else if (gap > APTS_DISCONTINUE_THRESHOLD_MAX) {
+                    *p_adjust_ms = 0;
                     ALOGE("%s apts exceed the adjust range,need check apts 0x%" PRIx64 ",pcr 0x%" PRIx64 "",
                         __func__, apts, pcr);
                 }

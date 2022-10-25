@@ -1599,7 +1599,7 @@ char **DolbyMS12ConfigParams::GetDolbyMS12ConfigParams(int *argc)
         if (config_params_check) {
             int i = 0;
             for (i = 0; i < mParamNum; i++) {
-                ALOGD("param #%d: %s\n", i, mConfigParams[i]);
+                ALOGI("param #%d: %s\n", i, mConfigParams[i]);
             }
         }
     }

@@ -39,7 +39,7 @@ class AmlAudioOutPort : public RefBase
     struct audio_config config;
     audio_io_handle_t handle;
     audio_devices_t  devices = AUDIO_DEVICE_OUT_AUX_DIGITAL;
-	audio_patch_handle_t patch;
+    audio_patch_handle_t patch;
     /*
     * Parameters:
      *
@@ -63,6 +63,7 @@ class AmlAudioOutPort : public RefBase
 
      //add for to get parameter info
      AmlAudioOutPort();
+     virtual ~AmlAudioOutPort();
 
      status_t    standby();
     /* After it's created the track is not active. Call start() to

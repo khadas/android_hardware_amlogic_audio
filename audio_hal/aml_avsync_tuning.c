@@ -287,6 +287,9 @@ int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *la
             alsa_output_latency = alsa_out_spdif_ltcy;
         }
     }
+    if ((aml_dev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) || (aml_dev->out_device &  AUDIO_DEVICE_OUT_ALL_USB)) {
+        out_path_ltcy += BT_PATH_EXTRA_LATENCY;
+    }
 
     /* calc whole path latency considering with format */
     in_path_ltcy = alsa_in_ltcy + rbuf_ltcy + ms12_ltcy;
@@ -482,8 +485,14 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
             tune_val = patch->min_video_latency;
         }
 
-        aml_dev_tune_video_path_latency(&aml_dev->alsa_mixer, tune_val);
+        if ((aml_dev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) || (aml_dev->out_device &  AUDIO_DEVICE_OUT_ALL_USB)) {
+            tune_val = patch->max_video_latency;
+        }
 
+        if (patch->max_video_latency != patch->min_video_latency)
+        {
+            ret = aml_dev_tune_video_path_latency(&aml_dev->alsa_mixer, tune_val);
+        }
         ALOGD("  --start avsync, tuning video total latency: value [%dms], real vltcy [%dms], real altcy [%dms]",
                 tune_val, vltcy, altcy);
 

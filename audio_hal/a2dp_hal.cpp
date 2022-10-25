@@ -530,9 +530,6 @@ static ssize_t a2dp_out_write_l(struct aml_audio_device *adev, audio_config_base
         return bytes;
     }
 
-    if (adev->patch_src == SRC_DTV && adev->parental_control_av_mute) {
-        memset((void*)wr_buff, 0, wr_size);
-    }
     dump_a2dp_output_data(hal, wr_buff, wr_size);
     pre_time_us = aml_audio_get_systime();
     while (bytes_written < wr_size) {

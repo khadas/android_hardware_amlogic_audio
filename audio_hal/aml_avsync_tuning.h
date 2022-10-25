@@ -39,6 +39,7 @@
 #define AVR_LATENCY (80)
 #define AVR_RAW_PCM_LATENCY (20)
 #define AVR_LATENCY_PCM (10)
+#define BT_PATH_EXTRA_LATENCY 200
 
 struct aml_audio_patch;
 struct aml_audio_device;

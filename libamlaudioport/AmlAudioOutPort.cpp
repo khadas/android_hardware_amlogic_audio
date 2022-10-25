@@ -70,8 +70,12 @@ namespace android {
     }
 
     AmlAudioOutPort::AmlAudioOutPort() {
-         if (hwDevice == NULL)
-            getHwDevice();
+        ALOGI("%s %p", __FUNCTION__, this);
+        if (hwDevice == NULL)
+           getHwDevice();
+    }
+    AmlAudioOutPort::~AmlAudioOutPort() {
+        ALOGI("%s %p", __FUNCTION__, this);
     }
 
     status_t AmlAudioOutPort::standby() {
@@ -116,7 +120,6 @@ namespace android {
                 return UNKNOWN_ERROR;
             }
         }
-
 
         err = hwDevice->setParameters(keyValuePairs);
         ALOGI("setParameters:%s, err=%d", keyValuePairs.string(), err);

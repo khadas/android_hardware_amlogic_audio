@@ -126,10 +126,10 @@ ssize_t aml_audio_spdif_output(struct audio_stream_out *stream, void **spdifout_
         return -1;
     }
 
-    if (aml_dev->patch_src ==  SRC_DTV && aml_out->need_drop_size > 0) {
+    if (aml_dev->patch_src == SRC_DTV && aml_dev->audio_patch && aml_dev->audio_patch->need_drop_size > 0) {
         if (aml_dev->debug_flag > 1)
             ALOGI("%s, av sync drop data,need_drop_size=%d\n",
-                __FUNCTION__, aml_out->need_drop_size);
+                __FUNCTION__, aml_dev->audio_patch->need_drop_size);
         return ret;
     }
 
@@ -640,6 +640,15 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dca_
         dts_config->is_iec61937 = true;
     } else {
         dts_config->is_iec61937 = false;
+    }
+
+    if ((adev->cur_out_devices == OUTPORT_HEADPHONE) || (adev->cur_out_devices == OUTPORT_A2DP) ||
+         (adev->cur_out_devices == OUTPORT_HDMI_ARC)) {
+        if (adev->native_postprocess.libvx_exist)
+            dca_set_out_ch_internal(2);
+    } else {
+        if (adev->native_postprocess.libvx_exist)
+            dca_set_out_ch_internal(0);
     }
 
     dts_config->dev = (void *)adev;

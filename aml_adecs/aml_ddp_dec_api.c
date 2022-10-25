@@ -69,10 +69,16 @@ enum {
 #define READ_PERIOD_LENGTH 2048
 #define MAX_DDP_FRAME_LENGTH 2560
 #define MAX_DDP_BUFFER_SIZE (MAX_DECODER_FRAME_LENGTH * 4 + MAX_DECODER_FRAME_LENGTH + 8)
+#define CALCULATE_BITRATE_NEED_TIME 300 //calculate bitrate in the first 300 seconds
 
+#if ANDROID_PLATFORM_SDK_VERSION > 29
 #define DOLBY_DCV_LIB_PATH_A "/odm/lib/libHwAudio_dcvdec.so"
 #define DOLBY_DCV_LIB64_PATH_A "/odm/lib64/libHwAudio_dcvdec.so"
-#define CALCULATE_BITRATE_NEED_TIME 300 //calculate bitrate in the first 300 seconds
+
+#else
+#define DOLBY_DCV_LIB_PATH_A "/vendor/lib/libHwAudio_dcvdec.so"
+#define DOLBY_DCV_LIB64_PATH_A "/odm/lib64/libHwAudio_dcvdec.so"
+#endif
 
 typedef struct {
     short       *buf;

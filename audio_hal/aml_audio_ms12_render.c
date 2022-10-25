@@ -117,7 +117,10 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
                 set_ms12_main_audio_mute(ms12, true, 0);
             }
         } else {
-            if (adev->tv_mute) {
+            ALOGV("adev->tv_mute %d ms12->is_muted %d ms12->do_easing %d 12_main_input_size %"PRIu64" ",
+                adev->tv_mute,ms12->is_muted, ms12->do_easing, ms12->ms12_main_input_size);
+            /*use ms12_main_input_size and tv_mute to do mute in case that tv_mute cmd later*/
+            if (ms12->ms12_main_input_size == 0 || adev->tv_mute) {
                 if (!ms12->is_muted) {
                     set_ms12_main_audio_mute(ms12, true, 0);
                 }

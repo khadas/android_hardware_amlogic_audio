@@ -269,8 +269,6 @@ bool Check_VX_lib(void)
         ALOGD("%s, success to dlopen %s", __func__, VIRTUALX_LICENSE_LIB_PATH);
         dlclose(h_libvx_handle);
         h_libvx_handle = NULL;
-        /* VX effect lib is in system, set dts output as stream content */
-        dca_set_out_ch_internal(0);
         return true;
     }
 }

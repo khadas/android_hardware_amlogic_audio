@@ -43,6 +43,8 @@
 #define FMT_UPDATE_THRESHOLD_MAX    (10)
 #define DOLBY_FMT_UPDATE_THRESHOLD  (5)
 #define DTS_FMT_UPDATE_THRESHOLD    (1)
+#define INVALID_TYPE                -1
+
 /*
  * DAP Speaker Virtualizer
  * -dap_surround_virtualizer    * <2 int> Virtualizer Parameter
@@ -143,7 +145,17 @@ static audio_format_t get_sink_capability (struct aml_audio_device *adev)
         } else if (dd_is_support) {
             sink_capability = AUDIO_FORMAT_AC3;
         }
-        ALOGI ("%s dd support %d ddp support %#x\n", __FUNCTION__, dd_is_support, ddp_is_support);
+
+        /* eARC TXs support formats at least support dd, for Test ID HFR5-1-27 */
+        if (sink_capability == AUDIO_FORMAT_PCM_16_BIT &&
+            aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_ATTENDED_TYPE) == ATTEND_TYPE_EARC &&
+            adev->bHDMIARCon) {
+            sink_capability = AUDIO_FORMAT_AC3;
+            dd_is_support = true;
+            hdmi_desc->dd_fmt.is_support = true;
+        }
+
+        ALOGI ("%s mat_is_support:%d, dd support:%d ddp support:%#x\n", __FUNCTION__, mat_is_support, dd_is_support, ddp_is_support);
     }
 
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
@@ -460,7 +472,11 @@ void get_sink_format(struct audio_stream_out *stream)
             optical_audio_format = sink_audio_format;
             break;
         case DD:
-            sink_audio_format = AUDIO_FORMAT_AC3;
+            if (dts_stream_active(adev)) {
+                sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
+            } else {
+                sink_audio_format = get_suitable_output_format(aml_out, AUDIO_FORMAT_AC3, sink_capability);
+            }
             optical_audio_format = sink_audio_format;
             break;
         case AUTO:
@@ -531,6 +547,9 @@ void get_sink_format(struct audio_stream_out *stream)
         case DD:
             sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
             optical_audio_format = AUDIO_FORMAT_AC3;
+            if (dts_stream_active(adev)) {
+                optical_audio_format = AUDIO_FORMAT_PCM_16_BIT;
+            }
             break;
         case AUTO:
             sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
@@ -577,30 +596,73 @@ void get_sink_format(struct audio_stream_out *stream)
     return ;
 }
 
-bool is_hdmi_in_stable_hw (struct audio_stream_in *stream)
+bool is_hdmi_in_stable_hw(struct audio_stream_in *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
     struct aml_audio_device *aml_dev = in->dev;
-    struct aml_audio_patch *audio_patch = aml_dev->audio_patch;
-    audio_type_parse_t *audio_type_status = (audio_type_parse_t *)audio_patch->audio_parse_para;
-    int type = 0;
     int stable = 0;
-    int tl1_chip = check_chip_name("tl1", 3, &aml_dev->alsa_mixer);
 
     stable = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_HDMI_IN_AUDIO_STABLE);
     if (!stable) {
         ALOGV("%s() amixer %s get %d\n", __func__, "HDMIIN audio stable", stable);
         return false;
     }
+    return true;
+}
+
+bool is_hdmi_in_sample_rate_changed(struct audio_stream_in *stream)
+{
+    struct aml_stream_in *in = (struct aml_stream_in *) stream;
+    struct aml_audio_device *aml_dev = in->dev;
+    int last_hdmi_in_samplerate = in->hdmi_in_samplerate;
+
+    int samplerate = aml_mixer_ctrl_get_int(&aml_dev->alsa_mixer, AML_MIXER_ID_HDMI_IN_SAMPLERATE);
+    if (last_hdmi_in_samplerate != samplerate) {
+        ALOGD("hdmi in samplerate changes from %d to %d",last_hdmi_in_samplerate, samplerate);
+        in->hdmi_in_samplerate = samplerate;
+        return true;
+    }
+    return false;
+}
+bool is_hdmi_in_hw_format_change(struct audio_stream_in *stream)
+{
+    struct aml_stream_in *in = (struct aml_stream_in *) stream;
+    struct aml_audio_device *aml_dev = in->dev;
+    struct aml_audio_patch *audio_patch = aml_dev->audio_patch;
+    audio_type_parse_t *audio_type_status = (audio_type_parse_t *)audio_patch->audio_parse_para;
+    int tl1_chip = check_chip_name("tl1", 3, &aml_dev->alsa_mixer);
+    int type = 0;
+    bool ret = false;
+
     /* TL1 do not use HDMIIN_AUDIO_TYPE */
     if (audio_type_status != NULL && audio_type_status->soft_parser != 1 && !tl1_chip) {
         type = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_HDMIIN_AUDIO_TYPE);
-        if (type != in->spdif_fmt_hw) {
+        if ((type != INVALID_TYPE) && (type != in->spdif_fmt_hw)) {
             ALOGD ("%s(), in type changed from %d to %d", __func__, in->spdif_fmt_hw, type);
-            in->spdif_fmt_hw = type;
+            ret = true;
+        }
+        in->spdif_fmt_hw = type;
+    }
+    return ret;
+}
+
+bool is_HBR_stream(struct audio_stream_in *stream)
+{
+    struct aml_stream_in *in = (struct aml_stream_in *) stream;
+    struct aml_audio_device *aml_dev = in->dev;
+    bool ret = false;
+
+    if (aml_dev->in_device & AUDIO_DEVICE_IN_HDMI) {
+        struct aml_audio_patch *audio_patch = aml_dev->audio_patch;
+        audio_type_parse_t *audio_type_status = (audio_type_parse_t *)audio_patch->audio_parse_para;
+
+        if (audio_type_status->soft_parser != 1) {
+            if (in->last_audio_packet_type == AUDIO_PACKET_HBR) {
+                ret = true;
+            }
         }
     }
-    return true;
+    return ret;
 }
 
 bool is_dual_output_stream(struct audio_stream_out *stream)
@@ -635,13 +697,13 @@ bool is_hdmi_in_stable_sw (struct audio_stream_in *stream)
     return true;
 }
 
-
-void  release_audio_stream(struct audio_stream_out *stream)
+void release_audio_stream(struct audio_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     aml_audio_free(stream);
 }
-bool is_atv_in_stable_hw (struct audio_stream_in *stream)
+
+bool is_atv_in_stable_hw(struct audio_stream_in *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
     struct aml_audio_device *aml_dev = in->dev;
@@ -654,6 +716,7 @@ bool is_atv_in_stable_hw (struct audio_stream_in *stream)
 
     return true;
 }
+
 bool is_av_in_stable_hw(struct audio_stream_in *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
@@ -668,7 +731,7 @@ bool is_av_in_stable_hw(struct audio_stream_in *stream)
     return true;
 }
 
-bool is_spdif_in_stable_hw (struct audio_stream_in *stream)
+bool is_spdif_in_stable_hw(struct audio_stream_in *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
     struct aml_audio_device *aml_dev = in->dev;
@@ -844,7 +907,6 @@ bool Stop_watch(struct timespec start_ts, int64_t time) {
 
 bool signal_status_check(audio_devices_t in_device, int *mute_time,
                         struct audio_stream_in *stream) {
-
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
     struct aml_audio_device *adev = in->dev;
     hdmiin_audio_packet_t last_audio_packet = in->last_audio_packet_type;
@@ -868,11 +930,28 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
 
     in->data_type = cur_data_type;
     if (in_device & AUDIO_DEVICE_IN_HDMI) {
+        hdmiin_audio_packet_t last_audio_packet = in->last_audio_packet_type;
+        hdmiin_audio_packet_t cur_audio_packet = get_hdmiin_audio_packet(&adev->alsa_mixer);
+        bool is_audio_packet_changed = (((cur_audio_packet == AUDIO_PACKET_AUDS) ||
+                                         (cur_audio_packet == AUDIO_PACKET_HBR)) &&
+                                        (last_audio_packet != cur_audio_packet));
         bool hw_stable = is_hdmi_in_stable_hw(stream);
-        if ((!hw_stable) || is_audio_packet_changed || is_data_changed) {
-            ALOGV("%s() hdmi in hw unstable\n", __func__);
+        bool hw_format_change = is_hdmi_in_hw_format_change(stream);
+        bool hw_sample_rate_change = is_hdmi_in_sample_rate_changed(stream);
+        if ((!hw_stable) || is_audio_packet_changed || hw_format_change || hw_sample_rate_change || is_data_changed) {
+            /* HBR audio is stable about 1s */
             *mute_time = 500;
+
             in->last_audio_packet_type = cur_audio_packet;
+            if (is_audio_packet_changed || hw_format_change) {
+                ALOGD("%s() cur_audio_packet = %d, hw_stable = %d, fmt_hw = %d\n",
+                    __func__, cur_audio_packet, hw_stable, in->spdif_fmt_hw);
+            }
+
+            /* only reconfig once for HBR audio*/
+            if (hw_stable && cur_audio_packet == AUDIO_PACKET_HBR && in->spdif_fmt_hw == MAT) {
+                return true;
+            }
             return false;
         }
     }
@@ -889,7 +968,7 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
     }
     if ((in_device & AUDIO_DEVICE_IN_LINE) &&
             !is_av_in_stable_hw(stream)) {
-       *mute_time = 1500;
+       *mute_time = 100;
        return false;
     }
     return true;
@@ -900,7 +979,7 @@ bool check_tv_stream_signal(struct audio_stream_in *stream)
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
     struct aml_audio_device *adev = in->dev;
     struct aml_audio_patch* patch = adev->audio_patch;
-    int in_mute = 0, parental_mute = 0;
+    int in_mute = 0;
     bool stable = true;
     stable = signal_status_check(adev->in_device, &in->mute_mdelay, stream);
     if (!stable) {
@@ -920,12 +999,8 @@ bool check_tv_stream_signal(struct audio_stream_in *stream)
         }
     }
 
-    if (adev->parental_control_av_mute && (adev->active_inport == INPORT_TUNER || adev->active_inport == INPORT_LINEIN))
-        parental_mute = 1;
-
     /*if need mute input source, don't read data from hardware anymore*/
-    if (in_mute || parental_mute) {
-
+    if (in_mute) {
         /* when audio is unstable, start avsync*/
         if (patch && in_mute) {
             if (!(in->device & AUDIO_DEVICE_IN_HDMI_ARC || in->device & AUDIO_DEVICE_IN_SPDIF))
@@ -1216,6 +1291,8 @@ void get_audio_indicator(struct aml_audio_device *dev, char *temp_buf) {
 
     if (adev->audio_hal_info.update_type == TYPE_PCM)
         sprintf (temp_buf, "audioindicator=");
+    else if (adev->audio_hal_info.update_type == TYPE_DTS_EXPRESS)
+        sprintf (temp_buf, "audioindicator=DTS EXPRESS");
     else if (adev->audio_hal_info.update_type == TYPE_AC3)
         sprintf (temp_buf, "audioindicator=Dolby AC3");
     else if (adev->audio_hal_info.update_type == TYPE_EAC3)
@@ -1647,8 +1724,15 @@ int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, s
 
 void create_tvin_buffer(struct aml_audio_patch *patch)
 {
-    int ret = ring_buffer_init(&patch->tvin_ringbuffer, 4 * 48 * 64);
-    AM_LOGI("ring_buffer_init size:%d, ret=%d", 4 * 48 * 64, ret);
+    int ret;
+
+    if (patch->is_dtv_src) {
+        /* dtv case: buffer len = 32 * 4 ms */
+        ret = ring_buffer_init(&patch->tvin_ringbuffer, (32 * 4) * (48 * 4));
+    } else {
+        ret = ring_buffer_init(&patch->tvin_ringbuffer, 4 * 48 * 64);
+    }
+    ALOGI("[%s] aring_buffer_init ret=%d\n", __FUNCTION__, ret);
     if (ret == 0) {
         patch->tvin_buffer_inited = 1;
     }
@@ -1673,6 +1757,19 @@ uint32_t tv_in_write(struct audio_stream_out *stream, const void* buffer, size_t
     R_CHECK_POINTER_LEGAL(bytes, patch, "");
     if (bytes == 0 || patch->tvin_buffer_inited != 1) {
         return bytes;
+    }
+
+    if (patch->is_dtv_src && patch->tvin_buffer_inited && patch->first_apts_lookup_over) {
+        /* dtv case: process drop and mute policy */
+        if (patch->need_drop_size > 0) {
+            ALOGI("%s, dtv avsync drop %d bytes, need_drop_size %d\n", __func__, (int)bytes, patch->need_drop_size);
+            return bytes;
+        }
+        if (adev->discontinue_mute_flag == 1 || adev->start_mute_flag || !patch->dtv_first_apts_flag) {
+            ALOGI("%s, dtv avsync mute %d bytes, start_mute %d, discontinue_mute %d", __func__, (int)bytes,
+                adev->start_mute_flag, adev->discontinue_mute_flag);
+            memset((char *)buffer, 0, bytes);
+        }
     }
 
     uint32_t bytes_written = 0;
@@ -1943,31 +2040,35 @@ int aml_audio_earc_get_latency(struct aml_audio_device *adev)
 void tv_do_ease_out(struct aml_audio_device *aml_dev)
 {
     int duration_ms = 0;
-    if (aml_dev && aml_dev->audio_ease) {
+
+    if (aml_dev->is_TV) {
+        if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
+            duration_ms = property_get_int32("vendor.media.audio.dtv.fadeout.us", MS12_AUDIO_FADEOUT_TV_DURATION_US) / 1000;
+        } else {
+            duration_ms = property_get_int32("vendor.media.audio.dtv.fadeout.us", AUDIO_FADEOUT_TV_DURATION_US) / 1000;
+        }
+    } else {
+        duration_ms = property_get_int32("vendor.media.audio.dtv.fadeout.us", AUDIO_FADEOUT_STB_DURATION_US) / 1000;
+    }
+    /*ms12 and non ms12 use different ease api , so separate the control code */
+    if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
+        if (aml_dev->ms12.is_muted) {
+            ALOGI("%s(),ms12->is_muted %d skip fade out", __func__,aml_dev->ms12.is_muted);
+        } else {
+            aml_dev->ms12.do_easing = true;
+            ALOGI("%s()  %d ms doing easing out", __func__, duration_ms);
+            set_ms12_main_audio_mute(&aml_dev->ms12, true, duration_ms);
+            usleep(2 * duration_ms * 1000);
+            aml_dev->ms12.do_easing = false;
+        }
+    } else {
         float vol_now = aml_audio_ease_get_current_volume(aml_dev->audio_ease);
         if (vol_now == 0.0f) {
             ALOGI("%s(),vol_now %f skip fade out", __func__, vol_now);
         } else {
             ALOGI("%s(), vol_now %f do fade out", __func__, vol_now);
-            if (aml_dev->is_TV) {
-                if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
-                    duration_ms = property_get_int32("vendor.media.audio.dtv.fadeout.us", MS12_AUDIO_FADEOUT_TV_DURATION_US) / 1000;
-                } else {
-                    duration_ms = property_get_int32("vendor.media.audio.dtv.fadeout.us", AUDIO_FADEOUT_TV_DURATION_US) / 1000;
-                }
-            } else {
-                duration_ms = property_get_int32("vendor.media.audio.dtv.fadeout.us", AUDIO_FADEOUT_STB_DURATION_US) / 1000;
-            }
-            if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
-                aml_dev->ms12.do_easing = true;
-                ALOGI("%s()  %d ms doing easing out", __func__, duration_ms);
-                set_ms12_main_audio_mute(&aml_dev->ms12, true, duration_ms);
-                usleep(2 * duration_ms * 1000);
-                aml_dev->ms12.do_easing = false;
-            } else {
-                start_ease_out(aml_dev->audio_ease, aml_dev->is_TV, duration_ms / 2);
-                usleep(duration_ms * 1000);
-            }
+            start_ease_out(aml_dev->audio_ease, aml_dev->is_TV, duration_ms / 2);
+            usleep(duration_ms * 1000);
         }
     }
 }

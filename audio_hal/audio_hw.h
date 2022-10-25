@@ -227,7 +227,9 @@ enum OUT_PORT {
     OUTPORT_USB_HEADSET         = 10,
     OUTPORT_EARPIECE            = 11,
     OUTPORT_ANLG_DOCK_HEADSET   = 12,
-    OUTPORT_MAX                 = 13,
+    /*if the audio_hal_primary unsupport the output devices, we need to route to OUTPUT_NULL*/
+    OUTPORT_NULL                = 13,
+    OUTPORT_MAX                 = 14,
 };
 
 enum IN_PORT {
@@ -293,6 +295,16 @@ typedef enum picture_mode {
     PQ_MODE_MAX
 } picture_mode_t ;
 
+/*foreground stream type for direct or offload,
+**it is mainly for marking lastest stream in AudioHal,
+**switch streams between patch(HDMI/DTV/CVBS) and audioflinger.
+*/
+typedef enum fg_stream_type{
+    FG_STREAM_TYPE_NONE = -1,
+    FG_STREAM_TYPE_AUDIOFLINGER,
+    FG_STREAM_TYPE_PATCH,
+    FG_STREAM_TYPE_MAX
+} fg_stream_type_t;
 typedef union {
     unsigned long long timeStamp;
     unsigned char tsB[8];
@@ -363,8 +375,6 @@ struct aml_audio_device {
     bool spdif_enable;
     int hdmi_is_pth_active;
     int disable_pcm_mixing;
-    /* mute/unmute for chip lock control */
-    bool parental_control_av_mute;
     /* The HDMI ARC capability info currently set. */
     struct aml_arc_hdmi_desc hdmi_descs;
     /* Save the HDMI ARC actual capability info. */
@@ -595,7 +605,6 @@ struct aml_audio_device {
     /*used to restore the continuous_audio_mode after system resume(early suspend case)*/
     int continuous_audio_mode_backup;
     bool aml_truehd_passthrough_support;  /*whether dolby truehd passthrough can be supported*/
-
     bool frame_write_sum_updated;
 
     /* board specific json configs */
@@ -606,6 +615,12 @@ struct aml_audio_device {
     int customized_usb_card; // -1, invalid (default), [0,1,2..] valid
     int customized_usb_device; // -1, invalid (default), [0,1,2..] valid
     bool is_ui_force_dap_disable; //dapv2.4 debug UI on (dap enable), off (dap disable)
+    /* board specific json configs */
+    int hdmitx_src; /* HDMITX src select for TDM */
+    bool spdif_independent;  /*spdif output can be independent with HDMI output*/
+    enum AML_SRC_TO_HDMITX hdmitx_multi_ch_src;
+    enum AML_SRC_TO_HDMITX hdmitx_hbr_src;
+    fg_stream_type_t foreground_stream_type;
 };
 
 struct meta_data {
@@ -867,6 +882,7 @@ struct aml_stream_in {
     hdmiin_audio_packet_t audio_packet_type;
     hdmiin_audio_packet_t last_audio_packet_type;
     int data_type;
+    int hdmi_in_samplerate;
 };
 typedef  int (*do_standby_func)(struct aml_stream_out *out);
 typedef  int (*do_startup_func)(struct aml_stream_out *out);
