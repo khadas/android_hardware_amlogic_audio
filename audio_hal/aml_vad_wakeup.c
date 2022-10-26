@@ -22,11 +22,12 @@
 #include <log/log.h>
 #include <unistd.h>
 #include <pthread.h>
-#include "audio_hw_utils.h"
+#include <cutils/properties.h>
 
+#include "audio_hw_utils.h"
+#include "alsa_device_parser.h"
 #include "aml_vad_wakeup.h"
 
-#define VAD_CARD 0
 #define VAD_DEVICE 3
 
 typedef struct vad_wakeup_t {
@@ -46,9 +47,9 @@ static void* aml_vad_thread(void* data) {
     unsigned int size;
     int device = VAD_DEVICE;
 
-//    device = vad->pSysWrite->getPropertyInt("persist.vendor.sys.vad.device", VAD_DEVICE);
-//    config.channels = vad->pSysWrite->getPropertyInt("persist.vendor.sys.vad.channel", 1);
-//    config.rate = vad->pSysWrite->getPropertyInt("persist.vendor.sys.vad.rate", 16000);
+    device = property_get_int32(AML_AUDIO_VAD_DEVICE_PROP, VAD_DEVICE);
+    config.channels = property_get_int32(AML_AUDIO_VAD_CHANNEL_PROP, 1);
+    config.rate = property_get_int32(AML_AUDIO_VAD_RATE_PROP, 16000);
     memset(&config, 0, sizeof(config));
     config.channels = 1;
     config.rate = 16000;
@@ -61,7 +62,7 @@ static void* aml_vad_thread(void* data) {
     config.silence_threshold = 0;
 
     if (vad->pcm == NULL) {
-        vad->pcm = pcm_open(VAD_CARD, device, PCM_IN, &config);
+        vad->pcm = pcm_open(alsa_device_get_card_index(), device, PCM_IN, &config);
     }
     if (!vad->pcm || !pcm_is_ready(vad->pcm)) {
         AM_LOGE("Unable to open PCM device (%s)", pcm_get_error(vad->pcm));
@@ -111,7 +112,7 @@ int32_t aml_vad_suspend(struct aml_mixer_handle *mixer) {
     g_pst_vad_wakeup->exit_run = false;
     g_pst_vad_wakeup->mixer = mixer;
     aml_mixer_ctrl_set_int(mixer, AML_MIXER_ID_VAD_ENABLE, 1);
-//    source = pSysWrite->getPropertyInt("persist.vendor.sys.vad.source", 4);
+    source = property_get_int32(AML_AUDIO_VAD_SOURCE_PROP, 4);
     aml_mixer_ctrl_set_int(mixer, AML_MIXER_ID_VAD_SOURCE_SEL, source);
     ret = pthread_create(&g_pst_vad_wakeup->thread_id, NULL, aml_vad_thread, g_pst_vad_wakeup);
     if (ret) {
