@@ -25,7 +25,12 @@
 #include <dlfcn.h>
 #include <sys/stat.h>
 #include <string.h>
-
+#include <errno.h>
+#include <sys/types.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
 #include "dolby_lib_api.h"
 
 #ifndef RET_OK
@@ -42,6 +47,33 @@
     #define MS12_VERSION    "2.4"
 #endif
 
+#define SOURCE_FILE    DOLBY_MS12_LIB_PATH_A
+#define MID_DEV         "/dev/audio_utils"
+#define FINAL_SO        "/dev/audio_utils"
+
+#define AUDIO_UTILS_IOC_MAGIC        'T'
+#define AUDIO_UTILS_IOC_SET_LIB_SIZE       _IOW(AUDIO_UTILS_IOC_MAGIC, 0x00, uint32_t)
+#define AUDIO_UTILS_IOC_WRITE_LIB          _IOW(AUDIO_UTILS_IOC_MAGIC, 0x01, uint32_t)
+#define AUDIO_UTILS_IOC_FREE_LIB           _IOW(AUDIO_UTILS_IOC_MAGIC, 0x02, uint32_t)
+
+static bool get_dev_audio_utils_node()
+{
+    int ret = false;
+    int fd = 0;
+
+    fd = open(MID_DEV, O_RDONLY);
+    if (fd < 0) {
+        ALOGI("DEV(%s) do not exit\n", MID_DEV);
+        ret = false;
+    }
+    else {
+        ALOGI("DEV(%s) exits!\n", MID_DEV);
+        ret = true;
+        close(fd);
+    }
+
+    return ret;
+}
 
 /*
  *@brief file_accessible
@@ -49,6 +81,8 @@
 static int file_accessible(char *path)
 {
     // file is readable or not
+    if (path)
+        ALOGI("%s path: %s\n", __func__, path);
     if (access(path, R_OK) == 0) {
         return RET_OK;
     } else {
@@ -58,9 +92,19 @@ static int file_accessible(char *path)
 
 char * get_ms12_path (void)
 {
+#ifndef MS12_V24_ENABLE
     ALOGI("%s return lib %s", __func__, DOLBY_MS12_LIB_PATH_A);
     return DOLBY_MS12_LIB_PATH_A;
-
+#else
+    if (get_dev_audio_utils_node() == false) {
+        ALOGI("%s return lib %s", __func__, DOLBY_MS12_LIB_PATH_A);
+        return DOLBY_MS12_LIB_PATH_A;
+    }
+    else {
+        ALOGI("%s return lib %s", __func__, FINAL_SO);
+        return FINAL_SO;
+    }
+#endif
 }
 
 bool is_ms12_lib_match(void *hDolbyMS12LibHandle) {
@@ -88,6 +132,72 @@ bool is_ms12_lib_match(void *hDolbyMS12LibHandle) {
 
 }
 
+
+int file_size(char *name)
+{
+    struct stat statbuf;
+    int ret;
+
+    ret = stat(name, &statbuf);
+    if (ret != 0)
+        return -1;
+
+    return statbuf.st_size;
+}
+
+int write_so_to_dev(void)
+{
+    int fsize;
+    void *buffer;
+    int audio_utils_fd, source_file;
+
+
+    fsize = file_size(SOURCE_FILE);
+    if (fsize < 0) {
+        ALOGE("%s line %d return -1!\n", __func__, __LINE__);
+        return -1;
+    }
+
+    buffer = malloc(fsize);
+    if (!buffer) {
+        ALOGE("%s line %d malloc failed, return -1!\n", __func__, __LINE__);
+        return -1;
+    }
+
+    source_file = open(SOURCE_FILE, O_RDONLY);
+    if (source_file < 0) {
+        ALOGE("%s line %d open failed, return -1!\n", __func__, __LINE__);
+        if (buffer) {
+            free(buffer);
+            buffer = NULL;
+        }
+        return -1;
+    }
+
+    read(source_file, buffer, fsize);
+    close(source_file);
+
+    audio_utils_fd = open(MID_DEV, O_RDONLY);
+    if (audio_utils_fd < 0) {
+        ALOGE("can't open "MID_DEV"\n");
+        if (buffer) {
+            free(buffer);
+            buffer = NULL;
+        }
+        return -1;
+    }
+    ioctl(audio_utils_fd, AUDIO_UTILS_IOC_SET_LIB_SIZE, fsize);
+    ioctl(audio_utils_fd, AUDIO_UTILS_IOC_WRITE_LIB, buffer);
+    close(audio_utils_fd);
+
+    if (buffer) {
+        free(buffer);
+        buffer = NULL;
+    }
+    return 0;
+}
+
+
 /*
  *@brief detect_dolby_lib_type
  */
@@ -107,8 +217,26 @@ enum eDolbyLibType detect_dolby_lib_type(void) {
     // MS12 is first priority
     if (eDolbyMS12Lib == retVal)
     {
-        //try to open lib see if it's OK?
+        ALOGI("%s line %d try to dlopen the Dolby MS12 Library!", __func__, __LINE__);
+#ifndef MS12_V24_ENABLE
+        //MS12 V1
         hDolbyMS12LibHandle = dlopen(DOLBY_MS12_LIB_PATH_A, RTLD_NOW);
+#else
+        //MS12 V2
+        if (get_dev_audio_utils_node() == true) {
+            if (write_so_to_dev() == 0) {
+                ALOGI("%s,Write %s to %s success\n", __FUNCTION__, DOLBY_MS12_LIB_PATH_A, FINAL_SO);
+                hDolbyMS12LibHandle = dlopen(FINAL_SO, RTLD_NOW);
+            }
+            else {
+                ALOGE("%s,Write %s to %s failed\n", __FUNCTION__, DOLBY_MS12_LIB_PATH_A, FINAL_SO);
+            }
+        }
+        else {
+            hDolbyMS12LibHandle = dlopen(DOLBY_MS12_LIB_PATH_A, RTLD_NOW);
+        }
+#endif
+
         if (hDolbyMS12LibHandle != NULL)
         {
             bool b_match = is_ms12_lib_match(hDolbyMS12LibHandle);
