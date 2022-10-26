@@ -934,7 +934,7 @@ audio_format_t audio_type_convert_to_android_audio_format_t(int codec_type)
     case LPCM:
         return AUDIO_FORMAT_PCM_16_BIT;
     case MPEGH:
-        return AUDIO_FORMAT_MPEGH;
+        return (audio_format_t)AUDIO_FORMAT_MPEGH;
     default:
         AM_LOGW("invalid codec_type:%d, return PCM.", codec_type);
         return AUDIO_FORMAT_PCM_16_BIT;

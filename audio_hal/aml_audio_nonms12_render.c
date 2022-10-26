@@ -703,7 +703,7 @@ int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t f
 
     dec_config->dts_decode_enable = adev->dts_decode_enable;
 
-    switch (format) {
+    switch ((uint32_t)format) {
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3: {
         ddp_decoder_config_prepare(stream, &dec_config->dcv_config);

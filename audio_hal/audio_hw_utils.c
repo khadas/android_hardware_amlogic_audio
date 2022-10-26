@@ -1472,7 +1472,7 @@ int aml_audio_delay_timestamp(struct timespec *timestamp, int delay_time_us) {
 
 int halformat_convert_to_spdif(audio_format_t format, int ch_mask) {
     int aml_spdif_format = AML_STEREO_PCM;
-    switch (format) {
+    switch ((uint32_t)format) {
         case AUDIO_FORMAT_PCM_16_BIT:
             aml_spdif_format = AML_STEREO_PCM;
             if (audio_channel_count_from_out_mask(ch_mask) > 2) {
@@ -1516,7 +1516,7 @@ int halformat_convert_to_spdif(audio_format_t format, int ch_mask) {
 
 int halformat_convert_to_arcformat(audio_format_t format, int ch_mask) {
     int aml_spdif_format = AML_AUDIO_CODING_TYPE_STEREO_LPCM;
-    switch (format) {
+    switch ((uint32_t)format) {
         case AUDIO_FORMAT_PCM_16_BIT:
             aml_spdif_format = AML_AUDIO_CODING_TYPE_STEREO_LPCM;
             if (audio_channel_count_from_out_mask(ch_mask) > 2) {

@@ -23,6 +23,7 @@
 #include "audio_hw.h"
 #include "audio_hw_profile.h"
 #include "aml_audio_heaacparser.h"
+#include "aml_dump_debug.h"
 
 #ifdef ENABLE_DVB_PATCH
 #include "audio_dtv_utils.h"
@@ -52,6 +53,23 @@
 #define IS_DIGITAL_IN_HW(device) ((device) == AUDIO_DEVICE_IN_HDMI ||\
                              (device) == AUDIO_DEVICE_IN_HDMI_ARC ||\
                              (device) == AUDIO_DEVICE_IN_SPDIF)
+
+/*temp code, we will remove it later*/
+#if ANDROID_PLATFORM_SDK_VERSION < 31
+/*S/T already has such enum, R doesn't have it*/
+typedef enum {
+    AUDIO_FORMAT_MPEGH = 0x2C000000u,
+    AUDIO_FORMAT_MPEGH_SUB_BL_L3 = 0x13u,
+    AUDIO_FORMAT_MPEGH_SUB_BL_L4 = 0x14u,
+    AUDIO_FORMAT_MPEGH_SUB_LC_L3 = 0x23u,
+    AUDIO_FORMAT_MPEGH_SUB_LC_L4 = 0x24u,
+    AUDIO_FORMAT_MPEGH_BL_L3 = 0x2C000013u,
+    AUDIO_FORMAT_MPEGH_BL_L4 = 0x2C000014u,
+    AUDIO_FORMAT_MPEGH_LC_L3 = 0x2C000023u,
+    AUDIO_FORMAT_MPEGH_LC_L4 = 0x2C000024u,
+} audio_format_Ext_t;
+#endif
+
 
 typedef uint32_t usecase_mask_t;
 
@@ -181,7 +199,7 @@ inline bool is_dts_format(audio_format_t format) {
 }
 
 static inline bool is_mpegh_format(audio_format_t format) {
-    switch (format) {
+    switch ((uint32_t)format) {
     case AUDIO_FORMAT_MPEGH:
     case AUDIO_FORMAT_MPEGH_BL_L3:
     case AUDIO_FORMAT_MPEGH_BL_L4:

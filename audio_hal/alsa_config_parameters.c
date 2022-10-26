@@ -25,6 +25,7 @@
 
 
 #include "alsa_config_parameters.h"
+#include "aml_dump_debug.h"
 
 #define PERIOD_SIZE                     1024
 #define HARDWARE_CHANNEL_STEREO         2
@@ -241,7 +242,7 @@ int get_hardware_config_parameters(
         get_dd_hardware_config_parameters(final_config, 2, rate, continuous_mode);
     }
     //MPEG-H
-    else if (output_format == AUDIO_FORMAT_MPEGH) {
+    else if (output_format == 0x2C000000u/*AUDIO_FORMAT_MPEGH*/) {
         get_mpegh_hardware_config_parameters(final_config, 2, rate);
     }
     //PCM
