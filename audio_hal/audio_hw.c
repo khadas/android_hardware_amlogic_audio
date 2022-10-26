@@ -1654,6 +1654,11 @@ static int out_pause_new (struct audio_stream_out *stream)
             }
             pthread_mutex_unlock(&ms12->lock);
         } else {
+            if (aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_PAUSED) {
+                pthread_mutex_lock(&ms12->lock);
+                audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_PAUSE);
+                pthread_mutex_unlock(&ms12->lock);
+            }
             /*if it raw data we don't do standby otherwise it may cause audioflinger
             underrun after resume please refer to issue SWPL-13091*/
             if (audio_is_linear_pcm(aml_out->hal_internal_format)) {
@@ -1731,7 +1736,11 @@ static int out_resume_new (struct audio_stream_out *stream)
                 ALOGI("%s : ms12 is not ready, resume it later", __func__);
                 aml_dev->ms12.need_ms12_resume = true;
             }
-        }
+        } else {
+            pthread_mutex_lock(&ms12->lock);
+            audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_RESUME);
+            pthread_mutex_unlock(&ms12->lock);
+       }
     }
     aml_out->write_status = false;
     ALOGI("%s(), stream[%p] write_status set to false", __func__, aml_out);
