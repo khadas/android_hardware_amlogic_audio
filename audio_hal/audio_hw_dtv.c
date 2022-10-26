@@ -2778,7 +2778,7 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
                                    (void *)&main_frame_buffer,
                                    &main_frame_size, &(patch->main_heaac_info));
             if (main_frame_size <= 0) {
-                ALOGW("do not get main dolby frames !!!");
+                ALOGW("do not get main aac frames !!!");
                 break;
             }
             used_size += parser_used_size;
@@ -3578,7 +3578,25 @@ float aml_audio_get_output_speed(struct aml_stream_out *aml_out)
     }
     return speed;
 }
+void aml_audio_flush_dtv_output(struct aml_stream_out *aml_out) {
+    struct aml_audio_device *aml_dev = aml_out->dev;
+    struct aml_audio_patch *patch = aml_dev->audio_patch;
 
+    if (is_aac_format(patch->aformat))  {
+        aml_heaac_parser_reset(patch->heaac_parser_handle);
+        if (need_enable_dual_decoder(patch)) {
+            patch->cur_package->ad_size = 0;
+            aml_heaac_parser_reset(patch->ad_heaac_parser_handle);
+        }
+    } else {
+        //todo
+    }
+    if (aml_dev->dolby_lib_type == eDolbyMS12Lib) {
+        audiohal_send_msg_2_ms12(&aml_dev->ms12, MS12_MESG_TYPE_FLUSH);
+    } else {
+        //todo
+    }
+}
 void *audio_dtv_patch_output_threadloop_v2(void *data)
 {
     struct aml_audio_patch *patch = (struct aml_audio_patch *)data;
@@ -3593,7 +3611,10 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
     int ret;
     float last_out_speed = 1.0f;
     int apts_diff = 0;
-    struct timespec ts;
+    struct timespec ts,package_get_ts;
+    clock_gettime(CLOCK_MONOTONIC, &package_get_ts);
+    int64_t data_arrive_jitter_ms = 0;
+    int64_t data_pts_jitter_ms = 0;
 
     ALOGI("[audiohal_kpi]++%s created.", __FUNCTION__);
     // FIXME: get actual configs
@@ -3709,7 +3730,16 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
             continue;
         } else {
           patch->cur_package = p_package;
-          ALOGV("p_package->size %d",p_package->size);
+          struct timespec current_ts;
+          clock_gettime(CLOCK_MONOTONIC, &current_ts);
+          data_arrive_jitter_ms = calc_time_interval_us(&package_get_ts, &current_ts) / 1000;
+          package_get_ts.tv_sec = current_ts.tv_sec;
+          package_get_ts.tv_nsec = current_ts.tv_nsec;
+          data_pts_jitter_ms = ABS(patch->dtvsync->last_package_pts,patch->cur_package->pts)/90;
+          if (aml_dev->debug_flag > 0) {
+              ALOGI("cur_package size %u pts %"PRIx64" jitter %"PRIx64" ms pts diff %"PRIx64" ms",
+                p_package->size, patch->cur_package->pts, data_arrive_jitter_ms, data_pts_jitter_ms);
+          }
         }
 
         if (last_out_speed != aml_out->output_speed) {
@@ -3736,6 +3766,22 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
                 aml_dtvsync_reset(patch->dtvsync);
             }
         }
+
+        if (patch->dtvsync->last_package_pts != DTVSYNC_INIT_PTS &&
+            ((data_arrive_jitter_ms >= DTV_AUDIO_DATA_JITTERMS_THRESHOLD) ||
+            (data_pts_jitter_ms >= AUDIO_PTS_DISCONTINUE_THRESHOLD))) {
+            struct snd_pcm_status status;
+            if (aml_out->pcm) {
+                pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+                if (status.state == PCM_STATE_XRUN) {
+                    ALOGI("es data arrive jitter %lld ms and underrun do fade and flush ", data_arrive_jitter_ms);
+                    set_ms12_main_audio_mute(&aml_dev->ms12, true, 0);
+                    aml_audio_flush_dtv_output(aml_out);
+                }
+            }
+        }
+        patch->dtvsync->last_package_pts = patch->cur_package->pts;
+
 
         ALOGV("AD %d %d", demux_info->dual_decoder_support, demux_info->ad_pid);
 

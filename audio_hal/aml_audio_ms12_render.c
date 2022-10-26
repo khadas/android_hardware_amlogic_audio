@@ -309,16 +309,6 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
 #ifdef ENABLE_DVB_PATCH
     bool dtv_stream_flag = patch && (adev->patch_src == SRC_DTV) && aml_out->is_tv_src_stream;
     bool do_sync_flag = dtv_stream_flag && patch && patch->skip_amadec_flag && patch->dtvsync->sync_type == DTVSYNC_MEDIASYNC;
-    /*when es data pts jump > 5s, the dvb stream may replay and do ease out to prevent pop nosie*/
-    if ( dtv_stream_flag && patch->cur_package && patch->dtvsync && (patch->cur_package->pts != ULLONG_MAX)) {
-        if (patch->dtvsync->last_package_pts !=  DTVSYNC_INIT_PTS &&
-            (ABS(patch->dtvsync->last_package_pts,patch->cur_package->pts) > AUDIO_PTS_DISCONTINUE_THRESHOLD)) {
-            set_ms12_main_audio_mute(ms12, true, 0);
-            //aml_heaac_parser_reset(patch->heaac_parser_handle);
-            //aml_heaac_parser_reset(patch->ad_heaac_parser_handle);
-        }
-        patch->dtvsync->last_package_pts = patch->cur_package->pts;
-    }
 #endif
 
 
