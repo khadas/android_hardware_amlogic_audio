@@ -1552,6 +1552,17 @@ static int dtv_get_nonms12_input_latency(audio_format_t input_format) {
         latency_ms = AVSYNC_NONMS12_DTV_DDP_LATENCY;
         break;
     }
+    case AUDIO_FORMAT_MP2: {
+        prop_name = AVSYNC_NONMS12_DTV_MP2_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_NONMS12_DTV_MP2_LATENCY;
+        break;
+    }
+    case AUDIO_FORMAT_AAC:
+    case AUDIO_FORMAT_AAC_LATM: {
+        prop_name = AVSYNC_NONMS12_DTV_AAC_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_NONMS12_DTV_AAC_LATENCY;
+        break;
+    }
     default:
         break;
     }

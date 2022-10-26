@@ -519,11 +519,15 @@
 #define  AVSYNC_NONMS12_DTV_DD_LATENCY                     (0)
 #define  AVSYNC_NONMS12_DTV_DDP_LATENCY                    (0)
 #define  AVSYNC_NONMS12_DTV_AC4_LATENCY                    (0)
+#define  AVSYNC_NONMS12_DTV_MP2_LATENCY                    (0)
+#define  AVSYNC_NONMS12_DTV_AAC_LATENCY                    (0)
 
 #define  AVSYNC_NONMS12_DTV_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.dtv.pcm"
 #define  AVSYNC_NONMS12_DTV_DD_LATENCY_PROPERTY          "vendor.media.audio.hal.nonms12.dtv.dd"
 #define  AVSYNC_NONMS12_DTV_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.dtv.ddp"
 #define  AVSYNC_NONMS12_DTV_AC4_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.dtv.ac4"
+#define  AVSYNC_NONMS12_DTV_MP2_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.dtv.mp2"
+#define  AVSYNC_NONMS12_DTV_AAC_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.dtv.aac"
 
 
 #endif
