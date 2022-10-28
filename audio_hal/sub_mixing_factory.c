@@ -690,69 +690,32 @@ static int out_get_presentation_position_port(
         }
         *timestamp = adjusted_timestamp;
     } else if (!adev->audio_patching) {
-        if (out->hw_sync_mode || out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
-            if (!out->frame_write_sum_updated|| out->is_insert_0_data || out->pause_status || out->standby) {
-                pthread_mutex_lock(&out->apts_update_lock);
-                *frames = frames_written_hw;
-                *timestamp = out->timestamp;
-                pthread_mutex_unlock(&out->apts_update_lock);
-            } else {
-                if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)
-                    frame_latency = mixer_get_inport_latency_frames(audio_mixer, out->inputPortID)
-                            + a2dp_out_get_latency(adev) * out->hal_rate / 1000;
-                else
-                    frame_latency = mixer_get_inport_latency_frames(audio_mixer, out->inputPortID)
-                            + mixer_get_outport_latency_frames(audio_mixer);
-
-                AM_LOGV("%s latency_frames:%d, inport latency:%u, outport latency:%u", __func__, frame_latency,
-                    mixer_get_inport_latency_frames(audio_mixer, out->inputPortID), mixer_get_outport_latency_frames(audio_mixer));
-
-                /*add this line calculation to simulate really latency,
-                **when start playing. Fixed TunneledAudioTimestamp/ptsGaps of SWPL-72028 jira.
-                */
-                if (out->write_count < WRITE_COUNT_LATENCY_THRESHOLD) {
-                    frame_latency = frame_latency / (WRITE_COUNT_LATENCY_THRESHOLD - out->write_count);
-                }
-                if (out->frame_write_sum > frame_latency) {
-                    //AM_LOGD("%s  out->last_frames_position:%llu (%llu ms) <-->  out->frame_write_sum:%llu (%llu ms), frame_latency:%d (%d ms)", __func__,
-                    //    out->last_frames_position, out->last_frames_position/48, out->frame_write_sum, out->frame_write_sum/48, frame_latency, frame_latency/48);
-                    if (out->last_frames_position <= (out->frame_write_sum - frame_latency)) {
-                        out->last_frames_position = out->frame_write_sum - frame_latency;
-                    } else {
-                        struct timespec current_ts;
-                        clock_gettime(CLOCK_MONOTONIC, &current_ts);
-                        //int64_t last_update_time_ms = (out->timestamp.tv_sec * 1000LL + out->timestamp.tv_nsec/1000000LL);
-                        //int64_t current_time_ms = (current_ts.tv_sec * 1000LL + current_ts.tv_nsec/1000000LL);
-                        int64_t diff_us = calc_time_interval_us(&out->timestamp, &current_ts);
-                        //AM_LOGV("%s   diff:%lld and %lld, last_update_time_ms:%lld  current_time_ms:%lld ",__func__,
-                        //    diff_us, diff_us/1000, last_update_time_ms, current_time_ms);
-
-                        out->timestamp = current_ts;
-                        out->last_frames_position += (diff_us/1000LL)*48;//add realtime data for latency not exact when just start play.
-                        AM_LOGD("%s  compensate %dms frames for retrograde position", __func__, (int)diff_us/1000);
-                    }
-                } else {
-                    out->last_frames_position = 0;
-                }
-
-                pthread_mutex_lock(&out->apts_update_lock);
-                *frames = out->last_frames_position;
-                *timestamp = out->timestamp;
-                pthread_mutex_unlock(&out->apts_update_lock);
-            }
-            AM_LOGV("%s out->standby:%d pause_status:%d frame_write_sum_updated:%d, frames:%" PRIu64" = (frame_write_sum:%" PRIu64" - latency_frames:%d)", __func__, out->standby, out->pause_status, out->frame_write_sum_updated, *frames, out->frame_write_sum, frame_latency);
+        if ((out->hw_sync_mode || out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)
+            && (!out->frame_write_sum_updated || out->is_insert_0_data || out->pause_status || out->standby)) {
+            pthread_mutex_lock(&out->apts_update_lock);
+            *frames = frames_written_hw;
+            *timestamp = out->timestamp;
+            pthread_mutex_unlock(&out->apts_update_lock);
         } else {
             pthread_mutex_lock(&out->apts_update_lock);
             ret = mixer_get_presentation_position(audio_mixer,
-                    out->inputPortID, frames, timestamp);
+                out->inputPortID, frames, timestamp);
             pthread_mutex_unlock(&out->apts_update_lock);
             tuning_latency_frame = aml_audio_get_pcm_latency_offset(adev->sink_format, adev->is_netflix)*48;
-            AM_LOGV("usecase:%s tuning_latency_frame:%d", usecase2Str(out->usecase), tuning_latency_frame);
+            if (out->hw_sync_mode || out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
+                tuning_latency_frame = 0;//this is pcm format, it should be 0ms for latency.
+            }
             if (tuning_latency_frame > 0 && *frames < (uint64_t)tuning_latency_frame) {
                 *frames = 0;
             } else {
                 *frames = *frames - tuning_latency_frame;
             }
+
+            //convert the frames for resample in AudioHal.
+            if (out->hal_rate != MM_FULL_POWER_SAMPLING_RATE) {
+                *frames = (*frames * out->hal_rate) / MM_FULL_POWER_SAMPLING_RATE;
+            }
+            AM_LOGV("usecase:%s  *frames:%"PRIu64", tuning_latency_frame:%d", usecase2Str(out->usecase), *frames, tuning_latency_frame);
 
             if (ret == 0) {
                 out->last_frames_position = *frames;
@@ -761,6 +724,9 @@ static int out_get_presentation_position_port(
                 AM_LOGW("pts not valid yet");
             }
         }
+        if (adev->debug_flag)
+            AM_LOGI("%s out->standby:%d pause_status:%d frame_write_sum_updated:%d, frames:%"PRIu64", frame_write_sum:%"PRIu64"", __func__,
+                out->standby, out->pause_status, out->frame_write_sum_updated, *frames, out->frame_write_sum);
     } else {
         pthread_mutex_lock(&out->apts_update_lock);
         *frames = frames_written_hw;

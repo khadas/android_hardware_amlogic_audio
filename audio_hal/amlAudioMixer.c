@@ -527,31 +527,6 @@ static int mixer_update_tstamp(struct amlAudioMixer *audio_mixer)
     unsigned int avail;
     uint32_t masks = audio_mixer->inportsMasks;
 
-    while (masks) {
-        in_port = mixer_get_inport_by_mask_right_first(audio_mixer, &masks);
-        if (NULL != in_port && in_port->enInPortType == AML_MIXER_INPUT_PORT_PCM_SYSTEM) {
-            break;
-        }
-    }
-
-    /*only deal with system audio */
-    if (in_port == NULL) {
-        AM_LOGV("in_port:%p is null", in_port);
-        return 0;
-    }
-
-    struct aml_audio_device *adev = audio_mixer->adev;
-    if (is_include_a2dp_out_port(adev->cur_out_devices)) {
-        uint64_t a2dp_latency_frames = a2dp_out_get_latency(adev) * in_port->cfg.sampleRate / MSEC_PER_SEC;
-        if (in_port->mix_consumed_frames + in_port->initial_frames > a2dp_latency_frames) {
-            in_port->presentation_frames = in_port->mix_consumed_frames + in_port->initial_frames - a2dp_latency_frames;
-        } else {
-            in_port->presentation_frames = 0;
-        }
-        clock_gettime(CLOCK_MONOTONIC, &in_port->timestamp);
-        return 0;
-    }
-
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
     R_CHECK_POINTER_LEGAL(-1, out_port, "");
     if (out_port->pcm_handle == NULL) {
@@ -560,20 +535,41 @@ static int mixer_update_tstamp(struct amlAudioMixer *audio_mixer)
         return 0;
     }
 
-    if (pcm_get_htimestamp(out_port->pcm_handle, &avail, &in_port->timestamp) == 0) {
-        size_t kernel_buf_size = DEFAULT_KERNEL_FRAMES;
-        int64_t signed_frames = in_port->mix_consumed_frames - kernel_buf_size + avail;
-        if (signed_frames < 0) {
-            signed_frames = 0;
+    while (masks) {
+        in_port = mixer_get_inport_by_mask_right_first(audio_mixer, &masks);
+        if (in_port == NULL) {
+            AM_LOGE("in_port:%p is null", in_port);
+            continue;
         }
-        in_port->presentation_frames = in_port->initial_frames + signed_frames;
-        AM_LOGV("present frames:%" PRId64 ", initial %" PRId64 ", consumed %" PRId64 ", sec:%ld, nanosec:%ld",
-                in_port->presentation_frames,
-                in_port->initial_frames,
-                in_port->mix_consumed_frames,
-                in_port->timestamp.tv_sec,
-                in_port->timestamp.tv_nsec);
+
+        struct aml_audio_device *adev = audio_mixer->adev;
+        if (adev->cur_out_devices & AUDIO_DEVICE_OUT_ALL_A2DP) {
+            uint64_t a2dp_latency_frames = a2dp_out_get_latency(adev) * in_port->cfg.sampleRate / MSEC_PER_SEC;
+            if (in_port->mix_consumed_frames + in_port->initial_frames > a2dp_latency_frames) {
+                in_port->presentation_frames = in_port->mix_consumed_frames + in_port->initial_frames - a2dp_latency_frames;
+            } else {
+                in_port->presentation_frames = 0;
+            }
+            clock_gettime(CLOCK_MONOTONIC, &in_port->timestamp);
+            continue;
+        }
+
+        if (pcm_get_htimestamp(out_port->pcm_handle, &avail, &in_port->timestamp) == 0) {
+            size_t kernel_buf_size = DEFAULT_KERNEL_FRAMES;
+            int64_t signed_frames = in_port->mix_consumed_frames - kernel_buf_size + avail;
+            if (signed_frames < 0) {
+                signed_frames = 0;
+            }
+            in_port->presentation_frames = in_port->initial_frames + signed_frames;
+            AM_LOGV("present frames:%" PRId64 ", initial %" PRId64 ", consumed %" PRId64 ", sec:%ld, nanosec:%ld",
+                    in_port->presentation_frames,
+                    in_port->initial_frames,
+                    in_port->mix_consumed_frames,
+                    in_port->timestamp.tv_sec,
+                    in_port->timestamp.tv_nsec);
+        }
     }
+
     pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
     return 0;
 }
