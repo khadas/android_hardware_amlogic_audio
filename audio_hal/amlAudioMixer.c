@@ -744,6 +744,8 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
                     aml_hwsync_wrap_set_pause(hwsync);
                     audio_fade_func(in_port->data, ret, 0);
                     set_inport_state(in_port, PAUSED);
+                    /* Mute the last data to prevent gap. */
+                    ring_buffer_clear(in_port->r_buf);
                 } else if (fade_in) {
                     AM_LOGI("input port:%s fade in", mixerInputType2Str(type));
                     audio_fade_func(in_port->data, ret, 1);
@@ -1164,14 +1166,20 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
             pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
         }
     }
-    /* only check the valid on a2dp case, normal alsa output we need continuous output,
-     * otherwise it will cause noise at the end
-     */
+    static uint32_t no_data_cnt = 0;
     if (!is_data_valid && (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
         if (adev->debug_flag) {
             AM_LOGI("inport no valid data");
         }
-        return -1;
+        /* If all input ports timeout for 1.6s and there is no data, we stop sending
+         * data to the BT stack in order to save power. (200 * 8ms = 1.6s)
+         */
+        if (no_data_cnt >= 200) {
+            return -1;
+        }
+        no_data_cnt++;
+    } else {
+        no_data_cnt = 0;
     }
 
     if (adev->is_TV) {
