@@ -321,6 +321,8 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
            ALOGE("mad_dec->remain_size + bytes  %d > %d  ,overflow", mad_dec->remain_size + bytes, MAD_REMAIN_BUFFER_SIZE );
            mad_dec->remain_size = 0;
            memset(mad_dec->remain_data, 0 , MAD_REMAIN_BUFFER_SIZE);
+           dec_pcm_data->data_len = 0;
+           return bytes;
         } else {
             memcpy(mad_dec->remain_data + mad_dec->remain_size, buffer, bytes);
             mad_dec->remain_size += bytes;

@@ -141,6 +141,8 @@ int aml_decoder_init(aml_dec_t **ppaml_dec, audio_format_t format, aml_dec_confi
     dec_config->ad_fade = 0;
     dec_config->ad_pan = 0;
     aml_dec_handle->dts_decode_enable = dec_config->dts_decode_enable;
+    aml_dec_handle->ad_data = NULL;
+    aml_dec_handle->ad_size = 0;
 
     if (get_debug_value(AML_DEBUG_AUDIOHAL_SYNCPTS)) {
         aml_dec_handle->debug_synced_frame_pts_flag = true;
