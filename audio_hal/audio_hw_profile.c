@@ -763,9 +763,9 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
             p_hdmi_descs->dts_fmt.is_support = 1;
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS");
             /*as we don't support dts decoder, then we cant' support dts hd passthrough*/
-            //if (adev->dts_decode_enable) {
+            if (adev->dts_decode_enable) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS_HD");
-            //}
+            }
             p_hdmi_descs->dtshd_fmt.is_support = 1;
         } else if ((audio_cap_item = get_edid_support_audio_format(AUDIO_FORMAT_DTS)) != NULL) {
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS");
