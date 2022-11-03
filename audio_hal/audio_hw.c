@@ -1784,6 +1784,7 @@ static int out_flush_new (struct audio_stream_out *stream)
             pthread_mutex_lock(&ms12->lock);
             if (adev->ms12.dolby_ms12_enable)
                 audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_FLUSH);
+
             out->continuous_audio_offset = 0;
             /*SWPL-39814, when using exo do seek, sometimes audio track will be reused, then the
              *sequence will be pause->flush->writing data, we need to handle this.
@@ -3673,6 +3674,18 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             adev->ms12.need_ms12_resume = false;
             adev->ms12.need_resync = 0;
             adev->ms12_out->hw_sync_mode = false;
+
+            struct aml_audio_patch *patch = adev->audio_patch;
+            /* JIRA: SWPL-95374 */
+            /* During the pause->close in Netflix Raw Hwsync stream, the continuous stream will be closed. */
+            /* but the DTV source patch is still exiting and non-continuous MS12 is working now. here it will flush DDP decoder */
+            /* so, here storage the decoder_offset to avoid the offset in vs out MS12 lib */
+            if (patch && (adev->patch_src == SRC_DTV)) {
+                if (out && adev->ms12_out && (out != adev->ms12_out)) {
+                    ALOGI("%s line %d store the dtv_decoder_offset_base %llu from patch %llu", __func__, __LINE__, adev->ms12.dtv_decoder_offset_base, patch->decoder_offset);
+                    adev->ms12.dtv_decoder_offset_base = patch->decoder_offset;
+                }
+            }
 
             audiohal_send_msg_2_ms12(&adev->ms12, MS12_MESG_TYPE_FLUSH);
             adev->ms12.ms12_resume_state = MS12_RESUME_FROM_CLOSE;
