@@ -3479,6 +3479,7 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
         ms12->ms12_main_stream_out = NULL;
         ms12->is_bypass_ms12 = false;
         adev->ms12.main_input_fmt = AUDIO_FORMAT_PCM_16_BIT;
+        adev->ms12.main_input_start_offset_ns = 0;
 
         /*when main stream is closed, we must set the pause to false*/
         dolby_ms12_set_pause_flag(false);
