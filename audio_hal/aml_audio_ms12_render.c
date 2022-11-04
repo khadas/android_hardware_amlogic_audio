@@ -302,6 +302,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     size_t output_buffer_bytes = 0;
     int out_frames = 0;
     int ms12_delayms = 0;
+    int alsa_latency = 0;
     int force_setting_delayms = 0;
     bool bypass_aml_dec = false;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
@@ -459,6 +460,8 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                             break;
                         }
                         ms12_delayms = aml_audio_get_cur_ms12_latency(stream);
+                        alsa_latency = 90 *(out_get_alsa_latency_frames(stream)  * 1000) / aml_out->config.rate;
+
                         if (adev->bHDMIARCon) {
                             force_setting_delayms = aml_getprop_int(PROPERTY_LOCAL_PASSTHROUGH_LATENCY);
                         }
@@ -469,9 +472,9 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                                 aml_dtvsync_setParameter(patch->dtvsync, MEDIASYNC_KEY_ALSAREADY, &aml_out->alsa_running_status);
                                 aml_out->alsa_status_changed = false;
                             }
-                            patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90 + force_setting_delayms * 90;//need consider the alsa delay
+                            patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90 - alsa_latency + force_setting_delayms * 90;
                             if (adev->debug_flag)
-                                ALOGI("patch->dtvsync->cur_outapts %" PRId64 "", patch->dtvsync->cur_outapts);
+                                ALOGI("patch->dtvsync->cur_outapts %" PRId64 ", ms12_delayms:%d ms, alsa_latency:%d ms", patch->dtvsync->cur_outapts, ms12_delayms, alsa_latency/90);
                             if (aml_out->dtvsync_enable)
                                 aml_dtvsync_ms12_get_policy(stream);
                         }
