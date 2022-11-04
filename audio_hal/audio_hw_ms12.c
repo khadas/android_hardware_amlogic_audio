@@ -360,7 +360,7 @@ bool is_platform_supported_ddp_atmos(bool atmos_supported, audio_devices_t cur_o
 {
     bool ret = false;
     //ALOGD("%s atmos_supported %d current_out_port %d", __func__, atmos_supported, current_out_port);
-    if ((cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0 || (cur_out_devices & AUDIO_DEVICE_OUT_HDMI) = 0) {
+    if ((cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0 || (cur_out_devices & AUDIO_DEVICE_OUT_HDMI) != 0) {
         /*ARC case*/
         ret = atmos_supported;
     }
