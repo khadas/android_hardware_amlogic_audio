@@ -869,7 +869,7 @@ static int convert_channel_configuration_to_channelmask(int channel_configuratio
 
 static int parse_heaac_adts_frame_header(struct audio_bit_parser * bit_parser, const unsigned char *frameBuf, int length, struct heaac_parser_info * heaac_info)
 {
-    ALOGD("%s line %d", __func__, __LINE__);
+    ALOGV("%s line %d", __func__, __LINE__);
     uint32_t frame_size = 0;
     uint32_t head_offset = 0;
     uint32_t sync_word = 0; //12bits
@@ -952,6 +952,10 @@ static int parse_heaac_adts_frame_header(struct audio_bit_parser * bit_parser, c
     heaac_info->frame_size = frame_size;
     heaac_info->sample_rate = convert_sampling_frequency_index_to_samplerate(sampling_frequency_index);
     heaac_info->channel_mask = convert_channel_configuration_to_channelmask(channel_configuration);
+    if (heaac_info->sample_rate == -1 || heaac_info->channel_mask == -1) {
+        ALOGE("Invalid HEAAC ADTS frame sampling_frequency_index %u and  channel_configuration %u", sampling_frequency_index, channel_configuration);
+        return -1;
+    }
     if (heaac_info->debug_print) {
         ALOGD("heaac adts sampling_frequency_index=%d sample rate=%d\n", sampling_frequency_index, heaac_info->sample_rate);
         ALOGD("heaac adts channel_configuration=%d channel_mask=%d\n", channel_configuration, heaac_info->channel_mask);
@@ -998,7 +1002,7 @@ static int parse_heaac_loas_frame_header(struct audio_bit_parser * bit_parser, c
     //heaac_info->channel_mask = heaac_info->channelCount; // todo
 
     if (heaac_info->debug_print) {
-        ALOGD("heaac loas frame size %d sampleRateHz %d channelCount %d\n", heaac_info->frame_size, heaac_info->sampleRateHz, heaac_info->channelCount);
+        ALOGI("heaac loas frame size %d sampleRateHz %d channelCount %d\n", heaac_info->frame_size, heaac_info->sampleRateHz, heaac_info->channelCount);
     }
 
     return 0;
@@ -1032,8 +1036,6 @@ int aml_heaac_parser_process(void *parser_handle, const void *in_buffer, int32_t
         ALOGE("error heaac_info is NULL");
         goto error;
     }
-    bool is_loas = heaac_info->is_loas;
-    bool is_adts = heaac_info->is_adts;
 
     heaac_info->frame_size = 0;
     heaac_info->sample_rate = 0;
@@ -1041,11 +1043,14 @@ int aml_heaac_parser_process(void *parser_handle, const void *in_buffer, int32_t
     parser_buf = heaac_parser_handle->buf;
     buf_left   = numBytes;
     *used_size = 0;
-
-    if (heaac_info->debug_print) {
-        ALOGD("%s input buf size %d status %d is_loas %d is_adts %d\n", __func__, numBytes, heaac_parser_handle->status, is_loas, is_adts);
-    }
+    bool is_loas = false;
+    bool is_adts = false;
 resync:
+    is_loas = heaac_info->is_loas;
+    is_adts = heaac_info->is_adts;
+    if (heaac_info->debug_print) {
+        ALOGI("%s input buf size %d status %d is_loas %d is_adts %d\n", __func__, numBytes, heaac_parser_handle->status, is_loas, is_adts);
+    }
     /*we need at least HEAAC_HEADER_SIZE bytes*/
     if (heaac_parser_handle->buf_remain < HEAAC_HEADER_SIZE) {
         need_size = HEAAC_HEADER_SIZE - heaac_parser_handle->buf_remain;
@@ -1158,6 +1163,23 @@ resync:
      */
     if (is_loas) {
         ret = parse_heaac_loas_frame_header(&heaac_parser_handle->bit_parser, parser_buf, heaac_parser_handle->buf_remain, heaac_info);
+        if (ret != 0) {
+            sync_word_offset = seek_heaac_adts_sync_word((char*)in_buffer, numBytes);
+            ALOGI("guess it is adts format sync_word_offset %d", sync_word_offset);
+            if (sync_word_offset >= 0) {
+                ret = parse_heaac_adts_frame_header(&heaac_parser_handle->bit_parser, (const unsigned char *)in_buffer + sync_word_offset, numBytes - sync_word_offset, heaac_info);
+            }
+            /* strict limit for the special adts stream */
+            if (ret == 0 && sync_word_offset == 0) {
+               heaac_info->is_adts = true;
+               heaac_info->is_loas = false;
+               heaac_parser_handle->buf_remain = 0;
+               heaac_parser_handle->status = PARSER_SYNCING;
+               buf_offset  = 0;
+               buf_left = numBytes - buf_offset;
+               goto resync;
+            }
+        }
     }
     else if (is_adts) {
         ret = parse_heaac_adts_frame_header(&heaac_parser_handle->bit_parser, parser_buf, heaac_parser_handle->buf_remain, heaac_info);

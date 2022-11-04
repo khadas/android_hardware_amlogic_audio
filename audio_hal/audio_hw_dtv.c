@@ -2582,16 +2582,6 @@ int audio_dtv_patch_output_single_decoder(struct aml_audio_patch *patch,
             aml_heaac_parser_open(&patch->heaac_parser_handle);
         }
 
-        //struct heaac_parser_info heaac_info = { 0 };
-        if (patch->aformat == AUDIO_FORMAT_AAC_LATM) {
-            patch->main_heaac_info.is_loas = 1;
-            patch->main_heaac_info.is_adts = 0;
-        }
-        else {
-            patch->main_heaac_info.is_loas = 0;
-            patch->main_heaac_info.is_adts = 1;
-        }
-
         patch->main_heaac_info.debug_print = aml_dev->debug_flag;
 
 
@@ -2767,16 +2757,6 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
             aml_heaac_parser_open(&patch->ad_heaac_parser_handle);
         }
 
-        //struct heaac_parser_info heaac_info = { 0 };
-        if (patch->aformat == AUDIO_FORMAT_AAC_LATM) {
-            patch->main_heaac_info.is_loas = 1;
-            patch->main_heaac_info.is_adts = 0;
-        }
-        else {
-            patch->main_heaac_info.is_loas = 0;
-            patch->main_heaac_info.is_adts = 1;
-        }
-
         patch->main_heaac_info.debug_print = aml_dev->debug_flag;
 
         int dual_len = 0;
@@ -2809,14 +2789,6 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
             }
 
             if (p_package->ad_size) {
-                if (patch->aformat == AUDIO_FORMAT_AAC_LATM) {
-                    patch->ad_heaac_info.is_loas = 1;
-                    patch->ad_heaac_info.is_adts = 0;
-                }
-                else {
-                    patch->ad_heaac_info.is_loas = 0;
-                    patch->ad_heaac_info.is_adts = 1;
-                }
                 patch->ad_heaac_info.debug_print = aml_dev->debug_flag;
 
                 aml_heaac_parser_process(patch->ad_heaac_parser_handle,
@@ -3691,6 +3663,20 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
     }
     if (patch->ad_heaac_parser_handle) {
         aml_heaac_parser_reset(patch->ad_heaac_parser_handle);
+    }
+
+    //struct heaac_parser_info heaac_info = { 0 };
+    if (patch->aformat == AUDIO_FORMAT_AAC_LATM) {
+        patch->main_heaac_info.is_loas = 1;
+        patch->main_heaac_info.is_adts = 0;
+        patch->ad_heaac_info.is_loas = 1;
+        patch->ad_heaac_info.is_adts = 0;
+    }
+    else {
+        patch->main_heaac_info.is_loas = 0;
+        patch->main_heaac_info.is_adts = 1;
+        patch->ad_heaac_info.is_loas = 0;
+        patch->ad_heaac_info.is_adts = 1;
     }
 
     aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
