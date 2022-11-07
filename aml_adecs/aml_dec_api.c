@@ -309,19 +309,20 @@ int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int
         ALOGE("[%s:%d] f_process is null", __func__, __LINE__);
         return -1;
     }
+
     if (get_audio_info_enable(DUMP_AUDIO_INFO_DECODE)) {
         aml_dec_info_t dec_info = {0};
         get_audio_decoder_info(dec_info, aml_dec);
-        frame_size = audio_bytes_per_sample(dec_pcm_data->data_format) * dec_pcm_data->data_ch;
-        /*one decoded frame length is too big, we need separate it*/
-        if ((dec_pcm_data->data_len >= AML_DEC_MAX_FRAMES * frame_size) &&
-            (dec_raw_data->data_format == AUDIO_FORMAT_IEC61937) &&
-            (dec_raw_data->data_len == dec_pcm_data->data_len)) {
-            fragment_size = AML_DEC_FRAGMENT_FRAMES * frame_size;
-            aml_dec->fragment_left_size = dec_pcm_data->data_len - fragment_size;
-            dec_pcm_data->data_len = fragment_size;
-            dec_raw_data->data_len = fragment_size;
-        }
+    }
+    frame_size = audio_bytes_per_sample(dec_pcm_data->data_format) * dec_pcm_data->data_ch;
+    /*one decoded frame length is too big, we need separate it*/
+    if ((dec_pcm_data->data_len >= AML_DEC_MAX_FRAMES * frame_size) &&
+        (dec_raw_data->data_format == AUDIO_FORMAT_IEC61937) &&
+        (dec_raw_data->data_len == dec_pcm_data->data_len)) {
+        fragment_size = AML_DEC_FRAGMENT_FRAMES * frame_size;
+        aml_dec->fragment_left_size = dec_pcm_data->data_len - fragment_size;
+        dec_pcm_data->data_len = fragment_size;
+        dec_raw_data->data_len = fragment_size;
     }
 
     if (ret >= 0 ) {
