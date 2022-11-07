@@ -4084,10 +4084,12 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 
     ret = str_parms_get_int(parms, "hal_param_dtv_spdif_protection_mode", &val);
     if (ret >= 0) {
-        if (val == SPDIF_PROTECTION__MODE_NONE || val == SPDIF_PROTECTION__MODE_NEVER) {
+        if (val == SPDIF_PROTECTION__MODE_NEVER) {
             aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_B_OUT_CHANNEL_STATUS, SPDIF_PROTECTION_ENABLE);
-        } else if (val == SPDIF_PROTECTION__MODE_ONCE){
+            aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_OUT_CHANNEL_STATUS, SPDIF_PROTECTION_ENABLE);
+        } else if (val == SPDIF_PROTECTION__MODE_ONCE  || val == SPDIF_PROTECTION__MODE_NONE){
             aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_B_OUT_CHANNEL_STATUS, SPDIF_PROTECTION_DISABLE);
+            aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_OUT_CHANNEL_STATUS, SPDIF_PROTECTION_DISABLE);
         }
 
         ALOGI("AUDIO SET SPDIF_PROTECTION__STATUS: %d\n", val);
