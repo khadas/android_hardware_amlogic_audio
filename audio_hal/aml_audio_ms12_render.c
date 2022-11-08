@@ -220,11 +220,11 @@ re_write:
 
 static void aml_audio_ms12_init_pts_param(struct dolby_ms12_desc *ms12, uint64_t first_pts)
 {
-    if (ms12) {
-        ms12->first_in_frame_pts = first_pts;
-        ms12->last_synced_frame_pts = -1;
-        ms12->out_synced_frame_count = 0;
-    }
+    if (!ms12)
+        return;
+    ms12->first_in_frame_pts = first_pts;
+    ms12->last_synced_frame_pts = -1;
+    ms12->out_synced_frame_count = 0;
     ALOGI("first_in_frame_pts  %" PRIu64 " ms" , ms12->first_in_frame_pts / 90);
 }
 
@@ -283,7 +283,7 @@ static int aml_audio_ms12_process(struct audio_stream_out *stream, const void *w
             }
         }
     } else {
-        ret = aml_audio_ms12_process_wrapper(stream, write_buf, write_bytes);
+        aml_audio_ms12_process_wrapper(stream, write_buf, write_bytes);
     }
     return return_bytes;
 }
@@ -357,7 +357,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
         }
 #endif
         /* audio data/apts, then we send the audio data*/
-        ret = aml_audio_ms12_process(stream, buffer, bytes);
+        aml_audio_ms12_process(stream, buffer, bytes);
 #ifdef ENABLE_DVB_PATCH
         if (patch && patch->decoder_offset == 0) {
             aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
@@ -379,7 +379,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
         aml_dec_t *aml_dec = aml_out->aml_dec;
 
 #ifdef ENABLE_DVB_PATCH
-        if (do_sync_flag) {
+        if (do_sync_flag && aml_dec) {
             if(patch->skip_amadec_flag) {
                 if (patch->cur_package)
                     aml_dec->in_frame_pts = patch->cur_package->pts;
@@ -443,7 +443,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                     }
 #endif
                     /* audio data/apts, then we send the audio data*/
-                    ret = aml_audio_ms12_process_wrapper(stream, dec_data, dec_pcm_data->data_len);
+                    aml_audio_ms12_process_wrapper(stream, dec_data, dec_pcm_data->data_len);
 #ifdef ENABLE_DVB_PATCH
                     if (do_sync_flag) {
                         if (patch->output_thread_exit) {

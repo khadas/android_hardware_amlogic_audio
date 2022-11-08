@@ -68,6 +68,10 @@ static struct bypass_frame_item * new_bypass_frame(const void *buffer, int32_t n
 
     /*malloc buffer*/
     frame->frame_buf = aml_audio_calloc(1, numBytes);
+    if (frame->frame_buf == NULL) {
+        ALOGE("%s : aml_audio_calloc failed", __FUNCTION__);
+        goto exit;
+    }
     memcpy(frame->frame_buf, buffer, numBytes);
     frame->frame_size = numBytes;
 
@@ -270,7 +274,6 @@ int aml_ms12_bypass_checkout_data(void *phandle, void **output_buf, int32_t *out
             break;
         }
     }
-
     if (find_frame) {
         pthread_mutex_unlock(&bypass_handle->list_lock);
         return 0;

@@ -117,7 +117,7 @@ void audio_one_shot_timer_start(unsigned32 timer_id, unsigned32 delay_time_ms)
 ******************************************************************************/
 void audio_timer_stop(unsigned32 timer_id)
 {
-    if (aml_timer[timer_id].state == TIMER_STATE_INACTIVE) {
+    if (timer_id < AML_TIMER_ID_NUM && aml_timer[timer_id].state == TIMER_STATE_INACTIVE) {
         return;
     }
     struct itimerspec       i_timer_spec;
@@ -127,7 +127,7 @@ void audio_timer_stop(unsigned32 timer_id)
     i_timer_spec.it_interval.tv_sec = 0;
     i_timer_spec.it_interval.tv_nsec = 0;
 
-    if (timer_settime(aml_timer[timer_id].timer, 0, &(i_timer_spec), NULL) == -1) {
+    if (timer_id < AML_TIMER_ID_NUM && timer_settime(aml_timer[timer_id].timer, 0, &(i_timer_spec), NULL) == -1) {
         ALOGE("func:%s  stop timer fail. errno:%d(%s)", __func__, errno, strerror(errno));
     } else {
         ALOGV("func:%s  stop timer success. ", __func__);
@@ -142,12 +142,12 @@ void audio_timer_stop(unsigned32 timer_id)
 ******************************************************************************/
 unsigned32 audio_timer_remaining_time(unsigned32 timer_id)
 {
-    struct itimerspec       i_timer_spec;
+    struct itimerspec       i_timer_spec = {0};
     unsigned32  remaining_time = 0;
-    if (aml_timer[timer_id].state == TIMER_STATE_INACTIVE) {
+    if (timer_id < AML_TIMER_ID_NUM && aml_timer[timer_id].state == TIMER_STATE_INACTIVE) {
         return 0;
     }
-    if (timer_gettime(aml_timer[timer_id].timer, &(i_timer_spec)) == -1) {
+    if (timer_id < AML_TIMER_ID_NUM && timer_gettime(aml_timer[timer_id].timer, &(i_timer_spec)) == -1) {
         ALOGE("func:%s  gettime fail. errno:%d(%s)", __func__, errno, strerror(errno));
     } else {
         ALOGV("func:%s  timer id:%u,  time tv_sec:%ld, tv_nsec:%ld ", __func__,
@@ -318,13 +318,13 @@ struct timespec aml_audio_ns_to_time(uint64_t ns)
 {
     struct timespec time;
     time.tv_sec = ns / 1000000000;
-    time.tv_nsec = ns - (time.tv_sec * 1000000000);
+    time.tv_nsec = ns - ((uint64_t)time.tv_sec * 1000000000);
     return time;
 }
 
 int aml_audio_sleep(uint64_t us)
 {
-    int ret = -1;
+    int ret = 0;
     struct timespec ts;
     if (us == 0) {
         return 0;

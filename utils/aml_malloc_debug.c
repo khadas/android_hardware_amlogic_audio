@@ -58,7 +58,8 @@ static void add_malloc_node(struct aml_malloc_node * malloc_node)
     struct timeval time_us;
     struct tm t;
     gettimeofday(&time_us, NULL);
-    strftime(malloc_node->time, sizeof(malloc_node->time), "%m-%d %H:%M:%S", localtime_r(&time_us.tv_sec, &t));
+    if (localtime_r(&time_us.tv_sec, &t))
+        strftime(malloc_node->time, sizeof(malloc_node->time), "%m-%d %H:%M:%S", localtime_r(&time_us.tv_sec, &t));
     sprintf(malloc_node->time, "%s.%ld", malloc_node->time,time_us.tv_usec / 1000);
     list_add_tail(&pmalloc_handle->malloc_list, &malloc_node->list);
     pthread_mutex_unlock(&pmalloc_handle->malloc_lock);

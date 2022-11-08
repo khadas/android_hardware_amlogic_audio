@@ -242,6 +242,10 @@ int parser_load_from_file(struct parser *pParser, const char *filename)
 
         /* initial one new line structrue */
         LINE *pLINE = aml_audio_malloc(sizeof(LINE));
+        if (!pLINE) {
+            ALOGE("%s: pLINE aml_audio_malloc is fail\n", __func__);
+            break;
+        }
         pLINE->pKeyStart   = pLINE->Text;
         pLINE->pKeyEnd     = pLINE->Text;
         pLINE->pValueStart = pLINE->Text;
@@ -255,7 +259,8 @@ int parser_load_from_file(struct parser *pParser, const char *filename)
         if (pParser->mpFirstLine == NULL) {
             pParser->mpFirstLine = pLINE;
         } else {
-            pCurLINE->pNext = pLINE;
+            if (pCurLINE)
+                pCurLINE->pNext = pLINE;
         }
         pCurLINE = pLINE;
 
@@ -263,12 +268,17 @@ int parser_load_from_file(struct parser *pParser, const char *filename)
         switch (pCurLINE->type) {
         case LINE_TYPE_SECTION:
             pSec = aml_audio_malloc(sizeof(SECTION));
+            if (!pSec) {
+                ALOGE("%s: pSec aml_audio_malloc is fail\n", __func__);
+                break;
+            }
             pSec->pLine = pLINE;
             pSec->pNext = NULL;
             if (pParser->mpFirstSection == NULL) { //first section
                 pParser->mpFirstSection = pSec;
             } else {
-                pCurSection->pNext = pSec;
+                if (pCurSection)
+                    pCurSection->pNext = pSec;
             }
             pCurSection = pSec;
             break;
@@ -418,8 +428,23 @@ int parser_set_string(struct parser *pParser, const char *section, const char *k
 	if (pFindSec == NULL) {
 		/* CASE_1: can't find section. new section, new line */
 		pNewSec     = aml_audio_malloc(sizeof(SECTION));
+		if (!pNewSec) {
+			ALOGE("%s: pNewSec aml_audio_malloc is fail\n", __func__);
+			return -1;
+		}
 		pNewSecLine = aml_audio_malloc(sizeof(LINE));
+		if (!pNewSecLine) {
+			ALOGE("%s: pNewSecLine aml_audio_malloc is fail\n", __func__);
+			aml_audio_free(pNewSec);
+			return -1;
+		}
 		pNewKeyLine = aml_audio_malloc(sizeof(LINE));
+		if (!pNewKeyLine) {
+			ALOGE("%s: pNewKeyLine aml_audio_malloc is fail\n", __func__);
+			aml_audio_free(pNewSec);
+			aml_audio_free(pNewSecLine);
+			return -1;
+		}
 		pNewKeyLine->type = LINE_TYPE_KEY;
 		pNewSecLine->type = LINE_TYPE_SECTION;
 		sprintf(pNewSecLine->Text, "[%s]", section);
@@ -442,6 +467,10 @@ int parser_set_string(struct parser *pParser, const char *section, const char *k
 		if (pLine == NULL) {
 			/* CASE_2.1: can't find line. new line */
 			pNewKeyLine       = aml_audio_malloc(sizeof(LINE));
+			if (!pNewKeyLine) {
+				ALOGE("%s: pNewKeyLine aml_audio_malloc is fail\n", __func__);
+				return -1;
+			}
 			pNewKeyLine->type = LINE_TYPE_KEY;
 			int keylen = strlen(key);
 			sprintf(pNewKeyLine->Text, "%s=%s", key, value);

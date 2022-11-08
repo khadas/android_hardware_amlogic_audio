@@ -339,11 +339,11 @@ static char *get_audio_format_code_name_by_id(int fmt_id)
 int update_edid_after_edited_audio_sad(struct aml_audio_device *adev, struct format_desc *fmt_desc)
 {
     struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
-    if (fmt_desc) {
-        ALOGD("Update [%s] support:%d, ch:%d, sample_mask:%#x, bit_rate:%d, atmos:%d",
-            hdmiFormat2Str(fmt_desc->fmt), fmt_desc->is_support, fmt_desc->max_channels,
-            fmt_desc->sample_rate_mask, fmt_desc->max_bit_rate, fmt_desc->atmos_supported);
-    }
+    if (!fmt_desc)
+        return 0;
+    ALOGD("Update [%s] support:%d, ch:%d, sample_mask:%#x, bit_rate:%d, atmos:%d",
+        hdmiFormat2Str(fmt_desc->fmt), fmt_desc->is_support, fmt_desc->max_channels,
+        fmt_desc->sample_rate_mask, fmt_desc->max_bit_rate, fmt_desc->atmos_supported);
 
     /*
      * if there is no ddp/ms12 lib, don't update edid.

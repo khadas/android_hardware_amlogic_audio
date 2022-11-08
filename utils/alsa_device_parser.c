@@ -148,11 +148,10 @@ int alsa_device_get_card_index_by_name(void *name)
 					break;
 				}
 			}
-
 			memset((void *)tempbuffer, 0, READ_BUFFER_SIZE);
 		}
 	}
-
+	fclose(mCardFile);
 	return mCardIndex;
 }
 
@@ -181,6 +180,7 @@ int alsa_device_get_card_index()
 			p_aml_alsa_info = aml_audio_calloc(1, sizeof(struct alsa_info));
 			if (!p_aml_alsa_info) {
 				ALOGE ("NOMEM for alsa info\n");
+				fclose(mCardFile);
 				return -1;
 			}
 		}
@@ -312,7 +312,7 @@ void alsa_device_parser_pcm_string(struct alsa_info *p_info, char *InputBuffer)
 		}
 		ALOGD("%s Desc:%p mCardindex:%d, mPcmindex:%d, PortName:%s\n", __FUNCTION__, mAudioDeviceDescriptor,
 		        mAudioDeviceDescriptor->mCardindex, mAudioDeviceDescriptor->mPcmIndex, PortName);
-		Rch = strtok(NULL, ": ");
+		strtok(NULL, ": ");
 	}
 }
 

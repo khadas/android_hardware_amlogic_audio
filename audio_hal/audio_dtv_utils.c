@@ -64,10 +64,11 @@ int dtv_package_list_flush(package_list *list)
 
 int dtv_package_list_init(package_list *list)
 {
+    pthread_mutex_init(&list->tslock, NULL);
     list->first = NULL;
     list->pack_num = 0;
     list->current = NULL;
-    pthread_mutex_init(&list->tslock, NULL);
+
     return 0;
 }
 int dtv_package_add(package_list *list, struct package *p)
@@ -162,6 +163,7 @@ int dtv_patch_add_cmd(struct cmd_node *dtv_cmd_list,int cmd, int path_id)
     new_cmd_node = aml_audio_malloc(sizeof(struct cmd_node));
     if (!new_cmd_node ) {
         ALOGE("new_cmd_node aml_audio_malloc failed");
+        pthread_mutex_unlock(&dtv_cmd_list->dtv_cmd_mutex);
         return -1;
     }
     new_cmd_node->cmd = cmd;

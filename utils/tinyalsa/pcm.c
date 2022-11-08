@@ -352,7 +352,8 @@ static int pcm_hw_mmap_status(struct pcm *pcm) {
         return 0;
 
     int page_size = sysconf(_SC_PAGE_SIZE);
-    pcm->mmap_status = mmap(NULL, page_size, PROT_READ, MAP_FILE | MAP_SHARED,
+    if (page_size > 0)
+        pcm->mmap_status = mmap(NULL, page_size, PROT_READ, MAP_FILE | MAP_SHARED,
                             pcm->fd, SNDRV_PCM_MMAP_OFFSET_STATUS);
     if (pcm->mmap_status == MAP_FAILED)
         pcm->mmap_status = NULL;
@@ -398,10 +399,12 @@ static void pcm_hw_munmap_status(struct pcm *pcm) {
         pcm->sync_ptr = NULL;
     } else {
         int page_size = sysconf(_SC_PAGE_SIZE);
-        if (pcm->mmap_status)
-            munmap(pcm->mmap_status, page_size);
-        if (pcm->mmap_control)
-            munmap(pcm->mmap_control, page_size);
+        if (page_size > 0) {
+            if (pcm->mmap_status)
+                munmap(pcm->mmap_status, page_size);
+            if (pcm->mmap_control)
+                munmap(pcm->mmap_control, page_size);
+        }
     }
     pcm->mmap_status = NULL;
     pcm->mmap_control = NULL;
@@ -826,6 +829,9 @@ void pcm_params_set_max(struct pcm_params *pcm_params,
 
 static int pcm_mask_test(struct pcm_mask *m, unsigned int index)
 {
+    if (!m) {
+        return 0;
+    }
     const unsigned int bitshift = 5; /* for 32 bit integer */
     const unsigned int bitmask = (1 << bitshift) - 1;
     unsigned int element;

@@ -160,8 +160,7 @@ static int outMmapStart(const struct audio_stream_out *stream)
     struct aml_stream_out       *out = (struct aml_stream_out *) stream;
     aml_mmap_audio_param_st     *pstParam = (aml_mmap_audio_param_st *)out->pstMmapAudioParam;
 
-    if ((pstParam->stThreadParam.status != MMAP_INIT && pstParam->stThreadParam.status != MMAP_STOP_DONE)
-        || pstParam == NULL) {
+    if (pstParam == NULL || (pstParam->stThreadParam.status != MMAP_INIT && pstParam->stThreadParam.status != MMAP_STOP_DONE)) {
         AM_LOGW("status:%d error or mmap no init.", pstParam->stThreadParam.status);
         return -ENODATA;
     }
@@ -190,7 +189,7 @@ static int outMmapStop(const struct audio_stream_out *stream)
     struct aml_stream_out       *out = (struct aml_stream_out *) stream;
     aml_mmap_audio_param_st     *pstParam = (aml_mmap_audio_param_st *)out->pstMmapAudioParam;
 
-    if (pstParam->stThreadParam.status != MMAP_START_DONE || pstParam == NULL) {
+    if (pstParam == NULL || pstParam->stThreadParam.status != MMAP_START_DONE) {
         AM_LOGW("status:%d not start done or mmap not init", pstParam->stThreadParam.status);
         return -ENODATA;
     }
@@ -293,14 +292,17 @@ static int ion_buffer_allocate_new (aml_mmap_audio_param_st     *pstParam) {
         AM_LOGE("ion_query_heap_cnt fail! no ion heaps for alloc!!! ret:%#x", ret);
         return -ENOMEM;
     }
-    struct ion_heap_data * const heaps = (struct ion_heap_data *) aml_audio_malloc (num_heaps * sizeof(struct ion_heap_data));
+    struct ion_heap_data * const heaps = (struct ion_heap_data *) aml_audio_calloc (1, num_heaps * sizeof(struct ion_heap_data));
     if (num_heaps <= 0 || heaps == NULL) {
         AM_LOGE("heaps is NULL or no heaps, num_heaps:%d", num_heaps);
+        aml_audio_free(heaps);
         return -ENOMEM;
     }
+
     ret = ion_query_get_heaps(pstParam->s32IonFd, num_heaps, heaps);
     if (ret < 0) {
         AM_LOGE("ion_query_get_heaps fail! no ion heaps for alloc!!! ret:%#x", ret);
+        aml_audio_free(heaps);
         return -ENOMEM;
     }
     for (int i = 0; i != num_heaps; ++i) {

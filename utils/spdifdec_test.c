@@ -17,15 +17,16 @@ int main(int argc, char * argv[])
 {
     FILE *fi = NULL, *fo = NULL;
     char *bitstream_in = NULL;
-    int ret;
+    int ret = 0;
     int offset = 0;
     int bi_size = BI_SIZE;
     void *p_spdifdec = NULL;
     void *payload_addr = NULL;
     int32_t n_bytes_payload = 0;
     int n_bytes_spdifdec_consumed = 0;
-    char buffer[8] = {0};
-    long blk_num;
+    char buffer[8] = {'\0'};
+    long blk_num = 0;
+    int read_ret = 0 ,fseek_ret = 0;
 
     if (argc < 5) {
         fprintf(stderr,"Usage: %s -i IEC61937.bin -o audio.raw", argv[0]);
@@ -74,8 +75,14 @@ int main(int argc, char * argv[])
 
     for (int i = 0; i < blk_num; i++) {
         offset = i * bi_size;
-        fseek(fi, offset, SEEK_SET);
-        fread(bitstream_in, bi_size, 1, fi);
+        fseek_ret = fseek(fi, offset, SEEK_SET);
+        if (fseek_ret < 0) {
+            ALOGE("fseek is fail \n");
+        }
+        read_ret = fread(bitstream_in, bi_size, 1, fi);
+        if (read_ret < 0) {
+            ALOGE("fread is fail \n");
+        }
         memcpy(buffer, bitstream_in, sizeof(buffer));
         ALOGV("0x%2x 0x%2x 0x%2x 0x%2x\n", buffer[0], buffer[1], buffer[2], buffer[3]);
 

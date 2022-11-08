@@ -45,7 +45,7 @@ static void getHwDevice() {
             ALOGI("get hwDevice fail");
         }
 
-        rc = hwDevice->initCheck();
+        hwDevice->initCheck();
      }
 }
 

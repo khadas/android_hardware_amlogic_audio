@@ -316,7 +316,6 @@ ssize_t header_extractor_write(struct hw_avsync_header_extractor *header_extract
                 extractor_reset(header_extractor);
                 ALOGV("%s() reading body over, next to reading header, return bytes %zu",
                         __func__, bytes - bytes_remaining);
-                continue;
                 //return bytes - bytes_remaining;
             }
         }

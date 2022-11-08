@@ -19,7 +19,8 @@
 
 #include <hardware/audio_effect.h>
 
-#define MAX_POSTPROCESSORS 10
+#define MAX_POSTPROCESSORS 9
+
 /*now audio_post_process  support 2ch 16bit data
 *vx process 256 as a block(256 *  4 bytes)
 * 32bit multich  case need to do

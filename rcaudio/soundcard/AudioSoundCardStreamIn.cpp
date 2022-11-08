@@ -124,7 +124,7 @@ status_t AudioSoundCardStreamIn::setParameters(struct audio_stream* stream,
     AudioParameter param = AudioParameter(String8(kvpairs));
     status_t status = NO_ERROR;
     String8 keySource = String8(AudioParameter::keyInputSource);
-    int intVal;
+    int intVal = 0;
 
     if (param.getInt(keySource, intVal) == NO_ERROR) {
         ALOGI("AudioStreamIn::setParameters, mInputSource set to %d", intVal);

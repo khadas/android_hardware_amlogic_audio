@@ -52,6 +52,10 @@ static ssize_t voice_in_read(struct voice_in *in, void *buffer, size_t bytes)
                 num_read_buff_bytes, in->conversion_buffer_size);
             in->conversion_buffer_size = num_read_buff_bytes;
             in->conversion_buffer = aml_audio_realloc(in->conversion_buffer, in->conversion_buffer_size);
+            if (!in->conversion_buffer) {
+                ALOGE("aml_audio_realloc is fail");
+                return -1;
+            }
         }
         read_buff = in->conversion_buffer;
     }
@@ -161,7 +165,12 @@ static int kara_open_micphone(struct kara_manager *kara, struct audioCfg *cfg)
 
     kara->buf = NULL;
     kara->buf_len = 0;
-    ring_buffer_init(&kara->mic_buffer, USB_DEFAULT_PERIOD_SIZE * 32);
+    int init_ret = ring_buffer_init(&kara->mic_buffer, USB_DEFAULT_PERIOD_SIZE * 32);
+    if (init_ret == -1) {
+        ALOGE("[%s:%d] init is error", __func__, __LINE__);
+        pthread_mutex_unlock(&kara->lock);
+        return -1;
+    }
     kara->karaoke_start = true;
 
     pthread_mutex_unlock(&kara->lock);
@@ -209,9 +218,13 @@ static int kara_mix_micphone(struct kara_manager *kara, void *buf, size_t bytes)
     pthread_mutex_lock(&kara->lock);
     if (bytes > kara->buf_len) {
         kara->buf = aml_audio_realloc(kara->buf, bytes);
+        if (!kara->buf) {
+            ALOGE("%s() kara->buf malloc is fail", __func__);
+            pthread_mutex_unlock(&kara->lock);
+            return -1;
+        }
         kara->buf_len = bytes;
     }
-
     ret = voice_in_read(in, kara->buf, bytes);
     if (ret) {
         if (kara->kara_mic_mute) {

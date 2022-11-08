@@ -843,8 +843,7 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
 
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
     struct aml_audio_device *adev = in->dev;
-    hdmiin_audio_packet_t last_audio_packet = AUDIO_PACKET_AUDS;
-    last_audio_packet = in->last_audio_packet_type;
+    hdmiin_audio_packet_t last_audio_packet = in->last_audio_packet_type;
     bool is_audio_packet_changed = false;
 
     hdmiin_audio_packet_t cur_audio_packet = get_hdmiin_audio_packet(&adev->alsa_mixer);
@@ -1575,6 +1574,10 @@ int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, s
     size_t read_bytes = in->config.channels * bytes / channel_count;
     if (!in->input_tmp_buffer || in->input_tmp_buffer_size < read_bytes) {
         in->input_tmp_buffer = aml_audio_realloc(in->input_tmp_buffer, read_bytes);
+        if (!in->input_tmp_buffer) {
+            AM_LOGE("aml_audio_realloc is fail");
+            return ret;
+        }
         in->input_tmp_buffer_size = read_bytes;
     }
 
@@ -1683,7 +1686,7 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     int ret = -1;
-    char value[64];
+    char value[64] = {'\0'};
 
     /*----ATV <-> DTV switch----*/
     ret = str_parms_get_str(parms, "hal_param_tuner_in", value, sizeof(value));

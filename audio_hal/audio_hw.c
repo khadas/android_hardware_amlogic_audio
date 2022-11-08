@@ -436,24 +436,6 @@ static void select_mode (struct aml_audio_device *adev)
     ALOGD ("%s(out_device=%#x)", __FUNCTION__, adev->out_device);
     ALOGD ("%s(in_device=%#x)", __FUNCTION__, adev->in_device);
     return;
-
-    /* force earpiece route for in call state if speaker is the
-        only currently selected route. This prevents having to tear
-        down the modem PCMs to change route from speaker to earpiece
-        after the ringtone is played, but doesn't cause a route
-        change if a headset or bt device is already connected. If
-        speaker is not the only thing active, just remove it from
-        the route. We'll assume it'll never be used initially during
-        a call. This works because we're sure that the audio policy
-        manager will update the output device after the audio mode
-        change, even if the device selection did not change. */
-    if ( (adev->out_device & AUDIO_DEVICE_OUT_ALL) == AUDIO_DEVICE_OUT_SPEAKER) {
-        adev->in_device = AUDIO_DEVICE_IN_BUILTIN_MIC & ~AUDIO_DEVICE_BIT_IN;
-    } else {
-        adev->out_device &= ~AUDIO_DEVICE_OUT_SPEAKER;
-    }
-
-    return;
 }
 
 /* must be called with hw device and output stream mutexes locked */
@@ -979,7 +961,7 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
     struct aml_stream_in *in;
     struct str_parms *parms;
     char *str;
-    char value[32];
+    char value[32] = {'\0'};
     int ret;
     uint val = 0;
     bool force_input_standby = false;
@@ -1819,7 +1801,6 @@ static int insert_output_bytes (struct aml_stream_out *out, size_t size)
     }
 
     if (!out->pcm) {
-        ret = -ENOENT;
         goto exit;
     }
 
@@ -2411,7 +2392,8 @@ static int in_set_parameters (struct audio_stream *stream, const char *kvpairs)
     struct aml_audio_device *adev = in->dev;
     struct str_parms *parms;
     char *str;
-    char value[32];
+    int str_ret = 0;
+    char value[32] = {'\0'};
     int ret = 0, val = 0;
     bool do_standby = false;
 
@@ -2459,7 +2441,10 @@ static int in_set_parameters (struct audio_stream *stream, const char *kvpairs)
 
             if (!in->standby && (in == adev->active_input) ) {
                 do_input_standby (in);
-                start_input_stream (in);
+                str_ret = start_input_stream (in);
+                if (str_ret < 0) {
+                    ALOGE("[%s:%d] start input stream failed! ret:%#x", __func__, __LINE__, str_ret);
+                }
                 in->standby = 0;
             }
 
@@ -2481,7 +2466,11 @@ static int in_set_parameters (struct audio_stream *stream, const char *kvpairs)
             pthread_mutex_lock (&in->lock);
             if (!in->standby && (in == adev->active_input) ) {
                 do_input_standby (in);
-                start_input_stream (in);
+                str_ret = start_input_stream (in);
+                if (str_ret < 0) {
+                    ALOGE("[%s:%d] start input stream failed! ret:%#x", __func__, __LINE__, str_ret);
+                }
+
                 in->standby = 0;
             }
             pthread_mutex_unlock (&in->lock);
@@ -2503,7 +2492,11 @@ static int in_set_parameters (struct audio_stream *stream, const char *kvpairs)
             pthread_mutex_lock (&in->lock);
             if (!in->standby && (in == adev->active_input) ) {
                 do_input_standby (in);
-                start_input_stream (in);
+                str_ret = start_input_stream (in);
+                if (str_ret < 0) {
+                    ALOGE("[%s:%d] start input stream failed! ret:%#x", __func__, __LINE__, str_ret);
+                }
+
                 in->standby = 0;
             }
             pthread_mutex_unlock (&in->lock);
@@ -2525,7 +2518,10 @@ static int in_set_parameters (struct audio_stream *stream, const char *kvpairs)
             pthread_mutex_lock (&in->lock);
             if (!in->standby && (in == adev->active_input) ) {
                 do_input_standby (in);
-                start_input_stream (in);
+                str_ret = start_input_stream (in);
+                if (str_ret < 0) {
+                    ALOGE("[%s:%d] start input stream failed! ret:%#x", __func__, __LINE__, str_ret);
+                }
                 in->standby = 0;
             }
             pthread_mutex_unlock (&in->lock);
@@ -2823,7 +2819,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
         }
         in->frames_read += in_frames;
         struct aec_info info;
-        ret = get_pcm_timestamp(in->pcm, in_get_sample_rate(&stream->common),
+        get_pcm_timestamp(in->pcm, in_get_sample_rate(&stream->common),
                                 &info, false /*input */);
         in->timestamp_nsec = audio_utils_ns_from_timespec(&info.timestamp);
         return bytes;
@@ -3017,7 +3013,7 @@ static int in_add_audio_effect(const struct audio_stream *stream __unused, effec
 {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
     int status;
-    effect_descriptor_t desc;
+    effect_descriptor_t desc = {0};
 
     pthread_mutex_lock(&in->dev->lock);
     pthread_mutex_lock(&in->lock);
@@ -3051,7 +3047,7 @@ static int in_remove_audio_effect(const struct audio_stream *stream,
     int i;
     int status = -EINVAL;
     bool found = false;
-    effect_descriptor_t desc;
+    effect_descriptor_t desc = {0};
 
     pthread_mutex_lock(&in->dev->lock);
     pthread_mutex_lock(&in->lock);
@@ -3195,7 +3191,7 @@ int output_stream_hwsync_prepare(struct aml_stream_out *out, int hw_sync_id)
                 if (ret_set_id == false) {
                     ALOGI("mediasync set hwsync id fail, need get new one");
                     ret_set_id = aml_hwsync_wrap_get_id(out->hwsync->mediasync, &out->hwsync->hwsync_id);
-                    if (ret_set_id && ret_set_id != -1) {
+                    if (ret_set_id && out->hwsync->hwsync_id != -1) {
                         adev->hw_sync_id = out->hwsync->hwsync_id;
                         ret_set_id = aml_hwsync_wrap_set_id(out->hwsync, out->hwsync->hwsync_id);
                     }
@@ -3995,7 +3991,7 @@ static void check_usb_card_device(struct str_parms *parms, int device)
 {
     /*usb audio hot plug need delay some time wait alsa file create */
     if ((device & AUDIO_DEVICE_OUT_ALL_USB) || (device & AUDIO_DEVICE_IN_ALL_USB)) {
-        int card = 0, alsa_dev = 0, val, retry;
+        int card = 0, alsa_dev = 0, val = 0, retry;
         char fn[256];
         int ret = str_parms_get_int(parms, "card", &val);
         if (ret >= 0) {
@@ -4058,7 +4054,7 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     struct aml_audio_device *adev = (struct aml_audio_device *) dev;
     struct str_parms *parms;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-    char value[AUDIO_HAL_CHAR_MAX_LEN];
+    char value[AUDIO_HAL_CHAR_MAX_LEN] = {'\0'};
     int val = 0;
     int ret = 0;
 
@@ -5224,7 +5220,8 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         int aec_ret = init_aec_mic_config(adev->aec, in);
         if (aec_ret) {
             ALOGE("AEC: Mic config init failed!");
-            return -EINVAL;
+            ret = -EINVAL;
+            goto err;
         }
     }
 #endif
@@ -5582,7 +5579,7 @@ static aec_timestamp get_timestamp(void) {
     aec_timestamp return_val;
     /*clock_gettime(CLOCK_MONOTONIC, &ts);*/
     clock_gettime(CLOCK_REALTIME, &ts);
-    current_time = ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+    current_time = (unsigned long long)ts.tv_sec * 1000000 + (unsigned long long)ts.tv_nsec / 1000;
     return_val.timeStamp = current_time;
     return return_val;
 }
@@ -5952,7 +5949,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                 if (aml_out->pcm == NULL) {
                     ALOGE("%s() get pcm handle failed", __func__);
                 }
-                if (adev->raw_to_pcm_flag) {
+                if (adev->raw_to_pcm_flag && aml_out->pcm) {
                     ALOGI("disable raw_to_pcm_flag --");
                     pcm_stop(aml_out->pcm);
                     adev->raw_to_pcm_flag = false;
@@ -6062,16 +6059,10 @@ ssize_t hw_write (struct audio_stream_out *stream
                 }
             } else {
                 memset((void*)buffer, 0, bytes);
-                if (output_format == AUDIO_FORMAT_E_AC3) {
-                    adjust_bytes = 192 * 4 * abs(adjust_ms);
-                } else if (output_format == AUDIO_FORMAT_AC3) {
-                    adjust_bytes = 48 * 4 * abs(adjust_ms);
+                if (adev->is_TV) {
+                    adjust_bytes = 48 * 32 * abs(adjust_ms);    //8ch 32 bit.
                 } else {
-                    if (adev->is_TV) {
-                        adjust_bytes = 48 * 32 * abs(adjust_ms);    //8ch 32 bit.
-                    } else {
-                        adjust_bytes = 48 * 4 * abs(adjust_ms); // 2ch 16bit
-                    }
+                    adjust_bytes = 48 * 4 * abs(adjust_ms); // 2ch 16bit
                 }
                 adjust_bytes &= ~255;
                 ALOGI("%s hwsync audio need %s %d ms,adjust bytes %d",
@@ -6091,7 +6082,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                             ret = write_to_sco(adev, &in_data_config, buffer, bytes);
                         } else {
                             if (is_include_a2dp_out_port(adev->cur_out_devices)) {
-                                ret = a2dp_out_write(adev, &in_data_config, (void*)buf, write_size);
+                                a2dp_out_write(adev, &in_data_config, (void*)buf, write_size);
                             }
                             ret = aml_alsa_output_write(stream, (void*)buf, write_size);
                         }
@@ -7605,7 +7596,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
     /*if system sound return too quickly, it will causes audio flinger underrun*/
     if (eDolbyMS12Lib == adev->dolby_lib_type && continuous_mode(adev)) {
         uint64_t cost_time_us = 0;
-        uint64_t frame_us = in_frames*1000/48;
+        uint64_t frame_us = (uint64_t)in_frames*1000/48;
         uint64_t minum_sleep_time_us = 5000;
         leave_ns = aml_audio_get_systime_ns();
         cost_time_us = (leave_ns - enter_ns)/1000;
@@ -8228,7 +8219,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
     if (config != NULL) {
         /*valid audio_config means enter in tuner framework case, then we need to create&start audio dtv patch*/
         ALOGD("%s: dev:%p, fmt:%d, dmx fmt:%d, content id:%d,sync id %d,adev->patch_src %d, adev->audio_patching %d", __func__, dev, config->offload_info.format, android_fmt_convert_to_dmx_fmt(config->offload_info.format), config->offload_info.content_id, config->offload_info.sync_id, adev->patch_src, adev->audio_patching);
-        ret = enable_dtv_patch_for_tuner_framework(config, dev);
+        enable_dtv_patch_for_tuner_framework(config, dev);
         aml_out->audioCfg.offload_info.content_id = config->offload_info.content_id;
         aml_out->audioCfg.offload_info.sync_id = config->offload_info.sync_id;
         aml_out->demux_id = (config->offload_info.content_id >> 16);
@@ -8412,6 +8403,9 @@ void *audio_patch_input_threadloop(void *data)
         if (patch->in_buf_size < (size_t)read_bytes) {
             ALOGI("%s: !!realloc in buf size from %zu to %d", __func__, patch->in_buf_size, read_bytes);
             patch->in_buf = aml_audio_realloc(patch->in_buf, read_bytes);
+            if (!patch->in_buf) {
+               break;
+            }
             patch->in_buf_size = read_bytes;
             memset(patch->in_buf, 0, patch->in_buf_size);
         }
@@ -8433,7 +8427,7 @@ void *audio_patch_input_threadloop(void *data)
             usleep(20*1000);
         } else {
             if (aml_dev->patch_src == SRC_HDMIIN && in->audio_packet_type == AUDIO_PACKET_AUDS && in->config.channels != 2) {
-                ret = input_stream_channels_adjust(&in->stream, patch->in_buf, read_bytes);
+                input_stream_channels_adjust(&in->stream, patch->in_buf, read_bytes);
             } else {
                 aml_audio_trace_int("input_read_thread", read_bytes);
                 aml_alsa_input_read(&in->stream, patch->in_buf, read_bytes);
@@ -8523,7 +8517,7 @@ void *audio_patch_output_threadloop(void *data)
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) dev;
     ring_buffer_t *ringbuffer = & (patch->aml_ringbuffer);
     struct audio_stream_out *stream_out = NULL;
-    struct aml_stream_out *aml_out = NULL,*out;
+    struct aml_stream_out *aml_out = NULL,*out = NULL;
     struct audio_config stream_config = AUDIO_CONFIG_INITIALIZER;
     struct timespec ts;
     int write_bytes = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
@@ -8606,6 +8600,10 @@ void *audio_patch_output_threadloop(void *data)
 
         // buffer size diff from allocation size, need to resize.
         ret = aml_audio_check_and_realloc(&patch->out_buf, &patch->out_buf_size, write_bytes * period_mul);
+        if (ret != 0) {
+            AM_LOGE("aml_audio_check_and_realloc fail");
+            return (void *)-1;
+        }
         pthread_mutex_lock(&patch->mutex);
         ALOGV("%s(), ringbuffer level read before wait--%d",
               __func__, get_buffer_read_space(ringbuffer));
@@ -8665,7 +8663,6 @@ void *audio_patch_output_threadloop(void *data)
         patch->out_buf = NULL;
     }
     ALOGD("%s: exit", __func__);
-
     return (void *)0;
 }
 
@@ -9002,8 +8999,8 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
     R_CHECK_POINTER_LEGAL(-EINVAL, sources, "");
     R_CHECK_POINTER_LEGAL(-EINVAL, sinks, "");
     R_CHECK_POINTER_LEGAL(-EINVAL, handle, "");
-    R_CHECK_PARAM_LEGAL(-EINVAL, num_sources, 0, 1, "");
-    R_CHECK_PARAM_LEGAL(-EINVAL, num_sinks, 0, AUDIO_PATCH_PORTS_MAX - 1, "");
+    R_CHECK_PARAM_LEGAL(-EINVAL, (int)num_sources, 0, 1, "");
+    R_CHECK_PARAM_LEGAL(-EINVAL, (int)num_sinks, 0, AUDIO_PATCH_PORTS_MAX - 1, "");
 
     patch_set = register_audio_patch(dev, num_sources, sources, num_sinks, sinks, handle);
     R_CHECK_POINTER_LEGAL(-ENOMEM, patch_set, "create patch fail");
@@ -9148,7 +9145,6 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
             ret = android_dev_convert_to_hal_dev(src_config->ext.device.type, (int *)&inport);
             if (ret != 0) {
                 ALOGE("[%s:%d] device->mix patch: unsupport input dev:%#x.", __func__, __LINE__, src_config->ext.device.type);
-                ret = -EINVAL;
                 unregister_audio_patch(dev, patch_set);
                 patch_set = NULL;
             }
@@ -9203,7 +9199,6 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
                 ret = create_patch(dev, src_config->ext.device.type, aml_dev->cur_out_devices);
                 if (ret) {
                     ALOGE("[%s:%d] create patch failed, cur out dev:%#x.", __func__, __LINE__, aml_dev->cur_out_devices);
-                    ret = -EINVAL;
                     unregister_audio_patch(dev, patch_set);
                     patch_set = NULL;
                 }
@@ -9942,7 +9937,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_SPDIF, adev->spdif_coexist_other);
 
     if (eDolbyMS12Lib != adev->dolby_lib_type) {
-        adev->ms12.dolby_ms12_enable == false;
+        adev->ms12.dolby_ms12_enable = false;
     } else {
         // in ms12 case, use new method for TV or BOX .zzz
         adev->hw_device.open_output_stream = adev_open_output_stream_new;
@@ -10033,7 +10028,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     }
 
     if (adev->useSubMix) {
-        ret = initHalSubMixing(&adev->sm, MIXER_LPCM, adev, adev->is_TV);
+        initHalSubMixing(&adev->sm, MIXER_LPCM, adev, adev->is_TV);
         aml_audio_hwsync_open();
         adev->raw_to_pcm_flag = false;
         profile_init(&adev->usb_audio.in_profile, PCM_IN);

@@ -44,7 +44,10 @@ int sysfs_get_sysfs_str(const char *path, char *valstr, int size)
     if (fd >= 0) {
         memset(valstr,0,size);
         valstr[sizeof(valstr) - 1] = '\0';
-        read(fd, valstr, size - 1);
+        int read_ret = read(fd, valstr, size - 1);
+        if (read_ret < 0) {
+             ALOGE("unable to read ");
+        }
         close(fd);
     } else {
         ALOGE("unable to open file %s,err: %s", path, strerror(errno));

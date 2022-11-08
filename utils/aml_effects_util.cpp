@@ -18,7 +18,7 @@
 #include "aml_effects_util.h"
 #include "common/all-versions/default/EffectMap.h"
 
-#define MAX_POSTPROCESSORS 10
+#define MAX_POSTPROCESSORS 9
 
 bool getEffectStatus(effect_handle_t effect, int audio_effectchain_length) {
     for (int i = 0; i <= audio_effectchain_length; i++) {

@@ -202,7 +202,7 @@ int on_meta_data_cbk(void *cookie,
             pts64 = 1 * 90;
         }
 
-        ret = aml_hwsync_wrap_get_pts(out->hwsync, &pcr);
+        aml_hwsync_wrap_get_pts(out->hwsync, &pcr);
         pcr_pts_gap = ((int)(pts64 - pcr)) / 90;
 
         {
@@ -273,8 +273,10 @@ int on_meta_data_cbk(void *cookie,
             }
             pts64 -= latency;
         }
-        aml_hwsync_wrap_set_tsync_init(out->hwsync);
-        aml_hwsync_wrap_set_start_pts(out->hwsync, pts64);
+        if (out->hwsync) {
+            aml_hwsync_wrap_set_tsync_init(out->hwsync);
+            aml_hwsync_wrap_set_start_pts(out->hwsync, pts64);
+        }
         out->first_pts_set = true;
     } else {
         enum hwsync_status sync_status = CONTINUATION;
@@ -354,7 +356,7 @@ int on_meta_data_cbk(void *cookie,
             }
         }
         {
-            if (out->hwsync->hwsync_need_resume) {
+            if (out->hwsync && out->hwsync->hwsync_need_resume) {
                 aml_hwsync_wrap_set_resume(out->hwsync);
                 out->hwsync->hwsync_need_resume = false;
             }

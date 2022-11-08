@@ -215,6 +215,14 @@ static void* aml_hfp_dl_thread(void* data) {
         pcm_close(dl_task->pcm_hfp_sco_tx);
         dl_task->pcm_hfp_pcm_rx = NULL;
         dl_task->pcm_hfp_sco_tx = NULL;
+        if (buffer)
+            aml_audio_free(buffer);
+        if (hfp_out_32_buf)
+            aml_audio_free(hfp_out_32_buf);
+        if (dec_data_1_t_2)
+            aml_audio_free(dec_data_1_t_2);
+        if (hfp_tmp_buffer_8ch)
+            aml_audio_free(hfp_tmp_buffer_8ch);
         return NULL;
     }
 
@@ -260,7 +268,7 @@ static void* aml_hfp_dl_thread(void* data) {
                     for (int i = 0; i < dl_task->data_len / sizeof(int16_t); i++) {
                          hfp_out_32_buf[i] = ((int32_t)input16[i]) << 16;
                     }
-                    if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
+                    if (aml_getprop_bool("vendor.media.audiohal.outdump") && hfp_out_32_buf) {
                         aml_audio_dump_audio_bitstreams(AML_PARAM_AUDIO_HAL_SCO_TX_RD_SRC_16_T_32_SYSTEM, hfp_out_32_buf, hfp_out_32_buf_size);
                     }
                     //5 2ch T 8ch
@@ -268,22 +276,22 @@ static void* aml_hfp_dl_thread(void* data) {
                     hfp_tmp_buffer_8ch_size = hfp_out_32_buf_size * 4;
                     hfp_out_frames = hfp_out_32_buf_size / FRAMESIZE_32BIT_STEREO;
                     hfp_tmp_buffer = (int32_t *)hfp_out_32_buf;
-
-                    for (int n = 0; n < hfp_out_frames; n++) {
-                         hfp_tmp_buffer_8ch[8 * n] = hfp_tmp_buffer[2 * n];
-                         hfp_tmp_buffer_8ch[8 * n + 1] = hfp_tmp_buffer[2 * n + 1];
-                         hfp_tmp_buffer_8ch[8 * n + 2] = hfp_tmp_buffer[2 * n];
-                         hfp_tmp_buffer_8ch[8 * n + 3] = hfp_tmp_buffer[2 * n + 1];
-                         hfp_tmp_buffer_8ch[8 * n + 4] = hfp_tmp_buffer[2 * n];
-                         hfp_tmp_buffer_8ch[8 * n + 5] = hfp_tmp_buffer[2 * n + 1];
-                         hfp_tmp_buffer_8ch[8 * n + 6] = hfp_tmp_buffer[2 * n];
-                         hfp_tmp_buffer_8ch[8 * n + 7] = hfp_tmp_buffer[2 * n + 1];
-                     }
-                     apply_volume(hfpmod.hfp_volume, hfp_tmp_buffer_8ch, sizeof(uint32_t), hfp_tmp_buffer_8ch_size);
-                     if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-                         aml_audio_dump_audio_bitstreams(AML_PARAM_AUDIO_HAL_SCO_TX_RD_SRC_16_T_32_8_CH_ALL_SYSTEM, hfp_tmp_buffer_8ch, hfp_tmp_buffer_8ch_size);
-                     }
-
+                    if (hfp_tmp_buffer_8ch) {
+                        for (int n = 0; n < hfp_out_frames; n++) {
+                             hfp_tmp_buffer_8ch[8 * n] = hfp_tmp_buffer[2 * n];
+                             hfp_tmp_buffer_8ch[8 * n + 1] = hfp_tmp_buffer[2 * n + 1];
+                             hfp_tmp_buffer_8ch[8 * n + 2] = hfp_tmp_buffer[2 * n];
+                             hfp_tmp_buffer_8ch[8 * n + 3] = hfp_tmp_buffer[2 * n + 1];
+                             hfp_tmp_buffer_8ch[8 * n + 4] = hfp_tmp_buffer[2 * n];
+                             hfp_tmp_buffer_8ch[8 * n + 5] = hfp_tmp_buffer[2 * n + 1];
+                             hfp_tmp_buffer_8ch[8 * n + 6] = hfp_tmp_buffer[2 * n];
+                             hfp_tmp_buffer_8ch[8 * n + 7] = hfp_tmp_buffer[2 * n + 1];
+                         }
+                         apply_volume(hfpmod.hfp_volume, hfp_tmp_buffer_8ch, sizeof(uint32_t), hfp_tmp_buffer_8ch_size);
+                         if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
+                             aml_audio_dump_audio_bitstreams(AML_PARAM_AUDIO_HAL_SCO_TX_RD_SRC_16_T_32_8_CH_ALL_SYSTEM, hfp_tmp_buffer_8ch, hfp_tmp_buffer_8ch_size);
+                         }
+                    }
                      if (hfpmod.is_hfp_running) {
                          ret = pcm_write(dl_task->pcm_hfp_pcm_rx, (void *)hfp_tmp_buffer_8ch, hfp_tmp_buffer_8ch_size);
                      } else
@@ -540,7 +548,6 @@ void audio_extn_hfp_set_parameters(struct aml_audio_device *adev, struct str_par
     if (ret >= 0) {
         if (sscanf(value, "%f", &vol) != 1) {
             ALOGE("%s: error in retrieving hfp volume", __func__);
-            ret = -EIO;
             goto exit;
         }
         ALOGD("%s:  set_hfp_volume usecase, Vol: [%f]", __func__, vol);

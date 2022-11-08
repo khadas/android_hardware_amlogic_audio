@@ -120,7 +120,7 @@ static void aml_debug_update(void)
 {
     int i = 0;
     int ret = -1;
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     for (i = 0; i < AML_DEBUG_DUMP_MAX; i++) {
         ret = property_get(aml_debug_items[i].name, buf, NULL);
         if (ret > 0) {

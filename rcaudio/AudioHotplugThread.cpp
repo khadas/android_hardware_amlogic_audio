@@ -106,12 +106,14 @@ static void param_init(struct snd_pcm_hw_params *p)
     for (n = SNDRV_PCM_HW_PARAM_FIRST_MASK;
          n <= SNDRV_PCM_HW_PARAM_LAST_MASK; n++) {
         struct snd_mask *m = param_to_mask(p, n);
-        snd_mask_any(m);
+        if (m)
+            snd_mask_any(m);
     }
     for (n = SNDRV_PCM_HW_PARAM_FIRST_INTERVAL;
          n <= SNDRV_PCM_HW_PARAM_LAST_INTERVAL; n++) {
         struct snd_interval *i = param_to_interval(p, n);
-        snd_interval_any(i);
+        if (i)
+            snd_interval_any(i);
     }
     p->rmask = 0xFFFFFFFF;
 }
@@ -177,8 +179,10 @@ static inline void getAlsaParamInterval(const struct snd_pcm_hw_params& params,
 {
     struct snd_interval* interval = param_to_interval(
         const_cast<struct snd_pcm_hw_params*>(&params), n);
-    *min = interval->min;
-    *max = interval->max;
+    if (interval) {
+        *min = interval->min;
+        *max = interval->max;
+    }
 }
 
 // This was hacked out of "alsa_utils.cpp".

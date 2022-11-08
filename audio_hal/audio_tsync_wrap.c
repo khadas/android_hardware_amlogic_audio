@@ -132,7 +132,12 @@ int aml_hwsync_tsync_get_pcr(audio_hwsync_t *p_hwsync, uint64_t *value)
         memset(valstr, 0, 64);
         offset = lseek(fd, 0, SEEK_SET);
         valstr[sizeof(valstr) - 1] = '\0';
-        read(fd, valstr, 64 - 1);
+        int ret = read(fd, valstr, 64 - 1);
+        if (ret < 0) {
+            ALOGE("%s(), read error", __func__);
+            return -1;
+        }
+
     } else {
         ALOGE("%s unable to open file %s\n", __func__, TSYNC_PCRSCR);
         return -1;
@@ -160,7 +165,11 @@ int aml_hwsync_get_tsync_pts_by_handle(int fd, uint64_t *pts)
         memset(valstr, 0, 64);
         lseek(fd, 0, SEEK_SET);
         valstr[sizeof(valstr) - 1] = '\0';
-        read(fd, valstr, 64 - 1);
+        int ret = read(fd, valstr, 64 - 1);
+        if (ret < 0) {
+            ALOGE("%s(), read error", __func__);
+            return -1;
+        }
     } else {
         ALOGE("invalid fd\n");
         return -EINVAL;

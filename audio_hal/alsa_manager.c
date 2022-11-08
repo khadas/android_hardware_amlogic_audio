@@ -79,6 +79,7 @@ static void alsa_write_rate_control(struct audio_stream_out *stream, size_t byte
     int rate_multiply = 1;
     uint64_t frame_ms = 0;
     snd_pcm_sframes_t frames = 0;
+    int ret = 0;
     switch (out_format) {
     case AUDIO_FORMAT_E_AC3:
         frame_size = AUDIO_EAC3_FRAME_SIZE;
@@ -98,7 +99,11 @@ static void alsa_write_rate_control(struct audio_stream_out *stream, size_t byte
     pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
 
     if (status.state == PCM_STATE_RUNNING) {
-        pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+        ret = pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+        if (ret < 0) {
+            ALOGE ("cannot alsa_write_rate_control \n");
+            return ;
+        }
         if (out_format == AUDIO_FORMAT_E_AC3) {
             rate_multiply = 4;
         }
@@ -615,7 +620,6 @@ int aml_alsa_output_pause(struct audio_stream_out *stream) {
         if (ret < 0) {
             ALOGE ("cannot pause channel\n");
         } else {
-            ret = 0;
             // set the pcm pause state
             if (out->pcm == adev->pcm)
                 adev->pcm_paused = true;
@@ -624,7 +628,7 @@ int aml_alsa_output_pause(struct audio_stream_out *stream) {
         }
     }
 
-    return 0;
+    return ret;
 }
 
 int aml_alsa_output_resume(struct audio_stream_out *stream) {
@@ -639,7 +643,6 @@ int aml_alsa_output_resume(struct audio_stream_out *stream) {
         if (ret < 0) {
             ALOGE ("%s(), cannot resume channel\n", __func__);
         } else {
-            ret = 0;
             // clear the pcm pause state
             if (out->pcm == adev->pcm)
                 adev->pcm_paused = false;
@@ -671,7 +674,7 @@ int aml_alsa_output_stop(struct audio_stream_out *stream) {
         }
     }
 
-    return 0;
+    return ret;
 }
 
 
@@ -679,11 +682,16 @@ int aml_alsa_output_get_latency(struct audio_stream_out *stream) {
     const struct aml_stream_out *aml_out = (const struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-
+    int ret = 0;
     snd_pcm_sframes_t frames = 0;
     int start_threshold = aml_out->config.start_threshold;
     if (aml_out->pcm && pcm_is_ready(aml_out->pcm)) {
-        pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+        ret = pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+        if (ret < 0) {
+            ALOGE("%s:%d, pcm_ioctl fail, ret:%#x, error info:%s",
+                __func__, __LINE__, ret, strerror(errno));
+            return ret;
+        }
         ALOGV("aml_alsa_output_get_latency frames %ld start_threshold %d",frames, start_threshold);
         if ( frames > 0) {
             return (frames * 1000) / aml_out->config.rate;
@@ -776,7 +784,6 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
              ALOGV("bytes %zu bytes - read_bytes %zu nodata_count %d",bytes, bytes - read_bytes, nodata_count);
              nodata_count++;
              if (nodata_count >= WAIT_COUNT_MAX) {
-                 nodata_count = 0;
                  AM_LOGW("read timeout, in:%p read_bytes:%zu need:%zu", in, read_bytes, bytes);
                  memset((void*)buffer, 0, bytes);
                  return 0;
@@ -834,12 +841,17 @@ static void alsa_write_new_rate_control(void *handle) {
     }
 
     if (status.state == PCM_STATE_RUNNING) {
-        pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+        ret = pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+        if (ret < 0) {
+            ALOGE("%s:%d, pcm_read fail, ret:%#x, error info:%s",
+                __func__, __LINE__, ret, strerror(errno));
+            return ;
+        }
 
         frame_ms = (uint64_t)frames * 1000LL/ (rate * rate_multiply);
         ALOGI("format %#x frame_ms=%d", alsa_handle->format, frame_ms);
         if (frame_ms > ALSA_DELAY_THRESHOLD_MS) {
-            aml_audio_sleep((frame_ms - ALSA_DELAY_THRESHOLD_MS) * 1000);
+            aml_audio_sleep((uint64_t)(frame_ms - ALSA_DELAY_THRESHOLD_MS) * 1000);
 
         }
     }
@@ -969,7 +981,12 @@ void aml_alsa_output_close_new(void *handle) {
 static size_t pcm_write_insert_zero(struct pcm *pcm, size_t bytes) {
     if (bytes != 0 && pcm != NULL) {
         int ret = 0;
-        void *zero = malloc(bytes);
+        void *zero = aml_audio_malloc(bytes);
+        if (zero == NULL) {
+            ALOGE("%s:%d, pcm_read fail, ret:%#x, error info:%s",
+                __func__, __LINE__, ret, strerror(errno));
+            return -1;
+        }
         memset(zero, 0, bytes);
         ret = pcm_write(pcm, zero, bytes);
         if (ret < 0) {
@@ -1268,8 +1285,12 @@ int aml_alsa_output_stop_new(void *handle) {
 void alsa_out_reconfig_params(struct audio_stream_out *stream)
 {
     ALOGD("%s()!", __func__);
+    int ret = 0;
     aml_alsa_output_close(stream);
-    aml_alsa_output_open(stream);
+    ret = aml_alsa_output_open(stream);
+    if (ret < 0) {
+        ALOGE("%s() open failed", __func__);
+    }
 }
 
 enum pcm_format convert_audio_format_2_alsa_format(audio_format_t format)

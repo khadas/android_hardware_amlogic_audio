@@ -108,7 +108,7 @@ int aml_decoder_init(aml_dec_t **ppaml_dec, audio_format_t format, aml_dec_confi
 
     if (dec_config == NULL) {
         ALOGE("%s dec_config is NULL", __func__);
-        goto ERROR;
+        return -1;
     }
 
     dec_fun = get_decoder_function(format, dec_config->dts_decode_enable);

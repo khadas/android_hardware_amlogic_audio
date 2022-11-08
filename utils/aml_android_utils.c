@@ -42,8 +42,8 @@
  */
 int aml_getprop_bool(const char * path)
 {
-	char buf[PROPERTY_VALUE_MAX];
-	int ret = -1;
+	char buf[PROPERTY_VALUE_MAX] = {'\0'};
+	int ret = 0;
 
 	ret = property_get(path, buf, NULL);
 	if (ret > 0) {
@@ -56,8 +56,8 @@ int aml_getprop_bool(const char * path)
 
 int aml_getprop_int(const char *path)
 {
-	char buf[PROPERTY_VALUE_MAX];
-	int ret = -1;
+	char buf[PROPERTY_VALUE_MAX] = {'\0'};
+	int ret = 0;
 	int value = 0;
 
 	ret = property_get(path, buf, NULL);
@@ -77,7 +77,10 @@ unsigned long aml_sysfs_get_int (const char *path)
 	int fd = open (path, O_RDONLY);
 	if (fd >= 0) {
 		char bcmd[24];
-		read (fd, bcmd, sizeof (bcmd));
+		int read_ret = read (fd, bcmd, sizeof (bcmd));
+		if (read_ret < 0) {
+			ALOGE("%s:read failed! \n", __func__);
+		}
 		val = strtoul (bcmd, NULL, 0);
 		close (fd);
 	} else {
@@ -97,7 +100,10 @@ int aml_sysfs_get_int16(const char *path,unsigned *value)
 	if (fd >= 0) {
 	    memset(valstr, 0, 64);
 	    valstr[sizeof(valstr) - 1] = '\0';
-	    read(fd, valstr, 64 - 1);
+		int read_ret = read(fd, valstr, 64 - 1);
+		if (read_ret < 0) {
+			ALOGE("%s:read failed! \n", __func__);
+		}
 	    close(fd);
 	} else {
 		ALOGE("%s: unable to open file %s, err: %s\n", __func__, path, strerror(errno));

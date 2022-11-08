@@ -248,7 +248,7 @@ int init_aec(int sampling_rate __unused, int num_reference_channels,
         ret = -EINVAL;
     }
     struct aec_t *aec = init_aec_interface();
-    if (!ret) {
+    if (!ret && aec) {
         aec->num_reference_channels = num_reference_channels;
         /* Set defaults, will be overridden by settings in init_aec_(mic|reference_config) */
         /* Capture uses 2-ch, 32-bit frames */

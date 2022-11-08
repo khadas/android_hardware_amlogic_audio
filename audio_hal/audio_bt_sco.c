@@ -196,8 +196,11 @@ ssize_t write_to_sco(struct aml_audio_device *adev, audio_config_base_t *config,
             bt->resampler_buffer_size_in_frames = frames_needed;
             bt->resampler_buffer = (int16_t *)aml_audio_realloc(bt->resampler_buffer,
                     bt->resampler_buffer_size_in_frames * frame_size);
+            if (!bt->resampler_buffer) {
+                ALOGE("%s: aml_audio_realloc resampler_buffer fail", __func__);
+                return -1;
+            }
         }
-
         memcpy(bt->resampler_buffer + bt->resampler_in_frames,
                 buffer, in_frames * frame_size);
         bt->resampler_in_frames += in_frames;

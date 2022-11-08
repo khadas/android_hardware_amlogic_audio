@@ -40,7 +40,7 @@ SBR = 2
 
 
 static int get_nonms12_dv_tunnel_input_latency(audio_format_t input_format) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -73,7 +73,7 @@ static int get_nonms12_dv_tunnel_input_latency(audio_format_t input_format) {
 }
 
 static int get_nonms12_dv_tunnel_output_latency(audio_format_t output_format) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -106,7 +106,7 @@ static int get_nonms12_dv_tunnel_output_latency(audio_format_t output_format) {
 
 
 static int get_ms12_dv_tunnel_input_latency(audio_format_t input_format) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -144,7 +144,7 @@ static int get_ms12_dv_tunnel_input_latency(audio_format_t input_format) {
 }
 
 static int get_ms12_dv_tunnel_output_latency(audio_format_t output_format) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -183,7 +183,7 @@ static int get_ms12_dv_tunnel_output_latency(audio_format_t output_format) {
 
 int get_sink_dv_latency_offset(bool tunnel, bool is_netflix)
 {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -214,7 +214,7 @@ int get_sink_dv_latency_offset(bool tunnel, bool is_netflix)
 
 
 static int get_ms12_nontunnel_input_latency(audio_format_t input_format) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -251,7 +251,7 @@ static int get_ms12_nontunnel_input_latency(audio_format_t input_format) {
 
 
 static int get_ms12_tunnel_input_latency(audio_format_t input_format, enum OUT_PORT port) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -313,7 +313,7 @@ static int get_ms12_tunnel_input_latency(audio_format_t input_format, enum OUT_P
 
 
 static int get_ms12_netflix_nontunnel_input_latency(audio_format_t input_format) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -357,7 +357,7 @@ static int get_ms12_netflix_nontunnel_input_latency(audio_format_t input_format)
 
 
 static int get_ms12_netflix_tunnel_input_latency(audio_format_t input_format) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -403,7 +403,7 @@ static int get_ms12_netflix_tunnel_input_latency(audio_format_t input_format) {
 
 
 static int get_ms12_output_latency(audio_format_t output_format) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -444,7 +444,7 @@ static int get_ms12_output_latency(audio_format_t output_format) {
 }
 
 static int get_ms12_netflix_output_latency(audio_format_t output_format) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -489,7 +489,7 @@ int get_ms12_netflix_port_latency( enum OUT_PORT port, audio_format_t output_for
     int latency_ms = 0;
     int ret = 0;
     char *prop_name = NULL;
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
 
     switch (port)  {
         case OUTPORT_HDMI_ARC:
@@ -530,7 +530,7 @@ int get_ms12_netflix_port_latency( enum OUT_PORT port, audio_format_t output_for
 int get_ms12_port_latency(enum OUT_PORT port, audio_format_t output_format, bool is_eARC, bool is_tunnel)
 {
     int attend_type, earc_latency;
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -703,7 +703,7 @@ static int get_ms12_tunnel_latency_offset(enum OUT_PORT port
 
 int get_ms12_atmos_latency_offset(bool tunnel, bool is_netflix)
 {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -738,7 +738,7 @@ int get_ms12_atmos_latency_offset(bool tunnel, bool is_netflix)
 
 int get_ms12_bypass_latency_offset(bool tunnel, bool is_netflix)
 {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -858,7 +858,7 @@ static int aml_audio_output_ddp_atmos(struct audio_stream_out *stream)
 }
 
 static int get_ms12_tunnel_video_delay(void) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -945,7 +945,7 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
 int get_nonms12_port_latency(enum OUT_PORT port, audio_format_t output_format, bool is_eARC)
 {
     int attend_type, earc_latency;
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -1025,7 +1025,7 @@ int get_nonms12_port_latency(enum OUT_PORT port, audio_format_t output_format, b
 
 
 static int get_nonms12_netflix_tunnel_input_latency(audio_format_t input_format) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -1058,7 +1058,7 @@ static int get_nonms12_netflix_tunnel_input_latency(audio_format_t input_format)
 }
 
 static int get_nonms12_tunnel_input_latency(audio_format_t input_format, device_type_t platform_type, enum OUT_PORT port) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -1118,7 +1118,7 @@ static int get_nonms12_tunnel_input_latency(audio_format_t input_format, device_
 }
 
 static int get_nonms12_output_latency(audio_format_t output_format) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -1339,7 +1339,7 @@ int aml_audio_ms12_update_presentation_position(struct audio_stream_out *stream)
 }
 
 static int dtv_get_ms12_input_latency(audio_format_t input_format) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -1391,7 +1391,7 @@ static int dtv_get_ms12_input_latency(audio_format_t input_format) {
 
 
 static int dtv_get_ms12_output_latency(audio_format_t output_format) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -1434,7 +1434,7 @@ int dtv_get_ms12_port_latency(struct audio_stream_out *stream, enum OUT_PORT por
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -1532,7 +1532,7 @@ static int dtv_get_ms12_latency_offset(
 
 int dtv_get_ms12_bypass_latency_offset(void)
 {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -1569,7 +1569,7 @@ int aml_audio_dtv_get_ms12_latency(struct audio_stream_out *stream)
 }
 
 static int dtv_get_nonms12_input_latency(audio_format_t input_format) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -1617,7 +1617,7 @@ static int dtv_get_nonms12_input_latency(audio_format_t input_format) {
 
 
 static int dtv_get_nonms12_output_latency(audio_format_t output_format) {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
@@ -1656,7 +1656,7 @@ int dtv_get_nonms12_port_latency(struct audio_stream_out * stream, enum OUT_PORT
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = out->dev;
     int attend_type, earc_latency;
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;

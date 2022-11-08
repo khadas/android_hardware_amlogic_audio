@@ -208,7 +208,7 @@ static int echo_reference_write(struct echo_reference_itfe *echo_reference,
             er->wr_buf = aml_audio_realloc(er->wr_buf, er->wr_buf_size * er->rd_frame_size);
         }
 
-        if (er->rd_channel_count != er->wr_channel_count) {
+        if (er->rd_channel_count != er->wr_channel_count && er->wr_buf) {
             // must be stereo to mono
             int16_t *src16 = (int16_t *)buffer->raw;
             int16_t *dst16 = (int16_t *)er->wr_buf;
@@ -256,7 +256,8 @@ static int echo_reference_write(struct echo_reference_itfe *echo_reference,
                     "echo_reference_write() er->wr_frames_in not 0 (%d) after resampler",
                     er->wr_frames_in);
         }
-        srcBuf = er->wr_buf;
+        if (er->wr_buf)
+            srcBuf = er->wr_buf;
     } else {
         inFrames = buffer->frame_count;
         srcBuf = buffer->raw;
@@ -458,13 +459,14 @@ static int echo_reference_read(struct echo_reference_itfe *echo_reference,
             0, (buffer->frame_count - er->frames_in) * er->rd_frame_size);
         er->frames_in = buffer->frame_count;
     }
-
-    memcpy(buffer->raw,
+    if (er->buffer)
+        memcpy(buffer->raw,
            (char *)er->buffer,
            buffer->frame_count * er->rd_frame_size);
 
     er->frames_in -= buffer->frame_count;
-    memcpy(er->buffer,
+    if (er->buffer)
+        memcpy(er->buffer,
            (char *)er->buffer + buffer->frame_count * er->rd_frame_size,
            er->frames_in * er->rd_frame_size);
 
@@ -512,7 +514,10 @@ int aml_create_echo_reference(audio_format_t rdFormat,
     }
 
     er = (struct echo_reference *)aml_audio_calloc(1, sizeof(struct echo_reference));
-
+    if (!er) {
+        ALOGE("aml_audio_calloc is fail ");
+        return -1;
+    }
     er->itfe.read = echo_reference_read;
     er->itfe.write = echo_reference_write;
 

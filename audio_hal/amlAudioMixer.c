@@ -156,6 +156,10 @@ int init_mixer_input_port(struct amlAudioMixer *audio_mixer,
     /* if direct on, ie. the ALSA buffer is full, no need padding data anymore  */
     direct_on = (audio_mixer->in_ports[AML_MIXER_INPUT_PORT_PCM_DIRECT] != NULL);
     in_port = new_input_port(MIXER_FRAME_COUNT, config, flags, volume, direct_on);
+    if (in_port == NULL) {
+        AM_LOGE("new_input_port is NULL");
+        return -1;
+    }
     port_index = mixer_get_available_inport_index(audio_mixer);
     R_CHECK_PARAM_LEGAL(-1, port_index, 0, NR_INPORTS - 1, "");
 
@@ -346,6 +350,7 @@ int init_mixer_output_port(struct amlAudioMixer *audio_mixer,
 #ifdef ENABLE_AEC_APP
     out_port->aec = audio_mixer->adev->aec;
     struct pcm_config alsa_config;
+    memset(&alsa_config, 0, sizeof(struct pcm_config));
     output_get_alsa_config(out_port, &alsa_config);
     int aec_ret = init_aec_reference_config(out_port->aec, alsa_config);
     NO_R_CHECK_RET(aec_ret, "AEC: Speaker config init failed!");
@@ -381,6 +386,10 @@ static int mixer_output_startup(struct amlAudioMixer *audio_mixer)
 {
     output_port *out_port = NULL;
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
+    if (port_index == MIXER_OUTPUT_PORT_INVAL) {
+        AM_LOGE("%s :mixer_get_cur_outport is fail", __func__);
+        return -1;
+    }
     R_CHECK_POINTER_LEGAL(-1, out_port, "");
     AM_LOGI("output port:%s", mixerOutputType2Str(port_index));
     out_port->start(out_port);
@@ -403,6 +412,10 @@ static int mixer_thread_sleep(struct amlAudioMixer *audio_mixer)
 {
     output_port *out_port = NULL;
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
+    if (port_index == MIXER_OUTPUT_PORT_INVAL) {
+        AM_LOGE("%s :mixer_get_cur_outport is fail", __func__);
+        return -1;
+    }
     R_CHECK_POINTER_LEGAL(-1, out_port, "");
     AM_LOGI("output port:%s", mixerOutputType2Str(port_index));
     if (false == audio_mixer->submix_standby) {
@@ -418,6 +431,10 @@ int mixer_output_dummy(struct amlAudioMixer *audio_mixer, bool en)
 {
     output_port *out_port = NULL;
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
+    if (port_index == MIXER_OUTPUT_PORT_INVAL) {
+        AM_LOGE("%s :mixer_get_cur_outport is fail", __func__);
+        return -1;
+    }
     R_CHECK_POINTER_LEGAL(-1, out_port, "");
 
     AM_LOGI("output port:%s, en:%d", mixerOutputType2Str(port_index), en);
@@ -430,8 +447,13 @@ int mixer_output_dummy(struct amlAudioMixer *audio_mixer, bool en)
 static int mixer_output_write(struct amlAudioMixer *audio_mixer)
 {
     audio_config_base_t in_data_config = {48000, AUDIO_CHANNEL_OUT_STEREO, AUDIO_FORMAT_PCM_16_BIT};
+    ssize_t ret = 0;
     output_port *out_port = NULL;
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
+    if (port_index == MIXER_OUTPUT_PORT_INVAL) {
+        AM_LOGE("%s :mixer_get_cur_outport is fail", __func__);
+        return -1;
+    }
     R_CHECK_POINTER_LEGAL(-1, out_port, "");
     struct aml_audio_device *adev = audio_mixer->adev;
 
@@ -450,7 +472,11 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
             }
             in_data_config.sample_rate = out_port->cfg.sampleRate;
             in_data_config.format = out_port->cfg.format;
-            write_to_sco(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
+            ret = write_to_sco(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
+            if (ret < 0) {
+                ALOGE("%s write_to_sco fail when insert", __func__);
+                break;
+            }
         } else {
             if (is_include_a2dp_out_port(adev->cur_out_devices)) {
                 if (out_port->cfg.channelCnt == 1) {
@@ -485,6 +511,10 @@ int init_mixer_temp_buffer(struct amlAudioMixer *audio_mixer)
 {
     output_port *out_port = NULL;
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
+    if (port_index == MIXER_OUTPUT_PORT_INVAL) {
+        AM_LOGE("%s :mixer_get_cur_outport is fail", __func__);
+        return -1;
+    }
     R_CHECK_POINTER_LEGAL(-1, out_port, "");
 
     audio_mixer->frame_size_tmp = out_port->cfg.channelCnt * audio_bytes_per_sample(out_port->cfg.format);
@@ -524,10 +554,14 @@ static int mixer_update_tstamp(struct amlAudioMixer *audio_mixer)
 {
     output_port *out_port = NULL;
     input_port *in_port = NULL;
-    unsigned int avail;
+    unsigned int avail = 0;
     uint32_t masks = audio_mixer->inportsMasks;
 
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
+    if (port_index == MIXER_OUTPUT_PORT_INVAL) {
+        AM_LOGE("%s :mixer_get_cur_outport is fail", __func__);
+        return -1;
+    }
     R_CHECK_POINTER_LEGAL(-1, out_port, "");
     if (out_port->pcm_handle == NULL) {
         AM_LOGV("pcm handle is null");
@@ -696,7 +730,8 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
                 audio_hwsync_t *hwsync = (out != NULL) ? (out->hwsync) : NULL;
                 fade_in = 1;
                 AM_LOGI("input port:%s tsync resume", mixerInputType2Str(type));
-                hwsync->hwsync_need_resume = true;
+                if (hwsync)
+                    hwsync->hwsync_need_resume = true;
                 set_inport_state(in_port, ACTIVE);
             } else if (state == STOPPED || state == PAUSED || state == FLUSHED) {
                 AM_LOGV("input port:%s stopped, paused or flushed", mixerInputType2Str(type));
@@ -846,6 +881,10 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
     float gain_speaker = adev->sink_gain[OUTPORT_SPEAKER];
 
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
+    if (port_index == MIXER_OUTPUT_PORT_INVAL) {
+        AM_LOGE("%s :mixer_get_cur_outport is fail", __func__);
+        return -1;
+    }
     R_CHECK_POINTER_LEGAL(-1, out_port, "");
     pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
 
@@ -1073,13 +1112,17 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
     struct aml_audio_device     *adev = audio_mixer->adev;
     char                        acFilePathStr[ENUM_TYPE_STR_MAX_LEN] = {0};
     uint32_t                    need_output_ch = 2;
-    uint32_t                    cur_output_ch = 2;
+    uint32_t                    cur_output_ch = 0;
     uint32_t                    masks = 0;
     size_t                      out_tmp_frame = audio_mixer->tmp_buffer_size / 4;
     size_t                      tmp_buffer_need_size = audio_mixer->tmp_buffer_size + EFFECT_PROCESS_BLOCK_SIZE;
 
 
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
+    if (port_index == MIXER_OUTPUT_PORT_INVAL) {
+        AM_LOGE("%s :mixer_get_cur_outport is fail", __func__);
+        return -1;
+    }
     R_CHECK_POINTER_LEGAL(-1, out_port, "");
     cur_output_ch = out_port->cfg.channelCnt;
     pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
@@ -1375,6 +1418,10 @@ int pcm_mixer_thread_run(struct amlAudioMixer *audio_mixer)
     R_CHECK_POINTER_LEGAL(-EINVAL, audio_mixer, "");
     output_port *out_port = NULL;
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
+    if (port_index == MIXER_OUTPUT_PORT_INVAL) {
+        AM_LOGE("%s :mixer_get_cur_outport is fail", __func__);
+        return -1;
+    }
     R_CHECK_POINTER_LEGAL(-1, out_port, "");
 
     audio_format_t format = out_port->cfg.format;
@@ -1422,6 +1469,10 @@ struct pcm *pcm_mixer_get_pcm_handle(struct amlAudioMixer *audio_mixer)
     struct pcm *pcm_handle = NULL;
     output_port *out_port = NULL;
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
+    if (port_index == MIXER_OUTPUT_PORT_INVAL) {
+        AM_LOGE("%s :mixer_get_cur_outport is fail", __func__);
+        return NULL;
+    }
     R_CHECK_POINTER_LEGAL(NULL, out_port, "");
     pcm_handle = out_port->pcm_handle;
     pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
@@ -1519,6 +1570,10 @@ int mixer_outport_pcm_restart(struct amlAudioMixer *audio_mixer)
 {
     output_port *out_port = NULL;
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
+    if (port_index == MIXER_OUTPUT_PORT_INVAL) {
+        AM_LOGE("%s :mixer_get_cur_outport is fail", __func__);
+        return -1;
+    }
     R_CHECK_POINTER_LEGAL(-1, out_port, "");
     outport_pcm_restart(out_port);
     pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
@@ -1580,6 +1635,10 @@ void mixer_dump(int s32Fd, const struct aml_audio_device *pstAmlDev)
     dprintf(s32Fd, "[AML_HAL]---------------------output port description----------------------\n");
     output_port *pstOutPort = NULL;
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(pstAudioMixer, &pstOutPort);
+    if (port_index == MIXER_OUTPUT_PORT_INVAL) {
+        AM_LOGE("%s :mixer_get_cur_outport is fail", __func__);
+        return ;
+    }
     if (pstOutPort) {
         dprintf(s32Fd, "[AML_HAL]  output port type: %s\n", mixerOutputType2Str(pstOutPort->enOutPortType));
         dprintf(s32Fd, "[AML_HAL]      Channel       : %10d     | Format            : %#10x\n", pstOutPort->cfg.channelCnt, pstOutPort->cfg.format);
@@ -1595,6 +1654,10 @@ int mixer_set_karaoke(struct amlAudioMixer *audio_mixer, struct kara_manager *ka
 {
     output_port *out_port = NULL;
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
+    if (port_index == MIXER_OUTPUT_PORT_INVAL) {
+        AM_LOGE("%s :mixer_get_cur_outport is fail", __func__);
+        return -1;
+    }
     R_CHECK_POINTER_LEGAL(-1, out_port, "");
     ALOGI("++%s(), set karaoke = %p", __func__, kara);
     outport_set_karaoke(out_port, kara);

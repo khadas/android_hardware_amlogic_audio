@@ -244,14 +244,19 @@ int64_t aml_gettime(void)
 }
 int get_sysfs_uint(const char *path, uint *value)
 {
-    int fd;
+    int fd = 0, ret = 0;
     char valstr[64];
     uint val = 0;
     fd = open(path, O_RDONLY);
     if (fd >= 0) {
         memset(valstr, 0, 64);
         valstr[sizeof(valstr) - 1] = '\0';
-        read(fd, valstr, 64 - 1);
+        ret = read(fd, valstr, 64 - 1);
+        if (ret < 0) {
+            ALOGE("get_sysfs_uint read fail \n");
+            close(fd);
+            return -1;
+        }
         close(fd);
     } else {
         ALOGE("unable to open file %s\n", path);
@@ -269,11 +274,16 @@ int get_sysfs_uint(const char *path, uint *value)
 
 int get_sysfs_int(const char *path)
 {
-    int val = 0;
+    int val = 0,ret = 0;
     int fd = open(path, O_RDONLY);
     if (fd >= 0) {
         char bcmd[16];
-        read(fd, bcmd, sizeof(bcmd));
+        ret = read(fd, bcmd, sizeof(bcmd));
+        if (ret < 0) {
+            ALOGE("get_sysfs_int read fail \n");
+            close(fd);
+            return -1;
+        }
         val = strtol(bcmd, NULL, 10);
         close(fd);
     } else {
@@ -404,8 +414,8 @@ int get_codec_type(int format)
 }
 int getprop_bool(const char *path)
 {
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
+    int ret = 0;
 
     ret = property_get(path, buf, NULL);
     if (ret > 0) {
@@ -419,8 +429,8 @@ int getprop_bool(const char *path)
 int check_chip_name(char *chip_name, unsigned int length,
                     struct aml_mixer_handle *mixer_handle)
 {
-    char buf[PROPERTY_VALUE_MAX];
-    int ret =-1;
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
+    int ret =0;
 
     ret = property_get("ro.board.platform", buf, NULL);
     if (ret > 0) {
@@ -482,7 +492,7 @@ void *convert_audio_sample_for_output(int input_frames, int input_format, int in
         max_ch = 8;
     }
     //our HW need round the frames to 8 channels
-    out_buf = aml_audio_malloc(sizeof(int) * max_ch * input_frames);
+    out_buf = aml_audio_calloc(1,sizeof(int) * max_ch * input_frames);
     if (out_buf == NULL) {
         ALOGE("malloc buffer failed\n");
         return NULL;
@@ -610,8 +620,8 @@ int aml_audio_get_debug_flag()
 
 int aml_audio_get_default_alsa_output_ch()
 {
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
+    char buf[PROPERTY_VALUE_MAX] ={0};
+    int ret = 0;
     /* default 8 channels for TV product */
     int channel_num =  8;
     ret = property_get("ro.vendor.platform.alsa.spk.ch", buf, NULL);
@@ -627,8 +637,8 @@ to detect TV/SBR product, audio HAL can also use that.
 */
 bool aml_audio_check_sbr_product()
 {
-    char buf[PROPERTY_VALUE_MAX] ={0};
-    int ret = -1;
+    char buf[PROPERTY_VALUE_MAX] ={'\0'};
+    int ret = 0;
     char *sbr_str = NULL;
     ret = property_get("ro.vendor.platform.hdmi.device_type", buf, NULL);
     if (ret > 0) {
@@ -641,8 +651,8 @@ bool aml_audio_check_sbr_product()
 
 int aml_audio_debug_set_optical_format()
 {
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
+    int ret = 0;
 
     ret = property_get("vendor.media.audio.hal.optical", buf, NULL);
     if (ret > 0) {
@@ -677,8 +687,8 @@ int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t by
 //Tune the eRAC with non-tunnel for earc-ddp
 int aml_audio_get_earc_latency_offset(int aformat)
 {
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
+    int ret = 0;
     int latency_ms = 0;
     char *prop_name = NULL;
     (void)aformat;
@@ -698,7 +708,7 @@ int aml_audio_get_netflix_port_latency(enum OUT_PORT port, audio_format_t output
     int latency_ms = 0;
     int ret = 0;
     char *prop_name = NULL;
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] ={'\0'};
 
     switch (port)  {
         case OUTPORT_HDMI_ARC:
@@ -754,8 +764,8 @@ int aml_audio_get_netflix_port_latency(enum OUT_PORT port, audio_format_t output
 //Tune the eRAC with non-tunnel for arc-ddp
 int aml_audio_get_arc_latency_offset(int aformat)
 {
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
+    int ret = 0;
     int latency_ms = 0;
     char *prop_name = NULL;
     (void)aformat;
@@ -771,8 +781,8 @@ int aml_audio_get_arc_latency_offset(int aformat)
 
 int aml_audio_get_ddp_latency_offset(int aformat,  bool dual_spdif)
 {
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
+    int ret = 0;
     int latency_ms = 0;
     char *prop_name = NULL;
     (void)aformat;
@@ -795,8 +805,8 @@ int aml_audio_get_ddp_latency_offset(int aformat,  bool dual_spdif)
 
 int aml_audio_get_pcm_latency_offset(int aformat, bool is_netflix)
 {
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
+    int ret = 0;
     int latency_ms = 0;
     char *prop_name = NULL;
     (void)aformat;
@@ -823,8 +833,8 @@ int aml_audio_get_pcm_latency_offset(int aformat, bool is_netflix)
 
 int aml_audio_get_hwsync_latency_offset(bool b_raw)
 {
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
+    int ret = 0;
     int latency_ms = 0;
     char *prop_name = NULL;
     if (!b_raw) {
@@ -845,8 +855,8 @@ int aml_audio_get_hwsync_latency_offset(bool b_raw)
 int aml_audio_get_ddp_frame_size()
 {
     int frame_size = DDP_FRAME_SIZE;
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
+    int ret = 0;
     char *prop_name = "vendor.media.audio.hal.frame_size";
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
@@ -867,7 +877,7 @@ uint32_t out_get_outport_latency(const struct audio_stream_out *stream)
         return a2dp_out_get_latency(adev);
     }
 
-    if (out->inputPortID >=0 && out->inputPortID < NR_INPORTS) {
+    if ((int)out->inputPortID >=0 && out->inputPortID < NR_INPORTS) {
         int outport_latency_frames = mixer_get_outport_latency_frames(audio_mixer);
 
         if (outport_latency_frames <= 0)
@@ -940,9 +950,9 @@ uint32_t out_get_alsa_latency_frames(const struct audio_stream_out *stream)
 int aml_audio_get_spdif_tuning_latency(void)
 {
     char *prop_name = "persist.vendor.audio.hal.spdif_ltcy_ms";
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int latency_ms = 0;
-    int ret = -1;
+    int ret = 0;
 
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0) {
@@ -955,9 +965,9 @@ int aml_audio_get_spdif_tuning_latency(void)
 int aml_audio_get_arc_tuning_latency(audio_format_t arc_fmt)
 {
     char *prop_name = NULL;
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int latency_ms = 0;
-    int ret = -1;
+    int ret = 0;
 
     switch (arc_fmt) {
     case AUDIO_FORMAT_PCM_16_BIT:
@@ -984,9 +994,9 @@ int aml_audio_get_arc_tuning_latency(audio_format_t arc_fmt)
 
 int aml_audio_get_src_tune_latency(enum patch_src_assortion patch_src) {
     char *prop_name = NULL;
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int latency_ms = 0;
-    int ret = -1;
+    int ret = 0;
 
     switch (patch_src)
     {
@@ -1062,7 +1072,7 @@ int cpy_16bit_data_with_gain(int16_t *dst, int16_t *src, int size_in_bytes, floa
 
 static inline uint64_t timespec_ns(struct timespec tspec)
 {
-    return (tspec.tv_sec * 1000000000 + tspec.tv_nsec);
+    return (uint64_t)(tspec.tv_sec * 1000000000 + tspec.tv_nsec);
 }
 
 uint64_t get_systime_ns(void)
@@ -1077,9 +1087,9 @@ uint64_t get_systime_ns(void)
 int aml_audio_get_hdmi_latency_offset(audio_format_t source_format,
                                       audio_format_t sink_format,int ms12_enable)
 {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     char *prop_name = NULL;
-    int ret = -1;
+    int ret = 0;
     int latency_ms = 0;
 
     if (source_format == AUDIO_FORMAT_PCM_16_BIT || source_format == AUDIO_FORMAT_PCM_32_BIT) {
@@ -1123,9 +1133,9 @@ int aml_audio_get_hdmi_latency_offset(audio_format_t source_format,
 
 int aml_audio_get_speaker_latency_offset(int aformat ,int ms12_enable)
 {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     char *prop_name = NULL;
-    int ret = -1;
+    int ret = 0;
     int latency_ms = 0;
 
     (void)aformat;
@@ -1183,7 +1193,7 @@ uint32_t tspec_diff_to_us(struct timespec tval_old,
 
 int aml_audio_get_dolby_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost)
 {
-    char cEndpoint[PROPERTY_VALUE_MAX];
+    char cEndpoint[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = 0;
     unsigned ac3_drc_control = (DDPI_UDC_COMP_LINE<<DRC_MODE_BIT)|(100<<DRC_HIGH_CUT_BIT)|(100<<DRC_LOW_BST_BIT);
     ac3_drc_control = get_sysfs_int("/sys/class/audiodsp/ac3_drc_control");
@@ -1206,7 +1216,7 @@ int aml_audio_get_dolby_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost)
 
 int aml_audio_get_dolby_dap_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost)
 {
-    char cEndpoint[PROPERTY_VALUE_MAX];
+    char cEndpoint[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = 0;
     unsigned dap_drc_control = (DDPI_UDC_COMP_LINE<<DRC_MODE_BIT)|(100<<DRC_HIGH_CUT_BIT)|(100<<DRC_LOW_BST_BIT);
     dap_drc_control = get_sysfs_int("/sys/class/audiodsp/ac3_drc_control");
@@ -1419,8 +1429,8 @@ int aml_audio_data_handle(struct audio_stream_out *stream, const void* buffer, s
 
 int aml_audio_compensate_video_delay( int enable) {
     int video_delay = 0;
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
+    int ret = 0;
     char *prop_name = NULL;
 
     if (enable) {
@@ -1440,8 +1450,8 @@ int aml_audio_compensate_video_delay( int enable) {
 
 int aml_audio_get_ms12_timestamp_offset(void)
 {
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
+    int ret = 0;
     char *prop_name = NULL;
     int delay_time_ms = 0;
     delay_time_ms = 100;
@@ -1659,6 +1669,7 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
     /* audio hal output device port */
     case AUDIO_DEVICE_OUT_EARPIECE:
         *hal_dev_port = OUTPORT_EARPIECE;
+        break;
     case AUDIO_DEVICE_OUT_HDMI_ARC:
         *hal_dev_port = OUTPORT_HDMI_ARC;
         break;
@@ -2135,6 +2146,7 @@ int convert_audio_format_2_period_mul(audio_format_t format)
         break;
     case AUDIO_FORMAT_PCM_32_BIT:
         period_mul = 2;
+        break;
     default:
         period_mul = 1;
         break;
@@ -2152,7 +2164,7 @@ int convert_audio_format_2_period_mul(audio_format_t format)
 int aml_audio_trace_debug_level(void)
 {
     char buf[PROPERTY_VALUE_MAX] = {'\0'};
-    int ret = -1;
+    int ret = 0;
     int debug_level = 0;
     ret = property_get("vendor.audio.hal.trace.debug", buf, NULL);
     if (ret > 0) {

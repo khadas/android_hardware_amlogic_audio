@@ -69,7 +69,7 @@
     }
 
 #define R_CHECK_PARAM_LEGAL(ret, param, min, max, fmt, ...)                                     \
-    if (param < min || param > max) {                                                           \
+    if ((int)param < min || param > max) {                                                           \
         AM_LOGE("%s:%d is illegal, min:%d, max:%d " fmt, #param, param, min, max, ##__VA_ARGS__);\
         return ret;                                                                             \
     }

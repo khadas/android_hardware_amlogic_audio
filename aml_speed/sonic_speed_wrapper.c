@@ -50,13 +50,12 @@ int sonic_speed_init(sonic_speed_handle_t *handle,
 
 int sonic_speed_write(sonic_speed_handle_t *handle, void *buf, size_t in_size) {
 
-    int ret = -1,in_frame;
-    in_frame = in_size / audio_bytes_per_frame(handle->channels, handle->format);
+    int ret = -1, in_frame = 0;
     if (handle == NULL) {
         ALOGI("aml_speed_handle is NULL\n");
         return -1;
     }
-
+    in_frame = in_size / audio_bytes_per_frame(handle->channels, handle->format);
     ret = sonicWriteShortToStream(handle->stream, buf, in_frame);
     ALOGV("ret %d in_frame %d", ret, in_frame);
     return in_frame;

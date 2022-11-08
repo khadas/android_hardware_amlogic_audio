@@ -69,7 +69,7 @@ int16_t swapInt16(int16_t value)
 static int get_model_name(char *model_name, int size)
 {
     int ret = -1;
-    char node[PROPERTY_VALUE_MAX];
+    char node[PROPERTY_VALUE_MAX] = {'\0'};
 
     ret = property_get("vendor.tv.model_name", node, "");
     if (ret <= 0) {
@@ -572,7 +572,7 @@ int set_AQ_parameters(struct audio_hw_device *dev, struct str_parms *parms)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     int ret = -1, val = 0;
-    char value[64];
+    char value[64] = {'\0'};
     char *parm;
 
     ret = str_parms_get_str(parms, "aq_tuning", value, sizeof(value));

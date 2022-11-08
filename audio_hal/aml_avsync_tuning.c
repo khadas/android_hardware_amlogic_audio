@@ -479,7 +479,7 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
             tune_val = patch->min_video_latency;
         }
 
-        ret = aml_dev_tune_video_path_latency(&aml_dev->alsa_mixer, tune_val);
+        aml_dev_tune_video_path_latency(&aml_dev->alsa_mixer, tune_val);
 
         ALOGD("  --start avsync, tuning video total latency: value [%dms], real vltcy [%dms], real altcy [%dms]",
                 tune_val, vltcy, altcy);

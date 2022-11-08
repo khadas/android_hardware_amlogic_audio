@@ -106,7 +106,7 @@ static void adev_remove_stream_from_list(
 static bool parse_card_device_params(const char *kvpairs, int *card, int *device)
 {
     struct str_parms * parms = str_parms_create_str(kvpairs);
-    char value[32];
+    char value[32] = {'\0'};
     int param_val;
 
     // initialize to "undefined" state.

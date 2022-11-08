@@ -97,12 +97,12 @@ static int seek_dts_cd_sync_word(unsigned char *buffer, int size)
 static audio_channel_mask_t get_dolby_channel_mask(const unsigned char *frameBuf
         , int length)
 {
-    int scan_frame_offset;
-    int scan_frame_size;
-    int scan_channel_num;
-    int scan_numblks;
-    int scan_timeslice_61937;
-    int scan_framevalid_flag;
+    int scan_frame_offset = 0;
+    int scan_frame_size = 0;
+    int scan_channel_num = 0;
+    int scan_numblks = 0;
+    int scan_timeslice_61937 = 0;
+    int scan_framevalid_flag = 0;
     int ret = 0;
     int total_channel_num  = 0;
 

@@ -211,7 +211,6 @@ int audiohal_send_msg_2_ms12(struct dolby_ms12_desc *ms12, ms12_mesg_type_t mesg
         ALOGV("%s add mesg item", __func__);
         list_add_tail(&ms12->mesg_list, &mesg_p->list);
         pthread_mutex_unlock(&ms12->mutex);
-
         pthread_cond_signal(&ms12->cond);
         ALOGI("%s mesg_type:%s exit", __func__, mesg_type_2_string[mesg_type]);
         ret = 0;
@@ -402,7 +401,6 @@ int aml_send_ms12_scheduler_state_2_ms12(void)
     struct aml_audio_device *adev = aml_adev_get_handle();
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     int sch_state = MS12_SCHEDULER_NONE;
-
     pthread_mutex_lock(&ms12->lock);
     sch_state = ms12->ms12_scheduler_state;
     if (sch_state <= MS12_SCHEDULER_NONE ||  sch_state >= MS12_SCHEDULER_MAX) {
@@ -595,12 +593,15 @@ void set_ms12_full_dap_disable(struct dolby_ms12_desc *ms12, int full_dap_disabl
 void set_ms12_mc_enable(struct dolby_ms12_desc *ms12, int mc_enable)
 {
     char parm[64] = "";
-
+    if (!ms12) {
+        ALOGE("set_ms12_mc_enable ms12 is null");
+        return ;
+    }
     if (!(ms12->output_config & MS12_OUTPUT_MASK_MC)) {
         return;
     }
     sprintf(parm, "%s %d", "-mc", mc_enable);
-    if ((strlen(parm)) > 0 && ms12)
+    if ((strlen(parm)) > 0 )
         aml_ms12_update_runtime_params(ms12, parm);
 }
 

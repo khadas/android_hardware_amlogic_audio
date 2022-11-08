@@ -83,7 +83,7 @@ int dvb_audio_set_pre_mute(int mute) {
 int dvb_audio_get_latencyms(int demux_id) {
     ALOGV("demux_id %d",demux_id);
     struct str_parms *parms;
-    int latencyms;
+    int latencyms = 0;
     char temp_buf[64] = {0};
     sprintf (temp_buf, "hal_param_dtv_latencyms_id=%d", demux_id);
     aml_audioport->setParameters(String8(temp_buf));

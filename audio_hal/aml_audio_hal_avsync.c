@@ -65,11 +65,11 @@ static struct timespec start_time;
 
 static int dtv_avsync_audio_mode(void)
 {
-    int ret, mode = 0;
-    char buff[64];
+    int ret = 0, mode = 0;
+    char buff[64] = {'\0'};
     ret = aml_sysfs_get_str(TSYNC_AUDIO_MODE, buff, sizeof(buff));
     if (ret > 0) {
-        ret = sscanf(buff, "%d", &mode);
+        sscanf(buff, "%d", &mode);
     }
     return mode;
 }
@@ -162,15 +162,17 @@ void dtv_avsync_param_init(struct audio_stream_out *stream)
 unsigned long decoder_apts_lookup(unsigned int offset)
 {
     unsigned int pts = 0;
-    int ret;
+    int ret = 0;
     char buff[32] = {0};
 
     snprintf(buff, 32, "%d", offset);
-    aml_sysfs_set_str(DTV_DECODER_PTS_LOOKUP_PATH, buff);
+    if (aml_sysfs_set_str(DTV_DECODER_PTS_LOOKUP_PATH, buff) == -1)
+         ALOGI("%s, aml_sysfs_set_str failed\n", __func__);
+
     ret = aml_sysfs_get_str(DTV_DECODER_PTS_LOOKUP_PATH, buff, sizeof(buff));
 
     if (ret > 0) {
-        ret = sscanf(buff, "0x%x\n", &pts);
+        sscanf(buff, "0x%x\n", &pts);
     }
     if (pts == (unsigned int) - 1) {
         pts = 0;
@@ -228,8 +230,8 @@ void set_video_delay(int delay_ms)
 }
  int dtv_set_audio_latency(int apts_diff,struct aml_audio_patch* patch)
 {
-    int ret, diff = 0;
-    char buff[32];
+    int ret = 0, diff = 0;
+    char buff[32] = {'\0'};
 
     /*[SE][BUG][SWPL-14828][chengshun.wang] add property
      * to set start latency
@@ -244,6 +246,9 @@ void set_video_delay(int delay_ms)
         ret = aml_sysfs_get_str(TSYNC_APTS_DIFF, buff, sizeof(buff));
         if (ret > 0) {
             ret = sscanf(buff, "%d\n", &diff);
+            if (ret < 0) {
+                return 0;
+            }
         }
         if (diff > DECODER_PTS_DEFAULT_LATENCY) {
             diff = DECODER_PTS_DEFAULT_LATENCY;
@@ -375,7 +380,7 @@ unsigned long dtv_hal_get_pts(struct audio_stream_out *stream, unsigned int late
     unsigned long pts = 0;
     unsigned long long frame_nums;
     unsigned long delay_pts;
-    unsigned int checkin_firstapts;
+    unsigned int checkin_firstapts = 0;
     char value[PROPERTY_VALUE_MAX];
     uint32_t offset = 0;
 
@@ -850,30 +855,6 @@ static unsigned int dtv_calc_pcrpts_latency(struct aml_audio_patch *patch, unsig
     } else {
         return pcrpts + DEFAULT_ARC_DELAY_MS * 90;
     }
-    if (aml_dev->bHDMIARCon && aml_dev->digital_audio_format == PCM) {
-        if (patch->aformat == AUDIO_FORMAT_E_AC3) {
-            pcrpts += 2 * DTV_PTS_CORRECTION_THRESHOLD;
-        } else {
-            pcrpts + DTV_PTS_CORRECTION_THRESHOLD;
-        }
-    } else if (eDolbyMS12Lib == aml_dev->dolby_lib_type && aml_dev->bHDMIARCon) {
-        if (patch->aformat == AUDIO_FORMAT_E_AC3 && !aml_dev->disable_pcm_mixing) {
-            pcrpts += 8 * DTV_PTS_CORRECTION_THRESHOLD;
-        } else if (patch->aformat == AUDIO_FORMAT_E_AC3 && aml_dev->disable_pcm_mixing) {
-            pcrpts += 6 * DTV_PTS_CORRECTION_THRESHOLD;
-        } else {
-            pcrpts += 3 * DTV_PTS_CORRECTION_THRESHOLD;
-        }
-    } else if (eDolbyDcvLib == aml_dev->dolby_lib_type && aml_dev->bHDMIARCon) {
-        if (patch->aformat == AUDIO_FORMAT_E_AC3) {
-            pcrpts += 4 * DTV_PTS_CORRECTION_THRESHOLD;
-        } else {
-            pcrpts += DTV_PTS_CORRECTION_THRESHOLD;
-        }
-    } else {
-        pcrpts += DTV_PTS_CORRECTION_THRESHOLD;
-    }
-    return pcrpts;
 }
 
 static void dtv_av_pts_info(struct aml_audio_patch *patch, unsigned int apts, unsigned int pcrpts)
@@ -882,7 +863,7 @@ static void dtv_av_pts_info(struct aml_audio_patch *patch, unsigned int apts, un
     unsigned int demux_vpts = 0;
     unsigned int demux_apts = 0;
     unsigned int demux_pcr = 0;
-    unsigned int firstvpts;
+    unsigned int firstvpts = 0;
     char buf[4096] = {0};
     int video_display_frame_count = 0;
     int video_receive_frame_count = 0;
@@ -1469,8 +1450,8 @@ void process_ac3_sync(struct aml_audio_patch *patch, unsigned long pts, struct a
     int bytewidth = 2;
     int symbol = 48;
     char tempbuf[128] = {0};
-    unsigned int pcrpts;
-    unsigned int pts_diff,last_checkin_apts;
+    unsigned int pcrpts = 0;
+    unsigned int pts_diff,last_checkin_apts = 0;
     unsigned long cur_out_pts;
     struct audio_hw_device *adev = patch->dev;
     struct aml_audio_device * aml_dev = (struct aml_audio_device*)adev;
@@ -1512,7 +1493,7 @@ void process_pts_sync(unsigned int pcm_latency, struct aml_audio_patch *patch,
     int bytewidth = 2;
     int symbol = 48;
     char tempbuf[128] = {0};
-    unsigned int pcrpts, apts, last_checkin_apts;
+    unsigned int pcrpts = 0, apts  = 0, last_checkin_apts = 0;
     unsigned int calc_len = 0;
     unsigned long pts = 0, lookup_pts;
     unsigned long cache_pts = 0;
@@ -1619,8 +1600,8 @@ bool dtv_avsync_audio_freerun(struct aml_audio_patch* patch)
 /* +[SE] [BUG][SWPL-21070] startplay strategy choose*/
 void dtv_avsync_get_ptsinfo(struct aml_audio_patch* patch)
 {
-    unsigned int cur_vpts, cur_pcr;
-    unsigned int firstvpts, checkin_firstapts;
+    unsigned int cur_vpts = 0, cur_pcr = 0;
+    unsigned int firstvpts = 0, checkin_firstapts = 0;
     get_sysfs_uint(TSYNC_VPTS, &cur_vpts);
     get_sysfs_uint(TSYNC_FIRST_VPTS, &firstvpts);
     get_sysfs_uint(TSYNC_PCRSCR, &cur_pcr);
@@ -1803,17 +1784,21 @@ void dtv_avsync_startplay_strategy(struct aml_audio_patch *patch)
 void dtv_avsync_process(struct audio_stream_out *stream, size_t bytes, audio_format_t output_format)
 {
     struct aml_stream_out *stream_out = (struct aml_stream_out *) stream;
+    if (stream_out  == NULL) {
+        ALOGE("dtv_avsync_process stream_out is NULL");
+        return ;
+    }
     struct aml_audio_device *aml_dev = stream_out->dev;
     struct aml_audio_patch *patch = aml_dev->audio_patch;
     struct timespec cur_ts;
     uint32_t start_ms = 0;
     unsigned long pts;
-    uint32_t firstvpts, pcrpts;
+    uint32_t firstvpts = 0, pcrpts = 0;
     int ret = 0, duration;
     char tempbuf[128] = {0};
     int audio_output_delay = 0;
     int cache_time = 0;
-    unsigned int last_checkin_apts;
+    unsigned int last_checkin_apts = 0;
     int pcm_latency;
     ring_buffer_t *ringbuffer = &(patch->aml_ringbuffer);
 

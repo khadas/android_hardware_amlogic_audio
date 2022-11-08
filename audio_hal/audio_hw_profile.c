@@ -495,7 +495,8 @@ static int32_t parse_vendor_specific_audio_data_block(char * audio_info, audio_p
                     char *vsadb_src = strstr(string_tok, DOLBY_VSADB_SYNC_WORD);
                     char *vsadb_target = (audio_profile->vsadb.vsadb_array);
                     unsigned int target_len = 0;
-                    string2hex(vsadb_src, (unsigned char *)vsadb_target, &target_len);
+                    if (vsadb_src)
+                        string2hex(vsadb_src, (unsigned char *)vsadb_target, &target_len);
                     ALOGV("%s line %d vsadb_array 0x%2x 0x%2x 0x%2x 0x%2x 0x%2x 0x%2x 0x%2x\n",
                         __func__, __LINE__, vsadb_target[0], vsadb_target[1], vsadb_target[2],
                         vsadb_target[3], vsadb_target[4], vsadb_target[5], vsadb_target[6]);
@@ -573,6 +574,10 @@ int  aml_hdmi_audio_profile_parser() {
     int32_t index_of_audio_cap_for_vsadb = 0;//current suppose to analysis the dolby vsadb.
 
     infobuf = (char *)aml_audio_calloc(1, buf_len * sizeof(char *));
+    if (!infobuf) {
+        ALOGE("%s infobuf malloc is fail \n", __func__);
+        return 0;
+    }
     file = fopen("/sys/class/amhdmitx/amhdmitx0/aud_cap", "r");
     if (!file) {
         goto exit;
@@ -891,7 +896,6 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
             } else {
                 ALOGE("%s not found support channel for 0x%x", __func__, format);
                 size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_STEREO");
-
             }
             break;
         case AUDIO_FORMAT_IEC61937:
@@ -1374,6 +1378,7 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
                 case AUDIO_FORMAT_IEC61937:
                     size += sprintf(aud_cap, "sup_sampling_rates=%s",
                     "8000|11025|16000|22050|24000|32000|44100|48000|128000|176400|192000");
+                    break;
                 default:
                     size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
             }
@@ -2038,11 +2043,11 @@ char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(con
                      * we should also reply we support ddp
                      */
                     dd_only_support  = adev->hdmi_descs.dd_fmt.is_support && !adev->hdmi_descs.ddp_fmt.is_support;
-                    if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS)) {
+                    if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS) && cap) {
                         if (dd_only_support && conv_support) {
                             strcat(cap, "|AUDIO_FORMAT_E_AC3");
                         }
-                    } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
+                    } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS) && cap) {
                         if (format == AUDIO_FORMAT_E_AC3) {
                             if (dd_only_support && conv_support) {
                                 int dd_max_channels = adev->hdmi_descs.dd_fmt.max_channels;
@@ -2055,7 +2060,7 @@ char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(con
                                 }
                             }
                         }
-                    } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
+                    } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES) && cap) {
                         if (format == AUDIO_FORMAT_E_AC3) {
                             if (dd_only_support && conv_support) {
                                 sprintf(cap, "sup_sampling_rates=%s", "32000|44100|48000");

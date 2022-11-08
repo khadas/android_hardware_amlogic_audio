@@ -228,7 +228,11 @@ void AudioStreamIn::setRemoteControlMicEnabled(bool flag)
     m_fd = openRemoteService();
     if (m_fd > 0) {
         char status = (flag == true ? 1 : 0);
-        send(m_fd, &status, sizeof(status), MSG_NOSIGNAL);
+        ssize_t send_ret = send(m_fd, &status, sizeof(status), MSG_NOSIGNAL);
+        if (send_ret < 0) {
+            ALOGE("%s: send fail \n", __func__);
+            return;
+        }
     }
 #endif
 }
@@ -278,7 +282,7 @@ int AudioStreamIn::openRemoteService()
 #ifdef REMOTE_CONTROL_INTERFACE
     return 0;
 #else
-    int ret = -1;
+    int ret = 0;
     int fd = m_fd;
     socklen_t alen;
     struct sockaddr_un addr;
@@ -288,6 +292,11 @@ int AudioStreamIn::openRemoteService()
     ALOGD("%s connect socket%s",__FUNCTION__, kRemoteSocketPath);
 
     fd = socket(AF_LOCAL, SOCK_STREAM, 0);
+    if (fd < 0) {
+        ALOGE("socket failed:%d", errno);
+        goto done;
+    }
+
 
     if ((strlen(kRemoteSocketPath) + 1) > sizeof(addr.sun_path))
         goto done;
@@ -308,7 +317,7 @@ int AudioStreamIn::openRemoteService()
     ALOGD("%s: fd=%d, ret=%d", __func__, fd, ret);
 done:
     if (ret < 0) {
-        if (fd > 0) close(fd);
+        if (fd >= 0) close(fd);
         fd = -1;
     }
     return fd;

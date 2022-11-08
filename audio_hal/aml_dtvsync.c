@@ -314,12 +314,14 @@ bool aml_dtvsync_spdif_insertraw(struct audio_stream_out *stream,  void **spdifo
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_audio_patch *patch = adev->audio_patch;
-    unsigned char buffer[EAC3_IEC61937_FRAME_SIZE];
+    unsigned char *buffer = aml_audio_calloc(1,EAC3_IEC61937_FRAME_SIZE);
+    if (!buffer) {
+        ALOGE("aml_audio_malloc is fail");
+        return false;
+    }
     int t1 = 0;
     int size = 0;
     t1 = time_ms / 32;
-
-    memset(buffer, 0, sizeof(buffer));
 
     if (is_packed) {
         memcpy(buffer, muted_frame_dd, sizeof(muted_frame_dd));
@@ -332,6 +334,7 @@ bool aml_dtvsync_spdif_insertraw(struct audio_stream_out *stream,  void **spdifo
     }
     for (int i = 0; i < t1; i++)
         aml_audio_spdifout_process(*spdifout_handle, buffer, size);
+    aml_audio_free(buffer);
     return  true;
 }
 
@@ -512,7 +515,11 @@ int aml_dtvsync_ms12_process_insert(void *priv_data, int insert_time_ms,
     struct aml_audio_patch *patch = adev->audio_patch;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     struct bitstream_out_desc *bitstream_out;
-    unsigned char buffer[EAC3_IEC61937_FRAME_SIZE];
+    unsigned char *buffer =  aml_audio_calloc(1,EAC3_IEC61937_FRAME_SIZE);
+    if (!buffer) {
+        ALOGE("aml_audio_malloc is fail");
+        return -1;
+    }
     audio_format_t output_format = (ms12_info) ? ms12_info->data_type : AUDIO_FORMAT_PCM_16_BIT;
     int t1 = 0;
     int i = 0;
@@ -549,7 +556,7 @@ int aml_dtvsync_ms12_process_insert(void *priv_data, int insert_time_ms,
                 break;
         }
 
-        if (audio_is_linear_pcm(output_format)) {
+        if (audio_is_linear_pcm(output_format) && ms12_info) {
             if (is_dolbyms12_dap_enable((struct aml_stream_out *)priv_data)) {
                 ms12_info->pcm_type = DAP_LPCM;
             } else {
@@ -586,7 +593,7 @@ int aml_dtvsync_ms12_process_insert(void *priv_data, int insert_time_ms,
         }
         insert_time_ms -= insert_ms;
     } while(insert_time_ms > 0);
-
+    aml_audio_free(buffer);
     return 0;
 }
 
@@ -833,8 +840,8 @@ dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_de
             adev->insert_mute_flag = false;
         }
     }
-
-    async_policy->audiopolicy = DTVSYNC_AUDIO_UNKNOWN;
+    if (async_policy)
+        async_policy->audiopolicy = DTVSYNC_AUDIO_UNKNOWN;
     return DTVSYNC_AUDIO_OUTPUT;
 }
 

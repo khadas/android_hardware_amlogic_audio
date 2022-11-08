@@ -261,13 +261,16 @@ struct aml_channel_map *data_load_product_config(void)
 	if (gParser != NULL) {
 		// loop of i2s channel [0, 8]
 		for (i=0; i<AML_CH_IDX_MAX; i++) {
-			strncpy(chname, aml_config_get_str(gParser, AML_SECTION_AUDIO_HAL,
-				_get_ch_conf_name(eAmlConfTypeChMap, i), NULL), sizeof(chname) - 1);
-			chname[sizeof(chname) - 1] = '\0';
-			invert   = aml_config_get_int(gParser, AML_SECTION_AUDIO_HAL,
-				_get_ch_conf_name(eAmlConfTypeChInv, i), 0);
-			ditter   = aml_config_get_int(gParser, AML_SECTION_AUDIO_HAL,
-				_get_ch_conf_name(eAmlConfTypeChDit, i), 0);
+			if (_get_ch_conf_name(eAmlConfTypeChMap, i))
+				strncpy(chname, aml_config_get_str(gParser, AML_SECTION_AUDIO_HAL,
+					_get_ch_conf_name(eAmlConfTypeChMap, i), NULL), sizeof(chname) - 1);
+				chname[sizeof(chname) - 1] = '\0';
+			if (_get_ch_conf_name(eAmlConfTypeChInv, i))
+				invert   = aml_config_get_int(gParser, AML_SECTION_AUDIO_HAL,
+					_get_ch_conf_name(eAmlConfTypeChInv, i), 0);
+			if (_get_ch_conf_name(eAmlConfTypeChDit, i))
+				ditter   = aml_config_get_int(gParser, AML_SECTION_AUDIO_HAL,
+					_get_ch_conf_name(eAmlConfTypeChDit, i), 0);
 			find_idx = _name_trans_to_i2s_chidx(chname);
 			_save_conf_to_maps(maps, find_idx, i, invert, ditter);
 		}

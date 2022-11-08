@@ -731,6 +731,10 @@ void set_ms12_main_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute, unsigne
     - duration of ramp in milliseconds (range: 0..60000)
     - shape of the ramp (0: linear, 1: in cube, 2: out cube)
     */
+    if (!ms12) {
+        ALOGE("set_ms12_main_audio_mute ms12 is null");
+        return ;
+    }
     if (b_mute) {
         sprintf(parm, "%s %d,%d,%d", "-sys_prim_mixgain", -96 * 128, duration, 0);
     } else {
@@ -808,7 +812,7 @@ static void set_dolby_ms12_downmix_mode(struct aml_audio_device *adev)
 {
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     int downmix_mode = DOWNMIX_MODE_LtRt; // Lt/Rt is default mode
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int value = 0;
 
@@ -1169,7 +1173,12 @@ int get_the_dolby_ms12_prepared(
     aml_ac3_parser_open(&ms12->ac3_parser_handle);
     aml_spdif_decoder_open(&ms12->spdif_dec_handle);
     aml_ms12_bypass_open(&ms12->ms12_bypass_handle);
-    ring_buffer_init(&ms12->spdif_ring_buffer, ms12->dolby_ms12_out_max_size);
+    ret = ring_buffer_init(&ms12->spdif_ring_buffer, ms12->dolby_ms12_out_max_size);
+    if (ret != 0) {
+        ALOGW("[%s:%d] init is error", __func__, __LINE__);
+        pthread_mutex_unlock(&ms12->lock);
+        goto Err_dolby_ms12_thread;
+    }
     ms12->dolby_ms12_init_flags = true;
     adev->doing_reinit_ms12 = false;
     ms12->debug_synced_frame_pts_flag = get_debug_value(AML_DEBUG_AUDIOHAL_SYNCPTS);
@@ -1805,6 +1814,7 @@ int dolby_ms12_system_process(
         if (ms12->tv_tuning_flag && ms12->input_config_format == AUDIO_FORMAT_MAT) {
             ALOGW("MS12 use -tv_tuning Flag to activate a special processing graph for TV tuning purposes!\n");
             ALOGW("System sound is Mute as design!\n");
+            pthread_mutex_unlock(&ms12->lock);
             return ret;
         }
         /*set the dolby ms12 debug level*/
@@ -2144,7 +2154,10 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
     bool do_sync_flag = ((adev->patch_src == SRC_DTV) && patch && patch->skip_amadec_flag);
     spdif_config_t spdif_config = { 0 };
     audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
-
+    if (!buffer) {
+        ALOGE("%s buffer is null ", __func__);
+        return -1;
+    }
     /*for patch mode, the hal_rate is not correct, we should parse it*/
     if (adev->audio_patching && is_dolby) {
         struct ac3_parser_info ac3_info = { 0 };
@@ -2269,7 +2282,7 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
              }
         }
 #endif
-        ret = aml_audio_spdifout_process(bitstream_out->spdifout_handle, buffer, bytes);
+        aml_audio_spdifout_process(bitstream_out->spdifout_handle, buffer, bytes);
 
     }
 
@@ -2333,8 +2346,7 @@ int dolby_truehd_bypass_process(struct audio_stream_out *stream, void *buffer, s
              * if the format/sample-rate are changed, restart the alsa-card.
              */
             if ((bitstream_out->spdifout_handle != NULL )&&
-                ((bitstream_out->audio_format != output_format) ||
-                (output_format != AUDIO_FORMAT_IEC61937 && bitstream_out->sample_rate !=  aml_out->hal_rate))) {
+                (bitstream_out->audio_format != output_format)) {
                 aml_audio_spdifout_close(bitstream_out->spdifout_handle);
                 ALOGI("%s spdif format changed from 0x%x to 0x%x", __FUNCTION__, bitstream_out->audio_format, output_format);
                 bitstream_out->spdifout_handle = NULL;
@@ -2407,7 +2419,7 @@ int dolby_truehd_bypass_process(struct audio_stream_out *stream, void *buffer, s
                 /* when (mat encoder output data(mat_enc_out_bytes) not 0), send them to alsa */
                 if (ms12->mat_enc_out_bytes) {
                     endian16_convert(ms12->mat_enc_out_buffer, ms12->mat_enc_out_bytes);
-                    ret = aml_audio_spdifout_process
+                    aml_audio_spdifout_process
                                 (bitstream_out->spdifout_handle
                                 , ms12->mat_enc_out_buffer
                                 , ms12->mat_enc_out_bytes);
@@ -2444,7 +2456,10 @@ int mat_bypass_process(struct audio_stream_out *stream, void *buffer, size_t byt
     ALOGV("output_format=0x%x hal_format=0x%#x internal=0x%x", output_format, aml_out->hal_format, aml_out->hal_internal_format);
     spdif_config_t spdif_config = { 0 };
     audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
-
+    if (!buffer) {
+        ALOGE("%s buffer is NULL\n", __func__);
+        return -1;
+    }
 
     ms12->is_bypass_ms12 = is_ms12_passthrough(stream);
     if (ms12->is_bypass_ms12
@@ -2456,8 +2471,7 @@ int mat_bypass_process(struct audio_stream_out *stream, void *buffer, size_t byt
              * if the format/sample-rate are changed, restart the alsa-card.
              */
             if ((bitstream_out->spdifout_handle != NULL )&&
-                ((bitstream_out->audio_format != output_format) ||
-                (output_format != AUDIO_FORMAT_IEC61937 && bitstream_out->sample_rate !=  aml_out->hal_rate))) {
+                (bitstream_out->audio_format != output_format)) {
                 aml_audio_spdifout_close(bitstream_out->spdifout_handle);
                 ALOGI("%s spdif format changed from 0x%x to 0x%x", __FUNCTION__, bitstream_out->audio_format, output_format);
                 bitstream_out->spdifout_handle = NULL;
@@ -2498,7 +2512,7 @@ int mat_bypass_process(struct audio_stream_out *stream, void *buffer, size_t byt
             aml_audio_spdifout_mute(bitstream_out->spdifout_handle, 0);
         }
         /* send these IEC61937 data to alsa */
-        ret = aml_audio_spdifout_process(bitstream_out->spdifout_handle, buffer, bytes);
+        aml_audio_spdifout_process(bitstream_out->spdifout_handle, buffer, bytes);
     }
     return 0;
 }
@@ -3311,7 +3325,7 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     ms12->is_dolby_atmos = (dolby_ms12_get_input_atmos_info() == 1);
 
     /*update the master pcm frame, which is used for av sync*/
-    if (audio_is_linear_pcm(output_format)) {
+    if (audio_is_linear_pcm(output_format) && ms12_info) {
         if (ms12_info->output_ch == 8 || ms12_info->output_ch == 6) {
             ms12_info->pcm_type = MC_LPCM;
         }
@@ -3341,7 +3355,7 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
                 if (is_dolbyms12_dap_enable(aml_out)) {
                     master_pcm_type = DAP_LPCM;
                 }
-                if (ms12_info->pcm_type == master_pcm_type) {
+                if (ms12_info && ms12_info->pcm_type == master_pcm_type) {
                     ms12_output_update_audio_pts(stream_out, ms12_info, buffer, size);
                 }
             }
@@ -3357,7 +3371,7 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
             return ret;
     }
 #endif
-    if (audio_is_linear_pcm(output_format)) {
+    if (audio_is_linear_pcm(output_format) && ms12_info) {
         if (ms12_info->pcm_type == MC_LPCM) {
             mc_pcm_output(buffer, priv_data, size, ms12_info);
         } else if (ms12_info->pcm_type == DAP_LPCM) {
@@ -3628,7 +3642,7 @@ void dolby_ms12_app_flush()
 
 void dolby_ms12_enable_debug()
 {
-    char buf[PROPERTY_VALUE_MAX];
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int level = 0;
     int ret = -1;
 

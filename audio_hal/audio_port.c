@@ -146,7 +146,6 @@ int send_inport_message(input_port *port, PORT_MSG msg)
     pthread_mutex_lock(&port->msg_lock);
     list_add_tail(&port->msg_list, &p_msg->list);
     pthread_mutex_unlock(&port->msg_lock);
-
     return 0;
 }
 
@@ -254,6 +253,10 @@ input_port *new_input_port(
     int ret = 0;
 
     port = aml_audio_calloc(1, sizeof(input_port));
+    if (port == NULL) {
+        AM_LOGE("no memory");
+        goto err_data;
+    }
     R_CHECK_POINTER_LEGAL(NULL, port, "no memory, size:%zu", sizeof(input_port));
 
     setPortConfig(&port->cfg, config);
@@ -754,8 +757,7 @@ output_port *new_output_port(
     port->standby = output_port_standby;
 
     return port;
-err_rbuf:
-    aml_audio_free(data);
+
 err_data:
     aml_audio_free(port);
     return NULL;

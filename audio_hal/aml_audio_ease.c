@@ -168,7 +168,9 @@ int aml_audio_ease_close(aml_audio_ease_t * ease_handle) {
 int aml_audio_ease_config(aml_audio_ease_t * ease_handle, ease_setting_t *setting) {
 
     if (ease_handle == NULL || setting == NULL) {
-        ease_handle->do_easing = false;
+        if (ease_handle) {
+            ease_handle->do_easing = false;
+        }
         return -1;
     }
     pthread_mutex_lock(&ease_handle->ease_lock);
@@ -209,8 +211,10 @@ int aml_audio_ease_process(aml_audio_ease_t * ease_handle, void * in_data, size_
 
     if (ease_handle == NULL || in_data == NULL || ch == 0 || size == 0 || ease_handle->ease_status == Invalid
             || (format != AUDIO_FORMAT_PCM_16_BIT && format != AUDIO_FORMAT_PCM_32_BIT)) {
-         ease_handle->do_easing = false;
-         return -1;
+        if (ease_handle) {
+            ease_handle->do_easing = false;
+        }
+        return -1;
     }
 
     ch = ease_handle->data_format.ch;

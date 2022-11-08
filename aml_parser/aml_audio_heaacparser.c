@@ -1225,7 +1225,6 @@ resync:
             memcpy(parser_buf + heaac_parser_handle->buf_remain, buffer + buf_offset, need_size);
             buf_offset += need_size;
             buf_left = numBytes - buf_offset;
-
             *output_buf = (void*)(parser_buf);
             *out_size   = frame_size;
             *used_size  = buf_offset;
@@ -1280,7 +1279,7 @@ error:
     *output_buf = NULL;
     *out_size   = 0;
     *used_size = numBytes;
-    if (heaac_info->debug_print) {
+    if (heaac_info && heaac_info->debug_print) {
         ALOGD("%s line %d parser_handle %p return error!\n", __func__, __LINE__, heaac_parser_handle);
     }
     return 0;

@@ -135,12 +135,12 @@ static ssize_t aml_out_write_to_mixer(struct audio_stream_out *stream, const voi
 
         //usleep((bytes- written_total) * 1000 / 5 / 48);
         //if (out->port_index == 1) {
-            ts_wait_time_us(&ts, 5000);
-            AM_LOGV("-wait....");
-            pthread_mutex_lock(&out->cond_lock);
-            pthread_cond_timedwait(&out->cond, &out->cond_lock, &ts);
-            AM_LOGV("--wait wakeup");
-            pthread_mutex_unlock(&out->cond_lock);
+        ts_wait_time_us(&ts, 5000);
+        AM_LOGV("-wait....");
+        pthread_mutex_lock(&out->cond_lock);
+        pthread_cond_timedwait(&out->cond, &out->cond_lock, &ts);
+        AM_LOGV("--wait wakeup");
+        pthread_mutex_unlock(&out->cond_lock);
         //}
     } while (1);
 
@@ -199,7 +199,6 @@ void sm_timer_callback_handler(union sigval sigv)
     if (out && is_hwsync_lpcm) {
         out->frame_write_sum_updated = false;
     }
-    AM_LOGD("%s is_hwsync_lpcm:%d frame_write_sum_updated:%d", __func__, is_hwsync_lpcm, out->frame_write_sum_updated);
     return ;
 }
 
@@ -270,8 +269,8 @@ static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
     }
 
     clock_gettime(CLOCK_MONOTONIC, &new_tval);
-    us_since_last_write = (new_tval.tv_sec - out->timestamp.tv_sec) * 1000000 +
-            (new_tval.tv_nsec - out->timestamp.tv_nsec) / 1000;
+    us_since_last_write = (uint64_t)(new_tval.tv_sec - out->timestamp.tv_sec) * 1000000 +
+            (uint64_t)(new_tval.tv_nsec - out->timestamp.tv_nsec) / 1000;
     //out->timestamp = new_tval;
 
     int used_this_write = (new_tval.tv_sec - tval.tv_sec) * 1000000 +
@@ -335,7 +334,7 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
     size_t channel_count = audio_channel_count_from_out_mask(out->hal_channel_mask);
     size_t frame_size = audio_bytes_per_frame(channel_count, out->hal_format);;
     int written_total = 0;
-    int ret = -1;
+    bool ret = false;
     struct timespec ts;
     memset(&ts, 0, sizeof(struct timespec));
 
@@ -350,9 +349,9 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
         if (!ret) {
             ALOGD("%s: aml_hwsync_wrap_set_id fail: ret=%d, id=%d", __func__, ret, out->hwsync->hwsync_id);
             ret = aml_hwsync_wrap_get_id(out->hwsync->mediasync, &out->hwsync->hwsync_id);
-            if (ret && ret != -1) {
+            if (ret) {
                 adev->hw_sync_id = out->hwsync->hwsync_id;
-                ret = aml_hwsync_wrap_set_id(out->hwsync, out->hwsync->hwsync_id);
+                aml_hwsync_wrap_set_id(out->hwsync, out->hwsync->hwsync_id);
             }
         }
         aml_audio_hwsync_init(out->hwsync, out);
@@ -397,11 +396,12 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
         AM_LOGW("write in pause status!!");
         out->pause_status = false;
     }
-    written_total = header_extractor_write(out->hwsync_extractor, buffer, bytes);
+    if (out->hwsync_extractor)
+        written_total = header_extractor_write(out->hwsync_extractor, buffer, bytes);
     AM_LOGV("bytes %zu, out->last_frames_position %" PRId64 " frame_sum %" PRId64 " ",
             bytes, out->last_frames_position, out->frame_write_sum);
 
-    if (getprop_bool("vendor.media.audiohal.hwsync")) {
+    if (getprop_bool("vendor.media.audiohal.hwsync") && written_total > 0) {
         aml_audio_dump_audio_bitstreams("/data/audio/audiomain.raw", buffer, written_total);
     }
 
@@ -465,8 +465,8 @@ static ssize_t out_write_system(struct audio_stream_out *stream, const void *buf
         AM_LOGV("++bytes %zu, out->port_index %d", bytes, out->inputPortID);
         //AM_LOGD(" %lld us, %lld", new_tval.tv_sec, tval.tv_sec);
 
-        us_since_last_write = (new_tval.tv_sec - out->timestamp.tv_sec) * 1000000 +
-                (new_tval.tv_nsec - out->timestamp.tv_nsec) / 1000;
+        us_since_last_write = (uint64_t)(new_tval.tv_sec - out->timestamp.tv_sec) * 1000000 +
+                (uint64_t)(new_tval.tv_nsec - out->timestamp.tv_nsec) / 1000;
         //out->timestamp = new_tval;
 
         int used_this_write = (new_tval.tv_sec - tval.tv_sec) * 1000000 +
@@ -564,8 +564,8 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
         AM_LOGV("++bytes %zu, out->port_index %d", bytes, out->inputPortID);
         //AM_LOGD(" %lld us, %lld", new_tval.tv_sec, tval.tv_sec);
 
-        us_since_last_write = (new_tval.tv_sec - out->timestamp.tv_sec) * 1000000 +
-                (new_tval.tv_nsec - out->timestamp.tv_nsec) / 1000;
+        us_since_last_write = (uint64_t)(new_tval.tv_sec - out->timestamp.tv_sec) * 1000000 +
+                (uint64_t)(new_tval.tv_nsec - out->timestamp.tv_nsec) / 1000;
         //out->timestamp = new_tval;
 
         int used_this_write = (new_tval.tv_sec - tval.tv_sec) * 1000000 +

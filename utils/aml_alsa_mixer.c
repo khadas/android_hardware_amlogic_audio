@@ -270,7 +270,9 @@ int aml_mixer_ctrl_set_array(struct aml_mixer_handle *mixer_handle, int mixer_id
         pthread_mutex_unlock(&mixer_handle->lock);
         return -1;
     }
-    mixer_ctl_set_array(pCtrl, array, count);
+    int ret = mixer_ctl_set_array(pCtrl, array, count);
+    if (ret < 0)
+        ALOGE("[%s:%d] failed to set array, error: %d\n",__FUNCTION__, __LINE__, ret);
     pthread_mutex_unlock(&mixer_handle->lock);
 
     return 0;

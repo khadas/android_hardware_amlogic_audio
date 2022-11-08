@@ -291,7 +291,8 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
             if (dec_pcm_data->data_len > 0) {
                 // aml_audio_dump_audio_bitstreams("/data/dec_data.raw", dec_pcm_data->buf, dec_pcm_data->data_len);
                 aml_dec->out_frame_pts = aml_dec->in_frame_pts + (90 * out_frames /(dec_pcm_data->data_sr / 1000));
-                out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
+                if (dec_pcm_data->data_ch != 0)
+                    out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
                 if (is_dolby_ddp_support_compression_format(aml_out->hal_internal_format)) {
                     decoder_remain_cache = (decoder_remain_size > raw_in_data->data_len / 2) ? DDP_DECODER_CACHE : 0;
                     decoder_latency = DDP_DECODER_CACHE + decoder_remain_cache;
