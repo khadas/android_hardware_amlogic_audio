@@ -1442,7 +1442,8 @@ int dolby_ms12_main_process(
                              , &associate_frame_buffer
                              , &associate_frame_size);
             if (dual_input_ret) {
-                ALOGE("%s used size %zu don't find the iec61937 format header, re-scan next time!\n", __FUNCTION__, *use_size);
+                *use_size = input_bytes;
+                ALOGE("%s used size %zu dont find the iec61937 format header, rescan next time!\n", __FUNCTION__, *use_size);
                 goto  exit;
             }
         }

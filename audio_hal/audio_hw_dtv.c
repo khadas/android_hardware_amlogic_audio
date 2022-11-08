@@ -1093,7 +1093,7 @@ static int dtv_patch_pcm_write(unsigned char *pcm_data, int size,
         need_resample = do_audio_resample(&ratio);
     } else
         need_resample = 0;
-    ALOGV("output pcr_apts_diff:%d , ratio:%d, need_resample:%d.", pcr_apts_diff,  ratio, need_resample);
+    ALOGV("output pcr_apts_diff:%d , ratio:%d, need_resample:%d.patch->chanmask=%d", pcr_apts_diff,  ratio, need_resample,patch->chanmask);
     left = get_buffer_write_space(ringbuffer);
 
     if (left <= 0) {
@@ -1179,6 +1179,7 @@ static int dtv_patch_pcm_write(unsigned char *pcm_data, int size,
             }
         }
     }
+
     pthread_mutex_lock(&patch->apts_cal_mutex);
     ring_buffer_write(ringbuffer, (unsigned char *)write_buf, write_size,
                       UNCOVER_WRITE);
@@ -1699,8 +1700,10 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
     struct dolby_ddp_dec *ddp_dec = (struct dolby_ddp_dec *)aml_out->aml_dec;
     //int apts_diff = 0;
     int ret = 0;
-    unsigned char main_head[32];
     unsigned char ad_head[32];
+    int offset = 0;
+    unsigned char * read_pointer = patch->main_head;
+    unsigned char main_head_tmp[32];
     int main_frame_size = 0, last_main_frame_size = 0, main_head_offset = 0, main_head_left = 0;
     int las_ad_frame_size = 0;
     int ad_frame_size = 0, ad_head_offset = 0, ad_head_left = 0;
@@ -1777,32 +1780,73 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
 
         //dtv_assoc_get_main_frame_size(&main_frame_size);
         //main_frame_size = 0, get from data
-        while (main_frame_size == 0 && main_avail >= (int)sizeof(main_head)) {
-            memset(main_head, 0, sizeof(main_head));
-            ret = ring_buffer_read(ringbuffer, main_head, sizeof(main_head));
+        while (main_frame_size == 0 && main_avail >= (int)sizeof(patch->main_head)) {
+
+             if (!patch->need_save_main_head) {
+                memset(patch->main_head, 0, sizeof(patch->main_head));
+                patch->main_head_read_size = ring_buffer_read(ringbuffer, patch->main_head, sizeof(patch->main_head));
+            }
+
+            read_pointer = patch->main_head;
             if ( patch->output_thread_exit == 1) {
                 pthread_mutex_unlock(&(patch->dtv_output_mutex));
                 aml_audio_free(mixbuffer);
                 aml_audio_free(ad_buffer);
                 return 0;
             }
-            main_frame_size = dcv_decoder_get_framesize(main_head,
-                              ret, &main_head_offset);
-            main_avail -= ret;
+
+            //1: 16 bits(ob77 or 770b) Synchronization Information
+            //2: 16 bits Cyclic Redundancy Check
+            //3. fscod:Sample Rate Code (2 bits)
+            //4. frmsizecod: Frame Size Code(6 bits)
+            //5. bsid: Bit Stream Identification (5 bits)
+            //6. bsmod: Bit Stream Mode(3 bits)
+            //7. acmod: Audio Coding Mode (channels)(3 bits)
+
+            //we will read the 32 byte from the ringbuffer and we will read the head (0b77 or 770b) form the data
+            // if we want to absolutely get the framesize/bitstradm id/sample rate/, we need 7 byte at least
+            // if we found the Synchronization Information in the 28 bytes, we would not analysis the framesize/bitstradm id/sample rate.
+            if (offset >= patch->main_head_read_size - 1) {
+                offset = 0;
+            }
+            if (offset > 25) {
+                unsigned char tmp_1[32];
+                memset(tmp_1, 0,  sizeof(tmp_1));
+                //the step one: copy the newest main_head to tmp_1(when we can not found the sync words or the offset is bigger than 25);
+                strncpy((char *)tmp_1, (char *)patch->main_head, offset);
+                //the step two: copy the last main_head to the newest main_head.
+                strncpy((char *)patch->main_head, (char *)main_head_tmp ,patch->main_head_read_size - offset);
+                //the step three: move back the mian_head(the first offset bytes) [ret - offset]bytes.
+                strncpy((char *)patch->main_head + patch->main_head_read_size -offset, (char *)tmp_1, offset);
+             }
+             offset = 0;
+            while (offset < patch->main_head_read_size -1) {
+                memset(main_head_tmp, 0,  sizeof(main_head_tmp));
+                strncpy((char *)main_head_tmp, (char *)patch->main_head + offset, patch->main_head_read_size -offset);
+                if ((read_pointer[0] == 0x0b && read_pointer[1] == 0x77) || \
+                    (read_pointer[0] == 0x77 && read_pointer[1] == 0x0b)) {
+                        break;
+                }
+                offset++;
+                read_pointer++;
+            }
+            main_frame_size = dcv_decoder_get_framesize(patch->main_head,
+                              patch->main_head_read_size, &main_head_offset);
+
+            main_avail -= patch->main_head_read_size;
             if (main_frame_size != 0) {
-                main_head_left = ret - main_head_offset;
+                main_head_left = patch->main_head_read_size - main_head_offset;
                 ALOGV("AD main_frame_size=%d  ", main_frame_size);
             }
         }
-
-        dtv_assoc_set_main_frame_size(main_frame_size);
+         dtv_assoc_set_main_frame_size(main_frame_size);
 
         if (main_frame_size > 0 && (main_avail >= main_frame_size - main_head_left)) {
             //dtv_assoc_set_main_frame_size(main_frame_size);
             //dtv_assoc_set_ad_frame_size(ad_frame_size);
             //read left of frame;
             if (main_head_left > 0) {
-                memcpy(patch->out_buf, main_head + main_head_offset, main_head_left);
+                memcpy(patch->out_buf, patch->main_head + main_head_offset, main_head_left);
             }
             ret = ring_buffer_read(ringbuffer, (unsigned char *)patch->out_buf + main_head_left ,
                                    main_frame_size - main_head_left);
@@ -1813,9 +1857,15 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
                 ret = -EAGAIN;
                 goto err;
             }
+            patch ->need_save_main_head = false;
             dtv_assoc_audio_cache(1);
             main_size = ret + main_head_left;
         } else {
+            //The biggest framesize of AC3 or EAC3 is 2560, Therefore, if the paser-framesize is bigger than 2560 and need to find the head again.
+            if ((main_frame_size == 0 || main_frame_size > 2560))
+                patch ->need_save_main_head = false;
+            else
+                patch ->need_save_main_head = true;
             dtv_audio_gap_monitor(patch);
             pthread_mutex_unlock(&(patch->dtv_output_mutex));
             usleep(1000);
@@ -1982,7 +2032,6 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
         } else {
             memcpy(mixbuffer + mix_size, ad_buffer, ad_size);
         }
-
         if (patch->aformat == AUDIO_FORMAT_AC3) {//ac3 iec61937 package size 6144
             ret = out_write_new(stream_out, mixbuffer, AC3_IEC61937_FRAME_SIZE);
         } else {//eac3 iec61937 package size 6144*4
@@ -4722,6 +4771,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     patch->debug_para.debug_last_demux_pcr = 0;
     patch->debug_para.debug_time_interval = property_get_int32(PROPERTY_DEBUG_TIME_INTERVAL, DEFAULT_DEBUG_TIME_INTERVAL);
 
+    patch->main_head_read_size = 0;
     ALOGI("--%s", __FUNCTION__);
     return 0;
 
@@ -4778,6 +4828,7 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
         aml_dev->start_mute_flag = 0;
     aml_dev->underrun_mute_flag = 0;
     aml_dev->dev2mix_patch = false;
+    patch->main_head_read_size = 0;
     aml_dev->insert_mute_flag = false;
     aml_dev->audio_patch = NULL;
     ALOGI("[audiohal_kpi]--%s Exit", __FUNCTION__);
