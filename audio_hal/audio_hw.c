@@ -2015,6 +2015,16 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
 {
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = out->dev;
+#if ENABLE_DVB_PATCH
+#if ANDROID_PLATFORM_SDK_VERSION > 29
+    if (dtv_tuner_framework((struct audio_stream_out *)stream)) {
+        struct aml_stream_out *cbs_out =  adev->active_outputs[STREAM_PCM_DIRECT];
+        if (cbs_out)  {
+            out = cbs_out;
+        }
+    }
+#endif
+#endif
     uint64_t frames_written_hw = out->last_frames_position;
     int frame_latency = 0,timems_latency = 0;
     bool b_raw_in = false;
@@ -2025,6 +2035,7 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
     int origin_vdelay_frames = 0;
     /* Fixme, use the tinymix inside aml_audio_earctx_get_type() everytime!!! */
     bool is_earc = (ATTEND_TYPE_EARC == aml_audio_earctx_get_type(adev));
+
 
     if (!frames || !timestamp) {
         ALOGI("%s, !frames || !timestamp\n", __FUNCTION__);
@@ -2067,7 +2078,7 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         pthread_mutex_unlock(&out->apts_update_lock);
 
         if ((frame_latency < 0) && (frames_written_hw < abs(frame_latency))) {
-            ALOGV("%s(), not ready yet", __func__);
+            ALOGI("%s(), not ready yet", __func__);
             return -EINVAL;
         }
 
@@ -2128,7 +2139,6 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         out->last_frame_reported = *frames;
         out->last_timestamp_reported = *timestamp;
     }
-
     return ret;
 }
 static int get_next_buffer (struct resampler_buffer_provider *buffer_provider,

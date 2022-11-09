@@ -1209,6 +1209,16 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
 {
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = out->dev;
+#if ENABLE_DVB_PATCH
+#if ANDROID_PLATFORM_SDK_VERSION > 29
+    if (dtv_tuner_framework((struct audio_stream_out *)stream)) {
+        struct aml_stream_out *cbs_out =  adev->active_outputs[STREAM_PCM_DIRECT];
+        if (cbs_out)  {
+            out = cbs_out;
+        }
+    }
+#endif
+#endif
     int frame_latency = 0, timems_latency = 0;
     bool b_raw_in = false;
     bool b_raw_out = false;
