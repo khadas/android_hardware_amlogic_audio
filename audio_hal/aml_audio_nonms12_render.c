@@ -68,6 +68,10 @@ static void aml_audio_stream_volume_process(struct audio_stream_out *stream, voi
         volume[0] *= port_gain;
         volume[1] *= port_gain;
     }
+    /* If there is a dev->mix patch, the volume is handled in the in_read func. */
+    if (aml_dev->dev2mix_patch) {
+        volume[0] = volume[1] = 1.0;
+    }
     /*
     Indeed,all the input source main need to be applied before the mixer
     need hdmi/av.. source gain here also.now only DTV available.
