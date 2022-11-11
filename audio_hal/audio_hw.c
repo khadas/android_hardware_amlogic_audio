@@ -9396,6 +9396,8 @@ static int adev_close(hw_device_t *device)
             wait_count++;
             usleep(10*1000);//10ms
         }
+        aml_ms12_lib_release();
+        release_dolby_dev();
         ALOGD("%s, wait_count:%d, ms12 resource should be released finish\n", __func__, wait_count);
     }
 

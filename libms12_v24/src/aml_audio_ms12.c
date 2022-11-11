@@ -142,7 +142,7 @@ int aml_ms12_lib_preload(char *dolby_ms12_path) {
 
 int aml_ms12_lib_release() {
     release_libdolbyms12_handle();
-    dolby_ms12_self_cleanup();
+    //dolby_ms12_self_cleanup();
     ALOGD("-%s()\n", __FUNCTION__);
     return 0;
 }

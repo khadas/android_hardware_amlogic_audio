@@ -60,4 +60,6 @@ int get_ms12_dap_init_mode(bool is_tv);
  */
 bool is_ms12_tuning_dat_in_dut();
 
+void release_dolby_dev();
+
 #endif //_DOLBY_LIB_API_H_

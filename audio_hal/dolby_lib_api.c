@@ -55,11 +55,17 @@
 #define AUDIO_UTILS_IOC_SET_LIB_SIZE       _IOW(AUDIO_UTILS_IOC_MAGIC, 0x00, uint32_t)
 #define AUDIO_UTILS_IOC_WRITE_LIB          _IOW(AUDIO_UTILS_IOC_MAGIC, 0x01, uint32_t)
 #define AUDIO_UTILS_IOC_FREE_LIB           _IOW(AUDIO_UTILS_IOC_MAGIC, 0x02, uint32_t)
-
+static bool b_dolby_written = 0;
 static bool get_dev_audio_utils_node()
 {
     int ret = false;
     int fd = 0;
+
+    if (property_get_bool("ro.vendor.platform.disable.audio_utils", false)) {
+        ALOGI("%s disabled", __func__);
+        return false;
+    }
+
 
     fd = open(MID_DEV, O_RDONLY);
     if (fd < 0) {
@@ -150,7 +156,13 @@ int write_so_to_dev(void)
     int fsize;
     void *buffer;
     int audio_utils_fd, source_file;
+    int ret = 0;
+    int total_read = 0;
 
+    if (b_dolby_written) {
+        ALOGI("%s already written", __func__);
+        return 0;
+    }
 
     fsize = file_size(SOURCE_FILE);
     if (fsize < 0) {
@@ -173,11 +185,20 @@ int write_so_to_dev(void)
         }
         return -1;
     }
-
-    read(source_file, buffer, fsize);
+    do {
+        ret = read(source_file, (char *)buffer + total_read, fsize - total_read);
+        if (ret <= 0)
+            break;
+        total_read += ret;
+        ALOGV("%s total read =%d left=%d", __func__, total_read, fsize - total_read);
+    } while (total_read < fsize);
     close(source_file);
+    if (total_read != fsize) {
+        ALOGE("%s read error total_read=%d need =%d", __func__, total_read, fsize);
+        goto exit;
+    }
 
-    audio_utils_fd = open(MID_DEV, O_RDONLY);
+    audio_utils_fd = open(MID_DEV, O_RDWR);
     if (audio_utils_fd < 0) {
         ALOGE("can't open "MID_DEV"\n");
         if (buffer) {
@@ -187,14 +208,36 @@ int write_so_to_dev(void)
         return -1;
     }
     ioctl(audio_utils_fd, AUDIO_UTILS_IOC_SET_LIB_SIZE, fsize);
-    ioctl(audio_utils_fd, AUDIO_UTILS_IOC_WRITE_LIB, buffer);
+    ret = ioctl(audio_utils_fd, AUDIO_UTILS_IOC_WRITE_LIB, buffer);
     close(audio_utils_fd);
 
+    if (ret < 0) {
+        ALOGE("%s wtite lib error=%d", __func__, ret);
+        goto exit;
+    }
+    b_dolby_written = true;
+exit:
     if (buffer) {
         free(buffer);
         buffer = NULL;
     }
     return 0;
+}
+
+
+void release_dolby_dev() {
+    int audio_utils_fd = 0;
+    if (!b_dolby_written) {
+        return;
+    }
+    audio_utils_fd = open(MID_DEV, O_RDONLY);
+    if (audio_utils_fd > 0) {
+        ALOGI("%s DEV(%s) release!\n", __func__, MID_DEV);
+        ioctl(audio_utils_fd, AUDIO_UTILS_IOC_FREE_LIB);
+        close(audio_utils_fd);
+    }
+    b_dolby_written = false;
+    return;
 }
 
 
