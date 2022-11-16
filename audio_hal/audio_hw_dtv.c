@@ -3589,19 +3589,40 @@ void aml_audio_flush_dtv_output(struct aml_stream_out *aml_out) {
     struct aml_audio_device *aml_dev = aml_out->dev;
     struct aml_audio_patch *patch = aml_dev->audio_patch;
 
-    if (is_aac_format(patch->aformat))  {
+    if (is_aac_format(patch->aformat)) {
+        patch->cur_package->size = 0;
         aml_heaac_parser_reset(patch->heaac_parser_handle);
         if (need_enable_dual_decoder(patch)) {
             patch->cur_package->ad_size = 0;
             aml_heaac_parser_reset(patch->ad_heaac_parser_handle);
+        } else {
+            patch->cur_package->size = 0;
         }
     } else {
-        //todo
+        patch->cur_package->size = 0;
     }
     if (aml_dev->dolby_lib_type == eDolbyMS12Lib) {
-        audiohal_send_msg_2_ms12(&aml_dev->ms12, MS12_MESG_TYPE_FLUSH);
+        if (!is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)) {
+           if (aml_out->aml_dec) {
+                aml_decoder_release(aml_out->aml_dec);
+                aml_out->aml_dec = NULL;
+            }
+        }
+
+        if (aml_dev->ms12.dual_decoder_support) {
+            dolby_ms12_flush_input_buffer();
+        } else {
+            dolby_ms12_flush_main_input_buffer();
+        }
+        aml_dev->ms12.dtv_decoder_offset_base = patch->decoder_offset;
     } else {
-        //todo
+        if (aml_out->aml_dec) {
+            aml_decoder_release(aml_out->aml_dec);
+            aml_out->aml_dec = NULL;
+        }
+    }
+    if (aml_out->resample_handle) {
+        aml_audio_resample_reset(aml_out->resample_handle);
     }
 }
 void *audio_dtv_patch_output_threadloop_v2(void *data)
@@ -3622,7 +3643,6 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
     clock_gettime(CLOCK_MONOTONIC, &package_get_ts);
     int64_t data_arrive_jitter_ms = 0;
     int64_t data_pts_jitter_ms = 0;
-
     ALOGI("[audiohal_kpi]++%s created.", __FUNCTION__);
     // FIXME: get actual configs
     stream_config.sample_rate = 48000;
@@ -3781,12 +3801,16 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
             if (aml_out->pcm) {
                 pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
                 if (status.state == PCM_STATE_XRUN) {
-                    ALOGI("es data arrive jitter %lld ms and underrun do fade and flush ", data_arrive_jitter_ms);
+                    ALOGI("es data arrive jitter %lld ms and underrun do fade ", data_arrive_jitter_ms);
                     set_ms12_main_audio_mute(&aml_dev->ms12, true, 0);
-                    aml_audio_flush_dtv_output(aml_out);
                 }
             }
+            if (data_pts_jitter_ms >= AUDIO_PTS_DISCONTINUE_THRESHOLD) {
+                ALOGI("es data pts jitter %lld ms and underrun do flush", data_pts_jitter_ms);
+                aml_audio_flush_dtv_output(aml_out);
+            }
         }
+
         patch->dtvsync->last_package_pts = patch->cur_package->pts;
 
 
