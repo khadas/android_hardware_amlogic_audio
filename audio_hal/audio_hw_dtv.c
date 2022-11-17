@@ -1421,7 +1421,8 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream_out;
     int ret = 0;
 
-    int consume_size = 0,remain_size = 0,ms12_threshold_size = 256;
+    int remain_size = 0,ms12_threshold_size = 256;
+    uint64_t consume_size = 0;
     char buff[32];
     int write_len, cur_frame_size = 0;
     unsigned long long all_pcm_len1 = 0;
@@ -1556,18 +1557,24 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
         ret = out_write_new(stream_out, patch->out_buf, ret);
 
         if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
-            int size = dolby_ms12_get_main_bytes_consumed(stream_out);
+            uint64_t size = dolby_ms12_get_main_bytes_consumed(stream_out);
             size  = size > ms12_threshold_size ? size - ms12_threshold_size : 0;
             dolby_ms12_get_pcm_output_size(&all_pcm_len2, &all_zero_len);
             if (is_bypass_dolbyms12(stream_out)) {
                 patch->decoder_offset += ret;
                 all_pcm_len2 = aml_out->frame_write_sum * AUDIO_IEC61937_FRAME_SIZE;
             } else {
-                patch->decoder_offset += size - consume_size;
+                if (size >= consume_size) {
+                    patch->decoder_offset += (size - consume_size);
+                } else {
+                    patch->decoder_offset += ret;
+                }
             }
             patch->outlen_after_last_validpts += (unsigned int)(all_pcm_len2 - all_pcm_len1);
-            if (aml_dev->debug_flag)
-               ALOGI("consume_size %d,size %d,ret %d,validpts %d patch->decoder_offset %" PRId64 "",consume_size,size,ret,patch->outlen_after_last_validpts,patch->decoder_offset);
+            if (aml_dev->debug_flag) {
+               ALOGI("consume_size %" PRId64 ",size %" PRId64 ",ret %d,validpts %d patch->decoder_offset %" PRId64 "",
+                   consume_size,size,ret,patch->outlen_after_last_validpts,patch->decoder_offset);
+            }
             patch->dtv_pcm_readed += ret;
         }
 
