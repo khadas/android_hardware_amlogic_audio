@@ -1892,7 +1892,11 @@ static int insert_output_bytes_direct (struct aml_stream_out *out, size_t size)
         once_write_size = insert_size > 8192 ? 8192 : insert_size;
         ret = pcm_write (out->pcm, insert_buf, once_write_size);
         if (ret < 0) {
-            ALOGE("%s pcm_write failed", __func__);
+            const char *err_str = pcm_get_error(out->pcm);
+            ALOGE("%s alsa write failed: %s", __func__, err_str);
+            /* if pcm is in suspend status, we should prepare then write */
+            if (strstr(err_str, "pipe") > 0)
+                pcm_ioctl(out->pcm, SNDRV_PCM_IOCTL_PREPARE);
             break;
         }
         insert_size -= once_write_size;

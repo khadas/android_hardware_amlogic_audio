@@ -306,7 +306,11 @@ static int aml_alsa_add_zero(struct aml_stream_out *stream, int size) {
         write_size = adjust_bytes > AML_ZERO_ADD_MIN_SIZE ? AML_ZERO_ADD_MIN_SIZE : adjust_bytes;
         ret = pcm_write(aml_out->pcm, (void*)buf, write_size);
         if (ret < 0) {
-            ALOGE("%s alsa write fail when insert", __func__);
+            const char *err_str = pcm_get_error(aml_out->pcm);
+            ALOGE("%s alsa write fail when insert, err=%s", __func__, err_str);
+            /* if pcm is in suspend status, we should prepare then write */
+            if (strstr(err_str, "pipe") > 0)
+                pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_PREPARE);
             break;
         }
         adjust_bytes -= write_size;
@@ -424,6 +428,13 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
         } else {
             //memset(audio_data, 0, need_drop_inject);
             ret = pcm_write(aml_out->pcm, audio_data + need_drop_inject, bytes - need_drop_inject);
+            if (ret < 0) {
+                const char *err_str = pcm_get_error(aml_out->pcm);
+                ALOGE("%s alsa write fail when drop, err=%s", __func__, err_str);
+                /* if pcm is in suspend status, we should prepare then write */
+                if (strstr(err_str, "pipe") > 0)
+                    pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_PREPARE);
+            }
             aml_out->dropped_size += bytes;
             cur_apts = first_apts + (aml_out->dropped_size * 90) / (48 * frame_size);
             adev->first_apts = cur_apts;
@@ -483,6 +494,13 @@ write:
             }
             ret = pcm_write(aml_out->pcm, audio_data + aml_out->need_drop_size,
                     bytes - aml_out->need_drop_size);
+            if (ret < 0) {
+                const char *err_str = pcm_get_error(aml_out->pcm);
+                ALOGE("%s alsa write fail when drop ac3, err=%s", __func__, err_str);
+                /* if pcm is in suspend status, we should prepare then write */
+                if (strstr(err_str, "pipe") > 0)
+                    pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_PREPARE);
+            }
             aml_out->need_drop_size = 0;
             ALOGI("drop finish\n");
             return bytes;
@@ -576,9 +594,13 @@ write:
 
     ret = pcm_write(aml_out->pcm, buffer, bytes);
     if (ret < 0) {
-        ALOGE("%s write failed,pcm handle %p %s, stream %p, %s",
-            __func__, aml_out->pcm, pcm_get_error(aml_out->pcm),
+        const char *err_str = pcm_get_error(aml_out->pcm);
+        ALOGE("%s write failed,pcm handle %p err=%s, stream %p, %s",
+            __func__, aml_out->pcm, err_str,
             aml_out, usecase2Str(aml_out->usecase));
+        /* if pcm is in suspend status, we should prepare then write */
+        if (strstr(err_str, "pipe") > 0)
+            pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_PREPARE);
     }
 
     return ret;
@@ -943,9 +965,17 @@ void aml_alsa_output_close_new(void *handle) {
 
 static size_t pcm_write_insert_zero(struct pcm *pcm, size_t bytes) {
     if (bytes != 0 && pcm != NULL) {
+        int ret = 0;
         void *zero = malloc(bytes);
         memset(zero, 0, bytes);
-        pcm_write(pcm, zero, bytes);
+        ret = pcm_write(pcm, zero, bytes);
+        if (ret < 0) {
+            const char *err_str = pcm_get_error(pcm);
+            ALOGE("%s alsa write fail when drop, err=%s", __func__, err_str);
+            /* if pcm is in suspend status, we should prepare then write */
+            if (strstr(err_str, "pipe") > 0)
+                pcm_ioctl(pcm, SNDRV_PCM_IOCTL_PREPARE);
+        }
         free(zero);
     }
     return 0;
@@ -1107,8 +1137,14 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
         check_audio_level(audio_type, buffer, bytes);
     }
 
-
     ret = pcm_write(alsa_handle->pcm, buffer, bytes);
+    if (ret < 0) {
+        const char *err_str = pcm_get_error(alsa_handle->pcm);
+        ALOGE("%s alsa write fail when drop, err=%s", __func__, err_str);
+        /* if pcm is in suspend status, we should prepare then write */
+        if (strstr(err_str, "pipe") > 0)
+            pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_PREPARE);
+    }
     return ret;
 }
 
