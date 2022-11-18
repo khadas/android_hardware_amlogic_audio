@@ -782,17 +782,26 @@ static int out_get_presentation_position_port(
         }
     }
 
-    if (adev->debug_flag) {
-        AM_LOGI("out %p %"PRIu64", sec = %ld, nanosec = %ld\n", out, *frames, timestamp->tv_sec, timestamp->tv_nsec);
+    {
+        if (adev->debug_flag)
+            AM_LOGI("out %p %"PRIu64", sec = %ld, nanosec = %ld\n", out, *frames, timestamp->tv_sec, timestamp->tv_nsec);
         int64_t  frame_diff_ms =  (*frames - out->last_frame_reported) * MSEC_PER_SEC / out->hal_rate;
         int64_t pre_time_nanos = (long long)out->last_timestamp_reported.tv_sec * NSEC_PER_SEC + (long long)out->last_timestamp_reported.tv_nsec;
         int64_t cur_time_nanos = (long long)timestamp->tv_sec * NSEC_PER_SEC + (long long)timestamp->tv_nsec;
+        int delay  = 0;
         if (cur_time_nanos < pre_time_nanos) {
             AM_LOGW("timestamp loopback. pre_time:%" PRId64 " ms, cur_time:%" PRId64 "ms", pre_time_nanos / NSEC_PER_MSEC, cur_time_nanos / NSEC_PER_MSEC);
         }
+
+
         int64_t system_time_ms = (cur_time_nanos - pre_time_nanos) / NSEC_PER_MSEC;
         int64_t jitter_diff = llabs(frame_diff_ms - system_time_ms);
-        if  (jitter_diff > JITTER_DURATION_MS) {
+        out->jitter_ms = jitter_diff;
+        if (audio_is_linear_pcm(out->hal_format) && audio_stream_out_frame_size(stream) && !out->hw_sync_mode) {
+            delay = out->input_bytes_size / audio_stream_out_frame_size(stream) - *frames;
+        }
+        out->audio_delay = delay;
+        if  (jitter_diff > JITTER_DURATION_MS && adev->debug_flag) {
             AM_LOGI("jitter out last pos info: %p %"PRIu64", sec:%ld, nanosec:%ld\n", out, out->last_frame_reported,
                 out->last_timestamp_reported.tv_sec, out->last_timestamp_reported.tv_nsec);
             AM_LOGI("jitter system time diff %"PRIu64" ms, position diff %"PRIu64" ms, jitter %"PRIu64" ms \n",
@@ -800,6 +809,7 @@ static int out_get_presentation_position_port(
         }
         out->last_frame_reported = *frames;
         out->last_timestamp_reported = *timestamp;
+        aml_stream_out_info_print(out);
     }
 
     return ret;
@@ -1106,7 +1116,6 @@ ssize_t mixer_main_buffer_write_sm (struct audio_stream_out *stream, const void 
     if (write_bytes > 0) {
         aml_out->input_bytes_size += write_bytes;
     }
-
     return bytes;
 }
 
@@ -1215,6 +1224,11 @@ exit:
     aml_out->lasttimestamp.tv_nsec = aml_out->timestamp.tv_nsec;
     pthread_mutex_unlock(&aml_out->apts_update_lock);
     AM_LOGV("frame write sum %" PRId64 "", aml_out->frame_write_sum);
+
+    if (bytes > 0) {
+        aml_out->input_bytes_size += bytes;
+    }
+
     return bytes;
 }
 

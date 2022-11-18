@@ -531,6 +531,7 @@ hdmiin_audio_packet_t get_hdmiin_audio_packet(struct aml_mixer_handle *mixer_han
 /* dumpsys media.audio_flinger interfaces */
 const char *audio_port_role_to_str(audio_port_role_t role);
 const char *audio_port_type_to_str(audio_port_type_t type);
+void aml_stream_out_info_print(struct aml_stream_out *aml_out);
 void aml_stream_out_dump(struct aml_stream_out *aml_out, int fd);
 void aml_audio_port_config_dump(struct audio_port_config *port_config, int fd);
 void aml_audio_patch_dump(struct audio_patch *patch, int fd);

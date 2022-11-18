@@ -121,6 +121,8 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 #define DTS_OFFLOAD_BUFFER_MAX_SIZE     (32768)
 #define OFFLOAD_BUFFER_SIZE_ALIGNMENT    (8)
 
+#define TIME_DIFF_THRESHOLD  (10)
+
 #ifdef USB_KARAOKE
 #ifndef AUDIO_SOURCE_KARAOKE_SPEAKER
 #define AUDIO_SOURCE_KARAOKE_SPEAKER 1001
@@ -796,6 +798,10 @@ struct aml_stream_out {
     uint32_t timer_id;
 
     pthread_mutex_t apts_update_lock; /*SWPL-88828: Make sure audio timestamps and frame positions are updated synchronously.*/
+    struct timespec last_info_timestamp;
+    struct timespec last_avsync_timestamp;
+    int64_t jitter_ms;
+    int     audio_delay;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

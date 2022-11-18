@@ -272,6 +272,26 @@ ssize_t header_extractor_write(struct hw_avsync_header_extractor *header_extract
                 memset(header_extractor->data, 0, HW_AVSYNC_FRAME_SIZE);
                 // accumulate the payload consumed
                 header_extractor->payload_offset += frame_size;
+                header_extractor->pts_gap  =  hwsync_header_get_apts(sync_header) - header_extractor->last_pts;
+                {
+                    struct timespec current_timestamp;
+                    clock_gettime(CLOCK_MONOTONIC, &current_timestamp);
+                    int64_t time_diff = calc_time_interval_us(&header_extractor->last_hwavsync_timestamp, &current_timestamp);
+                    if (time_diff >= (TIME_DIFF_THRESHOLD * USEC_PER_SEC) ||
+                        header_extractor->pts_gap / NSEC_PER_MSEC > 100 ||
+                        hwsync_header_get_apts(sync_header) <= header_extractor->last_pts) {
+                        ALOGI("[hwsync_extractor:%p]tunnel pcm time_diff[%"PRIu64"]us frame_body_size[%d]bytes pts_info[%"PRIu64" - %"PRIu64"]ms pts_gap[%"PRIu64"]ms",
+                            header_extractor,
+                            time_diff,
+                            frame_size,
+                            hwsync_header_get_apts(sync_header) / NSEC_PER_MSEC,
+                            header_extractor->last_pts / NSEC_PER_MSEC,
+                            header_extractor->pts_gap / NSEC_PER_MSEC);
+                        header_extractor->last_hwavsync_timestamp = current_timestamp;
+                    }
+                }
+
+                header_extractor->last_pts =  hwsync_header_get_apts(sync_header);
                 ALOGV("%s() filling header complete, framesize = %d, payload offset %" PRId64 "",
                         __func__, frame_size, header_extractor->payload_offset);
             }
@@ -332,6 +352,7 @@ new_hw_avsync_header_extractor(
     //ALOGV("header_extractor->tsync_fd = %d", header_extractor->tsync_fd);
     //if (header_extractor->tsync_fd < 0)
     //    ALOGE("%s(), fail to open tsync", __func__);
+    clock_gettime(CLOCK_MONOTONIC, &header_extractor->last_hwavsync_timestamp);
     return header_extractor;
 }
 

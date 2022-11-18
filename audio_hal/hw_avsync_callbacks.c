@@ -67,7 +67,7 @@ int on_meta_data_cbk(void *cookie,
     int ret = 0;
     uint64_t pcr = 0;
     int pcr_pts_gap = 0;
-
+    int insert_size = 0;
     int32_t tuning_latency = aml_audio_get_hwsync_latency_offset(false);
 
     if (!cookie || !header) {
@@ -204,9 +204,24 @@ int on_meta_data_cbk(void *cookie,
 
         ret = aml_hwsync_wrap_get_pts(out->hwsync, &pcr);
         pcr_pts_gap = ((int)(pts64 - pcr)) / 90;
-        if (abs(pcr_pts_gap) > 50) {
-            ALOGI("%s out:%p pcr =%" PRIu64 " pts =%" PRIu64 " diff =%d", __func__, out, pcr/90, pts64/90, pcr_pts_gap);
+
+        {
+            struct timespec current_timestamp;
+            clock_gettime(CLOCK_MONOTONIC, &current_timestamp);
+            int64_t time_diff = calc_time_interval_us(&out->last_avsync_timestamp, &current_timestamp);
+            if (time_diff >= (TIME_DIFF_THRESHOLD * USEC_PER_SEC)) {
+                ALOGI("[avsync, %p]tunnel pcm time_diff[%"PRIu64"]us status:%d start_pts[%"PRIu64"]ms, current_pts[%"PRIu64"]ms current_pcr[%"PRIu64"]ms diff[%d]ms",
+                    out->hwsync,
+                    time_diff,
+                    out->stream_status,
+                    out->hwsync->first_apts / 90,
+                    pts64 / 90,
+                    pcr / 90,
+                    pcr_pts_gap);
+                out->last_avsync_timestamp = current_timestamp;
+            }
         }
+
         if (abs(pcr_pts_gap) > (APTS_DISCONTINUE_THRESHOLD_MIN_35MS/90) && pts64 > pcr && pcr != 0) {
             bool amaster_mode = true;
             aml_hwsync_wrap_is_amaster(out->hwsync, &amaster_mode);
@@ -225,6 +240,17 @@ int on_meta_data_cbk(void *cookie,
             aml_hwsync_wrap_reset_pcrscr(out->hwsync, pts64);
             out->is_insert_0_data = false;
         }
+
+        if (abs(pcr_pts_gap) > 100) {
+            ALOGI("[avsync, %p] tunnel pcm pts[%"PRIu64"]ms pcr[%"PRIu64"]ms diff[%d]ms need_insert[%d]bytes",
+                out->hwsync,
+                pts64/90,
+                pcr/90,
+                pcr_pts_gap,
+                insert_size);
+        }
+
+
 
         return 0;
     }

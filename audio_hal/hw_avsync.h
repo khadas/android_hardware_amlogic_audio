@@ -58,6 +58,9 @@ struct hw_avsync_header_extractor {
     size_t sync_frame_written;
     bool is_reading_avsync_header;
     uint64_t payload_offset;
+    struct timespec last_hwavsync_timestamp;
+    uint64_t last_pts;
+    uint64_t pts_gap;
     //int tsync_fd;
 };
 
