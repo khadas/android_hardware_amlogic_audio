@@ -4005,32 +4005,41 @@ static int aml_audio_set_speaker_mute(struct aml_audio_device *adev, char *value
     return 0;
 }
 
-static void check_usb_card_device(struct str_parms *parms, int device)
+static int check_usb_card_device(struct str_parms *parms, int device)
 {
+    int ret = 0;
     if (parms == NULL) {
-        return;
+        return -1;
     }
+    const uint32_t USB_RETRY_TIMEOUT_MAX_CNT = 50;
+    const uint32_t USB_RETRY_TIME_MS = 20;
     /*usb audio hot plug need delay some time wait alsa file create */
     if ((device & AUDIO_DEVICE_OUT_ALL_USB) || (device & AUDIO_DEVICE_IN_ALL_USB)) {
-        int card = 0, alsa_dev = 0, val = 0, retry;
-        char fn[256];
-        int ret = str_parms_get_int(parms, "card", &val);
-        if (ret >= 0) {
-            card = val;
-        }
-        ret = str_parms_get_int(parms, "device", &val);
-        if (ret >= 0) {
-            alsa_dev = val;
-        }
-        snprintf(fn, sizeof(fn), "/dev/snd/pcmC%uD%u%c", card, alsa_dev,
+        int card = 0, alsa_dev = 0, retry = 0;
+        char device_node[256];
+
+        int ret = str_parms_get_int(parms, "card", &card);
+        R_CHECK_RET(ret, "get usb card index fail.");
+
+        ret = str_parms_get_int(parms, "device", &alsa_dev);
+        R_CHECK_RET(ret, "get usb device index fail.");
+
+        snprintf(device_node, sizeof(device_node), "/dev/snd/pcmC%uD%u%c", card, alsa_dev,
              device & AUDIO_DEVICE_OUT_ALL_USB ? 'p' : 'c');
-        for (retry = 0; access(fn, F_OK) < 0 && retry < 10; retry++) {
-            usleep (20000);
-        }
-        if (access(fn, F_OK) < 0 && retry >= 10) {
-            ALOGE("usb audio create alsa file time out,need check \n");
+        while (1) {
+            if (access(device_node, F_OK) < 0) {
+                if (retry++ >= USB_RETRY_TIMEOUT_MAX_CNT) {
+                    AM_LOGW("usb audio create alsa file time out:%d ms, need check", retry * USB_RETRY_TIME_MS);
+                    return -1;
+                }
+                usleep (USB_RETRY_TIME_MS * 1000);
+                AM_LOGI("Waiting for usb sound card to be ready. timeout:%d ms", retry * USB_RETRY_TIME_MS);
+            } else {
+                break;
+            }
         }
     }
+    return ret;
 }
 
 static void set_device_connect_state(struct aml_audio_device *adev, struct str_parms *parms, int device, bool state)
