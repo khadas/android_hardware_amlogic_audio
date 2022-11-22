@@ -15,11 +15,11 @@ typedef struct
     int    evtfd;
 } DVBDmx_t;
 
-class AmLinuxDvd : public RefBase {
+class AmLinuxDvb : public RefBase {
 
 public:
-    AmLinuxDvd();
-    ~AmLinuxDvd();
+    AmLinuxDvb();
+    ~AmLinuxDvb();
     AM_ErrorCode_t dvb_open(AM_DMX_Device *dev);
     AM_ErrorCode_t dvb_close(AM_DMX_Device *dev);
     AM_ErrorCode_t dvb_alloc_filter(AM_DMX_Device *dev, AM_DMX_Filter *filter);

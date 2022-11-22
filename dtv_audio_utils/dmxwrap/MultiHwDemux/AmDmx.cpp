@@ -19,7 +19,7 @@
 AM_DMX_Device::AM_DMX_Device(AmHwMultiDemuxWrapper* DemuxWrapper) :
     mDemuxWrapper (DemuxWrapper){
     ALOGI("AM_DMX_Device\n");
-    drv = new AmLinuxDvd;
+    drv = new AmLinuxDvb;
     //drv->dvr_open();
     open_count = 0;
     memset(&filters[0], 0, sizeof(struct AM_DMX_Filter)*DMX_FILTER_COUNT);

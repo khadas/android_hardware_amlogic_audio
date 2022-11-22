@@ -80,7 +80,7 @@ struct AM_DMX_Filter {
 	void			   *user_data; /**< 数据回调函数用户参数*/
 	bool to_be_stopped;
 };
-class AmLinuxDvd;
+class AmLinuxDvb;
 
 class AM_DMX_Device : public RefBase{
 
@@ -111,7 +111,7 @@ public:
 
 	AM_ErrorCode_t AM_DMX_WriteTs(uint8_t* data,int32_t size,uint64_t timeout);
 	int dev_no;      /**< 设备号*/
-	sp<AmLinuxDvd> drv;  /**< 设备驱动*/
+	sp<AmLinuxDvb> drv;  /**< 设备驱动*/
 	void *drv_data;/**< 驱动私有数据*/
 	AM_DMX_Filter filters[DMX_FILTER_COUNT];   /**< 设备中的Filter*/
 	AmHwMultiDemuxWrapper* mDemuxWrapper;
