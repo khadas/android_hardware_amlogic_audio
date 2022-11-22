@@ -556,6 +556,7 @@ static void ddp_decoder_config_prepare(struct audio_stream_out *stream, aml_dcv_
 
     adev->dcvlib_bypass_enable = 0;
     ddp_config->digital_raw = AML_DEC_CONTROL_CONVERT;
+    ddp_config->decoding_mode = DDP_DECODE_MODE_SINGLE;
 
 #ifdef ENABLE_DVB_PATCH
     aml_demux_audiopara_t *demux_info = NULL;
