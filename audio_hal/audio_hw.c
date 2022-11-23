@@ -3839,6 +3839,7 @@ static int aml_audio_outport_enable(struct aml_audio_device *adev, audio_devices
 {
     AM_LOGI("all: %#x, pre:%#x, %s device: %s", adev->out_device, adev->cur_out_devices,
             enable? "unmute" : "mute", audioDevType2Str(device));
+    bool bds = false;
     switch (device) {
     case AUDIO_DEVICE_OUT_EARPIECE:
         break;
@@ -3848,7 +3849,12 @@ static int aml_audio_outport_enable(struct aml_audio_device *adev, audio_devices
     case AUDIO_DEVICE_OUT_HDMI:
         adev->bHDMIConnected = enable;
         adev->bHDMIConnected_update = true;
-        aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_HDMI_OUT_AUDIO_MUTE, !enable);
+        bds = check_chip_name("t7", 2, &adev->alsa_mixer);
+        if (!bds) {
+            aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_HDMI_OUT_AUDIO_MUTE, !enable);
+        } else {
+            AM_LOGI("bds does not need control hdmitx device.");
+        }
         if (enable) {
             update_sink_format_after_hotplug(adev);
         } else {
