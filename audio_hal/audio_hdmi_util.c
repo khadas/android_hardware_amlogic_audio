@@ -282,6 +282,7 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
         ptr[1] = (unsigned int)hdmi_desc->EDID_length;
     }
 
+    i = 0;
     pt = strtok_r (value, "[], ", &tmp);
     while (pt != NULL) {
 
