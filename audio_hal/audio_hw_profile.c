@@ -1856,7 +1856,7 @@ char *strdup_tv_platform_cap_default(const char *keys, audio_format_t format)
     char ch_mask[512] = "sup_channels=";
     char sr[256] = "sup_sampling_rates=";
     char *cap = NULL;
-
+    struct aml_audio_device *adev = adev_get_handle();
     /* check the format cap */
     if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS)) {
         switch (format) {
@@ -1904,7 +1904,11 @@ char *strdup_tv_platform_cap_default(const char *keys, audio_format_t format)
         /* take the 2ch supported as default */
         switch (format) {
         case AUDIO_FORMAT_PCM_16_BIT:
-            strcat(ch_mask, "AUDIO_CHANNEL_OUT_STEREO");
+            if (eDolbyMS12Lib == adev->dolby_lib_type) {
+                strcat(ch_mask, "AUDIO_CHANNEL_OUT_STEREO,AUDIO_CHANNEL_OUT_5POINT1,AUDIO_CHANNEL_OUT_7POINT1");
+            } else {
+                strcat(ch_mask, "AUDIO_CHANNEL_OUT_STEREO");
+            }
             cap = strdup(ch_mask);
             break;
         case AUDIO_FORMAT_AC3:
