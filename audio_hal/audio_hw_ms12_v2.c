@@ -2329,8 +2329,8 @@ int dolby_truehd_bypass_process(struct audio_stream_out *stream, void *buffer, s
                  *      If it is not suitable, please report it.
                  */
                 spdif_config.rate = (4 * TRUEHD_OUTPUT_SAMPLE_RATE);
-                spdif_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
-                spdif_config.data_ch = 2;
+                spdif_config.channel_mask = AUDIO_CHANNEL_OUT_7POINT1;
+                spdif_config.data_ch = 8;
                 bitstream_out->sample_rate = spdif_config.rate;
                 ret = aml_audio_spdifout_open(&bitstream_out->spdifout_handle, &spdif_config);
                 if (ret != 0) {
@@ -2451,8 +2451,8 @@ int mat_bypass_process(struct audio_stream_out *stream, void *buffer, size_t byt
                  *      If it is not suitable, please report it.
                  */
                 spdif_config.rate = MAT_OUTPUT_SAMPLE_RATE;
-                spdif_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
-                spdif_config.data_ch = 2;
+                spdif_config.channel_mask = AUDIO_CHANNEL_OUT_7POINT1;
+                spdif_config.data_ch = 8;
                 bitstream_out->sample_rate = spdif_config.rate;
                 ret = aml_audio_spdifout_open(&bitstream_out->spdifout_handle, &spdif_config);
                 if (ret != 0) {
@@ -2888,7 +2888,7 @@ int mat_bitstream_output(void *buffer, void *priv_data, size_t size)
     }
 
     aml_audio_trace_int("aml_mat_bitstream_output", size);
-    ret = aml_ms12_spdif_output_new(stream_out, bitstream_out, output_format, output_format, 2, AUDIO_CHANNEL_OUT_STEREO, buffer, size);
+    ret = aml_ms12_spdif_output_new(stream_out, bitstream_out, output_format, output_format, 8, AUDIO_CHANNEL_OUT_7POINT1, buffer, size);
     aml_audio_trace_int("aml_mat_bitstream_output", 0);
 
 

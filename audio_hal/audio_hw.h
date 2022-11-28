@@ -596,6 +596,9 @@ struct aml_audio_device {
     /* board specific json configs */
     int hdmitx_src; /* HDMITX src select for TDM */
     bool spdif_independent;  /*spdif output can be independent with HDMI output*/
+    enum AML_SRC_TO_HDMITX hdmitx_multi_ch_src;
+    enum AML_SRC_TO_HDMITX hdmitx_hbr_src;
+    /* end of jason configs */
 };
 
 struct meta_data {

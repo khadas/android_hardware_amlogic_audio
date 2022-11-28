@@ -288,6 +288,7 @@ typedef enum aml_earc_channel_allocation {
  *tinymix "Spdif to HDMITX Select" list
  */
 enum AML_SRC_TO_HDMITX {
+    AML_NONE_TO_HDMITX = -1,
     AML_SPDIF_A_TO_HDMITX,
     AML_SPDIF_B_TO_HDMITX,
     AML_TDM_A_TO_HDMITX,

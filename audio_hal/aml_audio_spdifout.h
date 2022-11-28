@@ -35,7 +35,7 @@ int aml_audio_get_spdif_port(eMixerSpdif_Format spdif_format);
 int aml_audio_get_spdifa_port(void);
 void aml_audio_set_spdif_format(int spdif_port, eMixerSpdif_Format aml_spdif_format, struct aml_stream_out *stream);
 
-void aml_audio_select_spdif_to_hdmi(int spdif_select);
+void aml_audio_select_src_to_hdmi(enum AML_SRC_TO_HDMITX);
 
 int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config);
 

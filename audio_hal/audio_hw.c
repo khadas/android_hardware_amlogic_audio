@@ -3599,7 +3599,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 
     if (out->restore_hdmitx_selection) {
         /* switch back to spdifa when the dual stream is done */
-        aml_audio_select_spdif_to_hdmi(AML_SPDIF_A_TO_HDMITX);
+        aml_audio_select_src_to_hdmi(AML_SPDIF_A_TO_HDMITX);
         out->restore_hdmitx_selection = false;
     }
 
@@ -7903,7 +7903,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         get_sink_format(&aml_out->stream);
         if (!adev->is_TV || adev->is_BDS) {
             if (is_use_spdifb(aml_out)) {
-                aml_audio_select_spdif_to_hdmi(AML_SPDIF_B_TO_HDMITX);
+                aml_audio_select_src_to_hdmi(AML_SPDIF_B_TO_HDMITX);
                 aml_out->restore_hdmitx_selection = true;
             }
             aml_out->card = alsa_device_get_card_index();
@@ -9989,11 +9989,16 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 
     adev->insert_mute_flag = false;
     adev->hdmitx_src = -1;
+    adev->hdmitx_hbr_src = -1;
+    adev->hdmitx_multi_ch_src = -1;
     if (aml_audio_config_parser("/vendor/etc/aml_audio_config.json") == 0) {
         adev->hdmitx_src = aml_get_jason_int_value("HDMITX_Src_Select", -1);
         if (adev->hdmitx_src != -1) {
             adev->spdif_independent = true;
         }
+
+        adev->hdmitx_multi_ch_src = aml_get_jason_int_value("HDMITX_Multi_CH_Src_Select", -1);
+        adev->hdmitx_hbr_src = aml_get_jason_int_value("HDMITX_HBR_Src_Select", -1);
     }
 
     ALOGD("%s: exit", __func__);

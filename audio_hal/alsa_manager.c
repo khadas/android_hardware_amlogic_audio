@@ -875,9 +875,12 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
     }
     channels = audio_channel_count_from_out_mask(stream_config->config.channel_mask);
     rate     = stream_config->config.sample_rate;
-    get_hardware_config_parameters(config, format, adev->default_alsa_ch/*channels*/, rate, platform_is_tv,
+    if (audio_is_linear_pcm(format))
+        get_hardware_config_parameters(config, format, adev->default_alsa_ch, rate, platform_is_tv,
                 continuous_mode(adev), is_game_mode(adev));
-
+    else
+        get_hardware_config_parameters(config, format, channels, rate, platform_is_tv,
+                continuous_mode(adev), is_game_mode(adev));
     /*
      * when eARC output MAT, should increase the mat output buffer.
      */
