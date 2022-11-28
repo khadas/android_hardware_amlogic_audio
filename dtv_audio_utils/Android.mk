@@ -17,6 +17,7 @@ LOCAL_C_INCLUDES +=                      \
     $(LOCAL_PATH)/../utils/include \
     hardware/amlogic/media/amavutils/include/ \
     vendor/amlogic/common/external/dvb/include/am_adp \
+    vendor/amlogic/reference/external/dvb/include/am_adp \
     vendor/amlogic/common/mediahal_sdk/include 
 
 
