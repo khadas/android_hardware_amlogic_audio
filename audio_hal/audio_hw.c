@@ -3844,6 +3844,10 @@ static int aml_audio_outport_enable(struct aml_audio_device *adev, audio_devices
     case AUDIO_DEVICE_OUT_EARPIECE:
         break;
     case AUDIO_DEVICE_OUT_SPEAKER:
+        /* HdmiTx for bds products should follow the state of Speaker. */
+        if (check_chip_name("t7", 2, &adev->alsa_mixer)) {
+            aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_HDMI_OUT_AUDIO_MUTE, !enable);
+        }
         audio_route_apply_path(adev->ar, enable? "speaker" : "speaker_off");
         break;
     case AUDIO_DEVICE_OUT_HDMI:
