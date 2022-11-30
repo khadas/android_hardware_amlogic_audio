@@ -208,6 +208,12 @@ int on_meta_data_cbk(void *cookie,
             ALOGI("%s out:%p pcr =%" PRIu64 " pts =%" PRIu64 " diff =%d", __func__, out, pcr/90, pts64/90, pcr_pts_gap);
         }
         if (abs(pcr_pts_gap) > (APTS_DISCONTINUE_THRESHOLD_MIN_35MS/90) && pts64 > pcr && pcr != 0) {
+            bool amaster_mode = true;
+            aml_hwsync_wrap_is_amaster(out->hwsync, &amaster_mode);
+            if (!amaster_mode) {
+                ALOGE("%s not amaster mode", __func__);
+                return 0;
+            }
             int insert_size = 0;
             insert_size = pcr_pts_gap * 48 * 4;
             insert_size = insert_size & (~63);

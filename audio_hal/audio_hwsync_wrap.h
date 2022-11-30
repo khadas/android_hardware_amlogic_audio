@@ -51,6 +51,7 @@ bool check_support_mediasync(void);
 void* aml_hwsync_mediasync_create(void);
 
 int aml_audio_start_trigger(void *stream);
+void aml_hwsync_wrap_is_amaster(audio_hwsync_t *p_hwsync, bool *b_amaster);
 
 
 #endif
