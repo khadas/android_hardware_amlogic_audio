@@ -424,21 +424,28 @@ int check_chip_name(char *chip_name, unsigned int length,
 
     ret = property_get("ro.board.platform", buf, NULL);
     if (ret > 0) {
-        if (strncasecmp(buf, chip_name, length) == 0)
+        if (strncasecmp(buf, chip_name, length) == 0) {
             return true;
+        }
     }
 
     if (alsa_device_is_auge()) {
         unsigned int chip_id = 0;
         chip_id = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_AML_CHIP_ID);
-        if (chip_id > sizeof(aml_chip_name) / sizeof(aml_chip_name[0])) {
-            ALOGE("chip_id:%u out of array range\n", chip_id);
+        if (chip_id >= sizeof(aml_chip_name) / sizeof(aml_chip_name[0]) || chip_id < 0) {
+            AM_LOGW("chip_id:%d out of array range, return false", chip_id);
             return false;
         }
-        if (chip_id < sizeof(aml_chip_name) / sizeof(aml_chip_name[0]) && strncasecmp(aml_chip_name[chip_id], chip_name, length) == 0)
-            return true;
-        else
+        const char* cur_chip_name = aml_chip_name[chip_id];
+        if (cur_chip_name == NULL) {
+            AM_LOGW("cur chip name is null, chip_id:%d, return false", chip_id);
             return false;
+        }
+        if (strncasecmp(cur_chip_name, chip_name, length) == 0) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     return false;
