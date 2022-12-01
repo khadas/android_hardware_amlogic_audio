@@ -3357,6 +3357,9 @@ void *audio_dtv_patch_input_threadloop(void *data)
                                     nRet = Get_ADAudio_Es(demux_handle, &mAdEsData);
                                     if (nRet != AM_AUDIO_Dmx_SUCCESS) {
                                         ALOGV("Get_ADAudio_Es failed");
+                                        if (!dtv_package_is_empty(list)) {
+                                            continue;
+                                        }
                                     }
 
                                     if (mAdEsData == NULL) {
