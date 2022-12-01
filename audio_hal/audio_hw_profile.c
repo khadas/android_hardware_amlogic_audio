@@ -698,7 +698,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
         format = AUDIO_FORMAT_MAT;
     }
 
-    /*currently we treat MPEG-H subfomrat as MPEG-H*/
+    /*currently we treat MPEG-H subformat as MPEG-H*/
     if (format == AUDIO_FORMAT_MPEGH_BL_L3 ||
         format == AUDIO_FORMAT_MPEGH_BL_L4 ||
         format == AUDIO_FORMAT_MPEGH_LC_L3 ||
