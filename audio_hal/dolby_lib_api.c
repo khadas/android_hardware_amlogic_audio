@@ -69,7 +69,7 @@ static bool get_dev_audio_utils_node()
 
     fd = open(MID_DEV, O_RDONLY);
     if (fd < 0) {
-        ALOGI("DEV(%s) do not exit\n", MID_DEV);
+        ALOGE("DEV(%s) do not exit, Error opening because %s\n", MID_DEV, strerror(errno));
         ret = false;
     }
     else {
@@ -166,7 +166,7 @@ int write_so_to_dev(void)
 
     fsize = file_size(SOURCE_FILE);
     if (fsize < 0) {
-        ALOGE("%s line %d return -1!\n", __func__, __LINE__);
+        ALOGE("%s line %d fsize %d return -1!\n", __func__, __LINE__, fsize);
         return -1;
     }
 
@@ -178,7 +178,7 @@ int write_so_to_dev(void)
 
     source_file = open(SOURCE_FILE, O_RDONLY);
     if (source_file < 0) {
-        ALOGE("%s line %d open failed, return -1!\n", __func__, __LINE__);
+        ALOGE("%s line %d (%s) open failed because %s, return -1\n", __func__, __LINE__, SOURCE_FILE, strerror(errno));
         if (buffer) {
             free(buffer);
             buffer = NULL;
@@ -200,7 +200,7 @@ int write_so_to_dev(void)
 
     audio_utils_fd = open(MID_DEV, O_RDWR);
     if (audio_utils_fd < 0) {
-        ALOGE("can't open "MID_DEV"\n");
+        ALOGE("%s line %d (%s) open failed because %s\n", __func__, __LINE__, MID_DEV, strerror(errno));
         if (buffer) {
             free(buffer);
             buffer = NULL;
@@ -236,6 +236,10 @@ void release_dolby_dev() {
         ioctl(audio_utils_fd, AUDIO_UTILS_IOC_FREE_LIB);
         close(audio_utils_fd);
     }
+    else if (audio_utils_fd < 0) {
+        ALOGE("%s line %d (%s) open failed because %s\n", __func__, __LINE__, MID_DEV, strerror(errno));
+    }
+
     b_dolby_written = false;
     return;
 }
