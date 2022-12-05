@@ -475,7 +475,7 @@ void dtv_adjust_i2s_output_clock(struct aml_audio_patch* patch, int direct, int 
     if (direct == DIRECT_SPEED) {
         if (i2s_current_clock >= patch->dtv_default_i2s_clock) {
             if (i2s_current_clock - patch->dtv_default_i2s_clock >=
-                DEFAULT_DTV_OUTPUT_CLOCK) {
+                (patch->dtv_default_i2s_clock * DEFAULT_DTV_ADJUST_CLOCK_THRESHOLD / 100)) {
                 ALOGI("already > i2s_step_clk 1M,no need speed adjust\n");
                 return;
             }
@@ -489,7 +489,7 @@ void dtv_adjust_i2s_output_clock(struct aml_audio_patch* patch, int direct, int 
     } else if (direct == DIRECT_SLOW) {
         if (i2s_current_clock <= patch->dtv_default_i2s_clock) {
             if (patch->dtv_default_i2s_clock - i2s_current_clock >
-                DEFAULT_DTV_OUTPUT_CLOCK) {
+                (patch->dtv_default_i2s_clock * DEFAULT_DTV_ADJUST_CLOCK_THRESHOLD / 100)) {
                 ALOGI("already < 1M no need adjust slow, return\n");
                 return;
             }

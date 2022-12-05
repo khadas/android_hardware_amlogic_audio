@@ -88,6 +88,8 @@
 #define DTV_AUDIO_START_MUTE_MAX_THRESHOLD    (3 * 1000) //ms
 #define DTV_AUDIO_RETUNE_DEFAULT_THRESHOLD    (200)  //ms
 #define DTV_AUDIO_DROP_DEFAULT_THRESHOLD      (200)  //ms
+#define DEFAULT_DTV_ADJUST_CLOCK_THRESHOLD   (5) //percent
+
 
 
 //channel define
