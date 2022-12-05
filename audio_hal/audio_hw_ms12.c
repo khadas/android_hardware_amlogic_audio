@@ -758,6 +758,11 @@ static void set_dolby_ms12_downmix_mode(struct aml_audio_device *adev)
 
     dolby_ms12_set_downmix_modes(downmix_mode);
 }
+
+void set_dolby_ms12_main_speed(struct dolby_ms12_desc *ms12 __unused, double speed __unused) {
+    return;
+}
+
 /*
  *@brief get dolby ms12 prepared
  */

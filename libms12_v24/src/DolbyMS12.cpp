@@ -86,6 +86,9 @@ int (*FuncDolbyMS12MATEncoderProcess)(void *, const unsigned char *, int, const 
 int (*FuncDolbyMS12MATEncoderConfig)(void *, mat_enc_config_type_t, mat_enc_config_t *);
 /* MAT Encoder API End */
 
+int (*FuncDolbyMS12RegisterScaletempoCallback)(scaletempo_callback , void *);
+
+
 DolbyMS12::DolbyMS12() :
     mDolbyMS12LibHandle(NULL)
 {
@@ -345,6 +348,11 @@ int DolbyMS12::GetLibHandle(char *dolby_ms12_path)
     FunDolbMS12GetVersion = (char * (*)(void)) dlsym(mDolbyMS12LibHandle, "ms12_get_version");
     if (!FunDolbMS12GetVersion) {
         ALOGW("%s, dlsym FunDolbMS12GetVersion fail, ignore it as version difference\n", __FUNCTION__);
+    }
+
+    FuncDolbyMS12RegisterScaletempoCallback = (int (*)(scaletempo_callback , void *)) dlsym(mDolbyMS12LibHandle, "ms12_register_scaletempo_callback");
+    if (!FuncDolbyMS12RegisterScaletempoCallback) {
+        ALOGE("%s, dlsym ms12_output_register_output_callback fail\n", __FUNCTION__);
     }
 
     ALOGD("-%s() line %d get libdolbyms12 success!", __FUNCTION__, __LINE__);
@@ -1236,6 +1244,19 @@ int DolbyMS12::DolbyMS12AC4DecCheckThePgiIsPresent(int presentation_group_index)
     return ret;
 }
 
+int DolbyMS12::DolbyMS12RegisterScaletempoCallback(scaletempo_callback callback, void *priv_data)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12RegisterScaletempoCallback) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return -1;
+    }
+
+    ret = (*FuncDolbyMS12RegisterScaletempoCallback)(callback, priv_data);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
 
 /*--------------------------------------------------------------------------*/
 }   // namespace android

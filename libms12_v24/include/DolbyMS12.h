@@ -69,6 +69,7 @@ struct aml_audio_info{
 namespace android
 {
 typedef int (*output_callback)(void *buffer, void *priv, size_t size, void *);
+typedef int (*scaletempo_callback)(void *priv, void *info);
 
 class DolbyMS12
 {
@@ -228,6 +229,7 @@ public:
 
     virtual int DolbyMS12AC4DecCheckThePgiIsPresent(int presentation_group_index);
 
+    virtual int     DolbyMS12RegisterScaletempoCallback(scaletempo_callback callback, void *priv_data);
 
     // protected:
 

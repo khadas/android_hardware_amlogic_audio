@@ -90,7 +90,8 @@ include $(BUILD_PREBUILT)
         karaoke_manager.c \
         audio_usb_hal.c \
         aml_config_parser.c \
-        aml_config_data.c
+        aml_config_data.c \
+        aml_audio_scaletempo.c
 
     LOCAL_C_INCLUDES += \
         hardware/amlogic/audio/aml_speed/include \

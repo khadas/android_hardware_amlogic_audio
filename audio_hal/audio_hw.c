@@ -4609,6 +4609,17 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         goto exit;
     }
 
+    ret = str_parms_get_str(parms, "ms12_speed", value, sizeof(value));
+    if (ret >= 0) {
+        float speed = 0;
+        sscanf(value,"%f", &speed);
+        set_dolby_ms12_main_speed(&adev->ms12, (double)speed);
+        ALOGI("[%s] set ms12 speed =%f", __func__, speed);
+        goto exit;
+    }
+
+
+
 exit:
     str_parms_destroy (parms);
     /* always success to pass VTS */

@@ -307,6 +307,8 @@ void set_ms12_main_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute, unsigne
 
 audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format);
 
+void set_dolby_ms12_main_speed(struct dolby_ms12_desc *ms12, double speed);
+
 #endif //end of _AUDIO_HW_MS12_H_
 
 #else

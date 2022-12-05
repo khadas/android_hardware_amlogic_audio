@@ -174,6 +174,11 @@ int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_stat
 int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info);
 
 /*
+ *@brief an callback for ms12 speed process
+ */
+int ms12_scaletempo(void *priv_data, void *info);
+
+/*
  *@brief dolby ms12 open the main decoder
  */
 int dolby_ms12_main_open(struct audio_stream_out *stream);
@@ -362,5 +367,8 @@ void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, uint6
 void set_ms12_main_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute, unsigned int duration);
 
 audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format);
+
+void set_dolby_ms12_main_speed(struct dolby_ms12_desc *ms12, double speed);
+
 
 #endif //end of _AUDIO_HW_MS12_H_

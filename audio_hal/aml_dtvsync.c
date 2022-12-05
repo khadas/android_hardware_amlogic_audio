@@ -623,6 +623,40 @@ int aml_dtvsync_process_resample(struct audio_stream_out *stream,
     return 0;
 }
 
+
+int aml_dtvsync_ms12_process_resample(struct audio_stream_out *stream,
+                                struct dtvsync_audio_policy *p_policy)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct aml_audio_patch *patch = adev->audio_patch;
+    float speed = 0.0f;
+    int ret = -1;
+
+    if (p_policy->param2 != 0)
+        speed = ((float)(p_policy->param1)) / p_policy->param2;
+    else
+        ALOGI("Warning speed error\n");
+
+    ALOGI("new speed=%f,  output_speed=%f\n", speed, aml_out->output_speed);
+
+    if (speed != 1.0f) {
+
+        if (speed != aml_out->output_speed) {
+            ALOGI("aml_audio_set_output_speed set speed :%f --> %f.\n",
+                aml_out->output_speed, speed);
+            set_dolby_ms12_main_speed(&adev->ms12, (double)speed);
+            dolby_ms12_main_flush(stream);
+        }
+
+    } else {
+        set_dolby_ms12_main_speed(&adev->ms12, (double)speed);
+        dolby_ms12_main_flush(stream);
+    }
+    aml_out->output_speed = speed;
+    return 0;
+}
+
 dtvsync_process_res  aml_dtvsync_nonms12_process(struct audio_stream_out *stream, int duration, bool *speed_enabled)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
@@ -703,6 +737,10 @@ void aml_dtvsync_ms12_get_policy(struct audio_stream_out *stream)
     struct aml_audio_patch *patch = adev->audio_patch;
     struct mediasync_audio_policy m_audiopolicy;
     bool ret = true;
+    if (patch->dtvsync->apolicy.audiopolicy != DTVSYNC_AUDIO_UNKNOWN &&
+        patch->dtvsync->apolicy.audiopolicy != MEDIASYNC_AUDIO_DROP_PCM) {
+        return;
+    }
     memset(&m_audiopolicy, 0, sizeof(m_audiopolicy));
 
     do {
@@ -733,6 +771,7 @@ void aml_dtvsync_ms12_get_policy(struct audio_stream_out *stream)
     patch->dtvsync->apolicy.audiopolicy= (dtvsync_policy)m_audiopolicy.audiopolicy;
     patch->dtvsync->apolicy.param1 = m_audiopolicy.param1;
     patch->dtvsync->apolicy.param2 = m_audiopolicy.param2;
+
 }
 
 dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_dec_info_t *ms12_info)
@@ -744,7 +783,6 @@ dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_de
     struct aml_audio_patch *patch = adev->audio_patch;
     aml_dtvsync_t *aml_dtvsync = patch->dtvsync;
     struct dtvsync_audio_policy *async_policy = NULL;
-
     if (aml_dtvsync != NULL) {
         async_policy = &(aml_dtvsync->apolicy);
         if (async_policy->audiopolicy != MEDIASYNC_AUDIO_NORMAL_OUTPUT &&
@@ -753,7 +791,6 @@ dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_de
                 async_policy->param1, async_policy->param2);
 
         if (async_policy->audiopolicy == MEDIASYNC_AUDIO_DROP_PCM) {
-
             return DTVSYNC_AUDIO_DROP;
 
         } else if (async_policy->audiopolicy == MEDIASYNC_AUDIO_INSERT) {
@@ -777,7 +814,7 @@ dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_de
 
         } else if (async_policy->audiopolicy == MEDIASYNC_AUDIO_RESAMPLE) {
 
-            //aml_dtvsync_ms12_process_resample(stream, async_policy);
+            aml_dtvsync_ms12_process_resample(stream_out, async_policy);
 
         } else if (async_policy->audiopolicy == MEDIASYNC_AUDIO_MUTE) {
 

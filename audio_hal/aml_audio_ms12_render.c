@@ -64,11 +64,11 @@ int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
             ms12_latencyms = (ms12->ms12_main_input_size - inputnode_consumed) / aml_out->ddp_frame_size * 32 + (frames_generated - ms12->master_pcm_frames) / 48;
        }
     } else {
-        ms12_latencyms = ((ms12->ms12_main_input_size - inputnode_consumed ) / 4 + frames_generated - ms12->master_pcm_frames) / 48;
+        ms12_latencyms = ((ms12->ms12_main_input_size - inputnode_consumed ) / (4 * aml_out->output_speed) + frames_generated /aml_out->output_speed - ms12->master_pcm_frames) / 48;
     }
     if (adev->debug_flag)
-        ALOGI("ms12_latencyms %d  ms12_main_input_size %" PRId64 " inputnode_consumed %" PRId64 " frames_generated %" PRId64 " master_pcm_frames %" PRId64 "",
-        ms12_latencyms, ms12->ms12_main_input_size, inputnode_consumed,frames_generated, ms12->master_pcm_frames);
+        ALOGI("aml_out->output_speed %f ms12_latencyms %d  ms12_main_input_size %" PRId64 " inputnode_consumed %" PRId64 " frames_generated %" PRId64 " master_pcm_frames %" PRId64 "",
+        aml_out->output_speed, ms12_latencyms, ms12->ms12_main_input_size, inputnode_consumed,frames_generated, ms12->master_pcm_frames);
     return ms12_latencyms;
 
 }

@@ -54,6 +54,7 @@
 #include "aml_malloc_debug.h"
 #include "audio_hw_ms12_common.h"
 #include "aml_audio_report.h"
+#include "aml_audio_scaletempo.h"
 
 #define DOLBY_DRC_LINE_MODE 0
 #define DOLBY_DRC_RF_MODE   1
@@ -828,6 +829,13 @@ static void set_dolby_ms12_downmix_mode(struct aml_audio_device *adev)
     dolby_ms12_set_downmix_modes(downmix_mode);
 }
 
+
+void set_dolby_ms12_main_speed(struct dolby_ms12_desc *ms12, double speed) {
+    if (ms12 && ms12->scaletempo) {
+        hal_scaletempo_update_rate(ms12->scaletempo, speed);
+    }
+}
+
 void update_drc_parameter_when_output_config_changed(struct dolby_ms12_desc *ms12)
 {
     /*
@@ -1083,6 +1091,13 @@ int get_the_dolby_ms12_prepared(
     if (ms12->dolby_ms12_enable) {
         //register Dolby MS12 callback
         dolby_ms12_register_output_callback(ms12_output, (void *)out);
+        if ((adev->patch_src == SRC_DTV) && patch) {
+            if (ms12->scaletempo == NULL) {
+                hal_scaletempo_init((struct scale_tempo **)&ms12->scaletempo);
+            }
+            dolby_ms12_register_scaletempo_callback(ms12_scaletempo, (void *)out);
+        }
+
         ms12->device = usecase_device_adapter_with_ms12(out->device,AUDIO_FORMAT_PCM_16_BIT/* adev->sink_format*/);
         ALOGI("%s out [dual_output_flag %d] adev [format sink %#x optical %#x] ms12 [output-format %#x device %d]",
               __FUNCTION__, out->dual_output_flag, adev->sink_format, adev->optical_format, ms12->output_config, ms12->device);
@@ -1167,6 +1182,10 @@ int get_the_dolby_ms12_prepared(
      *          8: for mat encoder debug output
      */
     ms12->mat_enc_debug_enable = get_debug_value(AML_DEBUG_AUDIOHAL_MATENC);
+    if (aml_out->output_speed != 1.0) {
+        set_dolby_ms12_main_speed(&adev->ms12, (double)aml_out->output_speed);
+        ALOGI("%s(), aml_out->output_speed %f", __FUNCTION__,aml_out->output_speed);
+    }
     ALOGI("--%s(), locked", __FUNCTION__);
     pthread_mutex_unlock(&ms12->lock);
 
@@ -1988,6 +2007,12 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
         aml_audio_free(ms12->iec61937_ddp_buf);
         ms12->iec61937_ddp_buf = NULL;
     }
+    dolby_ms12_register_scaletempo_callback(NULL, NULL);
+    if (ms12->scaletempo) {
+        hal_scaletempo_release((struct scale_tempo *)ms12->scaletempo);
+        ms12->scaletempo = NULL;
+    }
+
     /*because we are still in lock, we can set continuous_audio_mode here safely*/
     if (set_non_continuous) {
         adev->continuous_audio_mode = 0;
@@ -3329,6 +3354,30 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     return ret;
 }
 
+/*
+ * data type: 32bit float little-endian non-interleaved
+ * data type: 32bit float little-endian non-interleaved
+ */
+int ms12_scaletempo(void *priv_data, void *info) {
+    if (priv_data == NULL || info == NULL) {
+        return -1;
+    }
+
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+
+    if (ms12->scaletempo == NULL) {
+        ALOGE("%s %d: error parameters ", __func__, __LINE__);
+        return -1;
+    }
+
+    hal_scaletempo_process(ms12->scaletempo, (aml_scaletempo_info_t *)info);
+
+    return 0;
+}
+
+
 static void *dolby_ms12_threadloop(void *data)
 {
     ALOGI("+%s() ", __FUNCTION__);
@@ -3509,6 +3558,12 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream) {
     ms12->main_buffer_min_level = 0xFFFFFFFF;
     ms12->main_buffer_max_level = 0;
     ms12->last_frames_position = 0;
+
+    if (!is_ms12_continuous_mode(adev)) {
+        ms12->ms12_main_input_size = 0;
+        ms12->master_pcm_frames = 0;
+    }
+
     ms12->last_ms12_pcm_out_position = 0;
     adev->ms12.ms12_position_update = false;
     adev->ms12.main_input_start_offset_ns = 0;
