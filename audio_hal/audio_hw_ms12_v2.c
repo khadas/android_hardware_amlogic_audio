@@ -3139,6 +3139,33 @@ int dolby_ms12_get_latency(audio_format_t output_format, int pcm_type)
 }
 
 #ifdef ENABLE_DVB_PATCH
+static audio_format_t correct_the_output_format_for_only_dolby_truehd(audio_format_t out_format)
+{
+    /* for dolby truehd case, we don't support mat, only support ddp*/
+    if (out_format == AUDIO_FORMAT_DOLBY_TRUEHD) {
+        return AUDIO_FORMAT_E_AC3;
+    } else {
+        return out_format;
+    }
+}
+
+static int correct_the_duration_by_align_the_mat_frame_header(char *data, size_t len)
+{
+    if (data && (len > 4)) {
+        /* if it is the sync word of MAT, it means the beginning of MAT*/
+        if ((data[0] == 0x7) && (data[1] == 0x9e) && (data[2] == 0x0) && (data[3] == 0x4)) {
+            return MILLISECOND_2_PTS * 20;/* ms12 output every mat frame duration is 20ms*/
+        }
+        else {
+            return 0;
+        }
+    }
+    else {
+        ALOGE("%s line %d error: data %p len %d.", __func__, __LINE__, data, len);
+        return 0;
+    }
+}
+
 void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_info_t *ms12_info, void *buffer, size_t size)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
@@ -3151,6 +3178,7 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
     unsigned int main_apts_low32b = (ms12_info) ? ms12_info->main_apts_low32b : 0;
     unsigned int main1_apts_high32b = (ms12_info) ? ms12_info->main1_apts_high32b : 0;
     unsigned int main1_apts_low32b = (ms12_info) ? ms12_info->main1_apts_low32b : 0;
+    audio_format_t master_audio_format = correct_the_output_format_for_only_dolby_truehd(adev->sink_format);
 
     if (ms12_info && adev->debug_flag) {
         if (main_apts_high32b || main_apts_low32b) {
@@ -3163,15 +3191,16 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
         }
     }
 
-    if (patch && patch->dtvsync && (adev->sink_format == output_format) && !ms12->is_bypass_ms12) {
+    if (patch && patch->dtvsync && (master_audio_format == output_format) && !ms12->is_bypass_ms12) {
         aml_dtvsync = patch->dtvsync;
         /* main apts from dolby ms12 lib */
         uint64_t ms12_main_apts = (((uint64_t)main_apts_high32b << 32) + (uint64_t)main_apts_low32b);
         int ch_num = ms12_info->output_ch ? ms12_info->output_ch : 2;
         int sample_rate = ms12_info->output_sr ? ms12_info->output_sr : 48000;
         size_t cur_pcm_pts = size * 90000 / (2 * ch_num) / sample_rate;
-        if (output_format == AUDIO_FORMAT_MAT)
-            cur_pcm_pts = MILLISECOND_2_PTS * 20;/*ms12 output every mat frame duration is 20ms*/
+        if (output_format == AUDIO_FORMAT_MAT) {
+            cur_pcm_pts = correct_the_duration_by_align_the_mat_frame_header((char *)buffer, size);
+        }
         else if ((output_format == AUDIO_FORMAT_AC3) || (output_format == AUDIO_FORMAT_E_AC3))
             cur_pcm_pts = MILLISECOND_2_PTS * 32;/*ms12 output every ac3/eac3 frame duration is 32ms*/
 
