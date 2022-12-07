@@ -4019,6 +4019,9 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
         check_usb_card_device(parms, device);
         if (audio_is_output_device(device)) {
             if ((device & AUDIO_DEVICE_OUT_HDMI_ARC) || (device & AUDIO_DEVICE_OUT_HDMI)) {
+                adev->bHDMIConnected = 1;
+                adev->bHDMIConnected_update = 1;
+                memset(adev->last_arc_hdmi_array, 0, EDID_ARRAY_MAX_LEN);
             } else if (device & AUDIO_DEVICE_OUT_ALL_A2DP) {
                 a2dp_out_open(adev);
                 adev->out_device |= device;
@@ -4031,6 +4034,9 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
     } else {
         if (audio_is_output_device(device)) {
             if ((device & AUDIO_DEVICE_OUT_HDMI_ARC) || (device & AUDIO_DEVICE_OUT_HDMI)) {
+                adev->bHDMIConnected = 0;
+                adev->bHDMIConnected_update = 1;
+                memset(adev->last_arc_hdmi_array,0,EDID_ARRAY_MAX_LEN);
             } else if (device & AUDIO_DEVICE_OUT_ALL_A2DP) {
                 adev->out_device &= (~device);
                 a2dp_out_close(adev);
