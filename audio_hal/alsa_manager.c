@@ -893,9 +893,7 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
     else
         get_hardware_config_parameters(config, format, channels, rate, platform_is_tv,
                 continuous_mode(adev), is_game_mode(adev));
-    /*
-     * when eARC output MAT, should increase the mat output buffer.
-     */
+    /*when eARC output MAT, should increase the mat output buffer.*/
     if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0 && (format == AUDIO_FORMAT_MAT || format == AUDIO_FORMAT_DOLBY_TRUEHD)) {
         config->period_count *= 2;
     }

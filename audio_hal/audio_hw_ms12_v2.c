@@ -2333,10 +2333,12 @@ int dolby_truehd_bypass_process(struct audio_stream_out *stream, void *buffer, s
             else {
                 ms12->matenc_maxoutbufsize *= 4;
                 ALOGD("%s matenc_maxoutbufsize %d\n", __func__, ms12->matenc_maxoutbufsize);
-                ms12->mat_enc_out_buffer = (char *)aml_audio_malloc(ms12->matenc_maxoutbufsize);
                 if (!ms12->mat_enc_out_buffer) {
-                    ALOGE("%s ms12->mat_enc_out_buffer malloc failed\n", __func__);
-                    return ret;
+                    ms12->mat_enc_out_buffer = (char *)aml_audio_malloc(ms12->matenc_maxoutbufsize);
+                    if (!ms12->mat_enc_out_buffer) {
+                        ALOGE("%s ms12->mat_enc_out_buffer malloc failed\n", __func__);
+                        return ret;
+                    }
                 }
             }
         }
@@ -2412,6 +2414,17 @@ int dolby_truehd_bypass_process(struct audio_stream_out *stream, void *buffer, s
                 if (ms12->mat_enc_debug_enable) {
                     ALOGI("mat_encoder_process error %d bytes %zu offset %d nbytes_consumed %d mat_enc_out_bytes %d\n",
                         ret, bytes, offset, nbytes_consumed, ms12->mat_enc_out_bytes);
+                }
+
+                if (ret) {
+                    ALOGE("mat_encoder_process error %d bytes %d offset %d nbytes_consumed %d mat_enc_out_bytes %d\n",
+                        ret, bytes, offset, nbytes_consumed, ms12->mat_enc_out_bytes);
+                    /* try to re-init the mat encoder */
+                    if (ms12->mat_enc_handle) {
+                        dolby_ms12_mat_encoder_cleanup(ms12->mat_enc_handle);
+                        ms12->mat_enc_handle = NULL;
+                    }
+                    break;
                 }
                 /* update the offset with the nbytes_consumed */
                 offset += nbytes_consumed;
