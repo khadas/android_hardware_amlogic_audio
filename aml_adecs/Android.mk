@@ -31,7 +31,9 @@ LOCAL_C_INCLUDES := \
    $(LOCAL_PATH)/../aml_resampler/include \
    $(LOCAL_PATH)/../aml_speed/include \
    $(LOCAL_PATH)/../audio_hal \
-   $(LOCAL_PATH)/../aml_parser/include
+   $(LOCAL_PATH)/../aml_parser/include \
+   $(LOCAL_PATH)/../utils/cJSON
+
 
 #add dolby ms12support
     LOCAL_CFLAGS += -DDOLBY_MS12_ENABLE

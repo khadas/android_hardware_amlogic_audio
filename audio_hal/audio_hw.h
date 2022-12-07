@@ -61,6 +61,7 @@
 #include "audio_format_parse.h"
 #include "audio_usb_hal.h"
 #include "aml_audio_timer.h"
+#include "aml_config_data.h"
 
 
 /* number of frames per period */
@@ -557,13 +558,7 @@ struct aml_audio_device {
     /* display audio format on UI, both streaming and hdmiin*/
     audio_hal_info_t audio_hal_info;
     bool is_ms12_tuning_dat; /* a flag to determine the MS12 tuning data file is existing */
-    /*
-    defined for default speaker output channels:
-    stb: default 2 channels.
-    tv:  default 8 channels(2ch speaker,2ch spdif,2ch headphone)
-    soundbar:depending on the prop defined by device
-    */
-    int  default_alsa_ch;
+
     struct volume_ease volume_ease;
     float last_sink_gain;
     struct usb_audio_device usb_audio;
@@ -596,13 +591,10 @@ struct aml_audio_device {
     int continuous_audio_mode_backup;
     bool aml_truehd_passthrough_support;  /*whether dolby truehd passthrough can be supported*/
 
-    /* board specific json configs */
-    int hdmitx_src; /* HDMITX src select for TDM */
-    bool spdif_independent;  /*spdif output can be independent with HDMI output*/
-    enum AML_SRC_TO_HDMITX hdmitx_multi_ch_src;
-    enum AML_SRC_TO_HDMITX hdmitx_hbr_src;
-    /* end of jason configs */
     bool frame_write_sum_updated;
+
+    /* board specific json configs */
+    struct audio_board_config board_config;
 };
 
 struct meta_data {

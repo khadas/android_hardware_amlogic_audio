@@ -16,13 +16,31 @@
 #ifndef _AML_CONFIG_DATA_H_
 #define _AML_CONFIG_DATA_H_
 
-#include <cJSON.h>
 #include <stdbool.h>
+#include <aml_alsa_mixer.h>
 
 #include "aml_config_parser.h"
+
+/* board specific json configs */
+struct audio_board_config {
+    int hdmitx_src; /* HDMITX src select for TDM */
+    bool spdif_independent;  /*spdif output can be independent with HDMI output*/
+    enum AML_SRC_TO_HDMITX hdmitx_multi_ch_src;
+    enum AML_SRC_TO_HDMITX hdmitx_hbr_src;
+    /*
+    defined for default speaker output channels:
+    stb: default 2 channels.
+    tv:  default 8 channels(2ch speaker,2ch spdif,2ch headphone)
+    soundbar:depending on the prop defined by device
+    */
+    int default_alsa_ch;
+    int ms12_output_mask;
+    int DTS_output_ch;
+};
 
 int aml_audio_config_parser();
 int aml_get_jason_int_value(char* key,int defvalue);
 bool aml_get_codec_support(char* aformat);
+void aml_audio_board_config_init(struct audio_board_config *config);
 
 #endif

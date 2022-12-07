@@ -451,11 +451,17 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 }
 
                 aml_hw_mixer_mixing(&adev->hw_mixer, dec_data, pcm_len, output_format);
-                if (audio_hal_data_processing(stream, dec_data, pcm_len, &output_buffer, &output_buffer_bytes, output_format) == 0) {
-                    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
-                        check_audio_level("after process", output_buffer, output_buffer_bytes);
+                if (dec_pcm_data->data_ch == 2) {
+                    if (audio_hal_data_processing(stream, dec_data, pcm_len, &output_buffer, &output_buffer_bytes, output_format) == 0) {
+                        if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+                            check_audio_level("after process", output_buffer, output_buffer_bytes);
+                        }
+                        hw_write(stream, output_buffer, output_buffer_bytes, output_format);
                     }
-                    hw_write(stream, output_buffer, output_buffer_bytes, output_format);
+                } else {
+                    if (audio_hal_data_processing_ms12v2(stream, dec_data, pcm_len, &output_buffer, &output_buffer_bytes, output_format, dec_pcm_data->data_ch) == 0) {
+                        hw_write(stream, output_buffer, output_buffer_bytes, output_format);
+                    }
                 }
             }
 
@@ -692,6 +698,7 @@ int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t f
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_audio_patch *patch = adev->audio_patch;
+    struct audio_board_config *bd_config = &adev->board_config;
 
 #ifdef ENABLE_DVB_PATCH
     aml_demux_audiopara_t *demux_info = NULL;
@@ -718,10 +725,14 @@ int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t f
         break;
     }
     case AUDIO_FORMAT_DTS: {
+        if (bd_config->DTS_output_ch)
+            dca_set_out_ch_internal(bd_config->DTS_output_ch);
         dts_decoder_config_prepare(stream, &dec_config->dca_config);
     }
     case AUDIO_FORMAT_DTS_HD: {
         if (adev->dts_decode_enable) {
+            if (bd_config->DTS_output_ch)
+                dca_set_out_ch_internal(bd_config->DTS_output_ch);
             dts_decoder_config_prepare(stream, &dec_config->dca_config);
         } else {
             iec_decoder_config_prepare(stream, &dec_config->iec_config);

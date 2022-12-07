@@ -22,6 +22,8 @@
 #include <cutils/log.h>
 #include <string.h>
 #include <hardware/audio.h>
+#include <audio_hw_utils.h>
+
 #include "aml_config_data.h"
 
 
@@ -90,3 +92,31 @@ bool aml_get_codec_support(char* aformat)
     }
     return false;
 }
+
+void aml_audio_board_config_init(struct audio_board_config *config)
+{
+    config->hdmitx_src = -1;
+    config->hdmitx_hbr_src = -1;
+    config->hdmitx_multi_ch_src = -1;
+
+#if defined(TV_AUDIO_OUTPUT)
+    config->default_alsa_ch =  aml_audio_get_default_alsa_output_ch();
+#else
+    /* for stb/ott, fixed 2 channels speaker output for alsa*/
+    config->default_alsa_ch = 2;
+#endif
+
+    if (aml_audio_config_parser() == 0) {
+        config->hdmitx_src = aml_get_jason_int_value("HDMITX_Src_Select", -1);
+        if (config->hdmitx_src != -1) {
+            config->spdif_independent = true;
+        }
+
+        config->hdmitx_multi_ch_src = aml_get_jason_int_value("HDMITX_Multi_CH_Src_Select", -1);
+        config->hdmitx_hbr_src = aml_get_jason_int_value("HDMITX_HBR_Src_Select", -1);
+        config->default_alsa_ch = aml_get_jason_int_value("ALSA_Speaker_Channels", config->default_alsa_ch);
+        config->ms12_output_mask = aml_get_jason_int_value("MS12_Output_Masks", 0);
+        config->DTS_output_ch = aml_get_jason_int_value("DTS_Output_Channels", 0);
+    }
+}
+

@@ -39,6 +39,7 @@ cc_library_shared {
         "hardware/amlogic/audio/aml_parser/include",
         "hardware/amlogic/audio/aml_speed/include",
         "hardware/amlogic/audio/utils/include",
+        "hardware/amlogic/audio/utils/cJSON",
     ],
     local_include_dirs: [
         "hidraw",

@@ -3507,11 +3507,13 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
      * guaranteed to be called after an output stream is opened.
      */
     if (adev->is_TV) {
+        struct audio_board_config *bd_config = &adev->board_config;
+
         out->is_tv_platform = 1;
-        out->config.channels = adev->default_alsa_ch;
+        out->config.channels = bd_config->default_alsa_ch;
         out->config.format = PCM_FORMAT_S32_LE;
 
-        out->tmp_buffer_8ch_size = out->config.period_size * 4 * adev->default_alsa_ch;
+        out->tmp_buffer_8ch_size = out->config.period_size * 4 * bd_config->default_alsa_ch;
         out->tmp_buffer_8ch = aml_audio_malloc(out->tmp_buffer_8ch_size);
         if (!out->tmp_buffer_8ch) {
             ALOGE("%s: alloc tmp_buffer_8ch failed", __func__);
@@ -5597,6 +5599,7 @@ ssize_t audio_hal_data_processing_ms12v2(struct audio_stream_out *stream,
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
+    struct audio_board_config *bd_config = &adev->board_config;
     /* TODO  support 24/32 bit sample */
     int out_frames = bytes / (nchannels * 2); /* input is nchannels 16 bit */
     size_t i;
@@ -5640,23 +5643,23 @@ ssize_t audio_hal_data_processing_ms12v2(struct audio_stream_out *stream,
 
             /* nchannels 32 bit --> 8 channel 32 bit mapping */
             ret = aml_audio_check_and_realloc((void **)&aml_out->tmp_buffer_8ch, &aml_out->tmp_buffer_8ch_size,
-                    out_frames * 4 * adev->default_alsa_ch);
-            R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%zu fail", out_frames * 4 * adev->default_alsa_ch);
+                    out_frames * 4 * bd_config->default_alsa_ch);
+            R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%zu fail", out_frames * 4 * bd_config->default_alsa_ch);
 
             for (i = 0; i < out_frames; i++) {
                 for (j = 0; j < nchannels; j++) {
-                    aml_out->tmp_buffer_8ch[adev->default_alsa_ch * i + j] = adev->out_32_buf[nchannels * i + j];
+                    aml_out->tmp_buffer_8ch[bd_config->default_alsa_ch * i + j] = adev->out_32_buf[nchannels * i + j];
                 }
-                for(j = nchannels; j < adev->default_alsa_ch; j++) {
-                    aml_out->tmp_buffer_8ch[adev->default_alsa_ch * i + j] = 0;
+                for (j = nchannels; j < bd_config->default_alsa_ch; j++) {
+                    aml_out->tmp_buffer_8ch[bd_config->default_alsa_ch * i + j] = 0;
                 }
             }
             *output_buffer = aml_out->tmp_buffer_8ch;
-            *output_buffer_bytes = out_frames * 4 * adev->default_alsa_ch; /* from nchannels 32 bit to 8 ch 32 bit */
+            *output_buffer_bytes = out_frames * 4 * bd_config->default_alsa_ch; /* from nchannels 32 bit to 8 ch 32 bit */
             if (enable_dump) {
                 FILE *fp1 = fopen("/data/vendor/audiohal/ms12_out_10_spk.pcm", "a+");
                 if (fp1) {
-                    int flen = fwrite((char *)aml_out->tmp_buffer_8ch, 1, out_frames * 4 * adev->default_alsa_ch, fp1);
+                    int flen = fwrite((char *)aml_out->tmp_buffer_8ch, 1, out_frames * 4 * bd_config->default_alsa_ch, fp1);
                     fclose(fp1);
                 }
             }
@@ -5748,17 +5751,20 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         *output_buffer_bytes = FRAMESIZE_32BIT_8ch * out_frames;
     } else {
         if (aml_out->is_tv_platform == 1) {
+            struct audio_board_config *bd_config = &adev->board_config;
+            aml_audio_out_dev_type_e num_dev = bd_config->default_alsa_ch / 2;
+
             ret = aml_audio_check_and_realloc((void **)&adev->out_16_buf, &adev->out_16_buf_size, buffer_need_size);
             R_CHECK_RET(ret, "alloc out_16_buf size:%zu fail", bytes);
 
             ret = aml_audio_check_and_realloc((void **)&adev->out_32_buf, &adev->out_32_buf_size, 2 * buffer_need_size);
             R_CHECK_RET(ret, "alloc out_32_buf size:%zu fail", 2 * bytes);
 
-            /* 2 ch 16 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
-            ret = aml_audio_check_and_realloc((void **)&aml_out->tmp_buffer_8ch, &aml_out->tmp_buffer_8ch_size, 8 * buffer_need_size);
-            R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%zu fail", 8 * bytes);
+            /* 2 ch 16 bit --> x ch 32 bit mapping, need x*size of input buffer size */
+            ret = aml_audio_check_and_realloc((void **)&aml_out->tmp_buffer_8ch, &aml_out->tmp_buffer_8ch_size, bd_config->default_alsa_ch * buffer_need_size);
+            R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%zu fail", bd_config->default_alsa_ch * bytes);
 
-            for (int dev = AML_AUDIO_OUT_DEV_TYPE_SPEAKER; dev < AML_AUDIO_OUT_DEV_TYPE_BUTT; dev++) {
+            for (int dev = AML_AUDIO_OUT_DEV_TYPE_SPEAKER; dev < num_dev; dev++) {
                 memcpy(adev->out_16_buf, buffer, bytes);
                 float volume = aml_audio_get_s_gain_by_src(adev, adev->patch_src);
 
@@ -5840,12 +5846,12 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 }
 
                 for (j = 0; j < out_frames; j++) {
-                    aml_out->tmp_buffer_8ch[8 * j + 2 * alsa_out_ch_mask[auge_chip][dev]]      = adev->out_32_buf[2 * j];
-                    aml_out->tmp_buffer_8ch[8 * j + 2 * alsa_out_ch_mask[auge_chip][dev] + 1]  = adev->out_32_buf[2 * j + 1];
+                    aml_out->tmp_buffer_8ch[bd_config->default_alsa_ch * j + 2 * alsa_out_ch_mask[auge_chip][dev]]      = adev->out_32_buf[2 * j];
+                    aml_out->tmp_buffer_8ch[bd_config->default_alsa_ch * j + 2 * alsa_out_ch_mask[auge_chip][dev] + 1]  = adev->out_32_buf[2 * j + 1];
                 }
             }
             *output_buffer = aml_out->tmp_buffer_8ch;
-            *output_buffer_bytes = 8 * bytes;
+            *output_buffer_bytes = bd_config->default_alsa_ch * bytes;
             /* use original information */
             if (is_include_sco_out_port(adev->cur_out_devices)) {
                 *output_buffer =(void *)buffer;
@@ -5906,7 +5912,9 @@ ssize_t hw_write (struct audio_stream_out *stream
     int  alsa_port = -1;
 
     if (adev->is_TV && audio_is_linear_pcm(output_format)) {
-        ch = adev->default_alsa_ch;
+        struct audio_board_config *bd_config = &adev->board_config;
+
+        ch = bd_config->default_alsa_ch;
         bytes_per_sample = 4;
         in_data_config.channel_mask = AUDIO_CHANNEL_OUT_7POINT1;
         in_data_config.format = AUDIO_FORMAT_PCM_32_BIT;
@@ -10100,13 +10108,10 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->is_TV = true;
     /* by default, BDS will share the same audio feature as TV */
     adev->is_BDS = /*check_chip_name("t7", 2, &adev->alsa_mixer) ? true : */false;
-    adev->default_alsa_ch =  aml_audio_get_default_alsa_output_ch();
     /*Now SoundBar type is depending on TV audio as only tv support multi-channel LPCM output*/
     adev->is_SBR = aml_audio_check_sbr_product();
     ALOGI("%s(), TV platform,soundbar platform %d", __func__,adev->is_SBR);
 #else
-    /* for stb/ott, fixed 2 channels speaker output for alsa*/
-    adev->default_alsa_ch = 2;
     adev->is_STB = property_get_bool("ro.vendor.platform.is.stb", false);
     ALOGI("%s(), OTT platform", __func__);
 #endif
@@ -10184,18 +10189,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     pthread_mutex_unlock(&adev_mutex);
 
     adev->insert_mute_flag = false;
-    adev->hdmitx_src = -1;
-    adev->hdmitx_hbr_src = -1;
-    adev->hdmitx_multi_ch_src = -1;
-    if (aml_audio_config_parser("/vendor/etc/aml_audio_config.json") == 0) {
-        adev->hdmitx_src = aml_get_jason_int_value("HDMITX_Src_Select", -1);
-        if (adev->hdmitx_src != -1) {
-            adev->spdif_independent = true;
-        }
-
-        adev->hdmitx_multi_ch_src = aml_get_jason_int_value("HDMITX_Multi_CH_Src_Select", -1);
-        adev->hdmitx_hbr_src = aml_get_jason_int_value("HDMITX_HBR_Src_Select", -1);
-    }
+    aml_audio_board_config_init(&adev->board_config);
 
     ALOGD("%s: exit", __func__);
     return 0;

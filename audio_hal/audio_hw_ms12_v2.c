@@ -1057,6 +1057,9 @@ int get_the_dolby_ms12_prepared(
         output_config |= MS12_OUTPUT_MASK_MC;
     }
 
+    struct audio_board_config *bd_config = &adev->board_config;
+    if (bd_config->ms12_output_mask)
+        output_config = bd_config->ms12_output_mask;
     set_dolby_ms12_drc_parameters(input_format, output_config);
 
     /* 1.If HDMIIN-source got Atmos_Music_32_Objects_PCM_MAT2.mat / Atmos_Music_16_Objects_TrueHD.mat to ARC-sink */
@@ -1109,7 +1112,7 @@ int get_the_dolby_ms12_prepared(
         get_hardware_config_parameters(
             &(adev->ms12_config)
             , AUDIO_FORMAT_PCM_16_BIT
-            , adev->default_alsa_ch
+            , bd_config->default_alsa_ch
             , ms12->output_samplerate
             , out->is_tv_platform
             , continuous_mode(adev)
@@ -3339,7 +3342,7 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
 
     /*update the master pcm frame, which is used for av sync*/
     if (audio_is_linear_pcm(output_format) && ms12_info) {
-        if (ms12_info->output_ch == 8 || ms12_info->output_ch == 6) {
+        if (ms12_info->pcm_type == NORMAL_LPCM && (ms12_info->output_ch == 8 || ms12_info->output_ch == 6)) {
             ms12_info->pcm_type = MC_LPCM;
         }
         if (ms12_info->pcm_type == DAP_LPCM) {

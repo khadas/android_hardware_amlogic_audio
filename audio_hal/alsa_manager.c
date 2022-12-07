@@ -36,6 +36,7 @@
 #include "audio_hwsync_wrap.h"
 #include "aml_hfp.h"
 #include "audio_hw_ms12_common.h"
+#include "aml_config_data.h"
 
 
 #define AML_ZERO_ADD_MIN_SIZE 1024
@@ -125,6 +126,7 @@ static void alsa_write_rate_control(struct audio_stream_out *stream, size_t byte
 int aml_alsa_output_open(struct audio_stream_out *stream) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
+    struct audio_board_config *bd_config = &adev->board_config;
     struct pcm_config *config = &aml_out->config;
     struct pcm_config config_raw;
     unsigned int device = aml_out->device;
@@ -142,7 +144,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
             get_hardware_config_parameters(
                 config
                 , output_format
-                , adev->default_alsa_ch/*audio_channel_count_from_out_mask(aml_out->hal_channel_mask)*/
+                , bd_config->default_alsa_ch/*audio_channel_count_from_out_mask(aml_out->hal_channel_mask)*/
                 , aml_out->config.rate
                 , aml_out->is_tv_platform
                 , continuous_mode(adev)
@@ -183,7 +185,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
                                   (aml_out->alsa_output_format == AUDIO_FORMAT_PCM_16_BIT)) {
             get_hardware_config_parameters(&(adev->dcv_config),
                                  AUDIO_FORMAT_PCM_16_BIT,
-                                   adev->default_alsa_ch,
+                                   bd_config->default_alsa_ch,
                                     aml_out->config.rate,
                                  aml_out->is_tv_platform,
                                     continuous_mode(adev),
@@ -873,7 +875,7 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
     unsigned int channels = 0;
     unsigned int rate = 0;
     struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
-
+    struct audio_board_config *bd_config = &adev->board_config;
 
     alsa_handle = (alsa_handle_t *)aml_audio_calloc(1, sizeof(alsa_handle_t));
     if (alsa_handle == NULL) {
@@ -888,7 +890,7 @@ int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config,
     channels = audio_channel_count_from_out_mask(stream_config->config.channel_mask);
     rate     = stream_config->config.sample_rate;
     if (audio_is_linear_pcm(format))
-        get_hardware_config_parameters(config, format, adev->default_alsa_ch, rate, platform_is_tv,
+        get_hardware_config_parameters(config, format, bd_config->default_alsa_ch, rate, platform_is_tv,
                 continuous_mode(adev), is_game_mode(adev));
     else
         get_hardware_config_parameters(config, format, channels, rate, platform_is_tv,

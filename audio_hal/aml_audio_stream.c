@@ -445,6 +445,7 @@ void get_sink_format(struct audio_stream_out *stream)
     // condition 2: for STB case with dolby-ms12 libs
     // condition 3: T7 BDS with HDMITX case
     if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0 || !adev->is_TV || adev->is_BDS) {
+        struct audio_board_config *bd_config = &adev->board_config;
         ALOGI("%s() HDMI ARC or mbox + dvb case", __FUNCTION__);
         switch (adev->digital_audio_format) {
         case PCM:
@@ -467,7 +468,7 @@ void get_sink_format(struct audio_stream_out *stream)
             optical_audio_format = sink_audio_format;
 
             /*if the sink device only support pcm, we check whether we can output dd or dts to spdif*/
-            if (adev->spdif_independent) {
+            if (bd_config->spdif_independent) {
                 if (sink_audio_format == AUDIO_FORMAT_PCM_16_BIT) {
                     if (is_dts_format(source_format)) {
                         optical_audio_format = MIN(source_format, AUDIO_FORMAT_DTS);
@@ -493,7 +494,7 @@ void get_sink_format(struct audio_stream_out *stream)
             }
             optical_audio_format = sink_audio_format;
             /*if the sink device only support pcm, we check whether we can output dd or dts to spdif*/
-            if (adev->spdif_independent) {
+            if (bd_config->spdif_independent) {
                 if (sink_audio_format == AUDIO_FORMAT_PCM_16_BIT) {
                     if (is_dts_format(source_format)) {
                         optical_audio_format = MIN(source_format, AUDIO_FORMAT_DTS);
@@ -1496,6 +1497,7 @@ int stream_check_reconfig_param(struct audio_stream_out *stream)
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    struct audio_board_config *bd_config = &adev->board_config;
     int period_size = 0;
 
     if (adev->mode_reconfig_out) {
@@ -1503,7 +1505,7 @@ int stream_check_reconfig_param(struct audio_stream_out *stream)
         if (ms12->dolby_ms12_enable && !is_bypass_dolbyms12(stream)) {
             get_hardware_config_parameters(&(adev->ms12_config),
                 AUDIO_FORMAT_PCM_16_BIT,
-                adev->default_alsa_ch,
+                bd_config->default_alsa_ch,
                 ms12->output_samplerate,
                 out->is_tv_platform, continuous_mode(adev),
                 is_game_mode(adev));

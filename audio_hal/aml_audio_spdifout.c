@@ -65,6 +65,7 @@ static int select_digital_device(struct spdifout_handle *phandle) {
      */
 
     if (!aml_dev->is_TV || aml_dev->is_BDS) {
+        struct audio_board_config *bd_config = &aml_dev->board_config;
         if (aml_dev->dual_spdif_support) {
             if (phandle->audio_format == AUDIO_FORMAT_AC3 ||
                 phandle->audio_format == AUDIO_FORMAT_DTS) {
@@ -74,14 +75,14 @@ static int select_digital_device(struct spdifout_handle *phandle) {
                 /*for ddp, we need use spdif_b, then select hdmi to spdif_b, then spdif can output dd*/
                 device_id = DIGITAL_DEVICE2;
                 /* for MAT, if json config that mat output by i2s, then we should select tdm */
-                if (phandle->audio_format == AUDIO_FORMAT_MAT && aml_dev->hdmitx_hbr_src >= AML_TDM_A_TO_HDMITX)
+                if (phandle->audio_format == AUDIO_FORMAT_MAT && bd_config->hdmitx_hbr_src >= AML_TDM_A_TO_HDMITX)
                     device_id = TDM_DEVICE;
             }
         } else {
             /*default we only use spdif_a to output spdif/hdmi*/
             device_id = DIGITAL_DEVICE;
             /* for MAT, if json config that mat output by i2s, then we should select tdm */
-            if (phandle->audio_format == AUDIO_FORMAT_MAT && aml_dev->hdmitx_hbr_src >= AML_TDM_A_TO_HDMITX)
+            if (phandle->audio_format == AUDIO_FORMAT_MAT && bd_config->hdmitx_hbr_src >= AML_TDM_A_TO_HDMITX)
                 device_id = TDM_DEVICE;
         }
         if (audio_is_linear_pcm(phandle->audio_format)) {
@@ -368,6 +369,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
     alsa_handle = aml_dev->alsa_handle[device_id];
 
     if (!alsa_handle) {
+        struct audio_board_config *bd_config = &aml_dev->board_config;
         aml_stream_config_t stream_config;
         aml_device_config_t device_config;
         memset(&stream_config, 0, sizeof(aml_stream_config_t));
@@ -376,7 +378,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
         /*config stream info*/
         stream_config.config.channel_mask = spdif_config->channel_mask;
         if (spdif_config->data_ch == 8 && spdif_config->rate == 192000
-            && !(aml_dev->hdmitx_hbr_src >= AML_TDM_A_TO_HDMITX))
+            && !(bd_config->hdmitx_hbr_src >= AML_TDM_A_TO_HDMITX))
             stream_config.config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
         /*earc only supports 8 channel multi channel, if the channel is not 2 and 8, we need convert it to 8 channel*/
         if (EARC_DEVICE == device_id) {
@@ -415,12 +417,13 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
             ALOGI("%s set spdif format 0x%x", __func__, aml_spdif_format);
         } else if (phandle->spdif_port == PORT_I2S2HDMI) {
             enum AML_SRC_TO_HDMITX hdmitx_src = AML_TDM_B_TO_HDMITX;
+            struct audio_board_config *bd_config = &aml_dev->board_config;
 
             aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_I2S2HDMI_FORMAT, aml_spdif_format);
-            if (aml_spdif_format == AML_TRUE_HD && aml_dev->hdmitx_hbr_src >= AML_TDM_A_TO_HDMITX)
-                hdmitx_src = aml_dev->hdmitx_hbr_src;
-            else if (aml_spdif_format == AML_MULTI_CH_LPCM && aml_dev->hdmitx_multi_ch_src >= AML_TDM_A_TO_HDMITX)
-                hdmitx_src = aml_dev->hdmitx_multi_ch_src;
+            if (aml_spdif_format == AML_TRUE_HD && bd_config->hdmitx_hbr_src >= AML_TDM_A_TO_HDMITX)
+                hdmitx_src = bd_config->hdmitx_hbr_src;
+            else if (aml_spdif_format == AML_MULTI_CH_LPCM && bd_config->hdmitx_multi_ch_src >= AML_TDM_A_TO_HDMITX)
+                hdmitx_src = bd_config->hdmitx_multi_ch_src;
             else
                 AM_LOGW("invalid format %d for I2S to HDMITX", aml_spdif_format);
             aml_audio_select_src_to_hdmi(hdmitx_src);
@@ -463,8 +466,8 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
             /*we have different output for hdmi and spdif, we choose tdm b to hdmi*/
             ALOGI("optical =0x%x sink =0x%x", aml_dev->optical_format, aml_dev->sink_format);
             if (aml_dev->optical_format != aml_dev->sink_format && aml_dev->sink_format == AUDIO_FORMAT_PCM_16_BIT) {
-                if (aml_dev->spdif_independent) {
-                    aml_audio_select_src_to_hdmi(aml_dev->hdmitx_src);
+                if (bd_config->spdif_independent) {
+                    aml_audio_select_src_to_hdmi(bd_config->hdmitx_src);
                     phandle->restore_hdmitx_selection = 1;
                 }
                 aml_dev->raw_to_pcm_flag = true;
