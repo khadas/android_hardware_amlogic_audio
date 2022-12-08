@@ -148,7 +148,6 @@ AM_Dmx_Audio_ErrorCode_t Close_Dmx_Audio(void *demux_handle) {
     }
     if (demux_wrapper)
         delete demux_wrapper;
-    demux_wrapper = NULL;
     return (AM_Dmx_Audio_ErrorCode_t)ret;
 }
 

@@ -25,7 +25,14 @@ static void getVideoEsData(AmHwMultiDemuxWrapper* mDemuxWrapper,int fid,const ui
 //(void)len;
 (void)user_data;
     mEsDataInfo *mEsData = (mEsDataInfo *)aml_audio_malloc(sizeof(mEsDataInfo));;
+    if (!mEsData) {
+        return;
+    }
     mEsData->data = (uint8_t*)aml_audio_malloc(len);
+    if (!mEsData->data) {
+        aml_audio_free(mEsData);
+        return;
+    }
     memcpy(mEsData->data,data,len);
     {
         TSPMutex::Autolock l(mDemuxWrapper->mVideoEsDataQueueLock);
@@ -60,9 +67,16 @@ static void getAudioEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, const 
 
     mEsDataInfo* mEsData = (mEsDataInfo*)aml_audio_malloc(sizeof(mEsDataInfo));;
     dmx_non_sec_es_header *es_header = (struct dmx_non_sec_es_header *)(data);
+    if (!mEsData) {
+        return;
+    }
     if (len == (es_header->len + sizeof(struct dmx_non_sec_es_header))) {
         const unsigned char *data_es  = data + sizeof(struct dmx_non_sec_es_header);
         mEsData->data = (uint8_t*)aml_audio_malloc(es_header->len);
+        if (!mEsData->data) {
+           aml_audio_free(mEsData);
+           return;
+        }
         memcpy(mEsData->data, data_es, es_header->len);
         mEsData->size = es_header->len;
         mEsData->pts = es_header->pts;
@@ -73,7 +87,6 @@ static void getAudioEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, const 
     } else {
         ALOGV("error es data len %d es_header->len %d",len, es_header->len);
         aml_audio_free(mEsData);
-        mEsData = NULL;
         return;
     }
 
@@ -104,10 +117,17 @@ static void getAudioADEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, cons
     ALOGV("mDemuxWrapper->adpesmode %d mDemuxWrapper %p",mDemuxWrapper->adpesmode, mDemuxWrapper);
     if (0 == mDemuxWrapper->adpesmode) {
         mEsData = (mEsDataInfo*)aml_audio_malloc(sizeof(mEsDataInfo));
+        if (!mEsData) {
+           return;
+        }
         dmx_non_sec_es_header *es_header = (struct dmx_non_sec_es_header *)(data);
         if ( len == (es_header->len + sizeof(struct dmx_non_sec_es_header))) {
             const unsigned char *data_es  = data + sizeof(struct dmx_non_sec_es_header);
             mEsData->data = (uint8_t*)aml_audio_malloc(es_header->len);
+            if (!mEsData->data) {
+                aml_audio_free(mEsData);
+                return;
+            }
             memcpy(mEsData->data, data_es, es_header->len);
             mEsData->size = es_header->len;
             mEsData->pts = es_header->pts;
@@ -117,7 +137,6 @@ static void getAudioADEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, cons
         } else {
             ALOGI("error es data len %d es_header->len %d",len, es_header->len);
             aml_audio_free(mEsData);
-            mEsData = NULL;
             return;
         }
     } else {
@@ -125,7 +144,14 @@ static void getAudioADEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, cons
         //AM_ErrorCode_t ret=AM_PES_Decode((mDemuxWrapper->peshandle), (uint8_t *)data, len);
         ST_Aduserdata *paddata=(ST_Aduserdata *)user_data;
         mEsData = (mEsDataInfo*)aml_audio_malloc(sizeof(mEsDataInfo));;
+        if (!mEsData) {
+            return;
+        }
         mEsData->data = (uint8_t*)aml_audio_malloc(len);
+        if (!mEsData->data) {
+            aml_audio_free(mEsData);
+            return;
+        }
         memcpy(mEsData->data, data, len);
         mEsData->size = len;
         mEsData->pts = paddata->adpts;
@@ -153,7 +179,10 @@ AmHwMultiDemuxWrapper::AmHwMultiDemuxWrapper() {
     mDemuxEsDataCacheSize = 0;
     mDemuxEsDataCacheMaxThreshold = property_get_int32("vendor.dvb.audio_es.cache_size", 10) * 1024 * 1024;
     ALOGI("mDemuxEsDataCacheMaxThreshold: %d", mDemuxEsDataCacheMaxThreshold);
-
+    ADuserdata.adpts = 0;
+    ADuserdata.fade = 0;
+    ADuserdata.pan = 0;
+    adpesmode = 0;
     mDemuxPara.vid_id = 0x1fff;
 
 
@@ -169,6 +198,13 @@ AmHwMultiDemuxWrapper::AmHwMultiDemuxWrapper() {
     mDemuxPara.sub_type = -1;
     mDemuxPara.drm_mode = AM_AV_NO_DRM;
     mDemuxPara.cntl_fd = -1;
+    mDemuxPara.device_type = 0;
+    mDemuxPara.dev_no = 0;
+    mDemuxPara.pkg_fmt = PFORMAT_TS;
+    mDemuxPara.vid_fd = -1;
+    mDemuxPara.security_mem_level = 0;
+    mDemuxPara.dsc_fd = NULL;
+
 }
 
 AmHwMultiDemuxWrapper::~AmHwMultiDemuxWrapper() {

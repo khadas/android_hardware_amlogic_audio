@@ -150,7 +150,12 @@ AM_ErrorCode_t AmLinuxDvb::dvb_set_pes_filter(AM_DMX_Device *dev, AM_DMX_Filter 
 
     UNUSED(dev);
 
-    fcntl(fd,F_SETFL,O_NONBLOCK);
+    ret = fcntl(fd,F_SETFL,O_NONBLOCK);
+    if (ret == -1)
+    {
+        ALOGE("set section filter failed (%s)", strerror(errno));
+        return AM_DMX_ERR_SYS;
+    }
 
     ret = ioctl(fd, DMX_SET_PES_FILTER, params);
     if (ret == -1)

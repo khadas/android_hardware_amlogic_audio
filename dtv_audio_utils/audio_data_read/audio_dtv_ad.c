@@ -143,7 +143,7 @@ static int audio_ad_set_source(int enable, int pid, int fmt, void *user)
         err = AM_AD_Create(&param->ad_handle, &para);
         if (err == AM_SUCCESS) {
             ALOGI("AM_AD_Create success\n");
-            err = AM_AD_SetCallback(param->ad_handle, audio_adcallback, user);
+            AM_AD_SetCallback(param->ad_handle, audio_adcallback, user);
             err = AM_AD_Start(param->ad_handle);
             ALOGI("AM_AD_start err=%d\n", err);
             if (err != AM_SUCCESS) {
@@ -157,7 +157,7 @@ static int audio_ad_set_source(int enable, int pid, int fmt, void *user)
         }
     } else {
         ALOGI("disable AD\n");
-        err = AM_AD_Stop(param->ad_handle);
+        AM_AD_Stop(param->ad_handle);
         err = AM_AD_Destroy(param->ad_handle);
         ALOGI("disable AD, success,ret=%d\n", err);
     }
@@ -276,7 +276,9 @@ void dtv_assoc_set_main_frame_size(int main_frame_size)
 {
     dtv_assoc_audio *param = get_assoc_audio();
 
+    pthread_mutex_lock(&assoc_mutex);
     param->main_frame_size = main_frame_size;
+    pthread_mutex_unlock(&assoc_mutex);
 }
 
 void dtv_assoc_get_main_frame_size(int* main_frame_size)
@@ -290,7 +292,9 @@ void dtv_assoc_set_ad_frame_size(int ad_frame_size)
 {
     dtv_assoc_audio *param = get_assoc_audio();
 
+    pthread_mutex_lock(&assoc_mutex);
     param->ad_frame_size = ad_frame_size;
+    pthread_mutex_unlock(&assoc_mutex);
 }
 
 void dtv_assoc_get_ad_frame_size(int* ad_frame_size)
@@ -381,9 +385,6 @@ void dtv_assoc_audio_stop(unsigned int handle)
 
 void dtv_assoc_audio_pause(unsigned int handle)
 {
-    if (handle == 0) {
-        return;
-    }
     ALOGI("%s, paused\n", __FUNCTION__);
     dtv_assoc_audio *param = get_assoc_audio();
     if (handle == 0) {

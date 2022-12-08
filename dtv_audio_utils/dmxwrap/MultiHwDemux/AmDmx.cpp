@@ -21,8 +21,16 @@
 #define AUD_PES_HEADER_LEN (6)
 #define AUD_PES_START_LEN (4)
 
-AM_DMX_Device::AM_DMX_Device(AmHwMultiDemuxWrapper* DemuxWrapper) :
-    mDemuxWrapper (DemuxWrapper){
+AM_DMX_Device::AM_DMX_Device(AmHwMultiDemuxWrapper* DemuxWrapper)
+    : dev_no (0),
+      drv_data (NULL),
+      mDemuxWrapper (DemuxWrapper),
+      enable_thread (false),
+      flags (0),
+      thread (0),
+      lock (PTHREAD_MUTEX_INITIALIZER),
+      cond (PTHREAD_COND_INITIALIZER)
+{
     ALOGI("AM_DMX_Device\n");
     drv = new AmLinuxDvb;
     //drv->dvr_open();
@@ -171,7 +179,14 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_ParsePESPacket(AM_DMX_Device *dev, AM_DMX_F
     uint8_t *buf = NULL;
 
     if (filter->package_data == NULL) {
-        filter->package_data = aml_audio_malloc(PES_PACKET_SIZE);
+        filter->package_data = aml_audio_malloc(PES_PACKET_SIZE + AUD_PES_HEADER_LEN);
+        filter->package_len = 0;
+        if (!filter->package_data) {
+            return AM_FALSE;
+        }
+    }
+    if (!esbuf) {
+        return AM_FALSE;
     }
     buf = (uint8_t *)filter->package_data;
     offset = filter->package_len;
@@ -332,6 +347,11 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_handlePESpacket(AM_DMX_Device *dev, AM_DMX_
        int tmpinoutlen=needreadlen;
        int read_len = 0;
        int sleep_count = 0;
+
+       if (needreadlen > PESBUFFERLEN - hassize) {
+           needreadlen = PESBUFFERLEN - hassize;
+           tmpinoutlen = needreadlen;
+       }
       do
       {
         ret=dev->drv->dvb_read(dev, filter, PESbuffer+hassize+read_len, &tmpinoutlen);
@@ -349,8 +369,9 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_handlePESpacket(AM_DMX_Device *dev, AM_DMX_
         }
       } while (dev->enable_thread && !filter->to_be_stopped && read_len < needreadlen);
     }
-
-    dmx_audio_dump_audio_bitstreams("/data/pesraw.bin",PESbuffer,PES_packet_length+PES_START_LEN);
+    if (PES_packet_length + PES_START_LEN > 0 && PES_packet_length + PES_START_LEN <= PESBUFFERLEN) {
+        dmx_audio_dump_audio_bitstreams("/data/pesraw.bin",PESbuffer,PES_packet_length+PES_START_LEN);
+    }
     int PES_header_len=0;
     {
         int64_t outpts = 0;
@@ -449,8 +470,7 @@ void* AM_DMX_Device::dmx_data_thread(void *arg)
                         } else {
                             header_es = (struct dmx_non_sec_es_header *)sec_buf;
                             sec_len = header_es->len;
-                            if (header_es->len < 0 ||
-                                (header_es->len > (BUF_SIZE - sizeof(struct dmx_non_sec_es_header)))
+                            if ((header_es->len > (BUF_SIZE - sizeof(struct dmx_non_sec_es_header)))
                                 || filter->to_be_stopped) {
                                 ALOGI("data len invalid %d ", header_es->len );
                                 header_es->len = 0;
@@ -561,7 +581,7 @@ AM_ErrorCode_t AM_DMX_Device::dmx_stop_filter(AM_DMX_Filter *filter)
 
     //if(dev->drv->enable_filter)
     //{
-        ret = drv->dvb_enable_filter(this, filter, AM_FALSE);
+    ret = drv->dvb_enable_filter(this, filter, AM_FALSE);
     //}
 
     if (ret >= 0)
@@ -693,7 +713,7 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_Close(void)
 
         //if(dev->drv->close)
         //{
-            drv->dvb_close(this);
+        drv->dvb_close(this);
         //}
 
         pthread_mutex_destroy(&lock);

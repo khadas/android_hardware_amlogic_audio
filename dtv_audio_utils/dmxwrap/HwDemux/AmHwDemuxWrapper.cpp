@@ -328,8 +328,7 @@ AM_DmxErrorCode_t Inject_Write(Am_DemuxWrapper_OpenPara_t **mpara,uint8_t *data,
   uint8_t* needwrite = data;
   int send = *size;
   ALOGV("inject data send %d para->vid_fd 0x%x\n", send,para->vid_fd);
-  if (send)
-    {
+  if (send) {
         ret = write(para->vid_fd, needwrite, send);
         if ((ret == -1) && (errno != EAGAIN))
         {
@@ -397,12 +396,21 @@ AM_DmxErrorCode_t Inject_Stop(Am_DemuxWrapper_OpenPara_t **mpara)
     return AM_Dmx_SUCCESS;
 }
 
-AmHwDemuxWrapper::AmHwDemuxWrapper() {
+AmHwDemuxWrapper::AmHwDemuxWrapper()
+    : mVid_fmt (-1),
+      mAud_fmt (-1),
+      mAud_id (0x1fff),
+      mVid_id (0x1fff),
+      mSub_id (0x1fff),
+      mSub_type (-1),
+      mPkg_fmt (PFORMAT_TS)
+{
     ALOGE("%s at # %d\n",__FUNCTION__,__LINE__);
     TSPMutex::Autolock l(mMutex);
     mDmxDevNo = DMX_DEV_UNKNOWN;
     mDSCDevNo = DSC_DEV_UNKNOWN;
     mAvDevNo = AV_DEV_UNKNOWN;
+    memset(&mPara, 0, sizeof(struct Am_DemuxWrapper_OpenPara));
     mPara.vid_id = 0x1fff;
     mPara.aud_id = 0x1fff;
     mPara.sub_id = 0x1fff;

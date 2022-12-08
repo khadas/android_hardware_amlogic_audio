@@ -113,6 +113,7 @@ void aml_audio_swcheck_init(int audio_path)
     p_swcheck = (audio_swcheck_sync_t *)aml_audio_malloc(sizeof (audio_swcheck_sync_t));
     if (p_swcheck == NULL ) {
         ALOGI("p_hwsync malloc failed !");
+        return;
     }
     p_swcheck->first_apts_flag = true;
     //p_swcheck->hw_sync_state = HW_SYNC_STATE_HEADER;
@@ -141,7 +142,6 @@ void aml_audio_swcheck_release(int  audio_path)
     }
     close(p_swcheck->tsync_fd);
     aml_audio_free(p_swcheck);
-    p_swcheck = NULL;
     p_swcheck_table[audio_path] = NULL;
     ALOGI("%s done", __func__);
 }
@@ -152,8 +152,8 @@ int aml_audio_swcheck_get_firstapts(int  audio_path)
     if (!p_swcheck) {
         return -1;
     }
-    return p_swcheck->first_apts;
     ALOGI("%s done", __func__);
+    return p_swcheck->first_apts;
 }
 int aml_audio_swcheck_get_lastapts(int  audio_path)
 {
@@ -161,8 +161,8 @@ int aml_audio_swcheck_get_lastapts(int  audio_path)
     if (!p_swcheck) {
         return -1;
     }
-    return p_swcheck->last_apts_from_header;
     ALOGI("%s done", __func__);
+    return p_swcheck->last_apts_from_header;
 }
 
 int aml_audio_swcheck_checkin_apts(int audio_path, uint64_t offset, unsigned long apts)
@@ -170,9 +170,18 @@ int aml_audio_swcheck_checkin_apts(int audio_path, uint64_t offset, unsigned lon
     int i = 0;
     int ret = -1;
     audio_swcheck_sync_t *p_swcheck = p_swcheck_table[audio_path];
+
+    if (!p_swcheck) {
+        ALOGE("%s null point", __func__);
+        return -1;
+    }
     if (/*p_swcheck->use_tsync_check */true) {
         if (p_swcheck->first_apts_flag) {
             ret = dtv_tsync_ioc_set_first_checkin_apts(p_swcheck->tsync_fd, apts);
+            if (ret == -1) {
+               ALOGI("unable to open file, err: %s", strerror(errno));
+               return -1;
+            }
             p_swcheck->first_apts_flag = false;
             p_swcheck->first_apts = apts;
         }
@@ -188,10 +197,6 @@ int aml_audio_swcheck_checkin_apts(int audio_path, uint64_t offset, unsigned lon
     }
 
     apts_tab_t *pts_tab = NULL;
-    if (!p_swcheck) {
-        ALOGE("%s null point", __func__);
-        return -1;
-    }
     if (p_swcheck->debug_enable) {
         ALOGI("++ %s checkin ,offset %" PRIx64 ",apts 0x%lx", __func__, offset, apts);
     }
