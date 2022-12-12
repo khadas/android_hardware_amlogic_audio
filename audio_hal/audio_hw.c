@@ -9504,7 +9504,9 @@ static int adev_close(hw_device_t *device)
     }
     aml_audio_hwsync_close();
     pthread_mutex_destroy(&adev->patch_lock);
+#if ENABLE_DVB_PATCH
     pthread_mutex_destroy(&adev->dtv_lock);
+#endif
 
 #ifdef ADD_AUDIO_DELAY_INTERFACE
     if (adev->is_TV) {
