@@ -1424,7 +1424,7 @@ int aml_audio_compensate_video_delay( int enable) {
     char *prop_name = NULL;
 
     if (enable) {
-        /*alsa delay is about 80, the MS12 tunning delay is about 70*/
+        /*alsa delay is about 80, the MS12 tuning delay is about 70*/
         video_delay = 150;
         prop_name = "vendor.media.audio.hal.video_delay_time";
         ret = property_get(prop_name, buf, NULL);

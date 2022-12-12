@@ -68,7 +68,7 @@ int on_meta_data_cbk(void *cookie,
     uint64_t pcr = 0;
     int pcr_pts_gap = 0;
 
-    int32_t tunning_latency = aml_audio_get_hwsync_latency_offset(false);
+    int32_t tuning_latency = aml_audio_get_hwsync_latency_offset(false);
 
     if (!cookie || !header) {
         ALOGE("NULL pointer");
@@ -138,7 +138,7 @@ int on_meta_data_cbk(void *cookie,
             int delay_count = 0;
             hwsync_header_construct(header);
             latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
-            latency += tunning_latency * 90;
+            latency += tuning_latency * 90;
 
             ALOGD("%s(), out:%p set media start pts %" PRId64 ", latency %d, last position %" PRId64 "",
                 __func__, out, pts64, latency, out->last_frames_position);
@@ -173,7 +173,7 @@ int on_meta_data_cbk(void *cookie,
             uint32_t apts_gap;
             // adjust pts based on latency which is only the outport latency
             int32_t latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
-            latency += tunning_latency * 90;
+            latency += tuning_latency * 90;
             // check PTS discontinue, which may happen when audio track switching
             // discontinue means PTS calculated based on first_apts and frame_write_sum
             // does not match the timestamp of next audio samples
@@ -235,7 +235,7 @@ int on_meta_data_cbk(void *cookie,
         int32_t latency = 0;
         hwsync_header_construct(header);
         latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
-        latency += tunning_latency * 90;
+        latency += tuning_latency * 90;
         ALOGD("%s(), set tsync start pts %" PRIu64 ", latency %d, last position %" PRId64 "",
             __func__, pts64, latency, out->last_frames_position);
         if (latency < 0) {
@@ -257,7 +257,7 @@ int on_meta_data_cbk(void *cookie,
         uint32_t apts_gap;
         // adjust pts based on latency which is only the outport latency
         int32_t latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
-        latency += tunning_latency * 90;
+        latency += tuning_latency * 90;
         // check PTS discontinue, which may happen when audio track switching
         // discontinue means PTS calculated based on first_apts and frame_write_sum
         // does not match the timestamp of next audio samples

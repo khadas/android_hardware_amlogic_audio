@@ -145,9 +145,9 @@ static int ringbuffer_seek(struct aml_audio_patch *patch, int tune_val)
     seek_space = ring_buffer_seek(&patch->aml_ringbuffer, space);
 
     if (seek_space == space) {
-        ALOGV("  --tunning audio ringbuffer %dms successfully!\n", tune_val);
+        ALOGV("  --tuning audio ringbuffer %dms successfully!\n", tune_val);
     } else {
-        ALOGV("  --tunning audio ringbuffer require %d vs actual seek %d\n", space, seek_space);
+        ALOGV("  --tuning audio ringbuffer require %d vs actual seek %d\n", space, seek_space);
         tune_val = calc_frame_to_latency(seek_space/frame_size, patch->aformat);
     }
 

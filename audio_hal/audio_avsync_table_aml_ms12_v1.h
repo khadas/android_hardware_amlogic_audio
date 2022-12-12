@@ -141,7 +141,7 @@
 #define  AVSYNC_MS12_MAT_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.matout"
 
 /******************************************************************************************************/
-/*below DDP tunning is for NonMS12*/
+/*below DDP tuning is for NonMS12*/
 /******************************************************************************************************/
 #define  AVSYNC_NONMS12_TUNNEL_TV_PCM_LATENCY                  (0)
 #define  AVSYNC_NONMS12_TUNNEL_TV_DDP_LATENCY                  (-220)
@@ -212,7 +212,7 @@
 
 
 /******************************************************************************************************/
-/* MS12 and Dolby Vision tunning part*/
+/* MS12 and Dolby Vision tuning part*/
 /******************************************************************************************************/
 /* different input formats: PCM/DDP/AC4 */
 #define  AVSYNC_MS12_DV_TUNNEL_PCM_LATENCY                  (0)//won't change it
@@ -257,7 +257,7 @@
 
 
 /******************************************************************************************************/
-/* NONMS12 and Dolby Vision tunning part*/
+/* NONMS12 and Dolby Vision tuning part*/
 /******************************************************************************************************/
 /* different input formats: PCM/DDP */
 #define  AVSYNC_NONMS12_DV_TUNNEL_PCM_LATENCY               (0)//won't change it
@@ -275,7 +275,7 @@
 
 
 /******************************************************************************************************/
-/* NETFLIX tunning part*/
+/* NETFLIX tuning part*/
 /******************************************************************************************************/
 // right offset. 10-->30
 #define  AVSYNC_MS12_NETFLIX_NONTUNNEL_PCM_LATENCY       (30)
@@ -293,7 +293,7 @@
 // left offset. 40-->15
 #define  AVSYNC_MS12_NETFLIX_DDP_OUT_LATENCY             (15)
 #define  AVSYNC_MS12_NETFLIX_MAT_OUT_LATENCY             (0)
-#define  AVSYNC_MS12_NETFLIX_DDP_OUT_TUNNEL_TUNNING      (15)
+#define  AVSYNC_MS12_NETFLIX_DDP_OUT_TUNNEL_TUNING      (15)
 
 #define  AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_PCM_LATENCY    (0)
 #define  AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_DD_LATENCY     (0)
@@ -334,7 +334,7 @@
 
 
 
-/*below DDP tunning is for NonMS12*/
+/*below DDP tuning is for NonMS12*/
 //  0 --> 3
 #define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_PCM_LATENCY                 (3)
 #define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_DD_LATENCY                  (-95)
@@ -376,7 +376,7 @@
 
 
 
-/*below DDP tunning is for roku tv*/
+/*below DDP tuning is for roku tv*/
 #define  AVSYNC_DDP_NONTUNNEL_PCM_LATENCY               (0)
 #define  AVSYNC_DDP_NONTUNNEL_RAW_LATENCY               (0)
 #define  AVSYNC_DDP_TUNNEL_PCM_LATENCY                  (0)

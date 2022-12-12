@@ -1931,7 +1931,7 @@ void dtv_avsync_process(struct audio_stream_out *stream, size_t bytes, audio_for
                     aml_dev->sink_format == AUDIO_FORMAT_AC3)
                     audio_output_delay += patch->pre_latency;
                 else if (eDolbyMS12Lib == aml_dev->dolby_lib_type && audio_output_delay == 0) {
-                    //for tunning dolby dvb avsync -20 ~30ms
+                    //for tuning dolby dvb avsync -20 ~30ms
                     audio_output_delay = -20;
                 }
             }

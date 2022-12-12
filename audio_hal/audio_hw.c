@@ -6801,13 +6801,13 @@ hwsync_rewrite:
                     uint64_t apts;
                     int debug_enable = get_debug_value(AML_DEBUG_AUDIOHAL_HW_SYNC);
                     int latency = (int)out_get_latency(stream);
-                    int tunning_latency = aml_audio_get_nonms12_tunnel_latency(stream) / 48;
+                    int tuning_latency = aml_audio_get_nonms12_tunnel_latency(stream) / 48;
                     int latency_pts = 0;
                     int video_delay_ms = 0;
                     bool valid_pts = true;
                     /*here we need add video delay*/
                     video_delay_ms = get_media_video_delay(&adev->alsa_mixer);
-                    latency_pts = (latency + tunning_latency - video_delay_ms) * 90;
+                    latency_pts = (latency + tuning_latency - video_delay_ms) * 90;
                     // check PTS discontinue, which may happen when audio track switching
                     // discontinue means PTS calculated based on first_apts and frame_write_sum
                     // does not match the timestamp of next audio samples
@@ -6824,8 +6824,8 @@ hwsync_rewrite:
                         apts64 = 1 * 90;
                     }
                     if (debug_enable) {
-                        ALOGI("total latency =%d ms alsa =%d video delay=%d tunning latency=%d apts 0x%" PRIx64 " apts64 0x%" PRIx64 "\n",
-                        latency_pts / 90, latency, video_delay_ms, tunning_latency, apts, apts64);
+                        ALOGI("total latency =%d ms alsa =%d video delay=%d tuning latency=%d apts 0x%" PRIx64 " apts64 0x%" PRIx64 "\n",
+                        latency_pts / 90, latency, video_delay_ms, tuning_latency, apts, apts64);
                     }
 
                     aml_audio_hwsync_update_threshold(hw_sync);
