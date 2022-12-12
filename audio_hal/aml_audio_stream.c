@@ -547,6 +547,9 @@ void get_sink_format(struct audio_stream_out *stream)
             break;
         }
     }
+    if (adev->sink_format != sink_audio_format) {
+        adev->sink_format_changed = true;
+    }
     adev->sink_format = sink_audio_format;
     adev->optical_format = optical_audio_format;
     adev->sink_max_channels = get_sink_format_max_channels(adev, adev->sink_format);

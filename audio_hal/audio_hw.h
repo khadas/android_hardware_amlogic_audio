@@ -402,6 +402,7 @@ struct aml_audio_device {
     bool is_paused[ALSA_DEVICE_CNT];
     struct aml_hw_mixer hw_mixer;
     audio_format_t sink_format;
+    bool sink_format_changed;
     unsigned int sink_max_channels;
     audio_format_t optical_format;
     audio_format_t sink_capability;

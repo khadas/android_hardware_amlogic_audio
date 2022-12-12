@@ -3271,10 +3271,12 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     /*when arc is connected, we need reset all the spdif output,
       because earc port to be reopened.
     */
-    if (adev->arc_connected_reconfig) {
+    if (adev->arc_connected_reconfig ||
+        adev->sink_format_changed) {
         ALOGI("arc is reconnected, reset spdif output");
         ms12_close_all_spdifout(ms12);
         adev->arc_connected_reconfig = false;
+        adev->sink_format_changed = false;
     }
 
     ms12->is_dolby_atmos = (dolby_ms12_get_input_atmos_info() == 1);
@@ -3942,7 +3944,8 @@ bool is_ms12_output_compatible(struct audio_stream_out *stream, audio_format_t n
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
-    if (adev->digital_audio_format == BYPASS || adev->digital_audio_format == PCM) {
+    if ((aml_out->hal_internal_format != AUDIO_FORMAT_AC4 && adev->digital_audio_format == BYPASS) ||
+        adev->digital_audio_format == PCM) {
         /*for bypass case and pcm case, it is always compatible*/
         return true;
     }

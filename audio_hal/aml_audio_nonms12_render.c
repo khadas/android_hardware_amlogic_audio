@@ -271,9 +271,11 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
             ALOGV("used_size %d total used size %d %s() left_bytes =%d pcm len =%d raw len=%d",
                 used_size, dec_used_size, __func__, left_bytes, dec_pcm_data->data_len, dec_raw_data->data_len);
 
-            if (aml_out->optical_format != adev->optical_format) {
+            if (aml_out->optical_format != adev->optical_format ||
+                adev->sink_format_changed) {
                 ALOGI("optical format change from 0x%x --> 0x%x", aml_out->optical_format, adev->optical_format);
                 aml_out->optical_format = adev->optical_format;
+                adev->sink_format_changed = false;
                 if (aml_out->spdifout_handle != NULL) {
                     aml_audio_spdifout_close(aml_out->spdifout_handle);
                     aml_out->spdifout_handle = NULL;

@@ -2240,10 +2240,12 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     /*when arc is connected, we need reset all the spdif output,
       because earc port to be reopened.
     */
-    if (adev->arc_connected_reconfig) {
+    if (adev->arc_connected_reconfig ||
+        adev->sink_format_changed) {
         ALOGI("arc is reconnected, reset spdif output");
         ms12_close_all_spdifout(ms12);
         adev->arc_connected_reconfig = false;
+        adev->sink_format_changed = false;
     }
 
     /*update the master pcm frame, which is used for av sync*/
