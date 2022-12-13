@@ -49,7 +49,7 @@
  *so, change the value from 90 to 40ms.
  *The result is about +9ms.
  */
-#define  AVSYNC_MS12_TUNNEL_DDP_CVBS_LATENCY                  (40)
+#define  AVSYNC_MS12_TUNNEL_DDP_CVBS_LATENCY                  (-20)
 /*AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY works in HDMI port:*/
 /*For DDP source under HDMI output*/
 /*40->90, the result change from +25ms to -25ms*/
