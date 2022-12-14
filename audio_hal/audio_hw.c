@@ -7314,10 +7314,17 @@ exit:
             /* We need to wait for Google to fix the issue:
              * Issue: After pause, there will be residual sound in AF, which will cause NTS fail.
              * Now we need to judge whether the current format is DTS */
-            if (is_dts_format(aml_out->hal_internal_format))
-                return bytes_cost;
-            else
+            if (is_dts_format(aml_out->hal_internal_format)) {
+                // For some low bitrate streams, we need to decode more frames to avoid underrun.
+                // (DTSHD_PERIOD_SIZE) is the value after tuning.
+                if (bytes_cost < DTSHD_PERIOD_SIZE) {
+                    goto hwsync_rewrite;
+                } else {
+                    return bytes_cost;
+                }
+            } else {
                 goto hwsync_rewrite;
+            }
         }
         else if (return_bytes < 0)
             return return_bytes;
