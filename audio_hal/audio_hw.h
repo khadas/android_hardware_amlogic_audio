@@ -600,6 +600,7 @@ struct aml_audio_device {
     enum AML_SRC_TO_HDMITX hdmitx_multi_ch_src;
     enum AML_SRC_TO_HDMITX hdmitx_hbr_src;
     /* end of jason configs */
+    bool frame_write_sum_updated;
 };
 
 struct meta_data {
@@ -795,6 +796,7 @@ struct aml_stream_out {
     bool frame_write_sum_updated;
     bool is_insert_0_data;
     uint32_t timer_id;
+    uint64_t hwsync_parsed_frames_sum;
 
     pthread_mutex_t apts_update_lock; /*SWPL-88828: Make sure audio timestamps and frame positions are updated synchronously.*/
 };
@@ -1055,6 +1057,8 @@ int release_patch(struct aml_audio_device *aml_dev);
 int aml_audio_input_routing(struct audio_hw_device *dev, enum IN_PORT inport);
 int output_stream_hwsync_prepare(struct aml_stream_out *out, int hw_sync_id);
 bool aml_get_speaker_mute_status(void);
+/* timer callback function */
+void aml_stream_timer_callback_handler(union sigval sigv);
 
 /* 'bytes' are the number of bytes written to audio FIFO, for which 'timestamp' is valid.
  * 'available' is the number of frames available to read (for input) or yet to be played

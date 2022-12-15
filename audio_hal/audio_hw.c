@@ -779,12 +779,8 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         if (adev->continuous_audio_mode && audio_is_linear_pcm(out->hal_internal_format)) {
             /*Tunnel sync HEADER is 20 bytes*/
             if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
-                if (out->hal_rate == 32000) {
-                    // SampleRate:32k, 2 package 32ms data.
-                    size = (8192 + TUNNEL_SYNC_HEADER_SIZE*2);
-                } else {
-                    size = (8192 + TUNNEL_SYNC_HEADER_SIZE);
-                }
+                //2 package data.
+                size = (8192 + TUNNEL_SYNC_HEADER_SIZE*2);
                 return size;
             } else {
                 /* roll back the change for SWPL-15974 to pass the gts failure SWPL-20926*/
@@ -798,12 +794,8 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
     }
 
     if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC && audio_is_linear_pcm(out->hal_internal_format)) {
-        if (out->hal_rate == 32000) {
-            // SampleRate:32k, 2 package 32ms data.
-            size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream)) + TUNNEL_SYNC_HEADER_SIZE*2;
-        } else {
-            size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream)) + TUNNEL_SYNC_HEADER_SIZE;
-        }
+        //2 package data.
+        size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream)) + TUNNEL_SYNC_HEADER_SIZE*2;
     } else {
         size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream));
     }
@@ -6228,7 +6220,12 @@ ssize_t hw_write (struct audio_stream_out *stream
         aml_out->lasttimestamp.tv_sec = aml_out->timestamp.tv_sec;
         aml_out->lasttimestamp.tv_nsec = aml_out->timestamp.tv_nsec;
         if (total_frame >= latency_frames) {
-            aml_out->last_frames_position = total_frame - latency_frames;
+            if (!adev->frame_write_sum_updated || aml_out->is_insert_0_data) {
+                aml_out->last_frames_position = total_frame;
+            } else {
+                aml_out->last_frames_position = total_frame - latency_frames;
+            }
+            ALOGV("%s  frame_write_sum_updated:%d, total_frame:%llu, latency_frames:%u", __func__, adev->frame_write_sum_updated, total_frame, latency_frames);
         } else {
             aml_out->last_frames_position = 0;
         }
@@ -6578,6 +6575,29 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
         }
     }
     ALOGI("[%s:%d] out stream alsa port device:%d", __func__, __LINE__, aml_out->device);
+    return ;
+}
+
+void aml_stream_timer_callback_handler(union sigval sigv)
+{
+    struct aml_audio_device *adev = aml_adev_get_handle();
+    struct aml_stream_out *out = NULL;
+    bool is_hwsync_lpcm = false;
+
+    AM_LOGD("func:%s sigv:%d ~~~~~~~~~~", __func__, sigv.sival_int);
+    for (int i = 0 ; i < STREAM_USECASE_MAX; i++) {
+        out = adev->active_outputs[i];
+        if (out && audio_is_linear_pcm(out->hal_internal_format)
+            && (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)) {
+            is_hwsync_lpcm = true;
+            break;
+        }
+    }
+
+    if (adev && out && is_hwsync_lpcm) {
+        adev->frame_write_sum_updated = false;
+    }
+    AM_LOGI("%s is_hwsync_lpcm:%d frame_write_sum_updated:%d", __func__, is_hwsync_lpcm, adev->frame_write_sum_updated);
     return ;
 }
 
@@ -6949,7 +6969,6 @@ hwsync_rewrite:
             write_bytes = outsize;
             //in_frames = outsize / frame_size;
             write_buf = hw_sync->hw_sync_body_buf;
-
         } else {
             return_bytes = hwsync_cost_bytes;
             if (need_reconfig_output) {
@@ -7260,6 +7279,15 @@ hwsync_rewrite:
         ret = aml_audio_nonms12_render(stream, write_buf, write_bytes);
     }
 
+    if (write_bytes > 0 && aml_out->usecase == STREAM_PCM_HWSYNC) {
+        //start the timer to monitor frame_write_sum_updated
+        uint32_t remaining_time = audio_timer_remaining_time(aml_out->timer_id);
+        if (remaining_time > 0) {
+            audio_timer_stop(aml_out->timer_id);
+        }
+        audio_one_shot_timer_start(aml_out->timer_id, AML_HWSYNC_STREAM_TIMER_RENDER_DELAY);
+        adev->frame_write_sum_updated = true;
+    }
 
 exit:
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
@@ -8032,7 +8060,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     }
 
     if (adev->debug_flag > 1) {
-        ALOGI("-<OUT>%s() ret %zd,%p %"PRIu64"\n", __func__, ret, stream, aml_out->total_write_size);
+        ALOGI("-<OUT>%s() write_count:%d, ret %zd,%p total_write_size:%"PRIu64", hwsync_parsed_frames_sum:%"PRIu64"\n", __func__, aml_out->write_count, ret, stream, aml_out->total_write_size, aml_out->hwsync_parsed_frames_sum);
     }
 
     if (get_debug_value(AML_DUMP_AUDIO_STREAM)) {
@@ -8073,6 +8101,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
     aml_out->is_normal_pcm = (aml_out->usecase == STREAM_PCM_NORMAL) ? 1 : 0;
     aml_out->out_cfg = *config;
     aml_out->card = adev->card;
+    aml_out->hwsync_parsed_frames_sum = 0;
 
     if (adev->useSubMix) {
         // In V1.1, android out lpcm stream and hwsync pcm stream goes to aml mixer,
@@ -8116,12 +8145,6 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
                     ALOGE("initSub mixing input failed");
                 }
             }
-            //this is for STREAM_PCM_HWSYNC
-            if (aml_out->usecase == STREAM_PCM_HWSYNC) {
-                aml_out->timer_id = aml_audio_timer_create(sm_timer_callback_handler);
-                AM_LOGD("func:%s  timer_id:%d", __func__, aml_out->timer_id);
-            }
-
         } else {
             aml_out->bypass_submix = true;
             ALOGI("%s(), direct usecase: %s", __func__, usecase2Str(aml_out->usecase));
@@ -8134,6 +8157,17 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
         aml_out->stream.write = out_write_new;
         aml_out->stream.common.standby = out_standby_new;
     }
+
+    //this is for STREAM_PCM_HWSYNC
+    if (aml_out->usecase == STREAM_PCM_HWSYNC) {
+        if (adev->useSubMix) {
+            aml_out->timer_id = aml_audio_timer_create(sm_timer_callback_handler);
+        } else {
+            aml_out->timer_id = aml_audio_timer_create(aml_stream_timer_callback_handler);
+        }
+        AM_LOGD("func:%s  timer_id:%d", __func__, aml_out->timer_id);
+    }
+
     aml_out->stream_status = STREAM_STANDBY;
     if (adev->continuous_audio_mode == 0) {
         adev->spdif_encoder_init_flag = false;
@@ -8209,6 +8243,12 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
     if (adev->active_outputs[aml_out->usecase] == aml_out) {
         adev->active_outputs[aml_out->usecase] = NULL;
     }
+
+    if (aml_out->usecase == STREAM_PCM_HWSYNC) {
+        int ret = aml_audio_timer_delete(aml_out->timer_id);
+        ALOGD("func:%s timer_id:%d  ret:%d",__func__, aml_out->timer_id, ret);
+    }
+
     if (adev->useSubMix) {
         if (aml_out->is_normal_pcm ||
             aml_out->usecase == STREAM_PCM_HWSYNC ||
@@ -8216,10 +8256,6 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
             if (!aml_out->bypass_submix) {
                 deleteSubMixingInput(aml_out);
             }
-        }
-        if (aml_out->usecase == STREAM_PCM_HWSYNC) {
-            int ret = aml_audio_timer_delete(aml_out->timer_id);
-            ALOGD("func:%s timer_id:%d  ret:%d",__func__, aml_out->timer_id, ret);
         }
     }
     /* when switch hdmi output to a2dp output, close hdmi stream maybe after open a2dp stream,
@@ -9747,6 +9783,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->in_device = AUDIO_DEVICE_IN_BUILTIN_MIC & ~AUDIO_DEVICE_BIT_IN;
     adev->hi_pcm_mode = false;
     adev->last_sink_capability = 0;
+    adev->frame_write_sum_updated = true;
 
     adev->eq_data.card = adev->card;
     if (eq_drc_init(&adev->eq_data) == 0) {

@@ -50,7 +50,6 @@ static int aml_audio_get_hwsync_flag()
     return debug_flag;
 }
 
-
 void aml_audio_hwsync_init(audio_hwsync_t *p_hwsync, struct aml_stream_out  *out)
 {
     ALOGI("%s p_hwsync %p out %p\n", __func__, p_hwsync, out);
@@ -300,6 +299,7 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                 }
            } else {
                 int m = (p_hwsync->hw_sync_body_cnt < remain) ? p_hwsync->hw_sync_body_cnt : remain;
+                p_hwsync->aout->hwsync_parsed_frames_sum += m/p_hwsync->aout->hal_frame_size;
                 // process m bytes body with an empty fragment for alignment
                 if (m  > 0) {
                     memcpy(p_hwsync->hw_sync_body_buf + p_hwsync->hw_sync_frame_size - p_hwsync->hw_sync_body_cnt, p, m);
@@ -617,7 +617,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
                         ms12_pipeline_delay_frames,
                         frame_len,
                         latency_frames);
-                    ALOGI("pcr =%" PRIx64 " ms pts =0x%" PRIx64 " %" PRIu64 " ms gap =%d ms", pcr / 90, apts64, apts64/90, pcr_pts_gap);
+                    ALOGI("%s pcr =%" PRIx64 " ms pts =0x%" PRIx64 " %" PRIu64 " ms gap =%d ms", __func__, pcr / 90, apts64, apts64/90, pcr_pts_gap);
                     ALOGI("frame len =%d ms =%d latency_frames =%d ms=%d", frame_len, frame_len / 48, latency_frames, latency_frames / 48);
                     ALOGI("pts last =0x%" PRIx64 " now =0x%" PRIx64 " diff =%d ms time diff =%d ms jitter =%d ms",
                         out->hwsync->last_output_pts, apts64, pts_gap, time_gap, pts_gap - time_gap);
@@ -625,6 +625,18 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
             }
             out->hwsync->last_output_pts = apts64;
             out->hwsync->last_timestamp  = ts;
+            if (!adev->is_netflix && abs(pcr_pts_gap) > (APTS_DISCONTINUE_THRESHOLD_MIN_70MS) && apts64 > pcr && pcr != 0) {
+                int insert_size = 0;
+                insert_size = pcr_pts_gap * 48 * 4;
+                ALOGI("%s(), pcrscr %" PRIu64 " ms adjusted_apts %" PRIu64 " ms", __func__, pcr/90, apts64/90);
+                ALOGI("audio gap: pcr < apts %d ms, need insert data %d\n", pcr_pts_gap, insert_size);
+                *p_adjust_ms = pcr_pts_gap;
+                out->is_insert_0_data = true;
+            } else {
+                aml_hwsync_wrap_reset_pcrscr(out->hwsync, apts64);
+                out->is_insert_0_data = false;
+            }
+
         } else {
             ALOGI("%s not ready offset =%zu apts =%" PRIx64 "", __func__, offset, apts);
             ALOGI("%s alsa pcm delay =%d bitstream delay =%d pipeline =%d frame=%d total =%d", __func__,

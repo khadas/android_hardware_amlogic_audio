@@ -1319,6 +1319,9 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
         *frames = (*frames * out->hal_rate) / MM_FULL_POWER_SAMPLING_RATE;
     }
 
+    if (out->usecase == STREAM_PCM_HWSYNC && !adev->frame_write_sum_updated) {
+        *frames = out->hwsync_parsed_frames_sum;
+    }
     return 0;
 }
 
