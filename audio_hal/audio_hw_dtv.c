@@ -3368,6 +3368,9 @@ void *audio_dtv_patch_input_threadloop(void *data)
                         }
 
                         /* get dtv main and ad package */
+                        struct timespec current_ts,end_ts;
+                        clock_gettime(CLOCK_MONOTONIC, &current_ts);
+
                         while (!patch->input_thread_exit) {
                             /* get main data */
                             if (mEsData == NULL) {
@@ -3387,7 +3390,11 @@ void *audio_dtv_patch_input_threadloop(void *data)
                                     nRet = Get_ADAudio_Es(demux_handle, &mAdEsData);
                                     if (nRet != AM_AUDIO_Dmx_SUCCESS) {
                                         ALOGV("Get_ADAudio_Es failed");
-                                        if (!dtv_package_is_empty(list)) {
+                                        clock_gettime(CLOCK_MONOTONIC, &end_ts);
+                                        int  data_get_cost_ms = calc_time_interval_us(&current_ts, &end_ts) / 1000;
+                                        if (aml_dev->debug_flag)
+                                            ALOGI("data_get_cost_ms %d ms", data_get_cost_ms);
+                                        if (!dtv_package_is_empty(list) && data_get_cost_ms < 1000) {
                                             continue;
                                         }
                                     }
