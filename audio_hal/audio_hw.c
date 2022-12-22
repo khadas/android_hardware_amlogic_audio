@@ -10023,7 +10023,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_SPEAKER, false);
     aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_WIRED_HEADPHONE, false);
     aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_HDMI, false);
-    aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_HDMI_ARC, false);
+    //aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_HDMI_ARC, false);
     aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_SPDIF, adev->spdif_coexist_other);
 
     if (eDolbyMS12Lib != adev->dolby_lib_type) {
