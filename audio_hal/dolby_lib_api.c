@@ -212,7 +212,7 @@ int write_so_to_dev(void)
     close(audio_utils_fd);
 
     if (ret < 0) {
-        ALOGE("%s wtite lib error=%d", __func__, ret);
+        ALOGE("%s write lib error=%d", __func__, ret);
         goto exit;
     }
     b_dolby_written = true;

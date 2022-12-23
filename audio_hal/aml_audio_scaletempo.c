@@ -388,7 +388,7 @@ reinit_buffers (struct scale_tempo * st)
     st->reinit_buffers = false;
 }
 
-/* GstBaseTransform vmethod implementations */
+/* GstBaseTransform method implementations */
 static int hal_scaletempo_transform (struct scale_tempo * st,
     void * inbuf, int insize, void * outbuf)
 {
