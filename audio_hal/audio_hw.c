@@ -1310,12 +1310,6 @@ static uint32_t audiohal_get_latency (const struct audio_stream_out *stream)
     struct aml_audio_device *adev = out->dev;
     uint32_t a2dp_delay = 0, alsa_latency = 0, whole_latency = 0;
 
-     /* here to check if change the audio output device. */
-    if (adev->cur_out_devices != out->out_device) {
-        ALOGI("%s(), output device from 0x%x to 0x%x", __func__, out->out_device, adev->cur_out_devices);
-        out->out_device = adev->cur_out_devices;
-    }
-
     if (out->out_device & AUDIO_DEVICE_OUT_WIRED_HEADPHONE ||
         out->out_device & AUDIO_DEVICE_OUT_WIRED_HEADSET) {
         //do nothing.
@@ -1342,12 +1336,6 @@ static uint32_t out_get_latency (const struct audio_stream_out *stream)
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = out->dev;
     uint32_t a2dp_delay = 0, alsa_latency = 0, ms12_latency = 0, ms12_pipeline_latency = 0, whole_latency = 0;
-
-    /* here to check if change the audio output device. */
-    if (adev->cur_out_devices != out->out_device) {
-        ALOGI("%s(), cur device from 0x%x to 0x%x", __func__, out->out_device, adev->cur_out_devices);
-        out->out_device = adev->cur_out_devices;
-    }
 
     if (out->out_device & AUDIO_DEVICE_OUT_WIRED_HEADPHONE ||
         out->out_device & AUDIO_DEVICE_OUT_WIRED_HEADSET) {
