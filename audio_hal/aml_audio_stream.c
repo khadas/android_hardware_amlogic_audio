@@ -16,6 +16,7 @@
 
 #define LOG_TAG "audio_hw_primary"
 //#define LOG_NDEBUG 0
+#include <inttypes.h>
 #include <cutils/log.h>
 #include <tinyalsa/asoundlib.h>
 #include <cutils/properties.h>
@@ -952,6 +953,35 @@ const char *stream_status_2_string[STREAM_STATUS_MAX] = {
     "_MIXING",
     "_PAUSED"
 };
+
+
+void aml_stream_out_info_print(struct aml_stream_out *aml_out)
+{
+    struct timespec current_timestamp;
+    clock_gettime(CLOCK_MONOTONIC, &current_timestamp);
+    int64_t time_diff = calc_time_interval_us(&aml_out->last_info_timestamp, &current_timestamp);
+    ALOGV("%s time_diff %"PRIu64" ", __func__, time_diff);
+    if (time_diff >= (TIME_DIFF_THRESHOLD * USEC_PER_SEC) || aml_out->jitter_ms > 100) {
+        char * stream_type = audio_is_linear_pcm(aml_out->hal_format) ? "pcm" : "raw";
+        char * sync_mode   = aml_out->hw_sync_mode ? "tunnel" : "non tunnel";
+        int64_t cur_time_nanos = (long long)aml_out->last_timestamp_reported.tv_sec * NSEC_PER_SEC + (long long)aml_out->last_timestamp_reported.tv_nsec;
+        ALOGI("[audio_stream_out,stream_id:%p] time_diff[%"PRIu64"]us stream_type[%s] sync_mode[%s] input_size[%"PRIu64"]bytes, last_position[%"PRIu64"], last_time[%"PRIu64"]us, delay[%d], jitter[%"PRIu64"]ms",
+            aml_out,
+            time_diff,
+            stream_type,
+            sync_mode,
+            aml_out->input_bytes_size,
+            aml_out->last_frame_reported,
+            cur_time_nanos / NSEC_PER_USEC,
+            aml_out->audio_delay,
+            aml_out->jitter_ms
+            );
+        aml_out->last_info_timestamp = current_timestamp;
+    }
+    return;
+}
+
+
 
 void aml_stream_out_dump(struct aml_stream_out *aml_out, int fd)
 {

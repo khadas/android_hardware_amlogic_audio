@@ -77,6 +77,7 @@ void aml_audio_hwsync_init(audio_hwsync_t *p_hwsync, struct aml_stream_out  *out
     }
 
     out->tsync_status = TSYNC_STATUS_INIT;
+    clock_gettime(CLOCK_MONOTONIC, &p_hwsync->last_hwsync_timestamp);
     ALOGI("%s done", __func__);
     return;
 }
@@ -200,6 +201,18 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                 /*convert us to 90k*/
                 pts = pts_us * 90 / 1000;
                 time_diff = get_pts_gap(pts, p_hwsync->last_apts_from_header) / 90;
+                p_hwsync->pts_gap = time_diff;
+                {
+                    struct timespec current_timestamp;
+                    clock_gettime(CLOCK_MONOTONIC, &current_timestamp);
+                    int64_t time_diff = calc_time_interval_us(&p_hwsync->last_hwsync_timestamp, &current_timestamp);
+                    if (time_diff >= (TIME_DIFF_THRESHOLD * USEC_PER_SEC) ||
+                        p_hwsync->pts_gap > 100 ||
+                        pts <= p_hwsync->last_apts_from_header) {
+                        ALOGI("[hwsync:%p]tunnel time_diff[%"PRIu64"]us frame_body_size[%d]bytes pts_info[%"PRIu64" - %"PRIu64"]ms pts_gap[%"PRIu64"]ms", p_hwsync, time_diff, p_hwsync->hw_sync_frame_size, pts / 90, p_hwsync->last_apts_from_header / 90, p_hwsync->pts_gap);
+                        p_hwsync->last_hwsync_timestamp = current_timestamp;
+                    }
+                }
                 if (debug_enable) {
                     ALOGI("pts 0x%"PRIx64",frame len %u\n", pts, p_hwsync->hw_sync_body_cnt);
                     ALOGI("last pts 0x%"PRIx64",diff %" PRId64 " ms\n", p_hwsync->last_apts_from_header, time_diff);

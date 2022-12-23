@@ -2115,18 +2115,26 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
     }
     *frames += video_delay_frames;
 
-    if (adev->debug_flag) {
-        ALOGI("out_get_presentation_position out %p %"PRIu64", sec = %ld, nanosec = %ld(origin:%" PRId64 ") tuned_latency_ms %d frame_latency %d video delay=%d(origin:%d)\n",
-            out, *frames, timestamp->tv_sec, timestamp->tv_nsec, origin_tv_nsec, timems_latency, frame_latency, video_delay_frames, origin_vdelay_frames);
+    {
+        if (adev->debug_flag)
+            ALOGI("out_get_presentation_position out %p %"PRIu64", sec = %ld, nanosec = %ld(origin:%" PRId64 ") tuned_latency_ms %d frame_latency %d video delay=%d(origin:%d)\n",
+                out, *frames, timestamp->tv_sec, timestamp->tv_nsec, origin_tv_nsec, timems_latency, frame_latency, video_delay_frames, origin_vdelay_frames);
+
         int64_t  frame_diff_ms =  (*frames - out->last_frame_reported) * 1000 / out->hal_rate;
         int64_t  system_time_ms = 0;
+        int delay = 0;
         if (timestamp->tv_nsec < out->last_timestamp_reported.tv_nsec) {
             system_time_ms = (timestamp->tv_nsec + 1000000000 - out->last_timestamp_reported.tv_nsec)/1000000;
         }
         else
             system_time_ms = (timestamp->tv_nsec - out->last_timestamp_reported.tv_nsec)/1000000;
         int64_t jitter_diff = llabs(frame_diff_ms - system_time_ms);
-        if  (jitter_diff > JITTER_DURATION_MS) {
+        out->jitter_ms = jitter_diff;
+        if (audio_is_linear_pcm(out->hal_format) && audio_stream_out_frame_size(stream) && !out->hw_sync_mode) {
+            delay = out->input_bytes_size / audio_stream_out_frame_size(stream) - *frames;
+        }
+        out->audio_delay = delay;
+        if  (jitter_diff > JITTER_DURATION_MS && adev->debug_flag) {
             ALOGI("%s jitter out last pos info: %p %"PRIu64", sec = %ld, nanosec = %ld\n",__func__,out, out->last_frame_reported,
                 out->last_timestamp_reported.tv_sec, out->last_timestamp_reported.tv_nsec);
             ALOGI("%s jitter  system time diff %"PRIu64" ms, position diff %"PRIu64" ms, jitter %"PRIu64" ms \n",
@@ -2134,6 +2142,7 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         }
         out->last_frame_reported = *frames;
         out->last_timestamp_reported = *timestamp;
+        aml_stream_out_info_print(out);
     }
     return ret;
 }
@@ -3473,6 +3482,9 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->write_count = 0;
     out->frame_write_sum_updated = false;
     out->is_insert_0_data = false;
+
+    clock_gettime(CLOCK_MONOTONIC, &out->last_info_timestamp);
+    clock_gettime(CLOCK_MONOTONIC, &out->last_avsync_timestamp);
 
     //prepare hwsync resource for tunnel mode.
     //FIXME, normal design should be put here for hwsync.
@@ -6889,8 +6901,30 @@ hwsync_rewrite:
                         ret = aml_hwsync_wrap_get_pts(aml_out->hwsync, &pcr);
                         aml_hwsync_wrap_reset_pcrscr(aml_out->hwsync, apts64);
                         pcr_pts_gap = ((int)(apts64 - pcr)) / 90;
-                        if (abs(pcr_pts_gap) > 50 || debug_enable) {
-                            ALOGI("%s pcr =%" PRIu64 " pts =%" PRIu64 ",  diff =%d ms", __func__, pcr/90, apts64/90, pcr_pts_gap);
+
+                        if (abs(pcr_pts_gap) > 100 || debug_enable) {
+                            ALOGI("[avsync, %p] tunnel raw pts[%"PRIu64 "]ms pcr[%"PRIu64"]ms diff[%d]ms",
+                                aml_out->hwsync,
+                                apts64/90,
+                                pcr/90,
+                                pcr_pts_gap);
+                        }
+                        {
+                            struct timespec current_timestamp;
+                            clock_gettime(CLOCK_MONOTONIC, &current_timestamp);
+                            int64_t time_diff = calc_time_interval_us(&aml_out->last_avsync_timestamp, &current_timestamp);
+                            if (time_diff >= (TIME_DIFF_THRESHOLD * USEC_PER_SEC)) {
+                                ALOGI("[audio_stream_out,stream_id:%p]tunnel raw time_diff[%"PRIu64"]us total latency =[%d]ms alsa [%d]ms video delay[%d]ms tuning latency=[%d]ms apts [%"PRIu64"]ms \n",
+                                aml_out, time_diff, latency_pts / 90, latency, video_delay_ms, tuning_latency, cur_pts / 90);
+                                ALOGI("[audio_stream_out,stream_id:%p]tunnel raw status:%d start_pts[%"PRIu64"]ms, current_pts[%"PRIu64"]ms current_pcr[%"PRIu64"]ms diff[%d]ms",
+                                    aml_out,
+                                    aml_out->stream_status,
+                                    aml_out->hwsync->first_apts / 90,
+                                    apts64 / 90,
+                                    pcr / 90,
+                                    pcr_pts_gap);
+                                aml_out->last_avsync_timestamp = current_timestamp;
+                            }
                         }
                     } else {
                         ALOGI("%s  write_count:%d, drop this pts (alsa_running_status:%d [%p], valid_pts:%d)", __func__,
