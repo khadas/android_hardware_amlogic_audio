@@ -9695,6 +9695,88 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
     return 0;
 }
 
+#if ANDROID_PLATFORM_SDK_VERSION > 32
+static void read_hdmi_arc_format(struct audio_hw_device *dev,
+        const struct audio_extra_audio_descriptor *audio_descriptors, uint32_t size) {
+    for (int i = 0; i < size; i++) {
+        int sad_buffer[5] = {0};
+        char temp_sad_str[128] = {0};
+        if (audio_descriptors[i].descriptor_length != 3) {
+            AM_LOGW("des[%d] invalid descriptor_length: %d", i, audio_descriptors[i].descriptor_length);
+            continue;
+        }
+        // find a descriptor for each SUPPORT_CODECS
+        // CEA-861-D Table 34, 35, 36
+        sad_buffer[0] = (audio_descriptors[i].descriptor[0] & 0x78) >> 3;
+        sad_buffer[1] = 1; // supported
+        sad_buffer[2] = audio_descriptors[i].descriptor[0] & 0x7; // Max Channels - 1
+        sad_buffer[3] = audio_descriptors[i].descriptor[1] & 0x7F; // Support Sample Rate
+        sad_buffer[4] = audio_descriptors[i].descriptor[2] & 0xFF; // Max bit rate / 8kHz
+        snprintf(temp_sad_str, 128, "[%d, %d, %d, %d, %d]", sad_buffer[0], sad_buffer[1], sad_buffer[2], sad_buffer[3], sad_buffer[4]);
+        AM_LOGD("set arc format: %s", temp_sad_str);
+        set_arc_format(dev, temp_sad_str, AUDIO_HAL_CHAR_MAX_LEN);
+    }
+}
+
+static int adev_set_device_connected_state_v7(struct audio_hw_device *dev,
+                                     struct audio_port_v7 *port,
+                                     bool connected)
+{
+    struct aml_audio_device *aml_dev = (struct aml_audio_device *) dev;
+    char value[AUDIO_HAL_CHAR_MAX_LEN];
+    int i,j = 0;
+
+    ALOGD("%s: enter: id(%#x) type(%#x) active_config.format(%d) role(%d) device(%#x) hw_module(%#x) len (%#x)(%#x)\n", __func__,
+        port->id,
+        port->type,
+        port->active_config.format,
+        port->role, port->ext.device.type,
+        port->ext.device.hw_module,
+        sizeof(port->name),
+        sizeof(port->ext.device.address));
+    ALOGD("func:%s connected:%d , cur_out_devices:%#x\n", __func__, connected, aml_dev->cur_out_devices);
+
+    ALOGD("func:%s port->num_extra_audio_descriptors:%d , port->num_gains:%#x\n", __func__, port->num_extra_audio_descriptors, port->num_gains);
+    ALOGD("func:%s active_config->id:%d , active_config->role:%#x, active_config->type:%#x, active_config->sample_rate:%#x, active_config->format:%#x, active_config->config_mask:%#x , active_config->channel_mask:%#x, active_config->flags.input:%#x, active_config->flags.output:%#x, active_config->.ext.device.type:%#x active_config->.ext.mix.usecase.source:%#x active_config->.ext.mix.usecase.stream:%#x\n", __func__,
+            port->active_config.id,
+            port->active_config.role,
+            port->active_config.type,
+            port->active_config.sample_rate,
+            port->active_config.format,
+            port->active_config.config_mask,
+            port->active_config.channel_mask,
+            port->active_config.flags.input,
+            port->active_config.flags.output,
+            port->active_config.ext.device.type,
+            port->active_config.ext.mix.usecase.source,
+            port->active_config.ext.mix.usecase.stream);
+
+
+    struct str_parms *parms = NULL;
+    set_device_connect_state(aml_dev, parms, port->ext.device.type, connected);
+
+    ALOGD("func:%s port->name:%s, port->num_extra_audio_descriptors:%#x\n", __func__, port->name, port->num_extra_audio_descriptors);
+    read_hdmi_arc_format(dev, port->extra_audio_descriptors, port->num_extra_audio_descriptors);
+
+    ALOGD("func:%s port->name:%s , port->num_audio_profiles:%#x\n", __func__, port->name, port->num_audio_profiles);
+    for (i = 0; i< port->num_audio_profiles; i++) {
+    ALOGD("func:%s audio_profiles->format:%#x , audio_profiles->num_sample_rates:%d audio_profiles->num_channel_masks:%#x", __func__,
+         port->audio_profiles[i].format,
+         port->audio_profiles[i].num_sample_rates,
+         port->audio_profiles[i].num_channel_masks);
+    }
+
+     return 0;
+}
+
+static int adev_get_audio_port_v7(struct audio_hw_device *dev __unused, struct audio_port_v7 *port __unused)
+{
+    return 0;
+}
+
+#endif
+
+
 static int adev_get_audio_port(struct audio_hw_device *dev __unused, struct audio_port *port __unused)
 {
     return -ENOSYS;
@@ -9766,7 +9848,11 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     g_aml_primary_adev = (void *)adev;
 
     adev->hw_device.common.tag = HARDWARE_DEVICE_TAG;
-    adev->hw_device.common.version = AUDIO_DEVICE_API_VERSION_3_0;
+#if ANDROID_PLATFORM_SDK_VERSION > 32
+    adev->hw_device.common.version = AUDIO_DEVICE_API_VERSION_3_2;//need compatible with 3.0
+#else
+    adev->hw_device.common.version = AUDIO_DEVICE_API_VERSION_3_0;//need compatible with 3.0
+#endif
     adev->hw_device.common.module = (struct hw_module_t *)module;
     adev->hw_device.common.close = adev_close;
 
@@ -9789,6 +9875,10 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->hw_device.create_audio_patch = adev_create_audio_patch;
     adev->hw_device.release_audio_patch = adev_release_audio_patch;
     adev->hw_device.set_audio_port_config = adev_set_audio_port_config;
+#if ANDROID_PLATFORM_SDK_VERSION > 32
+    adev->hw_device.set_device_connected_state_v7 = adev_set_device_connected_state_v7;
+    adev->hw_device.get_audio_port_v7 = adev_get_audio_port_v7;
+#endif
 #if ANDROID_PLATFORM_SDK_VERSION > 29
     adev->hw_device.add_device_effect = adev_add_device_effect;
     adev->hw_device.remove_device_effect = adev_remove_device_effect;
