@@ -126,7 +126,7 @@ static int pcm_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config
     raw_in_data->buf = (unsigned char*) aml_audio_calloc(1, raw_in_data->buf_size);
     if (!raw_in_data->buf) {
         ALOGE("malloc buffer failed\n");
-        return -1;
+        goto exit;
     }
 
 
@@ -141,7 +141,7 @@ exit:
         if (dec_pcm_data->buf) {
             aml_audio_free(dec_pcm_data->buf);
         }
-        if (raw_in_data->buf) {
+        if (raw_in_data && raw_in_data->buf) {
             aml_audio_free(raw_in_data->buf);
         }
         aml_audio_free(pcm_dec);

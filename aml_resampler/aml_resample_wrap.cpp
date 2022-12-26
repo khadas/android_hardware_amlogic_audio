@@ -47,11 +47,10 @@ public:
     : mFrameSize(frameSize),
     mRead(read),
     mHandle(handle) {
-        mWorkBuf = (unsigned char*)aml_audio_malloc (16384);
+        mWorkBufSize = 16384;
+        mWorkBuf = (unsigned char*)aml_audio_malloc (mWorkBufSize);
         if (!mWorkBuf) {
             ALOGE("fail failed check!!!\n");
-        } else {
-            mWorkBufSize = 16384;
         }
     }
 

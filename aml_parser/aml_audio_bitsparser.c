@@ -62,6 +62,7 @@ bool static inline getBitsGraceful(struct audio_bit_parser * bit_parser, size_t 
         }
 
         result = (result << m) | (bit_parser->num_reservoir >> (32 - m));
+        /*coverity[large_shift]*/
         bit_parser->num_reservoir <<= m;
         bit_parser->num_bitsleft -= m;
         ALOGV("%s num_bitsleft %zu num_reservoir %x\n", __FUNCTION__, bit_parser->num_bitsleft, bit_parser->num_reservoir);

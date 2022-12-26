@@ -402,11 +402,8 @@ static int _dts_raw_output(struct dca_dts_dec *dts_dec)
     }
 
     dec_raw_data->data_format = AUDIO_FORMAT_IEC61937;
-    if (aml_dec->format == AUDIO_FORMAT_DTS_HD && (dts_dec->digital_raw == AML_DEC_CONTROL_CONVERT)) {
-        dec_raw_data->sub_format = AUDIO_FORMAT_DTS;
-    } else {
-        dec_raw_data->sub_format = AUDIO_FORMAT_DTS;
-    }
+    dec_raw_data->sub_format = AUDIO_FORMAT_DTS;
+
     /*we check whether the data is iec61937 or dts raw*/
     dec_raw_data->is_dtscd = _dts_syncword_scan(dec_raw_data->buf, &syncword);
     dec_raw_data->data_ch = 2;
