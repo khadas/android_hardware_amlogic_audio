@@ -513,6 +513,8 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
     int alsa_pcm_delay_frames = 0;
     int alsa_bitstream_delay_frames = 0;
     int ms12_pipeline_delay_frames = 0;
+    bool amaster_mode = true;
+
     ALOGV("%s,================", __func__);
 
     if (p_hwsync->aout == NULL) {
@@ -591,30 +593,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
                 aml_audio_hwsync_set_first_pts(out->hwsync, apts64);
                 ALOGI("%s resync pcr_pts_gap %d ms\n", __func__, pcr_pts_gap);
             }
-#if 0
-            if (gap > APTS_DISCONTINUE_THRESHOLD_MIN && gap < APTS_DISCONTINUE_THRESHOLD_MAX) {
-                if (apts32 > pcr) {
-                    /*during video stop, pcr has been reset by video
-                    we need ignore such pcr value*/
-                    if (pcr != 0) {
-                        *p_adjust_ms = gap_ms;
-                        ALOGE("%s *p_adjust_ms %d\n", __func__, *p_adjust_ms);
-                    } else {
-                        ALOGE("pcr has been reset\n");
-                    }
-                } else {
-                    ALOGI("tsync -> reset pcrscr 0x%x -> 0x%x, %s big,diff %"PRIx64" ms",
-                        pcr, apts32, apts32 > pcr ? "apts" : "pcr", get_pts_gap(apts32, pcr) / 90);
-                    int ret_val = aml_hwsync_wrap_reset_pcrscr(out->hwsync, apts32);
-                    if (ret_val == -1) {
-                        ALOGE("unable to open file %s,err: %s", TSYNC_APTS, strerror(errno));
-                    }
-                }
-            } else if (gap > APTS_DISCONTINUE_THRESHOLD_MAX) {
-                ALOGE("%s apts32 exceed the adjust range,need check apts 0x%x,pcr 0x%x",
-                    __func__, apts32, pcr);
-            }
-#endif
+
             if (adev && adev->continuous_audio_mode && (out->write_status == false)) {
                 // ms12 continuous mode, stream just resume and not ready for write
                 ALOGI("%s : continuous mode, waiting stream[%p] write_status to be true", __func__, out);
@@ -642,7 +621,18 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
             }
             out->hwsync->last_output_pts = apts64;
             out->hwsync->last_timestamp  = ts;
-            if (!adev->is_netflix && abs(pcr_pts_gap) > (APTS_DISCONTINUE_THRESHOLD_MIN_70MS) && apts64 > pcr && pcr != 0) {
+
+            aml_hwsync_wrap_is_amaster(out->hwsync, &amaster_mode);
+            if (!amaster_mode) {
+                ALOGE("%s not amaster mode", __func__);
+                return 0;
+            }
+
+            if (!adev->is_netflix &&
+                abs(pcr_pts_gap) > (APTS_DISCONTINUE_THRESHOLD_MIN_70MS) &&
+                abs(pcr_pts_gap) < APTS_DISCONTINUE_THRESHOLD_MIN_5S &&
+                apts64 > pcr &&
+                pcr != 0) {
                 int insert_size = 0;
                 insert_size = pcr_pts_gap * 48 * 4;
                 ALOGI("%s(), pcrscr %" PRIu64 " ms adjusted_apts %" PRIu64 " ms", __func__, pcr/90, apts64/90);

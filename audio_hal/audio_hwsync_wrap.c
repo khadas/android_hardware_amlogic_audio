@@ -484,7 +484,7 @@ void aml_hwsync_wrap_is_amaster(audio_hwsync_t *p_hwsync, bool *b_amaster) {
     bool ret = false;
     sync_mode mode = MEDIA_SYNC_MODE_MAX;
     ret = mediasync_wrap_getSyncMode(p_hwsync->mediasync, &mode);
-    ALOGI("%s ret =%d sync mode =%d", __func__, ret, mode);
+    ALOGV("%s ret =%d sync mode =%d", __func__, ret, mode);
     if (mode == MEDIA_SYNC_AMASTER) {
         *b_amaster = true;
     } else {
