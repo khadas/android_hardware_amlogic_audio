@@ -774,6 +774,13 @@ static unsigned int compare_clock(unsigned int clock1, unsigned int clock2, unsi
     return false;
 }
 
+unsigned int dtv_get_i2s_output_clock(struct aml_audio_patch* patch) {
+    struct audio_hw_device *adev = patch->dev;
+    struct aml_audio_device * aml_dev = (struct aml_audio_device*)adev;
+    struct aml_mixer_handle * handle = &(aml_dev->alsa_mixer);
+    return aml_mixer_ctrl_get_int(handle, AML_MIXER_ID_CHANGE_I2S_PLL);
+}
+
 void dtv_adjust_i2s_output_clock(struct aml_audio_patch* patch, int direct, int step)
 {
     struct audio_hw_device *adev = patch->dev;

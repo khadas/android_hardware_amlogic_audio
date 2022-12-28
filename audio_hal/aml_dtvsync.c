@@ -684,6 +684,8 @@ dtvsync_process_res  aml_dtvsync_nonms12_process(struct audio_stream_out *stream
     }
 
     do {
+        m_audiopolicy.param1 = patch->dtv_default_i2s_clock;
+        m_audiopolicy.param2 = dtv_get_i2s_output_clock(patch);
         ret = aml_dtvsync_audioprocess(patch->dtvsync, aml_dec->out_frame_pts,
                                 patch->dtvsync->cur_outapts,
                                 MEDIASYNC_UNIT_PTS, &m_audiopolicy);
@@ -751,6 +753,8 @@ void aml_dtvsync_ms12_get_policy(struct audio_stream_out *stream)
     memset(&m_audiopolicy, 0, sizeof(m_audiopolicy));
 
     do {
+        m_audiopolicy.param1 = patch->dtv_default_i2s_clock;
+        m_audiopolicy.param2 = dtv_get_i2s_output_clock(patch);
         ret = aml_dtvsync_audioprocess(patch->dtvsync, patch->cur_package->pts,
                                 patch->dtvsync->cur_outapts,
                                 MEDIASYNC_UNIT_PTS, &m_audiopolicy);
