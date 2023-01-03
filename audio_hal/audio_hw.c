@@ -3989,6 +3989,9 @@ static int aml_audio_set_speaker_mute(struct aml_audio_device *adev, char *value
 
 static void check_usb_card_device(struct str_parms *parms, int device)
 {
+    if (parms == NULL) {
+        return;
+    }
     /*usb audio hot plug need delay some time wait alsa file create */
     if ((device & AUDIO_DEVICE_OUT_ALL_USB) || (device & AUDIO_DEVICE_IN_ALL_USB)) {
         int card = 0, alsa_dev = 0, val = 0, retry;
@@ -9696,23 +9699,64 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
 }
 
 #if ANDROID_PLATFORM_SDK_VERSION > 32
-static void read_hdmi_arc_format(struct audio_hw_device *dev,
+static void read_hdmi_arc_info(struct audio_hw_device *dev,
         const struct audio_extra_audio_descriptor *audio_descriptors, uint32_t size) {
-    for (int i = 0; i < size; i++) {
+    uint8_t descriptor[EXTRA_AUDIO_DESCRIPTOR_SIZE] = {0};
+    uint8_t length = 0;
+    if (size == 0) {
+        AM_LOGW("audio_descriptor invalid. length:%d", size);
+        return;
+    } else if (size > 1) { // arc
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < audio_descriptors[i].descriptor_length; j++) {
+                if (length >= EXTRA_AUDIO_DESCRIPTOR_SIZE) {
+                    AM_LOGE("sad descriptor_length too large");
+                    return;
+                }
+                descriptor[length++] = audio_descriptors[i].descriptor[j];
+            }
+        }
+    } else { // earc
+        length = audio_descriptors[0].descriptor_length;
+        if (length > EXTRA_AUDIO_DESCRIPTOR_SIZE) {
+            AM_LOGE("sad descriptor_length:%d too large", audio_descriptors[0].descriptor_length);
+            return;
+        }
+        memcpy(descriptor, &audio_descriptors[0].descriptor[0], length);
+    }
+
+    // 1. set the arc hdmi info.
+    uint8_t edid_buf[EXTRA_AUDIO_DESCRIPTOR_SIZE + 2] = {0};
+    char edid_str_buf[1024] = {0};
+    edid_buf[0] = length;
+    edid_buf[1] = 2;
+    memcpy(edid_buf + 2, &descriptor[0], length);
+    strcat(edid_str_buf, "[");
+    for (int i = 0; i < length; i++) {
+        char temp_str[5] = {0};
+        snprintf(temp_str, 5, "%d", edid_buf[i]);
+        strcat(edid_str_buf, temp_str);
+        if (i + 1 < length) {
+            strcat(edid_str_buf, ", ");
+        }
+    }
+    strcat(edid_str_buf, "]");
+    AM_LOGD("set arc hdmi edid_str_buf:%s", edid_str_buf);
+    set_arc_hdmi(dev, edid_str_buf, 1024);
+
+    // 2. read the arc format info.
+    for (int i = 0; i + 2 < length; i += 3) {
         int sad_buffer[5] = {0};
         char temp_sad_str[128] = {0};
-        if (audio_descriptors[i].descriptor_length != 3) {
-            AM_LOGW("des[%d] invalid descriptor_length: %d", i, audio_descriptors[i].descriptor_length);
-            continue;
-        }
         // find a descriptor for each SUPPORT_CODECS
         // CEA-861-D Table 34, 35, 36
-        sad_buffer[0] = (audio_descriptors[i].descriptor[0] & 0x78) >> 3;
+        sad_buffer[0] = (descriptor[i] & 0x78) >> 3;
         sad_buffer[1] = 1; // supported
-        sad_buffer[2] = audio_descriptors[i].descriptor[0] & 0x7; // Max Channels - 1
-        sad_buffer[3] = audio_descriptors[i].descriptor[1] & 0x7F; // Support Sample Rate
-        sad_buffer[4] = audio_descriptors[i].descriptor[2] & 0xFF; // Max bit rate / 8kHz
-        snprintf(temp_sad_str, 128, "[%d, %d, %d, %d, %d]", sad_buffer[0], sad_buffer[1], sad_buffer[2], sad_buffer[3], sad_buffer[4]);
+        sad_buffer[2] = descriptor[i] & 0x7; // Max Channels - 1
+        sad_buffer[3] = descriptor[i + 1] & 0x7F; // Support Sample Rate
+        sad_buffer[4] = descriptor[i + 2] & 0xFF; // Max bit rate / 8kHz
+        snprintf(temp_sad_str, 128, "[%d, %d, %d, %d, %d]", sad_buffer[0],
+            sad_buffer[1], sad_buffer[2], sad_buffer[3], sad_buffer[4]);
         AM_LOGD("set arc format: %s", temp_sad_str);
         set_arc_format(dev, temp_sad_str, AUDIO_HAL_CHAR_MAX_LEN);
     }
@@ -9723,55 +9767,25 @@ static int adev_set_device_connected_state_v7(struct audio_hw_device *dev,
                                      bool connected)
 {
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) dev;
-    char value[AUDIO_HAL_CHAR_MAX_LEN];
-    int i,j = 0;
-
-    ALOGD("%s: enter: id(%#x) type(%#x) active_config.format(%d) role(%d) device(%#x) hw_module(%#x) len (%#x)(%#x)\n", __func__,
-        port->id,
-        port->type,
-        port->active_config.format,
-        port->role, port->ext.device.type,
-        port->ext.device.hw_module,
-        sizeof(port->name),
-        sizeof(port->ext.device.address));
-    ALOGD("func:%s connected:%d , cur_out_devices:%#x\n", __func__, connected, aml_dev->cur_out_devices);
-
-    ALOGD("func:%s port->num_extra_audio_descriptors:%d , port->num_gains:%#x\n", __func__, port->num_extra_audio_descriptors, port->num_gains);
-    ALOGD("func:%s active_config->id:%d , active_config->role:%#x, active_config->type:%#x, active_config->sample_rate:%#x, active_config->format:%#x, active_config->config_mask:%#x , active_config->channel_mask:%#x, active_config->flags.input:%#x, active_config->flags.output:%#x, active_config->.ext.device.type:%#x active_config->.ext.mix.usecase.source:%#x active_config->.ext.mix.usecase.stream:%#x\n", __func__,
-            port->active_config.id,
-            port->active_config.role,
-            port->active_config.type,
-            port->active_config.sample_rate,
-            port->active_config.format,
-            port->active_config.config_mask,
-            port->active_config.channel_mask,
-            port->active_config.flags.input,
-            port->active_config.flags.output,
-            port->active_config.ext.device.type,
-            port->active_config.ext.mix.usecase.source,
-            port->active_config.ext.mix.usecase.stream);
-
-
-    struct str_parms *parms = NULL;
-    set_device_connect_state(aml_dev, parms, port->ext.device.type, connected);
-
-    ALOGD("func:%s port->name:%s, port->num_extra_audio_descriptors:%#x\n", __func__, port->name, port->num_extra_audio_descriptors);
-    read_hdmi_arc_format(dev, port->extra_audio_descriptors, port->num_extra_audio_descriptors);
-
-    ALOGD("func:%s port->name:%s , port->num_audio_profiles:%#x\n", __func__, port->name, port->num_audio_profiles);
-    for (i = 0; i< port->num_audio_profiles; i++) {
-    ALOGD("func:%s audio_profiles->format:%#x , audio_profiles->num_sample_rates:%d audio_profiles->num_channel_masks:%#x", __func__,
-         port->audio_profiles[i].format,
-         port->audio_profiles[i].num_sample_rates,
-         port->audio_profiles[i].num_channel_masks);
+    if (port->type == AUDIO_PORT_TYPE_DEVICE) {
+        AM_LOGI("dev:%#x, connect:%d, num_descriptors:%d , num_profiles:%d", port->ext.device.type, connected,
+            port->num_extra_audio_descriptors, port->num_audio_profiles);
+    }
+    set_device_connect_state(aml_dev, NULL, port->ext.device.type, connected);
+    if (port->type == AUDIO_PORT_TYPE_DEVICE && port->ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC) {
+        read_hdmi_arc_info(dev, port->extra_audio_descriptors, port->num_extra_audio_descriptors);
+    }
+    for (int i = 0; i< port->num_audio_profiles; i++) {
+        AM_LOGV("[%d] format:%#x, num_sample_rates:%d num_channel_masks:%#x", i,
+             port->audio_profiles[i].format, port->audio_profiles[i].num_sample_rates, port->audio_profiles[i].num_channel_masks);
     }
 
-     return 0;
+    return 0;
 }
 
 static int adev_get_audio_port_v7(struct audio_hw_device *dev __unused, struct audio_port_v7 *port __unused)
 {
-    return 0;
+    return -ENOSYS;
 }
 
 #endif
