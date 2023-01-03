@@ -43,52 +43,54 @@ static void earc_cds_conf_to_str(char *earc_cds, char *cds_str, int hex, struct 
     for (i = 0; i < CDS_MAX - 1;) {
         /* block id */
         cds_blockid = cds_blocks[i];
+        blen = cds_blocks[1 + i]; /* block length */
         if (cds_blockid == 1 || cds_blockid == 2) {
-                blen = cds_blocks[1 + i]; /* block length */
-                audio_blocks = &cds_blocks[2 + i];
-                for (j = 0; j < blen;) {
-                    /* CTA-861-G Audio Data Block */
-                    ALOGI("%s, tagl:%#x\n", __FUNCTION__, audio_blocks[j]);
-                    dlen = audio_blocks[j] & 0x1f; /* length of audio data block */
-                    tag_code = (audio_blocks[j] & 0xe0) >> 5;
+            audio_blocks = &cds_blocks[2 + i];
+            for (j = 0; j < blen;) {
+                /* CTA-861-G Audio Data Block */
+                ALOGI("%s, tagl:%#x\n", __FUNCTION__, audio_blocks[j]);
+                dlen = audio_blocks[j] & 0x1f; /* length of audio data block */
+                tag_code = (audio_blocks[j] & 0xe0) >> 5;
 
-                    /* so far only get Audio Data Block Tag(tag_code = 1) */
-                    for (m = 0; m < dlen && tag_code == 1; m ++) {
-                        /* skip 3 bytes which is for pcm format */
-                        if (m % 3 == 0 && ((audio_blocks[1 + j + m] >> 3) & 0xf) == 0x1) {
-                            m += 2;
-                            continue;
-                        }
-                        if (hex) {
-                            cds_str[index++] = audio_blocks[1 + j + m];
-                        } else {
-                            sprintf(cds_str, "%s%d, ", cds_str, audio_blocks[1 + j + m]);
-                        }
+                /* so far only get Audio Data Block Tag(tag_code = 1) */
+                for (m = 0; m < dlen && tag_code == 1; m ++) {
+                    /* skip 3 bytes which is for pcm format */
+                    if (m % 3 == 0 && ((audio_blocks[1 + j + m] >> 3) & 0xf) == 0x1) {
+                        m += 2;
+                        continue;
                     }
-                    /* Dolby Audio and Dolby Atmos
-                     * over HDMI Specification.
-                     * The audio_hw_profile.c fils also
-                     * has the detail description.
-                     */
-                    if (tag_code == 0x7) {
-                        if (audio_blocks[j + 1] == 0x11 &&
-                            audio_blocks[j + 2] == 0x46 &&
-                            audio_blocks[j + 3] == 0xD0 &&
-                            audio_blocks[j + 4] == 0x00 &&
-                            audio_blocks[j + 6] == 0x01)
-                            hdmi_descs->mat_fmt.MAT_PCM_48kHz_only = true;
+                    if (hex) {
+                        cds_str[index++] = audio_blocks[1 + j + m];
+                    } else {
+                        sprintf(cds_str + strlen(cds_str), "%d, ", audio_blocks[1 + j + m]);
                     }
-                    if (tag_code == 1)
-                        n += dlen;
-                    j += dlen + 1;
-                    ALOGV("%s, j:%d, cds_str:%s\n", __FUNCTION__, j, cds_str);
                 }
+                /* Dolby Audio and Dolby Atmos
+                 * over HDMI Specification.
+                 * The audio_hw_profile.c fils also
+                 * has the detail description.
+                 */
+                if (tag_code == 0x7) {
+                    if (audio_blocks[j + 1] == 0x11 &&
+                        audio_blocks[j + 2] == 0x46 &&
+                        audio_blocks[j + 3] == 0xD0 &&
+                        audio_blocks[j + 4] == 0x00 &&
+                        audio_blocks[j + 6] == 0x01)
+                        hdmi_descs->mat_fmt.MAT_PCM_48kHz_only = true;
+                }
+                if (tag_code == 1)
+                    n += dlen;
+                j += dlen + 1;
+                ALOGV("%s, j:%d, cds_str:%s\n", __FUNCTION__, j, cds_str);
+            }
 
-                i += blen + 2;
+            i += blen + 2;
         } else if (cds_blockid == 3) {
             /* ignore now */
+            i += blen + 2;
+        } else {
+            break;
         }
-        break;
     }
 
     if (!hex) {
