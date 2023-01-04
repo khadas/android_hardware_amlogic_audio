@@ -168,7 +168,7 @@ static void* aml_hfp_ul_thread(void* data) {
         pcm_close(ul_task->pcm_hfp_sco_rx);
         ul_task->pcm_hfp_sco_rx = NULL;
     }
-
+    /*coverity[check_after_deref]*/
     if (ul_task->pcm_hfp_pcm_tx) {
         pcm_close(ul_task->pcm_hfp_pcm_tx);
         ul_task->pcm_hfp_pcm_tx = NULL;
@@ -304,10 +304,12 @@ static void* aml_hfp_dl_thread(void* data) {
             }
         }
     }
+    /*coverity[check_after_deref]*/
     if (dl_task->pcm_hfp_sco_tx ) {
         pcm_close(dl_task->pcm_hfp_sco_tx );
         dl_task->pcm_hfp_sco_tx  = NULL;
     }
+
     if (dl_task->pcm_hfp_pcm_rx) {
         pcm_close(dl_task->pcm_hfp_pcm_rx);
         dl_task->pcm_hfp_pcm_rx = NULL;

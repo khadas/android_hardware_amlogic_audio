@@ -1072,7 +1072,7 @@ int cpy_16bit_data_with_gain(int16_t *dst, int16_t *src, int size_in_bytes, floa
 
 static inline uint64_t timespec_ns(struct timespec tspec)
 {
-    return (uint64_t)(tspec.tv_sec * 1000000000 + tspec.tv_nsec);
+    return ((uint64_t)tspec.tv_sec * 1000000000 + (uint64_t)tspec.tv_nsec);
 }
 
 uint64_t get_systime_ns(void)

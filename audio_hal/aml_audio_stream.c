@@ -299,7 +299,10 @@ static bool get_sink_dv_capability()
     memset(buffer, 0, sizeof(buffer));
     fp = fopen(HDMI_HDR_STATUS_NODE, "r");
     if (fp) {
-        fread((char *)buffer, 1, sizeof(buffer)-1, fp);
+        int read_count = fread((char *)buffer, 1, sizeof(buffer)-1, fp);
+        if (ferror(fp)) {
+            ALOGE("%s : fread has IO wrong", __func__);
+       }
         fclose(fp);
     }
     ALOGI("%s : %s = %s", __func__, HDMI_HDR_STATUS_NODE, buffer);
@@ -1916,11 +1919,11 @@ bool is_game_mode(struct aml_audio_device *aml_dev)
 
 void aml_check_pic_mode(struct aml_audio_patch *patch)
 {
-    struct aml_audio_device *aml_dev = (struct aml_audio_device *)patch->dev;
-
+    struct aml_audio_device *aml_dev = NULL;
     if (!patch || patch->input_src != AUDIO_DEVICE_IN_HDMI) {
         return;
     }
+    aml_dev = (struct aml_audio_device *)patch->dev;
 
     if (aml_dev->pic_mode == PQ_GAME && patch->mode_reconfig_flag == true) {
         ALOGD("%s(), IEC61937 data, reconfig audio path", __func__);

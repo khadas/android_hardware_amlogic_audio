@@ -255,7 +255,7 @@ input_port *new_input_port(
     port = aml_audio_calloc(1, sizeof(input_port));
     if (port == NULL) {
         AM_LOGE("no memory");
-        goto err_data;
+        return NULL;
     }
     R_CHECK_POINTER_LEGAL(NULL, port, "no memory, size:%zu", sizeof(input_port));
 

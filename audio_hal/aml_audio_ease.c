@@ -201,7 +201,10 @@ int aml_audio_ease_config(aml_audio_ease_t * ease_handle, ease_setting_t *settin
 }
 
 int aml_audio_ease_process(aml_audio_ease_t * ease_handle, void * in_data, size_t size) {
-
+    if (!ease_handle) {
+        ALOGE("%s(), ease_handle is NULL", __func__);
+        return -1;
+    }
     audio_format_t format = ease_handle->data_format.format;
     int ch = ease_handle->data_format.ch;
     int nframes = 0;
@@ -209,7 +212,7 @@ int aml_audio_ease_process(aml_audio_ease_t * ease_handle, void * in_data, size_
     int i = 0, j = 0;
     float vol_delta;
 
-    if (ease_handle == NULL || in_data == NULL || ch == 0 || size == 0 || ease_handle->ease_status == Invalid
+    if (in_data == NULL || ch == 0 || size == 0 || ease_handle->ease_status == Invalid
             || (format != AUDIO_FORMAT_PCM_16_BIT && format != AUDIO_FORMAT_PCM_32_BIT)) {
         if (ease_handle) {
             ease_handle->do_easing = false;

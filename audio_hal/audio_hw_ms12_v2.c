@@ -2274,12 +2274,12 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
             return 0;
         }
 #ifdef ENABLE_DVB_PATCH
-        if (do_sync_flag && aml_out->dtvsync_enable) {
+        if (patch && do_sync_flag && aml_out->dtvsync_enable) {
             aml_dtvsync_t *aml_dtvsync = patch->dtvsync;
             int alsa_bitstream_delay_ms = out_get_ms12_bitstream_latency_ms(stream);
             int64_t alsa_latency = (alsa_bitstream_delay_ms >= 0) ? (alsa_bitstream_delay_ms * MILLISECOND_2_PTS) : 0;
             int64_t ms12_bypass_tuning_pts = dtv_get_ms12_bypass_latency_offset()/*ms*/ * MILLISECOND_2_PTS;
-            if (aml_dtvsync && patch && patch->cur_package && (patch->cur_package->pts != ULLONG_MAX)) {
+            if (aml_dtvsync && patch->cur_package && (patch->cur_package->pts != ULLONG_MAX)) {
                 /* Fixme: if there are multi frames in the dolby raw data, how to update the pts? */
                 aml_dtvsync->out_start_apts = patch->cur_package->pts;
                 aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_bypass_tuning_pts;
@@ -3543,6 +3543,7 @@ int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_stat
     if (ms12->dolby_ms12_enable) {
         pthread_mutex_lock(&ms12->lock);
         set_dolby_ms12_runtime_system_mixing_enable(ms12, system_app_mixing_status);
+        /*coverity[double_unlock]*/
         pthread_mutex_unlock(&ms12->lock);
         ALOGI("%s return %d stream-status %d set system-app-audio-mixing %d\n",
               __func__, ret, stream_status, system_app_mixing_status);
@@ -3956,12 +3957,14 @@ bool is_rebuild_the_ms12_pipeline(    audio_format_t main_input_fmt, audio_forma
         ALOGD("%s line %d main_input_fmt %#x hal_internal_format %#x request_ac4_alive^is_mat_alive %d request_ac4_alive^is_ott_format_alive %d (request_ac4_alive^is_aac_alive) %d\n",
             __func__, __LINE__, main_input_fmt, hal_internal_format,
             request_ac4_alive^is_mat_alive, request_ac4_alive^is_ott_format_alive, request_ac4_alive^is_aac_alive);
+        /*coverity[dead_error_line]*/
         return (request_ac4_alive^is_mat_alive) || (request_ac4_alive^is_ott_format_alive) || (request_ac4_alive^is_aac_alive);
     }
     else if (request_mat_alive && (is_mat_alive^request_mat_alive)) {
         //new MAT stream appears when last steam played AC4/DD/DDP/AAC
         ALOGD("%s line %d main_input_fmt %#x hal_internal_format %#x (request_mat_alive^is_ac4_alive) %d (request_mat_alive^is_ott_format_alive) %d (request_mat_alive^is_aac_alive) %d\n",
             __func__, __LINE__, main_input_fmt, hal_internal_format, (request_mat_alive^is_ac4_alive), (request_mat_alive^is_ott_format_alive), (request_mat_alive^is_aac_alive));
+        /*coverity[dead_error_line]*/
         return (request_mat_alive^is_ac4_alive) || (request_mat_alive^is_ott_format_alive) || (request_mat_alive^is_aac_alive);
     }
     else if (request_aac_alive && (is_aac_alive^request_aac_alive)) {
@@ -3969,6 +3972,7 @@ bool is_rebuild_the_ms12_pipeline(    audio_format_t main_input_fmt, audio_forma
         ALOGD("%s line %d main_input_fmt %#x hal_internal_format %#x (request_aac_alive^is_ac4_alive) %d (request_aac_alive^is_ott_format_alive) %d (request_aac_alive^is_mat_alive) %d\n",
             __func__, __LINE__, main_input_fmt, hal_internal_format,
             (request_aac_alive^is_ac4_alive), (request_aac_alive^is_ott_format_alive), (request_aac_alive^is_mat_alive));
+        /*coverity[dead_error_line]*/
         return (request_aac_alive^is_ac4_alive) || (request_aac_alive^is_ott_format_alive) || (request_aac_alive^is_mat_alive);
     }
     else if (request_ott_format_alive && (is_ott_format_alive^request_ott_format_alive)){
@@ -3976,6 +3980,7 @@ bool is_rebuild_the_ms12_pipeline(    audio_format_t main_input_fmt, audio_forma
         ALOGD("%s line %d main_input_fmt %#x hal_internal_format %#x (request_ott_format_alive^is_ac4_alive) %d (request_ott_format_alive^is_mat_alive) %d (request_ott_format_alive^is_aac_alive) %d\n",
             __func__, __LINE__, main_input_fmt, hal_internal_format,
             (request_ott_format_alive^is_ac4_alive), (request_ott_format_alive^is_mat_alive), (request_ott_format_alive^is_aac_alive));
+        /*coverity[dead_error_line]*/
         return (request_ott_format_alive^is_ac4_alive) || (request_ott_format_alive^is_mat_alive) || (request_ott_format_alive^is_aac_alive);
     }
     else {

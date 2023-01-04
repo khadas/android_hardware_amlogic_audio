@@ -202,6 +202,7 @@ int a2dp_out_open(struct aml_audio_device *adev) {
     if (!hal->a2dphw.SetUp(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP)) {
         AM_LOGE("BluetoothAudioPortOut setup fail");
         pthread_mutex_unlock(&adev->a2dp_lock);
+        delete hal;
         return -1;
     }
     if (!hal->a2dphw.LoadAudioConfig(&hal->config)) {
@@ -249,6 +250,7 @@ int a2dp_out_close(struct aml_audio_device *adev) {
     pthread_mutex_destroy(&hal->out_monitor_thread_mutex);
     adev->a2dp_hal = NULL;
     AM_LOGI("");
+    /*coverity[sleep]*/
     a2dp_wait_status(hal);
     hal->a2dphw.Stop();
     hal->a2dphw.TearDown();
@@ -289,6 +291,7 @@ static int a2dp_out_resume(struct aml_audio_device *adev) {
         pthread_mutex_unlock(&adev->a2dp_lock);
         return -1;
     }
+    /*coverity[sleep]*/
     int32_t ret = a2dp_out_resume_l(adev);
     pthread_mutex_unlock(&adev->a2dp_lock);
     return ret;
@@ -320,6 +323,7 @@ static int a2dp_out_standby(struct aml_audio_device *adev) {
         pthread_mutex_unlock(&adev->a2dp_lock);
         return -1;
     }
+    /*coverity[sleep]*/
     int32_t ret = a2dp_out_standby_l(adev);
     pthread_mutex_unlock(&adev->a2dp_lock);
     return ret;
@@ -440,7 +444,8 @@ static ssize_t a2dp_data_resample_process(aml_a2dp_hal *hal, audio_config_base_t
             }
         }
         aml_audio_resample_process(hal->resample, (void *)buffer, in_frames * in_frame_size);
-        out_frames = hal->resample->resample_size / in_frame_size;
+        if (in_frame_size > 0)
+            out_frames = hal->resample->resample_size / in_frame_size;
         *output_buffer = hal->resample->resample_buffer;
     }
     return out_frames;
@@ -567,6 +572,7 @@ ssize_t a2dp_out_write(struct aml_audio_device *adev, audio_config_base_t *confi
         if (remain_size > period_time_ms * one_ms_data) {
             sent = period_time_size;
         }
+        /*coverity[sleep]*/
         a2dp_out_write_l(adev, config, (char *)buffer + written_size, sent);
         AM_LOGV("written_size:%d, remain_size:%d, sent:%zu", written_size, remain_size, sent);
         written_size += sent;

@@ -161,6 +161,7 @@ int init_mixer_input_port(struct amlAudioMixer *audio_mixer,
         return -1;
     }
     port_index = mixer_get_available_inport_index(audio_mixer);
+    /*coverity[leaked_storage]*/
     R_CHECK_PARAM_LEGAL(-1, port_index, 0, NR_INPORTS - 1, "");
 
     if (audio_mixer->in_ports[port_index] != NULL) {

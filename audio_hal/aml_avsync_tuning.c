@@ -71,11 +71,14 @@ static void check_skip_frames(struct aml_audio_device *aml_dev)
     snd_pcm_sframes_t frames = 0;
     struct pcm *pcm_handle = aml_dev->pcm_handle[I2S_DEVICE];
     struct pcm *pcm_handle_spdif = aml_dev->pcm_handle[DIGITAL_DEVICE];
-
     int alsa_out_i2s_ltcy = -1;
+    if (!patch) {
+        ALOGE("%s(), patch is NULL", __func__);
+        return ;
+    }
     patch->skip_frames = 0;
     /* for spk, check i2s device latency */
-    if (pcm_handle && patch && patch->need_do_avsync == true &&
+    if (pcm_handle && patch->need_do_avsync == true &&
         patch->is_avsync_start == false && aml_dev->bHDMIARCon == 0) {
         if (pcm_ioctl(pcm_handle, SNDRV_PCM_IOCTL_DELAY, &frames) >= 0) {
             alsa_out_i2s_ltcy = frames / SAMPLE_RATE_MS;
@@ -89,7 +92,7 @@ static void check_skip_frames(struct aml_audio_device *aml_dev)
 
     int alsa_out_spdif_ltcy = -1;
     /* for arc, check spdif device latency */
-    if (pcm_handle_spdif && patch && patch->need_do_avsync == true &&
+    if (pcm_handle_spdif && patch->need_do_avsync == true &&
         patch->is_avsync_start == false && aml_dev->bHDMIARCon == 1) {
         if (pcm_ioctl(pcm_handle_spdif, SNDRV_PCM_IOCTL_DELAY, &frames) >= 0) {
             alsa_out_spdif_ltcy = calc_frame_to_latency(frames, aml_dev->sink_format);

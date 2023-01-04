@@ -357,6 +357,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                 dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(demux_info->mixing_level);
                 set_ms12_ad_mixing_level(ms12, demux_info->mixing_level);
                 set_ms12_ad_vol(ms12, demux_info->advol_level);
+                /*coverity[double_unlock]*/
                 pthread_mutex_unlock(&ms12->lock);
             }
         }

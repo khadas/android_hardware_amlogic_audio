@@ -158,9 +158,11 @@ exit:
 ssize_t write_to_sco(struct aml_audio_device *adev, audio_config_base_t *config,
     const void *buffer, size_t bytes)
 {
+    size_t in_frames = 0;
     struct aml_bt_output *bt = &adev->bt_output;
     size_t frame_size = audio_channel_count_from_out_mask(config->channel_mask) * audio_bytes_per_sample(config->format);
-    size_t in_frames = bytes / frame_size;
+    if (frame_size > 0)
+        in_frames = bytes / frame_size;
     int16_t *in_buffer = (int16_t *)buffer;
     int16_t *out_buffer = (int16_t *)bt->bt_out_buffer;
     size_t out_frames = 0;

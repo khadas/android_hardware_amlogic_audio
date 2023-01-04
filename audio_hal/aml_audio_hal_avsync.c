@@ -1016,7 +1016,7 @@ void dtv_do_drop_pcm(int avail, struct aml_audio_patch *patch)
     int ap_diff_ms = patch->dtv_apts_lookup / 90;
     int drop_size = 48 * 4 * ap_diff_ms;
     int pts_latency = decoder_get_latency();
-    int t1, t2;
+    int t1 = 0, t2 = 0;
     struct timespec before_write;
     struct timespec after_write;
     int wait_ms;
@@ -1028,7 +1028,8 @@ void dtv_do_drop_pcm(int avail, struct aml_audio_patch *patch)
         if (real_drop_size < 0)
             real_drop_size = 0;
         ALOGI("Drop data size: %d, avail: %d, need drop size: %d\n", real_drop_size, avail, drop_size);
-        t1 = real_drop_size / patch->out_buf_size;
+        if (patch->out_buf_size > 0)
+            t1 = real_drop_size / patch->out_buf_size;
         for (t2 = 0; t2 < t1; t2++) {
             ring_buffer_read(&(patch->aml_ringbuffer), (unsigned char *)patch->out_buf, patch->out_buf_size);
         }
@@ -1183,10 +1184,14 @@ void dtv_do_drop_pcm_v2(struct aml_audio_patch *patch,
 void dtv_do_process_pcm(int avail, struct aml_audio_patch *patch,
                             struct audio_stream_out *stream_out)
 {
+    if (!patch) {
+        ALOGE("%s(), patch is NULL", __func__);
+        return ;
+    }
     struct audio_hw_device *adev = patch->dev;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) adev;
     struct aml_stream_out *out = (struct aml_stream_out *)stream_out;
-    if (!patch || !patch->dev || !stream_out) {
+    if (!patch->dev || !stream_out) {
         return;
     }
     if (patch->dtv_apts_lookup > 0) {
@@ -1218,9 +1223,14 @@ static int dtv_audio_tune_check(struct aml_audio_patch *patch, int cur_pts_diff,
 {
     char tempbuf[128] = {0};
     int origin_pts_diff = 0;
-    struct audio_hw_device *adev = patch->dev;
+    struct audio_hw_device *adev = NULL;
+    if (!patch) {
+        ALOGE("%s(), patch is NULL", __func__);
+        return -1;
+    }
+    adev = patch->dev;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) adev;
-    if (!patch || !patch->dev || aml_dev->dev2mix_patch == 1) {
+    if (!patch->dev || aml_dev->dev2mix_patch == 1) {
         patch->dtv_audio_tune = AUDIO_RUNNING;
         return 1;
     }
@@ -1445,7 +1455,6 @@ static void do_pll2_by_pts(unsigned int pcrpts, struct aml_audio_patch *patch,
 
 void process_ac3_sync(struct aml_audio_patch *patch, unsigned long pts, struct aml_stream_out *stream_out)
 {
-
     int channel_count = 2;
     int bytewidth = 2;
     int symbol = 48;
@@ -1453,7 +1462,12 @@ void process_ac3_sync(struct aml_audio_patch *patch, unsigned long pts, struct a
     unsigned int pcrpts = 0;
     unsigned int pts_diff,last_checkin_apts = 0;
     unsigned long cur_out_pts;
-    struct audio_hw_device *adev = patch->dev;
+    struct audio_hw_device *adev = NULL;
+    if (!patch) {
+        ALOGE("%s(), patch is NULL", __func__);
+        return ;
+    }
+    adev = patch->dev;
     struct aml_audio_device * aml_dev = (struct aml_audio_device*)adev;
 
     get_sysfs_uint(TSYNC_PCRSCR, &pcrpts);
@@ -1475,7 +1489,7 @@ void process_ac3_sync(struct aml_audio_patch *patch, unsigned long pts, struct a
         clock_gettime(CLOCK_MONOTONIC, &patch->debug_para.debug_system_time);
     } else {
         cur_out_pts = pts;
-        if (!patch || !patch->dev || !stream_out) {
+        if (!patch->dev || !stream_out) {
             return;
         }
         if (pts == 0) {
@@ -1499,7 +1513,12 @@ void process_pts_sync(unsigned int pcm_latency, struct aml_audio_patch *patch,
     unsigned long cache_pts = 0;
     unsigned long cur_out_pts = 0;
     unsigned int checkin_firstapts = 0;
-    struct audio_hw_device *adev = patch->dev;
+    struct audio_hw_device *adev = NULL;
+    if (!patch) {
+        ALOGE("%s(), patch is NULL", __func__);
+        return ;
+    }
+    adev = patch->dev;
     struct aml_audio_device * aml_dev = (struct aml_audio_device*)adev;
 
 
@@ -1565,7 +1584,7 @@ void process_pts_sync(unsigned int pcm_latency, struct aml_audio_patch *patch,
                 return;
             }
         }
-        if (!patch || !patch->dev || !stream_out) {
+        if (!patch->dev || !stream_out) {
             return;
         }
         patch->cur_outapts = cur_out_pts;

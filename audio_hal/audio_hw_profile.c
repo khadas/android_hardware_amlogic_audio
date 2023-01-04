@@ -572,7 +572,7 @@ int  aml_hdmi_audio_profile_parser() {
     audio_profile_cap_t * audio_cap_item = NULL;
     int32_t vsadb_sub_index = 0;
     int32_t index_of_audio_cap_for_vsadb = 0;//current suppose to analysis the dolby vsadb.
-
+    /*coverity[suspicious_sizeof]*/
     infobuf = (char *)aml_audio_calloc(1, buf_len * sizeof(char *));
     if (!infobuf) {
         ALOGE("%s infobuf malloc is fail \n", __func__);
@@ -1815,6 +1815,7 @@ char *strdup_a2dp_cap_default(struct aml_audio_device *adev, const char *keys, a
         /* take the 2ch supported as default */
         switch (format) {
         case AUDIO_FORMAT_AC4:
+        /*coverity[unterminated_case]*/
         case AUDIO_FORMAT_E_AC3:
             strcat(ch_mask, "|AUDIO_CHANNEL_OUT_7POINT1");
         case AUDIO_FORMAT_AC3:

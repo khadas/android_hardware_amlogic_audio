@@ -241,7 +241,7 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
             if (p_hwsync->version_num  == 3) {
                 if (p_hwsync->header_flags & HW_AVSYNC_FLAG_PAYLOAD_PRESENT) {
                     if (p_hwsync->hw_sync_payload_header_cnt == HW_AVSYNC_PAYLOAD_HEADER_SIZE) {
-                         p_hwsync->hw_sync_payload_unit_size = hwsync_payload_get_size(p_hwsync->hw_sync_metadata_unit_header);
+                         p_hwsync->hw_sync_payload_unit_size = hwsync_payload_get_size(p_hwsync->hw_sync_payload_header);
                          ALOGV("hw_sync_payload_unit_size %d",p_hwsync->hw_sync_payload_unit_size);
                          if (p_hwsync->hw_sync_payload_unit_size == 0) {
                              ALOGV("!!!!!!hwsync header out of sync! Resync.should not happen????");
@@ -256,7 +256,7 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                                  ALOGV("possible not matched,pls check more !!!");
                              }
                          }
-                         p_hwsync->hw_sync_encapsulation_mode = hwsync_payload_get_encapsulation_mode(p_hwsync->hw_sync_metadata_unit_header);
+                         p_hwsync->hw_sync_encapsulation_mode = hwsync_payload_get_encapsulation_mode(p_hwsync->hw_sync_payload_header);
                          ALOGV("hw_sync_encapsulation_mode %d ",p_hwsync->hw_sync_encapsulation_mode);
                          p_hwsync->hw_sync_payload_unit_cnt = p_hwsync->hw_sync_payload_unit_size - HW_AVSYNC_PAYLOAD_HEADER_SIZE;
                          if (p_hwsync->hw_sync_encapsulation_mode >  AUDIO_ENCAPSULATION_MODE_HANDLE) {
@@ -387,13 +387,10 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                             metadata_unit->stream_id,metadata_unit->flags,metadata_unit->broadcast_type);
                     }
                 } else if (p_hwsync->hw_sync_metadata_unit_type == ENCAPSULATION_METADATA_TYPE_AD_PLACEMENT) {
-                    if (remain > 0) {
+
                         ALOGI("ENCAPSULATION_METADATA_TYPE_AD_PLACEMENT");
                         p_hwsync->hw_sync_metadata_placement = hwsync_metadata_get_placement(p);
                         ALOGI(" p_hwsync->hw_sync_metadata_placement %d", p_hwsync->hw_sync_metadata_placement);
-                    } else {
-                        break;
-                    }
 
                 } else if (p_hwsync->hw_sync_metadata_unit_type == AUDIO_ENCAPSULATION_METADATA_TYPE_DVB_AD_DESCRIPTOR) {
                    if (remain > HW_AVSYNC_METADATA_UNIT_DVB_AD_SIZE) {

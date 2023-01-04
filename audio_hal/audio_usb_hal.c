@@ -54,6 +54,7 @@ static void stream_lock(struct stream_lock *lock) {
     pthread_mutex_lock(&lock->pre_lock);
     pthread_mutex_lock(&lock->lock);
     pthread_mutex_unlock(&lock->pre_lock);
+    /*coverity[missing_unlock]*/
 }
 
 static void stream_unlock(struct stream_lock *lock) {

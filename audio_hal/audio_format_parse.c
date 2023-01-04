@@ -310,6 +310,7 @@ int get_dts_stream_channels(const char *buffer, size_t buffer_size) {
         }
 
         //DTS frame header maybe 11 bytes, and align 2 bytes
+        /*coverity[dead_error_line]*/
         count = (count > 12) ? 12 : count;
         for (i = 0; i < count; i+=2) {
             temp_ch = temp_buffer[frame_header_len + i];
