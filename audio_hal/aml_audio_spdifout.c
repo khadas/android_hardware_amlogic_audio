@@ -614,8 +614,8 @@ int aml_audio_spdifout_process(void *phandle, void *buffer, size_t byte)
          *the original order is L R C LFE ***
          *the hdmi audio order is L R LFE C ***
          */
-        if ((spdifout_phandle->spdif_port == PORT_EARC)
-            && (spdifout_phandle->out_data_ch == 8)
+        if ((spdifout_phandle->spdif_port == PORT_EARC || spdifout_phandle->spdif_port == PORT_I2S2HDMI)
+            && (spdifout_phandle->out_data_ch > 2)
             && ((spdifout_phandle->channel_mask == AUDIO_CHANNEL_OUT_5POINT1) || (spdifout_phandle->channel_mask == AUDIO_CHANNEL_OUT_7POINT1))) {
             /*if it is not 8 channel, we need swap it*/
             if (spdifout_phandle->need_extend_channel && spdifout_phandle->out_data_ch != 0 && spdifout_phandle->in_data_ch != 0) {
@@ -633,7 +633,7 @@ int aml_audio_spdifout_process(void *phandle, void *buffer, size_t byte)
                 }
                 output_buffer = spdifout_phandle->temp_buf;
             }
-            channel_layout_swap_center_lfe(output_buffer, output_buffer_bytes, 8);
+            channel_layout_swap_center_lfe(output_buffer, output_buffer_bytes, spdifout_phandle->out_data_ch);
         }
 
         ret = aml_alsa_output_write_new(alsa_handle, output_buffer, output_buffer_bytes);
