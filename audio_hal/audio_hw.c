@@ -2094,7 +2094,11 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
             }
         }
     }
-    *frames += video_delay_frames;
+    if (out->usecase == STREAM_PCM_HWSYNC && !adev->frame_write_sum_updated) {
+        //do nothing, not need to compensate video latency.
+    } else {
+        *frames += video_delay_frames;
+    }
 
     {
         if (adev->debug_flag)
