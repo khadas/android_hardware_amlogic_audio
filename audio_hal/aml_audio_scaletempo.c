@@ -29,13 +29,14 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define LOG_TAG "audio_hw_primary"
+#define LOG_TAG "aml_audio_scaletmpo"
 #include <cutils/log.h>
 #include <time.h>
 
 #include "aml_audio_scaletempo.h"
 #include "audio_hw_utils.h"
 #include "aml_android_utils.h"
+#include "aml_malloc_debug.h"
 
 #ifndef min
 #define min(a,b) ((a) < (b) ? (a) : (b))
@@ -242,14 +243,14 @@ reinit_buffers (struct scale_tempo * st)
         st->samples_overlap = frames_overlap * st->samples_per_frame;
         st->bytes_standing = st->bytes_stride - st->bytes_overlap;
         st->samples_standing = st->bytes_standing / st->bytes_per_sample;
-        st->buf_overlap = realloc (st->buf_overlap, st->bytes_overlap);
+        st->buf_overlap = aml_audio_realloc(st->buf_overlap, st->bytes_overlap);
         if (!st->buf_overlap) {
             ALOGE("%s %d: scale_tempo %p, OOM", __func__, __LINE__, st);
         return;
     }
     /* S16 uses int blend table, floats/doubles use their respective type */
     st->table_blend =
-        realloc (st->table_blend,
+        aml_audio_realloc(st->table_blend,
         st->samples_overlap * (st->format ==
             FORMAT_S16 ? 4 : st->bytes_per_sample));
     if (!st->table_blend) {
@@ -295,13 +296,13 @@ reinit_buffers (struct scale_tempo * st)
                 (st->samples_overlap - st->samples_per_frame) * (st->format ==
                 FORMAT_S16 ? 4 : st->bytes_per_sample);
         st->buf_pre_corr =
-                realloc (st->buf_pre_corr, bytes_pre_corr + UNROLL_PADDING);
+                aml_audio_realloc(st->buf_pre_corr, bytes_pre_corr + UNROLL_PADDING);
         if (!st->buf_pre_corr) {
             ALOGE("%s %d: scale_tempo %p, OOM", __func__, __LINE__, st);
             return;
         }
 
-        st->table_window = realloc (st->table_window, bytes_pre_corr);
+        st->table_window = aml_audio_realloc(st->table_window, bytes_pre_corr);
 
         if (!st->table_window) {
             ALOGE("%s %d: scale_tempo %p, OOM", __func__, __LINE__, st);
@@ -351,7 +352,7 @@ reinit_buffers (struct scale_tempo * st)
     }
 
     st->bytes_queue_max = new_size;
-    st->buf_queue = realloc (st->buf_queue, st->bytes_queue_max);
+    st->buf_queue = aml_audio_realloc(st->buf_queue, st->bytes_queue_max);
     if (!st->buf_queue) {
         ALOGE("%s %d: scale_tempo %p, OOM", __func__, __LINE__, st);
         return;
@@ -360,7 +361,7 @@ reinit_buffers (struct scale_tempo * st)
     st->bytes_stride_scaled = st->bytes_stride * st->scale;
     st->frames_stride_scaled = st->bytes_stride_scaled / st->bytes_per_frame;
 
-    st->buf_output = malloc(st->bytes_stride * 4);
+    st->buf_output = aml_audio_malloc(st->bytes_stride * 4);
     if (!st->buf_output) {
         ALOGE("%s %d: scale_tempo %p, OOM", __func__, __LINE__, st);
         return;
@@ -368,7 +369,7 @@ reinit_buffers (struct scale_tempo * st)
     st->bytes_to_output = 0;
     st->output_max_bytes = st->bytes_stride * 4;
 
-    st->buf_input = (char*) malloc(st->bytes_stride * 4);
+    st->buf_input = (char*) aml_audio_malloc(st->bytes_stride * 4);
     if (!st->buf_input) {
         ALOGE("%s %d: scale_tempo %p, OOM", __func__, __LINE__, st);
         return;
@@ -443,7 +444,6 @@ static bool hal_scaletempo_transform_size (struct scale_tempo * scaletempo,
     int size, int * othersize)
 {
     int bytes_to_out;
-
     if (scaletempo->reinit_buffers)
         reinit_buffers (scaletempo);
 
@@ -503,7 +503,6 @@ void hal_scaletempo_update_rate (struct scale_tempo * scaletempo, double rate)
 static bool hal_scaletempo_set_info (struct scale_tempo * scaletempo, int nch, int rate, int sample_size, int format)
 {
     int bps = sample_size;
-
     if (rate != scaletempo->sample_rate
       || nch != scaletempo->samples_per_frame
       || bps != scaletempo->bytes_per_sample || format != scaletempo->format) {
@@ -559,32 +558,32 @@ bool hal_scaletempo_release (struct scale_tempo * scaletempo)
     ALOGI("%s %d: scale_tempo %p", __func__, __LINE__, scaletempo);
     pthread_mutex_lock(&scaletempo->mutex);
     if (scaletempo->buf_queue != NULL) {
-        free(scaletempo->buf_queue);
+        aml_audio_free(scaletempo->buf_queue);
         scaletempo->buf_queue = NULL;
     }
     if (scaletempo->buf_overlap != NULL) {
-        free(scaletempo->buf_overlap);
+        aml_audio_free(scaletempo->buf_overlap);
         scaletempo->buf_overlap = NULL;
     }
-    if (scaletempo->table_blend == NULL) {
-        free(scaletempo->table_blend);
+    if (scaletempo->table_blend != NULL) {
+        aml_audio_free(scaletempo->table_blend);
         scaletempo->table_blend = NULL;
     }
-    if (scaletempo->buf_pre_corr == NULL) {
-        free(scaletempo->buf_pre_corr);
+    if (scaletempo->buf_pre_corr != NULL) {
+        aml_audio_free(scaletempo->buf_pre_corr);
         scaletempo->buf_pre_corr = NULL;
     }
-    if (scaletempo->table_window == NULL) {
-        free(scaletempo->table_window);
+    if (scaletempo->table_window != NULL) {
+        aml_audio_free(scaletempo->table_window);
         scaletempo->table_window = NULL;
     }
-    if (scaletempo->buf_output == NULL) {
-        free(scaletempo->buf_output);
+    if (scaletempo->buf_output != NULL) {
+        aml_audio_free(scaletempo->buf_output);
         scaletempo->buf_output = NULL;
     }
 
-    if (scaletempo->buf_input == NULL) {
-        free(scaletempo->buf_input);
+    if (scaletempo->buf_input != NULL) {
+        aml_audio_free(scaletempo->buf_input);
         scaletempo->buf_input = NULL;
     }
 
@@ -592,7 +591,7 @@ bool hal_scaletempo_release (struct scale_tempo * scaletempo)
     scaletempo->reinit_buffers = true;
     pthread_mutex_destroy(&scaletempo->mutex);
 
-    free(scaletempo);
+    aml_audio_free(scaletempo);
 
     return true;
 }
@@ -692,6 +691,7 @@ int hal_scaletempo_process(struct scale_tempo* scaletempo, aml_scaletempo_info_t
             for (i = 0; j < info->ch; j++)
             {
                 memcpy(p_out_buffer->ppdata[j], p_in_buffer->ppdata[j], n_samples_to_process * info->sample_size);
+
             }
             info->intput_samples = n_samples_to_process;
             info->output_samples = n_samples_to_process;
