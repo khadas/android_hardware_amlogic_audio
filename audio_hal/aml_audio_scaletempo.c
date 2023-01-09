@@ -678,68 +678,85 @@ int hal_scaletempo_process(struct scale_tempo* scaletempo, aml_scaletempo_info_t
     scale_tempo_buffer *p_in_buffer, *p_out_buffer;
     struct timespec start_ts, end_ts;
     static int count = 0;
+    int n_samples_to_process = 0;
     clock_gettime(CLOCK_MONOTONIC_RAW, &start_ts);
 
-    //ALOGI("%s %d: scale_tempo %p, input sample:%d, output sample:%d, ch %d, sr %d, samplesize:%d", __func__, __LINE__,
-    //        scaletempo, info->intput_samples, info->output_samples, info->ch, info->sr, info->sample_size);
-    hal_scaletempo_set_info(scaletempo, info->ch, info->sr, info->sample_size, FORMAT_F32);
-
-    info->intput_samples = hal_scaletempo_get_process_samples(scaletempo, info->intput_samples, &info->output_samples);
-
-
-    input_size = info->intput_samples * scaletempo->bytes_per_frame;
-    output_size = info->output_samples * scaletempo->bytes_per_frame;
     p_in_buffer = info->inputbuffer;
     p_out_buffer = info->outputbuffer;
+
     pthread_mutex_lock(&scaletempo->mutex);
-    if (info->intput_samples > 0) {
-        if (input_size > scaletempo->buf_input_size) {
-            free(scaletempo->buf_input);
-            scaletempo->buf_input = (char*) malloc(input_size);
-            if (!scaletempo->buf_input) {
-                ALOGE("%s %d: scale_tempo %p buf_input fail, return", __func__, __LINE__, scaletempo);
-                return -1;
+
+    if ((scaletempo->scale - 1.0) < 1e-10) {
+        n_samples_to_process = min(info->intput_samples, info->output_samples);
+        if (n_samples_to_process > 0) {
+            for (i = 0; j < info->ch; j++)
+            {
+                memcpy(p_out_buffer->ppdata[j], p_in_buffer->ppdata[j], n_samples_to_process * info->sample_size);
             }
-            scaletempo->buf_input_size = input_size;
-        }
-
-        input_buffer = scaletempo->buf_input;
-        if (!input_buffer) {
-            ALOGE("%s:error, malloc failed", __FUNCTION__);
-            return 0;
-        }
-
-        dump(p_in_buffer->ppdata[0], info->intput_samples * sizeof(float), "/data/vendor/ms12/tempo_in.raw");
-
-        sample = (float*)input_buffer;
-        for (i = 0; i < info->intput_samples; i++) {
-            for (j = 0; j < scaletempo->channel; j++) {
-                p_buffer = (float*)p_in_buffer->ppdata[j];
-                sample[i * scaletempo->channel +j] = p_buffer[i];
-            }
-        }
-        hal_scaletempo_transform(scaletempo, input_buffer, input_size, scaletempo->buf_output + scaletempo->bytes_to_output);
-    }
-
-    if (scaletempo->bytes_to_output >= output_size) {
-        sample = (float *)scaletempo->buf_output;
-        if (info->output_samples) {
-            for (i = 0; i < info->output_samples; i++) {
-                for (j = 0; j < scaletempo->channel; j++) {
-                    p_buffer = (float*)p_out_buffer->ppdata[j];
-                    p_buffer[i] = sample[i * scaletempo->channel + j];
-                }
-            }
-
-            if (scaletempo->bytes_to_output - output_size > 0) {
-                memmove(scaletempo->buf_output, scaletempo->buf_output + output_size, scaletempo->bytes_to_output - output_size);
-            }
-            scaletempo->bytes_to_output -= output_size;
+            info->intput_samples = n_samples_to_process;
+            info->output_samples = n_samples_to_process;
+            ALOGV("%s process samples =%d", __func__, n_samples_to_process);
         }
     } else {
-        ALOGE("%s, error!! this should not occur!!\n", __FUNCTION__);
-    }
+        //ALOGI("%s %d: scale_tempo %p, input sample:%d, output sample:%d, ch %d, sr %d, samplesize:%d", __func__, __LINE__,
+        //        scaletempo, info->intput_samples, info->output_samples, info->ch, info->sr, info->sample_size);
+        hal_scaletempo_set_info(scaletempo, info->ch, info->sr, info->sample_size, FORMAT_F32);
 
+        info->intput_samples = hal_scaletempo_get_process_samples(scaletempo, info->intput_samples, &info->output_samples);
+
+
+        input_size = info->intput_samples * scaletempo->bytes_per_frame;
+        output_size = info->output_samples * scaletempo->bytes_per_frame;
+        if (info->intput_samples > 0) {
+            if (input_size > scaletempo->buf_input_size) {
+                free(scaletempo->buf_input);
+                scaletempo->buf_input = (char*) malloc(input_size);
+                if (!scaletempo->buf_input) {
+                    ALOGE("%s %d: scale_tempo %p buf_input fail, return", __func__, __LINE__, scaletempo);
+                    pthread_mutex_unlock(&scaletempo->mutex);
+                    return -1;
+                }
+                scaletempo->buf_input_size = input_size;
+            }
+
+            input_buffer = scaletempo->buf_input;
+            if (!input_buffer) {
+                ALOGE("%s:error, malloc failed", __FUNCTION__);
+                pthread_mutex_unlock(&scaletempo->mutex);
+                return 0;
+            }
+
+            dump(p_in_buffer->ppdata[0], info->intput_samples * sizeof(float), "/data/vendor/ms12/tempo_in.raw");
+
+            sample = (float*)input_buffer;
+            for (i = 0; i < info->intput_samples; i++) {
+                for (j = 0; j < scaletempo->channel; j++) {
+                    p_buffer = (float*)p_in_buffer->ppdata[j];
+                    sample[i * scaletempo->channel +j] = p_buffer[i];
+                }
+            }
+            hal_scaletempo_transform(scaletempo, input_buffer, input_size, scaletempo->buf_output + scaletempo->bytes_to_output);
+        }
+
+        if (scaletempo->bytes_to_output >= output_size) {
+            sample = (float *)scaletempo->buf_output;
+            if (info->output_samples) {
+                for (i = 0; i < info->output_samples; i++) {
+                    for (j = 0; j < scaletempo->channel; j++) {
+                        p_buffer = (float*)p_out_buffer->ppdata[j];
+                        p_buffer[i] = sample[i * scaletempo->channel + j];
+                    }
+                }
+
+                if (scaletempo->bytes_to_output - output_size > 0) {
+                    memmove(scaletempo->buf_output, scaletempo->buf_output + output_size, scaletempo->bytes_to_output - output_size);
+                }
+                scaletempo->bytes_to_output -= output_size;
+            }
+        } else {
+            ALOGE("%s, error!! this should not occur!!\n", __FUNCTION__);
+        }
+    }
     if (info->output_samples > 0) {
         dump(p_out_buffer->ppdata[0], info->output_samples * sizeof(float), "/data/vendor/ms12/tempo_out.raw");
     }
