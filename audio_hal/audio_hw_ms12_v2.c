@@ -1174,7 +1174,9 @@ int get_the_dolby_ms12_prepared(
 
 
     aml_ac3_parser_open(&ms12->ac3_parser_handle);
+    aml_ac3_parser_open(&ms12->info_ac3_parser_handle);
     aml_spdif_decoder_open(&ms12->spdif_dec_handle);
+    aml_spdif_decoder_open(&ms12->info_spdif_dec_handle);
     aml_ms12_bypass_open(&ms12->ms12_bypass_handle);
     ret = ring_buffer_init(&ms12->spdif_ring_buffer, ms12->dolby_ms12_out_max_size);
     if (ret != 0) {
@@ -2001,6 +2003,12 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     ms12->ac3_parser_handle = NULL;
     aml_spdif_decoder_close(ms12->spdif_dec_handle);
     ms12->spdif_dec_handle = NULL;
+
+    aml_ac3_parser_close(ms12->info_ac3_parser_handle);
+    ms12->info_ac3_parser_handle = NULL;
+    aml_spdif_decoder_close(ms12->info_spdif_dec_handle);
+    ms12->info_spdif_dec_handle = NULL;
+
     ring_buffer_release(&ms12->spdif_ring_buffer);
     aml_ms12_bypass_close(ms12->ms12_bypass_handle);
     if (ms12->mat_enc_out_buffer) {
@@ -4105,15 +4113,15 @@ static int ms12_update_decoded_info_process(struct audio_stream_out *stream, voi
         if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
             void * inbuf = NULL;
             int32_t buf_size = 0;
-            aml_spdif_decoder_process(ms12->spdif_dec_handle, input_buffer, input_bytes, &temp_spdif_dec_used_size, &main_frames_buffer, &main_frames_size);
+            aml_spdif_decoder_process(ms12->info_spdif_dec_handle, input_buffer, input_bytes, &temp_spdif_dec_used_size, &main_frames_buffer, &main_frames_size);
             if (main_frames_size == 0) {
                 return -1;
             }
             inbuf = main_frames_buffer;
             buf_size = main_frames_size;
-            aml_ac3_parser_process(ms12->ac3_parser_handle, inbuf, buf_size, &temp_used_size, &temp_main_frame_buffer, &temp_main_frame_size, &ac3_info);
+            aml_ac3_parser_process(ms12->info_ac3_parser_handle, inbuf, buf_size, &temp_used_size, &temp_main_frame_buffer, &temp_main_frame_size, &ac3_info);
         } else {
-            aml_ac3_parser_process(ms12->ac3_parser_handle, input_buffer, input_bytes, &temp_used_size, &temp_main_frame_buffer, &temp_main_frame_size, &ac3_info);
+            aml_ac3_parser_process(ms12->info_ac3_parser_handle, input_buffer, input_bytes, &temp_used_size, &temp_main_frame_buffer, &temp_main_frame_size, &ac3_info);
         }
 
         if (temp_main_frame_size != 0) {

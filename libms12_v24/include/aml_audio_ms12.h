@@ -196,6 +196,8 @@ struct dolby_ms12_desc {
     uint32_t ms12_timer_id;
     bool sys_data_write2alsa_status;
     void * scaletempo;
+    void * info_spdif_dec_handle;
+    void * info_ac3_parser_handle;
 };
 
 /*
