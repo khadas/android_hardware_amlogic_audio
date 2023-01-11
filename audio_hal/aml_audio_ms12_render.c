@@ -100,14 +100,14 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
             __func__, __LINE__, aml_out->hal_format, output_format, adev->sink_format,ms12->do_easing);
     }
 
-    if (adev->patch_src == SRC_HDMIIN ||
+    if ((adev->patch_src == SRC_HDMIIN ||
             adev->patch_src == SRC_SPDIFIN ||
             adev->patch_src == SRC_LINEIN ||
             adev->patch_src == SRC_ATV ||
             adev->patch_src == SRC_DTV ||
-            adev->patch_src == SRC_ARCIN) {
+            adev->patch_src == SRC_ARCIN) && patch) {
 
-        if (patch && patch->need_do_avsync) {
+        if (patch->need_do_avsync) {
             if (!ms12->is_muted) {
                 set_ms12_main_audio_mute(ms12, true, 0);
             }
