@@ -9779,13 +9779,15 @@ static int adev_set_device_connected_state_v7(struct audio_hw_device *dev,
                                      bool connected)
 {
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) dev;
+    struct str_parms *parms = NULL;
     if (port->type == AUDIO_PORT_TYPE_DEVICE) {
-        AM_LOGI("dev:%#x, connect:%d, num_descriptors:%d , num_profiles:%d", port->ext.device.type, connected,
-            port->num_extra_audio_descriptors, port->num_audio_profiles);
-    }
-    set_device_connect_state(aml_dev, NULL, port->ext.device.type, connected);
-    if (port->type == AUDIO_PORT_TYPE_DEVICE && port->ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC) {
-        read_hdmi_arc_info(dev, port->extra_audio_descriptors, port->num_extra_audio_descriptors);
+        AM_LOGI("address:%s, num_descriptors:%d, num_profiles:%d",
+            port->ext.device.address, port->num_extra_audio_descriptors, port->num_audio_profiles);
+        parms = str_parms_create_str(port->ext.device.address);
+        set_device_connect_state(aml_dev, parms, port->ext.device.type, connected);
+        if (port->ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC) {
+            read_hdmi_arc_info(dev, port->extra_audio_descriptors, port->num_extra_audio_descriptors);
+        }
     }
     for (int i = 0; i< port->num_audio_profiles; i++) {
         AM_LOGV("[%d] format:%#x, num_sample_rates:%d num_channel_masks:%#x", i,
