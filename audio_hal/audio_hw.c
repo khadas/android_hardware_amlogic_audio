@@ -9706,69 +9706,6 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
 }
 
 #if ANDROID_PLATFORM_SDK_VERSION > 32
-static void read_hdmi_arc_info(struct audio_hw_device *dev,
-        const struct audio_extra_audio_descriptor *audio_descriptors, uint32_t size) {
-    uint8_t descriptor[EXTRA_AUDIO_DESCRIPTOR_SIZE] = {0};
-    uint8_t length = 0;
-    if (size == 0) {
-        AM_LOGW("audio_descriptor invalid. length:%d", size);
-        return;
-    } else if (size > 1) { // arc
-        for (int i = 0; i < size; i++) {
-            for (int j = 0; j < audio_descriptors[i].descriptor_length; j++) {
-                if (length >= EXTRA_AUDIO_DESCRIPTOR_SIZE) {
-                    AM_LOGE("sad descriptor_length too large");
-                    return;
-                }
-                descriptor[length++] = audio_descriptors[i].descriptor[j];
-            }
-        }
-    } else { // earc
-        length = audio_descriptors[0].descriptor_length;
-        if (length > EXTRA_AUDIO_DESCRIPTOR_SIZE) {
-            AM_LOGE("sad descriptor_length:%d too large", audio_descriptors[0].descriptor_length);
-            return;
-        }
-        memcpy(descriptor, &audio_descriptors[0].descriptor[0], length);
-    }
-
-    // 1. set the arc hdmi info.
-    uint8_t edid_buf[EXTRA_AUDIO_DESCRIPTOR_SIZE + 2] = {0};
-    char edid_str_buf[1024] = {0};
-    edid_buf[0] = length;
-    edid_buf[1] = 2;
-    memcpy(edid_buf + 2, &descriptor[0], length);
-    strcat(edid_str_buf, "[");
-    for (int i = 0; i < length; i++) {
-        char temp_str[5] = {0};
-        snprintf(temp_str, 5, "%d", edid_buf[i]);
-        strcat(edid_str_buf, temp_str);
-        if (i + 1 < length) {
-            strcat(edid_str_buf, ", ");
-        }
-    }
-    strcat(edid_str_buf, "]");
-    AM_LOGD("set arc hdmi edid_str_buf:%s", edid_str_buf);
-    set_arc_hdmi(dev, edid_str_buf, 1024);
-
-    // 2. read the arc format info.
-    for (int i = 0; i + 2 < length; i += 3) {
-        int sad_buffer[5] = {0};
-        char temp_sad_str[128] = {0};
-        // find a descriptor for each SUPPORT_CODECS
-        // CEA-861-D Table 34, 35, 36
-        sad_buffer[0] = (descriptor[i] & 0x78) >> 3;
-        sad_buffer[1] = 1; // supported
-        sad_buffer[2] = descriptor[i] & 0x7; // Max Channels - 1
-        sad_buffer[3] = descriptor[i + 1] & 0x7F; // Support Sample Rate
-        sad_buffer[4] = descriptor[i + 2] & 0xFF; // Max bit rate / 8kHz
-        snprintf(temp_sad_str, 128, "[%d, %d, %d, %d, %d]", sad_buffer[0],
-            sad_buffer[1], sad_buffer[2], sad_buffer[3], sad_buffer[4]);
-        AM_LOGD("set arc format: %s", temp_sad_str);
-        set_arc_format(dev, temp_sad_str, AUDIO_HAL_CHAR_MAX_LEN);
-    }
-}
-
 static int adev_set_device_connected_state_v7(struct audio_hw_device *dev,
                                      struct audio_port_v7 *port,
                                      bool connected)
@@ -9781,7 +9718,7 @@ static int adev_set_device_connected_state_v7(struct audio_hw_device *dev,
         parms = str_parms_create_str(port->ext.device.address);
         set_device_connect_state(aml_dev, parms, port->ext.device.type, connected);
         if (port->ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC) {
-            read_hdmi_arc_info(dev, port->extra_audio_descriptors, port->num_extra_audio_descriptors);
+            read_hdmi_arc_info(dev, port->extra_audio_descriptors, port->num_extra_audio_descriptors, connected);
         }
     }
     for (int i = 0; i< port->num_audio_profiles; i++) {

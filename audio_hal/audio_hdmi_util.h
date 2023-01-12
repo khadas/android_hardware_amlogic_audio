@@ -108,6 +108,13 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len);
  */
 int set_arc_format(struct audio_hw_device *dev, char *value, size_t len);
 
+#if ANDROID_PLATFORM_SDK_VERSION > 32
+/*@ brief "read_hdmi_arc_info" for v7
+ */
+void read_hdmi_arc_info(struct audio_hw_device *dev,
+        const struct audio_extra_audio_descriptor *audio_descriptors, uint32_t size, bool connected);
+#endif
+
 /*@ brief update dolby atmos decoding and rendering cap for ddp sad
  * return zero if success;
  */

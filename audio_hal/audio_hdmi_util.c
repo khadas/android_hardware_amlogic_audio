@@ -44,6 +44,8 @@
 #define DOLBY_DIGITAL_PLUS          0xA
 #define DOLBY_TRUEHD_AND_DOLBY_MAT  0xC
 #define AUDIO_FORMAT_CODE_BYTE1_BIT3 3
+/* Maximum string length in audio hal. */
+#define AUDIO_HAL_CHAR_MAX_LEN     (256)
 
 #include <errno.h>
 #include <cutils/log.h>
@@ -54,6 +56,14 @@
 #include "aml_alsa_mixer.h"
 #include "aml_audio_stream.h"
 #include "dolby_lib_api.h"
+#include <aml_android_utils.h>
+char sad_str_default[5][5] = {
+     {2, 0, 0, 0, 0},
+     {7, 0, 0, 0, 0},
+     {10, 0, 0, 0, 0},
+     {11, 0, 0, 0, 0},
+     {12, 0, 0, 0, 0},
+};
 
 struct audio_format_code_list {
     AML_HDMI_FORMAT_E  id;
@@ -524,3 +534,112 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
     return 0;
 }
 
+#if ANDROID_PLATFORM_SDK_VERSION > 32
+void read_hdmi_arc_info(struct audio_hw_device *dev,
+    const struct audio_extra_audio_descriptor *audio_descriptors, uint32_t size, bool connected) {
+    uint8_t descriptor[EXTRA_AUDIO_DESCRIPTOR_SIZE] = {0};
+    uint8_t length = 0;
+
+    if (size == 0) {
+        AM_LOGW("audio_descriptor special AVR pcm only. length:%d", size);
+    } else if (size > 1) { // arc
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < audio_descriptors[i].descriptor_length; j++) {
+                if (length >= EXTRA_AUDIO_DESCRIPTOR_SIZE) {
+                    AM_LOGE("sad descriptor_length too large");
+                    return;
+                }
+                descriptor[length++] = audio_descriptors[i].descriptor[j];
+            }
+        }
+    } else if (size == 1) { // earc
+        length = audio_descriptors[0].descriptor_length;
+        if (length > EXTRA_AUDIO_DESCRIPTOR_SIZE) {
+            AM_LOGE("sad descriptor_length:%d too large", audio_descriptors[0].descriptor_length);
+            return;
+        }
+        memcpy(descriptor, &audio_descriptors[0].descriptor[0], length);
+    }
+
+    // 1. set the arc hdmi info.
+    uint8_t edid_buf[EXTRA_AUDIO_DESCRIPTOR_SIZE + 2] = {0};
+    char edid_str_buf[1024] = {0};
+
+    if (connected) {
+        edid_buf[0] = length;
+    } else { //use default EDID
+        edid_buf[0] = 0;
+        length = 2;
+    }
+    edid_buf[1] = aml_getprop_int("persist.vendor.sys.arc_port");
+    AM_LOGD("%s arc_port:%d", __func__, edid_buf[1]);
+
+    if ((size == 0) && connected) {
+        edid_buf[0] = 1;
+        length = 2;
+    }
+
+    memcpy(edid_buf + 2, &descriptor[0], length);
+    strcat(edid_str_buf, "[");
+
+    for (int i = 0; i < length; i++) {
+        char temp_str[5] = {0};
+        snprintf(temp_str, 5, "%d", edid_buf[i]);
+        strcat(edid_str_buf, temp_str);
+        if (i + 1 < length) {
+            strcat(edid_str_buf, ", ");
+        }
+    }
+    strcat(edid_str_buf, "]");
+    AM_LOGD("set arc hdmi edid_str_buf:%s", edid_str_buf);
+    set_arc_hdmi(dev, edid_str_buf, 1024);
+
+    // 2. read the arc format info.
+
+    if (connected) {
+       if (size == 0) {
+            int sad_buffer[5] = {0};
+            char temp_sad_str[128] = {0};
+            // find a descriptor for each SUPPORT_CODECS
+            // CEA-861-D Table 34, 35, 36
+            sad_buffer[0] = 1;
+            sad_buffer[1] = 1; // supported
+            sad_buffer[2] = 0x1; // Max Channels - 1
+            sad_buffer[3] = 0x6; // Default Sample Rate
+            sad_buffer[4] = 0x1; // Max bit rate / 8kHz
+
+            snprintf(temp_sad_str, 128, "[%d, %d, %d, %d, %d]", sad_buffer[0],
+                sad_buffer[1], sad_buffer[2], sad_buffer[3], sad_buffer[4]);
+            AM_LOGD("set pcm only arc format: %s", temp_sad_str);
+            set_arc_format(dev, temp_sad_str, AUDIO_HAL_CHAR_MAX_LEN);
+        } else {
+            for (int i = 0; i + 2 < length; i += 3) {
+                int sad_buffer[5] = {0};
+                char temp_sad_str[128] = {0};
+                // find a descriptor for each SUPPORT_CODECS
+                // CEA-861-D Table 34, 35, 36
+                sad_buffer[0] = (descriptor[i] & 0x78) >> 3;
+                sad_buffer[1] = 1; // supported
+                sad_buffer[2] = descriptor[i] & 0x7; // Max Channels - 1
+                sad_buffer[3] = descriptor[i + 1] & 0x7F; // Support Sample Rate
+                sad_buffer[4] = descriptor[i + 2] & 0xFF; // Max bit rate / 8kHz
+
+                snprintf(temp_sad_str, 128, "[%d, %d, %d, %d, %d]", sad_buffer[0],
+                   sad_buffer[1], sad_buffer[2], sad_buffer[3], sad_buffer[4]);
+                AM_LOGD("set arc format: %s", temp_sad_str);
+                set_arc_format(dev, temp_sad_str, AUDIO_HAL_CHAR_MAX_LEN);
+            }
+        }
+    } else {// clear all sads
+        for (int i = 0; i < sizeof(sad_str_default)/sizeof(sad_str_default[0]); i++) {
+            int sad_buffer[5] = {0};
+            char temp_sad_str[128] = {0};
+            memcpy(sad_buffer, sad_str_default[i], 5);
+            snprintf(temp_sad_str, 128, "[%d, %d, %d, %d, %d]", sad_buffer[0],
+                    sad_buffer[1], sad_buffer[2], sad_buffer[3], sad_buffer[4]);
+            AM_LOGD("set arc format: %s", temp_sad_str);
+            set_arc_format(dev, temp_sad_str, AUDIO_HAL_CHAR_MAX_LEN);
+        }
+    }
+}
+#endif
