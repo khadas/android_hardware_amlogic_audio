@@ -89,6 +89,7 @@
 #include "aml_audio_ms12_sync.h"
 #include "audio_hwsync_wrap.h"
 
+#include "audio_dtv_utils.h"
 #include "audio_hdmi_util.h"
 #include "aml_audio_dev2mix_process.h"
 
@@ -8358,6 +8359,7 @@ void *audio_patch_input_threadloop(void *data)
     audio_format_t cur_aformat;
     int ring_buffer_size = 0;
     bool stable_flag = false;
+    bool first_start = true;
 
     ALOGI("++%s", __FUNCTION__);
 
@@ -8387,7 +8389,6 @@ void *audio_patch_input_threadloop(void *data)
         return (void *)0;
     }
 
-    int first_start = 1;
     prctl(PR_SET_NAME, (unsigned long)"audio_input_patch");
     aml_set_thread_priority("audio_input_patch", patch->audio_input_threadID);
     /*affinity the thread to cpu 2/3 which has few IRQ*/
@@ -8472,7 +8473,6 @@ void *audio_patch_input_threadloop(void *data)
               __FUNCTION__, read_bytes, bytes_avail, read_threshold, get_buffer_read_space(ringbuffer));
 
         if (bytes_avail > 0) {
-            //DoDumpData(patch->in_buf, bytes_avail, CC_DUMP_SRC_TYPE_INPUT);
             do {
                 if (patch->input_src == AUDIO_DEVICE_IN_HDMI)
                 {
@@ -8495,17 +8495,15 @@ void *audio_patch_input_threadloop(void *data)
                     }
                     aml_audio_trace_int("input_thread_write2buf", 0);
 
-                    if (!first_start || get_buffer_read_space(ringbuffer) >= read_threshold) {
+                    /* for audio first start or read bytes size is more than output threshold, start output */
+                    if (first_start || get_buffer_read_space(ringbuffer) >= MAX(read_threshold, patch->out_write_threshold)) {
                         pthread_cond_signal(&patch->cond);
-                        if (first_start) {
-                            first_start = 0;
-                        }
+                        first_start = false;
                     }
-                    //usleep(1000);
                 } else {
                     retry = 1;
-                    pthread_cond_signal(&patch->cond);
-                    //Fixme: if ringbuffer is full enough but no output, reset ringbuffer
+                    first_start = true;
+                    /* if ringbuffer is full enough but no output, reset ringbuffer, wait a short while, go to read once more */
                     ALOGD("%s(), ring buffer no space to write, buffer free size:%d, need write size:%d", __func__,
                         get_buffer_write_space(ringbuffer), bytes_avail);
                     ring_buffer_reset(ringbuffer);
@@ -8676,6 +8674,7 @@ void *audio_patch_output_threadloop(void *data)
         } else {
             ALOGV("%s(), no enough data in ring buffer, available data size:%d, need data size:%d", __func__,
                 get_buffer_read_space(ringbuffer), (write_bytes * period_mul));
+            patch->out_write_threshold = write_bytes * period_mul;
             if (audio_is_linear_pcm(patch->aformat)) {
                 usleep( (DEFAULT_PLAYBACK_PERIOD_SIZE) * 1000000 / 4 /
                     stream_config.sample_rate);
