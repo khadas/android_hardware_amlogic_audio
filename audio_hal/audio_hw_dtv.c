@@ -4822,12 +4822,20 @@ int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct aud
         ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_MEDIA_SYNC_ID, val);
 
         /*parser format from offload_info, then set it.*/
-        val = android_fmt_convert_to_dmx_fmt(config->offload_info.format);//fmt
+        if (audio_is_linear_pcm(config->offload_info.format)) {
+            val = (config->offload_info.content_id >> 21) & 0x1F;//encoding_fmt
+            val = tunerhal_fmt_to_native_fmt(val);//native_fmt
+            val = android_fmt_convert_to_dmx_fmt(val);//dmx_fmt
+            ALOGI("tunerhal 1.0 case dmx_fmt %d", val);
+        } else {
+             val = android_fmt_convert_to_dmx_fmt(config->offload_info.format);//fmt
+        }
+
         val = (path_id << DVB_DEMUX_ID_BASE | val);
         ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_FMT, val);
 
         /*set security_mem_level. for tunerframework.*/
-        val = config->offload_info.content_id >> 20;
+        val = (config->offload_info.content_id >> 20) & 0x1;
         if (val == 1) {
             val = 2 << 10;
         } else {

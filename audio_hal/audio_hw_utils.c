@@ -1786,13 +1786,56 @@ int android_fmt_convert_to_dmx_fmt(audio_format_t android_fmt) {
             return ACODEC_FMT_AAC_LATM;
         case AUDIO_FORMAT_AC3:
             return ACODEC_FMT_AC3;
-
         case AUDIO_FORMAT_E_AC3:
             return ACODEC_FMT_EAC3;
-
         case AUDIO_FORMAT_MP3:
-        default:
             return ACODEC_FMT_MPEG;
+        case AUDIO_FORMAT_PCM:
+            return ACODEC_FMT_PCM_S16LE;
+        default:
+            return ACODEC_FMT_NULL;
+    }
+}
+
+audio_format_t tunerhal_fmt_to_native_fmt(int audioFormat) {
+    switch (audioFormat) {
+    case TUNERHAL_PCM:
+        return AUDIO_FORMAT_PCM_16_BIT;
+    case TUNERHAL_AC3:
+        return AUDIO_FORMAT_AC3;
+    case TUNERHAL_EAC3:
+        return AUDIO_FORMAT_E_AC3;
+    case TUNERHAL_AC4:
+        return AUDIO_FORMAT_AC4;
+    case TUNERHAL_DTS:
+        return AUDIO_FORMAT_DTS;
+    case TUNERHAL_DTS_HD:
+        return AUDIO_FORMAT_DTS_HD;
+    case TUNERHAL_MP3:
+        return AUDIO_FORMAT_MP3;
+    case TUNERHAL_MPEG1:
+        return AUDIO_FORMAT_MP3;
+    case TUNERHAL_MPEG2:
+        return AUDIO_FORMAT_MP3;
+    case TUNERHAL_MPEGH:
+        return AUDIO_FORMAT_MP3;
+    case TUNERHAL_AAC:
+    case TUNERHAL_AAC_ADTS:
+    case TUNERHAL_AAC_HE_ADTS:
+        return AUDIO_FORMAT_AAC_HE_V2;
+    case TUNERHAL_AAC_LATM:
+    case TUNERHAL_AAC_HE_LATM:
+        return AUDIO_FORMAT_AAC_HE_V1;
+    case TUNERHAL_WMA:
+        return AUDIO_FORMAT_WMA;
+    case TUNERHAL_OPUS:
+        return AUDIO_FORMAT_OPUS;
+    case TUNERHAL_VORBIS:
+        return AUDIO_FORMAT_VORBIS;
+    case TUNERHAL_DRA:
+        return AUDIO_FORMAT_INVALID;
+    default:
+        return AUDIO_FORMAT_INVALID;
     }
 }
 #endif

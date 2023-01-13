@@ -8252,6 +8252,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
         aml_out->stream.pause = out_pause_dtv_stream_for_tunerframework;
         aml_out->stream.resume = out_resume_dtv_stream_for_tunerframework;
         aml_out->stream.flush = out_flush_dtv_stream_for_tunerframework;
+        aml_out->stream.write = out_write_new;
     }
 #endif
 #endif

@@ -135,6 +135,89 @@ typedef enum {
     AM_AOUT_OUTPUT_LRMIX       /**< mix left and right channel*/
 } AM_AOUT_OutputMode_t;
 
+enum tunerhal_audio_streamtype    {
+    TUNERHAL_UNDEFINED,
+    /*
+     * Uncompressed Audio
+     */
+    TUNERHAL_PCM,
+    /*
+     * MPEG Audio Layer III versions
+     */
+    TUNERHAL_MP3,
+    /*
+     * ISO/IEC 11172 Audio
+     */
+    TUNERHAL_MPEG1,
+    /*
+     * ISO/IEC 13818-3
+     */
+    TUNERHAL_MPEG2,
+    /*
+     * ISO/IEC 23008-3 (MPEG-H Part 3)
+     */
+    TUNERHAL_MPEGH,
+    /*
+     * ISO/IEC 14496-3
+     */
+    TUNERHAL_AAC,
+    /*
+     * Dolby Digital
+     */
+    TUNERHAL_AC3,
+    /*
+     * Dolby Digital Plus
+     */
+    TUNERHAL_EAC3,
+    /*
+     * Dolby AC-4
+     */
+    TUNERHAL_AC4,
+    /*
+     * Basic DTS
+     */
+    TUNERHAL_DTS,
+    /*
+     * High Resolution DTS
+     */
+    TUNERHAL_DTS_HD,
+    /*
+     * Windows Media Audio
+     */
+    TUNERHAL_WMA,
+    /*
+     * Opus Interactive Audio Codec
+     */
+    TUNERHAL_OPUS,
+    /*
+     * VORBIS Interactive Audio Codec
+     */
+    TUNERHAL_VORBIS,
+    /*
+     * SJ/T 11368-2006
+     */
+    TUNERHAL_DRA,
+	 /*
+     * AAC with ADTS (Audio Data Transport Format).
+     */
+    TUNERHAL_AAC_ADTS,
+
+    /*
+     * AAC with ADTS with LATM (Low-overhead MPEG-4 Audio Transport Multiplex).
+     */
+    TUNERHAL_AAC_LATM,
+
+    /*
+     * High-Efficiency AAC (HE-AAC) with ADTS (Audio Data Transport Format).
+     */
+    TUNERHAL_AAC_HE_ADTS,
+
+    /*
+     * High-Efficiency AAC (HE-AAC) with LATM (Low-overhead MPEG-4 Audio Transport Multiplex).
+     */
+    TUNERHAL_AAC_HE_LATM
+};
+
 enum {
     ATTEND_TYPE_NONE = 0,
     ATTEND_TYPE_ARC,
