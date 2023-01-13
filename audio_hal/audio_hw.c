@@ -4044,6 +4044,7 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
                 memset(adev->last_arc_hdmi_array,0,EDID_ARRAY_MAX_LEN);
             } else if (device & AUDIO_DEVICE_OUT_ALL_A2DP) {
                 adev->out_device &= (~device);
+                adev->bt_avrcp_supported = false;
                 a2dp_out_close(adev);
             } else if (device &  AUDIO_DEVICE_OUT_ALL_USB ||
                        device & AUDIO_DEVICE_OUT_WIRED_HEADPHONE||
