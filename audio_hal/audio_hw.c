@@ -3623,16 +3623,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         adev->usecase_masks &= ~(1 << out->usecase);
     }
 
-    // This 1.0f volume may affect the waveform at the end.
-    // Since stream will set volume before start, remove it.
-    /* if (continuous_mode(adev) && (eDolbyMS12Lib == adev->dolby_lib_type)) {
-        if (out->volume_l != 1.0) {
-            if (!audio_is_linear_pcm(out->hal_internal_format)) {
-                set_ms12_main_volume(&adev->ms12, 1.0);
-            }
-        }
-    } */
-
     pthread_mutex_lock(&out->lock);
 
 #if ENABLE_DVB_PATCH
@@ -6359,6 +6349,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
         bool is_mmap_pcm = is_mmap_stream_and_pcm_format(aml_out);
         bool is_ms12_pcm_volume_control = (is_direct_pcm && !is_mmap_pcm);
         bool is_a2dp_device = (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP);
+        bool is_dtv = (adev->audio_patch && adev->patch_src == SRC_DTV);
 
         //ALOGI("%s is_ms12_pcm_volume_control:%d, is_a2dp_device:%d, out_device:0x%x, volume_l:%f",
         //        __func__, is_ms12_pcm_volume_control, is_a2dp_device, aml_out->out_device, aml_out->volume_l);
@@ -6476,7 +6467,8 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                 }
 
                 /*set the volume to current one*/
-                if (!audio_is_linear_pcm(aml_out->hal_internal_format)
+                if ((!audio_is_linear_pcm(aml_out->hal_internal_format) && !is_dtv)
+                    /* for dtv + dolby ms12, non-pcm format will call the api in dtv_set_ms12_volume_on_non_TV_device() */
                     || (is_ms12_pcm_volume_control && !is_a2dp_device)
                     /*The volume step is sent to BT module and BT module will
                     **handle the volume.
@@ -6485,6 +6477,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                     **In fact, just vol 1.0 is useful,so add this vol filter.
                     */
                     || (is_a2dp_device && (aml_out->volume_l == 1.0))) {
+                    ALOGI("%s line %d volume_l %f\n", __func__, __LINE__, aml_out->volume_l);
                     set_ms12_main_volume(&adev->ms12, aml_out->volume_l);
                 }
                 if (continuous_mode(adev)) {
@@ -9682,6 +9675,7 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
         if (aml_dev->audio_patching || aml_dev->patch_src == SRC_DTV) {
             pthread_mutex_lock(&aml_dev->lock);
              /* Raw data from hdmi, alexa voice case, the souece stream need duck about 20dB */
+            ALOGI("%s line %d volume %f\n", __func__, __LINE__, DbToAmpl(config->gain.values[1]/100));
             set_ms12_main_volume(&aml_dev->ms12, DbToAmpl(config->gain.values[1]/100));
             pthread_mutex_unlock(&aml_dev->lock);
             ALOGD("%s set source gain to ms12, volume-> values:%d, gain:%f", __func__,

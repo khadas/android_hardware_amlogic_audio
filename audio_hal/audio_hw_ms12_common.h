@@ -120,5 +120,11 @@ void set_ms12_ac4_short_prog_identifier(struct dolby_ms12_desc *ms12, int short_
  */
 int get_ms12_mat_dec_delay(void);
 
+/*
+ *@brief on non-TV device, dtv to set ms12 volume
+ */
+void dtv_set_ms12_volume_on_non_TV_device(struct aml_stream_out *aml_out);
+
+
 
 #endif //end of _AUDIO_HW_MS12_COMMON_H_

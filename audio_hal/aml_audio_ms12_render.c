@@ -34,6 +34,7 @@
 #include "aml_audio_timer.h"
 #include "alsa_config_parameters.h"
 #include <aml_android_utils.h>
+#include "audio_hw_ms12_common.h"
 
 #define MS12_MAIN_WRITE_LOOP_THRESHOLD                  (2000)
 #define AUDIO_IEC61937_FRAME_SIZE 4
@@ -73,6 +74,8 @@ int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
 
 }
 #endif
+
+
 int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *write_buf, size_t write_bytes)
 
 {
@@ -140,22 +143,9 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
     } else {
         /*not continuous mode, we use sink gain control the volume*/
         if (!continuous_mode(adev)) {
-            float out_gain = 1.0f;
-            out_gain = adev->sink_gain[get_output_by_devices(adev->cur_out_devices)];
-            if (adev->tv_mute && adev->audio_patch) {
-                out_gain = 0.0f;
-            }
-            /*
-            for tv case, volume control it in audio_hal_data_processing
-            for non tv case, dtv stream vol control in dolby_ms12_set_main_volume
-            */
-            if (!adev->is_TV) {
-                if (adev->audio_patch && adev->patch_src == SRC_DTV) {
-                    out_gain *= adev->dtv_volume;
-                    set_ms12_main_volume(&adev->ms12, out_gain);
-                    aml_out->ms12_vol_ctrl = true;
-                }
-            }
+            /* non-TV device, here the dtv set the dolby ms12's volume*/
+            dtv_set_ms12_volume_on_non_TV_device(aml_out);
+
             /*when it is non continuous mode, we bypass data here*/
             dolby_ms12_bypass_process(stream, buffer, write_bytes);
 

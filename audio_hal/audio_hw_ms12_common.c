@@ -637,3 +637,26 @@ void set_ms12_ac4_short_prog_identifier(struct dolby_ms12_desc *ms12, int short_
         aml_ms12_update_runtime_params(ms12, parm);
 }
 
+
+void dtv_set_ms12_volume_on_non_TV_device(struct aml_stream_out *aml_out)
+{
+    struct aml_audio_device *adev = aml_out->dev;
+
+    float out_gain = 1.0f;
+    out_gain = adev->sink_gain[get_output_by_devices(adev->cur_out_devices)];
+    if (adev->tv_mute && adev->audio_patch) {
+        out_gain = 0.0f;
+    }
+    /*
+    for tv case, volume control it in audio_hal_data_processing
+    for non tv case, dtv stream vol control in dolby_ms12_set_main_volume
+    */
+    if (!adev->is_TV) {
+        if (adev->audio_patch && adev->patch_src == SRC_DTV) {
+            out_gain *= adev->dtv_volume;
+            set_ms12_main_volume(&adev->ms12, out_gain);
+            aml_out->ms12_vol_ctrl = true;
+        }
+    }
+}
+

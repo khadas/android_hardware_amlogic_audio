@@ -500,8 +500,11 @@ void set_ms12_acmod2ch_lock(struct dolby_ms12_desc *ms12, bool is_lock_on)
 }
 
 void set_ms12_main_volume(struct dolby_ms12_desc *ms12, float volume) {
-    ms12->main_volume = volume;
-    dolby_ms12_set_main_volume(volume);
+    if (fabs(ms12->main_volume - volume) > 1e-06) {
+        dolby_ms12_set_main_volume(volume);
+        ms12->main_volume = volume;
+        ALOGI("%s line %d main_volume %f\n", __func__, __LINE__, ms12->main_volume);
+    }
 }
 
 void set_ms12_ac4_presentation_group_index(struct dolby_ms12_desc *ms12, int index)
@@ -991,6 +994,13 @@ int get_the_dolby_ms12_prepared(
         adev->audio_patch_2_af_stream = false;
 
         aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
+    }
+
+    /* In Netflix test case, the volume should add into the list. */
+    /* In DTV case, at start, will set the 0.0 to mute, after about 100~200ms, the volume will set to normal value.*/
+    /* so, the DTV case, the volume list should add 0.0 as the first one. */
+    if (!continuous_mode(adev)) {
+        dtv_set_ms12_volume_on_non_TV_device(aml_out);
     }
 
     ALOGI("-%s()\n\n", __FUNCTION__);
