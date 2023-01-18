@@ -106,9 +106,8 @@ static int select_digital_device(struct spdifout_handle *phandle) {
                 } else if (phandle->audio_format == AUDIO_FORMAT_AC3) {
                     if (aml_dev->optical_format == AUDIO_FORMAT_E_AC3) {
                         /*it has dual output, then dd use spdif_b for spdif only*/
-                        if ((check_chip_name("t5", 2, &aml_dev->alsa_mixer) ||
-                             check_chip_name("t5d", 3, &aml_dev->alsa_mixer)) &&
-                            !check_chip_name("t5w", 3, &aml_dev->alsa_mixer))  {
+                        if (check_chip_name("t5", 3, &aml_dev->alsa_mixer) ||
+                             check_chip_name("t5d", 3, &aml_dev->alsa_mixer)) {
                             device_id = DIGITAL_DEVICE2;
                         } else {
                             device_id = DIGITAL_DEVICE;
