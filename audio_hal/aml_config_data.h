@@ -36,6 +36,7 @@ struct audio_board_config {
     int default_alsa_ch;
     int ms12_output_mask;
     int DTS_output_ch;
+    int cpu4_affinity_support;
 };
 
 int aml_audio_config_parser();

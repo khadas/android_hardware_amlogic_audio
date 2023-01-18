@@ -1240,9 +1240,19 @@ int aml_audio_get_dolby_dap_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost
 void aml_audio_set_cpu23_affinity()
 {
     cpu_set_t cpuSet;
+
+    struct aml_audio_device *aml_dev = (struct aml_audio_device *)adev_get_handle();
+    struct audio_board_config *bd_config = &aml_dev->board_config;
     CPU_ZERO(&cpuSet);
-    CPU_SET(2, &cpuSet);
-    CPU_SET(3, &cpuSet);
+
+    if (!bd_config->cpu4_affinity_support) {
+        CPU_SET(2, &cpuSet);
+        CPU_SET(3, &cpuSet);
+    } else {
+        CPU_SET(4, &cpuSet);
+        ALOGI("%s(), set cpu4 affinity for some chips which support cpu4", __FUNCTION__);
+    }
+
     int status = sched_setaffinity(0, sizeof(cpu_set_t), &cpuSet);
     if (status) {
         ALOGW("%s(), failed to set cpu affinity", __FUNCTION__);
