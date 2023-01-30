@@ -616,7 +616,8 @@ int aml_audio_spdifout_process(void *phandle, void *buffer, size_t byte)
          */
         if ((spdifout_phandle->spdif_port == PORT_EARC || spdifout_phandle->spdif_port == PORT_I2S2HDMI)
             && (spdifout_phandle->out_data_ch > 2)
-            && ((spdifout_phandle->channel_mask == AUDIO_CHANNEL_OUT_5POINT1) || (spdifout_phandle->channel_mask == AUDIO_CHANNEL_OUT_7POINT1))) {
+            && ((spdifout_phandle->channel_mask == AUDIO_CHANNEL_OUT_5POINT1) || (spdifout_phandle->channel_mask == AUDIO_CHANNEL_OUT_7POINT1))
+            && (audio_is_linear_pcm(spdifout_phandle->audio_format))) {
             /*if it is not 8 channel, we need swap it*/
             if (spdifout_phandle->need_extend_channel && spdifout_phandle->out_data_ch != 0 && spdifout_phandle->in_data_ch != 0) {
                 ret = aml_audio_check_and_realloc(&spdifout_phandle->temp_buf, &spdifout_phandle->buf_size, output_buffer_bytes * spdifout_phandle->out_data_ch / spdifout_phandle->in_data_ch);
