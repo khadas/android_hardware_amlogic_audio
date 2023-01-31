@@ -3849,12 +3849,12 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
             if (aml_out->pcm) {
                 pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
                 if (status.state == PCM_STATE_XRUN) {
-                    ALOGI("es data arrive jitter %lld ms and underrun do fade ", data_arrive_jitter_ms);
+                    ALOGI("es data arrive jitter %" PRIu64 " ms and underrun do fade ", data_arrive_jitter_ms);
                     set_ms12_main_audio_mute(&aml_dev->ms12, true, 0);
                 }
             }
             if (data_pts_jitter_ms >= AUDIO_PTS_DISCONTINUE_THRESHOLD) {
-                ALOGI("es data pts jitter %lld ms and underrun do flush", data_pts_jitter_ms);
+                ALOGI("es data pts jitter %" PRIu64 " ms and underrun do flush", data_pts_jitter_ms);
                 aml_audio_flush_dtv_output(aml_out);
             }
         }

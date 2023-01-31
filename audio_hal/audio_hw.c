@@ -3697,7 +3697,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             /* so, here storage the decoder_offset to avoid the offset in vs out MS12 lib */
             if (patch && (adev->patch_src == SRC_DTV)) {
                 if (out && adev->ms12_out && (out != adev->ms12_out)) {
-                    ALOGI("%s line %d store the dtv_decoder_offset_base %llu from patch %llu", __func__, __LINE__, adev->ms12.dtv_decoder_offset_base, patch->decoder_offset);
+                    ALOGI("%s line %d store the dtv_decoder_offset_base %" PRIu64 " from patch %" PRIu64 "", __func__, __LINE__, adev->ms12.dtv_decoder_offset_base, patch->decoder_offset);
                     adev->ms12.dtv_decoder_offset_base = patch->decoder_offset;
                 }
             }
@@ -6241,7 +6241,7 @@ ssize_t hw_write (struct audio_stream_out *stream
             } else {
                 aml_out->last_frames_position = total_frame - latency_frames;
             }
-            ALOGV("%s  frame_write_sum_updated:%d, total_frame:%llu, latency_frames:%u", __func__, adev->frame_write_sum_updated, total_frame, latency_frames);
+            ALOGV("%s  frame_write_sum_updated:%d, total_frame:%" PRIu64 ", latency_frames:%u", __func__, adev->frame_write_sum_updated, total_frame, latency_frames);
         } else {
             aml_out->last_frames_position = 0;
         }

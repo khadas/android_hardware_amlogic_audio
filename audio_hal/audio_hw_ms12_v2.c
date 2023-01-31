@@ -2439,7 +2439,7 @@ int dolby_truehd_bypass_process(struct audio_stream_out *stream, void *buffer, s
                 }
 
                 if (ret) {
-                    ALOGE("mat_encoder_process error %d bytes %d offset %d nbytes_consumed %d mat_enc_out_bytes %d\n",
+                    ALOGE("mat_encoder_process error %d bytes %zu offset %d nbytes_consumed %d mat_enc_out_bytes %d\n",
                         ret, bytes, offset, nbytes_consumed, ms12->mat_enc_out_bytes);
                     /* try to re-init the mat encoder */
                     if (ms12->mat_enc_handle) {
@@ -3210,7 +3210,7 @@ static int correct_the_duration_by_align_the_mat_frame_header(char *data, size_t
         }
     }
     else {
-        ALOGE("%s line %d error: data %p len %d.", __func__, __LINE__, data, len);
+        ALOGE("%s line %d error: data %p len %zu ", __func__, __LINE__, data, len);
         return 0;
     }
 }
