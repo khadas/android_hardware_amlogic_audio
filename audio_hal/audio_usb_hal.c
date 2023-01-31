@@ -615,7 +615,12 @@ int adev_open_usb_input_stream(struct usb_audio_device *hw_dev,
         // and store THAT in proxy_config.channels
         proxy_config.channels =
                 profile_get_closest_channel_count(in->profile, in->hal_channel_count);
+#if (ANDROID_PLATFORM_SDK_VERSION > 33) || (ANDROID_PLATFORM_SDK_VERSION == 33 \
+            && (ANDROID_PLATFORM_SDK_EXTENSION_VERSION >= 5))
+        ret = proxy_prepare(&in->proxy, in->profile, &proxy_config, false);
+#else
         ret = proxy_prepare(&in->proxy, in->profile, &proxy_config);
+#endif
         if (ret == 0) {
             in->standby = true;
 

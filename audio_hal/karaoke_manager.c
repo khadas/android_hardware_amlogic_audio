@@ -141,7 +141,12 @@ static int kara_open_micphone(struct kara_manager *kara, struct audioCfg *cfg)
 
     in->cfg = *cfg;
     in->debug = 0;;
+#if (ANDROID_PLATFORM_SDK_VERSION > 33) || (ANDROID_PLATFORM_SDK_VERSION == 33 \
+        && (ANDROID_PLATFORM_SDK_EXTENSION_VERSION >= 5))
+    ret = proxy_prepare(&in->proxy, profile, &proxy_config, false);
+#else
     ret = proxy_prepare(&in->proxy, profile, &proxy_config);
+#endif
     if (ret < 0) {
         ALOGE("%s(), proxy prepare fail", __func__);
         goto err;
