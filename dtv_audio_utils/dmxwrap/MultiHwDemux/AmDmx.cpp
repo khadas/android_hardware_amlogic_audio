@@ -16,6 +16,11 @@
 #include "aml_malloc_debug.h"
 #define PESBUFFERLEN 2048
 
+#define TS_PACKET_SIZE (188)
+#define PES_PACKET_SIZE (256 * 256)
+#define AUD_PES_HEADER_LEN (6)
+#define AUD_PES_START_LEN (4)
+
 AM_DMX_Device::AM_DMX_Device(AmHwMultiDemuxWrapper* DemuxWrapper) :
     mDemuxWrapper (DemuxWrapper){
     ALOGI("AM_DMX_Device\n");
@@ -151,6 +156,98 @@ void handlepesheader(unsigned char *buf, int*pesheaderlen, int64_t *outpts, unsi
    }
 }
 
+AM_ErrorCode_t AM_DMX_Device::AM_DMX_ParsePESPacket(AM_DMX_Device *dev, AM_DMX_Filter *filter, unsigned char *esbuf, int* eslen, void *userdata)
+{
+    AM_ErrorCode_t ret;
+    int ulen = 0, found = AM_FALSE;
+    int pos = 0, try_count = 0;
+    int PES_header_len = 0;
+    int needreadlen = 0;
+    uint32_t uiData = 0;
+    uint32_t offset = 0;
+    int64_t outpts = 0;
+    uint8_t pan = 0;
+    uint8_t fade = 0;
+    uint8_t *buf = NULL;
+
+    if (filter->package_data == NULL) {
+        filter->package_data = aml_audio_malloc(PES_PACKET_SIZE);
+    }
+    buf = (uint8_t *)filter->package_data;
+    offset = filter->package_len;
+    *eslen = 0;
+    // Position in the payload header table
+    do {
+        if (offset <= AUD_PES_HEADER_LEN) {
+            ulen = TS_PACKET_SIZE - offset - 4;
+            ret = dev->drv->dvb_read(dev, filter, buf + offset, &ulen);
+            if (ret != AM_SUCCESS || (offset + ulen) <= AUD_PES_HEADER_LEN) {
+                found = AM_FALSE;
+                filter->package_len = 0;
+                ALOGV("%s, read err %x, offset %d, ulen %d", __func__, ret, offset, ulen);
+                break;
+            }
+            offset += ulen;
+        }
+        ulen = offset;
+        // Header len is at least 6 bytes. So getting 6 bytes first
+        for (pos = 0; pos < ulen - AUD_PES_HEADER_LEN; pos++) {
+            ALOGV("%s, %x,%x,%x,%x", __func__, buf[0], buf[1], buf[2], buf[3]);
+            if (memcmp(&buf[0], "\x00\x00\x01", 3) == 0 && (IS_AUDIO_STREAM_ID(buf[3]))) {
+                found = AM_TRUE;
+                break;
+            }
+            memmove(buf, &buf[1], offset - 1);
+            offset--;
+        }
+        //usleep(1000);
+    } while (!found && dev->enable_thread && !filter->to_be_stopped && try_count++ < 10);
+    if (!found || !offset) {
+        filter->package_len = 0;
+        ALOGV("%s, not find PacketStartCodePrefix", __func__);
+        return AM_FAILURE;
+    }
+    // 16 Bit PES_packet_length.
+    uiData = ((buf[4] << 8) | buf[5]);
+    if (uiData > PES_PACKET_SIZE - AUD_PES_HEADER_LEN) {
+        uiData = PES_PACKET_SIZE - AUD_PES_HEADER_LEN;
+    }
+    ulen = offset - AUD_PES_HEADER_LEN;
+    if (uiData > ulen) {
+        needreadlen = uiData - ulen;
+    } else {
+        needreadlen = 0;
+    }
+    ALOGV("%s, offset %d, package_len %d needreadlen %d", __func__, offset, uiData, needreadlen);
+    if (needreadlen > 0) {
+        ulen = needreadlen;
+        ret = dev->drv->dvb_read(dev, filter, buf + offset, &ulen);
+        if (AM_SUCCESS == ret) {
+            offset += ulen;
+        }
+    }
+    if (offset - AUD_PES_HEADER_LEN >= uiData) {
+        // parse pes header table
+        handlepesheader(buf, &PES_header_len, &outpts, &pan, &fade);
+        ST_Aduserdata *paddata = (ST_Aduserdata *)userdata;
+        paddata->adpts = outpts;
+        paddata->pan = pan;
+        paddata->fade = fade;
+        ulen = uiData - 3 - PES_header_len;
+        // the payload buffer
+        if (ulen > 0) {
+            memcpy(esbuf, buf + AUD_PES_HEADER_LEN + 3 + PES_header_len, ulen);
+            *eslen = ulen;
+        }
+        ulen = uiData + AUD_PES_HEADER_LEN;
+        offset -= ulen;
+        memmove(buf, &buf[ulen], offset);
+        ALOGV("%s, payload len %d, header_len %d, left offset %d, ", __func__, *eslen, PES_header_len, offset);
+        dmx_audio_dump_audio_bitstreams("/data/pesraw.bin", buf, ulen);
+    }
+    filter->package_len = offset;
+    return AM_SUCCESS;
+}
 
 AM_ErrorCode_t AM_DMX_Device::AM_DMX_handlePESpacket(AM_DMX_Device *dev, AM_DMX_Filter *filter, unsigned char *esbuf, int* eslen, void *userdata)
 {
@@ -376,7 +473,7 @@ void* AM_DMX_Device::dmx_data_thread(void *arg)
                        }
                    } else //pes read
                    {
-                        ret = AM_DMX_handlePESpacket(dev,filter,sec_buf,&sec_len,data);
+                        ret = AM_DMX_ParsePESPacket(dev,filter,sec_buf,&sec_len,data);
                         ALOGV("ret %d dvb_readAD audio len  %d ,%p \n",ret,sec_len,cb);
                    }
                 }
@@ -404,7 +501,7 @@ void* AM_DMX_Device::dmx_data_thread(void *arg)
                     sec = sec_buf;
                 }
 
-                if (cb)
+                if (cb && sec_len)
                 {
                     /*if (id && sec)
                     ALOGI("filter %d data callback len fd:%ld len:%d, %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
@@ -826,6 +923,8 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_StartFilter(int fhandle)
         {
             //if(dev->drv->enable_filter)
             //{
+                filter->package_data = NULL;
+                filter->package_len = 0;
                 ret = drv->dvb_enable_filter(this, filter, true);
             //}
         }
@@ -868,6 +967,11 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_StopFilter(int fhandle)
             dmx_wait_cb();
             ret = dmx_stop_filter(filter);
             filter->enable = false;
+            if (filter->package_data) {
+                aml_audio_free(filter->package_data);
+                filter->package_data = NULL;
+            }
+            filter->package_len = 0;
             pthread_mutex_unlock(&lock);
         }
     }
