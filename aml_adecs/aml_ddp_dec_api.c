@@ -71,6 +71,7 @@ enum {
 #define MAX_DDP_BUFFER_SIZE (MAX_DECODER_FRAME_LENGTH * 4 + MAX_DECODER_FRAME_LENGTH + 8)
 
 #define DOLBY_DCV_LIB_PATH_A "/odm/lib/libHwAudio_dcvdec.so"
+#define DOLBY_DCV_LIB64_PATH_A "/odm/lib64/libHwAudio_dcvdec.so"
 #define CALCULATE_BITRATE_NEED_TIME 300 //calculate bitrate in the first 300 seconds
 
 typedef struct {
@@ -391,6 +392,11 @@ static int dcv_decoder_init(int decoding_mode, aml_dec_control_type_t digital_ra
 {
     int input_mode = 1;
     gDDPDecoderLibHandler = dlopen(DOLBY_DCV_LIB_PATH_A, RTLD_NOW);
+    //open 32bit so failed, here try to open the 64bit dolby dcv so.
+    if (gDDPDecoderLibHandler == NULL) {
+        gDDPDecoderLibHandler = dlopen(DOLBY_DCV_LIB64_PATH_A, RTLD_NOW);
+        ALOGI("%s, 64bit lib:%s, gDDPDecoderLibHandler:%p\n", __FUNCTION__, DOLBY_DCV_LIB64_PATH_A, gDDPDecoderLibHandler);
+    }
     if (!gDDPDecoderLibHandler) {
         ALOGE("%s, failed to open (libstagefright_soft_dcvdec.so), %s\n", __FUNCTION__, dlerror());
         goto Error;

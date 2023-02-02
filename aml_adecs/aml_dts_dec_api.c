@@ -40,6 +40,7 @@
 
 
 #define DOLBY_DTSHD_LIB_PATH     "/odm/lib/libHwAudio_dtshd.so"
+#define DOLBY_DTSHD_LIB64_PATH     "/odm/lib64/libHwAudio_dtshd.so"
 
 #define MAX_DCA_FRAME_LENGTH 32768
 #define READ_PERIOD_LENGTH 2048 * 4
@@ -436,6 +437,11 @@ static int unload_dts_decoder_lib()
 static int dca_decoder_init(aml_dec_control_type_t digital_raw)
 {
     gDtsDecoderLibHandler = dlopen(DOLBY_DTSHD_LIB_PATH, RTLD_NOW);
+    //open 32bit so failed, here try to open the 64bit dolby dcv so.
+    if (gDtsDecoderLibHandler == NULL) {
+        gDtsDecoderLibHandler = dlopen(DOLBY_DTSHD_LIB64_PATH, RTLD_NOW);
+        ALOGI("%s, 64bit lib:%s, gDDPDecoderLibHandler:%p\n", __FUNCTION__, DOLBY_DTSHD_LIB64_PATH, gDtsDecoderLibHandler);
+    }
     if (!gDtsDecoderLibHandler) {
         ALOGE("%s, failed to open (libstagefright_soft_dtshd.so), %s\n", __FUNCTION__, dlerror());
         goto Error;

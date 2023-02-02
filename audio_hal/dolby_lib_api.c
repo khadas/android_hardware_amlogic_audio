@@ -56,6 +56,8 @@
 #define AUDIO_UTILS_IOC_WRITE_LIB          _IOW(AUDIO_UTILS_IOC_MAGIC, 0x01, uint32_t)
 #define AUDIO_UTILS_IOC_FREE_LIB           _IOW(AUDIO_UTILS_IOC_MAGIC, 0x02, uint32_t)
 static bool b_dolby_written = 0;
+static aml_so_type_t s_aml_so_type = AML_SO_TYPE_NONE;
+
 static bool get_dev_audio_utils_node()
 {
     int ret = false;
@@ -302,16 +304,28 @@ enum eDolbyLibType detect_dolby_lib_type(void) {
     }
 
     // dcv is second priority
-    if (RET_OK == file_accessible(DOLBY_DCV_LIB_PATH_A)) {
+    if (RET_OK == file_accessible(DOLBY_DCV_LIB_PATH_A) || RET_OK == file_accessible(DOLBY_DCV_LIB64_PATH_A)) {
         retVal = eDolbyDcvLib;
     } else {
         retVal = eDolbyNull;
     }
 
+    s_aml_so_type = AML_SO_TYPE_NONE;
     if (eDolbyDcvLib == retVal)
     {
         //try to open lib see if it's OK?
         hDolbyDcvLibHandle  = dlopen(DOLBY_DCV_LIB_PATH_A, RTLD_NOW);
+        //ALOGI("%s, 32bit lib:%s, hDolbyDcvLibHandle:%p\n", __FUNCTION__, DOLBY_DCV_LIB_PATH_A, hDolbyDcvLibHandle);
+
+        //open 32bit so failed, here try to open the 64bit dolby dcv so.
+        if (hDolbyDcvLibHandle == NULL) {
+            hDolbyDcvLibHandle = dlopen(DOLBY_DCV_LIB64_PATH_A, RTLD_NOW);
+            if (hDolbyDcvLibHandle != NULL)
+                s_aml_so_type = AML_SO_TYPE_64bit;
+            ALOGI("%s, 64bit lib:%s, hDolbyDcvLibHandle:%p\n", __FUNCTION__, DOLBY_DCV_LIB64_PATH_A, hDolbyDcvLibHandle);
+        } else {
+            s_aml_so_type = AML_SO_TYPE_32bit;
+        }
     }
 
     if (hDolbyDcvLibHandle != NULL)
@@ -333,8 +347,22 @@ int dolby_lib_decode_enable(eDolbyLibType_t lib_type) {
     } else if (lib_type == eDolbyDcvLib) {
         unsigned int filesize = -1;
         struct stat stat_info;
-        if (stat(DOLBY_DCV_LIB_PATH_A, &stat_info) < 0) {
+        int ret = 0;
+
+        switch (s_aml_so_type) {
+            case AML_SO_TYPE_32bit:
+                ret = stat(DOLBY_DCV_LIB_PATH_A, &stat_info);
+                break;
+            case AML_SO_TYPE_64bit:
+                ret = stat(DOLBY_DCV_LIB64_PATH_A, &stat_info);
+                break;
+            default:
+                ret = -1;//dlopen failed, so enable should be 0;
+        }
+
+        if (ret < 0) {
             enable = 0;
+            ALOGE("%s %d, s_aml_so_type:%d errno:%s", __func__, __LINE__, s_aml_so_type, strerror(errno));
         } else {
             filesize = stat_info.st_size;
             if (filesize > 500*1024) {
@@ -346,6 +374,8 @@ int dolby_lib_decode_enable(eDolbyLibType_t lib_type) {
     } else {
         enable = 0;
     }
+
+    ALOGI("%s %d, enable:%d\n", __FUNCTION__, __LINE__, enable);
     return enable;
 }
 
@@ -417,9 +447,47 @@ int dts_lib_decode_enable() {
     int enable = 0;
     unsigned int filesize = -1;
     struct stat stat_info = {0};
+    void *hDtsLibHandle = NULL;
+    int ret = 0;
 
-    if (stat(DTS_DCA_LIB_PATH_A, &stat_info) < 0) {
+    //try to open lib see if it's OK?
+    s_aml_so_type = AML_SO_TYPE_NONE;
+    hDtsLibHandle  = dlopen(DTS_DCA_LIB_PATH_A, RTLD_NOW);
+    ALOGI("%s, 32bit lib:%s, hDtsLibHandle:%p\n", __FUNCTION__, DTS_DCA_LIB_PATH_A, hDtsLibHandle);
+
+    //open 32bit so failed, here try to open the 64bit dolby dcv so.
+    if (hDtsLibHandle == NULL) {
+        hDtsLibHandle = dlopen(DTS_DCA_LIB64_PATH_A, RTLD_NOW);
+        if (hDtsLibHandle != NULL) {
+            s_aml_so_type = AML_SO_TYPE_64bit;
+        }
+        ALOGI("%s, 64bit lib:%s, hDolbyDcvLibHandle:%p\n", __FUNCTION__, DTS_DCA_LIB64_PATH_A, hDtsLibHandle);
+    } else {
+        s_aml_so_type = AML_SO_TYPE_32bit;
+    }
+
+    if (hDtsLibHandle != NULL)
+    {
+        dlclose(hDtsLibHandle);
+        hDtsLibHandle = NULL;
+        ALOGI("%s,FOUND libHwAudio_dtshd lib\n", __FUNCTION__);
+    }
+
+    //Here start to get stat info of matching so.
+    switch (s_aml_so_type) {
+        case AML_SO_TYPE_32bit:
+            ret = stat(DTS_DCA_LIB_PATH_A, &stat_info);
+            break;
+        case AML_SO_TYPE_64bit:
+            ret = stat(DTS_DCA_LIB64_PATH_A, &stat_info);
+            break;
+        default:
+            ret = -1;//dlopen failed, so enable should be 0;
+    }
+
+    if (ret < 0) {
         enable = 0;
+        ALOGE("%s %d, s_aml_so_type:%d errno:%s", __func__, __LINE__, s_aml_so_type, strerror(errno));
     } else {
         filesize = stat_info.st_size;
         if (filesize > 500*1024) {
@@ -429,5 +497,6 @@ int dts_lib_decode_enable() {
         }
     }
 
+    ALOGI("%s %d, enable:%d\n", __FUNCTION__, __LINE__, enable);
     return enable;
 }

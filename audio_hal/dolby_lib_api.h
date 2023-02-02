@@ -24,7 +24,9 @@
 #define DOLBY_MS12_LIB_PATH_A "/odm/lib/libdolbyms12.so"
 #endif
 #define DOLBY_DCV_LIB_PATH_A "/odm/lib/libHwAudio_dcvdec.so"
+#define DOLBY_DCV_LIB64_PATH_A "/odm/lib64/libHwAudio_dcvdec.so"
 #define DTS_DCA_LIB_PATH_A "/odm/lib/libHwAudio_dtshd.so"
+#define DTS_DCA_LIB64_PATH_A "/odm/lib64/libHwAudio_dtshd.so"
 #else
 #define DOLBY_MS12_LIB_PATH_A "/vendor/lib/libdolbyms12.so"
 #define DOLBY_DCV_LIB_PATH_A "/vendor/lib/libHwAudio_dcvdec.so"
@@ -45,6 +47,17 @@ typedef enum eDolbyMS12Version {
     eDolbyMS12_V1  = 1,
     eDolbyMS12_V2  = 2,
 } eDolbyMS12Version_t;
+
+/*
+ *@brief define enum for aml so type
+ */
+typedef enum aml_so_type {
+    AML_SO_TYPE_NONE = 0,
+    AML_SO_TYPE_32bit,
+    AML_SO_TYPE_64bit,
+
+    AML_SO_TYPE_MAX = 0x0f,
+}aml_so_type_t;
 
 enum eDolbyLibType detect_dolby_lib_type(void);
 int dolby_lib_decode_enable(eDolbyLibType_t lib_type);
