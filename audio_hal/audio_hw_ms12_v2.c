@@ -519,11 +519,11 @@ void set_ms12_acmod2ch_lock(struct dolby_ms12_desc *ms12, bool is_lock_on)
 }
 
 void set_ms12_main_volume(struct dolby_ms12_desc *ms12, float volume) {
-    if (fabs(ms12->main_volume - volume) > 1e-06) {
+    //if (fabs(ms12->main_volume - volume) > 1e-06) {
         dolby_ms12_set_main_volume(volume);
         ms12->main_volume = volume;
-        ALOGI("%s line %d main_volume %f\n", __func__, __LINE__, ms12->main_volume);
-    }
+        //ALOGI("%s line %d main_volume %f\n", __func__, __LINE__, ms12->main_volume);
+    //}
 }
 
 
@@ -1156,7 +1156,7 @@ int get_the_dolby_ms12_prepared(
     ms12->do_easing = false;
     ms12->is_muted = false;
     ms12->b_legacy_ddpout    = dolby_ms12_get_ddp_5_1_out();
-    ms12->main_volume        = 1.0f;
+    set_ms12_main_volume(ms12, 1.0f);
     ms12->dtv_decoder_offset_base = dtv_decoder_offset_base;
     ALOGI("set ms12 sys pos =%" PRId64 "", ms12->sys_audio_base_pos);
 
