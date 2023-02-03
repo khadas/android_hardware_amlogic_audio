@@ -644,11 +644,9 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
             }
         } else if (out->flags & AUDIO_OUTPUT_FLAG_IEC958_NONAUDIO) {
             size = AC3_PERIOD_SIZE;
-        } else if (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) {
+        } else {
             /*for issue SWPL-69439, we need increase the buf size*/
             size = (DEFAULT_PLAYBACK_PERIOD_SIZE << 2);
-        } else {
-            size = DEFAULT_PLAYBACK_PERIOD_SIZE;
         }
         break;
     case AUDIO_FORMAT_E_AC3:
