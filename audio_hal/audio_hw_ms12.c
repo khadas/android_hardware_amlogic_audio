@@ -602,10 +602,27 @@ void set_ms12_fade_pan
 {
     char parm[64] = "";
 
-    sprintf(parm, "%s %d,%d,%d,%d,%d", "-ad_fade_pan",
-        fade_byte, gain_byte_center, gain_byte_front, gain_byte_surround, pan_byte);
-    if ((strlen(parm)) > 0 && ms12)
-        aml_ms12_update_runtime_params(ms12, parm);
+    if (ms12) {
+        struct pes_mixer_metadata *cur_pes_mixer_md = &ms12->pes_mixer_md;
+        bool is_pes_mixer_mad_changed = (fade_byte != cur_pes_mixer_md->fade_byte) ||
+            (gain_byte_center != cur_pes_mixer_md->gain_byte_center) ||
+            (gain_byte_front != cur_pes_mixer_md->gain_byte_front) ||
+            (gain_byte_surround != cur_pes_mixer_md->gain_byte_surround) ||
+            (pan_byte != cur_pes_mixer_md->pan_byte);
+
+        if (is_pes_mixer_mad_changed) {
+            sprintf(parm, "%s %d,%d,%d,%d,%d", "-ad_fade_pan",
+                fade_byte, gain_byte_center, gain_byte_front, gain_byte_surround, pan_byte);
+            if ((strlen(parm)) > 0 && ms12)
+                aml_ms12_update_runtime_params(ms12, parm);
+
+            cur_pes_mixer_md->fade_byte = fade_byte;
+            cur_pes_mixer_md->gain_byte_center = gain_byte_center ;
+            cur_pes_mixer_md->gain_byte_front = gain_byte_front;
+            cur_pes_mixer_md->gain_byte_surround = gain_byte_surround;
+            cur_pes_mixer_md->pan_byte = pan_byte;
+        }
+    }
 }
 
 
@@ -785,6 +802,7 @@ int get_the_dolby_ms12_prepared(
     aml_demux_audiopara_t *demux_info = NULL;
     uint64_t dtv_decoder_offset_base = 0;
     int  output_config;
+    struct audio_board_config *bd_config = &adev->board_config;
     if (patch) {
         demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     }
@@ -917,7 +935,7 @@ int get_the_dolby_ms12_prepared(
         get_hardware_config_parameters(
             &(adev->ms12_config)
             , AUDIO_FORMAT_PCM_16_BIT
-            , adev->default_alsa_ch
+            , bd_config->default_alsa_ch
             , ms12->output_samplerate
             , out->is_tv_platform
             , continuous_mode(adev)
@@ -1002,6 +1020,8 @@ int get_the_dolby_ms12_prepared(
     if (!continuous_mode(adev)) {
         dtv_set_ms12_volume_on_non_TV_device(aml_out);
     }
+
+    memset(&ms12->pes_mixer_md, 0, sizeof(struct pes_mixer_metadata));
 
     ALOGI("-%s()\n\n", __FUNCTION__);
     return ret;

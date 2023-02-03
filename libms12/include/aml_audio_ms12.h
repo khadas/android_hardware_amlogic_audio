@@ -60,6 +60,14 @@ struct bitstream_out_desc {
     bool is_bypass_ms12;
 };
 
+struct pes_mixer_metadata{
+    int fade_byte;
+    int gain_byte_center;
+    int gain_byte_front;
+    int gain_byte_surround;
+    int pan_byte;
+};
+
 
 struct dolby_ms12_desc {
     bool dolby_ms12_enable;
@@ -181,6 +189,7 @@ struct dolby_ms12_desc {
     bool need_ms12_resume;
     uint32_t ms12_timer_id;
     bool sys_data_write2alsa_status;
+    struct pes_mixer_metadata pes_mixer_md;
 };
 
 /*

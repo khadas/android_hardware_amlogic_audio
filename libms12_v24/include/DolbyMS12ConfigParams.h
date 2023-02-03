@@ -128,7 +128,7 @@ public:
     //associate flags
     virtual void setAssociateFlag(bool flag)
     {
-        ALOGI("%s() Associate flag %d\n", __FUNCTION__, flag);
+        ALOGV("%s() Associate flag %d\n", __FUNCTION__, flag);
         mHasAssociateInput = flag;
     }
     virtual int getAssociateFlag(void)
