@@ -5701,7 +5701,6 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
     uint32_t latency_frames = 0;
     uint64_t total_frame = 0;
     int auge_chip = alsa_device_is_auge();
-    bool bds = check_chip_name("t7", 2, &adev->alsa_mixer);
     /* raw data need packet to IEC61937 format by spdif encoder */
     if (output_format == AUDIO_FORMAT_IEC61937) {
         //ALOGI("IEC61937 Format");
@@ -5777,7 +5776,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             R_CHECK_RET(ret, "alloc out_32_buf size:%zu fail", 2 * bytes);
 
             /* 2 ch 16 bit --> x ch 32 bit mapping, need x*size of input buffer size */
-            ret = aml_audio_check_and_realloc((void **)&aml_out->tmp_buffer_8ch, &aml_out->tmp_buffer_8ch_size, bd_config->default_alsa_ch * buffer_need_size);
+            ret = aml_audio_check_and_realloc((void **)&aml_out->tmp_buffer_8ch, &aml_out->tmp_buffer_8ch_size,
+                    bd_config->default_alsa_ch * buffer_need_size);
             R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%zu fail", bd_config->default_alsa_ch * bytes);
 
             bool is_a2dp_path = is_include_a2dp_out_port(adev->out_device) && is_include_a2dp_out_port(adev->cur_out_devices);
@@ -5785,19 +5785,13 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 memcpy(adev->out_16_buf, buffer, bytes);
                 float volume = aml_audio_get_s_gain_by_src(adev, adev->patch_src);
 
-                if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER || dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) {
-                    /* apply volume for spk/hp, SPDIF/HDMI keep the max volume */
-                    if (is_a2dp_path) {
-                        if ((adev->patch_src == SRC_DTV || adev->patch_src == SRC_HDMIIN
-                                || adev->patch_src == SRC_LINEIN || adev->patch_src == SRC_ATV)
-                                && adev->audio_patching) {
-                                volume *= adev->sink_gain[OUTPORT_A2DP];
-                        }
-                    } else if (dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) {
-                        volume *= adev->eq_data.p_gain.headphone * adev->sink_gain[OUTPORT_HEADPHONE];
-                    } else if (adev->is_BDS && (AUDIO_DEVICE_OUT_HDMI & adev->cur_out_devices)) {
-                      /* for BDS project with HDMITX output,we need apply with volume with HDMITX */
-                        volume *= adev->sink_gain[OUTPORT_HDMI];
+                /* apply volume for SPK/HP/SPDIF/HDMItx, HMDITX for BDS platform */
+                /* all source should apply source gain, spk: spk volume + effect */
+                if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
+                    if (is_a2dp_path && (adev->patch_src == SRC_DTV || adev->patch_src == SRC_HDMIIN
+                            || adev->patch_src == SRC_LINEIN || adev->patch_src == SRC_ATV)
+                            && adev->audio_patching) {
+                        volume *= adev->sink_gain[OUTPORT_A2DP];
                     } else {
                         /* special add external gain for media->speaker */
                         if (adev->patch_src != SRC_DTV && adev->patch_src != SRC_ATV &&
@@ -5817,24 +5811,30 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                         adev->volume_ease.config_easing = false;
                     }
 
-                    if (adev->patch_src == SRC_DTV && adev->audio_patch != NULL) {
-                        aml_audio_switch_output_mode((int16_t *)adev->out_16_buf, bytes, adev->sound_track_mode);
-                    } else if (adev->audio_patch == NULL) {
-                        aml_audio_switch_output_mode((int16_t *)adev->out_16_buf, bytes, adev->sound_track_mode);
-                    }
-                    if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER && !bds && !is_a2dp_path) {
+                    if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER && !is_a2dp_path) {
                         out_frames = audio_post_process(&adev->native_postprocess, adev->out_16_buf, out_frames);
                         bytes = out_frames * 4;
                     }
+
                     if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-                        if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
-                            aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audio_spk.pcm", adev->out_16_buf, bytes);
-                        } else if (dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) {
-                            aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audio_headphone.pcm", adev->out_16_buf, bytes);
-                        }
+                        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audio_spk.pcm", adev->out_16_buf, bytes);
                     }
                 } else if (dev == AML_AUDIO_OUT_DEV_TYPE_SPDIF) {
                     volume *= adev->eq_data.p_gain.spdif_arc;
+                } else if (dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) {
+                    volume *= adev->eq_data.p_gain.headphone * adev->sink_gain[OUTPORT_HEADPHONE];
+                    if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
+                        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audio_headphone.pcm", adev->out_16_buf, bytes);
+                    }
+                } else if (dev == AML_AUDIO_OUT_DEV_TYPE_OTHER) {
+                    /* todo: apply speaker volume for hdmitx of BDS */
+                    volume *= adev->sink_gain[OUTPORT_SPEAKER];
+                }
+
+                /* For local play or dtv input, analog audio output channel should be switched by User setting*/
+                if ((dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER || dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) &&
+                        (adev->audio_patch == NULL || adev->patch_src == SRC_DTV)) {
+                    aml_audio_switch_output_mode((int16_t *)adev->out_16_buf, bytes, adev->sound_track_mode);
                 }
 
 #ifdef ADD_AUDIO_DELAY_INTERFACE
