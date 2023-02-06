@@ -1153,7 +1153,7 @@ bool is_dolby_ms12_support_compression_format(audio_format_t format)
         format == AUDIO_FORMAT_HE_AAC_V2 ||
         format == AUDIO_FORMAT_AAC ||
         format == AUDIO_FORMAT_AAC_LATM)  {
-        if (property_get_bool("ro.vendor.audio.use.ms12heaac", true)) {
+        if (property_get_bool("ro.vendor.audio.use.ms12heaac", false)) {
             return true;
         }
     }

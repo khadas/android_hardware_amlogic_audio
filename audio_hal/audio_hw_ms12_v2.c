@@ -431,6 +431,9 @@ audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format)
                hal_format == AUDIO_FORMAT_DRA) {
         return AUDIO_FORMAT_PCM_16_BIT;
     } else {
+        if (!is_dolby_ms12_support_compression_format(hal_format)) {
+           return AUDIO_FORMAT_PCM_16_BIT;
+        }
         return hal_format;
     }
 }

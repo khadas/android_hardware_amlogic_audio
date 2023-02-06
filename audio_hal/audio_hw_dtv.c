@@ -2611,8 +2611,9 @@ int audio_dtv_patch_output_single_decoder(struct aml_audio_patch *patch,
         aml_audio_dump_audio_bitstreams("/data/audio/audio_main_single.es", cur_package->data, cur_package->size);
     }
 
-    if (aml_dev->dolby_lib_type == eDolbyMS12Lib &&(
-        (patch->aformat == AUDIO_FORMAT_AAC) || \
+    if (aml_dev->dolby_lib_type == eDolbyMS12Lib &&
+        is_dolby_ms12_support_compression_format(patch->aformat) &&
+        ((patch->aformat == AUDIO_FORMAT_AAC) || \
         (patch->aformat == AUDIO_FORMAT_AAC_LATM) || \
         (patch->aformat == AUDIO_FORMAT_HE_AAC_V1) || \
         (patch->aformat == AUDIO_FORMAT_HE_AAC_V2))) {
@@ -2788,8 +2789,9 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
             ALOGW("p_package->ad_size %d >  ad_used_size %d", p_package->ad_size, ad_used_size);
         }
     }
-    else if (aml_dev->dolby_lib_type == eDolbyMS12Lib &&(
-        (patch->aformat == AUDIO_FORMAT_AAC) || \
+    else if (aml_dev->dolby_lib_type == eDolbyMS12Lib &&
+        is_dolby_ms12_support_compression_format(patch->aformat)&&
+        ((patch->aformat == AUDIO_FORMAT_AAC) || \
         (patch->aformat == AUDIO_FORMAT_AAC_LATM) || \
         (patch->aformat == AUDIO_FORMAT_HE_AAC_V1) || \
         (patch->aformat == AUDIO_FORMAT_HE_AAC_V2))) {

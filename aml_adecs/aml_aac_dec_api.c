@@ -15,7 +15,7 @@
  */
 
 #define LOG_TAG "aml_audio_faad_dec"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 
 #include <dlfcn.h>
 #include <cutils/log.h>
@@ -205,6 +205,7 @@ static int faad_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_confi
 
     dec_aac_data = &aml_dec->dec_pcm_data;
     dec_aac_data->buf_size = AAC_MAX_LENGTH;
+    dec_aac_data->data_len = 0;
     dec_aac_data->buf = (unsigned char*) aml_audio_calloc(1, dec_aac_data->buf_size);
     if (!dec_aac_data->buf) {
         ALOGE("malloc buffer failed\n");
@@ -214,6 +215,7 @@ static int faad_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_confi
     ad_dec_pcm_data = &aml_dec->ad_dec_pcm_data;
 
     ad_dec_pcm_data->buf_size = AAC_MAX_LENGTH;
+    ad_dec_pcm_data->data_len = 0;
     ad_dec_pcm_data->buf = (unsigned char*) aml_audio_calloc(1, ad_dec_pcm_data->buf_size);
     if (!ad_dec_pcm_data->buf) {
         ALOGE("malloc ad buffer failed\n");
