@@ -462,7 +462,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 }
 
                 aml_hw_mixer_mixing(&adev->hw_mixer, dec_data, pcm_len, output_format);
-                if (dec_pcm_data->data_ch == 2) {
+                if (dec_pcm_data->data_ch == 2 || VX_postprocess->libvx_exist) {
                     if (audio_hal_data_processing(stream, dec_data, pcm_len, &output_buffer, &output_buffer_bytes, output_format) == 0) {
                         if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
                             check_audio_level("after process", output_buffer, output_buffer_bytes);
