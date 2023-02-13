@@ -274,25 +274,6 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
 
     memset(hdmi_desc->target_EDID_array, 0, EDID_ARRAY_MAX_LEN);
 
-    /* if dts decoder doesn't support, don't update dts edid */
-    if (!adev->dts_decode_enable) {
-        int edid_length = hdmi_desc->EDID_length;
-        for (i = 0; i < edid_length/3; ) {
-            char AudioFormatCodes = (hdmi_desc->target_EDID_array[TLV_HEADER_SIZE + 3*i] >> 3) & 0xF;
-            /* mask EDID of dts and dtshd */
-            if (AudioFormatCodes == AML_HDMI_FORMAT_DTS || AudioFormatCodes == AML_HDMI_FORMAT_DTSHD) {
-                char *pr = &hdmi_desc->target_EDID_array[TLV_HEADER_SIZE + 3*i];
-                memmove(pr, (pr + 3), (edid_length - 3*i - 3));
-                edid_length -= 3;
-            } else {
-                i++;
-            }
-        }
-        hdmi_desc->EDID_length = edid_length;
-        ptr[1] = (unsigned int)hdmi_desc->EDID_length;
-    }
-
-    i = 0;
     pt = strtok_r (value, "[], ", &tmp);
     while (pt != NULL) {
 
@@ -317,6 +298,24 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
     } else {
         /* get default edid of hdmirx */
         get_current_edid(adev, adev->default_EDID_array, EDID_ARRAY_MAX_LEN);
+
+        /* if dts decoder doesn't support, don't update dts edid */
+        if (!adev->dts_decode_enable) {
+            int edid_length = hdmi_desc->EDID_length;
+            for (i = 0; i < edid_length/3; ) {
+                char AudioFormatCodes = (hdmi_desc->target_EDID_array[TLV_HEADER_SIZE + 3*i] >> 3) & 0xF;
+                /* mask EDID of dts and dtshd */
+                if (AudioFormatCodes == AML_HDMI_FORMAT_DTS || AudioFormatCodes == AML_HDMI_FORMAT_DTSHD) {
+                    char *pr = &hdmi_desc->target_EDID_array[TLV_HEADER_SIZE + 3*i];
+                    memmove(pr, (pr + 3), (edid_length - 3*i - 3));
+                    edid_length -= 3;
+                } else {
+                    i++;
+                }
+            }
+            hdmi_desc->EDID_length = edid_length;
+            ptr[1] = (unsigned int)hdmi_desc->EDID_length;
+        }
 
         ALOGI("ARC is connected, EDID_length = [%d], ARC HDMI AVR port = [%d]",
             hdmi_desc->EDID_length, hdmi_desc->avr_port);
@@ -401,6 +400,28 @@ int update_edid_after_edited_audio_sad(struct aml_audio_device *adev, struct for
             /* Skip PCM SAD */
             memmove((EDID_cur_array + TLV_HEADER_SIZE - SAD_SIZE) , EDID_cur_array, available_edid_len);
             available_edid_len -= SAD_SIZE;
+            for (int cnt = 0; cnt < EDID_ARRAY_MAX_LEN; cnt++) {
+                ALOGV("%s line %d EDID_cur_array(%d) [%#x]\n",  __func__, __LINE__, cnt, EDID_cur_array[cnt]);
+            }
+
+            /* DDP TB35 case:passthrough_edid_not_duplicate_mat_pcm */
+            /* when DDP Library inside, EDID should ignore MAT after DUT is connected to eARC.*/
+            if (adev->dolby_lib_type_last == eDolbyDcvLib) {
+                int edid_length = available_edid_len;
+                for (int i = 0; i < available_edid_len / SAD_SIZE; ) {
+                    char AudioFormatCodes = (EDID_cur_array[TLV_HEADER_SIZE + 3*i] >> 3) & 0xF;
+                    if (AudioFormatCodes == AML_HDMI_FORMAT_MAT) {
+                        char *pr = &EDID_cur_array[TLV_HEADER_SIZE + 3*i];
+                        memmove(pr, (pr + 3), (edid_length - 3*i - 3));
+                        edid_length -= 3;
+                        ALOGW("%s line %d will remove MAT codec %d\n", __func__, __LINE__, AudioFormatCodes);
+                        break;
+                    } else {
+                        i++;
+                    }
+                }
+                available_edid_len = edid_length;
+            }
 
             unsigned int *ptr = (unsigned int *)EDID_cur_array;
             ptr[0] = 0;

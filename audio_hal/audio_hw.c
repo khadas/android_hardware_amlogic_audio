@@ -9946,6 +9946,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 
     // try to detect which dolby lib is readable
     adev->dolby_lib_type = detect_dolby_lib_type();
+    /* if MS12 is inside, here adev->dolby_lib_type_last will be always eDolbyMS12Lib(2). */
     adev->dolby_lib_type_last = adev->dolby_lib_type;
     adev->dolby_decode_enable = dolby_lib_decode_enable(adev->dolby_lib_type_last);
     adev->dts_decode_enable = dts_lib_decode_enable();
