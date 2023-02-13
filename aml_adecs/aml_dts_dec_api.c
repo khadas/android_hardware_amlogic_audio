@@ -285,11 +285,11 @@ static int _dts_frame_scan(struct dca_dts_dec *dts_dec)
             frame_size = frame_info->size;
         }
 
-        // If framesize is 2013(Pd 0x3EE8 >>3 ) and ASPF(a.k.a Audio Sync Word Insertion Flag) is 1.
+        // If framesize is a odd number, (such as 2013(Pd 0x3EE8 >>3 )) and ASPF(a.k.a Audio Sync Word Insertion Flag) is 1.
         // The last byte will be used as a parameter for DSYNC verification and needs to be given to the decoder together.
-        // Due to the endian problem, 2014 bytes need to be passed in, and the one extra byte, the decoder will discard it.
-        if (frame_size == 2013) {
-            frame_size = 2014;
+        // Due to the endian problem, one more bytes need to be passed in, and the one extra byte, the decoder will discard it.
+        if (frame_size % 2) {
+            frame_size += 1;
         }
 
         //ALOGD("remain:%d, frame:%d, read:%p, rd:%p, drop:%d"
