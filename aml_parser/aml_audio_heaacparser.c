@@ -1192,10 +1192,15 @@ resync:
         if (is_loas && heaac_info->frame_size > 0) {
             if (buf_left >= (heaac_info->frame_size - heaac_parser_handle->buf_remain)) {
                 buf_offset += (heaac_info->frame_size - heaac_parser_handle->buf_remain);
-                buf_left = numBytes - buf_offset;
-                *used_size = buf_offset;
-                heaac_parser_handle->buf_remain = 0;
-                goto resync;
+                if (buf_offset > numBytes) {
+                   buf_left = 0;
+                   *used_size = numBytes;
+                } else {
+                    buf_left = numBytes - buf_offset;
+                    *used_size = buf_offset;
+                    heaac_parser_handle->buf_remain = 0;
+                    goto resync;
+                }
             }
         }
         heaac_parser_handle->buf_remain = 0;
