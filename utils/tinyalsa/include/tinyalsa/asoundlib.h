@@ -160,6 +160,10 @@ struct pcm *pcm_open(unsigned int card, unsigned int device,
 int pcm_close(struct pcm *pcm);
 int pcm_is_ready(struct pcm *pcm);
 
+int pcm_link(struct pcm *pcm1, struct pcm *pcm2);
+
+int pcm_unlink(struct pcm *pcm);
+
 /* Obtain the parameters for a PCM */
 struct pcm_params *pcm_params_get(unsigned int card, unsigned int device,
                                   unsigned int flags);

@@ -595,6 +595,11 @@ struct aml_audio_device {
 
     /* board specific json configs */
     struct audio_board_config board_config;
+
+    unsigned int output_mix_source; // MIX_SRC_LINEIN, USBIN, NIL (default)
+    // customized_usb is valid only when MIX_SRC_LINEIN==USBIN
+    int customized_usb_card; // -1, invalid (default), [0,1,2..] valid
+    int customized_usb_device; // -1, invalid (default), [0,1,2..] valid
 };
 
 struct meta_data {
@@ -797,6 +802,8 @@ struct aml_stream_out {
     struct timespec last_avsync_timestamp;
     int64_t jitter_ms;
     int     audio_delay;
+
+    void *kara;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
@@ -1090,4 +1097,19 @@ struct aec_info {
 #define PLAYBACK_PERIOD_SIZE (CODEC_BASE_FRAME_COUNT * PLAYBACK_PERIOD_MULTIPLIER)
 #define CHANNEL_STEREO 2
 #define PLAYBACK_CODEC_SAMPLING_RATE 48000
+
+static inline int16_t CLIP16(int r)
+{
+    return (r >  0x7fff) ? 0x7fff :
+           (r < -0x8000) ? 0x8000 :
+           r;
+}
+
+static inline int32_t CLIP32(int64_t r)
+{
+    return (r > INT32_MAX) ? INT32_MAX :
+           (r < INT32_MIN) ? INT32_MIN :
+           r;
+}
+
 #endif

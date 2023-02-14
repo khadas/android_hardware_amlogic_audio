@@ -268,6 +268,15 @@ unsigned int pcm_get_buffer_size(struct pcm *pcm)
     return pcm->buffer_size;
 }
 
+int pcm_get_config(struct pcm *pcm, struct pcm_config *config)
+{
+    if (pcm == NULL) {
+        return -1;
+    }
+    *config = pcm->config;
+    return 0;
+}
+
 const char* pcm_get_error(struct pcm *pcm)
 {
     return pcm->error;
@@ -1107,6 +1116,38 @@ fail_close:
 int pcm_is_ready(struct pcm *pcm)
 {
     return pcm->fd >= 0;
+}
+
+/** Links two PCMs.
+ * After this function is called, the two PCMs will prepare, start and stop in sync (at the same time).
+ * If an error occurs, the error message will be written to @p pcm1.
+ * @param pcm1 A PCM handle.
+ * @param pcm2 Another PCM handle.
+ * @return On success, zero; on failure, a negative number.
+ * @ingroup libtinyalsa-pcm
+ */
+int pcm_link(struct pcm *pcm1, struct pcm *pcm2)
+{
+    int err = ioctl(pcm1->fd, SNDRV_PCM_IOCTL_LINK, pcm2->fd);
+    if (err == -1) {
+        return oops(pcm1, errno, "cannot link PCM");
+    }
+    return 0;
+}
+
+/** Unlinks a PCM.
+ * @see @ref pcm_link
+ * @param pcm A PCM handle.
+ * @return On success, zero; on failure, a negative number.
+ * @ingroup libtinyalsa-pcm
+ */
+int pcm_unlink(struct pcm *pcm)
+{
+    int err = ioctl(pcm->fd, SNDRV_PCM_IOCTL_UNLINK);
+    if (err == -1) {
+        return oops(pcm, errno, "cannot unlink PCM");
+    }
+    return 0;
 }
 
 int pcm_prepare(struct pcm *pcm)

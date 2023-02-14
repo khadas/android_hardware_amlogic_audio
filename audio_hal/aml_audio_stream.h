@@ -680,5 +680,6 @@ enum hdmiin_audio_mode {
 enum hdmiin_audio_mode get_hdmiin_audio_mode(struct aml_mixer_handle *mixer_handle);
 int aml_audio_earctx_get_type(struct aml_audio_device *adev);
 int aml_audio_earc_get_latency(struct aml_audio_device *adev);
+const char *write_func_to_str(enum stream_write_func func);
 
 #endif /* _AML_AUDIO_STREAM_H_ */

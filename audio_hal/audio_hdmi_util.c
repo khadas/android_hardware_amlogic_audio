@@ -44,8 +44,6 @@
 #define DOLBY_DIGITAL_PLUS          0xA
 #define DOLBY_TRUEHD_AND_DOLBY_MAT  0xC
 #define AUDIO_FORMAT_CODE_BYTE1_BIT3 3
-/* Maximum string length in audio hal. */
-#define AUDIO_HAL_CHAR_MAX_LEN     (256)
 
 #include <errno.h>
 #include <cutils/log.h>

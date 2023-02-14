@@ -88,6 +88,7 @@ include $(BUILD_PREBUILT)
         aml_audio_ms12_render.c \
         aml_audio_nonms12_render.c \
         karaoke_manager.c \
+        audio_kara.c \
         audio_usb_hal.c \
         aml_config_parser.c \
         aml_config_data.c \

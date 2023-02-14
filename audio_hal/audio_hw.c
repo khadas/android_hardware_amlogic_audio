@@ -138,6 +138,9 @@
 #include <audio_effects/effect_aec.h>
 #include <audio_utils/clock.h>
 
+#include "audio_kara.h"
+#define AUDIO_KARA
+
 #define CARD_AMLOGIC_BOARD 0
 /* ALSA ports for AML */
 #define PORT_I2S 0
@@ -181,9 +184,6 @@
 
 /* this latency is from logcat time. */
 #define HAL_MS12_PIPELINE_LATENCY (10)
-
-/* Maximum string length in audio hal. */
-#define AUDIO_HAL_CHAR_MAX_LEN                          (256)
 
 static const struct pcm_config pcm_config_out = {
     .channels = 2,
@@ -3763,6 +3763,10 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         aml_audio_spdifout_close(out->spdifout2_handle);
         out->spdifout2_handle = NULL;
     }
+    if (out->kara) {
+        audio_kara_close(out->kara);
+        out->kara = NULL;
+    }
 
     if (out->aml_dec) {
         aml_decoder_release(out->aml_dec);
@@ -4075,7 +4079,7 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     int val = 0;
     int ret = 0;
 
-    ALOGI ("%s(%p, kv: %s)", __FUNCTION__, dev, kvpairs);
+    AM_LOGI("%s(%p, kv: %s)", __FUNCTION__, dev, kvpairs);
     parms = str_parms_create_str (kvpairs);
 
     audio_extn_hfp_set_parameters(adev, parms);
@@ -4635,7 +4639,7 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         goto exit;
     }
 
-
+    set_param_kara(dev, parms);
 
 exit:
     str_parms_destroy (parms);
@@ -5903,7 +5907,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                   , size_t bytes
                   , audio_format_t output_format)
 {
-    ALOGV ("+%s() buffer %p bytes %zu", __func__, buffer, bytes);
+    AM_LOGV ("+%s() buffer %p bytes %zu", __func__, buffer, bytes);
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
     audio_config_base_t in_data_config = {48000, AUDIO_CHANNEL_OUT_STEREO, AUDIO_FORMAT_PCM_16_BIT};
@@ -5985,6 +5989,9 @@ ssize_t hw_write (struct audio_stream_out *stream
                 if (ret) {
                     ALOGE("%s() open failed", __func__);
                 }
+#ifdef AUDIO_KARA
+                check_switch_audio_kara(stream);
+#endif
             }
         }
 #ifdef ENABLE_DVB_PATCH
@@ -6147,7 +6154,14 @@ ssize_t hw_write (struct audio_stream_out *stream
                 }
                 a2dp_out_write(adev, &in_data_config, buffer, bytes);
             }
-            ret = aml_alsa_output_write(stream, (void *) buffer, bytes);
+#ifdef AUDIO_KARA
+            check_switch_audio_kara(stream);
+            if (aml_out->kara) {
+                // WARNING: buffer is changed, discard 'const' qualifiers
+                ret = audio_kara_mix(aml_out->kara, (void *)buffer, bytes);
+            }
+#endif
+            ret = aml_alsa_output_write(stream, (void *) buffer, bytes); // HDMI output HERE
         }
         //ALOGE("!!aml_alsa_output_write"); ///zzz
         if (ret < 0) {

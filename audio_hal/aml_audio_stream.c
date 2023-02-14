@@ -946,7 +946,7 @@ const char *write_func_strs[MIXER_WRITE_FUNC_MAX] = {
     "PROCESS_BUFFER_WRITE,"
 };
 
-static const char *write_func_to_str(enum stream_write_func func)
+const char *write_func_to_str(enum stream_write_func func)
 {
     return write_func_strs[func];
 }

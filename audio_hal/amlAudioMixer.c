@@ -809,13 +809,6 @@ int mixer_need_wait_forever(struct amlAudioMixer *audio_mixer)
     return mixer_get_state(audio_mixer) != MIXER_INPORTS_READY;
 }
 
-static inline int16_t CLIP16(int r)
-{
-    return (r >  0x7fff) ? 0x7fff :
-           (r < -0x8000) ? 0x8000 :
-           r;
-}
-
 static uint32_t hwsync_align_to_frame(uint32_t consumed_size, uint32_t frame_size)
 {
     return consumed_size - (consumed_size % frame_size);

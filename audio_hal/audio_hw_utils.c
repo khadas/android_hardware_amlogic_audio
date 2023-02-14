@@ -673,16 +673,19 @@ int aml_audio_debug_set_optical_format()
 int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes)
 {
     if (!path) {
-        return 0;
+        return -1;
     }
 
     FILE *fp = fopen(path, "a+");
     if (fp) {
         int flen = fwrite((char *)buf, 1, bytes, fp);
         fclose(fp);
+        return 0;
     }
+    AM_LOGE("fail to open path=%s, errno=%d/%s",
+            path, errno, strerror(errno));
 
-    return 0;
+    return -1;
 }
 
 //Tune the eRAC with non-tunnel for earc-ddp

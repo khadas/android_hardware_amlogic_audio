@@ -27,6 +27,9 @@
 #include "aml_audio_stream.h"
 
 #include "aml_dump_debug.h"
+/* Maximum string length in audio hal. */
+#define AUDIO_HAL_CHAR_MAX_LEN     (256)
+
 #define ENUM_TYPE_STR_MAX_LEN                           (100)
 
 
