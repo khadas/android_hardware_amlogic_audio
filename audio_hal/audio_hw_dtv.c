@@ -3650,7 +3650,7 @@ void aml_audio_flush_dtv_output(struct aml_stream_out *aml_out) {
             patch->cur_package->size = 0;
         }
     } else {
-        patch->cur_package->size = 0;
+        //patch->cur_package->size = 0;
     }
     if (aml_dev->dolby_lib_type == eDolbyMS12Lib) {
         if (!is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)) {
@@ -3855,9 +3855,22 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
                     set_ms12_main_audio_mute(&aml_dev->ms12, true, 0);
                 }
             }
-            if (data_pts_jitter_ms >= AUDIO_PTS_DISCONTINUE_THRESHOLD) {
-                ALOGI("es data pts jitter %" PRIu64 " ms and underrun do flush", data_pts_jitter_ms);
+            if (data_pts_jitter_ms >= AUDIO_PTS_DISCONTINUE_THRESHOLD ) {
+                ALOGI("es data pts jitter %" PRIu64 " ms  do flush", data_pts_jitter_ms);
                 aml_audio_flush_dtv_output(aml_out);
+                while (!patch->output_thread_exit) {
+                    if (dtv_package_is_full(list)) {
+                        break;
+                    }
+                    if (list->current) {
+                        if (list->current->pts - p_package->pts >= DTV_AUDIO_REPLAY_NEED_CACHE_MS) {
+                            break;
+                        } else {
+                            ALOGI("dtv package cache %" PRIu64 "ms ", (list->current->pts - p_package->pts) / 90);
+                        }
+                    }
+                    usleep(100000);
+                }
             }
         }
 
