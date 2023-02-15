@@ -5763,13 +5763,14 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             ret = aml_audio_check_and_realloc((void **)&aml_out->tmp_buffer_8ch, &aml_out->tmp_buffer_8ch_size, bd_config->default_alsa_ch * buffer_need_size);
             R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%zu fail", bd_config->default_alsa_ch * bytes);
 
+            bool is_a2dp_path = is_include_a2dp_out_port(adev->out_device) && is_include_a2dp_out_port(adev->cur_out_devices);
             for (int dev = AML_AUDIO_OUT_DEV_TYPE_SPEAKER; dev < num_dev; dev++) {
                 memcpy(adev->out_16_buf, buffer, bytes);
                 float volume = aml_audio_get_s_gain_by_src(adev, adev->patch_src);
 
                 if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER || dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) {
                     /* apply volume for spk/hp, SPDIF/HDMI keep the max volume */
-                    if (is_include_a2dp_out_port(adev->cur_out_devices)) {
+                    if (is_a2dp_path) {
                         if ((adev->patch_src == SRC_DTV || adev->patch_src == SRC_HDMIIN
                                 || adev->patch_src == SRC_LINEIN || adev->patch_src == SRC_ATV)
                                 && adev->audio_patching) {
@@ -5792,7 +5793,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     /* for ms12 lib, and audio volume control in ms12, bypass all volume apply */
                     if (eDolbyMS12Lib == adev->dolby_lib_type && aml_out->ms12_vol_ctrl) {
                         volume = 1.0;
-                    } else if (adev->volume_ease.config_easing && dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
+                    } else if (adev->volume_ease.config_easing && dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER && !is_a2dp_path) {
                         /* start audio volume easing */
                         float vol_now = aml_audio_ease_get_current_volume(adev->volume_ease.ease);
                         config_volume_easing(adev->volume_ease.ease, vol_now, volume);
@@ -5804,7 +5805,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     } else if (adev->audio_patch == NULL) {
                         aml_audio_switch_output_mode((int16_t *)adev->out_16_buf, bytes, adev->sound_track_mode);
                     }
-                    if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER && !bds) {
+                    if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER && !bds && !is_a2dp_path) {
                         out_frames = audio_post_process(&adev->native_postprocess, adev->out_16_buf, out_frames);
                         bytes = out_frames * 4;
                     }
