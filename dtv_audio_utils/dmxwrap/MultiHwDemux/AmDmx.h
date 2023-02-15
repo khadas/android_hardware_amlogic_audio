@@ -79,6 +79,8 @@ struct AM_DMX_Filter {
 	AM_DMX_DataCb		cb; 	   /**< 解复用数据回调函数*/
 	void			   *user_data; /**< 数据回调函数用户参数*/
 	bool to_be_stopped;
+	void *package_data;
+	uint32_t package_len;
 };
 class AmLinuxDvb;
 
@@ -108,6 +110,7 @@ public:
 	AM_ErrorCode_t AM_DMX_Sync();
 	//AM_ErrorCode_t AM_DMX_GetScrambleStatus(AM_Bool_t dev_status[2]);
     static AM_ErrorCode_t AM_DMX_handlePESpacket(AM_DMX_Device *dev, AM_DMX_Filter *filter, unsigned char * outbuf, int* outlen, void *userdata);
+    static AM_ErrorCode_t AM_DMX_ParsePESPacket(AM_DMX_Device *dev, AM_DMX_Filter *filter, unsigned char * outbuf, int* outlen, void *userdata);
 
 	AM_ErrorCode_t AM_DMX_WriteTs(uint8_t* data,int32_t size,uint64_t timeout);
 	int dev_no;      /**< 设备号*/
