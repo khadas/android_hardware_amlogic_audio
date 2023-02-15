@@ -28,6 +28,9 @@
 #include <HidlUtils.h>
 #include <common/all-versions/VersionUtils.h>
 #include <util/CoreUtils.h>
+#if MAJOR_VERSION >= 4
+#include <media/AidlConversion.h>
+#endif
 
 #include "DeviceHalHidl.h"
 #include "EffectHalHidl.h"
@@ -409,6 +412,30 @@ status_t DeviceHalHidl::getMicrophones(
     return INVALID_OPERATION;
 }
 #elif MAJOR_VERSION >= 4
+#if !defined(ANDROID_PLATFORM_SDK_VERSION) || (ANDROID_PLATFORM_SDK_VERSION > 33)
+status_t DeviceHalHidl::getMicrophones(std::vector<media::MicrophoneInfoFw> *microphonesInfo) {
+    if (mDevice == 0) return NO_INIT;
+    Result retval;
+    Return<void> ret = mDevice->getMicrophones(
+            [&](Result r, hidl_vec<MicrophoneInfo> micArrayHal) {
+        retval = r;
+        for (size_t k = 0; k < micArrayHal.size(); k++) {
+            // Convert via legacy.
+            audio_microphone_characteristic_t dst;
+            (void)CoreUtils::microphoneInfoToHal(micArrayHal[k], &dst);
+            auto conv = legacy2aidl_audio_microphone_characteristic_t_MicrophoneInfoFw(dst);
+            if (conv.ok()) {
+                microphonesInfo->push_back(conv.value());
+            } else {
+                ALOGW("getActiveMicrophones: could not convert %s to AIDL: %d",
+                        toString(micArrayHal[k]).c_str(), conv.error());
+                microphonesInfo->push_back(media::MicrophoneInfoFw{});
+            }
+        }
+    });
+    return processReturn("getMicrophones", ret, retval);
+}
+#else
 status_t DeviceHalHidl::getMicrophones(std::vector<media::MicrophoneInfo> *microphonesInfo) {
     if (mDevice == 0) return NO_INIT;
     Result retval;
@@ -425,6 +452,7 @@ status_t DeviceHalHidl::getMicrophones(std::vector<media::MicrophoneInfo> *micro
     });
     return processReturn("getMicrophones", ret, retval);
 }
+#endif
 #endif
 
 #if MAJOR_VERSION >= 6

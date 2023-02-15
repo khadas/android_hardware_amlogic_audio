@@ -113,9 +113,12 @@ class DeviceHalHidl : public DeviceHalInterface, public ConversionHelperHidl
     // Set audio port configuration.
     virtual status_t setAudioPortConfig(const struct audio_port_config *config);
 
+#if !defined(ANDROID_PLATFORM_SDK_VERSION) || (ANDROID_PLATFORM_SDK_VERSION > 33)
     // List microphones
+    virtual status_t getMicrophones(std::vector<media::MicrophoneInfoFw> *microphones);
+#else
     virtual status_t getMicrophones(std::vector<media::MicrophoneInfo> *microphones);
-
+#endif
     status_t addDeviceEffect(audio_port_handle_t device, sp<EffectHalInterface> effect) override;
     status_t removeDeviceEffect(audio_port_handle_t device, sp<EffectHalInterface> effect) override;
 

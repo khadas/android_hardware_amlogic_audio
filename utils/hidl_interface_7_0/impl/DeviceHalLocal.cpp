@@ -18,6 +18,9 @@
 //#define LOG_NDEBUG 0
 
 #include <utils/Log.h>
+#if MAJOR_VERSION >= 4
+#include <media/AidlConversion.h>
+#endif
 
 #include "DeviceHalLocal.h"
 #include "StreamHalLocal.h"
@@ -209,6 +212,23 @@ status_t DeviceHalLocal::getMicrophones(
     return INVALID_OPERATION;
 }
 #elif MAJOR_VERSION >= 4
+#if !defined(ANDROID_PLATFORM_SDK_VERSION) || (ANDROID_PLATFORM_SDK_VERSION > 33)
+status_t DeviceHalLocal::getMicrophones(std::vector<media::MicrophoneInfoFw> *microphones) {
+    if (mDev->get_microphones == NULL) return INVALID_OPERATION;
+    size_t actual_mics = AUDIO_MICROPHONE_MAX_COUNT;
+    audio_microphone_characteristic_t mic_array[AUDIO_MICROPHONE_MAX_COUNT];
+    status_t status = mDev->get_microphones(mDev, &mic_array[0], &actual_mics);
+    for (size_t i = 0; i < actual_mics; i++) {
+        auto conv = legacy2aidl_audio_microphone_characteristic_t_MicrophoneInfoFw(mic_array[i]);
+        if (conv.ok()) {
+            microphones->push_back(conv.value());
+        } else {
+            microphones->push_back(media::MicrophoneInfoFw{});
+        }
+    }
+    return status;
+}
+#else
 status_t DeviceHalLocal::getMicrophones(std::vector<media::MicrophoneInfo> *microphones) {
     if (mDev->get_microphones == NULL) return INVALID_OPERATION;
     size_t actual_mics = AUDIO_MICROPHONE_MAX_COUNT;
@@ -220,6 +240,7 @@ status_t DeviceHalLocal::getMicrophones(std::vector<media::MicrophoneInfo> *micr
     }
     return status;
 }
+#endif
 #endif
 
 // Local HAL implementation does not support effects

@@ -219,10 +219,12 @@ class StreamInHalLocal : public StreamInHalInterface, public StreamHalLocal {
 
     // Get current read/write position in the mmap buffer
     virtual status_t getMmapPosition(struct audio_mmap_position *position);
-
+#if !defined(ANDROID_PLATFORM_SDK_VERSION) || (ANDROID_PLATFORM_SDK_VERSION > 33)
     // Get active microphones
+    virtual status_t getActiveMicrophones(std::vector<media::MicrophoneInfoFw> *microphones);
+#else
     virtual status_t getActiveMicrophones(std::vector<media::MicrophoneInfo> *microphones);
-
+#endif
     // Sets microphone direction (for processing)
     virtual status_t setPreferredMicrophoneDirection(audio_microphone_direction_t direction);
 

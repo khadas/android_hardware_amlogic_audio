@@ -16,9 +16,12 @@
 
 #ifndef ANDROID_HARDWARE_DEVICE_HAL_INTERFACE_H
 #define ANDROID_HARDWARE_DEVICE_HAL_INTERFACE_H
-
-#include <media/audiohal/EffectHalInterface.h>
+#if !defined(ANDROID_PLATFORM_SDK_VERSION) || (ANDROID_PLATFORM_SDK_VERSION > 33)
+#include <android/media/MicrophoneInfoFw.h>
+#else
 #include <media/MicrophoneInfo.h>
+#endif
+#include <media/audiohal/EffectHalInterface.h>
 #include <system/audio.h>
 #include <utils/Errors.h>
 #include <utils/RefBase.h>
@@ -112,9 +115,12 @@ class DeviceHalInterface : public RefBase
     // Set audio port configuration.
     virtual status_t setAudioPortConfig(const struct audio_port_config *config) = 0;
 
+#if !defined(ANDROID_PLATFORM_SDK_VERSION) || (ANDROID_PLATFORM_SDK_VERSION > 33)
     // List microphones
+    virtual status_t getMicrophones(std::vector<media::MicrophoneInfoFw> *microphones) = 0;
+#else
     virtual status_t getMicrophones(std::vector<media::MicrophoneInfo> *microphones) = 0;
-
+#endif
     virtual status_t addDeviceEffect(
             audio_port_handle_t device, sp<EffectHalInterface> effect) = 0;
     virtual status_t removeDeviceEffect(

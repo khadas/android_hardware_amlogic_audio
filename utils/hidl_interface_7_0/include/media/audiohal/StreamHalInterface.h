@@ -18,9 +18,12 @@
 #define ANDROID_HARDWARE_STREAM_HAL_INTERFACE_H
 
 #include <vector>
-
-#include <media/audiohal/EffectHalInterface.h>
+#if !defined(ANDROID_PLATFORM_SDK_VERSION) || (ANDROID_PLATFORM_SDK_VERSION > 33)
+#include <android/media/MicrophoneInfoFw.h>
+#else
 #include <media/MicrophoneInfo.h>
+#endif
+#include <media/audiohal/EffectHalInterface.h>
 #include <system/audio.h>
 #include <utils/Errors.h>
 #include <utils/RefBase.h>
@@ -212,9 +215,12 @@ class StreamInHalInterface : public virtual StreamHalInterface {
     // the clock time associated with that frame count.
     virtual status_t getCapturePosition(int64_t *frames, int64_t *time) = 0;
 
+#if !defined(ANDROID_PLATFORM_SDK_VERSION) || (ANDROID_PLATFORM_SDK_VERSION > 33)
     // Get active microphones
+    virtual status_t getActiveMicrophones(std::vector<media::MicrophoneInfoFw> *microphones) = 0;
+#else
     virtual status_t getActiveMicrophones(std::vector<media::MicrophoneInfo> *microphones) = 0;
-
+#endif
     // Set direction for capture processing
     virtual status_t setPreferredMicrophoneDirection(audio_microphone_direction_t) = 0;
 

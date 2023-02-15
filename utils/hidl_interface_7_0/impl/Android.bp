@@ -30,7 +30,9 @@ audio_hidl_7_0_go_defaults {
 
 cc_library_shared {
     name: "libamlaudiohal@7.0",
-    defaults: ["audio_hidl_7_0_go_defaults"],
+    defaults: [
+        "audio_hidl_7_0_go_defaults",
+    ],
     proprietary: true,
     srcs: [
         "DeviceHalLocal.cpp",
@@ -60,6 +62,7 @@ cc_library_shared {
         "android.hardware.audio.common-util",
         "av-types-aidl-cpp",
         "libamlaudiohal_deathhandler@7.0",
+        "libaudioclient_aidl_conversion",
         "libaudiofoundation",
         "libaudioutils",
         "libbase",
@@ -94,6 +97,7 @@ cc_library_shared {
     ],
 
     export_shared_lib_headers: [
+        "av-types-aidl-cpp",
         "libfmq",
     ],
 }

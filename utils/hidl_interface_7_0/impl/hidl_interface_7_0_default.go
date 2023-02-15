@@ -7,7 +7,7 @@ import (
     "android/soong/cc"
     "github.com/google/blueprint/proptools"
     //"runtime/debug"
-    //"strconv"
+    "strconv"
 )
 
 func init() {
@@ -15,24 +15,55 @@ func init() {
 }
 
 func audio_hidl_Defaults(ctx android.LoadHookContext) {
-    type propsE struct {
-        Enabled *bool
-    }
-    p := &propsE{}
 
-    // After Android T, PlatformVndkVersion return string like "Tiramisu", not string number like "32"
     PlatformVndkVersion := ctx.DeviceConfig().PlatformVndkVersion()
     //fmt.Println("PlatformVndkVersion:", PlatformVndkVersion)
+    IntPlatformVndkVersion,err := strconv.Atoi(PlatformVndkVersion)
+    // For An Android letter, before freeze API PlatformVndkVersion return code name, like
+    // "Tiramisu", after freeze API it has been changed to number.
 
-    if PlatformVndkVersion == "30" {
-        //fmt.Println("Disable HIDL 7.0 Impl")
-        p.Enabled = proptools.BoolPtr(false)
-    } else {
+    if err != nil {
+        type propsE struct {
+            Enabled *bool
+            Cflags []string
+            Defaults []string
+        }
+        p := &propsE{}
         //fmt.Println("Enable HIDL 7.0 Impl")
         p.Enabled = proptools.BoolPtr(true)
+        p.Defaults = append(p.Defaults, "latest_android_media_audio_common_types_cpp_export_shared")
+        ctx.AppendProperties(p)
+    } else {
+        SDKVERSION := "-DANDROID_PLATFORM_SDK_VERSION=" + PlatformVndkVersion
+        // Android R can't support defaults export, so we use different propsE
+        if IntPlatformVndkVersion == 30 {
+            type propsE struct {
+                Enabled *bool
+                Cflags []string
+            }
+            p := &propsE{}
+            p.Cflags  = append(p.Cflags,SDKVERSION)
+            //fmt.Println("Disable HIDL 7.0 Impl")
+            p.Enabled = proptools.BoolPtr(false)
+            ctx.AppendProperties(p)
+        } else {
+            type propsE struct {
+                Enabled *bool
+                Cflags []string
+                Defaults []string
+            }
+            p := &propsE{}
+            p.Cflags  = append(p.Cflags,SDKVERSION)
+            //fmt.Println("Enable HIDL 7.0 Impl")
+            p.Enabled = proptools.BoolPtr(true)
+            // Android U changed the API
+            if (IntPlatformVndkVersion > 33) {
+                p.Defaults = append(p.Defaults, "latest_android_media_audio_common_types_cpp_export_shared")
+            }
+            ctx.AppendProperties(p)
+        }
     }
 
-    ctx.AppendProperties(p)
 }
 
 func audio_hidl_DefaultsFactory() (android.Module) {

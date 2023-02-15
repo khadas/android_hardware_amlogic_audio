@@ -21,6 +21,9 @@
 #include <hardware/audio.h>
 #include <media/AudioParameter.h>
 #include <utils/Log.h>
+#if MAJOR_VERSION >= 4
+#include <media/AidlConversion.h>
+#endif
 
 #include "DeviceHalLocal.h"
 #include "ParameterUtils.h"
@@ -482,6 +485,23 @@ status_t StreamInHalLocal::getActiveMicrophones(
     return INVALID_OPERATION;
 }
 #elif MAJOR_VERSION >= 4
+#if !defined(ANDROID_PLATFORM_SDK_VERSION) || (ANDROID_PLATFORM_SDK_VERSION > 33)
+status_t StreamInHalLocal::getActiveMicrophones(std::vector<media::MicrophoneInfoFw> *microphones) {
+    if (mStream->get_active_microphones == NULL) return INVALID_OPERATION;
+    size_t actual_mics = AUDIO_MICROPHONE_MAX_COUNT;
+    audio_microphone_characteristic_t mic_array[AUDIO_MICROPHONE_MAX_COUNT];
+    status_t status = mStream->get_active_microphones(mStream, &mic_array[0], &actual_mics);
+    for (size_t i = 0; i < actual_mics; i++) {
+        auto conv = legacy2aidl_audio_microphone_characteristic_t_MicrophoneInfoFw(mic_array[i]);
+        if (conv.ok()) {
+            microphones->push_back(conv.value());
+        } else {
+            microphones->push_back(media::MicrophoneInfoFw{});
+        }
+    }
+    return status;
+}
+#else
 status_t StreamInHalLocal::getActiveMicrophones(std::vector<media::MicrophoneInfo> *microphones) {
     if (mStream->get_active_microphones == NULL) return INVALID_OPERATION;
     size_t actual_mics = AUDIO_MICROPHONE_MAX_COUNT;
@@ -493,6 +513,7 @@ status_t StreamInHalLocal::getActiveMicrophones(std::vector<media::MicrophoneInf
     }
     return status;
 }
+#endif
 #endif
 
 #if MAJOR_VERSION < 5
@@ -519,5 +540,3 @@ status_t StreamInHalLocal::setPreferredMicrophoneFieldDimension(float zoom) {
 
 } // namespace CPP_VERSION
 } // namespace android
-
-
