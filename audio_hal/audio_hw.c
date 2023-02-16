@@ -6481,8 +6481,17 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
 
                 }
             }
-            if (continuous_mode(adev) && hwsync_lpcm_active(adev)) {
-                ott_input = true;
+            if (continuous_mode(adev)) {
+                if (hwsync_lpcm_active(adev)) {
+                    ott_input = true;
+                    /*ms12 is init with normal stream, it is not hwsync pcm, so we don't need set it*/
+                    if (aml_out->is_normal_pcm) {
+                        ott_input = false;
+                    }
+                } else if (dolby_stream_active(adev)) {
+                    /*ms12 is init when dolby is active, we need first set as dummy and then it will reset in mixer_main_buffer_write*/
+                    main1_dummy = true;
+                }
             }
             if (continuous_mode(adev)) {
                 adev->ms12_main1_dolby_dummy = main1_dummy;
@@ -6506,6 +6515,15 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                     adev->ms12.main_input_start_offset_ns = aml_out->main_input_ns;
                     adev->ms12.main_input_bytes_offset    = aml_out->input_bytes_size;
                     ALOGI("main start offset ns =%" PRId64 "", adev->ms12.main_input_start_offset_ns);
+                } else if (aml_out->is_normal_pcm) {
+                    if (dolby_stream_active(adev) || hwsync_lpcm_active(adev)) {
+                        struct aml_stream_out *aml_active_out = direct_active(adev);
+                        if (aml_active_out && is_dolby_ms12_main_stream((struct audio_stream_out *)aml_active_out)) {
+                            adev->ms12.main_input_start_offset_ns = aml_active_out->main_input_ns;
+                            adev->ms12.main_input_bytes_offset    = aml_active_out->input_bytes_size;
+                            ALOGI("active main start offset ns =%" PRId64 "", adev->ms12.main_input_start_offset_ns);
+                        }
+                    }
                 }
 
                 /*set the volume to current one*/
