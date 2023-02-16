@@ -50,9 +50,9 @@ extern void audio_extn_hfp_set_parameters(struct aml_audio_device *adev, struct 
 #define CAPTURE_VOLUME_DEFAULT                (15.0)
 #define UNUSED(x) (void)(x)
 
-#define PERIOD_SIZE                     512
-#undef PLAYBACK_PERIOD_COUNT
-#define PLAYBACK_PERIOD_COUNT 6
+#define HFP_PERIOD_SIZE                     512
+#undef HFP_PLAYBACK_PERIOD_COUNT
+#define HFP_PLAYBACK_PERIOD_COUNT 6
 
 /* number of periods for capture */
 #undef CAPTURE_PERIOD_COUNT

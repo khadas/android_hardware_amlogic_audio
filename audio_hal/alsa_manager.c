@@ -166,6 +166,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
         if (aml_out->dual_output_flag && adev->optical_format != AUDIO_FORMAT_PCM_16_BIT) {
             device = I2S_DEVICE;
             config->rate = MM_FULL_POWER_SAMPLING_RATE;
+            config->start_threshold = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
         } else if (!audio_is_linear_pcm(aml_out->alsa_output_format) &&
                    !audio_is_linear_pcm(aml_out->hal_format)) {
             memset(&config_raw, 0, sizeof(struct pcm_config));

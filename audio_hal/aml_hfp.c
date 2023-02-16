@@ -350,8 +350,8 @@ static int32_t start_hfp(struct aml_audio_device *adev,
 
     pcm_config_hfp.channels = 1;
     pcm_config_hfp.format = convert_audio_format_2_alsa_format(format);
-    pcm_config_hfp.period_count = PLAYBACK_PERIOD_COUNT;
-    pcm_config_hfp.period_size = PERIOD_SIZE;
+    pcm_config_hfp.period_count = HFP_PLAYBACK_PERIOD_COUNT;
+    pcm_config_hfp.period_size = HFP_PERIOD_SIZE;
     pcm_config_hfp.start_threshold = pcm_config_hfp.period_size * pcm_config_hfp.period_count / 2;
     pcm_config_hfp.stop_threshold = pcm_config_hfp.period_size * pcm_config_hfp.period_count;
     pcm_config_hfp.avail_min = 0;
