@@ -759,8 +759,12 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         if (adev->continuous_audio_mode && audio_is_linear_pcm(out->hal_internal_format)) {
             /*Tunnel sync HEADER is 20 bytes*/
             if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
-                //2 package data.
-                size = (8192 + TUNNEL_SYNC_HEADER_SIZE*2);
+                if (adev->is_netflix) {
+                    size = (8192 + TUNNEL_SYNC_HEADER_SIZE);
+                } else {
+                    //2 package data.
+                    size = (8192 + TUNNEL_SYNC_HEADER_SIZE*2);
+                }
                 return size;
             } else {
                 /* roll back the change for SWPL-15974 to pass the gts failure SWPL-20926*/
@@ -775,7 +779,11 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
 
     if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC && audio_is_linear_pcm(out->hal_internal_format)) {
         //2 package data.
-        size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream)) + TUNNEL_SYNC_HEADER_SIZE*2;
+        if (adev->is_netflix) {
+            size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream)) + TUNNEL_SYNC_HEADER_SIZE;
+        } else {
+            size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream)) + TUNNEL_SYNC_HEADER_SIZE*2;
+        }
     } else {
         size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream));
     }
