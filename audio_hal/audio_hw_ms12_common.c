@@ -643,7 +643,11 @@ void dtv_set_ms12_volume_on_non_TV_device(struct aml_stream_out *aml_out)
     struct aml_audio_device *adev = aml_out->dev;
 
     float out_gain = 1.0f;
-    out_gain = adev->sink_gain[get_output_by_devices(adev->cur_out_devices)];
+
+    /* For dev->mix case, eg: dtv -> usb card. We control the volume in in_read function. */
+    if (!adev->dev2mix_patch) {
+        out_gain = adev->sink_gain[get_output_by_devices(adev->cur_out_devices)];
+    }
     if (adev->tv_mute && adev->audio_patch) {
         out_gain = 0.0f;
     }
