@@ -89,11 +89,10 @@
 #include "aml_audio_ms12_sync.h"
 #include "audio_hwsync_wrap.h"
 
-#include "audio_dtv_utils.h"
 #include "audio_hdmi_util.h"
 #include "aml_audio_dev2mix_process.h"
 
-
+#include "aml_math_utils.h"
 #include "aml_audio_ms12_render.h"
 #include "aml_audio_nonms12_render.h"
 #include "aml_vad_wakeup.h"
