@@ -3936,6 +3936,11 @@ static void aml_audio_output_routing(struct aml_audio_device *adev, audio_device
     audio_devices_t need_mute_devices = adev->cur_out_devices & ~cur_output_device;
     uint16_t i = 0;
     audio_devices_t device = 0;
+
+    if (!adev->is_TV) {
+        // For STB, its main output is HDMI and should not be muted.
+        need_mute_devices &= (~AUDIO_DEVICE_OUT_HDMI);
+    }
     AM_LOGI("unmute_devices:%#x, mute_devices:%#x", need_unmute_devices, need_mute_devices);
     while ((device = 1 << i) != AUDIO_DEVICE_BIT_DEFAULT) {
         if ((need_unmute_devices & device) != 0) {
