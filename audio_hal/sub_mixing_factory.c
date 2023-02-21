@@ -1153,6 +1153,11 @@ ssize_t mixer_aux_buffer_write_sm(struct audio_stream_out *stream, const void *b
         if (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)
             padding_bytes = 0;
 
+        if (adev->is_netflix) {
+            padding_bytes = MIXER_FRAME_COUNT * 4 * 2;
+            ALOGI("%s : netflix case, padding_bytes change to 16ms", __func__);
+        }
+
         aml_out->audio_data_handle_state = AUDIO_DATA_HANDLE_START;
         //set_thread_affinity();
         init_mixer_input_port(sm->mixerData, &aml_out->audioCfg, aml_out->flags,

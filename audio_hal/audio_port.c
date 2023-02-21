@@ -328,6 +328,7 @@ input_port *new_input_port(
     int input_port_rbuf_size = 0;
     int thunk_size = 0;
     int ret = 0;
+    struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
 
     port = aml_audio_calloc(1, sizeof(input_port));
     if (port == NULL) {
@@ -354,7 +355,11 @@ input_port *new_input_port(
     enPortType = get_input_port_type(config, flags);
     // system buffer larger than direct to cache more for mixing?
     if (enPortType == AML_MIXER_INPUT_PORT_PCM_SYSTEM) {
-        input_port_rbuf_size = thunk_size * SYS_BUFF_CNT;
+        if (adev->is_netflix) {
+            input_port_rbuf_size = thunk_size * 8;
+        } else {
+            input_port_rbuf_size = thunk_size * SYS_BUFF_CNT;
+        }
     } else if (AML_MIXER_INPUT_PORT_PCM_DIRECT == enPortType) {
         input_port_rbuf_size = thunk_size * DIRECT_BUFF_CNT;
     } else if (AML_MIXER_INPUT_PORT_PCM_MMAP == enPortType) {
