@@ -1475,7 +1475,7 @@ static int out_pause (struct audio_stream_out *stream)
         }
     }
     out->write_count = 0;
-
+    audio_route_set_speaker_mute(adev, true);
     pthread_mutex_lock (&adev->lock);
     pthread_mutex_lock (&out->lock);
     /* a stream should fail to pause if not previously started */
@@ -1536,6 +1536,7 @@ static int out_resume (struct audio_stream_out *stream)
 
     out->write_count = 0;
     aml_audio_trace_int("out_resume", 1);
+    audio_route_set_speaker_mute(adev, false);
     pthread_mutex_lock (&adev->lock);
     pthread_mutex_lock (&out->lock);
     /* a stream should fail to resume if not previously paused */

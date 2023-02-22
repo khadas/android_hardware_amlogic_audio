@@ -21,6 +21,7 @@
 #include <tinyalsa/asoundlib.h>
 #include <cutils/properties.h>
 #include <audio_utils/channels.h>
+#include <audio_route/audio_route.h>
 
 
 #include "aml_alsa_mixer.h"
@@ -1389,6 +1390,29 @@ int audio_route_set_spdif_mute(struct aml_mixer_handle *mixer_handle, int enable
     } else {
         return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_SPDIF_MUTE, enable);
     }
+}
+
+void audio_route_set_speaker_mute(struct aml_audio_device* aml_dev, int enable)
+{
+    if (aml_dev == NULL) {
+        return;
+    }
+
+    if (enable) {
+        //Need reset fading status, keep alsa mixer and audio route same status.
+        audio_route_apply_path(aml_dev->ar, "speaker_fadein");
+        audio_route_update_mixer(aml_dev->ar);
+        audio_route_apply_path(aml_dev->ar, "speaker_fadeout");
+    } else {
+        audio_route_apply_path(aml_dev->ar, "speaker_fadein");
+    }
+    audio_route_update_mixer(aml_dev->ar);
+    // Need time to fedaout
+    if (enable) {
+        aml_audio_sleep(15000);
+    }
+
+    return;
 }
 
 int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,

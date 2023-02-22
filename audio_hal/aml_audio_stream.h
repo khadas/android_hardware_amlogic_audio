@@ -630,6 +630,7 @@ void get_audio_indicator(struct aml_audio_device *dev, char *temp_buf);
 void update_audio_format(struct aml_audio_device *adev, audio_format_t format);
 int audio_route_set_hdmi_arc_mute(struct aml_mixer_handle *mixer_handle, int enable);
 int audio_route_set_spdif_mute(struct aml_mixer_handle *mixer_handle, int enable);
+void audio_route_set_speaker_mute(struct aml_audio_device* aml_dev, int enable);
 int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
                                        struct aml_stream_in *stream_in,
                                        ring_buffer_t *ringbuffer, int buffer_size);
