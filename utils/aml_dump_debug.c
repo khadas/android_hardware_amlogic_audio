@@ -115,6 +115,7 @@ dump_debug_item_t aml_debug_items[AML_DEBUG_DUMP_MAX] = {
     {AML_DEBUG_AUDIOINFO_REPORT_PROPERTY,               0},    //AML_DEBUG_AUDIOINFO_REPORT
     {AML_DUMP_AUDIO_STREAM_PROPERTY,                    0},    //AML_DEBUG_AUDIOINFO_REPORT
     {AML_DEBUG_AUDIOHAL_AUT_PROPERTY,                   0},    //AML_DEBUG_AUDIOHAL_AUT
+    {AML_DEBUG_AUDIOHAL_EDID_PROPERTY,                  0},    //AML_DEBUG_AUDIOHAL_EDID
 };
 
 static void aml_debug_update(void)
