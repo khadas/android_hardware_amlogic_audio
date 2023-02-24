@@ -565,7 +565,6 @@ struct aml_audio_patch {
     bool mode_reconfig_flag;
     /* user setting picture mode end */
     int dtv_disable_tune_latency;
-    size_t out_write_threshold;
 };
 
 struct audio_stream_out;

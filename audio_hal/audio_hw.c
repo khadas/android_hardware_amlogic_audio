@@ -8509,7 +8509,7 @@ void *audio_patch_input_threadloop(void *data)
                     aml_audio_trace_int("input_thread_write2buf", 0);
 
                     /* for audio first start or read bytes size is more than output threshold, start output */
-                    if (first_start || get_buffer_read_space(ringbuffer) >= MAX(read_threshold, patch->out_write_threshold)) {
+                    if (first_start || get_buffer_read_space(ringbuffer) >= read_threshold) {
                         pthread_cond_signal(&patch->cond);
                         first_start = false;
                     }
@@ -8687,7 +8687,6 @@ void *audio_patch_output_threadloop(void *data)
         } else {
             ALOGV("%s(), no enough data in ring buffer, available data size:%d, need data size:%d", __func__,
                 get_buffer_read_space(ringbuffer), (write_bytes * period_mul));
-            patch->out_write_threshold = write_bytes * period_mul;
             if (audio_is_linear_pcm(patch->aformat)) {
                 usleep( (DEFAULT_PLAYBACK_PERIOD_SIZE) * 1000000 / 4 /
                     stream_config.sample_rate);
