@@ -3930,6 +3930,14 @@ static void aml_audio_output_routing(struct aml_audio_device *adev, audio_device
     audio_devices_t need_mute_devices = adev->cur_out_devices & ~cur_output_device;
     uint16_t i = 0;
     audio_devices_t device = 0;
+
+    // 1. When playing an offload stream and then playing TalkBack(AUDIO_STREAM_ACCESSIBILITY), framework will delete
+    // the hdmitx device, resulting in no sound.
+    // 2. So, for stb, we don't mute the hdmitx. When customer needs to force speaker, it can be configured as mute tx.
+    bool b_control_hdmitx_mute = property_get_bool("ro.vendor.media.audio.hdmitx.control.mute", false);
+    if (!adev->is_TV && !b_control_hdmitx_mute) {
+        need_mute_devices &= (~AUDIO_DEVICE_OUT_HDMI);
+    }
     AM_LOGI("unmute_devices:%#x, mute_devices:%#x", need_unmute_devices, need_mute_devices);
     while ((device = 1 << i) != AUDIO_DEVICE_BIT_DEFAULT) {
         if ((need_unmute_devices & device) != 0) {
@@ -6111,10 +6119,9 @@ ssize_t hw_write (struct audio_stream_out *stream
                         write_size = adjust_bytes > 1024 ? 1024 : adjust_bytes;
                         if (is_include_sco_out_port(adev->cur_out_devices)) {
                             ret = write_to_sco(adev, &in_data_config, buffer, bytes);
+                        } else if (is_include_a2dp_out_port(adev->cur_out_devices)) {
+                            a2dp_out_write(adev, &in_data_config, (void*)buf, write_size);
                         } else {
-                            if (is_include_a2dp_out_port(adev->cur_out_devices)) {
-                                a2dp_out_write(adev, &in_data_config, (void*)buf, write_size);
-                            }
                             ret = aml_alsa_output_write(stream, (void*)buf, write_size);
                         }
                         if (ret < 0) {
@@ -6140,19 +6147,18 @@ ssize_t hw_write (struct audio_stream_out *stream
             in_data_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
             in_data_config.format = AUDIO_FORMAT_PCM_16_BIT;
             ret = write_to_sco(adev, &in_data_config, buffer, bytes);
-        } else {
-            if (is_include_a2dp_out_port(adev->cur_out_devices)) {
-                /* mediasync need to now the real running status of devices for
-                both alsa and bt. alsa running status PCM_STATE_RUNNING is
-                the same as BluetoothStreamState STARTED.
-                */
-                int  cur_status = a2dp_out_get_status(adev);
-                if (cur_status != aml_out->alsa_running_status) {
-                    aml_out->alsa_running_status = cur_status;
-                    aml_out->alsa_status_changed = true;
-                }
-                a2dp_out_write(adev, &in_data_config, buffer, bytes);
+        } else if (is_include_a2dp_out_port(adev->cur_out_devices)) {
+            /* mediasync need to now the real running status of devices for
+            both alsa and bt. alsa running status PCM_STATE_RUNNING is
+            the same as BluetoothStreamState STARTED.
+            */
+            int  cur_status = a2dp_out_get_status(adev);
+            if (cur_status != aml_out->alsa_running_status) {
+                aml_out->alsa_running_status = cur_status;
+                aml_out->alsa_status_changed = true;
             }
+            a2dp_out_write(adev, &in_data_config, buffer, bytes);
+        } else {
 #ifdef AUDIO_KARA
             check_switch_audio_kara(stream);
             if (aml_out->kara) {

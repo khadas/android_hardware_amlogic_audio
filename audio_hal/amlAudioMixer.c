@@ -478,21 +478,20 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
                 ALOGE("%s write_to_sco fail when insert", __func__);
                 break;
             }
-        } else {
-            if (is_include_a2dp_out_port(adev->cur_out_devices)) {
-                if (out_port->cfg.channelCnt == 1) {
-                    in_data_config.channel_mask = AUDIO_CHANNEL_OUT_MONO;
-                } else if (out_port->cfg.channelCnt == 2) {
-                    in_data_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
-                } else {
-                    AM_LOGW("not supported channel:%d", out_port->cfg.channelCnt);
-                    pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
-                    return out_port->bytes_avail;
-                }
-                in_data_config.sample_rate = out_port->cfg.sampleRate;
-                in_data_config.format = out_port->cfg.format;
-                a2dp_out_write(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
+        } else if (is_include_a2dp_out_port(adev->cur_out_devices)) {
+            if (out_port->cfg.channelCnt == 1) {
+                in_data_config.channel_mask = AUDIO_CHANNEL_OUT_MONO;
+            } else if (out_port->cfg.channelCnt == 2) {
+                in_data_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+            } else {
+                AM_LOGW("not supported channel:%d", out_port->cfg.channelCnt);
+                pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
+                return out_port->bytes_avail;
             }
+            in_data_config.sample_rate = out_port->cfg.sampleRate;
+            in_data_config.format = out_port->cfg.format;
+            a2dp_out_write(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
+        } else {
             pthread_mutex_lock(&audio_mixer->adev->alsa_pcm_lock);
             if (audio_mixer->submix_standby) {
                 pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);

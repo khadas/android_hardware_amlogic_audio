@@ -578,6 +578,10 @@ int aml_audio_spdifout_process(void *phandle, void *buffer, size_t byte)
             }
         }
     }
+    // Mute spdif output is required after bt connection.
+    if ((aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_ALL_A2DP) != 0) {
+        b_mute = true;
+    }
 
     aml_alsa_output_data_handle(alsa_handle, output_buffer, output_buffer_bytes, 0, b_mute || spdifout_phandle->b_mute);
 

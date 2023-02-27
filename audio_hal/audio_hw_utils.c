@@ -2362,11 +2362,18 @@ enum OUT_PORT get_output_by_devices(audio_devices_t devices)
             int output_port;
             android_dev_convert_to_hal_dev(devices & (~AUDIO_DEVICE_OUT_SPDIF), &output_port);
             return output_port;
+        } else if (devices & AUDIO_DEVICE_OUT_HDMI) {
+            // Hdmitx does not coexist with other devices, if there is coexist hdmitx
+            // in cur_devices, use the another device.
+            int output_port;
+            android_dev_convert_to_hal_dev(devices & (~AUDIO_DEVICE_OUT_HDMI), &output_port);
+            return output_port;
         } else {
+            AM_LOGW("two devices now, return default speaker.");
             return OUTPORT_SPEAKER;
         }
     } else {
-        AM_LOGW("devices nums:%d invalid, devices:%#x", cnt, devices);
+        AM_LOGW("devices nums:%d invalid, devices:%#x, return default speaker.", cnt, devices);
     }
     return OUTPORT_SPEAKER;
 }
