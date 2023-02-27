@@ -195,7 +195,12 @@ static void *usb_mic_open(int card, int device, struct pcm_config *main_cfg)
          show_pcm_config(&m->pcm_cfg, s_ret, STR_CFG_LEN));
     /** prepare proxy */
     int ret = 0;
+#if (ANDROID_PLATFORM_SDK_VERSION > 33) || (ANDROID_PLATFORM_SDK_VERSION == 33 \
+            && (ANDROID_PLATFORM_SDK_EXTENSION_VERSION >= 5))
+    ret = proxy_prepare(&m->proxy, &m->profile, &m->pcm_cfg, false /* exact match */);
+#else
     ret = proxy_prepare(&m->proxy, &m->profile, &m->pcm_cfg);
+#endif
     if (ret != 0) {
         ERROR("fail to prepare proxy for usb mic, ret=%d", ret);
         free(m);
