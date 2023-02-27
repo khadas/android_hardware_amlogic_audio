@@ -681,7 +681,7 @@ bool is_spdif_in_stable_hw (struct audio_stream_in *stream)
     else
         type = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIFIN_AUDIO_TYPE);
     if (type != in->spdif_fmt_hw) {
-        ALOGV ("%s(), in type changed from %d to %d", __func__, in->spdif_fmt_hw, type);
+        ALOGI ("%s(), in type changed from %d to %d", __func__, in->spdif_fmt_hw, type);
         in->spdif_fmt_hw = type;
         return false;
     }
@@ -908,7 +908,8 @@ bool check_tv_stream_signal(struct audio_stream_in *stream)
             /* The data of ALSA has not been read for a long time in the muted state,
              * resulting in the accumulation of data. So, cache of capture needs to be cleared.
              */
-            pcm_stop(in->pcm);
+            if (!(in->device & AUDIO_DEVICE_IN_HDMI_ARC || in->device & AUDIO_DEVICE_IN_SPDIF))
+                pcm_stop(in->pcm);
             in->mute_log_cntr = 0;
             in->mute_flag = false;
         }
@@ -922,7 +923,8 @@ bool check_tv_stream_signal(struct audio_stream_in *stream)
 
         /* when audio is unstable, start avsync*/
         if (patch && in_mute) {
-            patch->need_do_avsync = true;
+            if (!(in->device & AUDIO_DEVICE_IN_HDMI_ARC || in->device & AUDIO_DEVICE_IN_SPDIF))
+                patch->need_do_avsync = true;
             patch->input_signal_stable = false;
             adev->mute_start = true;
         }

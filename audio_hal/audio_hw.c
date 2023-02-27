@@ -8471,9 +8471,16 @@ void *audio_patch_input_threadloop(void *data)
         /* if audio is unstable, don't read data from hardware */
         stable_flag = check_tv_stream_signal(&in->stream);
         if (aml_dev->tv_mute || !stable_flag) {
-            memset(patch->in_buf, 0, bytes_avail);
-            ring_buffer_clear(ringbuffer);
-            usleep(20*1000);
+            /* we need keep read from arc so the format will be keep stable */
+            if (in->device & AUDIO_DEVICE_IN_HDMI_ARC || in->device & AUDIO_DEVICE_IN_SPDIF) {
+                aml_alsa_input_read(&in->stream, patch->in_buf, read_bytes);
+                memset(patch->in_buf, 0, bytes_avail);
+                ring_buffer_clear(ringbuffer);
+            } else {
+                memset(patch->in_buf, 0, bytes_avail);
+                ring_buffer_clear(ringbuffer);
+                usleep(20*1000);
+            }
         } else {
             if (aml_dev->patch_src == SRC_HDMIIN && in->audio_packet_type == AUDIO_PACKET_AUDS && in->config.channels != 2) {
                 input_stream_channels_adjust(&in->stream, patch->in_buf, read_bytes);
@@ -8678,7 +8685,7 @@ void *audio_patch_output_threadloop(void *data)
             /* avsync for dev->dev patch*/
             if ((patch->need_do_avsync == true) && (patch->input_signal_stable == true) &&
                     (aml_dev->patch_src == SRC_ATV || aml_dev->patch_src == SRC_HDMIIN ||
-                    aml_dev->patch_src == SRC_LINEIN || aml_dev->patch_src == SRC_SPDIFIN)) {
+                    aml_dev->patch_src == SRC_LINEIN)) {
 
                 if (!txlx_chip) {
                     aml_dev_try_avsync(patch);
@@ -8688,8 +8695,10 @@ void *audio_patch_output_threadloop(void *data)
                         continue;
                     }
                 } else {
-                    patch->need_do_avsync = 0;
+                    patch->need_do_avsync = false;
                 }
+            } else {
+                patch->need_do_avsync = false;
             }
             /* reconfig output in picture mode switch */
             if (patch->input_src == AUDIO_DEVICE_IN_HDMI) {
@@ -8753,8 +8762,10 @@ static int create_patch_l(struct audio_hw_device *dev,
 
     /* when audio patch start, signal is unstable or
      * patch signal is unstable, it need do avsync
+     * except the arcin and spdifin input src
      */
-    patch->need_do_avsync = true;
+    if (patch->input_src != AUDIO_DEVICE_IN_HDMI_ARC && patch->input_src != AUDIO_DEVICE_IN_SPDIF)
+        patch->need_do_avsync = true;
 
     if (aml_dev->useSubMix) {
         // switch normal stream to old tv mode writing
