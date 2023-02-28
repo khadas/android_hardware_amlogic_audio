@@ -600,6 +600,7 @@ struct aml_audio_device {
     // customized_usb is valid only when MIX_SRC_LINEIN==USBIN
     int customized_usb_card; // -1, invalid (default), [0,1,2..] valid
     int customized_usb_device; // -1, invalid (default), [0,1,2..] valid
+    bool is_ui_force_dap_disable; //dapv2.4 debug UI on (dap enable), off (dap disable)
 };
 
 struct meta_data {

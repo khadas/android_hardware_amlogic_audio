@@ -4525,6 +4525,13 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         }
     }
 
+    ret = str_parms_get_int(parms, "dap_ui_status", &val);
+    if (ret >= 0) {
+        adev->is_ui_force_dap_disable = !val;
+        ALOGI("is_ui_force_dap_disable = %d\n", val);
+        goto exit;
+    }
+
     ret = str_parms_get_str(parms, "bypass_dap", value, sizeof(value));
     if (ret >= 0) {
         sscanf(value,"%d %f", &adev->ms12.dap_bypass_enable, &adev->ms12.dap_bypassgain);
@@ -9860,6 +9867,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     g_adev = (void *)adev;
     g_aml_primary_adev = (void *)adev;
 
+    adev->is_ui_force_dap_disable = 1;
     adev->hw_device.common.tag = HARDWARE_DEVICE_TAG;
 #if ANDROID_PLATFORM_SDK_VERSION > 32
     adev->hw_device.common.version = AUDIO_DEVICE_API_VERSION_3_2;//need compatible with 3.0

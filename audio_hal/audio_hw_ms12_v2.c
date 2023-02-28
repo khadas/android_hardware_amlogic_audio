@@ -3782,17 +3782,23 @@ bool is_audio_postprocessing_add_dolbyms12_dap(struct aml_audio_device *adev)
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     bool is_dap_enable = ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0) && (!adev->ms12.dap_bypass_enable);
 
-    /* Dolby MS12 V2 uses DAP Tuning file */
-    if (adev->is_ms12_tuning_dat) {
-        if (ms12->dolby_ms12_enable && is_dap_enable && (ms12->output_config & MS12_OUTPUT_MASK_SPEAKER)) {
-            is_dap_enable =  true;
+    if (adev->is_ui_force_dap_disable == true) {
+        is_dap_enable =  false;
+        ALOGI("DAPV2.4 debug ui is off that make dap disable");
+    }
+    else {
+        /* Dolby MS12 V2 uses DAP Tuning file */
+        if (adev->is_ms12_tuning_dat) {
+            if (ms12->dolby_ms12_enable && is_dap_enable && (ms12->output_config & MS12_OUTPUT_MASK_SPEAKER)) {
+                is_dap_enable =  true;
+            }
+            else {
+                is_dap_enable =  false;
+            }
         }
         else {
             is_dap_enable =  false;
         }
-    }
-    else {
-        is_dap_enable =  false;
     }
 
     return is_dap_enable;
