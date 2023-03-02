@@ -35,6 +35,7 @@
 
 #include "DolbyMS12ConfigParams.h"
 #include "aml_malloc_debug.h"
+#include "aml_android_utils.h"
 
 
 namespace android
@@ -573,6 +574,20 @@ int DolbyMS12ConfigParams::ChannelMask2LFEConfig(audio_channel_mask_t channel_ma
     return (channel_mask & AUDIO_CHANNEL_OUT_LOW_FREQUENCY) ? 1 : 0;
 }
 
+int aml_getprop_int(const char *path)
+{
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
+    int ret = 0;
+    int value = 0;
+
+    ret = property_get(path, buf, NULL);
+    if (ret > 0) {
+        sscanf(buf, "%d", &value);
+    }
+
+    return value;
+}
+
 //functional switches
 int DolbyMS12ConfigParams::SetFunctionalSwitches(char **ConfigParams, int *row_index)
 {
@@ -661,7 +676,20 @@ int DolbyMS12ConfigParams::SetFunctionalSwitches(char **ConfigParams, int *row_i
         (*row_index)++;
     }
 
-    if (!mDBGOut) {
+    mDBGOut = aml_getprop_hex_int("vendor.media.audio.ms12.dbgout");
+#if 0
+    -dbgout             <int>   Bitmask to activate different debug wave output files (default: none)
+                                0x0001: Main decoder output
+                                0x0002: Associated decoder output
+                                0x0004: AD mixer output
+                                0x0008: Resampler output
+                                0x0010: DAP Content Processing output
+                                0x0020: System Sound Mixer output
+                                0x0040: DAP Device Processing input
+                                0x0080: OAR output
+                                0x0100: PCM Renderer raw PCM output
+#endif
+    if (mDBGOut) {
         sprintf(ConfigParams[*row_index], "%s", "-dbgout");
         (*row_index)++;
         sprintf(ConfigParams[*row_index], "%d", mDBGOut);

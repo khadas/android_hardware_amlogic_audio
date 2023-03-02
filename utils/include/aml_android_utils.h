@@ -31,6 +31,7 @@ typedef enum AML_BOOLEAN_DEFINE {
  */
 int aml_getprop_bool(const char *path);
 int aml_getprop_int(const char *path);
+int aml_getprop_hex_int(const char *path);
 
 /*
  * Sys Fs Interface

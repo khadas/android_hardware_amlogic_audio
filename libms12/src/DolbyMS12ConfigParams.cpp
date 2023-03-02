@@ -28,12 +28,13 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sstream>
-#include "aml_malloc_debug.h"
 #include <cutils/properties.h>
 
 //#include <media/AudioSystem.h>
 
 #include "DolbyMS12ConfigParams.h"
+#include "aml_malloc_debug.h"
+#include "aml_android_utils.h"
 
 
 namespace android
@@ -460,21 +461,6 @@ int DolbyMS12ConfigParams::ChannelMask2LFEConfig(audio_channel_mask_t channel_ma
     return (channel_mask & AUDIO_CHANNEL_OUT_LOW_FREQUENCY) ? 1 : 0;
 }
 
-int aml_getprop_int(const char *path)
-{
-    char buf[PROPERTY_VALUE_MAX] = {'\0'};
-    int ret = 0;
-    int value = 0;
-
-    ret = property_get(path, buf, NULL);
-    if (ret > 0) {
-        //sscanf(buf, "%d", &value);
-        value = strtol (buf, NULL, 0);
-    }
-
-    return value;
-}
-
 //functional switches
 int DolbyMS12ConfigParams::SetFunctionalSwitches(char **ConfigParams, int *row_index)
 {
@@ -555,7 +541,7 @@ int DolbyMS12ConfigParams::SetFunctionalSwitches(char **ConfigParams, int *row_i
         (*row_index)++;
     }
 
-    mDBGOut = aml_getprop_int("vendor.media.audio.ms12.dbgout");
+    mDBGOut = aml_getprop_hex_int("vendor.media.audio.ms12.dbgout");
 #if 0
     -dbgout             <int>   Bitmask to activate different debug wave output files (default: none)
                                 0x0001: Main decoder output
