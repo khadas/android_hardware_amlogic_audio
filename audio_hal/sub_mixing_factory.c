@@ -691,7 +691,7 @@ static int out_get_presentation_position_port(
         *timestamp = adjusted_timestamp;
     } else if (!adev->audio_patching) {
         if ((out->hw_sync_mode || out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)
-            && (!out->frame_write_sum_updated || out->is_insert_0_data || out->pause_status || out->standby)) {
+            && (!out->frame_write_sum_updated || out->is_insert_zero_data || out->pause_status || out->standby)) {
             pthread_mutex_lock(&out->apts_update_lock);
             *frames = frames_written_hw;
             *timestamp = out->timestamp;

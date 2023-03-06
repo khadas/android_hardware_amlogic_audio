@@ -92,7 +92,6 @@ typedef struct aml_dump_debug {
     pthread_t    threadid;
     bool         bexit;
     dump_debug_item_t  *items;
-
 } aml_dump_debug_t;
 
 static aml_dump_debug_t * g_debug_handle = NULL;
@@ -102,20 +101,23 @@ static aml_dump_debug_t * g_debug_handle = NULL;
  *!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  */
 dump_debug_item_t aml_debug_items[AML_DEBUG_DUMP_MAX] = {
-    {AML_DEBUG_AUDIOHAL_DEBUG_PROPERTY,                 0},    //AML_DEBUG_AUDIOHAL_DEBUG
-    {AML_DEBUG_AUDIOHAL_LEVEL_DETECT_PROPERTY,          0},    //AML_DEBUG_AUDIOHAL_LEVEL_DETECT
-    {AML_DEBUG_AUDIOHAL_HW_SYNC_PROPERTY,               0},    //AML_DEBUG_AUDIOHAL_HW_SYNC
-    {AML_DEBUG_AUDIOHAL_ALSA_PROPERTY,                  0},    //AML_DEBUG_AUDIOHAL_ALSA
-    {AML_DUMP_AUDIOHAL_MS12_PROPERTY,                   0},    //AML_DUMP_AUDIOHAL_MS12
-    {AML_DUMP_AUDIOHAL_ALSA_PROPERTY,                   0},    //AML_DUMP_AUDIOHAL_ALSA
-    {AML_DEBUG_AUDIOHAL_SYNCPTS_PROPERTY,               0},   //AML_DEBUG_AUDIOHAL_SYNCPTS
-    {AML_DUMP_AUDIOHAL_TV_PROPERTY,                     0},    //AML_DUMP_AUDIOHAL_TV_PATH
-    {AML_DEBUG_AUDIOHAL_MATENC_PROPERTY,                0},    //AML_DEBUG_AUDIOHAL_MATENC
-    {AML_DEBUG_AUDIOHAL_TRACE_PROPERTY,                 0},    //AML_DEBUG_AUDIOHAL_TRACE
-    {AML_DEBUG_AUDIOINFO_REPORT_PROPERTY,               0},    //AML_DEBUG_AUDIOINFO_REPORT
-    {AML_DUMP_AUDIO_STREAM_PROPERTY,                    0},    //AML_DEBUG_AUDIOINFO_REPORT
-    {AML_DEBUG_AUDIOHAL_AUT_PROPERTY,                   0},    //AML_DEBUG_AUDIOHAL_AUT
-    {AML_DEBUG_AUDIOHAL_EDID_PROPERTY,                  0},    //AML_DEBUG_AUDIOHAL_EDID
+    /*define debug items*/
+    {AML_DEBUG_AUDIOHAL_DEBUG,          AML_DEBUG_AUDIOHAL_DEBUG_PROPERTY,                 0},    //AML_DEBUG_AUDIOHAL_DEBUG
+    {AML_DEBUG_AUDIOHAL_LEVEL_DETECT,   AML_DEBUG_AUDIOHAL_LEVEL_DETECT_PROPERTY,          0},    //AML_DEBUG_AUDIOHAL_LEVEL_DETECT
+    {AML_DEBUG_AUDIOHAL_HW_SYNC,        AML_DEBUG_AUDIOHAL_HW_SYNC_PROPERTY,               0},    //AML_DEBUG_AUDIOHAL_HW_SYNC
+    {AML_DEBUG_AUDIOHAL_ALSA,           AML_DEBUG_AUDIOHAL_ALSA_PROPERTY,                  0},    //AML_DEBUG_AUDIOHAL_ALSA
+    {AML_DEBUG_AUDIOHAL_SYNCPTS,        AML_DEBUG_AUDIOHAL_SYNCPTS_PROPERTY,               0},    //AML_DEBUG_AUDIOHAL_SYNCPTS
+    {AML_DEBUG_AUDIOHAL_MATENC,         AML_DEBUG_AUDIOHAL_MATENC_PROPERTY,                0},    //AML_DEBUG_AUDIOHAL_MATENC
+    {AML_DEBUG_AUDIOHAL_TRACE,          AML_DEBUG_AUDIOHAL_TRACE_PROPERTY,                 0},    //AML_DEBUG_AUDIOHAL_TRACE
+    {AML_DEBUG_AUDIOINFO_REPORT,        AML_DEBUG_AUDIOINFO_REPORT_PROPERTY,               0},    //AML_DEBUG_AUDIOINFO_REPORT
+    {AML_DEBUG_AUDIOHAL_AUT,            AML_DEBUG_AUDIOHAL_AUT_PROPERTY,                   0},    //AML_DEBUG_AUDIOHAL_AUT
+    {AML_DEBUG_AUDIOHAL_EDID,           AML_DEBUG_AUDIOHAL_EDID_PROPERTY,                  0},    //AML_DEBUG_AUDIOHAL_EDID
+
+    /*define dump items*/
+    {AML_DUMP_AUDIOHAL_MS12,            AML_DUMP_AUDIOHAL_MS12_PROPERTY,                   0},    //AML_DUMP_AUDIOHAL_MS12
+    {AML_DUMP_AUDIOHAL_ALSA,            AML_DUMP_AUDIOHAL_ALSA_PROPERTY,                   0},    //AML_DUMP_AUDIOHAL_ALSA
+    {AML_DUMP_AUDIOHAL_TV,              AML_DUMP_AUDIOHAL_TV_PROPERTY,                     0},    //AML_DUMP_AUDIOHAL_TV_PATH
+    {AML_DUMP_AUDIO_STREAM,             AML_DUMP_AUDIO_STREAM_PROPERTY,                    0},    //AML_DEBUG_AUDIOINFO_REPORT
 };
 
 static void aml_debug_update(void)
@@ -128,7 +130,7 @@ static void aml_debug_update(void)
         if (ret > 0) {
             aml_debug_items[i].value = strtol (buf, NULL, 0);
         }
-        ALOGV("%s = 0x%x", aml_debug_items[i].name, aml_debug_items[i].value);
+        ALOGV("%s  %s = 0x%x", __func__, aml_debug_items[i].name, aml_debug_items[i].value);
     }
     return;
 }

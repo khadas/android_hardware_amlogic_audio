@@ -3784,7 +3784,7 @@ bool is_audio_postprocessing_add_dolbyms12_dap(struct aml_audio_device *adev)
 
     if (adev->is_ui_force_dap_disable == true) {
         is_dap_enable =  false;
-        ALOGI("DAPV2.4 debug ui is off that make dap disable");
+        ALOGV("DAPV2.4 debug ui is off that make dap disable");
     }
     else {
         /* Dolby MS12 V2 uses DAP Tuning file */

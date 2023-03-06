@@ -2077,6 +2077,10 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
 
         unsigned int output_sr = (out->config.rate) ? (out->config.rate) : (MM_FULL_POWER_SAMPLING_RATE);
         *frames = *frames * out->hal_rate / output_sr;
+        //this code is for CTS cases about tunnel mode stream.
+        if (out->usecase == STREAM_PCM_HWSYNC && !adev->frame_write_sum_updated) {
+            *frames = out->hwsync_parsed_frames_sum;
+        }
     }
 
     /*here we need add video delay*/
@@ -3489,7 +3493,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->inputPortID = -1;
     out->write_count = 0;
     out->frame_write_sum_updated = false;
-    out->is_insert_0_data = false;
+    out->is_insert_zero_data = false;
+    out->insert_zero_data_ms = 0;
 
     clock_gettime(CLOCK_MONOTONIC, &out->last_info_timestamp);
     clock_gettime(CLOCK_MONOTONIC, &out->last_avsync_timestamp);
@@ -6050,6 +6055,10 @@ ssize_t hw_write (struct audio_stream_out *stream
                 }
             }
         }
+    } else {
+        if (aml_out->hw_sync_mode && aml_out->is_insert_zero_data) {
+            adjust_ms = aml_out->insert_zero_data_ms;
+        }
     }
     if (aml_out->pcm || adev->a2dp_hal || is_include_sco_out_port(adev->cur_out_devices)) {
 #ifdef ADD_AUDIO_DELAY_INTERFACE
@@ -6268,7 +6277,7 @@ ssize_t hw_write (struct audio_stream_out *stream
         aml_out->lasttimestamp.tv_sec = aml_out->timestamp.tv_sec;
         aml_out->lasttimestamp.tv_nsec = aml_out->timestamp.tv_nsec;
         if (total_frame >= latency_frames) {
-            if (!adev->frame_write_sum_updated || aml_out->is_insert_0_data) {
+            if (!adev->frame_write_sum_updated || aml_out->is_insert_zero_data) {
                 aml_out->last_frames_position = total_frame;
             } else {
                 aml_out->last_frames_position = total_frame - latency_frames;
@@ -6941,6 +6950,16 @@ hwsync_rewrite:
                         ret = aml_hwsync_wrap_get_pts(aml_out->hwsync, &pcr);
                         aml_hwsync_wrap_reset_pcrscr(aml_out->hwsync, apts64);
                         pcr_pts_gap = ((int)(apts64 - pcr)) / 90;
+                        if (!adev->is_netflix &&
+                            abs(pcr_pts_gap) > (APTS_DISCONTINUE_THRESHOLD_MIN_70MS) &&
+                            abs(pcr_pts_gap) < APTS_DISCONTINUE_THRESHOLD_MIN_5S &&
+                            apts64 > pcr &&
+                            pcr != 0) {
+                            aml_out->is_insert_zero_data = true;
+                            aml_out->insert_zero_data_ms = pcr_pts_gap;
+                         } else {
+                            aml_out->is_insert_zero_data = false;
+                         }
 
                         if (abs(pcr_pts_gap) > 100 || debug_enable) {
                             ALOGI("[avsync, %p] tunnel raw pts[%"PRIu64 "]ms pcr[%"PRIu64"]ms diff[%d]ms",

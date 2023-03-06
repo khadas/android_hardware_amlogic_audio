@@ -235,10 +235,10 @@ int on_meta_data_cbk(void *cookie,
             ALOGI("%s(), pcrscr %" PRIu64 " ms adjusted_apts %" PRIu64 " ms", __func__, pcr/90, pts64/90);
             ALOGI("audio gap: pcr < apts %d ms, need insert data %d\n", pcr_pts_gap, insert_size);
             *delay_ms = pcr_pts_gap;
-            out->is_insert_0_data = true;
+            out->is_insert_zero_data = true;
         } else {
             aml_hwsync_wrap_reset_pcrscr(out->hwsync, pts64);
-            out->is_insert_0_data = false;
+            out->is_insert_zero_data = false;
         }
 
         if (abs(pcr_pts_gap) > 100) {

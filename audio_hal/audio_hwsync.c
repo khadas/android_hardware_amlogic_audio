@@ -635,10 +635,10 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int 
                 ALOGI("%s(), pcrscr %" PRIu64 " ms adjusted_apts %" PRIu64 " ms", __func__, pcr/90, apts64/90);
                 ALOGI("audio gap: pcr < apts %d ms, need insert data %d\n", pcr_pts_gap, insert_size);
                 *p_adjust_ms = pcr_pts_gap;
-                out->is_insert_0_data = true;
+                out->is_insert_zero_data = true;
             } else {
                 aml_hwsync_wrap_reset_pcrscr(out->hwsync, apts64);
-                out->is_insert_0_data = false;
+                out->is_insert_zero_data = false;
             }
 
         } else {
