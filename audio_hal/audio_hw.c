@@ -6813,6 +6813,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         } else {
             need_reset_decoder = true;
         }
+        patch->need_reconfig_mediasync = need_reconfig_output;
         adev->digital_audio_format_updated = 0;
     }
 

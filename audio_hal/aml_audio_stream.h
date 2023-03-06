@@ -423,7 +423,7 @@ struct aml_audio_patch {
     audio_channel_mask_t in_chanmask;
     int in_sample_rate;
     audio_format_t in_format;
-
+    bool need_reconfig_mediasync;
     audio_devices_t output_src;
     bool is_dtv_src;
     audio_channel_mask_t out_chanmask;

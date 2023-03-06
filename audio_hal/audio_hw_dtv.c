@@ -3836,9 +3836,9 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
         }
 
         ALOGV("++%s line %d patch %p aml_out %p aml_out->hal_internal_format %#x\n ", __FUNCTION__, __LINE__, patch, aml_out, aml_out->hal_internal_format);
-
         if (patch->dtvsync) {
-            if (aml_dev->bHDMIConnected_update || aml_dev->a2dp_updated) {
+            if (aml_dev->bHDMIConnected_update || aml_dev->a2dp_updated || patch->need_reconfig_mediasync) {
+                patch->need_reconfig_mediasync = false;
                 ALOGI("reset_dtvsync (mediasync:%p)", patch->dtvsync->mediasync);
                 aml_dtvsync_reset(patch->dtvsync);
             }
@@ -4575,7 +4575,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     patch->is_dtv_src = true;
     patch->startplay_avsync_flag = 1;
     patch->ad_substream_checked_flag = false;
-
+    patch->need_reconfig_mediasync = false;
     patch->output_thread_exit = 0;
     patch->cmd_process_thread_exit = 0;
     memset(&patch->sync_para, 0, sizeof(struct avsync_para));
