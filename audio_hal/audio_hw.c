@@ -554,6 +554,11 @@ static int check_input_parameters(uint32_t sample_rate, audio_format_t format, i
        return -ENOSYS; /*Currently System Not Supported.*/
     }
 
+    if ((devices == AUDIO_DEVICE_NONE) && (format == AUDIO_FORMAT_PCM_FLOAT)) {
+        // support for r_submix's readFloatArray case,
+        // when directly calling from adev_get_input_buffer_size
+        return 0;
+    }
     if (format != AUDIO_FORMAT_PCM_16_BIT && format != AUDIO_FORMAT_PCM_32_BIT) {
         ALOGE("%s: unsupported AUDIO FORMAT (%d)", __func__, format);
         return -EINVAL;
