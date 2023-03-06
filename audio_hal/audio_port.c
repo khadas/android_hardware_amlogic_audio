@@ -139,6 +139,8 @@ void inport_reset(input_port *port)
 
 int send_inport_message(input_port *port, PORT_MSG msg)
 {
+    R_CHECK_POINTER_LEGAL(-EINVAL, port, "");
+
     port_message *p_msg = aml_audio_calloc(1, sizeof(port_message));
     R_CHECK_POINTER_LEGAL(-ENOMEM, p_msg, "no memory, size:%zu", sizeof(port_message));
 
