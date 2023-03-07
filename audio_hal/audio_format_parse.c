@@ -435,12 +435,12 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size,
             break;
         case IEC61937_PAUSE:
             AudioType = PAUSE;
-            // Not defined, set it as 1024*4
-            *package_size = 1024 * 4;
+            // Not defined, set it as 4096*4
+            *package_size = 4096 * 4;
             break;
         case IEC61937_MPEGH:
             AudioType = MPEGH;
-            // Not defined, set it as 1024*4
+            // Defined in IEC61937-13
             *package_size = 1024 * 4;
             break;
         default:
