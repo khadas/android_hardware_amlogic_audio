@@ -526,7 +526,16 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
             break;
         /* the five step, strtok_r got the ",", found the value of fmt_desc->atmos_supported */
         case 4:
-            if (format == AML_HDMI_FORMAT_DDP) {
+            if (format == AML_HDMI_FORMAT_AC3) {
+                /* byte 3, bit 0 is atmos bit*/
+                fmt_desc->atmos_supported = false;
+                /* AC3 Bytes 3 means the "Maximum bit rate divided by 8000 (8 kHz)" */
+                fmt_desc->max_bit_rate = val * 80;
+
+                /* when arc is connected update AVR SAD to hdmi edid */
+                update_edid_after_edited_audio_sad(adev, fmt_desc);
+                update_sink_format_after_hotplug(adev);
+            } else if (format == AML_HDMI_FORMAT_DDP) {
                 /* byte 3, bit 0 is atmos bit*/
                 fmt_desc->atmos_supported = (val & 0x1) > 0 ? true : false;
 
@@ -555,7 +564,9 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
                  */
                 update_sink_format_after_hotplug(adev);
             } else {
-                fmt_desc->max_bit_rate = val * 80;
+                //TODO, how to update the DTS/DTSHD/... SAD.
+                ALOGW("[%s:%d] this SAD fmt is %s, mark it as TODO.\n",
+                    __func__, __LINE__, get_audio_format_code_name_by_id(format));
             }
             break;
         default:
