@@ -925,6 +925,7 @@ int pcm_close(struct pcm *pcm)
     if (pcm == &bad_pcm)
         return 0;
 
+    ALOGI("%s(): fd = %d", __func__, pcm->fd);
     pcm_hw_munmap_status(pcm);
 
     if (pcm->flags & PCM_MMAP) {
@@ -964,14 +965,15 @@ struct pcm *pcm_open(unsigned int card, unsigned int device,
     snprintf(fn, sizeof(fn), "/dev/snd/pcmC%uD%u%c", card, device,
              flags & PCM_IN ? 'c' : 'p');
 
-    ALOGI("pcm_open: flag = %x, card = %d, device = %d", flags, card, device);
-
     pcm->flags = flags;
     pcm->fd = open(fn, O_RDWR|O_NONBLOCK);
     if (pcm->fd < 0) {
         oops(pcm, errno, "cannot open device '%s'", fn);
         return pcm;
     }
+
+    ALOGI("%s(): flag = %x, card = %d, device = %d, fd = %d",
+        __func__, flags, card, device, pcm->fd);
     if (!(flags&PCM_NONEBLOCK)) {
         if (fcntl(pcm->fd, F_SETFL, fcntl(pcm->fd, F_GETFL) &
               ~O_NONBLOCK) < 0) {

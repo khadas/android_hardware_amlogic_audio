@@ -194,7 +194,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
             config = &(adev->dcv_config);
         }
     }
-    int card = aml_out->card;
+    int card = adev->card;
     struct pcm *pcm = adev->pcm_handle[device];
 
     // close former and open with configs
@@ -214,12 +214,9 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
             aml_out->pcm = NULL;
             pcm = NULL;
         }
-        int device_index = device;
-        // mark: will there wil issue here? conflit with MS12 device?? zz
-        if (card == alsa_device_get_card_index()) {
-            int alsa_port = alsa_device_get_port_index(device);
-            device_index = alsa_device_update_pcm_index(alsa_port, PLAYBACK);
-        }
+
+        int alsa_port = alsa_device_get_port_index(device);
+        int device_index = alsa_device_update_pcm_index(alsa_port, PLAYBACK);
 
         ALOGI("%s, audio open card(%d), device(%d)", __func__, card, device_index);
         ALOGI("ALSA open configs: channels %d format %d period_count %d period_size %d rate %d",
