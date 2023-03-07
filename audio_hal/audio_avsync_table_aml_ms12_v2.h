@@ -490,7 +490,7 @@
 /* for passthrough(bypass) mode */
 /* if use (-90), DDP passthrough, its target is [-100, 0], result is -120 ~ -167*/
 /* so, set it as (-5), DDP passthrough result is -44 ~ -90*/
-#define  AVSYNC_MS12_DTV_BYPASS_LATENCY                 (-5)
+#define  AVSYNC_MS12_DTV_BYPASS_LATENCY                 (-90)
 
 #define  AVSYNC_MS12_DTV_BYPASS_LATENCY_PROPERTY      "vendor.media.audio.hal.ms12.dtv.bypass"
 
