@@ -4084,11 +4084,14 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     if (ret >= 0) {
         int continuous_audio_mode = 0;
         if (strcmp (value, AUDIO_PARAMETER_VALUE_ON) == 0) {
+            audio_route_set_speaker_mute(adev, false);
             adev->low_power = false;
             continuous_audio_mode = adev->continuous_audio_mode_backup;
             pthread_cond_broadcast(&adev->wake_cond);
             ALOGI("%s : %s pthread_cond_broadcast", __func__, kvpairs);
         } else {
+            /* mute speaker when suspend */
+            audio_route_set_speaker_mute(adev, true);
             adev->low_power = true;
             adev->continuous_audio_mode_backup = adev->continuous_audio_mode;
             continuous_audio_mode = 0;
