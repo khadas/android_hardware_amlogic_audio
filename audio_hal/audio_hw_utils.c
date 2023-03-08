@@ -2378,3 +2378,56 @@ enum OUT_PORT get_output_by_devices(audio_devices_t devices)
     return OUTPORT_SPEAKER;
 }
 
+//add local + dtv-patch for OTT/STB
+bool is_AC4_stream_with_pcm_sink_on_stb(struct aml_stream_out *aml_out)
+{
+    struct aml_audio_device *adev = aml_out->dev;
+
+    bool is_dtv_patch = (adev->audio_patch && adev->patch_src == SRC_DTV);
+    bool is_local_offload =
+        (!is_dtv_patch &&
+        (aml_out->flags & (AUDIO_OUTPUT_FLAG_DIRECT|AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD)));
+    if (adev->debug_flag > 1) {
+        ALOGI("%s line %d audio_patch %p flags %d\n", __func__, __LINE__, adev->audio_patch, aml_out->flags);
+    }
+    bool is_ac4 = (aml_out->hal_internal_format == AUDIO_FORMAT_AC4);
+    bool is_pcm_sink_format = (adev->sink_format == AUDIO_FORMAT_PCM_16_BIT);
+    if (adev->debug_flag > 1) {
+        ALOGI("%s line %d is_TV %d is_dtv_patch %d is_local_offload %d is_ac4 %d is_pcm_sink_format %d\n",
+            __func__, __LINE__, adev->is_TV, is_dtv_patch, is_local_offload, is_ac4, is_pcm_sink_format);
+    }
+
+    return (!adev->is_TV && (is_dtv_patch || is_local_offload) && is_ac4 && is_pcm_sink_format);
+}
+
+float get_ac4_stream_volume(struct aml_stream_out *aml_out)
+{
+    struct aml_audio_device *adev = aml_out->dev;
+    float ret = 1.0f;
+
+    bool is_dtv_patch = (adev->audio_patch && adev->patch_src == SRC_DTV);
+    bool is_local_offload =
+        (!adev->audio_patch &&
+        (aml_out->flags & (AUDIO_OUTPUT_FLAG_DIRECT|AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD)));
+
+    if (is_dtv_patch) {
+        if (!adev->dev2mix_patch) {
+            ret = adev->sink_gain[get_output_by_devices(adev->cur_out_devices)];
+        }
+        if (adev->tv_mute && adev->audio_patch) {
+            ret = 0.0f;
+        }
+        ret *= adev->dtv_volume;
+        if (adev->debug_flag > 1) {
+            ALOGI("%s line %d target AC4 volume %f\n", __func__, __LINE__, ret);
+        }
+    }
+    else if (is_local_offload) {
+        ret = aml_out->volume_l;
+        if (adev->debug_flag > 1) {
+            ALOGI("%s line %d target AC4 volume %f\n", __func__, __LINE__, ret);
+        }
+    }
+
+    return ret;
+}

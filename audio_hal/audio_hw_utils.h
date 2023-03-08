@@ -237,4 +237,7 @@ static inline bool is_include_usb_out_port(audio_devices_t devices) {
 }
 enum OUT_PORT get_output_by_devices(audio_devices_t devices);
 
+bool is_AC4_stream_with_pcm_sink_on_stb(struct aml_stream_out *aml_out);
+float get_ac4_stream_volume(struct aml_stream_out *aml_out);
+
 #endif

@@ -1425,7 +1425,15 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
         //to set the audio gain , but the app will call out_set_volume
         //to set the main volume to 1.0, so we will use
         //sink gain for volume adjust.
-        set_ms12_main_volume(&adev->ms12,out->volume_l);
+        if (!is_AC4_stream_with_pcm_sink_on_stb(out)) {
+            set_ms12_main_volume(&adev->ms12, out->volume_l);
+            ALOGI("%s line %d set ms12 main volume as %f\n", __func__, __LINE__, out->volume_l);
+        }
+        else {
+            set_ms12_main_volume(&adev->ms12, 1.0f);
+            ALOGI("%s line %d set ms12 main volume as 1.0\n", __func__, __LINE__);
+            adev->ms12_out->volume_l = out->volume_l;
+        }
         /*
          * The postgain value has an impact on the Volume Modeler and the Audio Regulator:
          * Volume Modeler: Uses the postgain value to select the appropriate frequency response curve
@@ -6537,7 +6545,14 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                     */
                     || (is_a2dp_device && (aml_out->volume_l == 1.0))) {
                     ALOGI("%s line %d volume_l %f\n", __func__, __LINE__, aml_out->volume_l);
-                    set_ms12_main_volume(&adev->ms12, aml_out->volume_l);
+                    if (!is_AC4_stream_with_pcm_sink_on_stb(aml_out)) {
+                        set_ms12_main_volume(&adev->ms12, aml_out->volume_l);
+                        ALOGI("%s line %d set ms12 main volume as %f\n", __func__, __LINE__, aml_out->volume_l);
+                    }
+                    else {
+                        set_ms12_main_volume(&adev->ms12, 1.0);
+                        ALOGI("%s line %d set ms12(AC4) main volume as 1.0\n", __func__, __LINE__);
+                    }
                 }
                 if (continuous_mode(adev)) {
                     dolby_ms12_set_main_dummy(0, main1_dummy);
@@ -7574,6 +7589,17 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
                 config_output(stream,need_reset_decoder);
             }
         }
+
+        //when Dolby MS12 use not 1.0 volume "-sys_prim_mixgain <3 int>
+        //the PCM Render can not output at a same volume for both DDP and AC4.
+        //AC4 should use the 1.0 volume and control the volume through the PCM output.
+        //In the STB, the AudioFlinger already apply the volume at the Mixer Thread.
+        // If decode the AC4 stream to PCM(stereo/dap speaker),
+        // we apply the adev->dtv_volume in stereo_pcm_output()
+        if (is_AC4_stream_with_pcm_sink_on_stb(aml_out) && (get_ac4_stream_volume(aml_out) > 0)) {
+            apply_volume(1 / get_ac4_stream_volume(aml_out), (void *)buffer, sizeof(uint16_t), bytes);
+        }
+
         /*
          *when disable_pcm_mixing is true and offload format is ddp and output format is ddp
          *the system tone voice should not be mixed
@@ -9777,7 +9803,7 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
         if (aml_dev->audio_patching || aml_dev->patch_src == SRC_DTV) {
             pthread_mutex_lock(&aml_dev->lock);
              /* Raw data from hdmi, alexa voice case, the souece stream need duck about 20dB */
-            ALOGI("%s line %d volume %f\n", __func__, __LINE__, DbToAmpl(config->gain.values[1]/100));
+            ALOGI("%s line %d set ms12 main volume %f\n", __func__, __LINE__, DbToAmpl(config->gain.values[1]/100));
             set_ms12_main_volume(&aml_dev->ms12, DbToAmpl(config->gain.values[1]/100));
             pthread_mutex_unlock(&aml_dev->lock);
             ALOGD("%s set source gain to ms12, volume-> values:%d, gain:%f", __func__,

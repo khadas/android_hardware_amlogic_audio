@@ -657,7 +657,17 @@ void dtv_set_ms12_volume_on_non_TV_device(struct aml_stream_out *aml_out)
     */
     if (!adev->is_TV) {
         if (adev->audio_patch && adev->patch_src == SRC_DTV) {
-            out_gain *= adev->dtv_volume;
+            //when Dolby MS12 use not 1.0 volume "-sys_prim_mixgain <3 int>
+            //the PCM Render can not output at a same volume for both DDP and AC4.
+            //AC4 should use the 1.0 volume and control the volume through the PCM output.
+            //After add this patch, the Bitstream output volume will always 1.0,
+            //its volume should be controled by the Sink Device.
+            if (!is_AC4_stream_with_pcm_sink_on_stb(aml_out)) {
+                out_gain *= adev->dtv_volume;
+            }
+            else {
+                out_gain = 1.0f;
+            }
             set_ms12_main_volume(&adev->ms12, out_gain);
             aml_out->ms12_vol_ctrl = true;
         }

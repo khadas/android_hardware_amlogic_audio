@@ -970,6 +970,7 @@ int get_the_dolby_ms12_prepared(
     ms12->master_pcm_frames  = 0;
     ms12->ms12_main_input_size = 0;
     set_ms12_main_volume(ms12, 1.0f);
+    ALOGI("%s line %d set ms12 main volume as 1.0\n", __func__, __LINE__);
     ms12->dtv_decoder_offset_base = dtv_decoder_offset_base;
     ALOGI("set ms12 sys pos =%" PRId64 "", ms12->sys_audio_base_pos);
 

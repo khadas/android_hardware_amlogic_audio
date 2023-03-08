@@ -1165,6 +1165,7 @@ int get_the_dolby_ms12_prepared(
     ms12->is_muted = false;
     ms12->b_legacy_ddpout    = dolby_ms12_get_ddp_5_1_out();
     set_ms12_main_volume(ms12, 1.0f);
+    ALOGI("%s line %d set ms12 main volume as 1.0\n", __func__, __LINE__);
     ms12->dtv_decoder_offset_base = dtv_decoder_offset_base;
     ALOGI("set ms12 sys pos =%" PRId64 "", ms12->sys_audio_base_pos);
 
@@ -2755,6 +2756,14 @@ int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_i
             ring_buffer_write(&ms12->spdif_ring_buffer, buffer, size, UNCOVER_WRITE);
         }
     } else {
+        //when Dolby MS12 use not 1.0 volume "-sys_prim_mixgain <3 int>
+        //the PCM Render can not output at a same volume for both DDP and AC4.
+        //AC4 should use the 1.0 volume and control the volume through the PCM output.
+        //In the STB, PCM output will be always without DAP device processing.
+        //will not call the dap_pcm_output().
+        if (is_AC4_stream_with_pcm_sink_on_stb(aml_out)) {
+            apply_volume(get_ac4_stream_volume(aml_out), buffer, sizeof(uint16_t), size);
+        }
         aml_audio_trace_int("stereo_output", size);
         ms12_output_master(buffer, priv_data, size, output_format, ms12_info);
         aml_audio_trace_int("stereo_output", 0);
