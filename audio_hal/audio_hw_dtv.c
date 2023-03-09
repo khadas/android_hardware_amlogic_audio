@@ -281,8 +281,8 @@ void  clean_dtv_demux_info(aml_demux_audiopara_t *demux_info) {
     demux_info->ad_fmt  = -1;
     demux_info->ad_pid  = -1;
     demux_info->dual_decoder_support = 0;
-    demux_info->advol_level = 100;
-    demux_info->mixing_level = 0;
+    demux_info->advol_level = 0;
+    demux_info->mixing_level = -32;
     demux_info->associate_audio_mixing_enable  = 0;
     demux_info->media_sync_id  = -1;
     demux_info->media_presentation_id  = -1;
@@ -2602,9 +2602,6 @@ int audio_dtv_patch_output_single_decoder(struct aml_audio_patch *patch,
     }
     if (!aml_out->aml_dec && patch->aformat == AUDIO_FORMAT_E_AC3 && !aml_out->ad_substream_supported) {
         aml_out->ad_substream_supported = is_ad_substream_supported((unsigned char *)cur_package->data, cur_package->size);
-        if (aml_out->ad_substream_supported) {
-            demux_info->mixing_level = -32;
-        }
     }
     ALOGV("p_package->data %p size %d", cur_package->data, cur_package->size);
     if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
