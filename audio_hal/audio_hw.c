@@ -9799,6 +9799,19 @@ static int adev_set_device_connected_state_v7(struct audio_hw_device *dev,
             port->ext.device.address, port->num_extra_audio_descriptors, port->num_audio_profiles);
         parms = str_parms_create_str(port->ext.device.address);
         set_device_connect_state(aml_dev, parms, port->ext.device.type, connected);
+
+        if (connected) {
+            if (port->ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC) {
+                aml_dev->raw_to_pcm_flag = true;
+            }
+
+            if (aml_dev->bHDMIConnected == 1) {
+                struct dolby_ms12_desc *ms12 = &(aml_dev->ms12);
+
+                aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
+            }
+        }
+
         if (port->ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC) {
             read_hdmi_arc_info(dev, port->extra_audio_descriptors, port->num_extra_audio_descriptors, connected);
         }
