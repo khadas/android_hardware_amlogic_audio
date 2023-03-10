@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_hw_primary"
+#define LOG_TAG "audio_dtv_ad"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,14 +25,19 @@
 #include <sys/time.h>
 #include <dlfcn.h>
 #include <cutils/log.h>
+#include <cutils/properties.h>
+
 #include "aml_android_utils.h"
 #include "am_ad.h"
 #include "aml_ringbuffer.h"
 #include "audio_dtv_ad.h"
+#include "pes.h"
 
 #define AD_DEMUX_ID 0
 #define CACHE_TIME 0
 #define DEFAULT_ASSOC_AUDIO_BUFFER_SIZE 1024 * 256
+
+#define PES_HEADER_LEN 9
 
 static pthread_mutex_t assoc_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -51,6 +56,10 @@ typedef struct _dtv_assoc_audio {
     void *ad_handle;
     void *g_assoc_bst;
     int nAssocBufSize;
+    bool is_pes_mode;
+    unsigned int fade;
+    unsigned int pan;
+    int32_t ad_pts;
     void *pargs;
 } dtv_assoc_audio;
 
@@ -89,6 +98,80 @@ static dtv_assoc_audio *get_assoc_audio(void)
 
 #define MS12_INPUT_AD_FILE "/data/audio_out/ms12_input_ad.ac3"
 
+#define IS_AUDIO_STREAM_ID(id)  ((id)==0xBD || ((id) >= 0xC0 && (id) <= 0xDF))
+
+#define AV_RB16(x)                           \
+    ((((const unsigned char*)(x))[0] << 8) |          \
+      ((const unsigned char*)(x))[1])
+
+static inline int64_t parse_pes_pts(const unsigned char* buf) {
+    return (int64_t)(*buf & 0x0e) << 29 |
+        (AV_RB16(buf + 1) >> 1) << 15 |
+        AV_RB16(buf + 3) >> 1;
+}
+
+void handle_ad_pes_header(unsigned char *buf,int in_bytes , int64_t *outpts, unsigned char* pan, unsigned char* fade)
+{
+   pPES_HEADER_tag pPesheader = (pPES_HEADER_tag)buf;
+   PES_extension_header * pesextheader=NULL;
+   AD_descriptor *pad=NULL;
+   int byteindex=PES_HEADER_LEN;
+
+   if (0x2 == pPesheader->PTS_DTS_flags)
+   {
+        *outpts = parse_pes_pts(&buf[byteindex]);
+        byteindex+=5;
+        //ALOGV("only pts %lld \n",*outpts);
+   }
+   if (0x3 == pPesheader->PTS_DTS_flags)
+   {
+        *outpts = parse_pes_pts(&buf[byteindex]);
+        byteindex+=10;
+   }
+   if (1 == pPesheader->ESCR_flag)
+   {
+       byteindex+=6;
+   }
+   if (1 == pPesheader->ES_rate_flag)
+   {
+       byteindex+=3;
+   }
+   if (1 == pPesheader->DSM_trick_mode_flag)
+   {
+       byteindex+=1;
+   }
+   if (1 == pPesheader->additional_copy_info_flag)
+   {
+       byteindex+=1;
+   }
+   if (1 == pPesheader->PES_CRC_flag)
+   {
+       byteindex+=2;
+   }
+
+   if (1 == pPesheader->PES_extension_flag)
+   {
+       //parse5flag
+       pesextheader=(PES_extension_header *)&buf[byteindex];
+       byteindex+=1;
+   }
+
+   if (pesextheader != NULL)
+   {
+     if (1 == pesextheader->PES_private_data_flag)
+     {
+         pad=(AD_descriptor *)&buf[byteindex];
+         //0x4454474144
+         if (0x44 ==pad->AD_text_tag[0] && 0x54 == pad->AD_text_tag[1] && 0x47 == pad->AD_text_tag[2] && 0x41 == pad->AD_text_tag[3] && 0x44 == pad->AD_text_tag[4])
+         {
+          *pan= pad->pan;
+          *fade= pad->fade;
+           ALOGV("byteindex %d pan fade %d ,%d  \n",byteindex, *pan,*fade);
+         }
+     }
+   }
+}
+
 static void dump_ad_input_data(void *buffer, int size, char *file_name)
 {
     if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
@@ -108,27 +191,69 @@ static void audio_adcallback(const unsigned char * data, int len, void * handle)
     //pthread_mutex_lock(&assoc_mutex);
     dtv_assoc_audio *param = get_assoc_audio();
 
+    if (len <= 0 || len > DEFAULT_ASSOC_AUDIO_BUFFER_SIZE) {
+        ALOGI("invalid data size len %d",len);
+        return;
+    }
     dump_ad_input_data((void*)data, len, MS12_INPUT_AD_FILE);
     ring_buffer_t *ringbuffer = &(param->sub_abuf);
-    int left;
-    /*add by lianlian.zhu, ad data should not be dropped*/
-    if (param->assoc_enable == DTV_ASSOC_STAT_ENABLE && param->bufinited == 1 /*&& param->cache > 0*/) {
-        unsigned short head1 = data[0] << 8 | data[1];
-        left = get_buffer_write_space(ringbuffer);
-        if (left < len) {
-            ALOGI("buffer is full left = %d reset buffer",left);
-            ring_buffer_reset(ringbuffer);
-        } else if (head1 == 0x0b77 || head1 == 0x770b) {
-            //ALOGI("audio_adcallback write buffer size:%d ",len);
-            ring_buffer_write(ringbuffer, (unsigned char *)data, len, UNCOVER_WRITE);
-        } else {
-            //ALOGI("audio_adcallback,not ac3/eac3 data len=%d\n", len);
-            ring_buffer_write(ringbuffer, (unsigned char *)data, len, UNCOVER_WRITE);
-        }
+    int left,es_data_len = 0;
+    unsigned char *es_data;
+    if (param->is_pes_mode) {
+         unsigned char fade = 0, pan = 0;
+         int64_t outpts;
+         pPES_HEADER_tag pes_header  = (pPES_HEADER_tag )data;
+         if (len < PES_HEADER_LEN) {
+             return;
+         }
+         int pes_len = ((data[4] << 8) | data[5]);
+         if (pes_len > 0) {
+             handle_ad_pes_header((unsigned char *)data, len, &outpts, &pan, &fade);
+             param->fade = fade;
+             param->pan = pan;
+         } else {
+             return;
+         }
+          ALOGV("%0x %0x %0x %0x pes_len %d fade %d pan %d",
+            pes_header->packet_start_code_prefix[0],
+            pes_header->packet_start_code_prefix[1],
+            pes_header->packet_start_code_prefix[2],
+            pes_header->stream_id,pes_len, fade, pan);
+         es_data_len = len - pes_header->PES_header_data_length - PES_HEADER_LEN;
+         es_data = (unsigned char * )data + pes_header->PES_header_data_length + PES_HEADER_LEN;
+         if (es_data_len <= 0) {
+             return;
+         }
+
+         if (param->assoc_enable == DTV_ASSOC_STAT_ENABLE && param->bufinited == 1) {
+          left = get_buffer_write_space(ringbuffer);
+           if (left < es_data_len) {
+                ALOGI("buffer is full left = %d reset buffer",left);
+                ring_buffer_reset(ringbuffer);
+            } else {
+               ALOGV("es_data_len %d left %d", es_data_len, left);
+               ring_buffer_write(ringbuffer, (unsigned char *)es_data, es_data_len, UNCOVER_WRITE);
+            }
+         }
     } else {
-        ALOGI("[%s]-[associate_dec_supported:%d]-[g_assoc_bst:%p]\n", __FUNCTION__, param->assoc_enable, param->g_assoc_bst);
+        /*add by lianlian.zhu, ad data should not be dropped*/
+        if (param->assoc_enable == DTV_ASSOC_STAT_ENABLE && param->bufinited == 1 /*&& param->cache > 0*/) {
+            unsigned short head1 = data[0] << 8 | data[1];
+            left = get_buffer_write_space(ringbuffer);
+            if (left < len) {
+                ALOGI("buffer is full left = %d reset buffer",left);
+                ring_buffer_reset(ringbuffer);
+            } else if (head1 == 0x0b77 || head1 == 0x770b) {
+                //ALOGI("audio_adcallback write buffer size:%d ",len);
+                ring_buffer_write(ringbuffer, (unsigned char *)data, len, UNCOVER_WRITE);
+            } else {
+                //ALOGI("audio_adcallback,not ac3/eac3 data len=%d\n", len);
+                ring_buffer_write(ringbuffer, (unsigned char *)data, len, UNCOVER_WRITE);
+            }
+        } else {
+            ALOGI("[%s]-[associate_dec_supported:%d]-[g_assoc_bst:%p]\n", __FUNCTION__, param->assoc_enable, param->g_assoc_bst);
+        }
     }
-    //   pthread_mutex_unlock(&assoc_mutex);
 }
 
 static int audio_ad_set_source(int enable, int pid, int fmt, void *user)
@@ -190,6 +315,12 @@ int dtv_assoc_init(void)
         ALOGE("Fail to init audio ringbuffer!");
         return -1;
     }
+
+    if (property_get_bool("vendor.media.dtv.pesmode",true)) {
+        param->is_pes_mode = true;
+     } else {
+        param->is_pes_mode = false;
+     }
     ALOGI("[%s %d] associate audio init success! \n", __FUNCTION__, __LINE__);
     pthread_mutex_unlock(&assoc_mutex);
     return 0;
@@ -304,6 +435,32 @@ void dtv_assoc_get_ad_frame_size(int* ad_frame_size)
     *ad_frame_size = param->ad_frame_size;
 }
 
+int dtv_assoc_get_ad_fade()
+{
+    dtv_assoc_audio *param = get_assoc_audio();
+    if (param) {
+       return param->fade;
+    }
+    return 0;
+}
+int dtv_assoc_get_ad_pan()
+{
+    dtv_assoc_audio *param = get_assoc_audio();
+    if (param) {
+       return param->pan;
+    }
+    return 0;
+}
+
+int32_t dtv_assoc_get_ad_lastpts()
+{
+    dtv_assoc_audio *param = get_assoc_audio();
+    if (param) {
+       return param->ad_pts;
+    }
+    return 0;
+}
+
 void dtv_assoc_audio_cache(int value)
 {
     dtv_assoc_audio *param = get_assoc_audio();
@@ -348,6 +505,8 @@ int dtv_assoc_audio_start(unsigned int handle, int pid, int fmt, int demux_id)
         param->cache= 0;
         param->main_frame_size= 0;
         param->ad_frame_size= 0;
+        param->fade = 0;
+        param->pan = 0;
         param->assoc_enable = DTV_ASSOC_STAT_DISABLE;
         audio_ad_set_source(DTV_ASSOC_STAT_DISABLE, param->sub_apid, param->sub_afmt, NULL);
     } else {
@@ -376,6 +535,8 @@ void dtv_assoc_audio_stop(unsigned int handle)
         param->cache= 0;
         param->main_frame_size= 0;
         param->ad_frame_size= 0;
+        param->fade = 0;
+        param->pan = 0;
         audio_ad_set_source(DTV_ASSOC_STAT_DISABLE, param->sub_apid, param->sub_afmt, NULL);
     } else {
         ALOGI("%s, nothing to do\n", __FUNCTION__);
@@ -385,6 +546,9 @@ void dtv_assoc_audio_stop(unsigned int handle)
 
 void dtv_assoc_audio_pause(unsigned int handle)
 {
+    if (handle == 0) {
+        return;
+    }
     ALOGI("%s, paused\n", __FUNCTION__);
     dtv_assoc_audio *param = get_assoc_audio();
     if (handle == 0) {

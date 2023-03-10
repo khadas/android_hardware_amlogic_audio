@@ -240,6 +240,13 @@ bool use_dtv_old_ad_api (struct aml_audio_device *aml_dev)
      return false;
 }
 
+static inline bool non_dolby_format(int audio_format) {
+    return !(audio_format == ACODEC_FMT_AC3 ||
+            audio_format == ACODEC_FMT_EAC3 ||
+            audio_format == ACODEC_FMT_AC4 ||
+            audio_format == ACODEC_FMT_TRUEHD);
+}
+
 void  clean_dtv_demux_info(aml_demux_audiopara_t *demux_info) {
     demux_info->demux_id = -1;
     demux_info->security_mem_level  = -1;
@@ -397,7 +404,10 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                 set_ms12_ad_mixing_level(ms12, demux_info->mixing_level);
                 pthread_mutex_unlock(&ms12->lock);
             }
-
+            if (non_dolby_format(demux_info->ad_fmt)) {
+                 //for shine ad menu dolby low -10 medium 0 high 10 match -6db 0db 6db
+                 demux_info->mixing_level *= 0.6f;
+            }
             break;
         case AUDIO_DTV_PATCH_CMD_SET_MEDIA_PRESENTATION_ID:
             demux_info->media_presentation_id = val;
@@ -449,7 +459,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                     dtv_audio_instances->demux_handle[path_id] = demux_handle;
                     Init_Dmx_Main_Audio(demux_handle, demux_info->main_fmt, demux_info->main_pid);
                     if (demux_info->dual_decoder_support) {
-                        if (property_get_bool("vendor.media.dtv.pesmode",true) && adev->is_TV) {
+                        if (property_get_bool("vendor.media.dtv.pesmode",true)) {
                             if ((VALID_AD_FMT_UK(demux_info->ad_fmt))) {
                                 Init_Dmx_AD_Audio(demux_handle, demux_info->ad_fmt, demux_info->ad_pid, 1);
                             }
@@ -1944,6 +1954,7 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
         } else {
             memcpy(mixbuffer + mix_size, ad_buffer, ad_size);
         }
+
         if (patch->aformat == AUDIO_FORMAT_AC3) {//ac3 iec61937 package size 6144
             ret = out_write_new(stream_out, mixbuffer, AC3_IEC61937_FRAME_SIZE);
         } else {//eac3 iec61937 package size 6144*4
@@ -3916,6 +3927,10 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
             aml_out->dec_config.ad_pan = demux_info->ad_pan;
             aml_decoder_set_config(aml_dec, AML_DEC_CONFIG_PAN, &aml_out->dec_config);
         }
+        if (demux_info->ad_placement != aml_out->dec_config.ad_placement) {
+            aml_out->dec_config.ad_placement = demux_info->ad_placement;
+            aml_decoder_set_config(aml_dec, AML_DEC_CONFIG_PAN, &aml_out->dec_config);
+        }
 
         pthread_mutex_unlock(&(patch->dtv_output_mutex));
     }
@@ -5117,7 +5132,7 @@ int out_set_audio_description_mix_level(struct audio_stream_out *stream, const f
         ALOGD("%s[%d]:the audio_patching: %d, patch: %p. decoder state: %d", __func__, __LINE__, adev->audio_patching, adev->audio_patch, adev->audio_patch->dtv_decoder_state);
         if (dtv_tuner_framework(stream)) {
             dmx_info->mixing_level = leveldB;
-          if (eDolbyMS12Lib == adev->dolby_lib_type_last &&
+            if (eDolbyMS12Lib == adev->dolby_lib_type_last &&
                 (path_id == dtv_audio_instances->demux_index_working)) {
                 pthread_mutex_lock(&ms12->lock);
                 dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(dmx_info->mixing_level);
@@ -5319,7 +5334,7 @@ int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, con
              hw_avsync_metadata_dvb_ad_t *metadata_dvb_ad_info = &hw_sync->metadata_dvb_ad_info;
              //to do fade and pan
         } else if (hw_sync->hw_sync_metadata_unit_type == ENCAPSULATION_METADATA_TYPE_AD_PLACEMENT) {
-             dmx_info->output_mode =  hw_sync->hw_sync_metadata_placement;
+             dmx_info->ad_placement =  hw_sync->hw_sync_metadata_placement;
              ALOGV("hw_sync_metadata_placement %d",  hw_sync->hw_sync_metadata_placement);
         }
         if (outsize > 0) {

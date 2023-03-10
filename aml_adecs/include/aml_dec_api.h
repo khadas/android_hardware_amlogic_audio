@@ -67,7 +67,8 @@ typedef enum {
     AML_DEC_CONFIG_MIXER_LEVEL, //runtime param
     AML_DEC_CONFIG_OUTPUT_CHANNEL,  //runtime/static param
     AML_DEC_CONFIG_FADE,
-    AML_DEC_CONFIG_PAN
+    AML_DEC_CONFIG_PAN,
+    AML_DEC_CONFIG_PLACEMENT
 } aml_dec_config_type_t;
 
 typedef enum {
@@ -88,6 +89,12 @@ typedef enum {
     AML_DEC_RETURN_TYPE_CACHE_DATA      = -2,    /* Not enough decoded data. */
     AML_DEC_RETURN_TYPE_NEED_DEC_AGAIN  = -3,    /* Cache a lot of data, needs to be decoded multiple times. */
 } aml_dec_return_type_t;
+
+typedef enum aml_ad_placement {
+    PLACEMENT_NORMAL = 0,
+    PLACEMENT_RIGHT = 1,
+    PLACEMENT_LEFT = 2,
+} aml_ad_placement_t;
 
 typedef struct aml_dec_stream_info {
     int stream_sr;    /** the sample rate in stream*/
@@ -221,6 +228,7 @@ typedef struct aml_dec_config {
     int  mixer_level;   /* AML_DEC_CONFIG_MIXER_LEVEL */
     unsigned char ad_fade;
     unsigned char ad_pan;
+	unsigned char ad_placement;
     int dts_decode_enable;
 } aml_dec_config_t;
 

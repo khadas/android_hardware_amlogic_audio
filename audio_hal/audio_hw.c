@@ -7178,8 +7178,6 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     }
 #ifdef ENABLE_DVB_PATCH
 #if ANDROID_PLATFORM_SDK_VERSION > 29
-    ALOGI("aml_out->dev->patch_src %d aml_out->dev->audio_patching %d aml_out->flags %0x aml_out->audioCfg.offload_info.content_id %d aml_out->audioCfg.offload_info.sync_id %d",
-    aml_out->dev->patch_src, aml_out->dev->audio_patching, aml_out->flags, aml_out->audioCfg.offload_info.content_id, aml_out->audioCfg.offload_info.sync_id);
     if ((aml_out->dev->patch_src == SRC_DTV) &&
         aml_out->dev->audio_patching &&
         (aml_out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) &&

@@ -110,11 +110,6 @@ typedef enum audio_encapsulation_mode {
     AUDIO_ENCAPSULATION_MODE_HANDLE            = 2,
 } audio_encapsulation_mode_t;
 */
-typedef enum metadata_type_ad_placement {
-    PLACEMENT_NORMAL = 0,
-    PLACEMENT_RIGHT = 1,
-    PLACEMENT_LEFT = 2,
-} metadata_type_ad_placement_t;
 
 typedef enum metadata_broadcast_type {
     AUDIO_BROADCAST_MAIN = 0,

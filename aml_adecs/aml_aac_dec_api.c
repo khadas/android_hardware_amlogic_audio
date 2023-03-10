@@ -86,6 +86,7 @@ struct aac_dec_t {
     int ad_remain_size;
     unsigned char ad_fade;
     unsigned char ad_pan;
+    unsigned char ad_placement;
 };
 
 static  int unload_faad_decoder_lib(struct aac_dec_t *aac_dec)
@@ -502,30 +503,36 @@ static int faad_decoder_process(aml_dec_t *aml_dec, unsigned char *buffer, int b
             samples_num = ad_dec_pcm_data->data_len / sizeof(int16_t);
             for (; i < samples_num; i++) {
                 samples = samples_data[samples_num - i -1] ;
-                samples_data [ 2 * (samples_num - i -1) ] = samples;
-                samples_data [ 2 * (samples_num - i -1) + 1]= samples;
+                if (aac_dec->ad_placement == PLACEMENT_NORMAL)  {
+                   samples_data [ 2 * (samples_num - i -1) ] = samples;
+                   samples_data [ 2 * (samples_num - i -1) + 1]= samples;
+                } else if (aac_dec->ad_placement == PLACEMENT_RIGHT) {
+                    samples_data [ 2 * (samples_num - i -1) ] = samples;
+                    samples_data [ 2 * (samples_num - i -1) + 1]= 0;
+                } else if (aac_dec->ad_placement == PLACEMENT_LEFT) {
+                    samples_data [ 2 * (samples_num - i -1) ] = 0;
+                    samples_data [ 2 * (samples_num - i -1) + 1]= samples;
+                } else {
+                    ALOGW("invalid placement %d ", aac_dec->ad_placement);
+                }
             }
             ad_dec_pcm_data->data_len  = ad_dec_pcm_data->data_len * 2;
         }
 
-        if (aac_dec->ad_mixing_enable && ad_dec_pcm_data->data_len && dec_pcm_data->data_len) {
+        if (aac_dec->ad_mixing_enable) {
             int frames_written = 0;
-
-            float mixing_coefficient = 0.5f;
-            float ad_mixing_coefficient = 0.5f;
-            if (property_get_bool("vendor.media.dtv.pesmode",false)) {
-                apply_volume_pan(aac_dec->ad_pan, ad_dec_pcm_data->buf, sizeof(uint16_t), ad_dec_pcm_data->data_len);
-                aml_decoder_calc_coefficient(aac_dec->ad_fade,&mixing_coefficient,&ad_mixing_coefficient);
+            float mixing_coefficient = 1.0f;
+            float ad_mixing_coefficient = DbToAmpl(aac_dec->mixer_level) * (aac_dec->advol_level / 100.0f);
+            if (property_get_bool("vendor.media.dtv.pesmode",true)) {
+                float ad_fade_coef = DbToAmpl(aac_dec->ad_fade * (-0.3f));
+                ALOGV("ad_fade %d ad_fade_coef %f",aac_dec->ad_fade, ad_fade_coef);
+                mixing_coefficient *= ad_fade_coef;
                 apply_volume(mixing_coefficient, dec_pcm_data->buf, sizeof(uint16_t), dec_pcm_data->data_len);
-                ALOGI("mixing_coefficient %f ad_mixing_coefficient %f",mixing_coefficient, ad_mixing_coefficient);
+                if (ad_dec_pcm_data->data_len) {
+                    apply_volume_pan(aac_dec->ad_pan, ad_dec_pcm_data->buf, sizeof(uint16_t), ad_dec_pcm_data->data_len);
+                }
             }
-            else {
-                mixing_coefficient = 1.0f - (float)(aac_dec->mixer_level  + 32 ) / 64;
-                ad_mixing_coefficient = (aac_dec->advol_level * 1.0f / 100 ) * (float)(aac_dec->mixer_level  + 32 ) / 64;
-                apply_volume(mixing_coefficient, dec_pcm_data->buf, sizeof(uint16_t), dec_pcm_data->data_len);
-                ALOGV("mixing_coefficient %f ad_mixing_coefficient %f",mixing_coefficient, ad_mixing_coefficient);
-            }
-            apply_volume(ad_mixing_coefficient, ad_dec_pcm_data->buf, sizeof(uint16_t), dec_pcm_data->data_len);
+            apply_volume(ad_mixing_coefficient, ad_dec_pcm_data->buf, sizeof(uint16_t), ad_dec_pcm_data->data_len);
             frames_written = do_mixing_2ch(dec_pcm_data->buf, ad_dec_pcm_data->buf ,
                 dec_pcm_data->data_len / 4 , AUDIO_FORMAT_PCM_16_BIT, AUDIO_FORMAT_PCM_16_BIT);
             ALOGV("frames_written %d dec_pcm_data->data_len %d",frames_written, dec_pcm_data->data_len);
@@ -618,6 +625,11 @@ int faad_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, 
     case AML_DEC_CONFIG_PAN: {
         aac_dec->ad_pan = dec_config->ad_pan;
         ALOGI("dec_config->ad_pan %d",dec_config->ad_pan);
+        break;
+    }
+    case AML_DEC_CONFIG_PLACEMENT: {
+        aac_dec->ad_placement = dec_config->ad_placement;
+        ALOGI("dec_config->ad_placement %d",dec_config->ad_placement);
         break;
     }
     default:
