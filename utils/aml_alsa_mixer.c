@@ -91,7 +91,7 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_EARC_TX_ATTENDED_TYPE, "eARC_TX attended type"},
     {AML_MIXER_ID_EARC_TX_AUDIO_TYPE,   "eARC_TX Audio Coding Type"},
     {AML_MIXER_ID_EARC_TX_EARC_MODE,    "eARC_TX eARC Mode"},
-    {AML_MIXER_ID_ARC_EARC_TX_ENABLE, "ARC eARC TX enable"},
+    {AML_MIXER_ID_ARC_EARC_TX_ENABLE,   "ARC eARC TX enable"},
     {AML_MIXER_ID_EARCTX_CDS,           "eARC_TX CDS"},
     {AML_MIXER_ID_EARC_TX_LATENCY,      "eARC_TX Latency"},
     {AML_MIXER_ID_EARC_TX_CA,           "eARC_TX Channel Allocation"},
@@ -106,8 +106,9 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_VAD_SOURCE_SEL,       "VAD Source sel"},
     {AML_MIXER_ID_VAD_SWITCH,           "VAD Switch"},
     {AML_MIXER_ID_DTV_CLK_TUNING,       "DTV clk force MPLL"},
-    {AML_MIXER_ID_I2S2HDMI_FORMAT,    "Audio I2S to HDMITX Format"},
+    {AML_MIXER_ID_I2S2HDMI_FORMAT,      "Audio I2S to HDMITX Format"},
     {AML_MIXER_ID_SPDIF_OUT_CHANNEL_STATUS, "spdif out channel status"},
+    {AML_MIXER_ID_HDMIIN_NONAUDIO,      "HDMIIN NONAUDIO"},
 };
 
 static char *get_mixer_name_by_id(int mixer_id)

@@ -188,6 +188,8 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_audio_patch *patch = adev->audio_patch;
     struct aml_native_postprocess *VX_postprocess = &adev->native_postprocess;
+    struct aml_mixer_handle *mixer_handle = &(adev->alsa_mixer);
+    audio_type_parse_t *audio_type_status = NULL;
 
     int return_bytes = bytes;
     int out_frames = 0;
@@ -208,11 +210,13 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
     if (aml_out->aml_dec == NULL) {
         config_output(stream, true);
-
     }
 
     aml_dec_t *aml_dec = aml_out->aml_dec;
 
+    if (patch != NULL) {
+        audio_type_status = (audio_type_parse_t *)patch->audio_parse_para;
+    }
 
     if (aml_dec) {
 #ifdef ENABLE_DVB_PATCH
@@ -453,6 +457,13 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                            /*ease in or ease out*/
                            aml_audio_ease_process(adev->audio_ease, dec_data, pcm_len);
                         }
+                    }
+
+                    /* if audio channel status changes to "NONAUDIO", software parser doesn't detect audio format change, mute audio */
+                    if (adev->patch_src == SRC_HDMIIN && audio_type_status != NULL &&
+                            audio_type_status->soft_parser && patch->IEC61937_format == false &&
+                            aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_HDMIIN_NONAUDIO) == 1) {
+                        memset(dec_data, 0, pcm_len);
                     }
 
                     if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
