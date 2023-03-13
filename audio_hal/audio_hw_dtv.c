@@ -3445,6 +3445,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
                                 dtv_package->size = mEsData->size;
                                 dtv_package->data = (char *)mEsData->data;
                                 dtv_package->pts = mEsData->pts;
+                                dtv_package->pts_dts_flag = mEsData->pts_dts_flag;
                                 aml_audio_free(mEsData);
                                 mEsData = NULL;
                                 demux_info->mEsData = NULL;
@@ -3487,10 +3488,13 @@ void *audio_dtv_patch_input_threadloop(void *data)
 
                      /* mediasync check dmx package */
                      {
-                        audio_queue_info.apts = dtv_package->pts;
-                        audio_queue_info.duration = Dtvsync->duration;
-                        audio_queue_info.size = dtv_package->size;
-                        audio_queue_info.isneedupdate = false;
+                        if (dtv_package->pts_dts_flag != 0) {
+                            audio_queue_info.apts = dtv_package->pts;
+                            audio_queue_info.duration = Dtvsync->duration;
+                        } else {
+                            audio_queue_info.apts = -1;
+                            audio_queue_info.duration = -1;
+                        }
 
                         if (path_index == dtv_audio_instances->demux_index_working)
                             audio_queue_info.isworkingchannel = true;
@@ -3803,17 +3807,42 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
             pthread_mutex_unlock(&patch->mutex);
             continue;
         } else {
-          patch->cur_package = p_package;
-          struct timespec current_ts;
-          clock_gettime(CLOCK_MONOTONIC, &current_ts);
-          data_arrive_jitter_ms = calc_time_interval_us(&package_get_ts, &current_ts) / 1000;
-          package_get_ts.tv_sec = current_ts.tv_sec;
-          package_get_ts.tv_nsec = current_ts.tv_nsec;
-          data_pts_jitter_ms = ABS(patch->dtvsync->last_package_pts,patch->cur_package->pts)/90;
-          if (aml_dev->debug_flag > 0) {
-              ALOGI("cur_package size %u pts %"PRIx64" jitter %"PRIx64" ms pts diff %"PRIx64" ms",
-                p_package->size, patch->cur_package->pts, data_arrive_jitter_ms, data_pts_jitter_ms);
-          }
+            patch->cur_package = p_package;
+            if (!patch->dtv_first_apts_flag) {
+              if (p_package->pts_dts_flag != 0) {
+                  patch->dtv_first_apts_flag = 1;
+              } else {
+                if (p_package->data) {
+                    aml_audio_free(p_package->data);
+                    p_package->data = NULL;
+                }
+
+                if (p_package->ad_data) {
+                    aml_audio_free(p_package->ad_data);
+                    p_package->ad_data = NULL;
+                }
+                aml_audio_free(p_package);
+                p_package = NULL;
+                pthread_mutex_unlock(&patch->mutex);
+                continue;
+              }
+            }
+            struct timespec current_ts;
+            clock_gettime(CLOCK_MONOTONIC, &current_ts);
+            data_arrive_jitter_ms = calc_time_interval_us(&package_get_ts, &current_ts) / 1000;
+            package_get_ts.tv_sec = current_ts.tv_sec;
+            package_get_ts.tv_nsec = current_ts.tv_nsec;
+            if (p_package->pts_dts_flag != 0) {
+                data_pts_jitter_ms = ABS(patch->dtvsync->last_package_pts,patch->cur_package->pts)/90;
+            } else {
+                data_pts_jitter_ms = 0;
+                p_package->pts = DTVSYNC_INVALID_PTS;
+            }
+
+            if (aml_dev->debug_flag > 0) {
+                ALOGI("cur_package size %u pts %"PRIx64" jitter %"PRIx64" ms pts diff %"PRIx64" ms",
+                  p_package->size, patch->cur_package->pts, data_arrive_jitter_ms, data_pts_jitter_ms);
+            }
         }
 
         if (last_out_speed != aml_out->output_speed) {
@@ -3852,14 +3881,14 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
                     set_ms12_main_audio_mute(&aml_dev->ms12, true, 0);
                 }
             }
-            if (data_pts_jitter_ms >= AUDIO_PTS_DISCONTINUE_THRESHOLD ) {
+            if (data_pts_jitter_ms >= AUDIO_PTS_DISCONTINUE_THRESHOLD) {
                 ALOGI("es data pts jitter %" PRIu64 " ms  do flush", data_pts_jitter_ms);
                 aml_audio_flush_dtv_output(aml_out);
                 while (!patch->output_thread_exit) {
                     if (dtv_package_is_full(list)) {
                         break;
                     }
-                    if (list->current) {
+                    if (list->current && list->current->pts_dts_flag != 0) {
                         if (list->current->pts - p_package->pts >= DTV_AUDIO_REPLAY_NEED_CACHE_MS) {
                             break;
                         } else {
@@ -3871,7 +3900,10 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
             }
         }
 
-        patch->dtvsync->last_package_pts = patch->cur_package->pts;
+        if (patch->cur_package->pts != DTVSYNC_INVALID_PTS) {
+            patch->dtvsync->last_package_pts = patch->cur_package->pts;
+        }
+
 
 
         ALOGV("AD %d %d", demux_info->dual_decoder_support, demux_info->ad_pid);

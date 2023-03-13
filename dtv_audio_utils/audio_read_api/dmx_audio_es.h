@@ -78,6 +78,8 @@ struct dtvsync_audio_policy {
 };
 
 #define DTVSYNC_INIT_PTS     (-10000)
+#define DTVSYNC_INVALID_PTS   (-20000)
+
 #define DTVSYNC_APTS_THRESHOLD  (-5000)
 
 typedef struct  aml_dtvsync {
@@ -93,8 +95,8 @@ typedef struct  aml_dtvsync {
     int pcm_dropping;
     int duration;
     pthread_mutex_t ms_lock;
-	dtvsync_type_t sync_type;
-	uint64_t last_package_pts;
+    dtvsync_type_t sync_type;
+    uint64_t last_package_pts;
 } aml_dtvsync_t;
 
 
@@ -106,14 +108,15 @@ typedef struct aml_dtv_audio_instances {
     aml_demux_audiopara_t demux_info[DVB_DEMUX_SUPPORT_MAX_NUM];
     aml_dtvsync_t dtvsync[DVB_DEMUX_SUPPORT_MAX_NUM];
     dtv_audio_scene dtv_scene;
-	int uio_fd;
-	bool skip_amadec_flag;
+    int uio_fd;
+    bool skip_amadec_flag;
 } aml_dtv_audio_instances_t;
 
 struct mAudioEsDataInfo {
     uint8_t *data;
     int size;
     int64_t pts;
+    uint8_t pts_dts_flag;
     int used_size;
     uint8_t adfade;
     uint8_t adpan;

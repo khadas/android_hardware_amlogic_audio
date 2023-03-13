@@ -73,6 +73,7 @@ struct mEsDataInfo {
     uint8_t *data;
     int size;
     int64_t pts;
+    uint8_t pts_dts_flag;
     int used_size;
     uint8_t adfade;
     uint8_t adpan;

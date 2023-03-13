@@ -80,6 +80,7 @@ static void getAudioEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, const 
         memcpy(mEsData->data, data_es, es_header->len);
         mEsData->size = es_header->len;
         mEsData->pts = es_header->pts;
+        mEsData->pts_dts_flag = es_header->pts_dts_flag;
         mDemuxWrapper->last_queue_es_apts = es_header->pts;
         mEsData->used_size = 0;
         //ALOGI("getAudioEsData %p mEsData->size %d mEsData->pts %lld, cached size:%d",mEsData, mEsData->size,mEsData->pts, mDemuxWrapper->mDemuxEsDataCacheSize);

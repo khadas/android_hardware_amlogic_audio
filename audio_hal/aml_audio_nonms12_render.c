@@ -234,6 +234,9 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
             if(patch->skip_amadec_flag) {
                 if (patch->cur_package) {
                      aml_dec->in_frame_pts = patch->cur_package->pts;
+                     if (patch->cur_package->pts == DTVSYNC_INVALID_PTS) {
+                        aml_dec->in_frame_pts = aml_dec->out_frame_pts;
+                     }
                 } else {
                     ALOGW("cur_package null !!!");
                 }
@@ -399,7 +402,6 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                                 aml_dec->out_frame_pts, patch->dtvsync->cur_outapts,\
                                 (aml_dec->out_frame_pts - patch->dtvsync->cur_outapts) / 90);
                         }
-
                     }
                     //sync process here
                     if (aml_out->dtvsync_enable && patch->dtvsync) {

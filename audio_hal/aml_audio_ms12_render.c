@@ -340,8 +340,11 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
             if (adev->debug_flag) {
                 ALOGI("%s dolby pts %" PRIu64 " decoder_base =%" PRIu64 " decoder_offset =%" PRIu64 "", __func__, patch->cur_package->pts, decoder_base, decoder_offset);
             }
-            if (patch->cur_package->pts != ULLONG_MAX)
+            if (patch->cur_package->pts != ULLONG_MAX && patch->cur_package->pts != DTVSYNC_INVALID_PTS) {
                 set_ms12_main_audio_pts(ms12, patch->cur_package->pts, decoder_offset);
+            } else {
+                set_ms12_main_audio_pts(ms12,  patch->dtvsync->out_end_apts, decoder_offset);
+            }
             /* to init the pts information */
             if (patch->decoder_offset == 0) {
                 aml_audio_ms12_init_pts_param(ms12, patch->cur_package->pts);
@@ -374,8 +377,13 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
 #ifdef ENABLE_DVB_PATCH
         if (do_sync_flag && aml_dec) {
             if(patch->skip_amadec_flag) {
-                if (patch->cur_package)
-                    aml_dec->in_frame_pts = patch->cur_package->pts;
+                if (patch->cur_package) {
+                    if (patch->cur_package->pts != DTVSYNC_INVALID_PTS) {
+                        aml_dec->in_frame_pts = patch->cur_package->pts;
+                    } else {
+                        aml_dec->in_frame_pts = aml_dec->out_frame_pts;
+                    }
+                }
                 if (aml_dec->in_frame_pts == 0) {
                      aml_dec->in_frame_pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
                 }

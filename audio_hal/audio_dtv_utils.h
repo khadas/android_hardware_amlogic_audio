@@ -132,6 +132,7 @@ struct package {
     int  ad_size;//ad package size
     struct package * next;//next ptr
     uint64_t pts;
+    uint8_t pts_dts_flag;
     uint64_t ad_pts;
     int split_frame_size;
 };

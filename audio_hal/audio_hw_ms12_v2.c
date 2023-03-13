@@ -3293,7 +3293,7 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
                use package_pts to reinitialize out_start_apts */
             if (patch->cur_package && patch->cur_package->pts > ms12_total_delay_pts && (int64_t)(patch->cur_package->pts -
                 aml_dtvsync->out_end_apts) > (int64_t)(ms12_total_delay_pts + MILLISECOND_2_PTS * 32 * 5)
-                && (patch->cur_package->pts != ULLONG_MAX)) {
+                && (patch->cur_package->pts != ULLONG_MAX) && (patch->cur_package->pts!= DTVSYNC_INVALID_PTS)) {
                 aml_dtvsync->out_start_apts = patch->cur_package->pts - ms12_total_delay_pts;
                 if (adev->debug_flag) {
                     ALOGI("%s update out_start_apts, package_pts, %" PRIx64 ", out_end_apts %" PRIx64 ", diff %d ms", __FUNCTION__, patch->cur_package->pts,
