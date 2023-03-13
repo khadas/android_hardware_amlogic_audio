@@ -35,10 +35,12 @@
 #include "alsa_config_parameters.h"
 #include <aml_android_utils.h>
 #include "audio_hw_ms12_common.h"
+#include "aml_audio_ms12_sync.h"
 
 #define MS12_MAIN_WRITE_LOOP_THRESHOLD                  (2000)
 #define AUDIO_IEC61937_FRAME_SIZE 4
 #define MS12_TRUNK_SIZE                                 (1024)
+#define SECOND_2_PTS (90000) // 1s = 90000 (pts)
 
 #ifdef ENABLE_DVB_PATCH
 extern unsigned long decoder_apts_lookup(unsigned int offset);
@@ -449,6 +451,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                         }
                         ms12_delayms = aml_audio_get_cur_ms12_latency(stream);
                         alsa_latency = 90 *(out_get_alsa_latency_frames(stream)  * 1000) / aml_out->config.rate;
+                        int tune_latency = aml_audio_dtv_get_ms12_latency(stream) * SECOND_2_PTS / dec_pcm_data->data_sr;
 
                         if (adev->bHDMIARCon) {
                             force_setting_delayms = aml_getprop_int(PROPERTY_LOCAL_PASSTHROUGH_LATENCY);
@@ -460,15 +463,16 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                                 aml_dtvsync_setParameter(patch->dtvsync, MEDIASYNC_KEY_ALSAREADY, &aml_out->alsa_running_status);
                                 aml_out->alsa_status_changed = false;
                             }
-                            patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90 - alsa_latency + force_setting_delayms * 90;
+                            patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90 - alsa_latency + force_setting_delayms * 90 - tune_latency;
                             if (get_debug_value(AML_DEBUG_AUDIOHAL_AUT)) {
-                                ALOGI("frame_pts:%" PRIx64 ", output_pts:%" PRIx64 ", latency:%" PRId64 " ms.",\
+                                ALOGI("frame_pts:%" PRIx64 ", output_pts:%" PRIx64 ", latency:%" PRId64 " ms, tune_latency:%d ms.",\
                                     aml_dec->out_frame_pts, patch->dtvsync->cur_outapts,\
-                                    (aml_dec->out_frame_pts - patch->dtvsync->cur_outapts) / 90);
+                                    (aml_dec->out_frame_pts - patch->dtvsync->cur_outapts) / 90, tune_latency / 90);
                             }
 
                             if (adev->debug_flag)
-                                ALOGI("patch->dtvsync->cur_outapts %" PRId64 ", ms12_delayms:%d ms, alsa_latency:%d ms", patch->dtvsync->cur_outapts, ms12_delayms, alsa_latency/90);
+                                ALOGI("patch->dtvsync->cur_outapts %" PRId64 ", ms12_delayms:%d ms, alsa_latency:%d ms, tune_latency:%d ms",\
+                                       patch->dtvsync->cur_outapts, ms12_delayms, alsa_latency/90, tune_latency / 90);
                             if (aml_out->dtvsync_enable)
                                 aml_dtvsync_ms12_get_policy(stream);
                         }

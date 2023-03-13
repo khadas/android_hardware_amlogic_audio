@@ -1375,6 +1375,11 @@ static int dtv_get_ms12_input_latency(audio_format_t input_format) {
         latency_ms = AVSYNC_MS12_DTV_AAC_LATENCY;
         break;
     }
+    case AUDIO_FORMAT_MP2: {
+        prop_name = AVSYNC_MS12_DTV_MP2_LATENCY_PROPERTY;
+        latency_ms = AVSYNC_MS12_DTV_MP2_LATENCY;
+        break;
+    }
     default:
         break;
     }
