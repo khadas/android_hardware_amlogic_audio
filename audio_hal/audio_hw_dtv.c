@@ -3837,7 +3837,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
 
         ALOGV("++%s line %d patch %p aml_out %p aml_out->hal_internal_format %#x\n ", __FUNCTION__, __LINE__, patch, aml_out, aml_out->hal_internal_format);
         if (patch->dtvsync) {
-            if (aml_dev->bHDMIConnected_update || aml_dev->a2dp_updated || patch->need_reconfig_mediasync) {
+            if (aml_dev->bHDMIConnected_update || aml_dev->a2dp_updated || (patch && patch->need_reconfig_mediasync)) {
                 patch->need_reconfig_mediasync = false;
                 ALOGI("reset_dtvsync (mediasync:%p)", patch->dtvsync->mediasync);
                 aml_dtvsync_reset(patch->dtvsync);
