@@ -128,7 +128,7 @@ static  int load_faad_decoder_lib(struct aac_dec_t *aac_dec)
 
     faad_op->init = ad_faad_op->init = (int (*) (void *)) dlsym(aac_dec->pdecoder, "audio_dec_init");
     if (faad_op->init == NULL) {
-        ALOGE("%s,cant find decoder lib,%s\n", __FUNCTION__, dlerror());
+        ALOGE("%s,can't find decoder lib,%s\n", __FUNCTION__, dlerror());
         return -1;
     } else {
         ALOGV("<%s::%d> audio_dec_init", __FUNCTION__, __LINE__);
@@ -137,7 +137,7 @@ static  int load_faad_decoder_lib(struct aac_dec_t *aac_dec)
     faad_op->decode = ad_faad_op->decode = (int (*)(void *, char *outbuf, int *outlen, char *inbuf, int inlen))
                           dlsym(aac_dec->pdecoder, "audio_dec_decode");
     if (faad_op->decode  == NULL) {
-        ALOGE("%s,cant find decoder lib,%s\n", __FUNCTION__, dlerror());
+        ALOGE("%s,can't find decoder lib,%s\n", __FUNCTION__, dlerror());
         return -1 ;
     } else {
         ALOGV("<%s::%d>--[audio_dec_decode:]", __FUNCTION__, __LINE__);
@@ -145,7 +145,7 @@ static  int load_faad_decoder_lib(struct aac_dec_t *aac_dec)
 
     faad_op->release = ad_faad_op->release =(int (*)(void *)) dlsym(aac_dec->pdecoder, "audio_dec_release");
     if ( faad_op->release== NULL) {
-        ALOGE("%s,cant find decoder lib,%s\n", __FUNCTION__, dlerror());
+        ALOGE("%s,can't find decoder lib,%s\n", __FUNCTION__, dlerror());
         return -1;
     } else {
         ALOGV("<%s::%d>--[audio_dec_release:]", __FUNCTION__, __LINE__);
@@ -153,7 +153,7 @@ static  int load_faad_decoder_lib(struct aac_dec_t *aac_dec)
 
     faad_op->getinfo = ad_faad_op->getinfo = (int (*)(void *, AudioInfo *pAudioInfo)) dlsym(aac_dec->pdecoder, "audio_dec_getinfo");
     if (faad_op->getinfo == NULL) {
-        ALOGI("%s,cant find decoder lib,%s\n", __FUNCTION__, dlerror());
+        ALOGI("%s,can't find decoder lib,%s\n", __FUNCTION__, dlerror());
         return -1;
     } else {
         ALOGV("<%s::%d>--[audio_dec_getinfo:]", __FUNCTION__, __LINE__);

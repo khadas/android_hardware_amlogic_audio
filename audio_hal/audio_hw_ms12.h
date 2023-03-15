@@ -129,32 +129,32 @@ int set_dolby_ms12_primary_input_db_gain(struct dolby_ms12_desc *ms12,
 int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_status);
 
 /*
- *@brief an callback for dolby ms12 output
+ *@brief a callback for dolby ms12 output
  */
 int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info);
 
 /*
- *@brief an callback for dolby ms12 pcm output
+ *@brief a callback for dolby ms12 pcm output
  */
 int dap_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info);
 
 /*
- *@brief an callback for dolby ms12 pcm output
+ *@brief a callback for dolby ms12 pcm output
  */
 int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info);
 
 /*
- *@brief an callback for dolby ms12 bitstream output
+ *@brief a callback for dolby ms12 bitstream output
  */
 int bitstream_output(void *buffer, void *priv_data, size_t size);
 
 /*
- *@brief an callback for dolby ms12 bitstream output
+ *@brief a callback for dolby ms12 bitstream output
  */
 int spdif_bitstream_output(void *buffer, void *priv_data, size_t size);
 
 /*
- *@brief an callback for dolby ms12 bitstream mat output
+ *@brief a callback for dolby ms12 bitstream mat output
  */
 int mat_bitstream_output(void *buffer, void *priv_data, size_t size);
 

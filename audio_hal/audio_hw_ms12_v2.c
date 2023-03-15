@@ -3630,7 +3630,7 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
 
     /** for low probability timing case, open1-->***-->open2->close1->****-->close2
     *** like above case, the ms12_main_stream_out is set null when close1 output_stream,
-    *** it lead to ms12 flush/pause/resume message cant send to ms12 thread in open2 output_stream.
+    *** it lead to ms12 flush/pause/resume message can't send to ms12 thread in open2 output_stream.
     *** so add ms12_main_stream_out address pointed check to protect this case.
     **/
     if ((unsigned char *)aml_out == (unsigned char*)ms12->ms12_main_stream_out) {

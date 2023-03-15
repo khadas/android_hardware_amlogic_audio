@@ -686,28 +686,28 @@ int hal_scaletempo_process(struct scale_tempo* scaletempo, aml_scaletempo_info_t
     pthread_mutex_lock(&scaletempo->mutex);
 
     if ((scaletempo->scale - 1.0) < 1e-10) {
-        n_samples_to_process = min(info->intput_samples, info->output_samples);
+        n_samples_to_process = min(info->input_samples, info->output_samples);
         if (n_samples_to_process > 0) {
             for (i = 0; j < info->ch; j++)
             {
                 memcpy(p_out_buffer->ppdata[j], p_in_buffer->ppdata[j], n_samples_to_process * info->sample_size);
 
             }
-            info->intput_samples = n_samples_to_process;
+            info->input_samples = n_samples_to_process;
             info->output_samples = n_samples_to_process;
             ALOGV("%s process samples =%d", __func__, n_samples_to_process);
         }
     } else {
         //ALOGI("%s %d: scale_tempo %p, input sample:%d, output sample:%d, ch %d, sr %d, samplesize:%d", __func__, __LINE__,
-        //        scaletempo, info->intput_samples, info->output_samples, info->ch, info->sr, info->sample_size);
+        //        scaletempo, info->input_samples, info->output_samples, info->ch, info->sr, info->sample_size);
         hal_scaletempo_set_info(scaletempo, info->ch, info->sr, info->sample_size, FORMAT_F32);
 
-        info->intput_samples = hal_scaletempo_get_process_samples(scaletempo, info->intput_samples, &info->output_samples);
+        info->input_samples = hal_scaletempo_get_process_samples(scaletempo, info->input_samples, &info->output_samples);
 
 
-        input_size = info->intput_samples * scaletempo->bytes_per_frame;
+        input_size = info->input_samples * scaletempo->bytes_per_frame;
         output_size = info->output_samples * scaletempo->bytes_per_frame;
-        if (info->intput_samples > 0) {
+        if (info->input_samples > 0) {
             if (input_size > scaletempo->buf_input_size) {
                 free(scaletempo->buf_input);
                 scaletempo->buf_input = (char*) malloc(input_size);
@@ -726,10 +726,10 @@ int hal_scaletempo_process(struct scale_tempo* scaletempo, aml_scaletempo_info_t
                 return 0;
             }
 
-            dump(p_in_buffer->ppdata[0], info->intput_samples * sizeof(float), "/data/vendor/ms12/tempo_in.raw");
+            dump(p_in_buffer->ppdata[0], info->input_samples * sizeof(float), "/data/vendor/ms12/tempo_in.raw");
 
             sample = (float*)input_buffer;
-            for (i = 0; i < info->intput_samples; i++) {
+            for (i = 0; i < info->input_samples; i++) {
                 for (j = 0; j < scaletempo->channel; j++) {
                     p_buffer = (float*)p_in_buffer->ppdata[j];
                     sample[i * scaletempo->channel +j] = p_buffer[i];
@@ -761,7 +761,7 @@ int hal_scaletempo_process(struct scale_tempo* scaletempo, aml_scaletempo_info_t
         dump(p_out_buffer->ppdata[0], info->output_samples * sizeof(float), "/data/vendor/ms12/tempo_out.raw");
     }
 
-    scaletempo->input_sample_total += info->intput_samples;
+    scaletempo->input_sample_total += info->input_samples;
     scaletempo->output_sample_total += info->output_samples;
     clock_gettime(CLOCK_MONOTONIC_RAW, &end_ts);
 
@@ -769,7 +769,7 @@ int hal_scaletempo_process(struct scale_tempo* scaletempo, aml_scaletempo_info_t
     if (count ++ % 10000 == 0) {
         ALOGI("%s %d: scale_tempo %p, input sample:%d, output sample:%d, rate:%f, total input: %u, total output:%u, cost time:%llu ms",
             __func__, __LINE__,
-            scaletempo, info->intput_samples, info->output_samples, scaletempo->scale, scaletempo->input_sample_total,
+            scaletempo, info->input_samples, info->output_samples, scaletempo->scale, scaletempo->input_sample_total,
             scaletempo->output_sample_total, scaletempo->cost_time/1000000);
     }
     pthread_mutex_unlock(&scaletempo->mutex);

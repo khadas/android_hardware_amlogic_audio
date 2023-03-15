@@ -127,7 +127,7 @@ typedef struct aml_scaletempo_info {
     int sample_size; /**the decoded sample bit width*/
     int data_type;
     scale_tempo_buffer * inputbuffer;
-    int intput_samples;
+    int input_samples;
     scale_tempo_buffer * outputbuffer;
     int output_samples;
 } aml_scaletempo_info_t;

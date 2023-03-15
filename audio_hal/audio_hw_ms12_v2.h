@@ -169,12 +169,12 @@ int set_dolby_ms12_primary_input_db_gain(struct dolby_ms12_desc *ms12,
 int set_system_app_mixing_status(struct aml_stream_out *aml_out, int stream_status);
 
 /*
- *@brief an callback for dolby ms12 output
+ *@brief a callback for dolby ms12 output
  */
 int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t *ms12_info);
 
 /*
- *@brief an callback for ms12 speed process
+ *@brief a callback for ms12 speed process
  */
 int ms12_scaletempo(void *priv_data, void *info);
 

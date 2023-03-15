@@ -120,7 +120,7 @@ static  int load_dra_decoder_lib(struct dra_dec_t *dra_dec)
 
     dra_op->init = ad_dra_op->init = (int (*)(void *)) dlsym(dra_dec->pdecoder, "audio_dec_init");
     if (dra_op->init == NULL) {
-        ALOGE("%s,cant find decoder lib,%s\n", __FUNCTION__, dlerror());
+        ALOGE("%s,can't find decoder lib,%s\n", __FUNCTION__, dlerror());
         return -1;
     } else {
         ALOGV("<%s::%d> audio_dec_init", __FUNCTION__, __LINE__);
@@ -129,7 +129,7 @@ static  int load_dra_decoder_lib(struct dra_dec_t *dra_dec)
     dra_op->decode = ad_dra_op->decode = (int (*)(void *, char * outbuf, int * outlen, char * inbuf, int inlen))
                                          dlsym(dra_dec->pdecoder, "audio_dec_decode");
     if (dra_op->decode  == NULL) {
-        ALOGE("%s,cant find decoder lib,%s\n", __FUNCTION__, dlerror());
+        ALOGE("%s,can't find decoder lib,%s\n", __FUNCTION__, dlerror());
         return -1 ;
     } else {
         ALOGV("<%s::%d>--[audio_dec_decode:]", __FUNCTION__, __LINE__);
@@ -137,7 +137,7 @@ static  int load_dra_decoder_lib(struct dra_dec_t *dra_dec)
 
     dra_op->release = ad_dra_op->release = (int (*)(void *)) dlsym(dra_dec->pdecoder, "audio_dec_release");
     if (dra_op->release == NULL) {
-        ALOGE("%s,cant find decoder lib,%s\n", __FUNCTION__, dlerror());
+        ALOGE("%s,can't find decoder lib,%s\n", __FUNCTION__, dlerror());
         return -1;
     } else {
         ALOGV("<%s::%d>--[audio_dec_release:]", __FUNCTION__, __LINE__);
@@ -145,7 +145,7 @@ static  int load_dra_decoder_lib(struct dra_dec_t *dra_dec)
 
     dra_op->getinfo = ad_dra_op->getinfo = (int (*)(void *, AudioInfo * pAudioInfo)) dlsym(dra_dec->pdecoder, "audio_dec_getinfo");
     if (dra_op->getinfo == NULL) {
-        ALOGI("%s,cant find decoder lib,%s\n", __FUNCTION__, dlerror());
+        ALOGI("%s,can't find decoder lib,%s\n", __FUNCTION__, dlerror());
         return -1;
     } else {
         ALOGV("<%s::%d>--[audio_dec_getinfo:]", __FUNCTION__, __LINE__);

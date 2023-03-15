@@ -2060,7 +2060,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
         out_standby_new((struct audio_stream *)aml_out);
         pthread_mutex_lock(&aml_dev->lock);
     } else {
-        ALOGI("++%s live cant get the aml_out now!!!\n ", __FUNCTION__);
+        ALOGI("++%s live can't get the aml_out now!!!\n ", __FUNCTION__);
     }
     aml_dev->mix_init_flag = false;
     pthread_mutex_unlock(&aml_dev->lock);
@@ -3719,7 +3719,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
         out_standby_new((struct audio_stream *)aml_out);
         pthread_mutex_lock(&aml_dev->lock);
     } else {
-        ALOGI("++%s live cant get the aml_out now!!!\n ", __FUNCTION__);
+        ALOGI("++%s live can't get the aml_out now!!!\n ", __FUNCTION__);
     }
     aml_dev->mix_init_flag = false;
     aml_dev->mute_start = true;

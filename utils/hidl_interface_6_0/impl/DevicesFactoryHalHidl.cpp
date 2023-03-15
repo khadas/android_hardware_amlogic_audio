@@ -127,7 +127,7 @@ status_t DevicesFactoryHalHidl::openDevice(const char *name, sp<DeviceHalInterfa
         switch (retval) {
             // Device was found and was initialized successfully.
             case Result::OK: return OK;
-            // Device was found but failed to initalize.
+            // Device was found but failed to initialize.
             case Result::NOT_INITIALIZED: return NO_INIT;
             // Otherwise continue iterating.
             default: ;

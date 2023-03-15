@@ -767,7 +767,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
         if (audio_cap_item) {
             p_hdmi_descs->dts_fmt.is_support = 1;
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS");
-            /*as we don't support dts decoder, then we cant' support dts hd passthrough*/
+            /*as we don't support dts decoder, then we can't support dts hd passthrough*/
             if (adev->dts_decode_enable) {
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS_HD");
             }

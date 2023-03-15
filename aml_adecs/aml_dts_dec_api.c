@@ -451,7 +451,7 @@ static int dca_decoder_init(aml_dec_control_type_t digital_raw)
 
     dts_decoder_init = (int (*)(int, int)) dlsym(gDtsDecoderLibHandler, "dca_decoder_init");
     if (dts_decoder_init == NULL) {
-        ALOGE("%s,cant find decoder lib,%s\n", __FUNCTION__, dlerror());
+        ALOGE("%s,can't find decoder lib,%s\n", __FUNCTION__, dlerror());
         goto Error;
     } else {
         ALOGV("<%s::%d>--[dts_decoder_init:]", __FUNCTION__, __LINE__);
@@ -460,7 +460,7 @@ static int dca_decoder_init(aml_dec_control_type_t digital_raw)
     dts_decoder_process = (int (*)(char * , int , int *, char *, int *, struct pcm_info *, char *, int *))
                           dlsym(gDtsDecoderLibHandler, "dca_decoder_process");
     if (dts_decoder_process == NULL) {
-        ALOGE("%s,cant find decoder lib,%s\n", __FUNCTION__, dlerror());
+        ALOGE("%s,can't find decoder lib,%s\n", __FUNCTION__, dlerror());
         goto Error;
     } else {
         ALOGV("<%s::%d>--[dts_decoder_process:]", __FUNCTION__, __LINE__);
@@ -468,7 +468,7 @@ static int dca_decoder_init(aml_dec_control_type_t digital_raw)
 
     dts_decoder_cleanup = (int (*)()) dlsym(gDtsDecoderLibHandler, "dca_decoder_deinit");
     if (dts_decoder_cleanup == NULL) {
-        ALOGE("%s,cant find decoder lib,%s\n", __FUNCTION__, dlerror());
+        ALOGE("%s,can't find decoder lib,%s\n", __FUNCTION__, dlerror());
         goto Error;
     } else {
         ALOGV("<%s::%d>--[dts_decoder_cleanup:]", __FUNCTION__, __LINE__);
