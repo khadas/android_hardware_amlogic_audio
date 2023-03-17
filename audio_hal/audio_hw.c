@@ -547,6 +547,13 @@ static int start_output_stream (struct aml_stream_out *out)
 static int check_input_parameters(uint32_t sample_rate, audio_format_t format, int channel_count, audio_devices_t devices)
 {
     ALOGD("%s(sample_rate=%d, format=%d, channel_count=%d, devices = %x)", __FUNCTION__, sample_rate, format, channel_count, devices);
+   if (format == AUDIO_FORMAT_PCM_8_BIT || ((devices == AUDIO_DEVICE_NONE) && (format == AUDIO_FORMAT_PCM_FLOAT)) || sample_rate == 41000) {
+        // 1 (devices == AUDIO_DEVICE_NONE) && (format == AUDIO_FORMAT_PCM_FLOAT) this is for
+        // support for r_submix's readFloatArray case, when directly calling from adev_get_input_buffer_size
+        // 2 format == AUDIO_FORMAT_PCM_8_BIT,format == AUDIO_FORMAT_PCM_FLOAT,sample_rate == 41000 for
+        // support for t7c testAudioRecordResamplerMono8Bit and testAudioRecordMonoFloat etc. ,Ask us to support these special formats and sample rates
+        return 0;
+    }
 
     if(AUDIO_DEVICE_IN_DEFAULT == devices && AUDIO_CHANNEL_NONE == channel_count &&
        AUDIO_FORMAT_DEFAULT == format && 0 == sample_rate) {
@@ -554,11 +561,6 @@ static int check_input_parameters(uint32_t sample_rate, audio_format_t format, i
        return -ENOSYS; /*Currently System Not Supported.*/
     }
 
-    if ((devices == AUDIO_DEVICE_NONE) && (format == AUDIO_FORMAT_PCM_FLOAT)) {
-        // support for r_submix's readFloatArray case,
-        // when directly calling from adev_get_input_buffer_size
-        return 0;
-    }
     if (format != AUDIO_FORMAT_PCM_16_BIT && format != AUDIO_FORMAT_PCM_32_BIT) {
         ALOGE("%s: unsupported AUDIO FORMAT (%d)", __func__, format);
         return -EINVAL;
