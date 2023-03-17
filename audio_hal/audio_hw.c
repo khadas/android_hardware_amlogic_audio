@@ -6962,16 +6962,19 @@ hwsync_rewrite:
                         ret = aml_hwsync_wrap_get_pts(aml_out->hwsync, &pcr);
                         aml_hwsync_wrap_reset_pcrscr(aml_out->hwsync, apts64);
                         pcr_pts_gap = ((int)(apts64 - pcr)) / 90;
+
                         if (!adev->is_netflix &&
+                            aml_out->usecase == STREAM_PCM_HWSYNC &&
                             abs(pcr_pts_gap) > (APTS_DISCONTINUE_THRESHOLD_MIN_70MS) &&
                             abs(pcr_pts_gap) < APTS_DISCONTINUE_THRESHOLD_MIN_5S &&
                             apts64 > pcr &&
                             pcr != 0) {
+                            // this code is for CTS cases about pcm tunnel mode stream.
                             aml_out->is_insert_zero_data = true;
                             aml_out->insert_zero_data_ms = pcr_pts_gap;
-                         } else {
+                        } else {
                             aml_out->is_insert_zero_data = false;
-                         }
+                        }
 
                         if (abs(pcr_pts_gap) > 100 || debug_enable) {
                             ALOGI("[avsync, %p] tunnel raw pts[%"PRIu64 "]ms pcr[%"PRIu64"]ms diff[%d]ms",
