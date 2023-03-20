@@ -857,21 +857,29 @@ static int aml_audio_output_ddp_atmos(struct audio_stream_out *stream)
     return (is_atmos_supported && is_ddp_atmos_format);
 }
 
-static int get_ms12_tunnel_video_delay(void) {
+static int get_ms12_tunnel_video_delay(struct audio_stream_out *stream) {
     char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;
     int latency_ms = 0;
     char *prop_name = NULL;
+    struct aml_stream_out *out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = out->dev;
 
-    prop_name= AVSYNC_MS12_TUNNEL_VIDEO_DELAY_PROPERTY;
-    latency_ms = AVSYNC_MS12_TUNNEL_VIDEO_DELAY;
-    if (prop_name) {
-        ret = property_get(prop_name, buf, NULL);
-        if (ret > 0) {
-            latency_ms = atoi(buf);
+    // temporary only netflix use get_media_video_delay, avoid affecting
+    // current Dolby-AVsync or XTS certification result.
+    if (adev->is_netflix) {
+        latency_ms = get_media_video_delay(&adev->alsa_mixer);
+    } else {
+        prop_name= AVSYNC_MS12_TUNNEL_VIDEO_DELAY_PROPERTY;
+        latency_ms = AVSYNC_MS12_TUNNEL_VIDEO_DELAY;
+        if (prop_name) {
+            ret = property_get(prop_name, buf, NULL);
+            if (ret > 0) {
+                latency_ms = atoi(buf);
+            }
         }
     }
-    ALOGV("%s latency ms =%d", __func__, latency_ms);
+    ALOGV("%s latency ms =%d, is_netflix=%d", __func__, latency_ms, adev->is_netflix);
     return latency_ms;
 
 }
@@ -930,7 +938,7 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
     }
 
     if (adev->is_TV) {
-        video_delay = get_ms12_tunnel_video_delay() * 48;
+        video_delay = get_ms12_tunnel_video_delay(stream) * 48;
     } else if (adev->bDVEnable) {
         dv_delay = get_sink_dv_latency_offset(true, adev->is_netflix) * 48;
     }
