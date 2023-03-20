@@ -257,6 +257,25 @@ exit:
     return -1;
 }
 
+static int mad_decoder_flush(aml_dec_t * aml_dec)
+{
+    dec_data_info_t * dec_pcm_data = NULL;
+    dec_data_info_t *ad_dec_pcm_data = NULL;
+    struct mad_dec_t *mad_dec = (struct mad_dec_t *)aml_dec;
+    mad_decoder_operations_t *mad_op = &mad_dec->mad_op;
+    mad_decoder_operations_t *ad_mad_op = &mad_dec->ad_mad_op;
+    if (aml_dec != NULL) {
+        dec_pcm_data = &aml_dec->dec_pcm_data;
+        dec_pcm_data->data_len = 0;
+        ad_dec_pcm_data = &aml_dec->ad_dec_pcm_data;
+        ad_dec_pcm_data->data_len = 0;
+        mad_dec->remain_size = 0;
+        mad_dec->ad_remain_size = 0;
+    }
+    ALOGI("%s success", __func__);
+    return 0;
+}
+
 static int mad_decoder_release(aml_dec_t * aml_dec)
 {
     dec_data_info_t * dec_pcm_data = NULL;
@@ -278,7 +297,7 @@ static int mad_decoder_release(aml_dec_t * aml_dec)
         unload_mad_decoder_lib(mad_dec);
         aml_audio_free(aml_dec);
     }
-    ALOGE("%s success", __func__);
+    ALOGI("%s success", __func__);
     return 0;
 }
 static void dump_mad_data(void *buffer, int size, char *file_name)
@@ -526,6 +545,10 @@ int mad_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, a
         return ret;
     }
     switch (config_type) {
+    case AML_DEC_CONFIG_AD_DECODER_ENABLE:
+        mad_dec->ad_decoder_supported = dec_config->ad_decoder_supported;
+        ALOGI("dec_config->ad_decoder_supported %d",dec_config->ad_decoder_supported);
+        break;
     case AML_DEC_CONFIG_MIXER_LEVEL: {
         mad_dec->mixer_level = dec_config->mixer_level;
         ALOGI("dec_config->mixer_level %d",dec_config->mixer_level);
@@ -563,4 +586,5 @@ aml_dec_func_t aml_mad_func = {
     .f_process              = mad_decoder_process,
     .f_config               = mad_decoder_config,
     .f_info                 = mad_decoder_getinfo,
+    .f_flush                = mad_decoder_flush,
 };

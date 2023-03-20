@@ -61,6 +61,7 @@
 #define DDP_DECODER_CACHE 32 * 90 /* ddp decoder cache es data one frame 32ms */
 
 typedef enum {
+    AML_DEC_CONFIG_AD_DECODER_ENABLE,
     AML_DEC_CONFIG_MIXING_ENABLE,
     AML_DEC_CONFIG_AD_VOL,
     AML_DEC_CONFIG_MIXER_LEVEL, //runtime param
@@ -237,6 +238,8 @@ typedef int (*F_Release)(aml_dec_t *aml_dec);
 typedef int (*F_Process)(aml_dec_t *aml_dec, unsigned char* buffer, int bytes);
 typedef int (*F_Config)(aml_dec_t *aml_dec, aml_dec_config_type_t config_type, aml_dec_config_t * dec_config);
 typedef int (*F_Info)(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_dec_info_t * dec_info);
+typedef int (*F_Flush)(aml_dec_t *aml_dec);
+
 
 typedef struct aml_dec_func {
     F_Init                  f_init;
@@ -244,10 +247,12 @@ typedef struct aml_dec_func {
     F_Process               f_process;
     F_Config                f_config;
     F_Info                  f_info;
+    F_Flush                 f_flush;
 } aml_dec_func_t;
 
 int aml_decoder_init(aml_dec_t **aml_dec, audio_format_t format, aml_dec_config_t * dec_config);
 int aml_decoder_release(aml_dec_t *aml_dec);
+int aml_decoder_flush(aml_dec_t *aml_dec);
 int aml_decoder_info(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_dec_info_t * dec_info);
 int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int * used_bytes);
 int aml_decoder_set_config(aml_dec_t *aml_dec, aml_dec_config_type_t config_type, aml_dec_config_t * dec_config);

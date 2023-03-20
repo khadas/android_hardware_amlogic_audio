@@ -590,6 +590,31 @@ error:
     ALOGE("%s failed", __func__);
     return -1;
 }
+static int  dcv_decoder_flush(aml_dec_t * aml_dec) {
+    struct dolby_ddp_dec *ddp_dec = (struct dolby_ddp_dec *)aml_dec;
+
+    if (aml_dec == NULL) {
+        ALOGE("%s aml_dec NULL", __func__);
+        return -1;
+    }
+
+    dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
+    dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
+    dec_data_info_t * raw_in_data  = &aml_dec->raw_in_data;
+    if (ddp_dec) {
+        ddp_dec->inbuf_size = 0;
+        ddp_dec->remain_size = 0;
+        ddp_dec->outlen_pcm = 0;
+        ddp_dec->outlen_raw = 0;
+        dec_pcm_data->data_len = 0;
+        dec_raw_data->data_len = 0;
+        raw_in_data->data_len = 0;
+    }
+
+    ALOGI("%s exit", __func__);
+    return 0;
+
+}
 
 int dcv_decoder_release_patch(aml_dec_t * aml_dec)
 {
@@ -1206,6 +1231,7 @@ aml_dec_func_t aml_dcv_func = {
     .f_process              = dcv_decoder_process_patch,
     .f_config               = dcv_decoder_config,
     .f_info                 = dcv_decoder_info,
+    .f_flush                = dcv_decoder_flush,
 };
 
 

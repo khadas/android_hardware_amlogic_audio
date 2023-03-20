@@ -277,6 +277,25 @@ exit:
     return -1;
 }
 
+static int faad_decoder_flush(aml_dec_t * aml_dec)
+{
+    dec_data_info_t * dec_pcm_data = NULL;
+    dec_data_info_t *ad_dec_pcm_data = NULL;
+    struct aac_dec_t *faad_dec = (struct aac_dec_t *)aml_dec;
+    faad_decoder_operations_t *faad_op = &faad_dec->faad_op;
+    faad_decoder_operations_t *ad_mad_op = &faad_dec->ad_faad_op;
+    if (aml_dec != NULL) {
+        dec_pcm_data = &aml_dec->dec_pcm_data;
+        dec_pcm_data->data_len = 0;
+        ad_dec_pcm_data = &aml_dec->ad_dec_pcm_data;
+        ad_dec_pcm_data->data_len = 0;
+        faad_dec->remain_size = 0;
+        faad_dec->ad_remain_size = 0;
+    }
+    ALOGI("%s success", __func__);
+    return 0;
+}
+
 static int faad_decoder_release(aml_dec_t * aml_dec)
 {
     dec_data_info_t *dec_pcm_data = NULL;
@@ -572,6 +591,10 @@ int faad_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, 
         return ret;
     }
     switch (config_type) {
+    case AML_DEC_CONFIG_AD_DECODER_ENABLE:
+        aac_dec->ad_decoder_supported = dec_config->ad_decoder_supported;
+        ALOGI("dec_config->ad_decoder_supported %d",dec_config->ad_decoder_supported);
+        break;
     case AML_DEC_CONFIG_MIXER_LEVEL: {
         aac_dec->mixer_level = dec_config->mixer_level;
         ALOGI("dec_config->mixer_level %d",dec_config->mixer_level);
@@ -611,4 +634,5 @@ aml_dec_func_t aml_faad_func = {
     .f_process              = faad_decoder_process,
     .f_config               = faad_decoder_config,
     .f_info                 = faad_decoder_getinfo,
+    .f_flush                = faad_decoder_flush,
 };
