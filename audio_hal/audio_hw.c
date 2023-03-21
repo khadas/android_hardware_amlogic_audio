@@ -2098,15 +2098,15 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
             }
         }
     }
-    if (out->usecase == STREAM_PCM_HWSYNC && !adev->frame_write_sum_updated) {
-        //do nothing, not need to compensate video latency.
+    if (out->usecase == STREAM_PCM_HWSYNC) {
+        //do nothing, not need to compensate video latency for hwsync stream.
     } else {
         *frames += video_delay_frames;
     }
 
     {
         if (adev->debug_flag)
-            ALOGI("out_get_presentation_position out %p %"PRIu64", sec = %ld, nanosec = %ld(origin:%" PRId64 ") tuned_latency_ms %d frame_latency %d video delay=%d(origin:%d)\n",
+            ALOGI("out_get_presentation_position out:%p frames:%"PRIu64", sec = %ld, nanosec = %ld(origin:%" PRId64 ") tuned_latency_ms %d frame_latency %d video delay=%d(origin:%d)\n",
                 out, *frames, timestamp->tv_sec, timestamp->tv_nsec, origin_tv_nsec, timems_latency, frame_latency, video_delay_frames, origin_vdelay_frames);
 
         int64_t  frame_diff_ms =  (*frames - out->last_frame_reported) * 1000 / out->hal_rate;
@@ -7393,7 +7393,11 @@ hwsync_rewrite:
         if (remaining_time > 0) {
             audio_timer_stop(aml_out->timer_id);
         }
-        audio_one_shot_timer_start(aml_out->timer_id, AML_HWSYNC_STREAM_TIMER_RENDER_DELAY);
+        if (eDolbyMS12Lib == adev->dolby_lib_type) {
+            audio_one_shot_timer_start(aml_out->timer_id, AML_HWSYNC_STREAM_TIMER_RENDER_DELAY);
+        } else {//none ms12 pipe is shorter than ms12, so adjust the delay time to 60ms.
+            audio_one_shot_timer_start(aml_out->timer_id, AML_HWSYNC_STREAM_TIMER_NOMS12_RENDER_DELAY);
+        }
         adev->frame_write_sum_updated = true;
     }
 
