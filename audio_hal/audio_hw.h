@@ -448,6 +448,10 @@ struct aml_audio_device {
     size_t out_16_buf_size;
     int32_t *out_32_buf;
     size_t out_32_buf_size;
+    int32_t *tmp_buffer_8ch;
+    size_t tmp_buffer_8ch_size;
+    int16_t *audioeffect_tmp_buffer;
+    size_t audioeffect_tmp_buffer_size;
     size_t spk_tuning_lvl;
     /* ringbuffer for tuning latency total buf size */
     size_t spk_tuning_buf_size;
@@ -662,10 +666,7 @@ struct aml_stream_out {
     uint64_t last_frames_position;
     uint64_t spdif_enc_init_frame_write_sum;
     int skip_frame;
-    int32_t *tmp_buffer_8ch;
-    size_t tmp_buffer_8ch_size;
     int is_tv_platform;
-    void *audioeffect_tmp_buffer;
     bool pause_status;
     bool hw_sync_mode;
     int  tsync_status;

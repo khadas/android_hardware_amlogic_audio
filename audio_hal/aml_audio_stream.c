@@ -636,12 +636,6 @@ bool is_hdmi_in_stable_sw (struct audio_stream_in *stream)
 void  release_audio_stream(struct audio_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
-    if (aml_out->is_tv_platform == 1) {
-        aml_audio_free(aml_out->tmp_buffer_8ch);
-        aml_out->tmp_buffer_8ch = NULL;
-        aml_audio_free(aml_out->audioeffect_tmp_buffer);
-        aml_out->audioeffect_tmp_buffer = NULL;
-    }
     aml_audio_free(stream);
 }
 bool is_atv_in_stable_hw (struct audio_stream_in *stream)

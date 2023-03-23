@@ -1018,18 +1018,6 @@ int get_the_dolby_ms12_prepared(
             out->is_tv_platform  = 1;
             out->config.channels = 8;
             out->config.format = PCM_FORMAT_S16_LE;
-            out->tmp_buffer_8ch = aml_audio_malloc(out->config.period_size * 4 * 8);
-            if (out->tmp_buffer_8ch == NULL) {
-                ALOGE("%s cannot malloc memory for out->tmp_buffer_8ch", __func__);
-                goto Err_tmp_buf_8ch;
-
-            }
-            out->tmp_buffer_8ch_size = out->config.period_size * 4 * 8;
-            out->audioeffect_tmp_buffer = aml_audio_malloc(out->config.period_size * 6);
-            if (out->audioeffect_tmp_buffer == NULL) {
-                ALOGE("%s cannot malloc memory for audioeffect_tmp_buffer", __func__);
-                goto Err_audioeffect_tmp_buf;
-            }
         }
         ALOGI("%s create ms12 stream %p,original stream %p", __func__, out, aml_out);
     } else {
@@ -1257,12 +1245,7 @@ Err_dolby_ms12_thread:
             ms12->dolby_ms12_thread_exit = true;
             ms12->dolby_ms12_threadID = 0;
         }
-        aml_audio_free(out->audioeffect_tmp_buffer);
     }
-
-Err_audioeffect_tmp_buf:
-    aml_audio_free(out->tmp_buffer_8ch);
-Err_tmp_buf_8ch:
     aml_audio_free(out);
 Err:
     if (ms12->iec61937_ddp_buf) {

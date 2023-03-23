@@ -3552,23 +3552,6 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         out->is_tv_platform = 1;
         out->config.channels = bd_config->default_alsa_ch;
         out->config.format = PCM_FORMAT_S32_LE;
-
-        out->tmp_buffer_8ch_size = out->config.period_size * 4 * bd_config->default_alsa_ch;
-        out->tmp_buffer_8ch = aml_audio_malloc(out->tmp_buffer_8ch_size);
-        if (!out->tmp_buffer_8ch) {
-            ALOGE("%s: alloc tmp_buffer_8ch failed", __func__);
-            ret = -ENOMEM;
-            goto err;
-        }
-        memset(out->tmp_buffer_8ch, 0, out->tmp_buffer_8ch_size);
-
-        out->audioeffect_tmp_buffer = aml_audio_malloc(out->config.period_size * 6);
-        if (!out->audioeffect_tmp_buffer) {
-            ALOGE("%s: alloc audioeffect_tmp_buffer failed", __func__);
-            ret = -ENOMEM;
-            goto err;
-        }
-        memset(out->audioeffect_tmp_buffer, 0, out->config.period_size * 6);
     }
 
     /*if tunnel mode pcm is not 48Khz, resample to 48K*/
@@ -3613,11 +3596,6 @@ err:
         aml_audio_free(out->hwsync);
         out->hwsync = NULL;
     }
-
-    if (out->audioeffect_tmp_buffer)
-        aml_audio_free(out->audioeffect_tmp_buffer);
-    if (out->tmp_buffer_8ch)
-        aml_audio_free(out->tmp_buffer_8ch);
 
     pthread_mutex_unlock(&out->lock);
     pthread_mutex_destroy(&out->lock);
@@ -3837,16 +3815,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             out->restore_continuous = true;
             clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
         }
-    }
-
-    if (out->audioeffect_tmp_buffer) {
-        aml_audio_free(out->audioeffect_tmp_buffer);
-        out->audioeffect_tmp_buffer = NULL;
-    }
-
-    if (out->tmp_buffer_8ch) {
-        aml_audio_free(out->tmp_buffer_8ch);
-        out->tmp_buffer_8ch = NULL;
     }
 
     if (out->resample_outbuf) {
@@ -5688,24 +5656,24 @@ ssize_t audio_hal_data_processing_ms12v2(struct audio_stream_out *stream,
             }
 
             /* nchannels 32 bit --> 8 channel 32 bit mapping */
-            ret = aml_audio_check_and_realloc((void **)&aml_out->tmp_buffer_8ch, &aml_out->tmp_buffer_8ch_size,
+            ret = aml_audio_check_and_realloc((void **)&adev->tmp_buffer_8ch, &adev->tmp_buffer_8ch_size,
                     out_frames * 4 * bd_config->default_alsa_ch);
             R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%zu fail", out_frames * 4 * bd_config->default_alsa_ch);
 
             for (i = 0; i < out_frames; i++) {
                 for (j = 0; j < nchannels; j++) {
-                    aml_out->tmp_buffer_8ch[bd_config->default_alsa_ch * i + j] = adev->out_32_buf[nchannels * i + j];
+                    adev->tmp_buffer_8ch[bd_config->default_alsa_ch * i + j] = adev->out_32_buf[nchannels * i + j];
                 }
                 for (j = nchannels; j < bd_config->default_alsa_ch; j++) {
-                    aml_out->tmp_buffer_8ch[bd_config->default_alsa_ch * i + j] = 0;
+                    adev->tmp_buffer_8ch[bd_config->default_alsa_ch * i + j] = 0;
                 }
             }
-            *output_buffer = aml_out->tmp_buffer_8ch;
+            *output_buffer = adev->tmp_buffer_8ch;
             *output_buffer_bytes = out_frames * 4 * bd_config->default_alsa_ch; /* from nchannels 32 bit to 8 ch 32 bit */
             if (enable_dump) {
                 FILE *fp1 = fopen("/data/vendor/audiohal/ms12_out_10_spk.pcm", "a+");
                 if (fp1) {
-                    int flen = fwrite((char *)aml_out->tmp_buffer_8ch, 1, out_frames * 4 * bd_config->default_alsa_ch, fp1);
+                    int flen = fwrite((char *)adev->tmp_buffer_8ch, 1, out_frames * 4 * bd_config->default_alsa_ch, fp1);
                     fclose(fp1);
                 }
             }
@@ -5777,22 +5745,22 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         }
 
         /* 2 ch 32 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
-        ret = aml_audio_check_and_realloc((void **)&aml_out->tmp_buffer_8ch, &aml_out->tmp_buffer_8ch_size,
+        ret = aml_audio_check_and_realloc((void **)&adev->tmp_buffer_8ch, &adev->tmp_buffer_8ch_size,
             FRAMESIZE_32BIT_8ch * out_frames);
         R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%zu fail", FRAMESIZE_32BIT_8ch * out_frames);
 
         for (i = 0; i < out_frames; i++) {
-            aml_out->tmp_buffer_8ch[8 * i] = tmp_buffer[2 * i];
-            aml_out->tmp_buffer_8ch[8 * i + 1] = tmp_buffer[2 * i + 1];
-            aml_out->tmp_buffer_8ch[8 * i + 2] = tmp_buffer[2 * i];
-            aml_out->tmp_buffer_8ch[8 * i + 3] = tmp_buffer[2 * i + 1];
-            aml_out->tmp_buffer_8ch[8 * i + 4] = tmp_buffer[2 * i];
-            aml_out->tmp_buffer_8ch[8 * i + 5] = tmp_buffer[2 * i + 1];
-            aml_out->tmp_buffer_8ch[8 * i + 6] = 0;
-            aml_out->tmp_buffer_8ch[8 * i + 7] = 0;
+            adev->tmp_buffer_8ch[8 * i] = tmp_buffer[2 * i];
+            adev->tmp_buffer_8ch[8 * i + 1] = tmp_buffer[2 * i + 1];
+            adev->tmp_buffer_8ch[8 * i + 2] = tmp_buffer[2 * i];
+            adev->tmp_buffer_8ch[8 * i + 3] = tmp_buffer[2 * i + 1];
+            adev->tmp_buffer_8ch[8 * i + 4] = tmp_buffer[2 * i];
+            adev->tmp_buffer_8ch[8 * i + 5] = tmp_buffer[2 * i + 1];
+            adev->tmp_buffer_8ch[8 * i + 6] = 0;
+            adev->tmp_buffer_8ch[8 * i + 7] = 0;
         }
 
-        *output_buffer = aml_out->tmp_buffer_8ch;
+        *output_buffer = adev->tmp_buffer_8ch;
         *output_buffer_bytes = FRAMESIZE_32BIT_8ch * out_frames;
     } else {
         if (aml_out->is_tv_platform == 1) {
@@ -5806,14 +5774,24 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             R_CHECK_RET(ret, "alloc out_32_buf size:%zu fail", 2 * bytes);
 
             /* 2 ch 16 bit --> x ch 32 bit mapping, need x*size of input buffer size */
-            ret = aml_audio_check_and_realloc((void **)&aml_out->tmp_buffer_8ch, &aml_out->tmp_buffer_8ch_size,
+            ret = aml_audio_check_and_realloc((void **)&adev->tmp_buffer_8ch, &adev->tmp_buffer_8ch_size,
                     bd_config->default_alsa_ch * buffer_need_size);
             R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%zu fail", bd_config->default_alsa_ch * bytes);
 
+            bool dap_processing = is_audio_postprocessing_add_dolbyms12_dap(adev) && adev->ms12.dolby_ms12_enable;
+            if (dap_processing) {
+                ret = aml_audio_check_and_realloc((void **)&adev->audioeffect_tmp_buffer, &adev->audioeffect_tmp_buffer_size, buffer_need_size);
+                R_CHECK_RET(ret, "alloc audioeffect_tmp_buffer size:%zu fail", buffer_need_size);
+
+                if (adev->ms12.spdif_ring_buffer.size && get_buffer_read_space(&adev->ms12.spdif_ring_buffer) >= (int)bytes) {
+                    ring_buffer_read(&adev->ms12.spdif_ring_buffer, (unsigned char*)adev->audioeffect_tmp_buffer, bytes);
+                }
+            }
+
             bool is_a2dp_path = is_include_a2dp_out_port(adev->out_device) && is_include_a2dp_out_port(adev->cur_out_devices);
             for (int dev = AML_AUDIO_OUT_DEV_TYPE_SPEAKER; dev < num_dev; dev++) {
-                memcpy(adev->out_16_buf, buffer, bytes);
                 float volume = aml_audio_get_s_gain_by_src(adev, adev->patch_src);
+                memcpy(adev->out_16_buf, buffer, bytes);
 
                 /* apply volume for SPK/HP/SPDIF/HDMItx, HMDITX for BDS platform */
                 /* all source should apply source gain, spk: spk volume + effect */
@@ -5864,6 +5842,11 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     volume *= adev->sink_gain[OUTPORT_SPEAKER];
                 }
 
+                if (dap_processing &&
+                    (dev == AML_AUDIO_OUT_DEV_TYPE_SPDIF || dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE || dev == AML_AUDIO_OUT_DEV_TYPE_OTHER)) {
+                    memcpy(adev->out_16_buf, (unsigned char*)adev->audioeffect_tmp_buffer, bytes);
+                }
+
                 /* For local play or dtv input, analog audio output channel should be switched by User setting*/
                 if ((dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER || dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) &&
                         (adev->audio_patch == NULL || adev->patch_src == SRC_DTV)) {
@@ -5876,15 +5859,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                             AUDIO_FORMAT_PCM_16_BIT, MM_FULL_POWER_SAMPLING_RATE);
                 }
 #endif
-                /* if DAP is enable, get pcm data of spdif from */
-                if (dev == AML_AUDIO_OUT_DEV_TYPE_SPDIF &&
-                    adev->ms12.dolby_ms12_enable &&
-                    adev->ms12.spdif_ring_buffer.size &&
-                    is_audio_postprocessing_add_dolbyms12_dap(adev) &&
-                    get_buffer_read_space(&adev->ms12.spdif_ring_buffer) >= (int)bytes) {
-                    ring_buffer_read(&adev->ms12.spdif_ring_buffer,
-                        (unsigned char*)adev->out_16_buf, bytes);
-                }
+
 
                 if (!adev->volume_ease.ease->do_easing || dev != AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
                     apply_volume_16to32(volume, adev->out_16_buf, adev->out_32_buf, bytes);
@@ -5896,11 +5871,11 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 }
 
                 for (j = 0; j < out_frames; j++) {
-                    aml_out->tmp_buffer_8ch[bd_config->default_alsa_ch * j + 2 * alsa_out_ch_mask[auge_chip][dev]]      = adev->out_32_buf[2 * j];
-                    aml_out->tmp_buffer_8ch[bd_config->default_alsa_ch * j + 2 * alsa_out_ch_mask[auge_chip][dev] + 1]  = adev->out_32_buf[2 * j + 1];
+                    adev->tmp_buffer_8ch[bd_config->default_alsa_ch * j + 2 * alsa_out_ch_mask[auge_chip][dev]]      = adev->out_32_buf[2 * j];
+                    adev->tmp_buffer_8ch[bd_config->default_alsa_ch * j + 2 * alsa_out_ch_mask[auge_chip][dev] + 1]  = adev->out_32_buf[2 * j + 1];
                 }
             }
-            *output_buffer = aml_out->tmp_buffer_8ch;
+            *output_buffer = adev->tmp_buffer_8ch;
             *output_buffer_bytes = bd_config->default_alsa_ch * bytes;
             /* use original information */
             if (is_include_sco_out_port(adev->cur_out_devices)) {
@@ -5928,7 +5903,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
         tv_in_write(stream, buffer, bytes);
         memset((char *)buffer, 0, bytes);
         if (aml_out->is_tv_platform == 1) {
-           memset(aml_out->tmp_buffer_8ch, 0, (*output_buffer_bytes));
+           memset(adev->tmp_buffer_8ch, 0, (*output_buffer_bytes));
         }
     }
 
@@ -9668,6 +9643,13 @@ static int adev_close(hw_device_t *device)
     }
     if (adev->out_32_buf) {
         aml_audio_free(adev->out_32_buf);
+    }
+    if (adev->audioeffect_tmp_buffer) {
+        aml_audio_free(adev->audioeffect_tmp_buffer);
+    }
+
+    if (adev->tmp_buffer_8ch) {
+        aml_audio_free(adev->tmp_buffer_8ch);
     }
     if (adev->aml_ng_handle) {
         release_noise_gate(adev->aml_ng_handle);
