@@ -941,8 +941,13 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
         raw_in_data->sub_format  = aml_dec->format;
         raw_in_data->data_sr     = mSample_rate;
         raw_in_data->data_ch     = 2;
-        /*we don't support 32k ddp*/
-        if (raw_in_data->data_sr == 32000) {
+        /*we don't support 32k ddp for DDP Library on passthrough mode*/
+        if ((raw_in_data->data_format == AUDIO_FORMAT_E_AC3) && (raw_in_data->data_sr == 32000)) {
+            /* will every 33*32ms to print one time */
+            if (ddp_dec->stream_info.stream_decode_num % 33 == 0) {
+                ALOGE("%s line %d we don't support 32k ddp! To reset data_len %d to zero!\n",
+                    __func__, __LINE__, raw_in_data->data_len);
+            }
             raw_in_data->data_len = 0;
         }
     }
