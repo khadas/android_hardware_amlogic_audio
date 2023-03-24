@@ -361,21 +361,21 @@ reinit_buffers (struct scale_tempo * st)
     st->bytes_stride_scaled = st->bytes_stride * st->scale;
     st->frames_stride_scaled = st->bytes_stride_scaled / st->bytes_per_frame;
 
-    st->buf_output = aml_audio_malloc(st->bytes_stride * 4);
+    st->buf_output = aml_audio_malloc(st->bytes_stride * 8);
     if (!st->buf_output) {
         ALOGE("%s %d: scale_tempo %p, OOM", __func__, __LINE__, st);
         return;
     }
     st->bytes_to_output = 0;
-    st->output_max_bytes = st->bytes_stride * 4;
+    st->output_max_bytes = st->bytes_stride * 8;
 
-    st->buf_input = (char*) aml_audio_malloc(st->bytes_stride * 4);
+    st->buf_input = (char*) aml_audio_malloc(st->bytes_stride * 8);
     if (!st->buf_input) {
         ALOGE("%s %d: scale_tempo %p, OOM", __func__, __LINE__, st);
         return;
     }
 
-    st->buf_input_size = st->bytes_stride * 4;
+    st->buf_input_size = st->bytes_stride * 8;
 
     ALOGI
         ("%.3f scale, %.3f stride_in, %i stride_out, %i standing, %i overlap, %i search, %i queue, format %d",
@@ -678,14 +678,16 @@ int hal_scaletempo_process(struct scale_tempo* scaletempo, aml_scaletempo_info_t
     struct timespec start_ts, end_ts;
     static int count = 0;
     int n_samples_to_process = 0;
+    int input_samples = 0;
     clock_gettime(CLOCK_MONOTONIC_RAW, &start_ts);
 
     p_in_buffer = info->inputbuffer;
     p_out_buffer = info->outputbuffer;
+    input_samples = info->input_samples;
 
     pthread_mutex_lock(&scaletempo->mutex);
 
-    if ((scaletempo->scale - 1.0) < 1e-10) {
+    if (fabs(scaletempo->scale - 1.0) < 1e-10) {
         n_samples_to_process = min(info->input_samples, info->output_samples);
         if (n_samples_to_process > 0) {
             for (i = 0; j < info->ch; j++)
@@ -754,7 +756,13 @@ int hal_scaletempo_process(struct scale_tempo* scaletempo, aml_scaletempo_info_t
                 scaletempo->bytes_to_output -= output_size;
             }
         } else {
-            ALOGE("%s, error!! this should not occur!!\n", __FUNCTION__);
+            ALOGE("%s, error!! this should not occur!! bytes_to_output=%d output_size=%d\n", __FUNCTION__, scaletempo->bytes_to_output, output_size);
+            info->input_samples = input_samples;
+            info->output_samples = 0;
+            scaletempo->frames_stride_error = 0;
+            scaletempo->bytes_queued = 0;
+            scaletempo->bytes_to_slide = 0;
+            scaletempo->segment_start = 0;
         }
     }
     if (info->output_samples > 0) {

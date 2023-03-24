@@ -653,7 +653,9 @@ int aml_dtvsync_ms12_process_resample(struct audio_stream_out *stream,
             ALOGI("aml_audio_set_output_speed set speed :%f --> %f.\n",
                 aml_out->output_speed, speed);
             set_dolby_ms12_main_speed(&adev->ms12, (double)speed);
-            dolby_ms12_main_flush(stream);
+            /*we can't flush the audio, it causes audio break*/
+            //dolby_ms12_main_flush(stream);
+
         }
 
     } else {
