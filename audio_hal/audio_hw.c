@@ -1659,6 +1659,7 @@ static int out_pause_new (struct audio_stream_out *stream)
     }
 exit:
     aml_out->pause_status = true;
+    aml_out->hwsync_parsed_frames_sum_paused = aml_out->hwsync_parsed_frames_sum;
 
     pthread_mutex_unlock(&aml_out->lock);
     pthread_mutex_unlock(&aml_dev->lock);
@@ -2023,7 +2024,6 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
     /* Fixme, use the tinymix inside aml_audio_earctx_get_type() everytime!!! */
     bool is_earc = (ATTEND_TYPE_EARC == aml_audio_earctx_get_type(adev));
 
-
     if (!frames || !timestamp) {
         ALOGI("%s, !frames || !timestamp\n", __FUNCTION__);
         return -EINVAL;
@@ -2080,6 +2080,7 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
 
         unsigned int output_sr = (out->config.rate) ? (out->config.rate) : (MM_FULL_POWER_SAMPLING_RATE);
         *frames = *frames * out->hal_rate / output_sr;
+
         //this code is for CTS cases about tunnel mode stream.
         if (out->usecase == STREAM_PCM_HWSYNC && !adev->frame_write_sum_updated) {
             *frames = out->hwsync_parsed_frames_sum;
@@ -2109,11 +2110,22 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         }
     }
     if (out->usecase == STREAM_PCM_HWSYNC) {
-        //do nothing, not need to compensate video latency for hwsync stream.
+        //ms12version, need to compensate video latency for hwsync stream.
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        int time_gap_ms = calc_time_interval_us(&out->timestamp, &ts)/1000LL;
+        ALOGV("%s %d  time_gap_ms:%d,   adev->frame_write_sum_updated:%d", __func__, __LINE__,
+            time_gap_ms, adev->frame_write_sum_updated);
+
+        if (eDolbyMS12Lib == adev->dolby_lib_type) {
+            if (adev->frame_write_sum_updated && time_gap_ms < 200)
+                *frames += video_delay_frames;//add this for xts avsync
+        } else {
+            //do nothing
+        }
     } else {
         *frames += video_delay_frames;
     }
-
     {
         if (adev->debug_flag)
             ALOGI("out_get_presentation_position out:%p frames:%"PRIu64", sec = %ld, nanosec = %ld(origin:%" PRId64 ") tuned_latency_ms %d frame_latency %d video delay=%d(origin:%d)\n",
@@ -3498,6 +3510,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->frame_write_sum_updated = false;
     out->is_insert_zero_data = false;
     out->insert_zero_data_ms = 0;
+    out->hwsync_parsed_frames_sum_paused = 0;
 
     clock_gettime(CLOCK_MONOTONIC, &out->last_info_timestamp);
     clock_gettime(CLOCK_MONOTONIC, &out->last_avsync_timestamp);
@@ -6265,6 +6278,7 @@ ssize_t hw_write (struct audio_stream_out *stream
         }
 
     }
+
     /*we should also to calculate the alsa latency*/
     {
         /* SWPL-88828
@@ -7419,6 +7433,7 @@ exit:
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         if (continuous_mode(adev)) {
             aml_out->timestamp = adev->ms12.timestamp;
+            aml_out->lasttimestamp = adev->ms12.timestamp;
             //clock_gettime(CLOCK_MONOTONIC, &aml_out->timestamp);
             aml_out->last_frames_position = adev->ms12.last_frames_position;
             if (adev->debug_flag)

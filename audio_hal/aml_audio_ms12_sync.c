@@ -17,6 +17,7 @@
 //#define LOG_NDEBUG 0
 #include <cutils/log.h>
 #include <cutils/properties.h>
+#include <inttypes.h>
 
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
@@ -1239,6 +1240,27 @@ int aml_audio_get_nonms12_tunnel_latency(struct audio_stream_out * stream)
     return latency_frames;
 }
 
+static int get_ms12_tunnel_xts_latency(void) {
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
+    int latency_ms = 0;
+    char *prop_name = NULL;
+    int ret = 0;
+
+    prop_name = "vendor.media.audio.hal.ms12.xts.tunnel.pcm";
+    latency_ms = 0;
+
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            latency_ms = atoi(buf);
+        }
+    }
+    //ALOGI("%s %d  latency_ms:%d", __func__, __LINE__, latency_ms);
+    return latency_ms;
+}
+
+
 int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stream, uint64_t *frames, struct timespec *timestamp)
 {
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
@@ -1313,7 +1335,7 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
             __func__,adev->cur_out_devices, out->hal_internal_format, adev->ms12.sink_format, adev->continuous_audio_mode);
     ALOGV("[%s]adev->ms12.is_bypass_ms12 %d adev->ms12.is_dolby_atmos %d adev->ms12_main1_dolby_dummy %d adev->atmos_lock_flag %d\n",
             __func__,adev->ms12.is_bypass_ms12, adev->ms12.is_dolby_atmos, adev->ms12_main1_dolby_dummy, adev->atoms_lock_flag);
-    ALOGV("[%s] frame_latency %d\n",__func__,frame_latency);
+    ALOGV("[%s]  *frames:%"PRIu64"  frame_latency %d\n",__func__, *frames, frame_latency);
 
     if (frame_latency < 0) {
         *frames -= frame_latency;
@@ -1322,13 +1344,30 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
     } else {
         *frames = 0;
     }
+
     if ((out->hal_rate != MM_FULL_POWER_SAMPLING_RATE) &&
         (!is_bypass_dolbyms12((struct audio_stream_out *)stream))) {
         *frames = (*frames * out->hal_rate) / MM_FULL_POWER_SAMPLING_RATE;
     }
 
-    if (out->usecase == STREAM_PCM_HWSYNC && !adev->frame_write_sum_updated) {
-        *frames = out->hwsync_parsed_frames_sum;
+
+    if (out->usecase == STREAM_PCM_HWSYNC) {
+        //write data not update to trigge underrun
+        //~580ms from xts Audio Pause to Resume, so setup the threshold 200ms
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        int time_gap_ms = calc_time_interval_us(&out->timestamp, &ts)/1000LL;
+        int xts_latency_frames = get_ms12_tunnel_xts_latency();
+        //ALOGI("%s %d  time_gap_ms:%d,  write_count:%d, xts_latency_frames:%d", __func__, __LINE__,
+        //    time_gap_ms, out->write_count, xts_latency_frames);
+        if (!adev->frame_write_sum_updated || abs(time_gap_ms) > 200) {
+            *frames = out->hwsync_parsed_frames_sum;
+        }
+        if (abs(time_gap_ms) > 300 && out->hwsync_parsed_frames_sum_paused) {
+            *frames = out->hwsync_parsed_frames_sum_paused;
+        }
+
+        *frames += xts_latency_frames;//10ms, 441 frames
     }
     return 0;
 }

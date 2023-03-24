@@ -806,6 +806,7 @@ struct aml_stream_out {
     int     audio_delay;
 
     void *kara;
+    uint64_t hwsync_parsed_frames_sum_paused;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
