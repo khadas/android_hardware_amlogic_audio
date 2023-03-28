@@ -7240,7 +7240,7 @@ hwsync_rewrite:
     else if (aml_out->hal_format == AUDIO_FORMAT_IEC61937 && !aml_out->iec_check) {
         audio_channel_mask_t cur_ch_mask;
         int package_size;
-        int cur_audio_type = audio_type_parse(write_buf, write_bytes, &package_size, &cur_ch_mask);
+        int cur_audio_type = audio_type_parse(patch->audio_parse_para, write_buf, write_bytes, &package_size, &cur_ch_mask);
 
         cur_aformat = audio_type_convert_to_android_audio_format_t(cur_audio_type);
         ALOGI("cur_aformat:%0x cur_audio_type:%d", cur_aformat, cur_audio_type);

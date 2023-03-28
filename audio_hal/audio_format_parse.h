@@ -94,6 +94,7 @@ typedef struct audio_type_parse {
     int read_bytes;
     int package_size;
     int audio_samplerate;
+    int pre_audio_samplerate;
 
     int running_flag;
     audio_devices_t input_dev;
@@ -141,7 +142,8 @@ int get_dts_stream_channels(const char *buffer, size_t bytes);
 /*
  *@brief get current audio type from buffer data
  */
-int audio_type_parse(void *buffer, size_t bytes, int *package_size, audio_channel_mask_t *cur_ch_mask);
+int audio_type_parse(audio_type_parse_t *status, void *buffer, size_t bytes, int *package_size,
+        audio_channel_mask_t *cur_ch_mask);
 
 int audio_parse_get_audio_samplerate(audio_type_parse_t *status);
 
