@@ -2394,7 +2394,7 @@ int dolby_truehd_bypass_process(struct audio_stream_out *stream, void *buffer, s
              */
             if (bitstream_out->spdifout_handle == NULL) {
                 spdif_config.audio_format = AUDIO_FORMAT_IEC61937;
-                spdif_config.sub_format = aml_out->hal_internal_format;
+                spdif_config.sub_format = AUDIO_FORMAT_MAT;
                 /*
                  * FIXME:
                  *      configure the MAT encoder's sample rate as 48kHZ.
