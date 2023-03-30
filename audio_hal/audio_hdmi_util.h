@@ -113,6 +113,9 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len);
  */
 void read_hdmi_arc_info(struct audio_hw_device *dev,
         const struct audio_extra_audio_descriptor *audio_descriptors, uint32_t size, bool connected);
+
+void update_earc_sad(struct audio_hw_device *dev);
+
 #endif
 
 /*@ brief update dolby atmos decoding and rendering cap for ddp sad

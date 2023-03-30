@@ -55,6 +55,8 @@
 #include "aml_audio_stream.h"
 #include "dolby_lib_api.h"
 #include <aml_android_utils.h>
+#include <earc_utils.h>
+
 char sad_str_default[5][5] = {
      {2, 0, 0, 0, 0},
      {7, 0, 0, 0, 0},
@@ -718,5 +720,42 @@ void read_hdmi_arc_info(struct audio_hw_device *dev,
             set_arc_format(dev, temp_sad_str, AUDIO_HAL_CHAR_MAX_LEN);
         }
     }
+}
+
+void update_earc_sad(struct audio_hw_device *dev)
+{
+    struct aml_audio_device *adev = (struct aml_audio_device *) dev;
+    struct audio_extra_audio_descriptor audio_descriptors = {};
+
+    char cds[AUDIO_HAL_CHAR_MAX_LEN] = {0};
+    earctx_fetch_cds(&adev->alsa_mixer, cds, 0, &adev->hdmi_descs);
+
+    char *p;
+    int cnt = 0;
+
+    p = strtok(cds, ",");
+    while (p != NULL) {
+        int value = atoi(p);
+        if (value > 255) {
+            AM_LOGW("invalid sad value:%d, set default 255.", value);
+            value = 255;
+        }
+        if (cnt >= EXTRA_AUDIO_DESCRIPTOR_SIZE) {
+            AM_LOGE("invalid sad index break.");
+            return;
+        }
+        audio_descriptors.descriptor[cnt] = (uint8_t)value;
+        p = strtok(NULL, ",");
+        cnt++;
+    }
+    audio_descriptors.descriptor_length = cnt;
+
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_EDID)) {
+        AM_LOGD("sad cnt: %d ", cnt);
+        for (int i = 0; i < audio_descriptors.descriptor_length; i++) {
+            AM_LOGD("%d ", audio_descriptors.descriptor[i]);
+        }
+    }
+    read_hdmi_arc_info(dev, &audio_descriptors, 1, true);
 }
 #endif

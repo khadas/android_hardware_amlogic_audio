@@ -574,6 +574,7 @@ struct aml_audio_device {
     float dtv_volume; // Todo: This parameter is not used yet
     /* -End- */
     bool arc_connected_reconfig;  /*when arc connected, set it as to true*/
+    bool is_arc_updating_sad;  /* earc->arc/arc->earc, update SAD. */
 
     /*
     for karaoke use case, the apk will access

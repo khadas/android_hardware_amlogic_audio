@@ -3962,6 +3962,10 @@ static void aml_audio_output_routing(struct aml_audio_device *adev, audio_device
         need_mute_devices &= (~AUDIO_DEVICE_OUT_HDMI);
     }
     AM_LOGI("unmute_devices:%#x, mute_devices:%#x", need_unmute_devices, need_mute_devices);
+    if (adev->is_arc_updating_sad) {
+        AM_LOGI("updating arc SAD, no routing required.");
+        return;
+    }
     while ((device = 1 << i) != AUDIO_DEVICE_BIT_DEFAULT) {
         if ((need_unmute_devices & device) != 0) {
             aml_audio_outport_enable(adev, device, true);
@@ -4284,7 +4288,13 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 
     ret = str_parms_get_str (parms, "set_ARC_hdmi", value, sizeof (value) );
     if (ret >= 0) {
-        set_arc_hdmi(dev, value, AUDIO_HAL_CHAR_MAX_LEN);
+        if (strncmp(value, "updating_sad", 12) == 0) {
+            adev->is_arc_updating_sad = true;
+        } else if (strncmp(value, "updated_sad", 11) == 0) {
+            adev->is_arc_updating_sad = false;
+        } else {
+            set_arc_hdmi(dev, value, AUDIO_HAL_CHAR_MAX_LEN);
+        }
         goto exit;
     }
 
@@ -6872,13 +6882,6 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         adev->digital_audio_format_updated = 0;
     }
 
-    if (adev->bHDMIConnected_update) {
-        ALOGI("%s(), hdmi connect updated, need reconfig output", __func__);
-        need_reconfig_output = true;
-        need_reset_decoder = true;
-        adev->bHDMIConnected_update = 0;
-    }
-
     /* here to check if the audio output routing changed. */
     if (adev->cur_out_devices != aml_out->out_device) {
         ALOGI ("[%s:%d] output routing changed, need reconfig output, adev_dev:%#x, out_dev:%#x",
@@ -6888,6 +6891,13 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
             need_reset_decoder = false;
         }
         aml_out->out_device = adev->cur_out_devices;
+    }
+
+    if (adev->bHDMIConnected_update) {
+        ALOGI("%s(), hdmi connect updated, need reconfig output", __func__);
+        need_reconfig_output = true;
+        need_reset_decoder = true;
+        adev->bHDMIConnected_update = 0;
     }
 
 hwsync_rewrite:
@@ -9859,8 +9869,8 @@ static int adev_set_device_connected_state_v7(struct audio_hw_device *dev,
         AM_LOGI("address:%s, num_descriptors:%d, num_profiles:%d",
             port->ext.device.address, port->num_extra_audio_descriptors, port->num_audio_profiles);
         parms = str_parms_create_str(port->ext.device.address);
-        set_device_connect_state(aml_dev, parms, port->ext.device.type, connected);
 
+        set_device_connect_state(aml_dev, parms, port->ext.device.type, connected);
         if (connected) {
             if (port->ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC) {
                 aml_dev->raw_to_pcm_flag = true;
@@ -9872,9 +9882,19 @@ static int adev_set_device_connected_state_v7(struct audio_hw_device *dev,
                 aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
             }
         }
-
         if (port->ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC) {
-            read_hdmi_arc_info(dev, port->extra_audio_descriptors, port->num_extra_audio_descriptors, connected);
+            int earc_tx_type = aml_audio_earctx_get_type(aml_dev);
+            AM_LOGI("current connect: %s", (earc_tx_type == ATTEND_TYPE_EARC) ? "earc" : "arc");
+            if (earc_tx_type == ATTEND_TYPE_EARC && connected) {
+                // when the EARC is connected, the SAD of the EARC needs to updated.
+                update_earc_sad(dev);
+            } else {
+                read_hdmi_arc_info(dev, port->extra_audio_descriptors, port->num_extra_audio_descriptors, connected);
+            }
+            if (connected) {
+                // we also that updating SAD is over when the ARC is connected.
+                aml_dev->is_arc_updating_sad = false;
+            }
         }
     }
     for (int i = 0; i< port->num_audio_profiles; i++) {
