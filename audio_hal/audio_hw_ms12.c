@@ -52,6 +52,7 @@
 #include "aml_audio_ms12_sync.h"
 #include "aml_malloc_debug.h"
 #include "audio_hw_ms12_common.h"
+#include "aml_audio_output.h"
 
 #define DOLBY_DRC_LINE_MODE 0
 #define DOLBY_DRC_RF_MODE   1
@@ -1033,12 +1034,6 @@ Err:
     return ret;
 }
 
-static bool is_iec61937_format(struct audio_stream_out *stream)
-{
-    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
-    return (aml_out->hal_format == AUDIO_FORMAT_IEC61937);
-}
-
 bool is_ms12_passthrough(struct audio_stream_out *stream) {
     bool bypass_ms12 = false;
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
@@ -1987,8 +1982,8 @@ static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_
     struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-    void *output_buffer = NULL;
-    size_t output_buffer_bytes = 0;
+
+    audio_data_info_t data_info = { 0 };
 
     int ret = 0;
     int i;
@@ -2024,9 +2019,9 @@ static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_
 
     ms12->is_dolby_atmos = (dolby_ms12_get_input_atmos_info() == 1);
 
-    if (audio_hal_data_processing((struct audio_stream_out *)aml_out, buffer, size, &output_buffer, &output_buffer_bytes, output_format) == 0) {
-        ret = hw_write((struct audio_stream_out *)aml_out, output_buffer, output_buffer_bytes, output_format);
-    }
+    data_info.audio_format = output_format;
+    data_info.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+    ret = aml_audio_pcm_output((struct audio_stream_out *)aml_out, buffer, size, &data_info);
 
     /*we put passthrough ms12 data here*/
     ms12_passthrough_output(aml_out);
@@ -2913,9 +2908,8 @@ int dolby_ms12_output_insert_oneframe(struct audio_stream_out *stream) {
     char *mute_raw_buffer = 0;
     int  pcm_buffer_size = MS12_PCM_FRAME_SIZE;
     int  raw_buffer_size = MS12_DDP_FRAME_SIZE;
-    size_t output_buffer_bytes = 0;
+    audio_data_info_t data_info = { 0 };
     size_t raw_size = 0;
-    void *output_buffer = NULL;
     audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
     struct bitstream_out_desc *bitstream_out = &ms12->bitstream_out[BITSTREAM_OUTPUT_A];
     bool b_raw_out = false;
@@ -2941,10 +2935,9 @@ int dolby_ms12_output_insert_oneframe(struct audio_stream_out *stream) {
         }
     }
 
-    /*insert pcm data*/
-    if (audio_hal_data_processing((struct audio_stream_out *)aml_out, mute_pcm_buffer, pcm_buffer_size, &output_buffer, &output_buffer_bytes, AUDIO_FORMAT_PCM_16_BIT) == 0) {
-        ret = hw_write((struct audio_stream_out *)aml_out, output_buffer, output_buffer_bytes, AUDIO_FORMAT_PCM_16_BIT);
-    }
+    data_info.audio_format = AUDIO_FORMAT_PCM_16_BIT;
+    data_info.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+    ret = aml_audio_pcm_output((struct audio_stream_out *)aml_out, mute_pcm_buffer, pcm_buffer_size, &data_info);
 
     /*insert raw data*/
     if (b_raw_out) {

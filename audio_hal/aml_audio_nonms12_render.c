@@ -36,6 +36,7 @@
 #include "alsa_config_parameters.h"
 #include "aml_data_utils.h"
 #include "aml_audio_ms12_sync.h"
+#include "aml_audio_output.h"
 
 extern unsigned long decoder_apts_lookup(unsigned int offset);
 static void aml_audio_stream_volume_process(struct audio_stream_out *stream, void *buf, int sample_size, int channels, int bytes) {
@@ -194,8 +195,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
     int return_bytes = bytes;
     int out_frames = 0;
     void *input_buffer = (void *)buffer;
-    void *output_buffer = NULL;
-    size_t output_buffer_bytes = 0;
+    audio_data_info_t data_info = { 0 };
     int duration = 0;
     bool speed_enabled = false;
     bool dts_pcm_direct_output = false;
@@ -475,18 +475,11 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 }
 
                 aml_hw_mixer_mixing(&adev->hw_mixer, dec_data, pcm_len, output_format);
-                if (dec_pcm_data->data_ch == 2 || VX_postprocess->libvx_exist) {
-                    if (audio_hal_data_processing(stream, dec_data, pcm_len, &output_buffer, &output_buffer_bytes, output_format) == 0) {
-                        if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
-                            check_audio_level("after process", output_buffer, output_buffer_bytes);
-                        }
-                        hw_write(stream, output_buffer, output_buffer_bytes, output_format);
-                    }
-                } else {
-                    if (audio_hal_data_processing_ms12v2(stream, dec_data, pcm_len, &output_buffer, &output_buffer_bytes, output_format, dec_pcm_data->data_ch) == 0) {
-                        hw_write(stream, output_buffer, output_buffer_bytes, output_format);
-                    }
-                }
+
+                data_info.audio_format = output_format;
+                data_info.channel_mask = audio_channel_out_mask_from_count(dec_pcm_data->data_ch);
+                ret = aml_audio_pcm_output((struct audio_stream_out *)aml_out, dec_data, pcm_len, &data_info);
+
             }
 
             // write raw data

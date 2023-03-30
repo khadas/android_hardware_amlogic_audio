@@ -185,15 +185,6 @@ enum Result {
 
 #define SYSTEM_APP_SOUND_MIXING_ON 1
 #define SYSTEM_APP_SOUND_MIXING_OFF 0
-struct aml_hal_mixer {
-    unsigned char start_buf[AML_HAL_MIXER_BUF_SIZE];
-    unsigned int wp;
-    unsigned int rp;
-    unsigned int buf_size;
-    /* flag to check if need cache some data before write to mix */
-    unsigned char need_cache_flag;
-    pthread_mutex_t lock;
-};
 
 enum patch_src_assortion {
     SRC_DTV                     = 0,
@@ -361,7 +352,6 @@ struct aml_audio_device {
     struct echo_reference_itfe *echo_reference;
     bool low_power;
     struct aml_stream_out *hwsync_output;
-    struct aml_hal_mixer hal_mixer;
     struct pcm *pcm;
     struct aml_bt_output bt_output;
     bool pcm_paused;
@@ -1012,48 +1002,6 @@ inline bool is_bypass_submix_active(struct aml_audio_device *adev)
  */
 audio_format_t get_output_format(struct audio_stream_out *stream);
 
-/*
- *@brief audio_hal_data_processing
- * format:
- *    if pcm-16bits-stereo, add audio effect process, and mapping to 8ch
- *    if raw data, packet it to IEC61937 format with spdif encoder
- *    if IEC61937 format, write them to hardware
- * return
- *    0, success
- *    -1, fail
- */
-ssize_t audio_hal_data_processing(struct audio_stream_out *stream
-                                    , const void *input_buffer
-                                    , size_t input_buffer_bytes
-                                    , void **output_buffer
-                                    , size_t *output_buffer_bytes
-                                    , audio_format_t output_format);
-/*
- *@brief audio_hal_data_processing_ms12v2
- * format:
- *    if pcm-16bits-8ch, mapping to 8ch
- *    if raw data, packet it to IEC61937 format with spdif encoder
- *    if IEC61937 format, write them to hardware
- * return
- *    0, success
- *    -1, fail
- */
-ssize_t audio_hal_data_processing_ms12v2(struct audio_stream_out *stream
-                                  , const void *input_buffer
-                                  , size_t input_buffer_bytes
-                                  , void **output_buffer
-                                  , size_t *output_buffer_bytes
-                                  , audio_format_t output_format
-                                  , int n_ms12_channel);
-
-/*
- *@brief hw_write the api to write the data to audio hardware
- */
-ssize_t hw_write(struct audio_stream_out *stream
-                    , const void *buffer
-                    , size_t bytes
-                    , audio_format_t output_format);
-
 int do_output_standby_l(struct audio_stream *stream);
 
 ssize_t out_write_new(struct audio_stream_out *stream,
@@ -1066,7 +1014,9 @@ int dsp_process_output(struct aml_audio_device *adev, void *in_buffer,
                        size_t bytes);
 int release_patch_l(struct aml_audio_device *adev);
 enum hwsync_status check_hwsync_status (uint apts_gap);
+
 void config_output(struct audio_stream_out *stream, bool reset_decoder);
+
 int out_standby_direct (struct audio_stream *stream);
 
 void *adev_get_handle();

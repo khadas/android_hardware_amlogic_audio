@@ -74,6 +74,7 @@
 #include "aml_audio_sysfs.h"
 #include "aml_audio_heaacparser.h"
 #include "audio_hw_ms12_common.h"
+#include "aml_audio_output.h"
 
 #define IEC61937_PAPB (0xf8724e1f)
 
@@ -695,6 +696,7 @@ static int dtv_write_mute_frame(struct aml_audio_patch *patch,
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream_out;
     size_t output_buffer_bytes = 0;
     void *output_buffer = NULL;
+    audio_data_info_t out_data_info = { 0 };
 #if 0
     struct timespec before_read;
     struct timespec after_read;
@@ -741,22 +743,23 @@ static int dtv_write_mute_frame(struct aml_audio_patch *patch,
     if (eDolbyMS12Lib == aml_dev->dolby_lib_type_last) {
         type = 0;
     }
+#if 0
     if (type == 2) {
         audio_format_t output_format = AUDIO_FORMAT_IEC61937;
         size_t write_bytes = EAC3_IEC61937_FRAME_SIZE;
         //ALOGI("++aml_alsa_output_write E_AC3");
-        if (audio_hal_data_processing(stream_out, (void*)mixbuffer, write_bytes, &output_buffer, &output_buffer_bytes, output_format) == 0) {
-            output_format = AUDIO_FORMAT_E_AC3;
-            hw_write(stream_out, output_buffer, output_buffer_bytes, output_format);
+        if (audio_hal_data_processing(stream_out, (void*)mixbuffer, write_bytes, &output_buffer, &output_buffer_bytes, output_format, &out_data_info) == 0) {
+            out_data_info.audio_format = AUDIO_FORMAT_E_AC3;
+            hw_write(stream_out, output_buffer, output_buffer_bytes, &out_data_info);
         }
         //ALOGI("--aml_alsa_output_write E_AC3");
     } else if (type == 1) {
         audio_format_t output_format = AUDIO_FORMAT_IEC61937;
         size_t write_bytes = AC3_IEC61937_FRAME_SIZE;
         //ALOGI("++aml_alsa_output_write AC3");
-        if (audio_hal_data_processing(stream_out, (void*)mixbuffer, write_bytes, &output_buffer, &output_buffer_bytes, output_format) == 0) {
-            output_format = AUDIO_FORMAT_AC3;
-            hw_write(stream_out, output_buffer, output_buffer_bytes, output_format);
+        if (audio_hal_data_processing(stream_out, (void*)mixbuffer, write_bytes, &output_buffer, &output_buffer_bytes, output_format, &out_data_info) == 0) {
+            out_data_info.audio_format = AUDIO_FORMAT_AC3;
+            hw_write(stream_out, output_buffer, output_buffer_bytes, &out_data_info);
         }
         //ALOGI("--aml_alsa_output_write AC3");
     } else {
@@ -764,11 +767,14 @@ static int dtv_write_mute_frame(struct aml_audio_patch *patch,
         size_t write_bytes = AC3_IEC61937_FRAME_SIZE;
         //ALOGI("++aml_alsa_output_write pcm");
         memset(mixbuffer, 0, EAC3_IEC61937_FRAME_SIZE);
-        if (audio_hal_data_processing(stream_out, (void*)mixbuffer, write_bytes, &output_buffer, &output_buffer_bytes, output_format) == 0) {
-            hw_write(stream_out, output_buffer, output_buffer_bytes, output_format);
+        if (audio_hal_data_processing(stream_out, (void*)mixbuffer, write_bytes, &output_buffer, &output_buffer_bytes, output_format, &out_data_info) == 0) {
+            hw_write(stream_out, output_buffer, output_buffer_bytes, &out_data_info);
         }
         //ALOGI("--aml_alsa_output_write pcm");
     }
+
+#endif
+
 #if 0
     clock_gettime(CLOCK_MONOTONIC, &after_read);
     us = calc_time_interval_us(&before_read, &after_read);

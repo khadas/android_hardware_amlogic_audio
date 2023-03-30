@@ -311,6 +311,12 @@ inline bool is_aac_format(audio_format_t format) {
     }
 }
 
+static inline bool is_iec61937_format(struct audio_stream_out *stream)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    return (aml_out->hal_format == AUDIO_FORMAT_IEC61937);
+}
+
 static inline stream_usecase_t attr_to_usecase(uint32_t devices __unused,
         audio_format_t format, uint32_t flags)
 {
@@ -578,6 +584,11 @@ struct audio_stream_out;
 struct audio_stream_in;
 
 stream_usecase_t convert_usecase_mask_to_stream_usecase(usecase_mask_t mask);
+
+static inline bool need_hw_mix(usecase_mask_t masks)
+{
+    return (masks > 1);
+}
 
 /*
  *@brief get sink format by logic min(source format / digital format / sink capability)

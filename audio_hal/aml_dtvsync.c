@@ -36,6 +36,8 @@
 #include "aml_audio_spdifout.h"
 #include "audio_hw_ms12_v2.h"
 #include "aml_audio_stream.h"
+#include "aml_audio_output.h"
+
 #define DD_MUTE_FRAME_SIZE 1536
 #define EAC3_IEC61937_FRAME_SIZE 24576
 #define MS12_MAT_RAW_LENGTH                 (0x0f7e)
@@ -269,8 +271,8 @@ bool aml_dtvsync_insertpcm(struct audio_stream_out *stream, audio_format_t forma
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_audio_patch *patch = adev->audio_patch;
     int insert_size = 0, times = 0;
-    void *output_buffer = NULL;
-    size_t output_buffer_bytes = 0;
+
+    audio_data_info_t data_info = { 0 };
     int t1 = 0;
     int ret = 0;
     ALOGI("insert time_ms=%d ms, is_ms12=%d\n", time_ms, is_ms12);
@@ -280,10 +282,11 @@ bool aml_dtvsync_insertpcm(struct audio_stream_out *stream, audio_format_t forma
     if (insert_size <= patch->out_buf_size) {
         if (!is_ms12) {
             aml_hw_mixer_mixing(&adev->hw_mixer, patch->out_buf, insert_size, format);
-            if (audio_hal_data_processing(stream, patch->out_buf, insert_size, &output_buffer,
-                &output_buffer_bytes, format) == 0) {
-                hw_write(stream, output_buffer, output_buffer_bytes, format);
-            }
+
+            data_info.audio_format = format;
+            data_info.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+            ret = aml_audio_pcm_output((struct audio_stream_out *)aml_out, patch->out_buf, insert_size, &data_info);
+
         } else {
             ret = aml_audio_ms12_process_wrapper(stream, patch->out_buf, insert_size);
         }
@@ -299,10 +302,10 @@ bool aml_dtvsync_insertpcm(struct audio_stream_out *stream, audio_format_t forma
     for (int i = 0; i < t1; i++) {
         if (!is_ms12) {
             aml_hw_mixer_mixing(&adev->hw_mixer, patch->out_buf, patch->out_buf_size, format);
-            if (audio_hal_data_processing(stream, patch->out_buf, insert_size, &output_buffer,
-                &output_buffer_bytes, format) == 0) {
-                hw_write(stream, output_buffer, output_buffer_bytes, format);
-            }
+
+            data_info.audio_format = format;
+            data_info.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+            ret = aml_audio_pcm_output((struct audio_stream_out *)aml_out, patch->out_buf, insert_size, &data_info);
         } else {
             ret = aml_audio_ms12_process_wrapper(stream, patch->out_buf, patch->out_buf_size);
         }

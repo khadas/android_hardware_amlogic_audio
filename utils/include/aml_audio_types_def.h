@@ -17,6 +17,8 @@
 #ifndef _AML_AUDIO_TYPES_DEF_H_
 #define _AML_AUDIO_TYPES_DEF_H_
 
+#include <system/audio.h>
+
 struct pcm_info {
     int sample_rate;
     int channel_num;
@@ -27,6 +29,15 @@ struct pcm_info {
     int lorosurmixlev;
     char padding[200];
 };
+
+struct audio_data_info {
+    audio_format_t audio_format;
+    audio_format_t sub_format;
+    audio_channel_mask_t channel_mask;
+    //uint32_t      samplerate;
+};
+
+typedef struct audio_data_info audio_data_info_t;
 
 
 #endif /* _AML_AUDIO_TYPES_DEF_H_ */

@@ -36,6 +36,7 @@
 #include <aml_android_utils.h>
 #include "audio_hw_ms12_common.h"
 #include "aml_audio_ms12_sync.h"
+#include "aml_audio_output.h"
 
 #define MS12_MAIN_WRITE_LOOP_THRESHOLD                  (2000)
 #define AUDIO_IEC61937_FRAME_SIZE 4
@@ -90,8 +91,7 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
     struct aml_audio_patch *patch = adev->audio_patch;
     int write_retry =0;
     size_t used_size = 0;
-    void *output_buffer = NULL;
-    size_t output_buffer_bytes = 0;
+    audio_data_info_t data_info = { 0 };
     int ms12_write_failed = 0;
     int consume_size = 0,remain_size = 0,ms12_threshold_size = 256;
     unsigned long long all_pcm_len1 = 0;
@@ -142,9 +142,11 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
         if (adev->debug_flag) {
             ALOGI("%s passthrough dolbyms12, format %#x\n", __func__, aml_out->hal_format);
         }
-        output_format = aml_out->hal_internal_format;
-        if (audio_hal_data_processing (stream, write_buf, write_bytes, &output_buffer, &output_buffer_bytes, output_format) == 0)
-            hw_write (stream, output_buffer, output_buffer_bytes, output_format);
+
+        data_info.audio_format = aml_out->hal_internal_format;
+        data_info.channel_mask = aml_out->hal_channel_mask;
+        ret = aml_audio_pcm_output((struct audio_stream_out *)aml_out, write_buf, write_bytes, &data_info);
+
     } else {
         /*not continuous mode, we use sink gain control the volume*/
         if (!continuous_mode(adev)) {
