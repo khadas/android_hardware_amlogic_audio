@@ -215,7 +215,7 @@ static bool mediasync_wrap_create_init()
         ALOGE(" dlsym MediaSync_getRealTimeForNextVsync failed, err=%s \n", dlerror());
         return err;
     }
- 
+
     gMediaSync_reset =
     (MediaSync_reset_func)dlsym(glibHandle, "MediaSync_reset");
     if (gMediaSync_reset == NULL) {

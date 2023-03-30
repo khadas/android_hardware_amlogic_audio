@@ -590,6 +590,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                     patch->dtv_has_video = demux_info->has_video;
                     patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
                     patch->sync_type = dtv_audio_instances->dtvsync[path_id].sync_type;
+
                     ALOGI("dtv_has_video %d",patch->dtv_has_video);
                     ALOGI("demux_index_working %d handle %p",dtv_audio_instances->demux_index_working, dtv_audio_instances->demux_handle[path_id]);
                 }
@@ -3995,6 +3996,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
     int path_id  = 0;
     aml_dtvsync_t *dtvsync;
     struct mediasync_audio_format audio_format;
+    struct media_out_portinfo audio_outport;
     patch->sample_rate = stream_config.sample_rate = 48000;
     patch->chanmask = stream_config.channel_mask = AUDIO_CHANNEL_IN_STEREO;
     patch->aformat = stream_config.format = AUDIO_FORMAT_PCM_16_BIT;
@@ -4125,6 +4127,8 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 if (dtvsync->mediasync_new != NULL) {
                     audio_format.format = patch->dtv_aformat;
                     mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_AUDIOFORMAT, &audio_format);
+                    audio_outport.output_port = (audio_out_port)get_output_by_devices(aml_dev->cur_out_devices);
+                    mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_AUDIO_EQUIPMENT, &audio_outport);
                     if (!patch->cbs_patch) {
                         mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_HASVIDEO, &patch->dtv_has_video);
                     }
