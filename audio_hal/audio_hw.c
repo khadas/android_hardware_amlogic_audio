@@ -3206,6 +3206,15 @@ int output_stream_hwsync_prepare(struct aml_stream_out *out, int hw_sync_id)
             out->hwsync->hwsync_need_resume = false;
         } else {
             ALOGI ("[%s] adev->hw_mediasync:%p\n", __FUNCTION__, adev->hw_mediasync);
+             /*patch for cbs switch to netflix, the sync id is not match*/
+            if (adev->hw_mediasync &&
+                adev->hw_sync_id != -1 &&
+                adev->hw_sync_id != hw_sync_id) {
+                ALOGI("not match hw_sync_id=%d adev->hw_mediasync_id=%d release it", hw_sync_id, adev->hw_sync_id);
+                mediasync_wrap_destroy(adev->hw_mediasync);
+                adev->hw_mediasync = NULL;
+                adev->hw_sync_id = -1;
+            }
             if (adev->hw_mediasync == NULL) {
                 adev->hw_mediasync = aml_audio_hwsync_create();
             }
@@ -8075,23 +8084,10 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     aml_out->write_count++;
 
     if (!aml_out->is_tv_src_stream && (aml_out->flags & AUDIO_OUTPUT_FLAG_DIRECT) && adev->audio_patch) {
-        ALOGD("%s: AF direct stream coming, patch exists, first release it", __func__);
-        pthread_mutex_lock(&adev->patch_lock);
-#ifdef ENABLE_DVB_PATCH
-        if (adev->audio_patch && adev->audio_patch->is_dtv_src) {
-            if (adev->audio_patch->output_thread_created) {
-                release_dtv_patch_l(adev);
-            } else {
-                ALOGW("dtv has not started yet !!!");
-            }
-        } else
-#endif
-            /*coverity[sleep]*/
-            release_patch_l(adev);
-        pthread_mutex_unlock(&adev->patch_lock);
-
-        /*for no patch case, we need to restore it*/
-        adev_release_patch_restore_resource(adev);
+        /*amlogic audio hal path only support one raw path, if dtv path exits, skip audiotrack raw data.
+        if raw direct output, apk use render position for  apts calc, that maybe effect the avsync*/
+        ALOGW("tv path exsits, need drop the stream data !!!");
+        return bytes;
     }
 
     /*when there is data writing in this stream, we can add it to active stream*/
@@ -8439,7 +8435,11 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
     /* when switch hdmi output to a2dp output, close hdmi stream maybe after open a2dp stream,
      * and here set audio stop would cause audio stuck
      */
-    if (aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_STOP && !has_hwsync_stream_running(stream)) {
+    if (aml_out->hw_sync_mode
+        && aml_out->tsync_status != TSYNC_STATUS_STOP
+        && !has_hwsync_stream_running(stream)
+        && aml_out->hwsync->hwsync_id != get_dtv_parameters(dev, "hal_param_media_sync_id")) {
+
         ALOGI("%s set AUDIO_PAUSE and AUDIO_STOP when close stream\n",__func__);
         aml_hwsync_wrap_set_pause(aml_out->hwsync);
         aml_hwsync_wrap_set_stop(aml_out->hwsync);

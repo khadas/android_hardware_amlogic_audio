@@ -5323,6 +5323,26 @@ void get_dtv_amadec_audio_info (struct aml_audio_device *aml_dev ) {
 
 }
 
+int get_dtv_parameters(struct audio_hw_device *dev, const char *keys) {
+
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    int return_value = -1;
+    if (!strcmp (keys, "hal_param_media_sync_id")) {
+        int mediasync_id = -1;
+        unsigned int path_id = 0;
+        aml_dtv_audio_instances_t *dtv_audio_instances = (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
+        if (dtv_audio_instances) {
+            aml_demux_audiopara_t *demux_info = &dtv_audio_instances->demux_info[path_id];
+            if (demux_info) {
+                 mediasync_id = demux_info->media_sync_id;
+                 ALOGI ("%s,mediasync_id:%d\n", __func__, mediasync_id);
+            }
+        }
+        return mediasync_id;
+    }
+    return return_value;
+}
+
 int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;

@@ -126,6 +126,7 @@ extern void dtv_avsync_process(struct audio_stream_out *stream, size_t bytes, au
 extern void decoder_set_pcrscr(unsigned int pcrscr);
 int get_audio_checkin_underrun(void);
 int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms);
+int get_dtv_parameters(struct audio_hw_device *dev, const char *keys);
 bool is_dtv_patch_alive(struct aml_audio_device *aml_dev);
 int dtv_patch_get_latency(struct aml_audio_device *aml_dev);
 int audio_get_sample_rate_channels(int *sample_rate, int *channels, int *lfepresent);
