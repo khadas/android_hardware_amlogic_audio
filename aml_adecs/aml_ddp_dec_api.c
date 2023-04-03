@@ -602,7 +602,6 @@ static int  dcv_decoder_flush(aml_dec_t * aml_dec) {
     dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
     dec_data_info_t * raw_in_data  = &aml_dec->raw_in_data;
     if (ddp_dec) {
-        ddp_dec->inbuf_size = 0;
         ddp_dec->remain_size = 0;
         ddp_dec->outlen_pcm = 0;
         ddp_dec->outlen_raw = 0;
