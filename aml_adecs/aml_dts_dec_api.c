@@ -310,6 +310,7 @@ static int _dts_frame_scan(struct dca_dts_dec *dts_dec)
         unsigned int syncword = 0;
         unsigned int check_size = 0;
         int tmp_syncword_pos = -1;
+        int first_sync_word_pos = 0;
         while ((frame_size <= 0) && (unuse_size > IEC61937_HEADER_LENGTH)) {
             if (_dts_syncword_scan(read_pointer, &syncword)) {
                 tmp_syncword_pos = read_pointer - input_rbuffer->start_addr;
@@ -324,6 +325,7 @@ static int _dts_frame_scan(struct dca_dts_dec *dts_dec)
                 } else if (!frame_info->syncword) {
                     frame_info->syncword_pos = tmp_syncword_pos;
                     frame_info->syncword = syncword;
+                    first_sync_word_pos = tmp_syncword_pos;
                 }
                 //ALOGD("syncword :0x%x, syncword_pos:%d", frame_info->syncword, frame_info->syncword_pos);
             }
@@ -340,6 +342,13 @@ static int _dts_frame_scan(struct dca_dts_dec *dts_dec)
             check_size = frame_info->check_pos - frame_info->syncword_pos;
         } else {
             check_size = input_rbuffer->size + frame_info->check_pos - frame_info->syncword_pos;
+        }
+
+        // drop the dirty data in the beginning.
+        if (first_sync_word_pos > 0) {
+            ring_buffer_seek(input_rbuffer, first_sync_word_pos);
+            dts_dec->remain_size -= first_sync_word_pos;
+            ALOGI("drop %d bytes before found the syncword.", first_sync_word_pos);
         }
 
         //ALOGD("check_pos:%d, syncword_pos:%d, read_pointer:%p, check_size:%d"
@@ -788,6 +797,9 @@ int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int byt
             }
         } else {
             ALOGE("%s:%d ring buffer haven`t enough space, lost data size:%d", __func__, __LINE__, bytes);
+            ring_buffer_reset(input_rbuffer);
+            dts_dec->remain_size = 0;
+            return AML_DEC_RETURN_TYPE_FAIL;
         }
     }
 
