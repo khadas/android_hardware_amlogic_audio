@@ -851,16 +851,28 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
     struct aml_audio_device *adev = in->dev;
     hdmiin_audio_packet_t last_audio_packet = in->last_audio_packet_type;
-    bool is_audio_packet_changed = false;
+    int pre_data_type = in->data_type;
+    bool is_audio_packet_changed = false, is_data_changed = false;
 
     hdmiin_audio_packet_t cur_audio_packet = get_hdmiin_audio_packet(&adev->alsa_mixer);
-
     is_audio_packet_changed = (((cur_audio_packet == AUDIO_PACKET_AUDS) || (cur_audio_packet == AUDIO_PACKET_HBR)) &&
                                (last_audio_packet != cur_audio_packet));
 
+    int cur_data_type = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_HDMIIN_NONAUDIO);
+    if (cur_data_type == DATA_NON_PCM && pre_data_type == DATA_PCM) {
+        enable_HW_resample(&adev->alsa_mixer, HW_RESAMPLE_DISABLE);
+        is_data_changed = true;
+        ALOGI("%s Cur_data_type %d", __func__, cur_data_type);
+    }
+
+    if (cur_data_type == DATA_PCM && pre_data_type == DATA_NON_PCM) {
+        is_data_changed = true;
+    }
+
+    in->data_type = cur_data_type;
     if (in_device & AUDIO_DEVICE_IN_HDMI) {
         bool hw_stable = is_hdmi_in_stable_hw(stream);
-        if ((!hw_stable) || is_audio_packet_changed) {
+        if ((!hw_stable) || is_audio_packet_changed || is_data_changed) {
             ALOGV("%s() hdmi in hw unstable\n", __func__);
             *mute_time = 300;
             in->last_audio_packet_type = cur_audio_packet;

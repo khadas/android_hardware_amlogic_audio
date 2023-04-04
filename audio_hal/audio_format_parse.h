@@ -144,6 +144,7 @@ int get_dts_stream_channels(const char *buffer, size_t bytes);
  */
 int audio_type_parse(audio_type_parse_t *status, void *buffer, size_t bytes, int *package_size,
         audio_channel_mask_t *cur_ch_mask);
+int audio_raw_data_parse(audio_type_parse_t *status, void *buffer, size_t bytes);
 
 int audio_parse_get_audio_samplerate(audio_type_parse_t *status);
 

@@ -496,6 +496,35 @@ int audio_type_parse(audio_type_parse_t *status, void *buffer, size_t bytes, int
     return AudioType;
 }
 
+int audio_raw_data_parse(audio_type_parse_t *status, void *buffer, size_t bytes)
+{
+
+    audio_type_parse_t *audio_type_status = status;
+
+    audio_type_status->cur_audio_type = audio_type_parse(audio_type_status, buffer, bytes, &(audio_type_status->package_size),
+                                                &(audio_type_status->audio_ch_mask));
+    if (audio_type_status->audio_type == audio_type_status->cur_audio_type) {
+        audio_type_status->read_bytes = 0;
+        return audio_type_status->audio_type;
+    }
+    if (audio_type_status->audio_type != LPCM && audio_type_status->cur_audio_type == LPCM) {
+        /* check 2 period size of IEC61937 burst data to find syncword*/
+        if (audio_type_status->read_bytes > (audio_type_status->package_size * 2)) {
+            audio_type_status->audio_type = audio_type_status->cur_audio_type;
+            audio_type_status->read_bytes = 0;
+            ALOGI("Change from raw data to pcm\n");
+        }
+        audio_type_status->read_bytes += bytes;
+    } else {
+        /* if find 61937 syncword or raw audio type changed,
+        immediately update audio type*/
+        audio_type_status->audio_type = audio_type_status->cur_audio_type;
+        audio_type_status->read_bytes = 0;
+        AM_LOGI("Raw data type(%d)\n", audio_type_status->audio_type);
+    }
+    return audio_type_status->audio_type;
+}
+
 static int get_config_by_params(struct pcm_config *config_in, bool normal_pcm)
 {
     if (normal_pcm) {

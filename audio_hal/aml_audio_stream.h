@@ -54,6 +54,9 @@
                              (device) == AUDIO_DEVICE_IN_HDMI_ARC ||\
                              (device) == AUDIO_DEVICE_IN_SPDIF)
 
+#define DATA_PCM                         (0)
+#define DATA_NON_PCM                     (1)
+
 /*temp code, we will remove it later*/
 #if ANDROID_PLATFORM_SDK_VERSION < 31
 /*S/T already has such enum, R doesn't have it*/
