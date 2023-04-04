@@ -847,6 +847,10 @@ static void set_dolby_ms12_downmix_mode(struct aml_audio_device *adev)
 
 
 void set_dolby_ms12_main_speed(struct dolby_ms12_desc *ms12, double speed) {
+    if (fabs(speed) < 1e-6) {
+        ALOGE("%s invalid speed =%f", __func__, speed);
+        return;
+    }
     if (ms12 && ms12->scaletempo) {
         hal_scaletempo_update_rate(ms12->scaletempo, speed);
     }
