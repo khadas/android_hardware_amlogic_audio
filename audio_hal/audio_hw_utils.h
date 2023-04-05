@@ -240,4 +240,9 @@ enum OUT_PORT get_output_by_devices(audio_devices_t devices);
 bool is_AC4_stream_with_pcm_sink_on_stb(struct aml_stream_out *aml_out);
 float get_ac4_stream_volume(struct aml_stream_out *aml_out);
 
+static inline bool is_tvinput_source(enum patch_src_assortion patch_src) {
+    return (patch_src == SRC_DTV || patch_src == SRC_ATV || patch_src == SRC_HDMIIN || \
+           patch_src == SRC_LINEIN || patch_src == SRC_SPDIFIN || patch_src == SRC_ARCIN);
+}
+
 #endif

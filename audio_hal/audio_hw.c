@@ -5833,10 +5833,13 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 /* apply volume for SPK/HP/SPDIF/HDMItx, HMDITX for BDS platform */
                 /* all source should apply source gain, spk: spk volume + effect */
                 if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
-                    if (is_a2dp_path && (adev->patch_src == SRC_DTV || adev->patch_src == SRC_HDMIIN
-                            || adev->patch_src == SRC_LINEIN || adev->patch_src == SRC_ATV)
-                            && adev->audio_patching) {
-                        volume *= adev->sink_gain[OUTPORT_A2DP];
+                    if (is_a2dp_path) {
+                        if (is_tvinput_source(adev->patch_src)&& adev->audio_patching) {
+                            /* for dev->a2dp path, volume control in audio hal. */
+                            volume *= adev->sink_gain[OUTPORT_A2DP];
+                        } else {
+                            /* for mix->a2dp path, volume control in AudioFlinger. */
+                        }
                     } else {
                         /* special add external gain for media->speaker */
                         if (adev->patch_src != SRC_DTV && adev->patch_src != SRC_ATV &&
