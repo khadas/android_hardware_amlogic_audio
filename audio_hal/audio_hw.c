@@ -8438,8 +8438,10 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
     if (aml_out->hw_sync_mode
         && aml_out->tsync_status != TSYNC_STATUS_STOP
         && !has_hwsync_stream_running(stream)
-        && aml_out->hwsync->hwsync_id != get_dtv_parameters(dev, "hal_param_media_sync_id")) {
-
+#if ENABLE_DVB_PATCH
+        && aml_out->hwsync->hwsync_id != get_dtv_parameters(dev, "hal_param_media_sync_id")
+#endif
+      ) {
         ALOGI("%s set AUDIO_PAUSE and AUDIO_STOP when close stream\n",__func__);
         aml_hwsync_wrap_set_pause(aml_out->hwsync);
         aml_hwsync_wrap_set_stop(aml_out->hwsync);
