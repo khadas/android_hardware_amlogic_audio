@@ -3206,6 +3206,7 @@ int output_stream_hwsync_prepare(struct aml_stream_out *out, int hw_sync_id)
             out->hwsync->hwsync_need_resume = false;
         } else {
             ALOGI ("[%s] adev->hw_mediasync:%p\n", __FUNCTION__, adev->hw_mediasync);
+#if ENABLE_DVB_PATCH
              /*patch for cbs switch to netflix, the sync id is not match*/
             if (adev->hw_mediasync &&
                 adev->hw_sync_id != -1 &&
@@ -3215,6 +3216,7 @@ int output_stream_hwsync_prepare(struct aml_stream_out *out, int hw_sync_id)
                 adev->hw_mediasync = NULL;
                 adev->hw_sync_id = -1;
             }
+#endif
             if (adev->hw_mediasync == NULL) {
                 adev->hw_mediasync = aml_audio_hwsync_create();
             }
