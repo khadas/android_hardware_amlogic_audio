@@ -4795,31 +4795,18 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         sprintf (temp_buf, "disable_pcm_mixing=%d", adev->disable_pcm_mixing);
         return strdup (temp_buf);
     } else if (strstr (keys, "hdmi_encodings") ) {
-        struct format_desc *fmtdesc = NULL;
-        bool aml_dd = false, aml_ddp = false;
-
-        // query dd support
-        fmtdesc = &adev->hdmi_descs.dd_fmt;
-        if (fmtdesc && fmtdesc->fmt == AML_HDMI_FORMAT_AC3)
-            aml_dd = fmtdesc->is_support;
-
-        // query ddp support
-        fmtdesc = &adev->hdmi_descs.ddp_fmt;
-        if (fmtdesc && fmtdesc->fmt == AML_HDMI_FORMAT_DDP)
-            aml_ddp = fmtdesc->is_support;
-
+        bool aml_dd =  adev->hdmi_descs.dd_fmt.is_support;
+        bool aml_ddp = adev->hdmi_descs.ddp_fmt.is_support;
         sprintf (temp_buf, "hdmi_encodings=%s", "pcm;");
         if (aml_ddp) {
             sprintf (temp_buf + strlen(temp_buf), "ac3;eac3;");
-            if (fmtdesc->atmos_supported) {
+            if (adev->hdmi_descs.ddp_fmt.atmos_supported) {
                 sprintf (temp_buf + strlen(temp_buf), "atmos;");
             }
         } else if (aml_dd) {
             sprintf (temp_buf + strlen(temp_buf), "ac3;");
         }
-
-        ALOGI ("%s: atmos = %d, keys: [%s] \n", __func__,
-            fmtdesc->atmos_supported, temp_buf);
+        AM_LOGI("atmos = %d, keys: [%s]", adev->hdmi_descs.ddp_fmt.atmos_supported, temp_buf);
         return strdup (temp_buf);
     } else if (strstr (keys, "is_passthrough_active") ) {
         bool active = false;
