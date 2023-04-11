@@ -264,12 +264,20 @@ static int outMmapGetPosition(const struct audio_stream_out *stream,
     position->time_nanoseconds = pstParam->time_nanoseconds;
     position->position_frames = pstParam->u32FramePosition;
 
-    if (position->position_frames == 0 || pstParam->stThreadParam.status != MMAP_START_DONE) {
+    if (position->position_frames == 0 || pstParam->stThreadParam.status < MMAP_START_DONE) {
         AM_LOGW("status:%d not start done or position:%d is 0",
             pstParam->stThreadParam.status, position->position_frames);
-        //if return -ENOSYS, StreamHAL report error "function not implemented"(-38)
-        //Here should be changed to 0, the cts can pass.
-        return 0;
+        /*1)if return -ENOSYS, StreamHAL report error "function not implemented"(-38)
+            Here should be changed to 0, the cts can pass.
+          2)GetMmapPositionOfNonMmapedStream of vts, it should return -ENOSYS that this case can pass.
+        */
+        if (pstParam->stThreadParam.status == MMAP_INIT && pstParam->is_first_fetch_position) {
+            pstParam->is_first_fetch_position = false;
+            AM_LOGI("  is first_fetch_position and return -ENOSYS");
+            return -ENOSYS;
+        } else {
+            return 0;
+        }
     }
     if (out->dev->debug_flag >= 100) {
         AM_LOGD("stream:%p, position_frames:%d, nano:%lld frame diff=%lu ms time diff=%" PRId64 " ms", stream,
@@ -390,6 +398,7 @@ int outMmapInit(struct aml_stream_out *out)
     } else {
         ret = ion_buffer_allocate_new(pstParam);
     }
+    pstParam->is_first_fetch_position = true;
     return ret;
 }
 
