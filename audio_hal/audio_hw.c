@@ -1904,10 +1904,6 @@ static int out_get_render_position (const struct audio_stream_out *stream,
     if (ret == 0)
     {
         *dsp_frames = (uint32_t)(dsp_frame_uint64 & 0xffffffff);
-        if (*dsp_frames == 0) {
-            /*add this code INVALID_STATE(3) for VTS in AndroidP*/
-            ret = INVALID_STATE;
-        }
     } else {
         ret = -ENOSYS;
     }
