@@ -283,6 +283,9 @@ Repop_Mesg:
             ALOGV("%s  ms12_out:%p, waiting ==> ms12_main_stream_out:%p", __func__,adev->ms12_out,ms12->ms12_main_stream_out);
             aml_audio_sleep(5000); //sleep 5ms
         };
+        if (ms12->CommThread_ExitFlag) {
+            goto Error;
+        }
         ALOGV("%s  ms12_out:%p, ==> ms12_main_stream_out:%p", __func__,adev->ms12_out,ms12->ms12_main_stream_out);
         switch (mesg_p->mesg_type) {
             case MS12_MESG_TYPE_FLUSH:
