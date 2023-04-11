@@ -709,7 +709,7 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
             /* TrueHD content, in SBR, need 8190bytes to feed the decoder.
              * so, choose the 8192bytes as an estimated value.
              */
-            size = 4 * PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
+            size = 8 * PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
         }
         if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
             size = 4 * PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
