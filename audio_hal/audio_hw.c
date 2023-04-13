@@ -8951,6 +8951,8 @@ int release_patch_l(struct aml_audio_device *aml_dev)
     pthread_join(patch->audio_output_threadID, NULL);
     ring_buffer_release(&patch->aml_ringbuffer);
     release_tvin_buffer(patch);
+    aml_dev->dev2mix_patch = false;
+
     aml_audio_free(patch);
     aml_dev->audio_patch = NULL;
     aml_dev->audio_patch_2_af_stream = true;
@@ -9383,13 +9385,6 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
             } else if ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_DTV)){///zzz
 #ifdef ENABLE_DVB_PATCH
                 if (/*aml_dev->is_TV*/1) {
-                    if (aml_dev->audio_patching) {
-                        ALOGI("%s,!!!now release the dtv patch now\n ", __func__);
-                        ret = release_dtv_patch(aml_dev);
-                        if (!ret) {
-                            aml_dev->audio_patching = 0;
-                        }
-                    }
                     ALOGI("%s, !!! now create the dtv patch now\n ", __func__);
                     ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER, AUDIO_DEVICE_OUT_SPEAKER);
                     if (ret == 0) {
@@ -9536,7 +9531,6 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
             //aml_dev->patch_src = SRC_DTV;
             aml_dev->active_inport = INPORT_TUNER;
         }
-        aml_dev->dev2mix_patch = false;
     }
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, TYPE_PCM);
 #ifdef ADD_AUDIO_DELAY_INTERFACE

@@ -4776,6 +4776,7 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
     if (aml_dev->start_mute_flag != 0)
         aml_dev->start_mute_flag = 0;
     aml_dev->underrun_mute_flag = 0;
+    aml_dev->dev2mix_patch = false;
     aml_dev->insert_mute_flag = false;
     aml_dev->audio_patch = NULL;
     ALOGI("[audiohal_kpi]--%s Exit", __FUNCTION__);
