@@ -102,6 +102,7 @@ typedef struct  aml_dtvsync {
 
 typedef struct aml_dtv_audio_instances {
     int demux_index_working;
+    int last_path_id;
     int dtv_latencyms_id;
     int dvb_path_count;
     void *demux_handle[DVB_DEMUX_SUPPORT_MAX_NUM];

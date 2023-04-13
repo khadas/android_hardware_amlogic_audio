@@ -91,8 +91,8 @@ int create_dtv_patch(struct audio_hw_device *dev, audio_devices_t input, audio_d
 int release_dtv_patch(struct aml_audio_device *dev);
 int release_dtv_patch_l(struct aml_audio_device *dev);
 #if ANDROID_PLATFORM_SDK_VERSION > 29
-int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct audio_hw_device *dev);
-int disable_dtv_patch_for_tuner_framework(struct audio_hw_device *dev);
+int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct audio_stream_out *stream);
+int disable_dtv_patch_for_tuner_framework(struct audio_stream_out *stream);
 int out_pause_dtv_stream_for_tunerframework(struct audio_stream_out *stream);
 int out_resume_dtv_stream_for_tunerframework(struct audio_stream_out *stream);
 int out_start_dtv_stream_for_tunerframework(struct audio_stream_out *stream);

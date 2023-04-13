@@ -4795,27 +4795,21 @@ int release_dtv_patch(struct aml_audio_device *aml_dev)
 }
 
 #if ANDROID_PLATFORM_SDK_VERSION > 29
-int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct audio_hw_device *dev)
+int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct audio_stream_out *stream)
 {
-    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = (struct aml_audio_device *)aml_out->dev;
+    struct audio_hw_device *dev = (struct audio_hw_device *)adev;
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
     int ret = 0, val = 0, path_id = 0;
 
     /*1.only when config has valid content id and sync id*/
     if (config->offload_info.content_id != 0 && config->offload_info.sync_id != 0)
     {
-        if ((adev->patch_src == SRC_DTV) && adev->audio_patching) {
-            /*2.check if old dtv patch exists*/
-            ALOGI("[audiohal_kpi] %s, now release the dtv patch now\n ", __func__);
-            ret = release_dtv_patch(adev);
-            if (!ret) {
-                adev->audio_patching = 0;
-            }
-        }
         adev->patch_src = SRC_DTV;
         adev->out_device = 0x400;
         dtv_audio_instances->dtv_scene = DTV_TUNER_FRAMEWORK;
-        /*3.create audio dtv patch*/
+        /*2.create audio dtv patch*/
         ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER, AUDIO_DEVICE_OUT_SPEAKER);
         if (ret == 0) {
             adev->audio_patching = 1;
@@ -4824,22 +4818,29 @@ int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct aud
             }
         }
 
-        /*4.parser demux id from offload_info, then set it. tuner/filter.cpp for reference.*/
+        /*3.parser demux id from offload_info, then set it. tuner/filter.cpp for reference.*/
         val = (config->offload_info.content_id >> 16) & 0xF;//demux id
+        if (val > DVB_DEMUX_SUPPORT_MAX_NUM - 1)  {
+            ALOGW("invalid dmx id %d ", val);
+            return -1;
+        }
+        path_id = val;
+        dtv_audio_instances->last_path_id = path_id;
+        aml_out->demux_id = path_id;
         val = (path_id << DVB_DEMUX_ID_BASE | val);
         ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_DEMUX_INFO, val);
 
-        /*parser pid from offload_info, then set it. tuner/filter.cpp for reference.*/
+        /*4.parser pid from offload_info, then set it. tuner/filter.cpp for reference.*/
         val = config->offload_info.content_id & 0x0000FFFF;//pid
         val = (path_id << DVB_DEMUX_ID_BASE | val);
         ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_PID, val);
 
-        /*parser pid from offload_info, then set it.*/
+        /*5.parser pid from offload_info, then set it.*/
         val = config->offload_info.sync_id;//sync id
         val = (path_id << DVB_DEMUX_ID_BASE | val);
         ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_MEDIA_SYNC_ID, val);
 
-        /*parser format from offload_info, then set it.*/
+        /*6.parser format from offload_info, then set it.*/
         if (audio_is_linear_pcm(config->offload_info.format)) {
             val = (config->offload_info.content_id >> 21) & 0x1F;//encoding_fmt
             val = tunerhal_fmt_to_native_fmt(val);//native_fmt
@@ -4852,19 +4853,19 @@ int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct aud
         val = (path_id << DVB_DEMUX_ID_BASE | val);
         ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_FMT, val);
 
-        /*set security_mem_level. for tunerframework.*/
+        /*7.set security_mem_level. for tunerframework.*/
         val = (config->offload_info.content_id >> 20) & 0x1;
         if (val == 1) {
             val = 2 << 10;
         } else {
             val = 0;
         }
+        val = (path_id << DVB_DEMUX_ID_BASE | val);
         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_SECURITY_MEM_LEVEL, val);
 
-        /*5.make dtv patch work via cmds.*/
+        /*8.init mediasync via cmds.*/
         val = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_OPEN);
         ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, val);
-        //ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, AUDIO_DTV_PATCH_CMD_START);
 
         aml_dtvsync_t *dtvsync = &dtv_audio_instances->dtvsync[path_id];
         if (dtvsync->mediasync_new != NULL) {
@@ -4876,10 +4877,12 @@ int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct aud
     return ret;
 }
 
-int disable_dtv_patch_for_tuner_framework(struct audio_hw_device *dev)
+int disable_dtv_patch_for_tuner_framework(struct audio_stream_out *stream)
 {
-    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
-    int ret = 0,val = 0,path_id = 0;
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = (struct aml_audio_device *)aml_out->dev;
+    struct audio_hw_device *dev = (struct audio_hw_device *)adev;
+    int ret = 0,val = 0,path_id = aml_out->demux_id;
     if (!adev) {
         ALOGE("%s[%d]:adev is NULL", __func__, __LINE__);
         return -1;
@@ -4887,23 +4890,27 @@ int disable_dtv_patch_for_tuner_framework(struct audio_hw_device *dev)
     if (adev->audio_patch) {
         /*1.make dtv patch stop via cmds*/
         //ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, AUDIO_DTV_PATCH_CMD_STOP);
-        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, AUDIO_DTV_PATCH_CMD_CLOSE);
+        val = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_CLOSE);
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, val);
 
         /*2.release dtv patch*/
         ret = release_dtv_patch(adev);
         ALOGD("%s[%d]:the audio_patching: %d, patch: %p, ret: %d", __func__, __LINE__, adev->audio_patching, adev->audio_patch, ret);
     } else {
         ALOGE("%s[%d]:adev %p, patch %p", __func__, __LINE__, adev, adev->audio_patch);
+        adev->audio_patching = 0;
+        adev->audio_patch->cbs_patch = false;
     }
     return ret;
 }
 
 int out_pause_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
 {
-    int ret = 0,cmd = 0,path_id = 0;
+    int ret = 0,cmd = 0;
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    int path_id = aml_out->demux_id;
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
     aml_demux_audiopara_t *dmx_info = &dtv_audio_instances->demux_info[path_id];
     aml_dtvsync_t *dtvsync = &dtv_audio_instances->dtvsync[path_id];
@@ -4926,11 +4933,12 @@ int out_pause_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
 }
 int out_resume_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
 {
-    int ret = 0,cmd = 0,path_id = 0;
+    int ret = 0,cmd = 0;
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
+    int path_id = aml_out->demux_id;
     aml_demux_audiopara_t *dmx_info = &dtv_audio_instances->demux_info[path_id];
     aml_dtvsync_t *dtvsync = &dtv_audio_instances->dtvsync[path_id];
     /*make dtv patch resume via cmds*/
@@ -4952,11 +4960,12 @@ int out_resume_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
 
 int out_flush_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
 {
-    int ret = 0,cmd = 0,path_id = 0;
+    int ret = 0,cmd = 0;
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
+    int path_id = aml_out->demux_id;
     aml_demux_audiopara_t *dmx_info = &dtv_audio_instances->demux_info[path_id];
     aml_dtvsync_t *dtvsync = &dtv_audio_instances->dtvsync[path_id];
     int costtime_ms = 0;
@@ -4980,11 +4989,12 @@ int out_flush_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
 
 int out_standby_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
 {
-    int ret = 0,cmd = 0,path_id = 0;
+    int ret = 0,cmd = 0;
 
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    int path_id = aml_out->demux_id;
     /*make dtv standby via cmds*/
     ALOGD("%s[%d]:the audio_patching is %d. decoder state: %d", __func__, __LINE__, adev->audio_patching, adev->audio_patch->dtv_decoder_state);
     if (dtv_tuner_framework(stream)) {
@@ -5004,7 +5014,7 @@ int out_standby_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
 
 int out_start_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
 {
-    int ret = 0, cmd = 0, path_id = 0;
+    int ret = 0, cmd = 0;
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
@@ -5013,14 +5023,21 @@ int out_start_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
         return -1;
     }
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
+    int path_id = aml_out->demux_id;
     aml_demux_audiopara_t *dmx_info = &dtv_audio_instances->demux_info[path_id];
     aml_dtvsync_t *dtvsync = &dtv_audio_instances->dtvsync[path_id];
-    ALOGI("aml_out->demux_id %d", aml_out->demux_id);
+    ALOGI("aml_out->demux_id %d aml_out %p", aml_out->demux_id, aml_out);
     struct mediasync_audio_format audio_format;
     /*make dtv patch start via cmds*/
     if (adev->audio_patch) {
         ALOGD("%s[%d]:the audio_patching: %d, patch: %p. decoder state: %d", __func__, __LINE__, adev->audio_patching, adev->audio_patch, adev->audio_patch->dtv_decoder_state);
         if (dtv_tuner_framework(stream)) {
+            ALOGI("dtv_audio_instances->demux_index_working %d path_id %d",dtv_audio_instances->demux_index_working, path_id);
+            if (dtv_audio_instances->demux_index_working != -1 &&
+                dtv_audio_instances->demux_index_working != path_id) {
+                cmd = (dtv_audio_instances->demux_index_working << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_STOP);
+                dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, cmd);
+            }
             if (dtvsync->mediasync_new != NULL) {
                 audio_format.format = dmx_info->main_fmt;
                 mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_AUDIOFORMAT, &audio_format);
@@ -5044,10 +5061,11 @@ int out_start_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
 
 int out_stop_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
 {
-    int ret = 0,cmd = 0,path_id = 0;
+    int ret = 0,cmd = 0;
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    int path_id = aml_out->demux_id;
     if (!adev) {
         ALOGE("%s[%d]:adev is NULL", __func__, __LINE__);
         return -1;
@@ -5069,10 +5087,10 @@ int out_stop_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
 int out_get_audio_description_mix_level(struct audio_stream_out *stream, float *leveldB)
 {
     ALOGD("func:%s  stream:%p leveldB:%p", __func__, stream, leveldB);
-    int path_id = 0;
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    int path_id = aml_out->demux_id;
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
     aml_demux_audiopara_t *dmx_info = &dtv_audio_instances->demux_info[path_id];
     *leveldB = dmx_info->mixing_level;
@@ -5081,8 +5099,9 @@ int out_get_audio_description_mix_level(struct audio_stream_out *stream, float *
 
 int out_set_audio_description_mix_level(struct audio_stream_out *stream, const float leveldB)
 {
-    int ret = 0,cmd = 0,path_id = 0;
+    int ret = 0,cmd = 0;
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    int path_id = aml_out->demux_id;
     struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
@@ -5185,13 +5204,14 @@ int out_get_dual_mono_mode(struct audio_stream_out *stream, audio_dual_mono_mode
 
 int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, const void *buffer, size_t bytes) {
 
-    int ret = 0,cmd = 0,path_id = 0, val = 0;
+    int ret = 0,cmd = 0, val = 0;
     size_t total_bytes = bytes;
     size_t bytes_cost = 0;
     size_t hwsync_cost_bytes = 0;
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    int path_id = aml_out->demux_id;
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
     aml_demux_audiopara_t *dmx_info = &dtv_audio_instances->demux_info[path_id];
     struct aml_audio_patch *audio_patch = adev->audio_patch;

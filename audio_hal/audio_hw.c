@@ -3514,10 +3514,9 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     if (dtv_tuner_framework(stream)) {
         /*enter into tuner framework case, we need to stop&release audio dtv patch*/
         ALOGD("[audiohal_kpi] %s:patching %d, dev:%p, out->dev:%p, patch:%p", __func__, out->dev->audio_patching, dev, out->dev, ((struct aml_audio_device *)dev)->audio_patch);
-        out->dev->audio_patching = 0;
         out_stop_dtv_stream_for_tunerframework(stream);
         /*coverity[sleep]*/
-        ret = disable_dtv_patch_for_tuner_framework(dev);
+        ret = disable_dtv_patch_for_tuner_framework(stream);
         if (!ret) {
             ALOGI("%s: finish releasing patch", __func__);
         }
@@ -4582,6 +4581,9 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         if (adev->patch_src == SRC_DTV && adev->audio_patching ==1) {
             unsigned int path_id = 0;
             aml_dtv_audio_instances_t *dtv_audio_instances = (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
+            if (adev->audio_patch->cbs_patch) {
+                  path_id = dtv_audio_instances->last_path_id;
+            }
             if (dtv_audio_instances) {
                 aml_dtvsync_t *dtvsync = &dtv_audio_instances->dtvsync[path_id];
                 if (dtvsync) {
@@ -7141,6 +7143,8 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     }
 #ifdef ENABLE_DVB_PATCH
 #if ANDROID_PLATFORM_SDK_VERSION > 29
+    ALOGI("aml_out->dev->patch_src %d aml_out->dev->audio_patching %d aml_out->flags %0x aml_out->audioCfg.offload_info.content_id %d aml_out->audioCfg.offload_info.sync_id %d",
+    aml_out->dev->patch_src, aml_out->dev->audio_patching, aml_out->flags, aml_out->audioCfg.offload_info.content_id, aml_out->audioCfg.offload_info.sync_id);
     if ((aml_out->dev->patch_src == SRC_DTV) &&
         aml_out->dev->audio_patching &&
         (aml_out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) &&
@@ -7452,10 +7456,9 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
 #if ANDROID_PLATFORM_SDK_VERSION > 29
     /*valid audio_config means enter in tuner framework case, then we need to create&start audio dtv patch*/
     ALOGD("%s: dev:%p, fmt:%d, dmx fmt:%d, content id:%d,sync id %d,adev->patch_src %d, adev->audio_patching %d", __func__, dev, config->offload_info.format, android_fmt_convert_to_dmx_fmt(config->offload_info.format), config->offload_info.content_id, config->offload_info.sync_id, adev->patch_src, adev->audio_patching);
-    enable_dtv_patch_for_tuner_framework(config, dev);
+    enable_dtv_patch_for_tuner_framework(config, *stream_out);
     aml_out->audioCfg.offload_info.content_id = config->offload_info.content_id;
     aml_out->audioCfg.offload_info.sync_id = config->offload_info.sync_id;
-    aml_out->demux_id = (config->offload_info.content_id >> 16);
     if (dtv_tuner_framework(*stream_out)) {
         /*assign pause/resume api for tuner framework output stream.
           application scenarios like: time shift pause/resume*/
