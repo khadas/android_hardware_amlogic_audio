@@ -803,12 +803,16 @@ struct aml_stream_out {
 
     pthread_mutex_t apts_update_lock; /*SWPL-88828: Make sure audio timestamps and frame positions are updated synchronously.*/
     struct timespec last_info_timestamp;
+    uint64_t last_periodic_print_time_in_ms;
     struct timespec last_avsync_timestamp;
     int64_t jitter_ms;
     int     audio_delay;
 
     void *kara;
     uint64_t hwsync_parsed_frames_sum_paused;
+
+    uint32_t last_write_start_time_in_ms; // For checking the writing time
+    uint32_t last_write_data_in_byte; // For checking the writing time
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

@@ -75,6 +75,8 @@ static const char *str_compmode[] = {"custom mode, analog dialnorm","custom mode
 #define DDP_MUTE_FRAME_SIZE 6144
 #define AUDIO_HAL_DUMP_DEFAULT_PATH "/data/vendor/audiohal/"
 
+#define WRITE_TIME_PRINT_THRESHOLD (100) // milliseconds
+
 //add array of chip name,index is chip id
 static const char* aml_chip_name[]= {
     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
@@ -2431,3 +2433,33 @@ float get_ac4_stream_volume(struct aml_stream_out *aml_out)
 
     return ret;
 }
+
+/*****************************************************************************
+*   Function Name:  check_write_time
+*   Description:    Check the written time and print a log if it is abnormal
+*                   This will print the last time written and the current time written,
+*                   along with other relevant information, to determine if the writing speed is normal.
+*   Parameters:     struct audio_stream_out: audio output stream pointer.
+*                   bytes: The current amount of data written in bytes.
+*   Return value:   return void
+******************************************************************************/
+void check_write_time(struct audio_stream_out *stream, size_t bytes)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = aml_out->dev;
+
+    uint32_t cur_write_start_time_in_ms = aml_audio_get_systime() / 1000; //us --> ms
+    uint32_t cur_write_data_in_byte = bytes;
+    int32_t write_time_gap_in_ms = cur_write_start_time_in_ms - aml_out->last_write_start_time_in_ms;
+
+    if (write_time_gap_in_ms > WRITE_TIME_PRINT_THRESHOLD || adev->debug_flag > 1) {
+        ALOGW("%s: out_stream:%p, write count:%d, last write time:%d ms, last write data:%d byte,"
+            "cur write time:%d ms, cur write data:%d byte, write time gap:%d ms (thr:%d ms)",
+            __func__, stream, aml_out->write_count, aml_out->last_write_start_time_in_ms, aml_out->last_write_data_in_byte,
+            cur_write_start_time_in_ms, cur_write_data_in_byte, write_time_gap_in_ms, WRITE_TIME_PRINT_THRESHOLD);
+    }
+
+    aml_out->last_write_start_time_in_ms = cur_write_start_time_in_ms;
+    aml_out->last_write_data_in_byte = cur_write_data_in_byte;
+}
+

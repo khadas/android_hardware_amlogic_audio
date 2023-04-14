@@ -2137,26 +2137,25 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         int64_t  frame_diff_ms =  (*frames - out->last_frame_reported) * 1000 / out->hal_rate;
         int64_t  system_time_ms = 0;
         int delay = 0;
-        if (timestamp->tv_nsec < out->last_timestamp_reported.tv_nsec) {
-            system_time_ms = (timestamp->tv_nsec + 1000000000 - out->last_timestamp_reported.tv_nsec)/1000000;
-        }
-        else
-            system_time_ms = (timestamp->tv_nsec - out->last_timestamp_reported.tv_nsec)/1000000;
-        int64_t jitter_diff = llabs(frame_diff_ms - system_time_ms);
+
+        system_time_ms = (timestamp->tv_sec * 1000 + timestamp->tv_nsec / 1000000) - (out->last_timestamp_reported.tv_sec * 1000 + out->last_timestamp_reported.tv_nsec / 1000000);
+        int64_t jitter_diff = frame_diff_ms - system_time_ms;
         out->jitter_ms = jitter_diff;
         if (audio_is_linear_pcm(out->hal_format) && audio_stream_out_frame_size(stream) && !out->hw_sync_mode) {
             delay = out->input_bytes_size / audio_stream_out_frame_size(stream) - *frames;
         }
         out->audio_delay = delay;
-        if  (jitter_diff > JITTER_DURATION_MS && adev->debug_flag) {
+        if  (llabs(jitter_diff) > JITTER_DURATION_MS && adev->debug_flag) {
             ALOGI("%s jitter out last pos info: %p %"PRIu64", sec = %ld, nanosec = %ld\n",__func__,out, out->last_frame_reported,
                 out->last_timestamp_reported.tv_sec, out->last_timestamp_reported.tv_nsec);
             ALOGI("%s jitter  system time diff %"PRIu64" ms, position diff %"PRIu64" ms, jitter %"PRIu64" ms \n",
                 __func__,system_time_ms,frame_diff_ms,jitter_diff);
         }
+
+        aml_stream_out_info_print(out, frames, timestamp);
+
         out->last_frame_reported = *frames;
         out->last_timestamp_reported = *timestamp;
-        aml_stream_out_info_print(out);
     }
     return ret;
 }
@@ -3524,6 +3523,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->is_insert_zero_data = false;
     out->insert_zero_data_ms = 0;
     out->hwsync_parsed_frames_sum_paused = 0;
+    out->last_periodic_print_time_in_ms = 0;
 
     clock_gettime(CLOCK_MONOTONIC, &out->last_info_timestamp);
     clock_gettime(CLOCK_MONOTONIC, &out->last_avsync_timestamp);
@@ -8055,6 +8055,8 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         }
     }
     aml_out->write_count++;
+
+    check_write_time((struct audio_stream_out *)aml_out, bytes);
 
     if (!aml_out->is_tv_src_stream && (aml_out->flags & AUDIO_OUTPUT_FLAG_DIRECT) && adev->audio_patch) {
         /*amlogic audio hal path only support one raw path, if dtv path exits, skip audiotrack raw data.

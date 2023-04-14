@@ -208,6 +208,7 @@ static inline void endian16_convert(void *buf, int size)
     }
 }
 int get_media_video_delay(struct aml_mixer_handle *mixer_handle);
+void check_write_time(struct audio_stream_out *stream, size_t bytes);
 
 int aml_get_stream_dump_file_name(audio_format_t audio_format, char *file_name);
 static inline bool is_include_filter_out_port(audio_devices_t devices, CHECK_AUDIO_DEVICE_PTR filter) {

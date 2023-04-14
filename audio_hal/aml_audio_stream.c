@@ -59,6 +59,9 @@
 #define HDMI_HDR_STATUS_NODE        "/sys/class/amhdmitx/amhdmitx0/hdmi_hdr_status"
 #define SINK_DV_KEYWORD             "DolbyVision"
 
+#define JITTER_PRINT_THRESHOLD (100) // milliseconds
+#define INFO_TIME_PRINT_THRESHOLD (100) // milliseconds
+
 
 static audio_format_t ms12_max_support_output_format() {
 #ifndef MS12_V24_ENABLE
@@ -963,30 +966,50 @@ const char *stream_status_2_string[STREAM_STATUS_MAX] = {
     "_PAUSED"
 };
 
-
-void aml_stream_out_info_print(struct aml_stream_out *aml_out)
+void aml_stream_out_info_print(struct aml_stream_out *aml_out, uint64_t *frames, struct timespec *timestamp)
 {
-    struct timespec current_timestamp;
-    clock_gettime(CLOCK_MONOTONIC, &current_timestamp);
-    int64_t time_diff = calc_time_interval_us(&aml_out->last_info_timestamp, &current_timestamp);
-    ALOGV("%s time_diff %"PRIu64" ", __func__, time_diff);
-    if (time_diff >= (TIME_DIFF_THRESHOLD * USEC_PER_SEC) || aml_out->jitter_ms > 100) {
-        char * stream_type = audio_is_linear_pcm(aml_out->hal_format) ? "pcm" : "raw";
-        char * sync_mode   = aml_out->hw_sync_mode ? "tunnel" : "non tunnel";
-        int64_t cur_time_nanos = (long long)aml_out->last_timestamp_reported.tv_sec * NSEC_PER_SEC + (long long)aml_out->last_timestamp_reported.tv_nsec;
-        ALOGI("[audio_stream_out,stream_id:%p] time_diff[%"PRIu64"]us stream_type[%s] sync_mode[%s] input_size[%"PRIu64"]bytes, last_position[%"PRIu64"], last_time[%"PRIu64"]us, delay[%d], jitter[%"PRIu64"]ms",
-            aml_out,
-            time_diff,
-            stream_type,
-            sync_mode,
-            aml_out->input_bytes_size,
-            aml_out->last_frame_reported,
-            cur_time_nanos / NSEC_PER_USEC,
-            aml_out->audio_delay,
-            aml_out->jitter_ms
-            );
-        aml_out->last_info_timestamp = current_timestamp;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct timespec *cur_timestamp = timestamp;
+
+    uint64_t cur_info_time_in_ms = (cur_timestamp->tv_sec * 1000 + cur_timestamp->tv_nsec / 1000000);
+    uint64_t last_info_timestamp_in_ms = (aml_out->last_info_timestamp.tv_sec * 1000 + aml_out->last_info_timestamp.tv_nsec / 1000000);
+
+    int64_t time_gap = cur_info_time_in_ms - last_info_timestamp_in_ms;
+    int64_t position_gap = (*frames - aml_out->last_frame_reported) / (aml_out->hal_rate / 1000);
+
+    /* Print the audio stream out log if one of below conditions is true.
+     *
+     * 1. Print per 5 seconds.
+     * 2. Time gap between last and current output system time exceeds threshold.
+     * 3. The absolute value of jitter is over the threshold.
+     * 4. Debug flag is enabled.
+     */
+    if (llabs(aml_out->jitter_ms) > JITTER_PRINT_THRESHOLD || time_gap >= INFO_TIME_PRINT_THRESHOLD
+            || cur_info_time_in_ms - aml_out->last_periodic_print_time_in_ms > 5000 || adev->debug_flag > 1) {
+        char *stream_type = audio_is_linear_pcm(aml_out->hal_format) ? "pcm" : "raw";
+        char *sync_mode = aml_out->hw_sync_mode ? "tunnel" : "non tunnel";
+        char *jitter_case = aml_out->jitter_ms >= 0 ?
+            "Position gap is ahead of system time gap by" : "Position gap is behind system time gap by";
+
+        ALOGI("%s: stream:%p, stream_type:%s, sync_mode:%s, input_size:%"PRIu64" bytes\n"
+                "%s: last_time:%"PRIu64" ms (sec:%ld, nsec:%ld), last_position:%"PRIu64" ms (%"PRIu64"), "
+                "cur_time:%"PRIu64" ms (sec:%ld, nsec:%ld), cur_position:%"PRIu64" ms (%"PRIu64")\n"
+                "%s: time_gap:%"PRId64" ms (thr:%d ms), position_gap:%"PRId64" ms, delay:%d ms, jitter: %s %"PRId64" ms (thr:%d ms)",
+            __func__, aml_out, stream_type, sync_mode, aml_out->input_bytes_size,
+            __func__, last_info_timestamp_in_ms, aml_out->last_info_timestamp.tv_sec,
+            aml_out->last_info_timestamp.tv_nsec, aml_out->last_frame_reported / (aml_out->hal_rate / 1000), aml_out->last_frame_reported,
+            cur_info_time_in_ms, cur_timestamp->tv_sec, cur_timestamp->tv_nsec, *frames / (aml_out->hal_rate / 1000), *frames,
+            __func__, time_gap, INFO_TIME_PRINT_THRESHOLD, position_gap,
+            aml_out->audio_delay / (aml_out->hal_rate / 1000), jitter_case, (int64_t)llabs(aml_out->jitter_ms), JITTER_PRINT_THRESHOLD);
+
+        if (cur_info_time_in_ms - aml_out->last_periodic_print_time_in_ms > 5000) {
+            aml_out->last_periodic_print_time_in_ms = cur_info_time_in_ms;
+        }
     }
+
+    aml_out->last_info_timestamp.tv_sec = cur_timestamp->tv_sec;
+    aml_out->last_info_timestamp.tv_nsec = cur_timestamp->tv_nsec;
+
     return;
 }
 

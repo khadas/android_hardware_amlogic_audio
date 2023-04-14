@@ -759,23 +759,26 @@ static int out_get_presentation_position_port(
             AM_LOGW("timestamp loopback. pre_time:%" PRId64 " ms, cur_time:%" PRId64 "ms", pre_time_nanos / NSEC_PER_MSEC, cur_time_nanos / NSEC_PER_MSEC);
         }
 
+        int64_t system_time_ms = 0;
+        system_time_ms = (timestamp->tv_sec * 1000 + timestamp->tv_nsec / 1000000) - (out->last_timestamp_reported.tv_sec * 1000 + out->last_timestamp_reported.tv_nsec / 1000000);
 
-        int64_t system_time_ms = (cur_time_nanos - pre_time_nanos) / NSEC_PER_MSEC;
-        int64_t jitter_diff = llabs(frame_diff_ms - system_time_ms);
+        int64_t jitter_diff = frame_diff_ms - system_time_ms;
         out->jitter_ms = jitter_diff;
         if (audio_is_linear_pcm(out->hal_format) && audio_stream_out_frame_size(stream) && !out->hw_sync_mode) {
             delay = out->input_bytes_size / audio_stream_out_frame_size(stream) - *frames;
         }
         out->audio_delay = delay;
-        if  (jitter_diff > JITTER_DURATION_MS && adev->debug_flag) {
+        if  (llabs(jitter_diff) > JITTER_DURATION_MS && adev->debug_flag) {
             AM_LOGI("jitter out last pos info: %p %"PRIu64", sec:%ld, nanosec:%ld\n", out, out->last_frame_reported,
                 out->last_timestamp_reported.tv_sec, out->last_timestamp_reported.tv_nsec);
             AM_LOGI("jitter system time diff %"PRIu64" ms, position diff %"PRIu64" ms, jitter %"PRIu64" ms \n",
                 system_time_ms,frame_diff_ms,jitter_diff);
         }
+
+        aml_stream_out_info_print(out, frames, timestamp);
+
         out->last_frame_reported = *frames;
         out->last_timestamp_reported = *timestamp;
-        aml_stream_out_info_print(out);
     }
 
     return ret;
@@ -1361,6 +1364,8 @@ static ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
         }
     }
     aml_out->write_count++;
+
+    check_write_time((struct audio_stream_out *)aml_out, bytes);
 
     if (aml_out->standby) {
         uint8_t *temp_buf = (uint8_t *)buffer;
