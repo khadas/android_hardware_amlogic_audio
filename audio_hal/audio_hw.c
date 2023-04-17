@@ -6508,6 +6508,10 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             }
             ring_buffer_reset(&adev->spk_tuning_rbuf);
             adev->ms12.is_continuous_paused = false;
+            /* ms12 prepare will use new sink format and set it as false */
+            if (adev->sink_format_changed) {
+                adev->sink_format_changed = false;
+            }
             ret = get_the_dolby_ms12_prepared(aml_out, aformat,
                 aml_out->hal_channel_mask,
                 aml_out->hal_rate);

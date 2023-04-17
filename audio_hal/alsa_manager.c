@@ -218,6 +218,14 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
         int alsa_port = alsa_device_get_port_index(device);
         int device_index = alsa_device_update_pcm_index(alsa_port, PLAYBACK);
 
+        /*SWPL-114866 when eARC output MAT, should increase the pcm output buffer.*/
+        if ((aml_out->hal_internal_format == AUDIO_FORMAT_MAT || aml_out->hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD) &&
+            (adev->sink_format == AUDIO_FORMAT_MAT || adev->sink_format == AUDIO_FORMAT_DOLBY_TRUEHD) &&
+            (adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0) {
+                config->period_count *= 2;
+        }
+
+
         ALOGI("%s, audio open card(%d), device(%d)", __func__, card, device_index);
         ALOGI("ALSA open configs: channels %d format %d period_count %d period_size %d rate %d",
               config->channels, config->format, config->period_count, config->period_size, config->rate);
