@@ -4520,6 +4520,7 @@ static int release_dtv_output_stream_thread(struct aml_audio_patch *patch)
     ALOGI("++%s   ---- %d\n", __FUNCTION__, patch->output_thread_created);
     if (patch->output_thread_created == 1) {
         patch->output_thread_exit = 1;
+        pthread_cond_signal(&patch->cond);
         pthread_join(patch->audio_output_threadID, NULL);
         pthread_mutex_destroy(&patch->dtv_output_mutex);
         patch->output_thread_created = 0;
