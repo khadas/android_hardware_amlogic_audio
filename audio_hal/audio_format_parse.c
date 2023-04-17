@@ -371,7 +371,7 @@ exit:
     return -1;
 }
 
-int audio_type_parse(audio_type_parse_t *status, void *buffer, size_t bytes, int *package_size,
+int audio_type_parse(void *buffer, size_t bytes, int *package_size,
         audio_channel_mask_t *cur_ch_mask)
 {
     int pos_sync_word = -1, pos_dtscd_sync_word = -1;
@@ -382,8 +382,11 @@ int audio_type_parse(audio_type_parse_t *status, void *buffer, size_t bytes, int
     uint32_t tmp = 0;
     static unsigned int _dts_cd_sync_count = 0;
     static unsigned int _dtscd_checked_bytes = 0;
-    audio_type_parse_t *audio_type_status = status;
-
+    struct aml_audio_device *adev = (struct aml_audio_device *)aml_adev_get_handle();
+    audio_type_parse_t *audio_type_status = NULL;
+    if (adev && adev->audio_patch)  {
+        audio_type_status = adev->audio_patch->audio_parse_para;
+    }
     //DoDumpData(temp_buffer, bytes, CC_DUMP_SRC_TYPE_INPUT_PARSE);
     pos_sync_word = seek_61937_sync_word((char*)temp_buffer, bytes);
     if (pos_sync_word >= 0) {
@@ -486,12 +489,15 @@ int audio_type_parse(audio_type_parse_t *status, void *buffer, size_t bytes, int
                 }
             }
         }
-        int value = aml_mixer_ctrl_get_int(audio_type_status->mixer_handle, AML_MIXER_ID_HDMIIN_NONAUDIO);
-        int stable = aml_mixer_ctrl_get_int (audio_type_status->mixer_handle, AML_MIXER_ID_HDMI_IN_AUDIO_STABLE);
-        if (stable && (value == 1) && (audio_type_status->audio_samplerate == audio_type_status->pre_audio_samplerate)) {
-            AudioType = audio_type_status->cur_audio_type;
+
+        if (audio_type_status) {
+            int value = aml_mixer_ctrl_get_int(audio_type_status->mixer_handle, AML_MIXER_ID_HDMIIN_NONAUDIO);
+            int stable = aml_mixer_ctrl_get_int (audio_type_status->mixer_handle, AML_MIXER_ID_HDMI_IN_AUDIO_STABLE);
+            if (stable && (value == 1) && (audio_type_status->audio_samplerate == audio_type_status->pre_audio_samplerate)) {
+                AudioType = audio_type_status->cur_audio_type;
+            }
+            audio_type_status->pre_audio_samplerate = audio_type_status->audio_samplerate;
         }
-        audio_type_status->pre_audio_samplerate = audio_type_status->audio_samplerate;
     }
     return AudioType;
 }
@@ -501,7 +507,7 @@ int audio_raw_data_parse(audio_type_parse_t *status, void *buffer, size_t bytes)
 
     audio_type_parse_t *audio_type_status = status;
 
-    audio_type_status->cur_audio_type = audio_type_parse(audio_type_status, buffer, bytes, &(audio_type_status->package_size),
+    audio_type_status->cur_audio_type = audio_type_parse(buffer, bytes, &(audio_type_status->package_size),
                                                 &(audio_type_status->audio_ch_mask));
     if (audio_type_status->audio_type == audio_type_status->cur_audio_type) {
         audio_type_status->read_bytes = 0;
@@ -834,7 +840,7 @@ static void* audio_type_parse_threadloop(void *data)
             }
 
             if (ret >= 0) {
-                audio_type_status->cur_audio_type = audio_type_parse(audio_type_status, audio_type_status->parse_buffer,
+                audio_type_status->cur_audio_type = audio_type_parse(audio_type_status->parse_buffer,
                                                     read_bytes, &(audio_type_status->package_size),
                                                     &(audio_type_status->audio_ch_mask));
                 //ALOGD("cur_audio_type=%d\n", audio_type_status->cur_audio_type);
