@@ -8543,6 +8543,7 @@ void *audio_patch_input_threadloop(void *data)
                 memset(patch->in_buf, 0, bytes_avail);
                 ring_buffer_clear(ringbuffer);
             } else {
+                aml_alsa_input_stop(&in->stream);
                 memset(patch->in_buf, 0, bytes_avail);
                 ring_buffer_clear(ringbuffer);
                 usleep(20*1000);

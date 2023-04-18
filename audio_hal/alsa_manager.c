@@ -816,6 +816,21 @@ int aml_alsa_input_flush(struct audio_stream_in *stream)
     return 0;
 }
 
+int aml_alsa_input_stop(struct audio_stream_in *stream) {
+    struct aml_stream_in *in = (struct aml_stream_in *)stream;
+    struct pcm *pcm_handle = in->pcm;
+    int ret = 0;
+
+    if (in->pcm && pcm_is_ready (in->pcm)) {
+        ret = pcm_stop(in->pcm);
+        if (ret < 0) {
+            ALOGE ("cannot stop alsa pcm\n");
+        }
+    }
+
+    return ret;
+}
+
 typedef struct alsa_handle {
     unsigned int card;
     unsigned int pcm_index;   /*used for open the alsa device*/

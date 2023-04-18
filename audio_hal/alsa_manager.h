@@ -93,10 +93,9 @@ void aml_close_continuous_audio_device(struct audio_hw_device *dev);
 /**
  * pcm_read to the pcm handle saved in stream instance.
  */
-size_t aml_alsa_input_read(struct audio_stream_in *stream,
-                        void *buffer,
-                        size_t bytes);
+size_t aml_alsa_input_read(struct audio_stream_in *stream, void *buffer, size_t bytes);
 int aml_alsa_input_flush(struct audio_stream_in *stream);
+int aml_alsa_input_stop(struct audio_stream_in *stream);
 
 int aml_alsa_output_open_new(void **handle, aml_stream_config_t * stream_config, aml_device_config_t *device_config);
 void aml_alsa_output_close_new(void *handle);

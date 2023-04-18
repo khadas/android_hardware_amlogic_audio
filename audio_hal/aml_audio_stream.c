@@ -868,7 +868,7 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
         bool hw_stable = is_hdmi_in_stable_hw(stream);
         if ((!hw_stable) || is_audio_packet_changed || is_data_changed) {
             ALOGV("%s() hdmi in hw unstable\n", __func__);
-            *mute_time = 300;
+            *mute_time = 500;
             in->last_audio_packet_type = cur_audio_packet;
             return false;
         }
@@ -912,11 +912,6 @@ bool check_tv_stream_signal(struct audio_stream_in *stream)
         in_mute = Stop_watch(in->mute_start_ts, in->mute_mdelay);
         if (!in_mute) {
             ALOGI("%s: unmute audio since audio signal is stable", __func__);
-            /* The data of ALSA has not been read for a long time in the muted state,
-             * resulting in the accumulation of data. So, cache of capture needs to be cleared.
-             */
-            if (!(in->device & AUDIO_DEVICE_IN_HDMI_ARC || in->device & AUDIO_DEVICE_IN_SPDIF))
-                pcm_stop(in->pcm);
             in->mute_log_cntr = 0;
             in->mute_flag = false;
         }
