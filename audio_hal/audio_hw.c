@@ -8774,9 +8774,8 @@ void *audio_patch_output_threadloop(void *data)
                 } else {
                     patch->need_do_avsync = false;
                 }
-            } else {
-                patch->need_do_avsync = false;
             }
+
             /* reconfig output in picture mode switch */
             if (patch->input_src == AUDIO_DEVICE_IN_HDMI) {
                 stream_check_reconfig_param(stream_out);
