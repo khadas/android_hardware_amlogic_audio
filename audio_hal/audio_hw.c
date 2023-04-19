@@ -1432,7 +1432,9 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
         else {
             set_ms12_main_volume(&adev->ms12, 1.0f);
             ALOGI("%s line %d set ms12 main volume as 1.0\n", __func__, __LINE__);
-            adev->ms12_out->volume_l = out->volume_l;
+            if (adev->ms12_out) {
+                adev->ms12_out->volume_l = out->volume_l;
+            }
         }
         /*
          * The postgain value has an impact on the Volume Modeler and the Audio Regulator:
@@ -6551,7 +6553,8 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                     }
                     else {
                         set_ms12_main_volume(&adev->ms12, 1.0);
-                        ALOGI("%s line %d set ms12(AC4) main volume as 1.0\n", __func__, __LINE__);
+                        adev->ms12_out->volume_l = aml_out->volume_l;
+                        ALOGI("%s line %d set ms12(AC4) main volume as 1.0 stream vol =%f\n", __func__, __LINE__, aml_out->volume_l);
                     }
                 }
                 if (continuous_mode(adev)) {
