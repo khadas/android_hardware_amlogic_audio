@@ -140,8 +140,16 @@ static int select_digital_device(struct spdifout_handle *phandle) {
             }
 
         } else {
-            /*default we only use spdif_a to output spdif/arc*/
             device_id = DIGITAL_DEVICE;
+            int device_index = alsa_device_update_pcm_index(PORT_EARC, PLAYBACK);
+            if (device_index != -1) {
+                /* TV which supports earc prefers it as output device */
+                if (phandle->audio_format == AUDIO_FORMAT_E_AC3 ||
+                    phandle->audio_format == AUDIO_FORMAT_MAT ||
+                    (audio_is_linear_pcm(phandle->audio_format) && (phandle->in_data_ch == 8 || phandle->in_data_ch == 6))) {
+                    device_id = EARC_DEVICE;
+                }
+            }
         }
     }
 
