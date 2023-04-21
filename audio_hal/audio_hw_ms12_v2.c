@@ -1099,6 +1099,7 @@ int get_the_dolby_ms12_prepared(
         input_sample_rate = OUTPUT_ALSA_SAMPLERATE;
     }
     aml_ms12_config(ms12, input_format, input_channel_mask, input_sample_rate, output_config, get_ms12_path());
+    ms12->dolby_ms12_init_flags = true;
     if (ms12->dolby_ms12_enable) {
         //register Dolby MS12 callback
         dolby_ms12_register_output_callback(ms12_output, (void *)out);
@@ -1189,7 +1190,6 @@ int get_the_dolby_ms12_prepared(
         pthread_mutex_unlock(&ms12->lock);
         goto Err_dolby_ms12_thread;
     }
-    ms12->dolby_ms12_init_flags = true;
     adev->doing_reinit_ms12 = false;
     ms12->debug_synced_frame_pts_flag = get_debug_value(AML_DEBUG_AUDIOHAL_SYNCPTS);
     /*

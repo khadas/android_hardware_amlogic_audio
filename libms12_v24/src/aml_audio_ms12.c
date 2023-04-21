@@ -165,33 +165,44 @@ int aml_ms12_update_runtime_params(struct dolby_ms12_desc *ms12_desc, char *cmd)
     int ret = -1;
     int mutex_result = 0;
 
+    if (!ms12_desc || !cmd) {
+        ALOGE("%s[%d] parameter error", __func__, __LINE__);
+        return ret;
+    }
+
+
     if (!ms12_desc->dolby_ms12_init_argv) {
         ms12_desc->dolby_ms12_init_argv = dolby_ms12_config_params_get_config_params(&ms12_desc->dolby_ms12_init_argc);
     }
 
     if (ms12_desc->dolby_ms12_init_argv) {
-        dolby_ms12_config_params_reset_config_params();
-        if (get_audio_system_format() == AUDIO_FORMAT_PCM_16_BIT) {
-            dolby_ms12_config_params_set_system_flag(true);
-        }
+        if (ms12_desc->dolby_ms12_init_flags) {
+            dolby_ms12_config_params_reset_config_params();
+            if (get_audio_system_format() == AUDIO_FORMAT_PCM_16_BIT) {
+                dolby_ms12_config_params_set_system_flag(true);
+            }
 
-        if (get_audio_app_format() == AUDIO_FORMAT_PCM_16_BIT) {
-            dolby_ms12_config_params_set_app_flag(true);
-        }
+            if (get_audio_app_format() == AUDIO_FORMAT_PCM_16_BIT) {
+                dolby_ms12_config_params_set_app_flag(true);
+            }
 
-        if ((get_audio_associate_format() == AUDIO_FORMAT_AC3) || (get_audio_associate_format() == AUDIO_FORMAT_E_AC3) ||
-            (get_audio_associate_format() == AUDIO_FORMAT_MAT)) {
-            dolby_ms12_config_params_set_associate_flag(true);
-        }
-        ms12_desc->dolby_ms12_init_argv = dolby_ms12_config_params_update_runtime_config_params(&ms12_desc->dolby_ms12_init_argc, cmd);
-        /*dolby_ms12_ptr should be in lock mode*/
-        mutex_result = pthread_mutex_trylock(&ms12_desc->lock);
-        if (ms12_desc->dolby_ms12_ptr) {
-            ret = dolby_ms12_update_runtime_params(ms12_desc->dolby_ms12_ptr, ms12_desc->dolby_ms12_init_argc, ms12_desc->dolby_ms12_init_argv);
-        }
-        if (mutex_result == 0) {
-            /*we success lock it, now unlock it*/
-            pthread_mutex_unlock(&ms12_desc->lock);
+            if ((get_audio_associate_format() == AUDIO_FORMAT_AC3) || (get_audio_associate_format() == AUDIO_FORMAT_E_AC3) ||
+                (get_audio_associate_format() == AUDIO_FORMAT_MAT)) {
+                dolby_ms12_config_params_set_associate_flag(true);
+            }
+            ms12_desc->dolby_ms12_init_argv = dolby_ms12_config_params_update_runtime_config_params(&ms12_desc->dolby_ms12_init_argc, cmd);
+            /*dolby_ms12_ptr should be in lock mode*/
+            mutex_result = pthread_mutex_trylock(&ms12_desc->lock);
+            if (ms12_desc->dolby_ms12_ptr) {
+                ret = dolby_ms12_update_runtime_params(ms12_desc->dolby_ms12_ptr, ms12_desc->dolby_ms12_init_argc, ms12_desc->dolby_ms12_init_argv);
+            }
+            if (mutex_result == 0) {
+                /*we success lock it, now unlock it*/
+                pthread_mutex_unlock(&ms12_desc->lock);
+            }
+        } else {
+            ret = 1;
+            ms12_desc->dolby_ms12_init_argv = dolby_ms12_config_params_update_runtime_config_params(&ms12_desc->dolby_ms12_init_argc, cmd);
         }
     }
     ALOGV("-%s() ret %d\n", __FUNCTION__, ret);
