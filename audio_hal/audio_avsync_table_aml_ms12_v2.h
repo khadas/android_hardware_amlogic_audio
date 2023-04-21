@@ -467,7 +467,7 @@
 /*if set "vendor.media.audio.hal.ms12.dtv.matout" -55,*/
 /*AUTO( MAT ) result located at [-90, -50]*/
 /*after set property with (-30), results located at [-43, -19]*/
-#define  AVSYNC_MS12_DTV_MAT_OUT_LATENCY                     (-30)
+#define  AVSYNC_MS12_DTV_MAT_OUT_LATENCY                     (-50)
 
 #define  AVSYNC_MS12_DTV_PCM_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.dtv.pcmout"
 #define  AVSYNC_MS12_DTV_DDP_OUT_LATENCY_PROPERTY            "vendor.media.audio.hal.ms12.dtv.ddpout"
