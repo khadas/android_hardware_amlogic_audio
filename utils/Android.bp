@@ -74,7 +74,8 @@ cc_library_shared {
         "aml_audio_report.c",
         "aml_audio_sysfs.c",
         "aml_vad_wakeup.cpp",
-        "cJSON/cJSON.c"
+        "cJSON/cJSON.c",
+        "aml_peq.c"
     ],
 
     shared_libs: [
