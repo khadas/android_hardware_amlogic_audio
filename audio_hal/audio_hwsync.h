@@ -89,7 +89,7 @@ enum tsync_status {
 
 typedef struct apts_tab {
     int  valid;
-    size_t offset;
+    uint64_t offset;
     uint64_t pts;
 } apts_tab_t;
 
@@ -172,7 +172,7 @@ typedef struct  audio_hwsync {
     uint64_t pts_gap;
     apts_tab_t pts_tab[HWSYNC_APTS_NUM];
     pthread_mutex_t lock;
-    size_t payload_offset;
+    uint64_t payload_offset;
     struct aml_stream_out  *aout;
     int tsync_fd;
     int version_num;
@@ -331,9 +331,9 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
         const void *in_buffer, size_t in_bytes,
         uint64_t *cur_pts, int *outsize);
 int aml_audio_hwsync_set_first_pts(audio_hwsync_t *p_hwsync, uint64_t pts);
-int aml_audio_hwsync_checkin_apts(audio_hwsync_t *p_hwsync, size_t offset, uint64_t apts);
-int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, size_t offset, uint64_t *p_apts);
-int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, size_t offset, int frame_len, int *p_adjust_ms);
+int aml_audio_hwsync_checkin_apts(audio_hwsync_t *p_hwsync, uint64_t offset, uint64_t apts);
+int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, uint64_t offset, uint64_t *p_apts);
+int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, uint64_t offset, int frame_len, int *p_adjust_ms);
 void aml_audio_hwsync_init(audio_hwsync_t *p_hwsync, struct aml_stream_out  *out);
 
 void* aml_audio_hwsync_create(void);
