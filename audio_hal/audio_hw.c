@@ -606,6 +606,11 @@ static int check_input_parameters(uint32_t sample_rate, audio_format_t format, i
             return -EINVAL;
         }
     }
+    if (!alsa_device_is_auge() && ((devices & AUDIO_DEVICE_IN_BACK_MIC) ||
+            (devices & AUDIO_DEVICE_IN_BUILTIN_MIC))) {
+        if (channel_count == 1)
+            return -EINVAL;
+    }
 
     return 0;
 }
@@ -2270,8 +2275,12 @@ int start_input_stream(struct aml_stream_in *in)
         alsa_device = 1;
     }
 #endif
+
     ALOGD("*%s, open alsa_card(%d %d) alsa_device(%d), in_device:0x%x\n",
           __func__, card, port, alsa_device, adev->in_device);
+    ALOGD("%s: device(%x) channels=%d period_size=%d rate=%d requested_rate=%d mode= %d",
+        __func__, in->device, in->config.channels, in->config.period_size,
+        in->config.rate, in->requested_rate, adev->mode);
 
     in->pcm = pcm_open(card, alsa_device, PCM_IN | PCM_MONOTONIC | PCM_NONEBLOCK, &in->config);
     if (!pcm_is_ready(in->pcm)) {
@@ -2280,7 +2289,6 @@ int start_input_stream(struct aml_stream_in *in)
         adev->active_input = NULL;
         return -ENOMEM;
     }
-    ALOGD("pcm_open in: card(%d), port(%d)", card, port);
 
     if (in->requested_rate != in->config.rate) {
         ret = add_in_stream_resampler(in);
@@ -2290,10 +2298,6 @@ int start_input_stream(struct aml_stream_in *in)
             return -EINVAL;
         }
     }
-
-    ALOGD("%s: device(%x) channels=%d period_size=%d rate=%d requested_rate=%d mode= %d",
-        __func__, in->device, in->config.channels, in->config.period_size,
-        in->config.rate, in->requested_rate, adev->mode);
 
     /* if no supported sample rate is available, use the resampler */
     if (in->resampler) {

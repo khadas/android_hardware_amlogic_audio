@@ -353,6 +353,8 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 		/* fix to spdif port */
 		if (alsaPORT >= 2)
 			alsaPORT = 1;
+		if (stream && !alsa_device_is_auge())
+			alsaPORT = 0;
 
 		return alsaPORT;
 	}
