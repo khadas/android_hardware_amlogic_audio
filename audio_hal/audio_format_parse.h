@@ -132,6 +132,10 @@ audio_format_t audio_parse_get_audio_type(audio_type_parse_t *status);
  */
 audio_channel_mask_t audio_parse_get_audio_channel_mask(audio_type_parse_t *status);
 /*
+ *@brief get current audio packet type from audio parser thread
+ */
+hdmiin_audio_packet_t audio_parse_get_audio_packet_type(audio_type_parse_t *status);
+/*
  *@brief get current audio format from audio parser thread
  */
 int audio_parse_get_audio_type_direct(audio_type_parse_t *status);

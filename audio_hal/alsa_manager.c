@@ -50,6 +50,8 @@
 #define MAX_AVSYNC_WAIT_TIME (3*1000*1000)
 
 #define ALSA_DELAY_THRESHOLD_MS    (32)
+//The maximum dts-hd frame duration is 4096 frames(This equates to 85ms at 48k sample rate.).
+#define ALSA_DELAY_THRESHOLD_FOR_DTS_MS    (85)
 
 #define ALSA_OUTPUT_PCM_FILE     "/data/vendor/audiohal/alsa_pcm_write.raw"
 #define ALSA_OUTPUT_SPDIF_FILE   "/data/vendor/audiohal/alsa_spdif_write"
@@ -109,7 +111,16 @@ static void alsa_write_rate_control(struct audio_stream_out *stream, size_t byte
             rate_multiply = 4;
         }
         frame_ms = (uint64_t)frames * 1000LL/ (sample_rate * rate_multiply);
-        if (frame_ms > ALSA_DELAY_THRESHOLD_MS) {
+        if (is_dts_format(aml_out->hal_internal_format) && (frame_ms > ALSA_DELAY_THRESHOLD_FOR_DTS_MS)) {
+            /*we will go to sleep, unlock mutex*/
+            if (pthread_mutex_unlock(&adev->alsa_pcm_lock) == 0) {
+                mutex_lock_status = 1;
+            }
+            aml_audio_sleep((frame_ms - ALSA_DELAY_THRESHOLD_FOR_DTS_MS) * 1000);
+            if (mutex_lock_status) {
+                pthread_mutex_lock(&adev->alsa_pcm_lock);
+            }
+        } else if (!is_dts_format(aml_out->hal_internal_format) && (frame_ms > ALSA_DELAY_THRESHOLD_MS)) {
             /*we will go to sleep, unlock mutex*/
             if (pthread_mutex_unlock(&adev->alsa_pcm_lock) == 0) {
                 mutex_lock_status = 1;
@@ -166,7 +177,11 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
         if (aml_out->dual_output_flag && adev->optical_format != AUDIO_FORMAT_PCM_16_BIT) {
             device = I2S_DEVICE;
             config->rate = MM_FULL_POWER_SAMPLING_RATE;
-            config->start_threshold = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
+            if (adev->audio_patch && IS_DIGITAL_IN_HW(adev->audio_patch->input_src) && is_dts_format(aml_out->hal_internal_format)) {
+                // do nothing, the start_threshold was set in mixer_main_buffer_write()
+            } else {
+                config->start_threshold = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
+            }
         } else if (!audio_is_linear_pcm(aml_out->alsa_output_format) &&
                    !audio_is_linear_pcm(aml_out->hal_format)) {
             memset(&config_raw, 0, sizeof(struct pcm_config));
@@ -584,6 +599,8 @@ write:
 
     /*for ms12 case, we control the output buffer level*/
     if ((adev->continuous_audio_mode == 1) && (eDolbyMS12Lib == adev->dolby_lib_type)) {
+        alsa_write_rate_control(stream, bytes, aml_out->alsa_output_format);
+    } else if (is_dts_format(aml_out->hal_internal_format)) {
         alsa_write_rate_control(stream, bytes, aml_out->alsa_output_format);
     }
 

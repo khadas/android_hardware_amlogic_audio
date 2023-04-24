@@ -3881,7 +3881,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
             package_get_ts.tv_sec = current_ts.tv_sec;
             package_get_ts.tv_nsec = current_ts.tv_nsec;
             if (p_package->pts_dts_flag != 0) {
-                data_pts_jitter_ms = ABS(patch->dtvsync->last_package_pts,patch->cur_package->pts)/90;
+                data_pts_jitter_ms = DIFF_ABS(patch->dtvsync->last_package_pts,patch->cur_package->pts)/90;
             } else {
                 data_pts_jitter_ms = 0;
                 p_package->pts = DTVSYNC_INVALID_PTS;

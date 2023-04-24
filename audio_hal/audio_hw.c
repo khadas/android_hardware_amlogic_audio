@@ -7163,10 +7163,16 @@ hwsync_rewrite:
                 }
                 adev->dolby_lib_type = eDolbyDcvLib;
                 if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
-                    /* For DTS HBR case, needs enlarge buffer and start threshold to anti-xrun */
-                    aml_out->config.period_count = 6;
-                    aml_out->config.start_threshold =
-                        aml_out->config.period_size * aml_out->config.period_count;
+                    /* For DTS-HD case, needs enlarge buffer and start threshold to anti-xrun */
+                    aml_out->config.period_count = 12;
+                    aml_out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
+                    // The maximum dts-hd frame duration is 4096 frames, needs to be greater than this to avoid underruns at the start.
+                    aml_out->config.start_threshold = 4608; // 4096 + 512
+                } else {
+                    // reset to default
+                    aml_out->config.period_count = DEFAULT_PLAYBACK_PERIOD_CNT;
+                    aml_out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
+                    aml_out->config.start_threshold = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
                 }
 
                 if (audio_parse_get_audio_type_direct(patch->audio_parse_para) == DTSCD ) {
@@ -7176,6 +7182,10 @@ hwsync_rewrite:
                 }
             } else {
                 adev->dolby_lib_type = adev->dolby_lib_type_last;
+                // reset to default
+                aml_out->config.period_count = DEFAULT_PLAYBACK_PERIOD_CNT;
+                aml_out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
+                aml_out->config.start_threshold = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
             }
             //we just do not support dts decoder,just mute as LPCM
             need_reconfig_output = true;
@@ -8493,7 +8503,7 @@ void *audio_patch_input_threadloop(void *data)
     prctl(PR_SET_NAME, (unsigned long)"audio_input_patch");
     aml_set_thread_priority("audio_input_patch", patch->audio_input_threadID);
     /*affinity the thread to cpu 2/3 which has few IRQ*/
-    aml_audio_set_cpu23_affinity();
+    // aml_audio_set_cpu23_affinity();
 
     if (ringbuffer) {
         ring_buffer_size = ringbuffer->size;
@@ -8730,9 +8740,11 @@ void *audio_patch_output_threadloop(void *data)
 
         if (patch->aformat == AUDIO_FORMAT_E_AC3)
             period_mul = EAC3_MULTIPLIER;
-        else if ((patch->aformat == AUDIO_FORMAT_MAT) || (patch->aformat == AUDIO_FORMAT_DTS_HD))
-        /* If source format is MAT or DTS_HD, should capture the data size multiple the coef(16) */
-            period_mul = HBR_MULTIPLIER;
+        else if (audio_parse_get_audio_packet_type(patch->audio_parse_para) == AUDIO_PACKET_HBR)
+            period_mul = HBR_MULTIPLIER;    // 16
+        else if (patch->aformat == AUDIO_FORMAT_DTS_HD
+            && audio_parse_get_audio_packet_type(patch->audio_parse_para) != AUDIO_PACKET_HBR)
+            period_mul = HBR_MULTIPLIER / 2;
         else
             period_mul = 1;
 

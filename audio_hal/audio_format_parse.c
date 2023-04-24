@@ -1059,3 +1059,13 @@ audio_channel_mask_t audio_parse_get_audio_channel_mask(audio_type_parse_t *stat
     }
     return status->audio_ch_mask;
 }
+
+hdmiin_audio_packet_t audio_parse_get_audio_packet_type(audio_type_parse_t *status)
+{
+    if (!status) {
+        ALOGE("NULL pointer of audio_type_parse_t\n");
+        return AUDIO_PACKET_AUDS;
+    }
+    return status->hdmi_packet;
+}
+

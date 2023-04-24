@@ -54,6 +54,22 @@ static void get_dts_hd_hardware_config_parameters(
     return ;
 }
 
+static void get_dts_hardware_config_parameters(
+    struct pcm_config *hardware_config
+    , unsigned int channels __unused
+    , unsigned int rate)
+{
+    hardware_config->channels = 2;
+    hardware_config->format = PCM_FORMAT_S16_LE;
+    hardware_config->rate = rate;
+    hardware_config->period_count = 8;
+    hardware_config->period_size = PERIOD_SIZE;
+    hardware_config->start_threshold = 4608;
+    hardware_config->avail_min = 0;
+
+    return ;
+}
+
 /*
  *@brief get the hardware config parameters when the output format is MAT
 */
@@ -244,6 +260,10 @@ int get_hardware_config_parameters(
     //DTS-HD
     else if (output_format == AUDIO_FORMAT_DTS_HD) {
         get_dd_hardware_config_parameters(final_config, 2, rate, continuous_mode);
+    }
+    // DTS
+    else if (output_format == AUDIO_FORMAT_DTS) {
+        get_dts_hardware_config_parameters(final_config, 2, rate);
     }
     //MPEG-H
     else if (output_format == 0x2C000000u/*AUDIO_FORMAT_MPEGH*/) {

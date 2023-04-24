@@ -79,8 +79,8 @@
 #define AUDIO_RESAMPLE_MAX_THRESHOLD 150
 
 #define MAX_BUFF_LEN 36
-#define MAX(a, b) ((a) > (b)) ? (a) : (b)
-#define ABS(a, b) ((a) > (b)) ? (a -b ) : (b -a)
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define DIFF_ABS(a, b) ((a) > (b) ? (a -b ) : (b -a))
 
 
 #define INPUT_PACKAGE_MAXCOUNT 40
