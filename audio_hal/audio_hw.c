@@ -7465,6 +7465,8 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
         aml_out->stream.write = out_write_new;
         aml_out->stream.set_audio_description_mix_level = out_set_audio_description_mix_level;
         aml_out->stream.get_audio_description_mix_level = out_get_audio_description_mix_level;
+        aml_out->stream.set_dual_mono_mode = out_set_dual_mono_mode;
+        aml_out->stream.get_dual_mono_mode = out_get_dual_mono_mode;
     }
 #endif
 #endif

@@ -102,6 +102,8 @@ int out_standby_dtv_stream_for_tunerframework(struct audio_stream_out *stream);
 int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, const void *buffer, size_t bytes);
 int out_get_audio_description_mix_level(struct audio_stream_out *stream, float *leveldB);
 int out_set_audio_description_mix_level(struct audio_stream_out *stream, const float leveldB);
+int out_get_dual_mono_mode(struct audio_stream_out *stream, audio_dual_mono_mode_t *mode);
+int out_set_dual_mono_mode(struct audio_stream_out *stream, audio_dual_mono_mode_t mode);
 
 #endif
 //int dtv_patch_add_cmd(int cmd);

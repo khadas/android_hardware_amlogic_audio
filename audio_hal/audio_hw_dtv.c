@@ -5114,6 +5114,74 @@ int out_set_audio_description_mix_level(struct audio_stream_out *stream, const f
 
     return ret;
 }
+audio_dual_mono_mode_t convert2_android_dual_mono_mode(AM_AOUT_OutputMode_t mode)
+{
+    audio_dual_mono_mode_t android_mode = AUDIO_DUAL_MONO_MODE_OFF;
+    switch (mode) {
+    case AM_AOUT_OUTPUT_DUAL_LEFT:
+        android_mode = AUDIO_DUAL_MONO_MODE_LL;
+        break;
+    case AM_AOUT_OUTPUT_DUAL_RIGHT:
+        android_mode = AUDIO_DUAL_MONO_MODE_RR;
+        break;
+    case AM_AOUT_OUTPUT_LRMIX:
+        android_mode = AUDIO_DUAL_MONO_MODE_LR;
+        break;
+    case AM_AOUT_OUTPUT_STEREO:
+        android_mode = AUDIO_DUAL_MONO_MODE_OFF;
+        break;
+    default :
+        ALOGI("%s do not support mode %d",__FUNCTION__, mode);
+        break;
+    }
+    return android_mode;
+}
+AM_AOUT_OutputMode_t convert2_aml_dual_mono_mode(audio_dual_mono_mode_t mode)
+{
+    AM_AOUT_OutputMode_t aml_mode = AM_AOUT_OUTPUT_STEREO;
+    switch (mode) {
+    case AUDIO_DUAL_MONO_MODE_LL:
+        aml_mode = AM_AOUT_OUTPUT_DUAL_LEFT;
+        break;
+    case AUDIO_DUAL_MONO_MODE_RR:
+        aml_mode = AM_AOUT_OUTPUT_DUAL_RIGHT;
+        break;
+    case AUDIO_DUAL_MONO_MODE_LR:
+        aml_mode = AM_AOUT_OUTPUT_LRMIX;
+        break;
+    case AUDIO_DUAL_MONO_MODE_OFF:
+        aml_mode = AM_AOUT_OUTPUT_STEREO;
+        break;
+    default :
+        ALOGI("%s do not support mode %d",__FUNCTION__, mode);
+        break;
+    }
+    return aml_mode;
+}
+
+int out_set_dual_mono_mode(struct audio_stream_out *stream, audio_dual_mono_mode_t mode)
+{
+    ALOGD("func:%s  stream:%p mode:%d", __func__, stream, mode);
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    adev->dtv_sound_mode = convert2_aml_dual_mono_mode(mode);
+    if (adev->audio_patch)  {
+        adev->audio_patch->mode = adev->dtv_sound_mode;
+    }
+    return 0;
+}
+
+int out_get_dual_mono_mode(struct audio_stream_out *stream, audio_dual_mono_mode_t *mode)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+
+    *mode = convert2_android_dual_mono_mode(adev->dtv_sound_mode);
+    ALOGD("func:%s  stream:%p mode:%d", __func__, stream, *mode);
+    return 0;
+}
 
 int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, const void *buffer, size_t bytes) {
 
