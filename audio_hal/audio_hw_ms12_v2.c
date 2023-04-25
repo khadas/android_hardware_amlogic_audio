@@ -4254,7 +4254,7 @@ bool is_bypass_dolbyms12(struct audio_stream_out *stream)
     return (is_dts
             || is_mpegh
             || is_high_rate_pcm(stream)
-            || (is_multi_channel_pcm(stream) && (adev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS)));
+            || (is_multi_channel_pcm(stream) && (aml_out->current_digital_audio_format == AML_DIGITAL_AUDIO_MODE_BYPASS)));
 }
 
 bool is_audio_postprocessing_add_dolbyms12_dap(struct aml_audio_device *adev)

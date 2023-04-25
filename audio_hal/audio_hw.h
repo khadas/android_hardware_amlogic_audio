@@ -743,6 +743,7 @@ struct aml_stream_out {
     bool is_closing;
     void *mmap_audio_manager;
     int mmap_audio_client_id;
+    int current_digital_audio_format;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

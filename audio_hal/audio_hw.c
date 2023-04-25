@@ -3383,6 +3383,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         aml_ac4_parser_open(&out->ac4_parser_handle);
     }
 
+    out->current_digital_audio_format = adev->digital_audio_mode;
+
     out->ddp_frame_size = aml_audio_get_ddp_frame_size();
     out->resample_handle = NULL;
     out->speed_handle = NULL;
