@@ -54,6 +54,7 @@
 #else
 #include "audio_avsync_table_aml_ms12_v2.h"
 #endif
+#include "aml_async_write.h"
 
 
 #ifdef LOG_NDEBUG_FUNCTION
@@ -698,16 +699,20 @@ int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t by
         return -1;
     }
 
-    FILE *fp = fopen(path, "a+");
-    if (fp) {
-        int flen = fwrite((char *)buf, 1, bytes, fp);
-        fclose(fp);
-        return 0;
+    if (get_debug_value(AML_DUMP_AUDIOHAL_ASYNC_WRITE)) {
+        aml_async_dump_data(buf, bytes, path);
+    } else {
+        FILE *fp = fopen(path, "a+");
+        if (fp) {
+            int flen = fwrite((char *)buf, 1, bytes, fp);
+            fclose(fp);
+            return 0;
+        }
+        AM_LOGE("fail to open path=%s, errno=%d/%s",  path, errno, strerror(errno));
+        return -1;
     }
-    AM_LOGE("fail to open path=%s, errno=%d/%s",
-            path, errno, strerror(errno));
 
-    return -1;
+    return 0;
 }
 
 //Tune the eRAC with non-tunnel for earc-ddp

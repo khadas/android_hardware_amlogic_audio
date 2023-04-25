@@ -159,7 +159,7 @@ static int16_t swap_int16(int16_t value)
 }
 
 
-static int get_iec61937_info(void *phandle, void * buf, int32_t size, int32_t *package_size, int32_t *payload_size)
+static int get_iec61937_info(void *phandle, const void * buf, int32_t size, int32_t *package_size, int32_t *payload_size)
 {
     uint16_t pa = 0;
     uint16_t pb = 0;
@@ -647,4 +647,15 @@ int aml_spdif_decoder_getformat(void *phandle) {
     }
 
     return (int)spdif_dec_handle->format;
+}
+
+int aml_spdif_decoder_get_iec61937_info(const void * buf, int32_t size, int32_t *package_size, int32_t *payload_size, uint32_t *format) {
+    struct aml_spdif_decoder spdif_decoder = {0};
+    struct aml_spdif_decoder *phandle = &spdif_decoder;
+    int ret = 0;
+
+    spdif_decoder.format = AUDIO_FORMAT_INVALID;
+    ret = get_iec61937_info(phandle, buf, size, package_size, payload_size);
+    *format = spdif_decoder.format;
+    return ret;
 }

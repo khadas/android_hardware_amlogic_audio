@@ -469,6 +469,100 @@ void ring_buffer_dump(struct ring_buffer *rbuffer)
     ALOGI("-buffer_size:%d", rbuffer->size);
     ALOGI("-buffer_avail:%d, buffer_space:%d", get_buffer_read_space(rbuffer), get_buffer_write_space(rbuffer));
 }
+
+
+/*************************************************
+Function: ring_buffer_alloc
+Description: alloc ring buffer but not initialize it's memory
+Input: rbuffer: the ring buffer to be initialized
+       buffer_size: total size of ring buffer
+Output:
+Return: 0 for success, otherwise fail
+*************************************************/
+int ring_buffer_alloc(struct ring_buffer *rbuffer, int buffer_size)
+{
+    struct ring_buffer *buf = rbuffer;
+
+    pthread_mutex_lock(&buf->lock);
+
+    buf->size = buffer_size;
+    buf->start_addr = aml_audio_malloc(buffer_size * sizeof(unsigned char));
+    if (buf->start_addr == NULL) {
+        ALOGD("%s, Malloc android out buffer error!\n", __FUNCTION__);
+        pthread_mutex_unlock(&buf->lock);
+        return -1;
+    }
+
+    // should not memset(buf->start_addr, 0, buffer_size);
+    buf->rd = buf->start_addr;
+    buf->wr = buf->start_addr;
+    buf->last_is_write = 0;
+    pthread_mutex_unlock(&buf->lock);
+
+    return 0;
+}
+
+
+/*************************************************
+Function: ring_buffer_realloc
+Description: change ring buffer size
+Input: rbuffer: the ring buffer to be initialized
+       new_buffer_size: total size of ring buffer
+Output:
+Return: 0 for success, otherwise fail
+*************************************************/
+int ring_buffer_realloc(struct ring_buffer *rbuffer, int new_buffer_size)
+{
+    struct ring_buffer *buf = rbuffer;
+    struct ring_buffer new_ringbuf;
+    unsigned char *new_start_addr = NULL;
+    size_t readable_space, read_bytes;
+
+    pthread_mutex_lock(&buf->lock);
+    if ((buf->size == new_buffer_size) || (new_buffer_size <= 0)) {
+        pthread_mutex_unlock(&buf->lock);
+        return 0;
+    }
+
+    new_start_addr = aml_audio_malloc(new_buffer_size * sizeof(unsigned char));
+    if (new_start_addr == NULL) {
+        ALOGD("%s, realloc android out buffer(%d) error!\n", __FUNCTION__, new_buffer_size);
+        pthread_mutex_unlock(&buf->lock);
+        return -1;
+    }
+    new_ringbuf.start_addr = new_start_addr;
+    new_ringbuf.size = new_buffer_size;
+    new_ringbuf.rd = new_ringbuf.start_addr;
+    new_ringbuf.wr = new_ringbuf.start_addr;
+    new_ringbuf.last_is_write = 0;
+
+    readable_space = get_read_space(buf->wr, buf->rd, buf->size, buf->last_is_write);
+    if (readable_space < new_buffer_size) {
+        read_bytes = readable_space;
+    } else {
+        read_bytes = new_buffer_size;
+    }
+
+    if (read_bytes > 0) {
+        read_from_buffer(buf->rd, new_start_addr, read_bytes, buf->start_addr, buf->size);
+        new_ringbuf.wr = update_pointer(new_ringbuf.wr, read_bytes, new_ringbuf.start_addr, new_ringbuf.size);
+        new_ringbuf.last_is_write = 1;
+    }
+    if (buf->start_addr != NULL) {
+        aml_audio_free(buf->start_addr);
+        buf->start_addr = NULL;
+    }
+
+    buf->start_addr = new_ringbuf.start_addr;
+    buf->size = new_ringbuf.size;
+    buf->rd = new_ringbuf.rd;
+    buf->wr = new_ringbuf.wr;
+    buf->last_is_write = new_ringbuf.last_is_write;
+    pthread_mutex_unlock(&buf->lock);
+
+    return 0;
+}
+
 #ifdef __cplusplus
 }
 #endif

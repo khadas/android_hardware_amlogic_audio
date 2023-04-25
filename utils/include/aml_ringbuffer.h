@@ -46,6 +46,9 @@ int get_buffer_write_space(struct ring_buffer *rbuffer);
 void ring_buffer_dump(struct ring_buffer *rbuffer);
 int ring_buffer_seek(struct ring_buffer *rbuffer, int bytes);
 int ring_buffer_clear(struct ring_buffer *rbuffer);
+
+int ring_buffer_alloc(struct ring_buffer *rbuffer, int buffer_size);
+int ring_buffer_realloc(struct ring_buffer *rbuffer, int new_buffer_size);
 #ifdef __cplusplus
 }
 #endif

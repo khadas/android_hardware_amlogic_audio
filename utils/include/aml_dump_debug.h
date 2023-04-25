@@ -39,6 +39,7 @@ typedef enum AML_DUMP_DEBUG_INFO {
     AML_DUMP_AUDIOHAL_ALSA,
     AML_DUMP_AUDIOHAL_TV,
     AML_DUMP_AUDIO_STREAM,
+    AML_DUMP_AUDIOHAL_ASYNC_WRITE,
 
     AML_DEBUG_DUMP_MAX,
 } AML_DUMP_DEBUG_INFO_T;
@@ -89,6 +90,7 @@ void DoDumpData(const void *data_buf, int size, int aud_src_type);
 #define AML_DUMP_AUDIOHAL_ALSA_PROPERTY             "vendor.media.audiohal.alsadump"
 #define AML_DUMP_AUDIOHAL_TV_PROPERTY               "vendor.media.audiohal.tvdump"
 #define AML_DUMP_AUDIO_STREAM_PROPERTY              "vendor.media.audio.stream.dump"
+#define AML_DUMP_AUDIOHAL_ASYNC_WRITE_PROPERTY      "vendor.media.audiohal.async.write"
 
 void aml_audio_debug_open(void);
 void aml_audio_debug_close(void);

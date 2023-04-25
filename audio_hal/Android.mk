@@ -93,7 +93,8 @@ include $(BUILD_PREBUILT)
         aml_config_parser.c \
         aml_config_data.c \
         aml_audio_scaletempo.c \
-        aml_audio_output.c
+        aml_audio_output.c \
+        aml_async_write.c
 
     LOCAL_C_INCLUDES += \
         hardware/amlogic/audio/aml_speed/include \
@@ -250,6 +251,13 @@ ifeq ($(BOARD_ENABLE_FAR_FIELD_AEC), true)
     #    audio_aec_process.cpp
     #LOCAL_SHARED_LIBRARIES += \
     #     libgoogle_aec
+endif
+
+# AML_ASYNC_WRITE_COMPRESS_ENABLE = true
+ifeq ($(AML_ASYNC_WRITE_COMPRESS_ENABLE), true)
+    LOCAL_CFLAGS += -DAML_ASYNC_WRITE_COMPRESS_ENABLE
+    LOCAL_C_INCLUDES += external/zlib
+    LOCAL_SHARED_LIBRARIES += libz
 endif
 
     LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD

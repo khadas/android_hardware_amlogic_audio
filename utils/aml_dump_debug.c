@@ -118,6 +118,7 @@ dump_debug_item_t aml_debug_items[AML_DEBUG_DUMP_MAX] = {
     {AML_DUMP_AUDIOHAL_ALSA,            AML_DUMP_AUDIOHAL_ALSA_PROPERTY,                   0},    //AML_DUMP_AUDIOHAL_ALSA
     {AML_DUMP_AUDIOHAL_TV,              AML_DUMP_AUDIOHAL_TV_PROPERTY,                     0},    //AML_DUMP_AUDIOHAL_TV_PATH
     {AML_DUMP_AUDIO_STREAM,             AML_DUMP_AUDIO_STREAM_PROPERTY,                    0},    //AML_DEBUG_AUDIOINFO_REPORT
+    {AML_DUMP_AUDIOHAL_ASYNC_WRITE,     AML_DUMP_AUDIOHAL_ASYNC_WRITE_PROPERTY,            1},    //AML_DUMP_AUDIOHAL_ASYNC_WRITE
 };
 
 static void aml_debug_update(void)

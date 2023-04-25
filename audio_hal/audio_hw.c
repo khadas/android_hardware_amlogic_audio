@@ -99,6 +99,8 @@
 #include "aml_config_data.h"
 #include "aml_hfp.h"
 
+#include "aml_async_write.h"
+
 #define ENABLE_NANO_NEW_PATH 1
 #if ENABLE_NANO_NEW_PATH
 #include "jb_nano.h"
@@ -9484,6 +9486,8 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->native_postprocess.libvx_exist = Check_VX_lib();
     if (adev->native_postprocess.libvx_exist)
         dca_set_out_ch_internal(0);
+
+    create_async_write_thread();
 
     ALOGD("%s: exit", __func__);
     return 0;

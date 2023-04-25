@@ -22,6 +22,7 @@ int aml_spdif_decoder_close(void *phandle);
 int aml_spdif_decoder_process(void *phandle, const void *inbuf, int32_t n_bytes_inbuf, int32_t *used_size, void **output_buf, int32_t *out_size);
 int aml_spdif_decoder_getformat(void *phandle);
 int aml_spdif_decoder_reset(void *phandle);
+int aml_spdif_decoder_get_iec61937_info(const void * buf, int32_t size, int32_t *package_size, int32_t *payload_size, uint32_t *format);
 
 
 /*IEC61937 package preamble Pc value 0-4bit*/
