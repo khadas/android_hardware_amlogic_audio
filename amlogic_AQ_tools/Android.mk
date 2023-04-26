@@ -1,0 +1,39 @@
+LOCAL_PATH := $(call my-dir)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := Amlogic_DRC_Param_Generator
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_SHARED_LIBRARIES := libc++ libtinyalsa
+LOCAL_CHECK_ELF_FILES := false
+
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
+LOCAL_PROPRIETARY_MODULE := true
+LOCAL_MODULE_PATH  := $(TARGET_OUT_VENDOR)/bin
+else
+LOCAL_MODULE_PATH  := $(TARGET_OUT)/bin
+endif
+LOCAL_SRC_FILES := $(LOCAL_MODULE)
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := Amlogic_EQ_Param_Generator
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_SHARED_LIBRARIES := libc++ libtinyalsa
+LOCAL_CHECK_ELF_FILES := false
+
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
+LOCAL_PROPRIETARY_MODULE := true
+LOCAL_MODULE_PATH  := $(TARGET_OUT_VENDOR)/bin
+else
+LOCAL_MODULE_PATH  := $(TARGET_OUT)/bin
+endif
+
+LOCAL_SRC_FILES := $(LOCAL_MODULE)
+include $(BUILD_PREBUILT)
+
