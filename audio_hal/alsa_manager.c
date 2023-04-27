@@ -161,6 +161,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
     struct pcm_config config_raw;
     unsigned int device = aml_out->device;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    const char *path = "default";
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         if (adev->ms12.dolby_ms12_enable) {
             config = &(adev->ms12_config);
@@ -169,6 +170,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
                 ALOGI("%s stream device(%d) differ with current device(%d)!", __func__, aml_out->device, device);
                 aml_out->is_device_differ_with_ms12 = true;
             }
+            path = "dby/ms12";
         } else {
             audio_format_t output_format = aml_out->alsa_output_format;
             get_hardware_config_parameters(
@@ -191,6 +193,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
                     device = I2S_DEVICE;
                     break;
             }
+            path = "dlb/disable";
         }
     } else if (eDolbyDcvLib == adev->dolby_lib_type) {
         if (aml_out->dual_output_flag && adev->optical_format != AUDIO_FORMAT_PCM_16_BIT) {
@@ -202,6 +205,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
             } else {
                 config->start_threshold = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
             }
+            path = "dcv/dual&&!16bit";
         } else if (!audio_is_linear_pcm(aml_out->alsa_output_format) &&
                    !audio_is_linear_pcm(aml_out->hal_format)) {
             memset(&config_raw, 0, sizeof(struct pcm_config));
@@ -217,6 +221,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
             config_raw.format = PCM_FORMAT_S16_LE;
             config = &config_raw;
             device = DIGITAL_DEVICE;
+            path = "dcv/nonpcm";
         } else if (is_game_mode(adev) && (aml_out->hal_format == AUDIO_FORMAT_PCM_16_BIT) &&
                                   (aml_out->alsa_output_format == AUDIO_FORMAT_PCM_16_BIT)) {
             get_hardware_config_parameters(&(adev->dcv_config),
@@ -227,15 +232,24 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
                                     continuous_mode(adev),
                                      is_game_mode(adev));
             config = &(adev->dcv_config);
+            path = "dcv/game";
+        } else if (config->rate > MM_FULL_POWER_SAMPLING_RATE) {
+            device = DIGITAL_DEVICE;
+            path = "dcv/hires";
         }
     }
     int card = adev->card;
+    char s[PCM_CONFIG_STR_LEN];
+    AM_LOGI("device=%d/%s cfg=%s path=%s",
+            device, show_alsa_device(device),
+            show_pcm_config(config, s, PCM_CONFIG_STR_LEN), path);
     struct pcm *pcm = adev->pcm_handle[device];
 
     // close former and open with configs
     // TODO: check pcm configs and if no changes, do nothing
     if (pcm && device != DIGITAL_DEVICE && device != I2S_DEVICE) {
-        ALOGI("pcm device already opened,re-use pcm handle %p", pcm);
+        ALOGI("pcm device already opened,re-use pcm handle %p device=%d/%s",
+              pcm, device, show_alsa_device(device));
     } else {
         /*
         there are some audio format when digital output
@@ -260,12 +274,9 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
                 config->period_count *= 2;
         }
 
-
-        ALOGI("%s, audio open card(%d), device(%d)", __func__, card, device_index);
-        ALOGI("ALSA open configs: channels %d format %d period_count %d period_size %d rate %d",
-              config->channels, config->format, config->period_count, config->period_size, config->rate);
-        ALOGI("ALSA open configs: threshold start %u stop %u silence %u silence_size %d avail_min %d",
-              config->start_threshold, config->stop_threshold, config->silence_threshold, config->silence_size, config->avail_min);
+        AM_LOGI("alsa_dev=%d/%s port=%d/%s card=%d dev=%d cfg=%s",
+                device, show_alsa_device(device), alsa_port, show_alsa_port(alsa_port),
+                card, device_index, show_pcm_config(config, s, PCM_CONFIG_STR_LEN));
         pcm = pcm_open(card, device_index, PCM_OUT, config);
         if (!pcm || !pcm_is_ready(pcm)) {
             ALOGE("%s, pcm %p open [ready %d] failed", __func__, pcm, pcm_is_ready(pcm));

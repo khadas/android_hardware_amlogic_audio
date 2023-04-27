@@ -25,7 +25,9 @@
 #endif
 #include "aml_audio_types_def.h"
 #include "aml_audio_stream.h"
+#include "alsa_device_parser.h"
 
+#include "aml_android_utils.h"
 #include "aml_dump_debug.h"
 /* Maximum string length in audio hal. */
 #define AUDIO_HAL_CHAR_MAX_LEN     (256)
@@ -56,12 +58,6 @@
     return pStr;
 
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
-
-#define AM_LOGV(fmt, ...)  ALOGV("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
-#define AM_LOGD(fmt, ...)  ALOGD("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
-#define AM_LOGI(fmt, ...)  ALOGI("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
-#define AM_LOGW(fmt, ...)  ALOGW("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
-#define AM_LOGE(fmt, ...)  ALOGE("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
 
 #define R_CHECK_RET(ret, fmt, ...)                                                              \
     if (ret != 0) {                                                                             \

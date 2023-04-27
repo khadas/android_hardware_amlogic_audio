@@ -150,10 +150,6 @@
 #include "hdmirx_utils.h"
 
 #define CARD_AMLOGIC_BOARD 0
-/* ALSA ports for AML */
-#define PORT_I2S 0
-#define PORT_SPDIF 1
-#define PORT_PCM 2
 
 
 /*Google Voice Assistant channel_mask */
@@ -166,10 +162,6 @@
 #define RESAMPLER_BUFFER_SIZE (4 * RESAMPLER_BUFFER_FRAMES)
 #define NSEC_PER_SECOND 1000000000ULL
 
-/* sampling rate when using MM low power port */
-#define MM_LOW_POWER_SAMPLING_RATE 44100
-/* sampling rate when using MM full power port */
-#define MM_FULL_POWER_SAMPLING_RATE 48000
 #define DOLBY_MS12_INPUT_FORMAT_TEST
 
 #define IEC61937_PACKET_SIZE_OF_AC3                     (0x1800)
@@ -3693,6 +3685,10 @@ static int aml_audio_outport_enable(struct aml_audio_device *adev, audio_devices
     } else {
         adev->cur_out_devices &= ~device;
     }
+    char s[AUDIO_DEVICE_OUT_STR_LEN];
+    AM_LOGI("dev=%p cur_out_device=0x%x/%s",
+            adev, adev->cur_out_devices,
+            show_audio_device_out(adev->cur_out_devices, s, AUDIO_DEVICE_OUT_STR_LEN));
     return 0;
 }
 
@@ -7050,12 +7046,12 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
     struct aml_stream_out *aml_out = NULL;
     stream_usecase_t usecase = STREAM_PCM_NORMAL;
     int ret;
-    char s0[AUDIO_DEVICE_OUT_STR_LEN];
-    char s1[AUDIO_OUTPUT_FLAG_STR_LEN];
-    AM_LOGD("enter: devices=%#x/'%s' channel_mask=%#x rate=%d format=%#x/%s flags=%#x/'%s' address='%s'",
+    char s0[AUDIO_DEVICE_OUT_STR_LEN], s1[AUDIO_OUTPUT_FLAG_STR_LEN], s2[AUDIO_CONFIG_STR_LEN];
+    AM_LOGD("enter: dev=%p handle=%x devices=0x%x/'%s' flags=0x%x/'%s' config=%s address='%s'",
+            dev, handle,
             devices, show_audio_device_out(devices, s0, AUDIO_DEVICE_OUT_STR_LEN),
-            config->channel_mask, config->sample_rate, config->format, show_format(config->format),
             flags, show_audio_output_flags(flags, s1, AUDIO_OUTPUT_FLAG_STR_LEN),
+            show_audio_config((audio_config_base_t *)config, s2, AUDIO_CONFIG_STR_LEN),
             address);
     ALOGD("%s: enter", __func__);
 
@@ -7610,6 +7606,8 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
     }
 
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, TYPE_PCM);
+    AM_LOGI("dev=%p cur_out_device=0x%x",
+            aml_dev, aml_dev->cur_out_devices);
     return ret;
 }
 

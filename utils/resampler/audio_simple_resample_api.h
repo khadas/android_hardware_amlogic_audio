@@ -20,7 +20,7 @@
 #include "aml_audio_resample_manager.h"
 
 
-int simple_resample_open(void **handle, audio_resample_config_t *resample_config);
+int simple_resample_open(void **handle, const audio_resample_config_t *resample_config);
 void simple_resample_close(void *handle);
 int simple_resample_process(void *handle, void * in_buffer, size_t bytes, void * out_buffer, size_t * out_size);
 

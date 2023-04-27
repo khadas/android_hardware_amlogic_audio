@@ -302,6 +302,9 @@ static int oops(struct pcm *pcm, int e, const char *fmt, ...)
     if (e)
         snprintf(pcm->error + sz, PCM_ERROR_MAX - sz,
                  ": %s", strerror(e));
+    if (e) {
+        ALOGE("pcm oops: %s", pcm->error);
+    }
     return -1;
 }
 
@@ -976,9 +979,14 @@ struct pcm *pcm_open(unsigned int card, unsigned int device,
         oops(pcm, errno, "cannot open device '%s'", fn);
         return pcm;
     }
-
-    ALOGI("%s(): flag = %x, card = %d, device = %d, fd = %d",
-        __func__, flags, card, device, pcm->fd);
+    ALOGI("%s(): card=%d device=%d flag=0x%x "
+          "cfg=(fmt=%d rt=%u ch=%u period=%u*%u thr=%u-%u-%u sil_sz=%u avail_min=%d) fd=%d",
+          __func__, card, device, flags,
+          config->format, config->rate, config->channels,
+          config->period_size, config->period_count,
+          config->start_threshold, config->stop_threshold,
+          config->silence_threshold, config->silence_size,
+          config->avail_min, pcm->fd);
     if (!(flags&PCM_NONEBLOCK)) {
         if (fcntl(pcm->fd, F_SETFL, fcntl(pcm->fd, F_GETFL) &
               ~O_NONBLOCK) < 0) {

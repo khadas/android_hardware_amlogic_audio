@@ -33,6 +33,7 @@
 #include <hardware/audio.h>
 #include <aml_android_utils.h>
 
+#include "aml_math_utils.h"
 #include "audio_hw_utils.h"
 #include "alsa_device_parser.h"
 #include "dolby_lib_api.h"
@@ -943,6 +944,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
                             strcat(aud_cap, temp);
                         }
                     }
+                    strcat(aud_cap, "|352800"); // for DSD
                     ALOGI("%s format =0x%x support rate =%s", __func__, format , aud_cap);
                 } else {
                     size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
@@ -2104,5 +2106,63 @@ char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(con
     str_parms_destroy(parms);
     ALOGI("[out_get_parameters:%d] %s", __LINE__, para);
     return para;
+}
+
+/**
+ * @brief choose closed one non-zero value from sorted array
+ * [32000, 48000, 0, 0]
+ * x = 16000, return 32000
+ * x = 44100, return 32000
+ * x = 48000, return 48000
+ * x = 96000, return 48000
+ */
+static int close_one(int x, const int *a, size_t n) {
+    int close = a[0];
+    size_t i;
+    for (i = 0; i != n; i++) {
+        if (a[i] == 0) {
+            break;
+        }
+        if (x > a[i]) {
+            close = a[i];
+        } else if (x == a[i]) {
+            return x;
+        } else { // x < a[i]
+            break;
+        }
+    }
+    return close;
+}
+
+int nego_sample_rate(int input_rate, audio_format_t fmt, audio_devices_t devices)
+{
+    // we guess spdif support sample list here
+    const int spdif_rates[] = {48000, 88200, 96000, 176400, 192000};
+    // when output device is unknown or multiple devices, we select 48KHz
+    const int default_rates[] = {48000};
+    int rate;
+    const int *a;
+    size_t n; // sample rate list
+    if (devices == AUDIO_DEVICE_OUT_HDMI) {
+        audio_profile_cap_t *audio_cap_item = get_edid_support_audio_format(fmt);
+        a = audio_cap_item->samplerate;
+        n = AUDIO_PROFILE_SAMPLERATE_NUM;
+    } else if (devices == AUDIO_DEVICE_OUT_SPDIF) {
+        a = spdif_rates;
+        n = sizeof(spdif_rates) / sizeof(spdif_rates[0]);
+    } else {
+        a = default_rates;
+        n = sizeof(default_rates) / sizeof(default_rates[0]);
+    }
+
+    rate = close_one(input_rate, a, n);
+    rate = MAX(rate, 48000);
+#define ARRAY_STR_LEN 64
+    char s0[AUDIO_DEVICE_OUT_STR_LEN], s1[ARRAY_STR_LEN];
+    AM_LOGI("tag=rate input rate=%d fmt=0x%x device=0x%x/%s sup_sampling_rates='%s' -> rate=%d",
+            input_rate, fmt, devices, show_audio_device_out(devices, s0, AUDIO_DEVICE_OUT_STR_LEN),
+            show_int_array(a, n, '|', s1, ARRAY_STR_LEN),
+            rate);
+    return rate;
 }
 

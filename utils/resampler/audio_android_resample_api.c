@@ -34,7 +34,7 @@ static size_t in_read_func(void *ring_buffer, void *buf, size_t size)
     return ret;
 }
 
-int android_resample_open(void **handle, audio_resample_config_t *resample_config)
+int android_resample_open(void **handle, const audio_resample_config_t *resample_config)
 {
     int ret = -1;
     android_resample_handle_t *resample = NULL;

@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <cutils/properties.h>
 #include "aml_malloc_debug.h"
+#include "aml_dump_debug.h"
 #include "audio_simple_resample_api.h"
 #include "audio_android_resample_api.h"
 
@@ -48,7 +49,7 @@ static audio_resample_func_t * get_resample_function(resample_type_t resample_ty
     return NULL;
 }
 
-int aml_audio_resample_init(aml_audio_resample_t ** ppaml_audio_resample, resample_type_t resample_type, audio_resample_config_t *resample_config)
+int aml_audio_resample_init(aml_audio_resample_t ** ppaml_audio_resample, resample_type_t resample_type, const audio_resample_config_t *resample_config)
 {
     int ret = -1;
 
@@ -310,6 +311,30 @@ int aml_audio_resample_process_wrapper(aml_audio_resample_t **resample_handle, v
     ret = aml_audio_resample_process(*resample_handle, buffer, len);
     if (ret < 0) {
         ALOGE("resample process error\n");
+        return -1;
+    }
+    return ret;
+}
+
+int aml_audio_resample_process_ex(aml_audio_resample_t **ph, const audio_resample_config_t *pcfg,
+                                  void *input, size_t len)
+{
+    int ret = 0;
+    if (*ph != NULL &&
+        (memcmp(pcfg, &(*ph)->resample_config, sizeof(audio_resample_config_t)) != 0)) {
+        aml_audio_resample_close(*ph);
+        *ph = NULL;
+    }
+    if (*ph == NULL) {
+        ret = aml_audio_resample_init(ph, AML_AUDIO_ANDROID_RESAMPLE, pcfg);
+        if (ret < 0) {
+            AM_LOGE("fail to init resample, ret=%d", ret);
+            return -1;
+        }
+    }
+    ret = aml_audio_resample_process(*ph, input, len);
+    if (ret < 0) {
+        AM_LOGE("fail to process resampler, ret=%d", ret);
         return -1;
     }
     return ret;

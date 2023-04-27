@@ -39,4 +39,5 @@ char *strdup_tv_platform_cap_default(const char *keys, audio_format_t format);
  */
 char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(const struct audio_stream *stream, const char *keys);
 
+int nego_sample_rate(int input_rate, audio_format_t fmt, audio_devices_t devices);
 #endif

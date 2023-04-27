@@ -24,7 +24,7 @@
 #include "aml_malloc_debug.h"
 
 
-int simple_resample_open(void **handle, audio_resample_config_t *resample_config)
+int simple_resample_open(void **handle, const audio_resample_config_t *resample_config)
 {
     struct resample_para *resample = NULL;
 

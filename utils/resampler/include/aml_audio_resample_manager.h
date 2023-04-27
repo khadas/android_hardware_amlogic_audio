@@ -50,14 +50,14 @@ typedef struct aml_audio_resample {
 
 
 typedef struct audio_resample_func {
-    int (*resample_open)(void **handle, audio_resample_config_t *resample_config);
+    int (*resample_open)(void **handle, const audio_resample_config_t *resample_config);
     void (*resample_close)(void *handle);
     int (*resample_process)(void *handle, void * in_buffer, size_t bytes, void * out_buffer, size_t * out_size);
 
 } audio_resample_func_t;
 
 
-int aml_audio_resample_init(aml_audio_resample_t ** ppresample_handle, resample_type_t resample_type, audio_resample_config_t *resample_config);
+int aml_audio_resample_init(aml_audio_resample_t ** ppresample_handle, resample_type_t resample_type, const audio_resample_config_t *resample_config);
 
 int aml_audio_resample_close(aml_audio_resample_t * resample_handle);
 
@@ -65,6 +65,23 @@ int aml_audio_resample_process(aml_audio_resample_t * resample_handle, void * in
 
 int aml_audio_resample_reset(aml_audio_resample_t * aml_audio_resample);
 int aml_audio_resample_process_wrapper(aml_audio_resample_t **resample_handle, void *buffer, size_t len, int sr, int ch_num);
+
+/**
+ * @brief extension function from aml_audio_resample_process_wrapper
+ * It's more flexible with passing audio_resample_config_t
+ *
+ * @param ph    [IN/OUT] If handle is NULL, it will init resample.
+ *                       If handle's config is changed, it will re-init resample
+ * @param pcfg  [IN]     new config for resample
+ * @param input [IN]     input buffer
+ * @param len   [IN]     input buffer's length
+ *
+ * @return SUCC(0) or FAIL(-1)
+ *
+ * Caller get output buffer via resampler handle's resample_buffer, resample_size
+ */
+int aml_audio_resample_process_ex(aml_audio_resample_t **ph, const audio_resample_config_t *pcfg,
+                                  void *input, size_t len);
 
 #endif
 

@@ -47,7 +47,6 @@
 #include "audio_hwsync.h"
 #include "amlAudioMixer.h"
 #include <audio_utils/primitives.h>
-#include "alsa_device_parser.h"
 #include "a2dp_hal.h"
 #ifndef MS12_V24_ENABLE
 #include "audio_avsync_table_aml_ms12_v1.h"

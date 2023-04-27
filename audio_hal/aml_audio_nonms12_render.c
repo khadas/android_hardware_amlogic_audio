@@ -358,20 +358,25 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     dts_pcm_direct_output = true;
                 }
 
-                if (dec_pcm_data->data_sr != OUTPUT_ALSA_SAMPLERATE ) {
-                    ret = aml_audio_resample_process_wrapper(&aml_out->resample_handle, dec_pcm_data->buf,
-                    pcm_len, dec_pcm_data->data_sr, dec_pcm_data->data_ch);
+                int input_sr = dec_pcm_data->data_sr;
+                int output_sr = nego_sample_rate(input_sr, dec_pcm_data->data_format,
+                                                 adev->cur_out_devices);
+                if (input_sr != output_sr) {
+                    audio_resample_config_t cfg = {
+                        .aformat = AUDIO_FORMAT_PCM_16_BIT, // TODO
+                        .channels = dec_pcm_data->data_ch,
+                        .input_sr = input_sr,
+                        .output_sr = output_sr,
+                    };
+                    ret = aml_audio_resample_process_ex(&aml_out->resample_handle, &cfg, dec_data, pcm_len);
                     if (ret != 0) {
-                        ALOGE("aml_audio_resample_process_wrapper failed");
+                        AM_LOGE("aml_audio_resample_process_ex fail ret=%d", ret);
                     } else {
                         dec_data = aml_out->resample_handle->resample_buffer;
                         pcm_len = aml_out->resample_handle->resample_size;
                     }
-                    aml_out->config.rate = OUTPUT_ALSA_SAMPLERATE;
-                } else {
-                    if (dec_pcm_data->data_sr > 0)
-                        aml_out->config.rate = dec_pcm_data->data_sr;
                 }
+                aml_out->config.rate = output_sr;
                 if (!is_TV(adev)) {
                     aml_out->config.channels = dec_pcm_data->data_ch;
                 }

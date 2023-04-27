@@ -94,7 +94,7 @@ static int pcm_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config
         return -1;
     }
 
-    if (pcm_config->samplerate <= 0 || pcm_config->samplerate > 192000) {
+    if (pcm_config->samplerate <= 0) {
         ALOGE("PCM config samplerate is invalid=%d\n", pcm_config->samplerate);
         return -1;
     }
