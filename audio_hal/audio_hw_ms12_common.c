@@ -575,6 +575,7 @@ void set_continuous_audio_mode(struct aml_audio_device *adev, int enable, int is
                 usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
             //continuous_stream_do_standby(adev);
         } else {
+            get_dolby_ms12_cleanup(&adev->ms12, false);
             if ((!disable_continuous) && !continuous_mode(adev)) {
                 adev->mix_init_flag = false;
                 adev->continuous_audio_mode = 1;
