@@ -464,6 +464,21 @@ int check_chip_name(char *chip_name, unsigned int length,
     return false;
 }
 
+bool is_rtl_bt_module()
+{
+    char buf[PROPERTY_VALUE_MAX] = {'\0'};
+    int ret =0;
+
+    ret = property_get("persist.vendor.libbt_vendor", buf, NULL);
+    if (ret > 0) {
+      char *pos = strstr(buf, "libbt-vendor_rtlMulti.so");
+        if (pos != NULL) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool is_multi_demux()
 {
     if (access("/sys/module/dvb_demux/",F_OK) == 0 ||

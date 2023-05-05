@@ -4486,7 +4486,13 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     ret = str_parms_get_str(parms, "bt_wbs", value, sizeof(value));
     if (ret >= 0) {
         ALOGI("Amlogic_HAL - %s: bt_wbs=%s.", __func__, value);
-        adev->bt_wbs = (strncmp(value, "on", 2) == 0);
+        if (is_rtl_bt_module()) {
+            // Realtek bt modules do not support 16k by default.
+            adev->bt_wbs = false;
+            AM_LOGI("rtl bt module, force use 8k sample rate.");
+        } else {
+            adev->bt_wbs = (strncmp(value, "on", 2) == 0);
+        }
         /* 1. Re-pcm_open input is required when setting bt_wbs param, re-configure the sample rate based on the bt_wbs.
          * 2. eg: first read IN_BLUETOOTH_SCO_HEADSET data, then set bt_wbs=true, and finally play OUT_BLUETOOTH_SCO.
          *    pcm_open input PCM will use 8khz, pcm_open output PCM use 16khz. The sample rate of the input and output
