@@ -1813,6 +1813,25 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
                 }
             }
             adev->patch_src = SRC_ATV;
+        } else if (strncmp(value, "broadband", 9) == 0) {
+#ifdef ENABLE_DVB_PATCH
+            if ((adev->patch_src == SRC_DTV) && adev->audio_patching) {
+                ALOGI("[audiohal_kpi] %s, release dtv patching", __func__);
+                ret = release_dtv_patch(adev);
+                if (!ret) {
+                    adev->audio_patching = 0;
+                }
+            }
+            adev->patch_src == SRC_INVAL;
+            if (eDolbyMS12Lib == adev->dolby_lib_type) {
+                get_dolby_ms12_cleanup(&adev->ms12, false);
+                /*continuous mode is using in ms12 prepare, we should lock it*/
+                pthread_mutex_lock(&adev->ms12.lock);
+                adev->continuous_audio_mode = 1;
+                pthread_mutex_unlock(&adev->ms12.lock);
+                ALOGI("%s restore continuous_audio_mode=%d", __func__, adev->continuous_audio_mode);
+            }
+#endif
         }
         goto exit;
     }
