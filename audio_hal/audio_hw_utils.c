@@ -1266,12 +1266,12 @@ void aml_audio_set_cpu23_affinity()
     struct audio_board_config *bd_config = &aml_dev->board_config;
     CPU_ZERO(&cpuSet);
 
-    if (!bd_config->cpu4_affinity_support) {
+    if (bd_config->cpux_affinity_support > 0) {
+        CPU_SET(bd_config->cpux_affinity_support, &cpuSet);
+        ALOGI("%s(), set affinity for some chips which support cpu %d.\n", __FUNCTION__, bd_config->cpux_affinity_support);
+    } else {
         CPU_SET(2, &cpuSet);
         CPU_SET(3, &cpuSet);
-    } else {
-        CPU_SET(4, &cpuSet);
-        ALOGI("%s(), set cpu4 affinity for some chips which support cpu4", __FUNCTION__);
     }
 
     int status = sched_setaffinity(0, sizeof(cpu_set_t), &cpuSet);

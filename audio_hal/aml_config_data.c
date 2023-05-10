@@ -98,7 +98,7 @@ void aml_audio_board_config_init(struct audio_board_config *config)
     config->hdmitx_src = -1;
     config->hdmitx_hbr_src = -1;
     config->hdmitx_multi_ch_src = -1;
-    config->cpu4_affinity_support = 0;
+    config->cpux_affinity_support = -1;
 
 #if defined(TV_AUDIO_OUTPUT)
     config->default_alsa_ch =  aml_audio_get_default_alsa_output_ch();
@@ -118,7 +118,7 @@ void aml_audio_board_config_init(struct audio_board_config *config)
         config->default_alsa_ch = aml_get_jason_int_value("ALSA_Speaker_Channels", config->default_alsa_ch);
         config->ms12_output_mask = aml_get_jason_int_value("MS12_Output_Masks", 0);
         config->DTS_output_ch = aml_get_jason_int_value("DTS_Output_Channels", 0);
-        config->cpu4_affinity_support = aml_get_jason_int_value("CPU4_Affinity_Support", 0);
+        config->cpux_affinity_support = aml_get_jason_int_value("CPUX_Affinity_Support", -1);
     }
 }
 
