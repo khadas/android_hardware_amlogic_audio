@@ -25,8 +25,16 @@
 #define AML_AUDIO_VAD_CHANNEL_PROP "persist.vendor.sys.vad.channel"
 #define AML_AUDIO_VAD_RATE_PROP "persist.vendor.sys.vad.rate"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int32_t aml_vad_suspend(struct aml_mixer_handle *mixer);
 int32_t aml_vad_resume(struct aml_mixer_handle *mixer);
+void aml_vad_dump();
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

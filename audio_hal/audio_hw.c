@@ -4507,6 +4507,8 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
             aml_vad_suspend(&adev->alsa_mixer);
         } else if (strncmp(value, "resume", 7) == 0) {
             aml_vad_resume(&adev->alsa_mixer);
+        } else if (strncmp(value, "dump", 4) == 0) {
+            aml_vad_dump();
         } else {
             AM_LOGI("not supported param:%s", value);
         }
