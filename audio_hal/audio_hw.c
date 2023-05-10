@@ -5729,34 +5729,33 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             }
         }
 
-        if (reset_decoder) {
-            pthread_mutex_lock(&adev->alsa_pcm_lock);
-            if (aml_out->stream_status == STREAM_HW_WRITING) {
-                aml_alsa_output_close(stream);
-                aml_out->stream_status = STREAM_STANDBY;
+        pthread_mutex_lock(&adev->alsa_pcm_lock);
+        if (aml_out->stream_status == STREAM_HW_WRITING) {
+            aml_alsa_output_close(stream);
+            aml_out->stream_status = STREAM_STANDBY;
+        }
+        pthread_mutex_unlock(&adev->alsa_pcm_lock);
+        /* In netflix, when ddp do seek, we should not
+         * close the spdif out, otherwise it will disable
+         * the audio clock, and this will causes the audio
+         * clock discontinuity.
+         * todo: shall remove it for all cases?
+         */
+        if (!adev->is_netflix) {
+            if (aml_out->spdifout_handle) {
+                aml_audio_spdifout_close(aml_out->spdifout_handle);
+                aml_out->spdifout_handle = NULL;
+                aml_out->dual_output_flag = 0;
             }
-            pthread_mutex_unlock(&adev->alsa_pcm_lock);
-            /*if decoder is init, we close it first*/
+            if (aml_out->spdifout2_handle) {
+                aml_audio_spdifout_close(aml_out->spdifout2_handle);
+                aml_out->spdifout2_handle = NULL;
+            }
+        }
+        if (reset_decoder) {
             if (aml_out->aml_dec) {
                 aml_decoder_release(aml_out->aml_dec);
                 aml_out->aml_dec = NULL;
-            }
-            /* In netflix, when ddp do seek, we should not
-             * close the spdif out, otherwise it will disable
-             * the audio clock, and this will causes the audio
-             * clock discontinuity.
-             * todo: shall remove it for all cases?
-             */
-            if (!adev->is_netflix) {
-                if (aml_out->spdifout_handle) {
-                    aml_audio_spdifout_close(aml_out->spdifout_handle);
-                    aml_out->spdifout_handle = NULL;
-                    aml_out->dual_output_flag = 0;
-                }
-                if (aml_out->spdifout2_handle) {
-                    aml_audio_spdifout_close(aml_out->spdifout2_handle);
-                    aml_out->spdifout2_handle = NULL;
-                }
             }
 
             memset(&aml_out->dec_config, 0, sizeof(aml_dec_config_t));
