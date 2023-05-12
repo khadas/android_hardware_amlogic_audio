@@ -433,11 +433,11 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                              dec_pcm_data->data_len = aml_out->resample_handle->resample_size;
                          }
                     }
-                    out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
 #ifdef ENABLE_DVB_PATCH
                     if (dtv_stream_flag)
                         patch->dtv_pcm_wrote += dec_pcm_data->data_len;
                     aml_dec->out_frame_pts = aml_dec->in_frame_pts + (90 * out_frames /(dec_pcm_data->data_sr / 1000));
+                    out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
                     if (get_debug_value(AML_DEBUG_AUDIOHAL_AUT)) {
                         ALOGI("pes_pts: %" PRIx64 ", frame_pts: %" PRIx64 ", pcm[len:%d, pcm_dur:%dms, total_dur:%dms].",\
                             aml_dec->in_frame_pts, aml_dec->out_frame_pts, dec_pcm_data->data_len,\
@@ -474,7 +474,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                                 aml_dtvsync_setParameter(patch->dtvsync, MEDIASYNC_KEY_ALSAREADY, &aml_out->alsa_running_status);
                                 aml_out->alsa_status_changed = false;
                             }
-                            patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90 - alsa_latency + force_setting_delayms * 90 - tune_latency;
+                            patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90 - alsa_latency + force_setting_delayms * 90 + tune_latency;
                             if (get_debug_value(AML_DEBUG_AUDIOHAL_AUT)) {
                                 ALOGI("frame_pts:%" PRIx64 ", output_pts:%" PRIx64 ", latency:%" PRId64 " ms, tune_latency:%d ms.",\
                                     aml_dec->out_frame_pts, patch->dtvsync->cur_outapts,\
