@@ -243,7 +243,7 @@ static int aml_audio_ms12_process(struct audio_stream_out *stream, const void *w
      *
      * todo, we need add a parser for such case
      */
-    if (!adev->continuous_audio_mode && !patch) {
+    if (!adev->continuous_audio_mode && !patch && !audio_is_linear_pcm(aml_out->hal_format)) {
         need_separate_frame = true;
     } else if (patch && (adev->patch_src == SRC_DTV) && (BYPASS == adev->digital_audio_format)) {
         need_separate_frame = true;

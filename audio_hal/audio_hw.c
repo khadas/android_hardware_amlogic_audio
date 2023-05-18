@@ -775,7 +775,7 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
                     size = (8192 + TUNNEL_SYNC_HEADER_SIZE);
                 } else {
                     //2 package data.
-                    size = (8192 + TUNNEL_SYNC_HEADER_SIZE*2);
+                    size = ( 2048 * audio_stream_out_frame_size((struct audio_stream_out *) stream) + TUNNEL_SYNC_HEADER_SIZE*2);
                 }
                 return size;
             } else {
