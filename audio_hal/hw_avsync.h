@@ -26,14 +26,21 @@
 /*  NTS will send frame size 24576 byte(128ms) */
 #define HW_AVSYNC_FRAME_SIZE (8192 * 3)
 
+/*head size is calculated with mOffset = ((int) Math.ceil(HEADER_V2_SIZE_BYTES / frameSizeInBytes)) * frameSizeInBytes;
+ *current we only support to 8ch, the headsize is 32
+ */
+#define HW_AVSYNC_MAX_HEADER_SIZE  32  /*max 8ch */
+
+
 struct hw_avsync_header {
-    uint8_t header[HW_AVSYNC_HEADER_SIZE_V2];
+    uint8_t header[HW_AVSYNC_MAX_HEADER_SIZE];
     uint8_t version_num;
     uint32_t frame_size;
     uint64_t pts;
     size_t bytes_read;
     size_t bytes_written;
     size_t header_size;
+    size_t header_offset;
     bool is_complete;
     int (*extract)(struct hw_avsync_header *);
     int (*construct)(struct hw_avsync_header *);
@@ -66,6 +73,7 @@ struct hw_avsync_header_extractor {
 
 void hwsync_header_set_frame_size(struct hw_avsync_header *header, uint32_t frame_size);
 void hwsync_header_set_pts(struct hw_avsync_header *header, uint64_t pts);
+void hwsync_header_set_header_offset(struct hw_avsync_header *header, uint32_t header_offset);
 
 ssize_t header_extractor_write(struct hw_avsync_header_extractor *header_extractor,
             const void *buffer, size_t bytes);

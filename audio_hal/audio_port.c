@@ -35,6 +35,8 @@
 #include "aml_malloc_debug.h"
 #include "karaoke_manager.h"
 #include "aml_dump_debug.h"
+#include "aml_audio_spdifout.h"
+#include "tv_patch_ctrl.h"
 
 #ifdef ENABLE_AEC_APP
 #include "audio_aec.h"
@@ -285,6 +287,7 @@ static int setPortConfig(struct audioCfg *cfg, struct audio_config *config)
     if (config->format == 0)
         config->format = AUDIO_FORMAT_PCM_16_BIT;
 
+    cfg->channelMask = config->channel_mask;
     cfg->channelCnt = audio_channel_count_from_out_mask(config->channel_mask);
     cfg->format = config->format;
     cfg->sampleRate = config->sample_rate;
@@ -536,6 +539,7 @@ static int output_port_start(output_port *port)
     int card = port->cfg.card;
     int device = port->cfg.device;
     struct pcm *pcm = NULL;
+    struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
 
     memset(&pcm_cfg, 0, sizeof(struct pcm_config));
     if (cfg.is_tv) {
@@ -547,6 +551,12 @@ static int output_port_start(output_port *port)
     pcm_cfg.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
     pcm_cfg.period_count = DEFAULT_PLAYBACK_PERIOD_CNT;
     pcm_cfg.start_threshold = pcm_cfg.period_size * pcm_cfg.period_count / 2;
+    if (is_aaudio_low_latency_mode() && adev->is_netflix) {
+        pcm_cfg.period_size = LOW_LATENCY_PLAYBACK_NETFLIX_PERIOD_SIZE;
+        pcm_cfg.period_count = LOW_LATENCY_PLAYBACK_NETFLIX_PERIOD_COUNT;
+        pcm_cfg.start_threshold = pcm_cfg.period_size * pcm_cfg.period_count / 2;
+    }
+
     //pcm_cfg.stop_threshold = pcm_cfg.period_size * pcm_cfg.period_count - 128;
     //pcm_cfg.silence_threshold = pcm_cfg.stop_threshold;
     //pcm_cfg.silence_size = 1024;
@@ -929,7 +939,8 @@ output_port *new_output_port(
     int rbuf_size = buf_frames * config->frame_size;
     int alsa_port = PORT_I2S;
 
-    if (port_index != MIXER_OUTPUT_PORT_STEREO_PCM && port_index != MIXER_OUTPUT_PORT_MULTI_PCM) {
+    // MIXER_OUTPUT_PORT_MULTI_PCM should use audio_mixer->mc_out_port
+    if (port_index != MIXER_OUTPUT_PORT_STEREO_PCM) {
         AM_LOGE("port_index:%d invalid", port_index);
         return NULL;
     }
@@ -945,9 +956,6 @@ output_port *new_output_port(
         goto err_data;
     }
 
-    if (port_index == MIXER_OUTPUT_PORT_MULTI_PCM) {
-        alsa_port = PORT_I2S2HDMI;
-    }
     config->device = alsa_device_update_pcm_index(alsa_port, PLAYBACK);
     memcpy(&port->cfg, config, sizeof(struct audioCfg));
     AM_LOGI("port:%s, frame_size:%d, format:%#x, sampleRate:%d, channels:%d", mixerOutputType2Str(port_index),
@@ -1027,6 +1035,111 @@ int free_output_port(output_port *port)
     }
 
     aml_audio_free(port);
+    return 0;
+}
+
+static ssize_t multich_output_port_write(mc_output_port *mc_port, void *buffer, int bytes)
+{
+    R_CHECK_POINTER_LEGAL(-EINVAL, mc_port, "");
+    return aml_audio_spdifout_process(mc_port->spdifout_handle, buffer, bytes);
+}
+
+static int multich_output_port_start(mc_output_port *mc_port)
+{
+    spdif_config_t spdif_config = { 0 };
+    int ret = 0;
+    R_CHECK_POINTER_LEGAL(-EINVAL, mc_port, "");
+
+    spdif_config.audio_format = mc_port->cfg.format;
+    //spdif_config.sub_format   = sub_format;
+    spdif_config.rate = mc_port->cfg.sampleRate;
+    spdif_config.channel_mask = mc_port->cfg.channelMask;
+    spdif_config.data_ch = mc_port->cfg.channelCnt;
+    ret = aml_audio_spdifout_open(&mc_port->spdifout_handle, &spdif_config);
+    if (ret == 0) {
+        mc_port->port_status = ACTIVE;
+    }
+    AM_LOGI("ok");
+
+    return ret;
+}
+
+static int multich_output_port_standby(mc_output_port *mc_port)
+{
+    int ret = 0;
+    R_CHECK_POINTER_LEGAL(-EINVAL, mc_port, "");
+
+    if (mc_port->spdifout_handle) {
+        ret = aml_audio_spdifout_close(mc_port->spdifout_handle);
+    }
+    mc_port->port_status = STOPPED;
+    mc_port->spdifout_handle = NULL;
+
+    AM_LOGI("ok");
+    return ret;
+}
+
+mc_output_port *new_mc_output_port(struct audioCfg *config, size_t buf_frames)
+{
+    int buf_size = 0;
+    char *buf_ptr = NULL;
+    mc_output_port *mc_port = NULL;
+    R_CHECK_POINTER_LEGAL(NULL, config, "config");
+
+    ALOGI("%s(), config channels %d, rate %d, bytes per frame %zu",
+            __func__, config->channelCnt, config->sampleRate,
+            audio_bytes_per_sample(config->format));
+
+    mc_port = aml_audio_calloc(1, sizeof(mc_output_port));
+    R_CHECK_POINTER_LEGAL(NULL, mc_port, "no memory, size:%zu", sizeof(mc_output_port));
+
+    buf_size = buf_frames * config->frame_size;
+    buf_ptr = aml_audio_calloc(1, buf_size);
+    if (!buf_ptr) {
+        AM_LOGE("allocate output_port data_buf:%d no memory", buf_size);
+        goto err_data;
+    }
+    mc_port->data_buf = buf_ptr;
+    mc_port->data_buf_len = buf_size;
+    mc_port->bytes_avail = 0;
+    mc_port->enOutPortType = MIXER_OUTPUT_PORT_MULTI_PCM;
+    mc_port->write = multich_output_port_write;
+    mc_port->start = multich_output_port_start;
+    mc_port->standby = multich_output_port_standby;
+    mc_port->port_status = STOPPED;
+
+    memcpy(&mc_port->cfg, config, sizeof(struct audioCfg));
+    AM_LOGI("mc_port: frame_size:%d, format:%#x, sampleRate:%d, channels:%d",
+        config->frame_size, config->format, config->sampleRate, config->channelCnt);
+    AM_LOGI("ok");
+    return mc_port;
+
+err_data:
+    aml_audio_free(mc_port);
+    mc_port = NULL;
+    return NULL;
+}
+
+
+int free_mc_output_port(mc_output_port **pp_mc_port)
+{
+    mc_output_port *mc_port = NULL;
+
+    AM_LOGI("enter");
+    R_CHECK_POINTER_LEGAL(-EINVAL, pp_mc_port, "");
+    R_CHECK_POINTER_LEGAL(-EINVAL, *pp_mc_port, "");
+    mc_port = *pp_mc_port;
+
+    if (mc_port->spdifout_handle) {
+        aml_audio_spdifout_close(mc_port->spdifout_handle);
+        mc_port->spdifout_handle = NULL;
+    }
+    aml_audio_free(mc_port->data_buf);
+    mc_port->data_buf = NULL;
+    aml_audio_free(mc_port);
+    *pp_mc_port = NULL;
+
+    AM_LOGI("ok");
     return 0;
 }
 

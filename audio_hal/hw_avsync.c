@@ -51,6 +51,11 @@ void hwsync_header_extract(struct hw_avsync_header *header)
     uint64_t pts = deserialize_bytes_to_int64(&header->header[8]);
     hwsync_header_set_frame_size(header, frame_size);
     hwsync_header_set_pts(header, pts);
+
+    if (header->version_num == 2) {
+        uint32_t header_offset = deserialize_bytes_to_int32(&header->header[16]);
+        hwsync_header_set_header_offset(header, header_offset);
+    }
 }
 
 static inline bool hwsync_header_validate(uint8_t *header)
@@ -120,6 +125,14 @@ void hwsync_header_set_pts(struct hw_avsync_header *header, uint64_t pts)
     header->pts = pts;
 }
 
+void hwsync_header_set_header_offset(struct hw_avsync_header *header, uint32_t header_offset)
+{
+     if (header_offset > HW_AVSYNC_MAX_HEADER_SIZE) {
+         ALOGE("%s(), buffer overwrite, check the header offset %d \n", __func__, header_offset);
+     }
+     header->header_offset = header_offset;
+}
+
 int hwsync_read_header_byte(struct hw_avsync_header *header, uint8_t *byte)
 {
     if (!header || !byte || header->bytes_read >= header->header_size)
@@ -139,7 +152,7 @@ int hwsync_read_header_byte(struct hw_avsync_header *header, uint8_t *byte)
 int hwsync_write_header_byte(struct hw_avsync_header *header, uint8_t byte)
 {
     size_t size = sizeof(HW_AVSYNC_HEADER_V2);
-    if (!header || (header->version_num > 0 && header->bytes_written >= header->header_size)) {
+    if (!header || (header->version_num > 0 && header->bytes_written >= HW_AVSYNC_MAX_HEADER_SIZE)) {
         ALOGE("%s(), header null or inval written bytes", __func__);
         return -EINVAL;
     }
@@ -153,10 +166,12 @@ int hwsync_write_header_byte(struct hw_avsync_header *header, uint8_t byte)
             ALOGV("version_num %d ",byte);
             header->version_num = byte;
             header->header_size = HW_AVSYNC_HEADER_SIZE_V1;
+            header->header_offset = header->header_size;
         } else if (byte == 2) {
             ALOGV("version_num %d ",byte);
             header->version_num = byte;
             header->header_size = HW_AVSYNC_HEADER_SIZE_V2;
+            header->header_offset = header->header_size;
         } else {
             ALOGE("invalid version_num %d ",header->version_num);
         }
@@ -164,8 +179,17 @@ int hwsync_write_header_byte(struct hw_avsync_header *header, uint8_t byte)
         header->header[header->bytes_written++] = byte;
         if (header->bytes_written >= header->header_size &&
             (header->version_num == 2 || header->version_num == 1)) {
-            header->is_complete = true;
-            hwsync_header_extract(header);
+            if (header->version_num == 1) {
+                header->is_complete = true;
+                hwsync_header_extract(header);
+            } else if (header->version_num == 2) {
+                if (header->bytes_written == header->header_size) {
+                    hwsync_header_extract(header);
+                }
+                if (header->bytes_written >= header->header_offset) {
+                    header->is_complete = true;
+                }
+            }
         }
     } else {
         ALOGE("%s(), invalid data %d, bytes_written %zu",

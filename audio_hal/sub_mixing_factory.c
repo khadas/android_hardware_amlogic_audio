@@ -242,7 +242,9 @@ static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
     if (out->pause_status) {
         AM_LOGE("write in pause status");
     }
-
+    if (audio_is_linear_pcm(out->hal_format)) {
+        frame_size = out->hal_frame_size;
+    }
     clock_gettime(CLOCK_MONOTONIC, &tval);
     /*
     android only support max stereo stream volume configuration,we have to reuse left volume as
@@ -253,6 +255,9 @@ static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
             last_volume[ch] = last_volume[0];
             volume[ch] = volume[0];
         }
+    }
+    if (adev->debug_flag) {
+        AM_LOGI("last_volume=%f volume=%f channels=%d bytes=%zu", last_volume[0], volume[0], channels, bytes);
     }
     apply_volume_fade(last_volume, volume, in_buf_16, sizeof(uint16_t), channels, bytes);
     out->last_volume_l = out->volume_l;
@@ -280,13 +285,13 @@ static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
     }
 
     clock_gettime(CLOCK_MONOTONIC, &new_tval);
-    us_since_last_write = (uint64_t)(new_tval.tv_sec - out->timestamp.tv_sec) * 1000000 +
-            (uint64_t)(new_tval.tv_nsec - out->timestamp.tv_nsec) / 1000;
+    us_since_last_write = (uint64_t)((new_tval.tv_sec - out->timestamp.tv_sec) * 1000000 +
+            (new_tval.tv_nsec - out->timestamp.tv_nsec) / 1000);
     //out->timestamp = new_tval;
 
     int used_this_write = (new_tval.tv_sec - tval.tv_sec) * 1000000 +
             (new_tval.tv_nsec - tval.tv_nsec) / 1000;
-    int target_us = bytes * 1000 / 4 / 48;
+    int target_us = bytes * 1000 / out->hal_frame_size / 48;
     // calculate presentation frames and timestamps
     //clock_gettime(CLOCK_MONOTONIC, &out->timestamp);
     //latency_frames = mixer_get_inport_latency_frames(audio_mixer, out->port_index) +
@@ -556,8 +561,17 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
     //uint64_t begin_time, end_time;
     ssize_t written = 0;
     size_t remain = 0;
-    int frame_size = 4;
+    int frame_size = 4; // currently, npcm decoder will output 2ch 16bit pcm
     int64_t throttle_timeus = 0;//aml_audio_get_throttle_timeus(bytes);
+    int channels = 2;
+    int sample_size = 2;
+    float volume[8];
+    float last_volume[8];
+    volume[0]   = out->volume_l;
+    volume[1]   = out->volume_r;
+    last_volume[0]   = out->last_volume_l;
+    last_volume[1]   = out->last_volume_r;
+
 
     if (out->standby) {
         init_mixer_input_port(sm->mixerData, &out->audioCfg, out->flags,
@@ -567,8 +581,30 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
         out->standby = false;
         out->audio_data_handle_state = AUDIO_DATA_HANDLE_START;
     }
+    if (audio_is_linear_pcm(out->hal_format)) {
+        frame_size = out->hal_frame_size;
+        channels = audio_channel_count_from_out_mask(out->hal_channel_mask);
+        sample_size = audio_bytes_per_sample(out->hal_format);
+    }
 
     clock_gettime(CLOCK_MONOTONIC, &tval);
+    /*
+    android only support max stereo stream volume configuration,we have to reuse left volume as
+    C/LFE/Ls/Rs/Lrs/Rrs volume
+    */
+    if (channels > 2) {
+        for (int ch = 2; ch < channels; ch ++) {
+            last_volume[ch] = last_volume[0];
+            volume[ch] = volume[0];
+        }
+    }
+    if (adev->debug_flag) {
+        AM_LOGI("last_volume=%f volume=%f channels=%d bytes=%zu", last_volume[0], volume[0], channels, bytes);
+    }
+    apply_volume_fade(last_volume, volume, (void *)buffer, sample_size, channels, bytes);
+    out->last_volume_l = out->volume_l;
+    out->last_volume_r = out->volume_r;
+
     //begin_time = get_systime_ns();
     written = aml_out_write_to_mixer(stream, buffer, bytes);
     if (written >= 0) {
@@ -583,8 +619,8 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
         AM_LOGV("++bytes %zu, out->port_index %d", bytes, out->inputPortID);
         //AM_LOGD(" %lld us, %lld", new_tval.tv_sec, tval.tv_sec);
 
-        us_since_last_write = (uint64_t)(new_tval.tv_sec - out->timestamp.tv_sec) * 1000000 +
-                (uint64_t)(new_tval.tv_nsec - out->timestamp.tv_nsec) / 1000;
+        us_since_last_write = (uint64_t)((new_tval.tv_sec - out->timestamp.tv_sec) * 1000000 +
+                (new_tval.tv_nsec - out->timestamp.tv_nsec) / 1000);
         //out->timestamp = new_tval;
 
         int used_this_write = (new_tval.tv_sec - tval.tv_sec) * 1000000 +
@@ -1750,5 +1786,22 @@ int subMixingSetSrcGain(struct aml_audio_device *adev, float gain)
 int subMixingSetAudioPostprocess(struct aml_audio_device *adev, void **postprocess)
 {
     return subMixingOutMsg(adev, MSG_EFFECT, postprocess, sizeof(void *));
+}
+
+
+int subMixingEnableMultiChOutput(struct aml_audio_device *adev, bool enable)
+{
+    int ret = 0;
+    struct subMixing *sm = NULL;
+    struct amlAudioMixer *audio_mixer = NULL;
+
+    R_CHECK_POINTER_LEGAL(-EINVAL, adev, "");
+    sm = adev->sm;
+    R_CHECK_POINTER_LEGAL(-EINVAL, sm, "");
+    audio_mixer = sm->mixerData;
+    R_CHECK_POINTER_LEGAL(-EINVAL, audio_mixer, "");
+
+    mixer_enable_multich_output(audio_mixer, enable);
+    return ret;
 }
 

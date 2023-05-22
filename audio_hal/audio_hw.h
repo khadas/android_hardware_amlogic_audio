@@ -63,7 +63,6 @@
 #include "aml_audio_timer.h"
 #include "aml_config_data.h"
 
-
 /* number of frames per period */
 /*
  * change DEFAULT_PERIOD_SIZE from 1024 to 512 for passing CTS
@@ -76,6 +75,10 @@
 
 #define LOW_LATENCY_PLAYBACK_PERIOD_SIZE 256
 #define LOW_LATENCY_CAPTURE_PERIOD_SIZE  512
+
+#define LOW_LATENCY_PLAYBACK_NETFLIX_PERIOD_SIZE   256
+#define LOW_LATENCY_PLAYBACK_NETFLIX_PERIOD_COUNT   8
+
 
 /* number of ICE61937 format frames per period */
 #define DEFAULT_IEC_SIZE 6144
@@ -627,6 +630,10 @@ struct aml_audio_device {
     int fmt_mdelay;
     float a2dp_vol;
     int dac_value;
+
+    bool aaudio_low_latency;
+    bool aaudio_low_latency_updated;
+    int  aaudio_low_latency_count;
 };
 
 struct meta_data {
@@ -837,6 +844,7 @@ struct aml_stream_out {
     uint64_t frame_offset;
     uint64_t decoded_frame;
     bool b_install_sync_callback;
+    bool aaudio_low_latency;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

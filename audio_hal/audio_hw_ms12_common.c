@@ -662,3 +662,81 @@ void dtv_set_ms12_volume_on_non_TV_device(struct aml_stream_out *aml_out)
     }
 }
 
+void set_ms12_ext_pcm_acmod_lfe(struct dolby_ms12_desc *ms12, audio_channel_mask_t channel_mask)
+{
+    char param[64];
+    int acmod = 0;
+    int lfe = 0;
+
+    acmod = dolby_ms12_get_channel_config(channel_mask);
+    lfe = dolby_ms12_get_lfe_config(channel_mask);
+    if (acmod < 0 || lfe < 0) {
+        ALOGE("%s invalid channel_mask 0x%x, acmod %d, lfe %d", __func__, channel_mask, acmod, lfe);
+        return;
+    }
+
+    memset(param, 0, sizeof(param));
+    sprintf(param, "%s %d", "-chp", acmod);
+    if ((strlen(param)) > 0 && ms12) {
+        aml_ms12_update_runtime_params(ms12, param);
+    }
+
+    memset(param, 0, sizeof(param));
+    sprintf(param, "%s %d", "-lp", lfe);
+    if ((strlen(param)) > 0 && ms12) {
+        aml_ms12_update_runtime_params(ms12, param);
+    }
+}
+
+void set_ms12_sys_pcm_acmod_lfe(struct dolby_ms12_desc *ms12, audio_channel_mask_t channel_mask)
+{
+    char param[64];
+    int acmod = 0;
+    int lfe = 0;
+
+    acmod = dolby_ms12_get_channel_config(channel_mask);
+    lfe = dolby_ms12_get_lfe_config(channel_mask);
+    if (acmod < 0 || lfe < 0) {
+        ALOGE("%s invalid channel_mask 0x%x, acmod %d, lfe %d", __func__, channel_mask, acmod, lfe);
+        return;
+    }
+
+    memset(param, 0, sizeof(param));
+    sprintf(param, "%s %d", "-chs", acmod);
+    if ((strlen(param)) > 0 && ms12) {
+        aml_ms12_update_runtime_params(ms12, param);
+    }
+
+    memset(param, 0, sizeof(param));
+    sprintf(param, "%s %d", "-ls", lfe);
+    if ((strlen(param)) > 0 && ms12) {
+        aml_ms12_update_runtime_params(ms12, param);
+    }
+}
+
+
+void set_ms12_app_pcm_acmod_lfe(struct dolby_ms12_desc *ms12, audio_channel_mask_t channel_mask)
+{
+    char param[64];
+    int acmod = 0;
+    int lfe = 0;
+
+    acmod = dolby_ms12_get_channel_config(channel_mask);
+    lfe = dolby_ms12_get_lfe_config(channel_mask);
+    if (acmod < 0 || lfe < 0) {
+        ALOGE("%s invalid channel_mask 0x%x, acmod %d, lfe %d", __func__, channel_mask, acmod, lfe);
+        return;
+    }
+
+    memset(param, 0, sizeof(param));
+    sprintf(param, "%s %d", "-chas", acmod);
+    if ((strlen(param)) > 0 && ms12) {
+        aml_ms12_update_runtime_params(ms12, param);
+    }
+
+    memset(param, 0, sizeof(param));
+    sprintf(param, "%s %d", "-las", lfe);
+    if ((strlen(param)) > 0 && ms12) {
+        aml_ms12_update_runtime_params(ms12, param);
+    }
+}

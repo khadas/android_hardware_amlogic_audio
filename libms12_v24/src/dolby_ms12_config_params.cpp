@@ -1023,6 +1023,33 @@ extern "C" void dolby_ms12_set_hdmi_output_type(int hdmi_output_type)
     }
 }
 
+extern "C" int dolby_ms12_get_channel_config(audio_channel_mask_t channel_mask)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12ConfigParams *config_param = getInstance();
+    if (config_param) {
+        return config_param->ChannelMask2ChannelConfig(channel_mask);
+    }
+    else {
+        ALOGW("Found the config_param handle illegal\n");
+    }
+    return -1;
+}
+
+extern "C" int dolby_ms12_get_lfe_config(audio_channel_mask_t channel_mask)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12ConfigParams *config_param = getInstance();
+    if (config_param) {
+        return config_param->ChannelMask2LFEConfig(channel_mask);
+    }
+    else {
+        ALOGW("Found the config_param handle illegal\n");
+    }
+    return -1;
+}
+
+
 /*****************************************************************************************************************/
 /*END*/
 /*****************************************************************************************************************/

@@ -1453,17 +1453,8 @@ int aml_audio_data_handle(struct audio_stream_out *stream, const void* buffer, s
                         ALOGD("%s  detected the nonzero data, remaining_size:%zu  detected_size:%u", __func__, remaining_size, detected_size);
                         break;
                     } else {
-                        ease_setting_t ease_setting;
-                        memset(&ease_setting, 0, sizeof(ease_setting));
-                        ease_setting.duration = 0;
-                        ease_setting.target_volume = 0.0;
-
-                        out->audio_stream_ease->data_format.format = out->hal_format;
-                        out->audio_stream_ease->data_format.ch = out->hal_ch;
-                        out->audio_stream_ease->data_format.sr = out->hal_rate;
-                        out->audio_stream_ease->ease_type = EaseLinear;
-                        aml_audio_ease_config(out->audio_stream_ease, &ease_setting);
-                        aml_audio_ease_process(out->audio_stream_ease, (void *)((int8_t *)buffer + detected_size), unit_size);
+                        // when ease_setting.duration = 0, aml_audio_ease_process will not do easing.
+                        memset((int8_t *)buffer + detected_size, 0, unit_size);
                     }
 
                     remaining_size -= unit_size;
@@ -1700,7 +1691,7 @@ bool is_disable_ms12_continuous(struct audio_stream_out *stream) {
         || (aml_out->hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD)) {
         /*dts case, we need disable ms12 continuous mode*/
         return true;
-    } else if (is_high_rate_pcm(stream) || is_multi_channel_pcm(stream)) {
+    } else if (is_high_rate_pcm(stream)) {
         /*high bit rate pcm case, we need disable ms12 continuous mode*/
         return true;
     } else if (aml_out->hal_internal_format == AUDIO_FORMAT_AC3 \
@@ -2646,5 +2637,29 @@ void aml_alsa_pcm_info_dump(struct pcm* pcm, int fd)
     dprintf(fd, "\t\t-----\n");
     dprintf(fd, "\t\thw_ptr:%lu\n", status.hw_ptr);
     dprintf(fd, "\t\tappl_ptr:%lu\n", status.appl_ptr);
+}
+
+void aml_enter_aaudio_low_latency(struct aml_audio_device *adev)
+{
+    adev->aaudio_low_latency_count++;
+    adev->aaudio_low_latency = true;
+}
+
+void aml_leave_aaudio_low_latency(struct aml_audio_device *adev)
+{
+    adev->aaudio_low_latency_count--;
+    if (adev->aaudio_low_latency_count <= 0) {
+        adev->aaudio_low_latency = false;
+        adev->aaudio_low_latency_count = 0;
+    }
+}
+
+bool is_aaudio_low_latency_mode()
+{
+    struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
+    if (adev) {
+        return adev->aaudio_low_latency;
+    }
+    return false;
 }
 

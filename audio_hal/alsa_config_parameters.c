@@ -24,6 +24,7 @@
 #include <tinyalsa/asoundlib.h>
 
 
+#include "audio_hw_utils.h"
 #include "alsa_config_parameters.h"
 #include "aml_dump_debug.h"
 
@@ -182,7 +183,8 @@ static void get_pcm_hardware_config_parameters(
     , unsigned int rate
     , bool platform_is_tv
     , bool continuous_mode
-    , bool game_mode)
+    , bool game_mode
+    , bool is_netflix)
 {
     if (platform_is_tv == false) {
         if (channels <= 2) {
@@ -228,6 +230,12 @@ static void get_pcm_hardware_config_parameters(
     }
     hardware_config->avail_min = 0;
 
+    if (is_netflix && is_aaudio_low_latency_mode()) {
+        // currently ms12 alsa start threshold : about 1024 frames
+        hardware_config->period_size = LOW_LATENCY_PLAYBACK_NETFLIX_PERIOD_SIZE;
+        hardware_config->period_count = LOW_LATENCY_PLAYBACK_NETFLIX_PERIOD_COUNT;
+        hardware_config->start_threshold = hardware_config->period_size * 4;
+    }
 
     return ;
 }
@@ -244,6 +252,8 @@ int get_hardware_config_parameters(
     , bool continuous_mode
     , bool game_mode)
 {
+    struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
+
     ALOGI("%s()\n", __FUNCTION__);
     //DD+
     /* for raw data, we fixed to 2ch as it use spdif module */
@@ -278,7 +288,7 @@ int get_hardware_config_parameters(
     //PCM
     else {
         get_pcm_hardware_config_parameters(final_config, channels, rate,
-                platform_is_tv, continuous_mode, game_mode);
+                platform_is_tv, continuous_mode, game_mode, adev->is_netflix);
     }
     ALOGI("%s() channels %d format %d period_count %d period_size %d rate %d\n",
             __FUNCTION__, final_config->channels, final_config->format, final_config->period_count,

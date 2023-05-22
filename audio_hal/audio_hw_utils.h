@@ -251,4 +251,9 @@ static inline bool is_tvinput_source(enum patch_src_assortion patch_src) {
 
 void aml_alsa_pcm_info_dump(struct pcm* pcm, int fd);
 
+void aml_enter_aaudio_low_latency(struct aml_audio_device *adev);
+void aml_leave_aaudio_low_latency(struct aml_audio_device *adev);
+bool is_aaudio_low_latency_mode();
+
+
 #endif

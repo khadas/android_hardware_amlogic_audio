@@ -138,6 +138,21 @@ typedef enum {
     MIXER_OUTPUT_PORT_NUM           = 2,
 } MIXER_OUTPUT_PORT;
 
+typedef struct MC_OUTPUT_PORT {
+    MIXER_OUTPUT_PORT enOutPortType;
+    struct audioCfg cfg;
+    void *spdifout_handle;
+    port_state port_status;
+    char *data_buf;
+    size_t data_buf_len;
+    size_t bytes_avail;
+
+    ssize_t (*write)(struct MC_OUTPUT_PORT *mc_port, void *buffer, int bytes);
+    int (*start)(struct MC_OUTPUT_PORT *mc_port);
+    int (*standby)(struct MC_OUTPUT_PORT *mc_port);
+} mc_output_port;
+
+
 typedef struct OUTPUT_PORT {
     MIXER_OUTPUT_PORT enOutPortType;
     struct audioCfg cfg;
@@ -238,5 +253,8 @@ int outport_set_dummy(output_port *port, bool en);
 
 /* set karaoke to audio port */
 int outport_set_karaoke(output_port *port, struct kara_manager *kara);
+
+mc_output_port *new_mc_output_port(struct audioCfg *config, size_t buf_frames);
+int free_mc_output_port(mc_output_port **pp_mc_port);
 
 #endif /* _AUDIO_PORT_H_ */

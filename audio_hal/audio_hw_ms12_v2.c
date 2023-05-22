@@ -1042,12 +1042,14 @@ int get_the_dolby_ms12_prepared(
 
     ms12->dual_bitstream_support = adev->dual_spdif_support;
     if (adev->sink_capability == AUDIO_FORMAT_MAT) {
-        output_config = MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_MAT;
+        // MS12_OUTPUT_MASK_MC : NTS LLP-AUDIO-OUTPUT-LATENCY-STB-6CH
+        output_config = MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_MAT | MS12_OUTPUT_MASK_MC;
     } else {
         if (adev->is_TV) {
             output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_SPEAKER;
         } else {
-            output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO;
+            // MS12_OUTPUT_MASK_MC : NTS LLP-AUDIO-OUTPUT-LATENCY-STB-6CH
+            output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_MC;
         }
     }
     /* for soundbar, we only need speaker output */
@@ -1157,6 +1159,7 @@ int get_the_dolby_ms12_prepared(
     ALOGI("%s line %d set ms12 main volume as 1.0\n", __func__, __LINE__);
     ms12->dtv_decoder_offset_base = dtv_decoder_offset_base;
     ALOGI("set ms12 sys pos =%" PRId64 "", ms12->sys_audio_base_pos);
+    ms12->aaudio_low_latency = false;
 
     ms12->iec61937_ddp_buf = aml_audio_calloc(1, MS12_DDP_FRAME_SIZE);
     if (ms12->iec61937_ddp_buf == NULL) {
@@ -1676,7 +1679,7 @@ MAIN_INPUT:
         if (main_frame_buffer && (main_frame_size > 0)) {
             /*input main frame*/
             int main_format = ms12->input_config_format;
-            int main_channel_num = audio_channel_count_from_out_mask(ms12->config_channel_mask);
+            int main_channel_num = aml_out->hal_ch;
             int main_sample_rate = ms12->config_sample_rate;
             if ((dolby_ms12_get_dolby_main1_file_is_dummy() == true) && \
                 (dolby_ms12_get_ott_sound_input_enable() == true) && \
@@ -1857,7 +1860,7 @@ int dolby_ms12_system_process(
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-    audio_channel_mask_t mixer_default_channelmask = AUDIO_CHANNEL_OUT_STEREO;
+    //audio_channel_mask_t mixer_default_channelmask = AUDIO_CHANNEL_OUT_STEREO;
     int mixer_default_samplerate = 48000;
     int dolby_ms12_input_bytes = 0;
     int ms12_output_size = 0;
@@ -1885,8 +1888,8 @@ int dolby_ms12_system_process(
                 ms12->dolby_ms12_ptr
                 , buffer
                 , bytes
-                , AUDIO_FORMAT_PCM_16_BIT
-                , audio_channel_count_from_out_mask(mixer_default_channelmask)
+                , aml_out->hal_format
+                , aml_out->hal_ch
                 , mixer_default_samplerate);
         if (dolby_ms12_input_bytes > 0) {
             *use_size = dolby_ms12_input_bytes;
@@ -1903,12 +1906,12 @@ int dolby_ms12_system_process(
 
     if (adev->continuous_audio_mode == 1) {
         uint64_t input_ns = 0;
-        input_ns = (uint64_t)(*use_size) * NANO_SECOND_PER_SECOND / 4 / mixer_default_samplerate;
+        input_ns = (uint64_t)(*use_size) * NANO_SECOND_PER_SECOND / aml_out->hal_frame_size / mixer_default_samplerate;
 
         if (ms12->system_virtual_buf_handle == NULL) {
             //aml_audio_sleep(input_ns/1000);
             if (input_ns == 0) {
-                input_ns = (uint64_t)(bytes) * NANO_SECOND_PER_SECOND / 4 / mixer_default_samplerate;
+                input_ns = (uint64_t)(bytes) * NANO_SECOND_PER_SECOND / aml_out->hal_frame_size / mixer_default_samplerate;
             }
             audio_virtual_buf_open(&ms12->system_virtual_buf_handle, "ms12 system input", input_ns/2, MS12_SYS_INPUT_BUF_NS, 0, MS12_SYS_BUF_INCREASE_TIME_MS);
         }
@@ -1938,7 +1941,7 @@ int dolby_ms12_app_process(
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-    audio_channel_mask_t mixer_default_channelmask = AUDIO_CHANNEL_OUT_STEREO;
+    //audio_channel_mask_t mixer_default_channelmask = AUDIO_CHANNEL_OUT_STEREO;
     int mixer_default_samplerate = 48000;
     int dolby_ms12_input_bytes = 0;
     int ms12_output_size = 0;
@@ -1958,8 +1961,8 @@ int dolby_ms12_app_process(
                 ms12->dolby_ms12_ptr
                 , buffer
                 , bytes
-                , AUDIO_FORMAT_PCM_16_BIT
-                , audio_channel_count_from_out_mask(mixer_default_channelmask)
+                , aml_out->hal_format
+                , aml_out->hal_ch
                 , mixer_default_samplerate);
         if (dolby_ms12_input_bytes > 0) {
             *use_size = dolby_ms12_input_bytes;
@@ -3156,7 +3159,7 @@ int mc_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_
     ch_mask = acmod_convert_to_channel_mask(ms12_info->acmod, ms12_info->lfeon);
 
     bitstream_out = &ms12->bitstream_out[bitstream_id];
-    if ((adev->optical_format != AUDIO_FORMAT_PCM_16_BIT) || (adev->sink_max_channels < 8) || ms12->is_bypass_ms12
+    if ((adev->optical_format != AUDIO_FORMAT_PCM_16_BIT) || (adev->sink_max_channels < 6) || ms12->is_bypass_ms12
         || (ch_mask == AUDIO_CHANNEL_OUT_STEREO)) {
         if (bitstream_out->spdifout_handle) {
             ALOGI("%s close mc spdif handle =%p", __func__, bitstream_out->spdifout_handle);
@@ -3602,6 +3605,13 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
         ms12_close_all_spdifout(ms12);
         adev->arc_connected_reconfig = false;
         adev->sink_format_changed = false;
+    }
+
+    if (adev->aaudio_low_latency_updated && adev->aaudio_low_latency != ms12->aaudio_low_latency) {
+        ALOGI("aaudio_low_latency_updated(%d -> %d), reset spdif output", ms12->aaudio_low_latency, adev->aaudio_low_latency);
+        ms12_close_all_spdifout(ms12);
+        ms12->aaudio_low_latency = adev->aaudio_low_latency;
+        adev->aaudio_low_latency_updated = false;
     }
 
     ms12->is_dolby_atmos = (dolby_ms12_get_input_atmos_info() == 1);

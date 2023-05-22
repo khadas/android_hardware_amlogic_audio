@@ -104,6 +104,9 @@ bool has_hwsync_stream_running(struct audio_stream_out *stream);
 /* usb karaoke for hal mixer */
 int mixer_set_karaoke(struct amlAudioMixer *audio_mixer, struct kara_manager *kara);
 
+void mixer_enable_multich_output(struct amlAudioMixer *audio_mixer, bool enable);
+
+
 __END_DECLS
 
 #endif

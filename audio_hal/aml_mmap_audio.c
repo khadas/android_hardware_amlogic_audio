@@ -43,6 +43,8 @@
 #define MMAP_WRITE_PERIOD_TIME_MS       (MMAP_WRITE_SIZE_FRAME * MSEC_PER_SEC / MMAP_SAMPLE_RATE_HZ)
 #define MMAP_WRITE_PERIOD_TIME_NANO     (MMAP_WRITE_SIZE_FRAME * NSEC_PER_SEC / MMAP_SAMPLE_RATE_HZ)
 
+#define MMAP_INPUT_FILE                  "/data/vendor/audiohal/pcm_mmap"
+
 
 enum {
     MMAP_INIT,
@@ -51,8 +53,6 @@ enum {
     MMAP_STOP,
     MMAP_STOP_DONE
 };
-
-static FILE *fp1 = NULL;
 
 static void *outMmapThread(void *pArg) {
     struct aml_stream_out       *out = (struct aml_stream_out *) pArg;
@@ -125,9 +125,7 @@ static void *outMmapThread(void *pArg) {
                 out_write_new(&out->stream, pu8TempBufferAddr, u32BurstSizeByte);
             }
             if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-                if (fp1) {
-                    fwrite(pu8TempBufferAddr, 1, u32BurstSizeByte, fp1);
-                }
+                aml_audio_dump_audio_bitstreams(MMAP_INPUT_FILE, pu8TempBufferAddr, u32BurstSizeByte);
             }
             audio_virtual_buf_process((void *)pstVirtualBuffer, MMAP_WRITE_PERIOD_TIME_NANO);
             if (out->dev->debug_flag >= 100) {
@@ -170,9 +168,6 @@ static int outMmapStart(const struct audio_stream_out *stream)
         AM_LOGE("exit threadloop");
         return -ENOSYS;
     }
-    if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-        fp1 = fopen("/data/audio/pcm_mmap", "a+");
-    }
     pstParam->u32FramePosition = 0;
     pstParam->stThreadParam.bStopPlay = false;
     pstParam->stThreadParam.status = MMAP_START;
@@ -196,12 +191,7 @@ static int outMmapStop(const struct audio_stream_out *stream)
     }
 
     //dolby_ms12_app_flush();
-    if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-        if (fp1) {
-            fclose(fp1);
-            fp1 = NULL;
-        }
-    }
+
     // suspend threadloop.
     pstParam->stThreadParam.status = MMAP_STOP;
     /*sleep some time, to make sure the read thread read all the data*/

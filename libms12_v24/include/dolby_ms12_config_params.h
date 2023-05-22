@@ -671,6 +671,10 @@ void dolby_ms12_set_tv_tuning_flag(bool tv_tuning_flag);
  */
 void dolby_ms12_set_hdmi_output_type(int hdmi_output_type);
 
+int dolby_ms12_get_channel_config(audio_channel_mask_t channel_mask);
+
+int dolby_ms12_get_lfe_config(audio_channel_mask_t channel_mask);
+
 /*End*/
 
 #ifdef __cplusplus

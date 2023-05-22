@@ -203,6 +203,7 @@ struct dolby_ms12_desc {
     bool b_encoder_reset;
     pthread_mutex_t main_apts_update_lock;
     bool main_input_insert_zero;
+    bool aaudio_low_latency;
 };
 
 /*

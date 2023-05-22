@@ -127,5 +127,11 @@ int get_ms12_mat_dec_delay(void);
 void dtv_set_ms12_volume_on_non_TV_device(struct aml_stream_out *aml_out);
 
 
+void set_ms12_ext_pcm_acmod_lfe(struct dolby_ms12_desc *ms12, audio_channel_mask_t channel_mask);
+
+void set_ms12_sys_pcm_acmod_lfe(struct dolby_ms12_desc *ms12, audio_channel_mask_t channel_mask);
+
+void set_ms12_app_pcm_acmod_lfe(struct dolby_ms12_desc *ms12, audio_channel_mask_t channel_mask);
+
 
 #endif //end of _AUDIO_HW_MS12_COMMON_H_

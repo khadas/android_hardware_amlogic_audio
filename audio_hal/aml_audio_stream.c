@@ -435,6 +435,22 @@ void get_sink_format(struct audio_stream_out *stream)
         return;
     }
 
+    if (adev->is_netflix && adev->aaudio_low_latency) {
+        unsigned int max_channels = get_sink_format_max_channels(adev, AUDIO_FORMAT_PCM_16_BIT);
+
+        ALOGD("get_sink_format: netflix aaudio_low_latency set to pcm");
+        adev->sink_format = AUDIO_FORMAT_PCM_16_BIT;
+        adev->sink_capability = AUDIO_FORMAT_PCM_16_BIT;
+        adev->optical_format = AUDIO_FORMAT_PCM_16_BIT;
+
+        if (aml_out->hal_ch > 2 && max_channels >= aml_out->hal_ch) {
+            adev->sink_max_channels = max_channels;
+        } else {
+            adev->sink_max_channels = 2;
+        }
+        return;
+    }
+
     /*when device is HDMI_ARC*/
     ALOGI("!!!%s() Sink devices %#x Source format %#x digital_format(hdmi_format) %#x Sink Capability %#x\n",
           __FUNCTION__, adev->cur_out_devices, aml_out->hal_internal_format, adev->digital_audio_format, sink_capability);

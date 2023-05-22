@@ -175,6 +175,7 @@
 
 /*Tunnel sync HEADER is 20 bytes*/
 #define TUNNEL_SYNC_HEADER_SIZE    (20)
+#define TUNNEL_SYNC_NETFLIX_MULITCH_HEADER_SIZE (24)
 
 /* this latency is from logcat time. */
 #define HAL_MS12_PIPELINE_LATENCY (10)
@@ -655,12 +656,18 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
             /*Tunnel sync HEADER is 20 bytes*/
             if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
                 if (adev->is_netflix) {
-                    size = (8192 + TUNNEL_SYNC_HEADER_SIZE);
+                    size = (2048 * audio_stream_out_frame_size((struct audio_stream_out *) stream));
+                    if (out->hal_ch > 2) {
+                        size += TUNNEL_SYNC_NETFLIX_MULITCH_HEADER_SIZE;
+                    } else {
+                        size += TUNNEL_SYNC_HEADER_SIZE;
+                    }
                 } else {
                     //2 package data.
                     size = ( 2048 * audio_stream_out_frame_size((struct audio_stream_out *) stream) + TUNNEL_SYNC_HEADER_SIZE*2);
                 }
                 return size;
+
             } else {
                 /* roll back the change for SWPL-15974 to pass the gts failure SWPL-20926*/
                 return DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT* audio_stream_out_frame_size ( (struct audio_stream_out *) stream);
@@ -675,7 +682,12 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
     if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC && audio_is_linear_pcm(out->hal_internal_format)) {
         //2 package data.
         if (adev->is_netflix) {
-            size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream)) + TUNNEL_SYNC_HEADER_SIZE;
+            size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream));
+            if (out->hal_ch > 2) {
+                size += TUNNEL_SYNC_NETFLIX_MULITCH_HEADER_SIZE;
+            } else {
+                size += TUNNEL_SYNC_HEADER_SIZE;
+            }
         } else {
             size = (size * audio_stream_out_frame_size((struct audio_stream_out *) stream)) + TUNNEL_SYNC_HEADER_SIZE*2;
         }
@@ -3288,6 +3300,12 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
 
     if (flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) {
         outMmapInit(out);
+        if (config->offload_info.usage == AUDIO_USAGE_GAME) {
+            aml_enter_aaudio_low_latency(adev);
+            get_sink_format((struct audio_stream_out *)out);
+            out->aaudio_low_latency = true;
+            adev->aaudio_low_latency_updated = true;
+        }
     }
 
     /* FIXME: when we support multiple output devices, we will want to
@@ -3508,6 +3526,12 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 
     if (out->flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) {
         outMmapDeInit(out);
+        if (out->aaudio_low_latency) {
+            aml_leave_aaudio_low_latency(adev);
+            get_sink_format((struct audio_stream_out *)out);
+            out->aaudio_low_latency = false;
+            adev->aaudio_low_latency_updated = true;
+        }
     }
 
     if (out->hal_format == AUDIO_FORMAT_AC4) {
@@ -6639,15 +6663,13 @@ ssize_t mixer_app_buffer_write(struct audio_stream_out *stream, const void *buff
         return -1;
     }
 
-    uint32_t channels = audio_channel_count_from_out_mask(aml_out->hal_channel_mask);
-    if (channels > 2) {
-        ALOGW("[%s:%d] channels:%d > 2, not support app write", __func__, __LINE__, channels);
-        return -1;
-    }
-
     /*for ms12 continuous mode, we need update status here, instead of in hw_write*/
     if (aml_out->stream_status == STREAM_STANDBY && continuous_mode(adev)) {
         aml_out->stream_status = STREAM_HW_WRITING;
+
+        if (eDolbyMS12Lib == adev->dolby_lib_type) {
+            set_ms12_app_pcm_acmod_lfe(ms12, aml_out->hal_channel_mask);
+        }
     }
 
     while (bytes_remaining && adev->ms12.dolby_ms12_enable && retry > 0) {
@@ -6940,6 +6962,13 @@ ssize_t out_write_new(struct audio_stream_out *stream,
 #endif
 #endif
 
+    if (aml_out->standby && adev->useSubMix) {
+        if (!audio_is_linear_pcm(aml_out->hal_format)) {
+            // need to close multi-pcm alsa handle, then npcm can use it
+            subMixingEnableMultiChOutput(adev, false);
+        }
+    }
+
     if (aml_audio_trace_debug_level() > 0) {
         if (false == aml_out->pause_status  &&  aml_out->write_count < 1) {
             aml_out->write_time = aml_audio_get_systime() / 1000; //us --> ms
@@ -7112,13 +7141,12 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
             aml_out->usecase == STREAM_PCM_HWSYNC ||
             aml_out->usecase == STREAM_PCM_MMAP ||
             (aml_out->usecase == STREAM_PCM_DIRECT &&
-            config->sample_rate == 48000 && channel_num == 2)) {
+            config->sample_rate == 48000)) {
             /*for 96000, we need bypass submix, this is for DTS certification*/
             /* for DTV case, maybe this function is called by the DTV output thread,
                and the audio patch is enabled, we do not need to wait DTV exit as it is
                enabled by DTV itself */
-            if (config->sample_rate == 96000 || config->sample_rate == 88200 ||
-                    (aml_out->usecase != STREAM_PCM_MMAP && channel_num > 2) /*|| aml_out->is_tv_src_stream*/) {
+            if (config->sample_rate == 96000 || config->sample_rate == 88200) {
                 aml_out->bypass_submix = true;
                 ALOGI("bypass submix");
             } else {
@@ -7281,6 +7309,16 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
     adev_close_output_stream(dev, stream);
     //adev->dual_decoder_support = false;
     //destroy_aec_reference_config(adev->aec);
+
+    // for netflix continuously output lpcm5.1
+    if (adev->useSubMix && eDolbyDcvLib == adev->dolby_lib_type && aml_out->total_write_size) {
+        bool output_multich_enable = true;
+        if (is_bypass_submix_active(adev)) {
+            output_multich_enable = false;
+        }
+        subMixingEnableMultiChOutput(adev, output_multich_enable);
+    }
+
     ALOGD("%s: exit", __func__);
 }
 
@@ -8700,6 +8738,10 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->source_flag = false;
     adev->fmt_start_mute = false;
     aml_audio_board_config_init(&adev->board_config);
+
+    adev->aaudio_low_latency = false;
+    adev->aaudio_low_latency_updated = false;
+    adev->aaudio_low_latency_count = 0;
 
     adev->native_postprocess.libvx_exist = Check_VX_lib();
     if (adev->native_postprocess.libvx_exist)

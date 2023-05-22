@@ -399,7 +399,13 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
                 ALOGE("%s EARC not support channel %d", __func__, spdif_config->data_ch);
                 goto error;
             }
-
+        } else if (audio_is_linear_pcm(spdif_config->audio_format)) {
+            // ms12 mc pcm output : out_data is 8ch, while the valid channel mask maybe 5.1ch
+            if (audio_channel_count_from_out_mask(stream_config.config.channel_mask) != phandle->out_data_ch) {
+                AM_LOGI("data_ch %d, change channel_mask 0x%x to 0x%x", phandle->out_data_ch,\
+                        stream_config.config.channel_mask, audio_channel_out_mask_from_count(phandle->out_data_ch));
+                stream_config.config.channel_mask = audio_channel_out_mask_from_count(phandle->out_data_ch);
+            }
         }
 
         stream_config.config.sample_rate  = spdif_config->rate;

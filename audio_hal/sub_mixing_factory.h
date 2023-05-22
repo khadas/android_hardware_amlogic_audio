@@ -103,4 +103,6 @@ int subMixingSetKaraoke(struct aml_audio_device *adev, struct kara_manager *kara
 /* timer callback function */
 void sm_timer_callback_handler(union sigval sigv);
 
+int subMixingEnableMultiChOutput(struct aml_audio_device *adev, bool enable);
+
 #endif /* _SUB_MIXING_FACTORY_H_ */
