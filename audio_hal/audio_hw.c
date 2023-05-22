@@ -184,6 +184,9 @@
 
 /* this latency is from logcat time. */
 #define HAL_MS12_PIPELINE_LATENCY (10)
+#define VX_BUFFER_CLEAR_STEREO_FRAME_SIZE 1024
+#define VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE 6144
+#define VX_BUFFER_CLEAR_COUNT 5
 
 static const struct pcm_config pcm_config_out = {
     .channels = 2,
@@ -3509,6 +3512,16 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 
     pthread_mutex_lock(&out->lock);
 
+    /* After playback for previous dts stream, there is remain data in VirtualX library. It needs to clear data buffer of VirtualX by using
+       zero data to replace these remain data. Otherwise it will play this remain data first when start playback next time*/
+    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0) {
+        for (int i = 0; i < VX_BUFFER_CLEAR_COUNT; i++) {
+             memset(adev->out_16_buf, 0, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
+             audio_post_process(&adev->native_postprocess, adev->out_16_buf, VX_BUFFER_CLEAR_STEREO_FRAME_SIZE);
+             audio_VX_post_process(&adev->native_postprocess, adev->out_16_buf, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
+        }
+    }
+
 #if ENABLE_DVB_PATCH
 #if ANDROID_PLATFORM_SDK_VERSION > 29
     if (dtv_tuner_framework(stream)) {
@@ -5795,6 +5808,19 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             aml_out->device = PORT_SPDIF;
         }
     }
+
+    /* After playback for previous dts stream, there is remain data in VirtualX library. It needs to clear data buffer of VirtualX by using
+       zero data to replace these remain data. Otherwise it will play this remain data first when start playback next time*/
+    if (patch && (patch->input_src == AUDIO_DEVICE_IN_HDMI)) {
+        if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0) {
+            for (int count = 0; count < VX_BUFFER_CLEAR_COUNT; count++) {
+                 memset(adev->out_16_buf, 0, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
+                 audio_post_process(&adev->native_postprocess, adev->out_16_buf, VX_BUFFER_CLEAR_STEREO_FRAME_SIZE);
+                 audio_VX_post_process(&adev->native_postprocess, adev->out_16_buf, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
+            }
+        }
+    }
+
     ALOGI("[%s:%d] out stream alsa port device:%d", __func__, __LINE__, aml_out->device);
     return ;
 }
