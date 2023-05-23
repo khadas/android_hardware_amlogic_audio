@@ -1201,6 +1201,23 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
     return ret;
 }
 
+static int get_spdifout_mute_count(void)
+{
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
+    int mute_count = 1;
+    char *prop_name = "vendor.media.audio.hal.spdif_mute_cnt";
+
+    if (prop_name) {
+        ret = property_get(prop_name, buf, NULL);
+        if (ret > 0) {
+            mute_count = atoi(buf);
+        }
+    }
+    ALOGI("%s mute_count:%d", __func__, mute_count);
+    return mute_count;
+}
+
 int aml_alsa_output_data_handle(void *handle, void *output_buffer, size_t size, int value, bool is_mute)
 {
     alsa_handle_t *alsa_handle = (alsa_handle_t *)handle;
@@ -1222,7 +1239,7 @@ int aml_alsa_output_data_handle(void *handle, void *output_buffer, size_t size, 
             status.state == PCM_STATE_PREPARED ||
             status.state == PCM_STATE_XRUN) {
             /*for sony tv, we need mute first 1 frames to avoid "ca" noise*/
-            alsa_handle->pcm2_mute_cnt = 1;
+            alsa_handle->pcm2_mute_cnt = get_spdifout_mute_count();
             ALOGI("spdif b mute the data cnt =%d",alsa_handle->pcm2_mute_cnt);
         }
         if (alsa_handle->pcm2_mute_cnt) {
