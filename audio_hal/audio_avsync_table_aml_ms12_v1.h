@@ -353,7 +353,7 @@
 #define  AVSYNC_NONMS12_NETFLIX_HDMI_ARC_OUT_DD_LATENCY_PROPERTY     "vendor.media.audio.hal.nonms12.netflix.hdmiarc.dd"
 #define  AVSYNC_NONMS12_NETFLIX_HDMI_ARC_OUT_DDP_LATENCY_PROPERTY    "vendor.media.audio.hal.nonms12.netflix.hdmiarc.ddp"
 
-#define  AVSYNC_NONMS12_NETFLIX_SPEAKER_OUT_PCM_LATENCY              (0)
+#define  AVSYNC_NONMS12_NETFLIX_SPEAKER_OUT_PCM_LATENCY              (-40)
 #define  AVSYNC_NONMS12_NETFLIX_SPEAKER_OUT_RAW_LATENCY              (80)
 
 #define  AVSYNC_NONMS12_NETFLIX_SPEAKER_OUT_PCM_LATENCY_PROPERTY     "vendor.media.audio.hal.nonms12.netflix.speaker.pcm"

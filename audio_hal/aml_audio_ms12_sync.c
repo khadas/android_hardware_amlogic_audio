@@ -1175,10 +1175,13 @@ static int get_nonms12_tunnel_latency_offset(enum OUT_PORT port
     int output_latency_ms = 0;
     int port_latency_ms = 0;
     int is_dv = getprop_bool(MS12_OUTPUT_5_1_DDP); /* suppose that Dolby Vision is under test */
+    struct aml_audio_device *adev = adev_get_handle();
 
     if (is_netflix) {
         input_latency_ms  = get_nonms12_netflix_tunnel_input_latency(input_format);
-        //output_latency_ms = get_nonms12_netflix_output_latency(output_format);
+        if (adev->is_TV) {
+            output_latency_ms = aml_audio_get_netflix_port_latency(port, output_format);
+        }
     } else {
         input_latency_ms  = get_nonms12_tunnel_input_latency(input_format, platform_type, port);
         port_latency_ms   = get_nonms12_port_latency(port, output_format, is_eARC);

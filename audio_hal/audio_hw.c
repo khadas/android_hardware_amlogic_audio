@@ -6087,6 +6087,13 @@ hwsync_rewrite:
                     int latency_pts = 0;
                     int video_delay_ms = 0;
                     bool valid_pts = true;
+
+                    // FIXME : out_get_latency should return the exact latency value.
+                    // Temporary patch for tv non-dolby, in order not to retune ddp/ott_non-dolby avsync.
+                    if (adev->is_TV && (eDolbyDcvLib == adev->dolby_lib_type) && adev->is_netflix) {
+                        latency = out_get_alsa_latency(stream);
+                    }
+
                     /*here we need add video delay*/
                     video_delay_ms = get_media_video_delay(&adev->alsa_mixer);
                     latency_pts = (latency + tuning_latency - video_delay_ms) * 90;
