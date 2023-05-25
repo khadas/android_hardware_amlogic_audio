@@ -144,10 +144,18 @@ static void earc_cds_str_to_conf(char *cds_str, char *earc_cds)
 int earctx_fetch_cds(struct aml_mixer_handle *amixer, char *cds_str, int hex, struct aml_arc_hdmi_desc *hdmi_descs)
 {
     char earc_cds[CDS_MAX] = {0};
+    int retry = 0, retry_max = 5;
 
-    aml_mixer_ctrl_get_array(amixer, AML_MIXER_ID_EARCTX_CDS, earc_cds, CDS_MAX);
+    while (retry++ < retry_max) {
+        aml_mixer_ctrl_get_array(amixer, AML_MIXER_ID_EARCTX_CDS, earc_cds, CDS_MAX);
 
-    earc_cds_conf_to_str(earc_cds, cds_str, hex, hdmi_descs);
+        earc_cds_conf_to_str(earc_cds, cds_str, hex, hdmi_descs);
+
+        if (cds_str[0] == '\0')
+            usleep(50 * 1000);
+        else
+            break;
+    }
 
     return 0;
 }
