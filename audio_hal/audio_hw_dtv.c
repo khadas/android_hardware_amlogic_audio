@@ -5185,7 +5185,7 @@ int out_set_dual_mono_mode(struct audio_stream_out *stream, audio_dual_mono_mode
     struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     adev->dtv_sound_mode = convert2_aml_dual_mono_mode(mode);
-    if (adev->audio_patch)  {
+    if (adev->audio_patch) {
         adev->audio_patch->mode = adev->dtv_sound_mode;
     }
     return 0;
@@ -5202,7 +5202,8 @@ int out_get_dual_mono_mode(struct audio_stream_out *stream, audio_dual_mono_mode
     return 0;
 }
 
-int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, const void *buffer, size_t bytes) {
+int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, const void *buffer, size_t bytes)
+{
 
     int ret = 0,cmd = 0, val = 0;
     size_t total_bytes = bytes;
@@ -5214,6 +5215,7 @@ int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, con
     int path_id = aml_out->demux_id;
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
     aml_demux_audiopara_t *dmx_info = &dtv_audio_instances->demux_info[path_id];
+    void *demux_handle = dtv_audio_instances->demux_handle[path_id];
     struct aml_audio_patch *audio_patch = adev->audio_patch;
     if (aml_out->hwsync == NULL) {
         aml_out->hwsync = aml_audio_calloc(1, sizeof(audio_hwsync_t));
@@ -5240,7 +5242,29 @@ int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, con
             hw_avsync_metadata_unit_info_t *current_metadata_unit = &hw_sync->current_metadata_unit;
             if (current_metadata_unit->broadcast_type == AUDIO_BROADCAST_MAIN) {
                 if ((current_metadata_unit->stream_id & 0xFFFF) != dmx_info->main_pid) {
-                    ALOGW("main_pid %d need to == stream_id %d ",dmx_info->main_pid,current_metadata_unit->stream_id);
+                    if ((current_metadata_unit->stream_id & 0xFFFF) != dmx_info->main_pid) {
+                        cmd = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_STOP);
+                        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, cmd);
+                        Stop_Dmx_Main_Audio(demux_handle);
+                        Destroy_Dmx_Main_Audio(demux_handle);
+                        if (dmx_info->dual_decoder_support) {
+                            Stop_Dmx_AD_Audio(demux_handle);
+                            Destroy_Dmx_AD_Audio(demux_handle);
+                        }
+
+                        dmx_info->main_pid = current_metadata_unit->stream_id & 0xFFFF;
+                        dmx_info->demux_id = current_metadata_unit->stream_id >> 16;//demux id
+                        dmx_info->main_fmt = android_fmt_convert_to_dmx_fmt(encoding_fmt_to_native_fmt(current_metadata_unit->flags));
+                        ALOGI("changed to main_pid %d stream_id %d ",dmx_info->main_pid,current_metadata_unit->stream_id);
+
+                        Init_Dmx_Main_Audio(demux_handle, dmx_info->main_fmt, dmx_info->main_pid);
+                        Start_Dmx_Main_Audio(demux_handle);
+
+                        cmd = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_START);
+                        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, cmd);
+                    } else {
+                        //do nothing
+                    }
                 }
             } else if (current_metadata_unit->broadcast_type == AUDIO_BROADCAST_AUDIO_DESCRIPTION) {
                 int ad_debug_enable = property_get_int32("vendor.media.audio.ad.enable", -1);

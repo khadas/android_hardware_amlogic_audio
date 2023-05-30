@@ -168,6 +168,7 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
 #if ANDROID_PLATFORM_SDK_VERSION > 29
 int android_fmt_convert_to_dmx_fmt(audio_format_t android_fmt);
 audio_format_t tunerhal_fmt_to_native_fmt(int audioFormat);
+audio_format_t encoding_fmt_to_native_fmt(int audioFormat);
 
 #endif
 enum patch_src_assortion android_input_dev_convert_to_hal_patch_src(audio_devices_t android_dev);
