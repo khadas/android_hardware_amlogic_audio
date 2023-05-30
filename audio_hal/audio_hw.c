@@ -7308,6 +7308,11 @@ ssize_t out_write_new(struct audio_stream_out *stream,
                 ALOGI("main format is not match reset ms12");
                 get_dolby_ms12_cleanup(&adev->ms12, true);
                 adev->doing_reinit_ms12 = true;
+            } else if (aml_out->is_mat_changed) {
+                ALOGI("MAT1.0(truehd) is different with MAT2.0(pcm)&MAT2.1(atmos), MAT format is changed. Need to reset MS12 pipeline.");
+                get_dolby_ms12_cleanup(&adev->ms12, true);
+                adev->doing_reinit_ms12 = true;
+                aml_out->is_mat_changed = false;
             }
         }
     }

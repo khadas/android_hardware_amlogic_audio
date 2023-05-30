@@ -1536,6 +1536,18 @@ int dolby_ms12_main_process(
                 int mat_stream_profile = get_stream_profile_from_dolby_mat_frame((const char *)main_frame_buffer, main_frame_size);
                 if (IS_AVAILABLE_MAT_STREAM_PROFILE(mat_stream_profile)) {
                     dolby_ms12_set_mat_stream_profile(mat_stream_profile);
+                    if (ms12->mat_stream_profile == 0) {
+                        ms12->mat_stream_profile = mat_stream_profile;
+                    } else {
+                        bool original_is_mat_pcm = ((OBJECT_PCM_WITHIN_MAT_PROFILE == ms12->mat_stream_profile) || (CHANNEL_BASED_PCM_WITHIN_MAT_PROFILE == ms12->mat_stream_profile));
+                        bool current_is_mat_pcm = ((OBJECT_PCM_WITHIN_MAT_PROFILE == mat_stream_profile) || (CHANNEL_BASED_PCM_WITHIN_MAT_PROFILE == mat_stream_profile));
+                        if (current_is_mat_pcm != original_is_mat_pcm) {
+                            ALOGI("mat format change from %d to %d", original_is_mat_pcm, current_is_mat_pcm);
+                            aml_out->is_mat_changed = true;
+                            *use_size = spdif_dec_used_size;
+                            goto exit;
+                        }
+                    }
                 }
             }
         }
@@ -2005,6 +2017,7 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     ms12->main_buffer_max_level = 0;
     ms12->dolby_ms12_init_flags = false;
     ms12->dtv_decoder_offset_base = 0;
+    ms12->mat_stream_profile = 0;
 
     audio_virtual_buf_close(&ms12->system_virtual_buf_handle);
     aml_ac3_parser_close(ms12->ac3_parser_handle);

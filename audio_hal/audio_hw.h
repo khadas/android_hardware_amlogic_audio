@@ -818,6 +818,7 @@ struct aml_stream_out {
 
     uint32_t last_write_start_time_in_ms; // For checking the writing time
     uint32_t last_write_data_in_byte; // For checking the writing time
+    bool is_mat_changed;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
