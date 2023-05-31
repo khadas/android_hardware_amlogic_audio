@@ -500,45 +500,50 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
                 ALOGE("%s write_to_sco fail when insert", __func__);
                 break;
            }
-        } else if (is_include_a2dp_out_port(adev->cur_out_devices)) {
-            if (out_port->cfg.channelCnt == 1) {
-                in_data_config.channel_mask = AUDIO_CHANNEL_OUT_MONO;
-            } else if (out_port->cfg.channelCnt == 2) {
-                in_data_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
-            } else {
-                AM_LOGW("not supported channel:%d", out_port->cfg.channelCnt);
-                pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
-                return out_port->bytes_avail;
-            }
-            in_data_config.sample_rate = out_port->cfg.sampleRate;
-            in_data_config.format = out_port->cfg.format;
-            if (adev->is_TV) {
-                float volume = aml_audio_get_s_gain_by_src(adev, adev->patch_src);
-
-                volume *= adev->sink_gain[OUTPORT_A2DP];
-                apply_volume(volume, out_port->data_buf, sizeof(uint16_t),
-                    out_port->bytes_avail);
-            }
-            alsa_status = a2dp_out_get_status(adev);
-            a2dp_out_write(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
         } else {
-            if (audio_mixer->submix_standby) {
-                pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
-                mixer_output_startup(audio_mixer);
-                pthread_mutex_lock(&audio_mixer->outport_locks[port_index]);
-            }
-            if (out_port->pcm_handle == NULL) {
-                alsa_status = false;
-            } else {
-                pcm_ioctl(out_port->pcm_handle, SNDRV_PCM_IOCTL_STATUS, &status);
-                alsa_status = (status.state == PCM_STATE_RUNNING);
-            }
+            if (is_include_a2dp_out_port(adev->cur_out_devices)) {
+                if (out_port->cfg.channelCnt == 1) {
+                    in_data_config.channel_mask = AUDIO_CHANNEL_OUT_MONO;
+                } else if (out_port->cfg.channelCnt == 2) {
+                    in_data_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+                } else {
+                    AM_LOGW("not supported channel:%d", out_port->cfg.channelCnt);
+                    pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
+                    return out_port->bytes_avail;
+                }
+                in_data_config.sample_rate = out_port->cfg.sampleRate;
+                in_data_config.format = out_port->cfg.format;
+                if (adev->is_TV) {
+                    float volume = aml_audio_get_s_gain_by_src(adev, adev->patch_src);
 
-            if (out_port->process) {
-                out_port->process(out_port, out_port->data_buf, out_port->bytes_avail);
-                out_port->write(out_port, out_port->processed_buf, out_port->processed_bytes);
+                    volume *= adev->sink_gain[OUTPORT_A2DP];
+                    apply_volume(volume, out_port->data_buf, sizeof(uint16_t),
+                        out_port->bytes_avail);
+                }
+                alsa_status = a2dp_out_get_status(adev);
+                a2dp_out_write(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
+            }
+            if (adev->is_STB && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
+                // For STB, do not send data to spdif/hdmitx when bt is connected and mute hdmitx cannot be controlled.
             } else {
-                out_port->write(out_port, out_port->data_buf, out_port->bytes_avail);
+                if (audio_mixer->submix_standby) {
+                    pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
+                    mixer_output_startup(audio_mixer);
+                    pthread_mutex_lock(&audio_mixer->outport_locks[port_index]);
+                }
+                if (out_port->pcm_handle == NULL) {
+                    alsa_status = false;
+                } else {
+                    pcm_ioctl(out_port->pcm_handle, SNDRV_PCM_IOCTL_STATUS, &status);
+                    alsa_status = (status.state == PCM_STATE_RUNNING);
+                }
+
+                if (out_port->process) {
+                    out_port->process(out_port, out_port->data_buf, out_port->bytes_avail);
+                    out_port->write(out_port, out_port->processed_buf, out_port->processed_bytes);
+                } else {
+                    out_port->write(out_port, out_port->data_buf, out_port->bytes_avail);
+                }
             }
         }
 

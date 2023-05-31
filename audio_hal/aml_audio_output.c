@@ -629,10 +629,15 @@ ssize_t hw_write (struct audio_stream_out *stream
                         write_size = adjust_bytes > 1024 ? 1024 : adjust_bytes;
                         if (is_include_sco_out_port(adev->cur_out_devices)) {
                             ret = write_to_sco(adev, &in_data_config, buffer, bytes);
-                        } else if (is_include_a2dp_out_port(adev->cur_out_devices)) {
-                            a2dp_out_write(adev, &in_data_config, (void*)buf, write_size);
                         } else {
-                            ret = aml_alsa_output_write(stream, (void*)buf, write_size);
+                            if (is_include_a2dp_out_port(adev->cur_out_devices)) {
+                                a2dp_out_write(adev, &in_data_config, (void*)buf, write_size);
+                            }
+                            if (adev->is_STB && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
+                                // For STB, do not send data to spdif/hdmitx when bt is connected and mute hdmitx cannot be controlled.
+                            } else {
+                                ret = aml_alsa_output_write(stream, (void*)buf, write_size);
+                            }
                         }
                         if (ret < 0) {
                             ALOGE("%s alsa write fail when insert", __func__);
@@ -654,31 +659,36 @@ ssize_t hw_write (struct audio_stream_out *stream
         }
 
         if (is_include_sco_out_port(adev->cur_out_devices)) {
-
             in_data_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
             in_data_config.format = AUDIO_FORMAT_PCM_16_BIT;
             ret = write_to_sco(adev, &in_data_config, buffer, bytes);
-        } else if (is_include_a2dp_out_port(adev->cur_out_devices)) {
-            /* mediasync need to now the real running status of devices for
-            both alsa and bt. alsa running status PCM_STATE_RUNNING is
-            the same as BluetoothStreamState STARTED.
-            */
-            int  cur_status = a2dp_out_get_status(adev);
-            if (cur_status != aml_out->alsa_running_status) {
-                aml_out->alsa_running_status = cur_status;
-                aml_out->alsa_status_changed = true;
-            }
-            a2dp_out_write(adev, &in_data_config, buffer, bytes);
         } else {
-#ifdef AUDIO_KARA
-            check_switch_audio_kara(stream);
-            if (aml_out->kara) {
-                // WARNING: buffer is changed, discard 'const' qualifiers
-                ret = audio_kara_mix(aml_out->kara, (void *)buffer, bytes);
+            if (is_include_a2dp_out_port(adev->cur_out_devices)) {
+                /* mediasync need to now the real running status of devices for
+                both alsa and bt. alsa running status PCM_STATE_RUNNING is
+                the same as BluetoothStreamState STARTED.
+                */
+                int  cur_status = a2dp_out_get_status(adev);
+                if (cur_status != aml_out->alsa_running_status) {
+                    aml_out->alsa_running_status = cur_status;
+                    aml_out->alsa_status_changed = true;
+                }
+                a2dp_out_write(adev, &in_data_config, (void*)buffer, bytes);
             }
+            if (adev->is_STB && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
+                // For STB, do not send data to spdif/hdmitx when bt is connected and mute hdmitx cannot be controlled.
+            } else {
+#ifdef AUDIO_KARA
+                check_switch_audio_kara(stream);
+                if (aml_out->kara) {
+                    // WARNING: buffer is changed, discard 'const' qualifiers
+                    ret = audio_kara_mix(aml_out->kara, (void *)buffer, bytes);
+                }
 #endif
-            ret = aml_alsa_output_write(stream, (void *) buffer, bytes); // HDMI output HERE
+                ret = aml_alsa_output_write(stream, (void *) buffer, bytes); // HDMI output HERE
+            }
         }
+
         //ALOGE("!!aml_alsa_output_write"); ///zzz
         if (ret < 0) {
             ALOGE("ALSA out write fail");

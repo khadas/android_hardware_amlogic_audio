@@ -109,6 +109,9 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 
 #define AUDIO_PARAMETER_HW_AV_EAC3_SYNC "HwAvSyncEAC3Supported"
 
+#define PROP_AUDIO_OUTPUT_SPDIF_COEXIST                 "persist.vendor.media.audio.spdif.coexist"
+#define PROP_AUDIO_OUTPUT_HDMITX_CONTROL_MUTE           "ro.vendor.media.audio.hdmitx.control.mute"
+
 #define SYS_NODE_EARC           "/sys/class/extcon/earcrx/state"
 
 #define DDP_FRAME_SIZE      (768)
@@ -543,6 +546,7 @@ struct aml_audio_device {
     int FactoryChannelReverse;
     bool dual_spdif_support; /*1 means supports spdif_a & spdif_b & spdif interface*/
     bool ms12_force_ddp_out; /*1 force ms12 output ddp*/
+    bool control_hdmitx_mute; /* allow to control the mute of hdmitx. */
     bool spdif_coexist_other; /* spdif coexist other device */
 
     /* user setting picture mode */

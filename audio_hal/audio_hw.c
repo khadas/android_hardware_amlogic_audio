@@ -3784,13 +3784,10 @@ static int aml_audio_outport_enable(struct aml_audio_device *adev, audio_devices
         break;
     }
     audio_route_update_mixer(adev->ar);
-    if (device != AUDIO_DEVICE_OUT_EARPIECE) {
-        if (enable) {
-            adev->cur_out_devices |= device;
-        } else {
-            adev->cur_out_devices &= ~device;
-
-        }
+    if (enable) {
+        adev->cur_out_devices |= device;
+    } else {
+        adev->cur_out_devices &= ~device;
     }
     return 0;
 }
@@ -3805,8 +3802,7 @@ static void aml_audio_output_routing(struct aml_audio_device *adev, audio_device
     // 1. When playing an offload stream and then playing TalkBack(AUDIO_STREAM_ACCESSIBILITY), framework will delete
     // the hdmitx device, resulting in no sound.
     // 2. So, for stb, we don't mute the hdmitx. When customer needs to force speaker, it can be configured as mute tx.
-    bool b_control_hdmitx_mute = property_get_bool("ro.vendor.media.audio.hdmitx.control.mute", false);
-    if (!adev->is_TV && !b_control_hdmitx_mute) {
+    if (!adev->is_TV && !adev->control_hdmitx_mute) {
         need_mute_devices &= (~AUDIO_DEVICE_OUT_HDMI);
     }
     AM_LOGI("unmute_devices:%#x, mute_devices:%#x", need_unmute_devices, need_mute_devices);
@@ -4524,6 +4520,15 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         sscanf(value,"%f", &speed);
         set_dolby_ms12_main_speed(&adev->ms12, (double)speed);
         ALOGI("[%s] set ms12 speed =%f", __func__, speed);
+        goto exit;
+    }
+
+    ret = str_parms_get_int(parms, "hal_param_spdif_coexist_other", &val);
+    if (ret >= 0) {
+        adev->spdif_coexist_other = (val != 0);
+        if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPDIF) == 0 && !adev->dev2mix_patch && adev->spdif_enable) {
+            audio_route_set_spdif_mute(&adev->alsa_mixer, !adev->spdif_coexist_other);
+        }
         goto exit;
     }
 
@@ -9284,7 +9289,8 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->dolby_ms12_dap_init_mode = property_get_int32("ro.vendor.platform.ms12.dap_init_mode", 0);
     /*this flag is for issue SWPL-80881*/
     adev->aml_truehd_passthrough_support = property_get_bool("ro.vendor.platform.is.aml_truehd_passthrough", false);
-    adev->spdif_coexist_other = property_get_bool("ro.vendor.media.audio.spdif.coexist", true);
+    adev->control_hdmitx_mute = property_get_bool(PROP_AUDIO_OUTPUT_HDMITX_CONTROL_MUTE, false);
+    adev->spdif_coexist_other = property_get_bool(PROP_AUDIO_OUTPUT_SPDIF_COEXIST, true);
 
     /*for ms12 case, we set default continuous mode*/
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
