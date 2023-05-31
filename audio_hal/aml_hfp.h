@@ -89,7 +89,7 @@ struct hfp_module {
 typedef struct ul_task_hfp_t {
     bool exit_run;
     pthread_t thread_id;
-    int thread_enable : 1;
+    unsigned int thread_enable : 1;
     struct pcm *pcm_hfp_sco_rx;
     struct pcm *pcm_hfp_pcm_tx;
     int data_len;

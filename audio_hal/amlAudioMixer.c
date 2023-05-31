@@ -71,8 +71,8 @@ struct amlAudioMixer {
     uint32_t hwsync_frame_size;
     pthread_t out_mixer_tid;
     pthread_mutex_t lock;
-    int exit_thread : 1;
-    int mixing_enable : 1;
+    unsigned int exit_thread : 1;
+    unsigned int mixing_enable : 1;
     aml_mixer_state state;
     struct timespec tval_last_write;
     struct aml_audio_device *adev;

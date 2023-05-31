@@ -64,8 +64,8 @@ struct aml_audio_mixer {
     pthread_t out_mixer_tid;
     pthread_mutex_t lock;
     pthread_cond_t cond;
-    int exit_thread : 1;
-    int mixing_enable : 1;
+    unsigned int exit_thread : 1;
+    unsigned int mixing_enable : 1;
     enum mixer_state state;
     uint64_t last_process_finished_ns;
     //int init_ok : 1;
