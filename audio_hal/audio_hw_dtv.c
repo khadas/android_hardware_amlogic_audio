@@ -442,6 +442,19 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
             }
             break;
 
+         case AUDIO_DTV_PATCH_CMD_SET_SPDIF_PROTECTION_MODE:
+
+            if (val == SPDIF_PROTECTION__MODE_NEVER) {
+                aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_B_OUT_CHANNEL_STATUS, SPDIF_PROTECTION_ENABLE);
+                aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_OUT_CHANNEL_STATUS, SPDIF_PROTECTION_ENABLE);
+            } else if (val == SPDIF_PROTECTION__MODE_ONCE  || val == SPDIF_PROTECTION__MODE_NONE){
+                aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_B_OUT_CHANNEL_STATUS, SPDIF_PROTECTION_DISABLE);
+                aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_SPDIF_OUT_CHANNEL_STATUS, SPDIF_PROTECTION_DISABLE);
+            }
+
+            ALOGI("AUDIO SET SPDIF_PROTECTION__STATUS: %d\n", val);
+            break;
+
         case AUDIO_DTV_PATCH_CMD_CONTROL:
             if (patch == NULL) {
                 ALOGI("%s()the audio patch is NULL \n", __func__);
@@ -5581,6 +5594,12 @@ int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms)
         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_DTV_LATENCYMS_ID, val);
         goto exit;
     }
+
+    ret = str_parms_get_int(parms, "hal_param_dtv_spdif_protection_mode", &val);
+        if (ret >= 0) {
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_SPDIF_PROTECTION_MODE, val);
+            goto exit;
+        }
     /* dvb cmd deal with end */
 exit:
     return ret;
