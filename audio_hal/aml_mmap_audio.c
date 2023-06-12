@@ -162,7 +162,7 @@ static int outMmapStart(const struct audio_stream_out *stream)
     aml_mmap_audio_param_st     *pstParam = (aml_mmap_audio_param_st *)out->pstMmapAudioParam;
 
     if (pstParam == NULL || (pstParam->stThreadParam.status != MMAP_INIT && pstParam->stThreadParam.status != MMAP_STOP_DONE)) {
-        AM_LOGW("status:%d error or mmap no init.", pstParam->stThreadParam.status);
+        AM_LOGW("error or mmap no init");
         return -ENODATA;
     }
 
@@ -191,7 +191,7 @@ static int outMmapStop(const struct audio_stream_out *stream)
     aml_mmap_audio_param_st     *pstParam = (aml_mmap_audio_param_st *)out->pstMmapAudioParam;
 
     if (pstParam == NULL || pstParam->stThreadParam.status != MMAP_START_DONE) {
-        AM_LOGW("status:%d not start done or mmap not init", pstParam->stThreadParam.status);
+        AM_LOGW("not start done or mmap not init");
         return -ENODATA;
     }
 

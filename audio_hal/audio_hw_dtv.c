@@ -389,7 +389,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
             }
             break;
         case AUDIO_DTV_PATCH_CMD_SET_AD_MIX_LEVEL:
-            if ((int)val < 0) {
+            if (val < 0) {
                 val = 0;
             } else if (val > 100) {
                 val = 100;
@@ -2191,6 +2191,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
     int path_id  = 0;
     patch->sample_rate = stream_config.sample_rate = 48000;
     patch->chanmask = stream_config.channel_mask = AUDIO_CHANNEL_IN_STEREO;
+    /*coverity[missing_lock]*/
     patch->aformat = stream_config.format = AUDIO_FORMAT_PCM_16_BIT;
     int switch_flag = property_get_int32("vendor.media.audio.strategy.switch", 0);
     int show_first_nosync = property_get_int32("vendor.media.video.show_first_frame_nosync", 1);
@@ -2213,6 +2214,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
         patch->a_discontinue_threshold);
     ALOGI("sync:pcr_adjust_max=%d\n", patch->sync_para.pcr_adjust_max);
     ALOGI("[audiohal_kpi]++%s Enter.\n", __FUNCTION__);
+    /*coverity[missing_lock]*/
     patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_INIT;
     aml_demux_audiopara_t *demux_info = NULL;
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)aml_dev->aml_dtv_audio_instances;
@@ -2485,6 +2487,7 @@ exit:
     dtv_patch_input_stop_dmx(adec_handle);
     release_dtv_output_stream_thread(patch);
     dtv_patch_input_stop(adec_handle);
+    /*coverity[missing_lock]*/
     aml_dev->ad_start_enable = 0;
     dtv_assoc_audio_stop(1);
     dtv_check_audio_reset();
@@ -3862,7 +3865,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
 
         ALOGV("++%s line %d patch %p aml_out %p aml_out->hal_internal_format %#x\n ", __FUNCTION__, __LINE__, patch, aml_out, aml_out->hal_internal_format);
         if (patch->dtvsync) {
-            if (aml_dev->bHDMIConnected_update || aml_dev->a2dp_updated || (patch && patch->need_reconfig_mediasync)) {
+            if (aml_dev->bHDMIConnected_update || aml_dev->a2dp_updated || patch->need_reconfig_mediasync) {
                 patch->need_reconfig_mediasync = false;
                 ALOGI("reset_dtvsync (mediasync:%p)", patch->dtvsync->mediasync);
                 aml_dtvsync_reset(patch->dtvsync);
@@ -4006,6 +4009,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
     struct media_out_portinfo audio_outport;
     patch->sample_rate = stream_config.sample_rate = 48000;
     patch->chanmask = stream_config.channel_mask = AUDIO_CHANNEL_IN_STEREO;
+    /*coverity[missing_lock]*/
     patch->aformat = stream_config.format = AUDIO_FORMAT_PCM_16_BIT;
 
     int switch_flag = property_get_int32("vendor.media.audio.strategy.switch", 0);
@@ -4029,6 +4033,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
         patch->a_discontinue_threshold);
     ALOGI("sync:pcr_adjust_max=%d\n", patch->sync_para.pcr_adjust_max);
     ALOGI("[audiohal_kpi]++%s Enter.\n", __FUNCTION__);
+    /*coverity[missing_lock]*/
     patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_INIT;
     aml_demux_audiopara_t *demux_info = NULL;
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)aml_dev->aml_dtv_audio_instances;
@@ -4301,9 +4306,11 @@ static void *audio_dtv_patch_process_threadloop_v3(void *data)
     struct mediasync_audio_format audio_format;
     patch->sample_rate = stream_config.sample_rate = 48000;
     patch->chanmask = stream_config.channel_mask = AUDIO_CHANNEL_IN_STEREO;
+    /*coverity[missing_lock]*/
     patch->aformat = stream_config.format = AUDIO_FORMAT_PCM_16_BIT;
 
     ALOGI("[audiohal_kpi]++%s Enter.\n", __FUNCTION__);
+    /*coverity[missing_lock]*/
     patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_INIT;
     aml_demux_audiopara_t *demux_info = NULL;
     aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)aml_dev->aml_dtv_audio_instances;
@@ -5135,17 +5142,18 @@ int out_get_audio_description_mix_level(struct audio_stream_out *stream, float *
 int out_set_audio_description_mix_level(struct audio_stream_out *stream, const float leveldB)
 {
     int ret = 0,cmd = 0;
+    struct dolby_ms12_desc *ms12 = NULL;
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     int path_id = aml_out->demux_id;
     struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
-    aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
-    aml_demux_audiopara_t *dmx_info = &dtv_audio_instances->demux_info[path_id];
-    struct dolby_ms12_desc *ms12 = &(adev->ms12);
     if (!adev) {
         ALOGE("%s[%d]:adev is NULL", __func__, __LINE__);
         return -1;
     }
+    aml_dtv_audio_instances_t *dtv_audio_instances =  (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
+    aml_demux_audiopara_t *dmx_info = &dtv_audio_instances->demux_info[path_id];
+    ms12 = &(adev->ms12);
     ALOGI("stream %p leveldB %f ", stream, leveldB);
 
     if (adev->audio_patch) {

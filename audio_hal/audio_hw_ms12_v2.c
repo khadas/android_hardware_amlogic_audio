@@ -1163,7 +1163,6 @@ int get_the_dolby_ms12_prepared(
     ret = ring_buffer_init(&ms12->spdif_ring_buffer, ms12->dolby_ms12_out_max_size);
     if (ret != 0) {
         ALOGW("[%s:%d] init is error", __func__, __LINE__);
-        pthread_mutex_unlock(&ms12->lock);
         goto Err_dolby_ms12_thread;
     }
     adev->doing_reinit_ms12 = false;
@@ -3317,7 +3316,7 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
             aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_tuning_delay_pts + force_setting_delay_pts;
         }
 
-        if (get_debug_value(AML_DEBUG_AUDIOHAL_AUT)) {
+        if (get_debug_value(AML_DEBUG_AUDIOHAL_AUT) && patch->cur_package) {
             if (ms12_main_apts) {
                 ALOGI("pts lookup success. pkg_pts:%" PRIx64 ", lookup_pts:%" PRIx64 ", pkg-lookup_pts:%" PRIx64 ", frame_pts:%" PRIx64 ","
                     "pcm[len:%zu, dur:%zums, total_dur:%" PRIu64 "ms], output_pts:%" PRIx64 ". ",\
@@ -3664,6 +3663,7 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream) {
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     ms12->main_input_ns = 0;
     ms12->main_output_ns = 0;
+    /*coverity[missing_lock]*/
     ms12->main_input_rate = DDP_OUTPUT_SAMPLE_RATE;
     ms12->main_buffer_min_level = 0xFFFFFFFF;
     ms12->main_buffer_max_level = 0;

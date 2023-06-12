@@ -350,7 +350,7 @@ class wp
 {
 public:
     typedef typename RefBase::weakref_type weakref_type;
-
+    /*coverity[uninit_member]*/
     inline wp() : m_ptr(0) { }
 
     wp(T* other);  // NOLINT(implicit)
@@ -448,6 +448,7 @@ wp<T>::wp(T* other)
     : m_ptr(other)
 {
     if (other) m_refs = other->createWeak(this);
+    /*coverity[uninit_member]*/
 }
 
 template<typename T>
@@ -464,6 +465,7 @@ wp<T>::wp(const sp<T>& other)
     if (m_ptr) {
         m_refs = m_ptr->createWeak(this);
     }
+    /*coverity[uninit_member]*/
 }
 
 template<typename T> template<typename U>
@@ -490,6 +492,7 @@ wp<T>::wp(const sp<U>& other)
     if (m_ptr) {
         m_refs = m_ptr->createWeak(this);
     }
+    /*coverity[uninit_member]*/
 }
 
 template<typename T>

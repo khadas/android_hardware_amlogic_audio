@@ -243,7 +243,7 @@ struct aml_channel_map *data_load_product_config(void)
 	int i = 0;
 	int find_idx, invert, ditter;
 
-	maps = aml_audio_malloc(sizeof(struct aml_channel_map)*AML_I2S_CHANNEL_COUNT);
+	maps = aml_audio_calloc(1,sizeof(struct aml_channel_map)*AML_I2S_CHANNEL_COUNT);
 	if (!maps) {
 		return NULL;
 	} else {
@@ -403,9 +403,11 @@ static int _data_remix_center_to_lr(void *buf, size_t frames, size_t framesz, in
 			buf16[channels*i + 1] = _clamp16((MINUS_3_DB_IN_Q19_12 * ((tmp + MINUS_3_DB_IN_Q19_12*center16) >>12))>>12);
 		}
 		break;
+	/*coverity[dead_error_begin]*/
 	case e32BitPerSample:
 		//TODO:
 		break;
+	/*coverity[dead_error_begin]*/
 	default:
 		break;
 	}
@@ -470,9 +472,11 @@ static int _data_remix_all_to_lr(void *buf,	size_t frames, size_t framesz, int c
 				_clamp16((MINUS_3_DB_IN_Q19_12 * ((tmp + MINUS_3_DB_IN_Q19_12 * c_16 + MINUS_3_DB_IN_Q19_12 * rs_16) >> 12)) >> 12);
 		}
 		break;
+	/*coverity[dead_error_begin]*/
 	case e32BitPerSample:
 		//TODO:
 		break;
+	/*coverity[dead_error_begin]*/
 	default:
 		break;
 	}

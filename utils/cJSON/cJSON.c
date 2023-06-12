@@ -411,10 +411,9 @@ CJSON_PUBLIC(char*) cJSON_SetValuestring(cJSON *object, const char *valuestring)
     {
         return NULL;
     }
-    if (object->valuestring != NULL)
-    {
-        cJSON_free(object->valuestring);
-    }
+
+    cJSON_free(object->valuestring);
+
     object->valuestring = copy;
 
     return copy;
@@ -1232,11 +1231,6 @@ fail:
     if (buffer->buffer != NULL)
     {
         hooks->deallocate(buffer->buffer);
-    }
-
-    if (printed != NULL)
-    {
-        hooks->deallocate(printed);
     }
 
     return NULL;

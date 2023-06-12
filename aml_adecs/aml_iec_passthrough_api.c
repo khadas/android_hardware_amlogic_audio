@@ -48,8 +48,8 @@ static int iec_passthrough_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_co
         ALOGE("%s calloc pcm buffer error", __func__);
         goto error;
     }
-    dec_pcm_data->data_format = AUDIO_FORMAT_PCM_16_BIT;
 
+    dec_pcm_data->data_format = AUDIO_FORMAT_PCM_16_BIT;
     dec_raw_data = &aml_dec->dec_raw_data;
     dec_raw_data->buf_size = IEC_MAX_LENGTH;
     dec_raw_data->data_ch = dec_config->iec_config.channel;
@@ -82,13 +82,13 @@ static int iec_passthrough_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_co
 
 error:
     if (aml_dec) {
-        if (dec_pcm_data->buf) {
+        if (dec_pcm_data && dec_pcm_data->buf) {
             aml_audio_free(dec_pcm_data->buf);
         }
-        if (dec_raw_data->buf) {
+        if (dec_raw_data && dec_raw_data->buf) {
             aml_audio_free(dec_raw_data->buf);
         }
-        if (raw_in_data->buf) {
+        if (raw_in_data && raw_in_data->buf) {
             aml_audio_free(raw_in_data->buf);
         }
         aml_audio_free(aml_dec);

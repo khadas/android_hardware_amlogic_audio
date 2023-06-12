@@ -78,10 +78,9 @@ public:
                 }
             }
 #endif
-            return actual_write_size;
+
         }
-        else
-            return -1;
+        return actual_write_size;
     }
     /*
      *@brief get current iec61937 data size

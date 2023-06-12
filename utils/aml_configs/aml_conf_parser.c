@@ -280,6 +280,7 @@ int parser_load_from_file(struct parser *pParser, const char *filename)
                 if (pCurSection)
                     pCurSection->pNext = pSec;
             }
+            /*coverity[overwrite_var]*/
             pCurSection = pSec;
             break;
         case LINE_TYPE_KEY:

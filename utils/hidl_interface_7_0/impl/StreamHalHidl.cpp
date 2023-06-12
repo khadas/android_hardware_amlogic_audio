@@ -969,6 +969,7 @@ status_t StreamInHalHidl::getCapturePosition(int64_t *frames, int64_t *time) {
     if (mReaderClient == gettid() && mCommandMQ) {
         ReadParameters params;
         params.command = ReadCommand::GET_CAPTURE_POSITION;
+        /*coverity[uninit_use_in_call]*/
         return callReaderThread(params, "getCapturePosition",
                 [&](const ReadStatus& readStatus) {
                     *frames = readStatus.reply.capturePosition.frames;

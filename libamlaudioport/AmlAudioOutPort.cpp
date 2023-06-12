@@ -71,8 +71,10 @@ namespace android {
 
     AmlAudioOutPort::AmlAudioOutPort() {
         ALOGI("%s %p", __FUNCTION__, this);
-        if (hwDevice == NULL)
-           getHwDevice();
+        if (hwDevice == NULL) {
+            if (getHwDevice() != NO_ERROR)
+                ALOGI("getHwDevice() != NO_ERROR");
+        }
     }
     AmlAudioOutPort::~AmlAudioOutPort() {
         ALOGI("%s %p", __FUNCTION__, this);

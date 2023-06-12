@@ -51,12 +51,14 @@ TSPMessage::TSPMessage(void)
     : mWhat(0),
       mTarget(0),
       mNumItems(0) {
+      /*coverity[uninit_member]*/
 }
 
 TSPMessage::TSPMessage(uint32_t what, const sp<const TSPHandler> &handler)
     : mWhat(what),
       mNumItems(0) {
     setTarget(handler);
+    /*coverity[uninit_member]*/
 }
 
 TSPMessage::~TSPMessage() {
@@ -293,8 +295,10 @@ void TSPMessage::setString(
         const char *name, const char *s, ssize_t len) {
     Item *item = allocateItem(name);
     item->mType = kTypeString;
-    item->u.stringValue = (char *)aml_audio_malloc(sizeof(char) * len);
-	strncpy(item->u.stringValue, s, len);
+    if (len > 0) {
+        item->u.stringValue = (char *)aml_audio_malloc(sizeof(char) * len);
+        strncpy(item->u.stringValue, s, len);
+    }
 }
 
 void TSPMessage::setObjectInternal(

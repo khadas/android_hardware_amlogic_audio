@@ -74,7 +74,7 @@ static void *chk_alloc(void *p, size_t *origin_sz, size_t sz) {
         if (sz != 0) {
             new_p = malloc(sz);
         }
-        INFO("p=%p/%zu => %p/%zu", p, *origin_sz, new_p, sz);
+        INFO("p=NULL/%zu => %p/%zu", *origin_sz, new_p, sz);
         *origin_sz = sz;
         return new_p;
     }
@@ -183,7 +183,7 @@ static void usb_mic_nego_cfg(int card, int device,
 
 static void *usb_mic_open(int card, int device, struct pcm_config *main_cfg)
 {
-    struct usb_mic_t *m = malloc(sizeof(struct usb_mic_t));
+    struct usb_mic_t *m = calloc(1, sizeof(struct usb_mic_t));
     if (m == NULL) {
         return NULL;
     }

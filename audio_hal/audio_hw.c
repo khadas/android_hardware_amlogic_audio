@@ -2003,7 +2003,7 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         int64_t  system_time_ms = 0;
         int delay = 0;
 
-        system_time_ms = (timestamp->tv_sec * 1000 + timestamp->tv_nsec / 1000000) - (out->last_timestamp_reported.tv_sec * 1000 + out->last_timestamp_reported.tv_nsec / 1000000);
+        system_time_ms = ((int64_t)timestamp->tv_sec * 1000 + (int64_t)timestamp->tv_nsec / 1000000) - ((int64_t)out->last_timestamp_reported.tv_sec * 1000 + (int64_t)out->last_timestamp_reported.tv_nsec / 1000000);
         int64_t jitter_diff = frame_diff_ms - system_time_ms;
         out->jitter_ms = jitter_diff;
         if (audio_is_linear_pcm(out->hal_format) && audio_stream_out_frame_size(stream) && !out->hw_sync_mode) {
@@ -3463,7 +3463,6 @@ err:
     pthread_mutex_unlock(&out->lock);
     pthread_mutex_destroy(&out->lock);
 
-    pthread_mutex_unlock(&out->apts_update_lock);
     pthread_mutex_destroy(&out->apts_update_lock);
 
     aml_audio_free(out);
@@ -3575,13 +3574,14 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             /* but the DTV source patch is still exiting and non-continuous MS12 is working now. here it will flush DDP decoder */
             /* so, here storage the decoder_offset to avoid the offset in vs out MS12 lib */
             if (patch && (adev->patch_src == SRC_DTV)) {
-                if (out && adev->ms12_out && (out != adev->ms12_out)) {
+                if (out != adev->ms12_out) {
                     ALOGI("%s line %d store the dtv_decoder_offset_base %" PRIu64 " from patch %" PRIu64 "", __func__, __LINE__, adev->ms12.dtv_decoder_offset_base, patch->decoder_offset);
                     adev->ms12.dtv_decoder_offset_base = patch->decoder_offset;
                 }
             }
 
             audiohal_send_msg_2_ms12(&adev->ms12, MS12_MESG_TYPE_FLUSH);
+            /*coverity[missing_lock]*/
             adev->ms12.ms12_resume_state = MS12_RESUME_FROM_CLOSE;
             audiohal_send_msg_2_ms12(&adev->ms12, MS12_MESG_TYPE_RESUME);
         }
@@ -5359,6 +5359,7 @@ int do_output_standby_l(struct audio_stream *stream)
             }
 
             if (!continuous_mode(adev)) {
+                /*coverity[missing_lock]*/
                 adev->mix_init_flag = false;
             } else {
                 if (is_dolby_ms12_main_stream(out)) {
@@ -7620,6 +7621,7 @@ void *audio_patch_input_threadloop(void *data)
     ALOGD("%s: enter", __func__);
     patch->chanmask = stream_config.channel_mask = patch->in_chanmask;
     patch->sample_rate = stream_config.sample_rate = patch->in_sample_rate;
+    /*coverity[ missing_lock]*/
     patch->aformat = stream_config.format = patch->in_format;
 
     ret = adev_open_input_stream(patch->dev, 0, patch->input_src, &stream_config, &stream_in, 0, NULL, 0);

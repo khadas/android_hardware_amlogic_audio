@@ -153,6 +153,7 @@ String8::String8(StaticLinkage)
     char* data = static_cast<char*>(
             SharedBuffer::alloc(sizeof(char))->data());
     data[0] = 0;
+    /*coverity[ctor_dtor_leak]*/
     mString = data;
 }
 
@@ -163,6 +164,7 @@ String8::String8(const String8& o)
 }
 
 String8::String8(const char* o)
+    /*coverity[ctor_dtor_leak]*/
     : mString(allocFromUTF8(o, strlen(o)))
 {
     if (mString == NULL) {
@@ -171,6 +173,7 @@ String8::String8(const char* o)
 }
 
 String8::String8(const char* o, size_t len)
+    /*coverity[ctor_dtor_leak]*/
     : mString(allocFromUTF8(o, len))
 {
     if (mString == NULL) {
@@ -179,26 +182,31 @@ String8::String8(const char* o, size_t len)
 }
 
 String8::String8(const String16& o)
+    /*coverity[ctor_dtor_leak]*/
     : mString(allocFromUTF16(o.string(), o.size()))
 {
 }
 
 String8::String8(const char16_t* o)
+    /*coverity[ctor_dtor_leak]*/
     : mString(allocFromUTF16(o, strlen16(o)))
 {
 }
 
 String8::String8(const char16_t* o, size_t len)
+    /*coverity[ctor_dtor_leak]*/
     : mString(allocFromUTF16(o, len))
 {
 }
 
 String8::String8(const char32_t* o)
+    /*coverity[ctor_dtor_leak]*/
     : mString(allocFromUTF32(o, strlen32(o)))
 {
 }
 
 String8::String8(const char32_t* o, size_t len)
+    /*coverity[ctor_dtor_leak]*/
     : mString(allocFromUTF32(o, len))
 {
 }

@@ -182,7 +182,7 @@ static int echo_reference_write(struct echo_reference_itfe *echo_reference,
     // this will be used in the get_next_buffer, to support variable input buffer sizes
     er->wr_curr_frame_size = buffer->frame_count;
 
-    void *srcBuf;
+    void *srcBuf = NULL;
     size_t inFrames;
     // do stereo to mono and down sampling if necessary
     if (er->rd_channel_count != er->wr_channel_count ||

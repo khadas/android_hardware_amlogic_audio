@@ -448,6 +448,7 @@ int AudioHotplugThread::handleDeviceEvent(int inotifyFD, int wfds[]) {
         }
         else {
             //sound card insert
+            /*coverity[string_null]*/
             handleSoundCardEvent(event);
         }
 

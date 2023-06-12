@@ -51,6 +51,7 @@ static char aml_malloc_temp_buf[256];
 
 static void add_malloc_node(struct aml_malloc_node * malloc_node)
 {
+    char temp[64] = {'\0'};
     struct aml_malloc_debug *pmalloc_handle = NULL;
     pmalloc_handle = gaudio_malloc_handle;
 
@@ -60,7 +61,8 @@ static void add_malloc_node(struct aml_malloc_node * malloc_node)
     gettimeofday(&time_us, NULL);
     if (localtime_r(&time_us.tv_sec, &t))
         strftime(malloc_node->time, sizeof(malloc_node->time), "%m-%d %H:%M:%S", localtime_r(&time_us.tv_sec, &t));
-    sprintf(malloc_node->time, "%s.%ld", malloc_node->time,time_us.tv_usec / 1000);
+    sprintf(temp, "%s.%ld", malloc_node->time,time_us.tv_usec / 1000);
+    strcpy(malloc_node->time,temp);
     list_add_tail(&pmalloc_handle->malloc_list, &malloc_node->list);
     pthread_mutex_unlock(&pmalloc_handle->malloc_lock);
     return;

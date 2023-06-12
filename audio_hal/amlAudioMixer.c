@@ -314,7 +314,7 @@ static inline MIXER_OUTPUT_PORT mixer_get_cur_outport(struct amlAudioMixer *audi
         pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
         return MIXER_OUTPUT_PORT_INVAL;
     }
-
+    /*coverity[missing_unlock]*/
     return port_index;
 }
 

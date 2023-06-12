@@ -771,7 +771,7 @@ static int out_get_presentation_position_port(
         }
 
         int64_t system_time_ms = 0;
-        system_time_ms = (timestamp->tv_sec * 1000 + timestamp->tv_nsec / 1000000) - (out->last_timestamp_reported.tv_sec * 1000 + out->last_timestamp_reported.tv_nsec / 1000000);
+        system_time_ms = ((int64_t)timestamp->tv_sec * 1000 + (int64_t)timestamp->tv_nsec / 1000000) - ((int64_t)out->last_timestamp_reported.tv_sec * 1000 + (int64_t)out->last_timestamp_reported.tv_nsec / 1000000);
 
         int64_t jitter_diff = frame_diff_ms - system_time_ms;
         out->jitter_ms = jitter_diff;

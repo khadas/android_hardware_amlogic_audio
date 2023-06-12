@@ -84,13 +84,16 @@ int dvb_audio_get_latencyms(int demux_id) {
     ALOGV("demux_id %d",demux_id);
     struct str_parms *parms;
     int latencyms = 0;
+    int ret = 0;
     char temp_buf[64] = {0};
     sprintf (temp_buf, "hal_param_dtv_latencyms_id=%d", demux_id);
     aml_audioport->setParameters(String8(temp_buf));
     String8 mString = aml_audioport->getParameters(String8("hal_param_dtv_latencyms"));
     if (!mString.isEmpty()) {
         parms = str_parms_create_str(mString.c_str());
-        str_parms_get_int(parms, "hal_param_dtv_latencyms", &latencyms);
+        ret = str_parms_get_int(parms, "hal_param_dtv_latencyms", &latencyms);
+        if (ret < 0)
+            ALOGE("str_parms_get_int is error ");
         str_parms_destroy (parms);
         mString.clear();
         ALOGI("dvb_latencyms:%d ", latencyms);
@@ -104,11 +107,14 @@ int dvb_audio_get_latencyms(int demux_id) {
 int dvb_audio_get_ac4_active_pres_id(int demux_id) {
     ALOGV("demux_id %d",demux_id);
     int ac4_active_pres_id = -1;
+    int ret = 0;
     struct str_parms *parms;
     String8 mString = aml_audioport->getParameters(String8("get_ac4_active_pres_id"));
     if (!mString.isEmpty()) {
         parms = str_parms_create_str(mString.c_str());
-        str_parms_get_int(parms, "ac4_active_pres_id", &ac4_active_pres_id);
+        ret = str_parms_get_int(parms, "ac4_active_pres_id", &ac4_active_pres_id);
+        if (ret < 0)
+            ALOGE("str_parms_get_int is error ");
         str_parms_destroy (parms);
         mString.clear();
         ALOGI("ac4_active_pres_id:%d ", ac4_active_pres_id);

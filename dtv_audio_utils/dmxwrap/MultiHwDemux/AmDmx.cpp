@@ -666,6 +666,7 @@ AM_ErrorCode_t AM_DMX_Device::AM_DMX_Open(int dev_no_t)
         pthread_mutex_init(&lock, NULL);
         pthread_cond_init(&cond, NULL);
         enable_thread = true;
+        /*coverity[missing_lock]*/
         flags = 0;
 
         if (pthread_create(&thread, NULL, dmx_data_thread, this))

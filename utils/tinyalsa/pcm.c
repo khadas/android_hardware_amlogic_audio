@@ -368,8 +368,8 @@ static int pcm_hw_mmap_status(struct pcm *pcm) {
         pcm->mmap_status = NULL;
     if (!pcm->mmap_status)
         goto mmap_error;
-
-    pcm->mmap_control = mmap(NULL, page_size, PROT_READ | PROT_WRITE,
+    if (page_size > 0)
+        pcm->mmap_control = mmap(NULL, page_size, PROT_READ | PROT_WRITE,
                              MAP_FILE | MAP_SHARED, pcm->fd, SNDRV_PCM_MMAP_OFFSET_CONTROL);
     if (pcm->mmap_control == MAP_FAILED)
         pcm->mmap_control = NULL;
@@ -543,8 +543,9 @@ int pcm_mmap_get_hw_ptr(struct pcm* pcm, unsigned int *hw_ptr, struct timespec *
 {
     int frames;
     int rc;
-
-    if (pcm == NULL || hw_ptr == NULL || tstamp == NULL)
+    if (pcm == NULL)
+        return -1;
+    if (hw_ptr == NULL || tstamp == NULL)
         return oops(pcm, EINVAL, "pcm %p, hw_ptr %p, tstamp %p", pcm, hw_ptr, tstamp);
 
     if (!pcm_is_ready(pcm))

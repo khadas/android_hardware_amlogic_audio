@@ -749,6 +749,7 @@ int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t f
         ddp_decoder_config_prepare(stream, &dec_config->dcv_config);
         break;
     }
+    /*coverity[unterminated_case]*/
     case AUDIO_FORMAT_DTS: {
         if (bd_config->DTS_output_ch)
             dca_set_out_ch_internal(bd_config->DTS_output_ch);

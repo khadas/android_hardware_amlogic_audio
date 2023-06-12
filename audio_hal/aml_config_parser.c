@@ -55,6 +55,11 @@ static cJSON *aml_createJsonRoot(const char *filename)
     }
     fseek(fp, 0, SEEK_END);
     len = (int)ftell(fp);
+    if (len < 0) {
+        fclose(fp);
+        ALOGE(" ftell is error");
+        return NULL;
+    }
     ALOGD(" length = %d\n", len);
 
     fseek(fp, 0, SEEK_SET);

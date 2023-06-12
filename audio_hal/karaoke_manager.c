@@ -317,7 +317,9 @@ void put_echo_reference(struct kara_manager *kara,
             reference == kara->echo_reference) {
         remove_echo_reference(kara, reference);
         aml_release_echo_reference(reference);
+        pthread_mutex_lock(&kara->lock);
         kara->echo_reference = NULL;
+        pthread_mutex_unlock(&kara->lock);
     }
 }
 

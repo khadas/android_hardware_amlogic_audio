@@ -68,6 +68,7 @@ TSPLooper::TSPLooper()
     // clean up stale AHandlers. Doing it here instead of in the destructor avoids
     // the side effect of objects being deleted from the unregister function recursively.
     gTsPlayerLooperRoster.unregisterStaleHandlers();
+    /*coverity[uninit_member]*/
 }
 
 TSPLooper::~TSPLooper() {

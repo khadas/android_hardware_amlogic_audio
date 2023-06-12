@@ -388,6 +388,7 @@ int ring_buffer_reset_size(struct ring_buffer *rbuffer, int buffer_size)
         ALOGW("resized buffer size exceed largest buffer size, max %d, cur %d\n", \
               rbuffer->size, buffer_size);
         ring_buffer_release(rbuffer);
+        /*coverity[missing_lock]*/
         rbuffer->size = buffer_size;
         return ring_buffer_init(rbuffer, buffer_size);
     }

@@ -167,13 +167,14 @@ int aml_audio_ease_close(aml_audio_ease_t * ease_handle) {
 
 int aml_audio_ease_config(aml_audio_ease_t * ease_handle, ease_setting_t *setting) {
 
+    pthread_mutex_lock(&ease_handle->ease_lock);
     if (ease_handle == NULL || setting == NULL) {
         if (ease_handle) {
             ease_handle->do_easing = false;
+            pthread_mutex_unlock(&ease_handle->ease_lock);
         }
         return -1;
     }
-    pthread_mutex_lock(&ease_handle->ease_lock);
     ease_handle->target_volume = setting->target_volume;
     ease_handle->start_volume = setting->start_volume;
     if (ease_handle->start_volume < ease_handle->target_volume) {
@@ -211,18 +212,18 @@ int aml_audio_ease_process(aml_audio_ease_t * ease_handle, void * in_data, size_
 
     int i = 0, j = 0;
     float vol_delta;
-
+    pthread_mutex_lock(&ease_handle->ease_lock);
     if (in_data == NULL || ch == 0 || size == 0 || ease_handle->ease_status == Invalid
             || (format != AUDIO_FORMAT_PCM_16_BIT && format != AUDIO_FORMAT_PCM_32_BIT)) {
         if (ease_handle) {
             ease_handle->do_easing = false;
+            pthread_mutex_unlock(&ease_handle->ease_lock);
         }
         return -1;
     }
 
     ch = ease_handle->data_format.ch;
     format = ease_handle->data_format.format;
-    pthread_mutex_lock(&ease_handle->ease_lock);
     nframes  = size / (audio_bytes_per_sample(format) * ch);
 
     if (ease_handle->ease_frames_elapsed >= ease_handle->ease_frames) {

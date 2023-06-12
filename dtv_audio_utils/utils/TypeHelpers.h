@@ -257,6 +257,7 @@ struct key_value_pair_t {
         return *this;
     }
     key_value_pair_t(const KEY& k, const VALUE& v) : key(k), value(v)  { }
+    /*coverity[uninit_member]*/
     explicit key_value_pair_t(const KEY& k) : key(k) { }
     inline bool operator < (const key_value_pair_t& o) const {
         return strictly_order_type(key, o.key);

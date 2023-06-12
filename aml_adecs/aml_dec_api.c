@@ -151,12 +151,10 @@ int aml_decoder_init(aml_dec_t **ppaml_dec, audio_format_t format, aml_dec_confi
     }
 
     return ret;
-
 ERROR:
-    if (dec_fun->f_release && aml_dec_handle) {
-        dec_fun->f_release(aml_dec_handle);
+    if (dec_fun->f_release) {
+        dec_fun->f_release(*ppaml_dec);
     }
-
     return -1;
 
 }

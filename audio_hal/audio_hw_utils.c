@@ -443,7 +443,7 @@ int check_chip_name(char *chip_name, unsigned int length,
     }
 
     if (alsa_device_is_auge()) {
-        unsigned int chip_id = 0;
+        int chip_id = 0;
         chip_id = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_AML_CHIP_ID);
         if (chip_id >= sizeof(aml_chip_name) / sizeof(aml_chip_name[0]) || chip_id < 0) {
             AM_LOGW("chip_id:%d out of array range, return false", chip_id);
@@ -1802,7 +1802,7 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
 #if ANDROID_PLATFORM_SDK_VERSION > 29
 int android_fmt_convert_to_dmx_fmt(audio_format_t android_fmt) {
 
-    if (android_fmt <= AUDIO_FORMAT_DEFAULT ||
+    if (android_fmt < AUDIO_FORMAT_DEFAULT ||
         android_fmt >= AUDIO_FORMAT_INVALID) {
         return ACODEC_FMT_NULL;
     }

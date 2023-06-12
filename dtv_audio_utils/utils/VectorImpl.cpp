@@ -420,10 +420,10 @@ void* VectorImpl::_grow(size_t where, size_t amount)
             SharedBuffer* sb = SharedBuffer::alloc(new_alloc_size);
             if (sb) {
                 void* array = sb->data();
-                if (where != 0) {
+                if (where != 0 && mStorage) {
                     _do_copy(array, mStorage, where);
                 }
-                if (where != mCount) {
+                if (where != mCount && mStorage) {
                     const void* from = reinterpret_cast<const uint8_t *>(mStorage) + where*mItemSize;
                     void* dest = reinterpret_cast<uint8_t *>(array) + (where+amount)*mItemSize;
                     _do_copy(dest, from, mCount-where);

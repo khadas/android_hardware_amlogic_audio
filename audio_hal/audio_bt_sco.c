@@ -221,7 +221,10 @@ ssize_t write_to_sco(struct aml_audio_device *adev, audio_config_base_t *config,
     }
     pthread_mutex_lock(&bt->lock);
     if (bt->pcm_bt) {
-        pcm_write(bt->pcm_bt, bt->bt_out_buffer, out_frames * frame_size);
+        ret = pcm_write(bt->pcm_bt, bt->bt_out_buffer, out_frames * frame_size);
+        if (ret < 0) {
+            ALOGE("%s pcm_write failed",__func__);
+        }
         dump_output_data(bt, bt->bt_out_buffer, out_frames * frame_size);
     }
     pthread_mutex_unlock(&bt->lock);

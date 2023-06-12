@@ -59,6 +59,7 @@ pthread_t AmlGetThreadId()
 
 Thread::Thread()
     :   mThread(pthread_t(-1)),
+        mThreadName(NULL),
         mLock("Thread::mLock"),
         mStatus(NO_ERROR),
         mExitPending(false), mRunning(false)

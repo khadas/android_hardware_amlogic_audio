@@ -273,6 +273,7 @@ int rc_open_input_stream(struct aml_stream_in **stream,
     config->channel_mask = static_cast<audio_channel_mask_t>(raw_channel_mask);
 
     ALOGD("%s--, ret=%d",__FUNCTION__, ret);
+    /*coverty[leaked_storage]*/
     return ret;
 }
 

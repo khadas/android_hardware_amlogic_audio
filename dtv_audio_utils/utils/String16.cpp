@@ -111,6 +111,7 @@ String16::String16(StaticLinkage)
     char16_t* data = static_cast<char16_t*>(
             SharedBuffer::alloc(sizeof(char16_t))->data());
     data[0] = 0;
+    /*coverity[ctor_dtor_leak]*/
     mString = data;
 }
 
@@ -123,24 +124,28 @@ String16::String16(const String16& o)
 String16::String16(const String16& o, size_t len, size_t begin)
     : mString(getEmptyString())
 {
+    /*coverity[ctor_dtor_leak]*/
     setTo(o, len, begin);
 }
-
+/*coverity[ctor_dtor_leak]*/
 String16::String16(const char16_t* o) : mString(allocFromUTF16(o, strlen16(o))) {}
-
+/*coverity[ctor_dtor_leak]*/
 String16::String16(const char16_t* o, size_t len) : mString(allocFromUTF16(o, len)) {}
 
 String16::String16(const String8& o)
+    /*coverity[ctor_dtor_leak]*/
     : mString(allocFromUTF8(o.string(), o.size()))
 {
 }
 
 String16::String16(const char* o)
+    /*coverity[ctor_dtor_leak]*/
     : mString(allocFromUTF8(o, strlen(o)))
 {
 }
 
 String16::String16(const char* o, size_t len)
+    /*coverity[ctor_dtor_leak]*/
     : mString(allocFromUTF8(o, len))
 {
 }

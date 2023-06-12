@@ -89,9 +89,8 @@ static bool get_dev_audio_utils_node()
 static int file_accessible(char *path)
 {
     // file is readable or not
-    if (path)
+    if (path && access(path, R_OK) == 0) {
         ALOGI("%s path: %s\n", __func__, path);
-    if (access(path, R_OK) == 0) {
         return RET_OK;
     } else {
         return RET_FAIL;
@@ -233,7 +232,7 @@ void release_dolby_dev() {
         return;
     }
     audio_utils_fd = open(MID_DEV, O_RDONLY);
-    if (audio_utils_fd > 0) {
+    if (audio_utils_fd >= 0) {
         ALOGI("%s DEV(%s) release!\n", __func__, MID_DEV);
         ioctl(audio_utils_fd, AUDIO_UTILS_IOC_FREE_LIB);
         close(audio_utils_fd);

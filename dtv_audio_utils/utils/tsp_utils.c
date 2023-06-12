@@ -80,7 +80,7 @@ int file_read(const char *name, char *buf, int len)
     {
         DRMPTRACE("read the file:\"%s\" error:\"%s\" failed", name, strerror(errno));
     } else {
-        buf[len] = '\0';
+        buf[len -1] = '\0';
     }
 
     fclose(fp);

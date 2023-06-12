@@ -150,8 +150,8 @@ int alsa_device_get_card_index_by_name(void *name)
 			}
 			memset((void *)tempbuffer, 0, READ_BUFFER_SIZE);
 		}
+		fclose(mCardFile);
 	}
-	fclose(mCardFile);
 	return mCardIndex;
 }
 

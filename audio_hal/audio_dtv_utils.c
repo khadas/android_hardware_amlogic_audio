@@ -65,10 +65,11 @@ int dtv_package_list_flush(package_list *list)
 int dtv_package_list_init(package_list *list)
 {
     pthread_mutex_init(&list->tslock, NULL);
+    pthread_mutex_lock(&list->tslock);
     list->first = NULL;
     list->pack_num = 0;
     list->current = NULL;
-
+    pthread_mutex_unlock(&(list->tslock));
     return 0;
 }
 int dtv_package_add(package_list *list, struct package *p)

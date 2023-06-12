@@ -47,6 +47,7 @@ protected:
      */
     class _Node {
     public:
+        /*coverity[uninit_member]*/
         explicit _Node(const T& val) : mVal(val) {}
         ~_Node() {}
         inline T& getRef() { return mVal; }

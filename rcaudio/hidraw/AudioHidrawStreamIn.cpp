@@ -51,7 +51,11 @@ AudioHidrawStreamIn::AudioHidrawStreamIn(AudioHardwareInput& owner)
     mPcmConfig.period_size = DEFAULT_PERIOD_SIZE;
     mPcmConfig.period_count = PLAYBACK_PERIOD_COUNT;
     mPcmConfig.format = PCM_FORMAT_S16_LE;
-
+    mPcmConfig.start_threshold = 0;
+    mPcmConfig.stop_threshold = 0;
+    mPcmConfig.silence_threshold = 0;
+    mPcmConfig.silence_size = 0;
+    mPcmConfig.avail_min = 0;
     if (m_refNum++ == 0) {
         huitong_in_open_stream(getDeviceInfo()->hidraw_index);
     }

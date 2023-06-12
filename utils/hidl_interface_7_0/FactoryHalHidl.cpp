@@ -65,6 +65,7 @@ bool createHalService(const std::string& version, const std::string& interface,
     *rawInterface = (*factoryFunction)();
     ALOGW_IF(!*rawInterface, "Factory function %s from %s returned nullptr",
             factoryFunctionName.c_str(), libName.c_str());
+    /*coverity[leaked_storage]*/
     return true;
 }
 

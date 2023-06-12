@@ -128,10 +128,10 @@ best_overlap_offset_s16 (struct scale_tempo * st)
             ps += st->samples_overlap - st->samples_per_frame;
             i = -((long) st->samples_overlap - (long) st->samples_per_frame);
             do {
-                corr += ppc[i + 0] * ps[i + 0];
-                corr += ppc[i + 1] * ps[i + 1];
-                corr += ppc[i + 2] * ps[i + 2];
-                corr += ppc[i + 3] * ps[i + 3];
+                corr += (long long)ppc[i + 0] * ps[i + 0];
+                corr += (long long)ppc[i + 1] * ps[i + 1];
+                corr += (long long)ppc[i + 2] * ps[i + 2];
+                corr += (long long)ppc[i + 3] * ps[i + 3];
                 i += 4;
             } while (i < 0);
             if (corr > best_corr) {
@@ -659,10 +659,10 @@ static long long hal_scaletempo_timediffns(struct timespec t1, struct timespec t
 {
     long long nsec;
 
-	nsec = (t1.tv_sec - t2.tv_sec) * 1000 * 1000000;
-	nsec += (t1.tv_nsec - t2.tv_nsec);
+    nsec = (long long)(t1.tv_sec - t2.tv_sec) * 1000 * 1000000;
+    nsec += (long long)(t1.tv_nsec - t2.tv_nsec);
 
-	return nsec;
+    return nsec;
 }
 
 

@@ -336,7 +336,7 @@ static bool a2dp_state_process(struct aml_audio_device *adev, audio_config_base_
     bool                    prepared = false;
 
     const int64_t write_delta_time_us = cur_write_time_us - hal->last_write_time;
-    int64_t data_delta_time_us = (int64_t)(cur_frames * USEC_PER_SEC / config->sample_rate) - write_delta_time_us;
+    int64_t data_delta_time_us = (int64_t)cur_frames * USEC_PER_SEC / config->sample_rate - write_delta_time_us;
     hal->last_write_time = cur_write_time_us;
     if (hal->state != cur_state) {
         AM_LOGI("a2dp state changed: %s -> %s",  a2dpStatus2String(hal->state), a2dpStatus2String(cur_state));

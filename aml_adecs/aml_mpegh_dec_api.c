@@ -104,13 +104,13 @@ static int mpegh_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_conf
 
 error:
     if (mpegh_dec) {
-        if (dec_pcm_data->buf) {
+        if (dec_pcm_data && dec_pcm_data->buf) {
             aml_audio_free(dec_pcm_data->buf);
         }
-        if (dec_raw_data->buf) {
+        if (dec_raw_data && dec_raw_data->buf) {
             aml_audio_free(dec_raw_data->buf);
         }
-        if (raw_in_data->buf) {
+        if (raw_in_data && raw_in_data->buf) {
             aml_audio_free(raw_in_data->buf);
         }
         aml_audio_free(mpegh_dec);

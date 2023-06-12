@@ -1052,8 +1052,8 @@ void aml_stream_out_info_print(struct aml_stream_out *aml_out, uint64_t *frames,
     struct aml_audio_device *adev = aml_out->dev;
     struct timespec *cur_timestamp = timestamp;
 
-    uint64_t cur_info_time_in_ms = (cur_timestamp->tv_sec * 1000 + cur_timestamp->tv_nsec / 1000000);
-    uint64_t last_info_timestamp_in_ms = (aml_out->last_info_timestamp.tv_sec * 1000 + aml_out->last_info_timestamp.tv_nsec / 1000000);
+    uint64_t cur_info_time_in_ms = ((uint64_t)cur_timestamp->tv_sec * 1000 + (uint64_t)cur_timestamp->tv_nsec / 1000000);
+    uint64_t last_info_timestamp_in_ms = ((uint64_t)aml_out->last_info_timestamp.tv_sec * 1000 + (uint64_t)aml_out->last_info_timestamp.tv_nsec / 1000000);
 
     int64_t time_gap = cur_info_time_in_ms - last_info_timestamp_in_ms;
     int64_t position_gap = (*frames - aml_out->last_frame_reported) / (aml_out->hal_rate / 1000);
@@ -1925,7 +1925,7 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
                     adev->audio_patching = 0;
                 }
             }
-            adev->patch_src == SRC_INVAL;
+            adev->patch_src = SRC_INVAL;
             if (eDolbyMS12Lib == adev->dolby_lib_type) {
                 get_dolby_ms12_cleanup(&adev->ms12, false);
                 /*continuous mode is using in ms12 prepare, we should lock it*/
