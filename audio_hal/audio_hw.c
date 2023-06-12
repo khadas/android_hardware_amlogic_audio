@@ -7197,6 +7197,14 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
     struct aml_stream_out *aml_out = NULL;
     stream_usecase_t usecase = STREAM_PCM_NORMAL;
     int ret;
+    char s0[AUDIO_DEVICE_OUT_STR_LEN];
+    char s1[AUDIO_OUTPUT_FLAG_STR_LEN];
+    AM_LOGD("enter: devices=%#x/'%s' channel_mask=%#x rate=%d format=%#x/%s flags=%#x/'%s' address='%s'",
+            devices, show_audio_device_out(devices, s0, AUDIO_DEVICE_OUT_STR_LEN),
+            config->channel_mask, config->sample_rate, config->format, show_format(config->format),
+            flags, show_audio_output_flags(flags, s1, AUDIO_OUTPUT_FLAG_STR_LEN),
+            address);
+
     ret = adev_open_output_stream(dev,
                                     handle,
                                     devices,

@@ -29,8 +29,8 @@
 /* After axg chipset,
  * more devices are supported
  */
-#define PROT_TDM           3
-#define PROT_PDM           4
+#define PORT_TDM           3
+#define PORT_PDM           4
 #define PORT_SPDIFB        5
 #define PORT_I2S2HDMI      6
 #define PORT_TV            7

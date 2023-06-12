@@ -400,10 +400,10 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 	case PORT_PCM:
 		pADD = p_info->pcm_descrpt;
 		break;
-	case PROT_TDM:
+	case PORT_TDM:
 		pADD = p_info->tdm_descrpt;
 		break;
-	case PROT_PDM:
+	case PORT_PDM:
 		pADD = p_info->pdm_descrpt;
 		break;
 	case PORT_SPDIFB:

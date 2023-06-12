@@ -2868,3 +2868,242 @@ bool is_aaudio_low_latency_mode()
     return false;
 }
 
+/** this macro, passing mask's name and value
+ * If X with masking, then format name to output string(S)
+ *
+ * Using variable:
+ * x: for check masking, s: output string
+ * len:output string's capcity, c: cursor offset for output string
+ *
+ * Using macro's param:
+ * name: masking's name
+ * m: masking
+ */
+#define MASK_STR(name, m)                          \
+    if ((x&m) && c + 1 < len) {                    \
+        c += snprintf(s + c, len - c, # name ","); \
+        x &= ~m;                                   \
+    }
+
+// Definition come from /system/media/audio/include/system/audio-base.h
+#define AUDIO_OUTPUT_FLAG_LIST_DEF(V) \
+    V(NONE,             0x0)          \
+    V(DIRECT,           0x1)          \
+    V(PRIMARY,          0x2)          \
+    V(FAST,             0x4)          \
+    V(DEEP_BUFFER,      0x8)          \
+    V(COMPRESS_OFFLOAD, 0x10)         \
+    V(NON_BLOCKING,     0x20)         \
+    V(HW_AV_SYNC,       0x40)         \
+    V(TTS,              0x80)         \
+    V(RAW,              0x100)        \
+    V(SYNC,             0x200)        \
+    V(IEC958_NONAUDIO,  0x400)        \
+    V(DIRECT_PCM,       0x2000)       \
+    V(MMAP_NOIRQ,       0x4000)       \
+    V(VOIP_RX,          0x8000)       \
+    V(INCALL_MUSIC,     0x10000)      \
+    V(GAPLESS_OFFLOAD,  0x20000)      \
+    V(SPATIALIZER,      0x40000)      \
+    V(ULTRASOUND,       0x80000)
+
+char *show_audio_output_flags(audio_output_flags_t x, char *s, size_t len)
+{
+    size_t c = 0;
+    AUDIO_OUTPUT_FLAG_LIST_DEF(MASK_STR);
+    if (x != 0 && c + 1 < len) {
+        c += snprintf(s + c, len - c, "unknown_mask=%x", x);
+    }
+    return s;
+}
+
+#define AUDIO_DEVICE_OUT_LIST_DEF(V)    \
+    V(EARPIECE,             0x1)        \
+    V(SPEAKER,              0x2)        \
+    V(WIRED_HEADSET,        0x4)        \
+    V(WIRED_HEADPHONE,      0x8)        \
+    V(BT_SCO,               0x10)       \
+    V(BT_SCO_HEADSET,       0x20)       \
+    V(BT_SCO_CARKIT,        0x40)       \
+    V(BT_A2DP,              0x80)       \
+    V(BT_A2DP_HEADPHONES,   0x100)      \
+    V(BT_A2DP_SPEAKER,      0x200)      \
+    V(HDMI,                 0x400)      \
+    V(ANLG_DOCK_HEADSET,    0x800)      \
+    V(DGTL_DOCK_HEADSET,    0x1000)     \
+    V(USB_ACCESSORY,        0x2000)     \
+    V(USB_DEVICE,           0x4000)     \
+    V(REMOTE_SUBMIX,        0x8000)     \
+    V(TELEPHONY_TX,         0x10000)    \
+    V(LINE,                 0x20000)    \
+    V(HDMI_ARC,             0x40000)    \
+    V(SPDIF,                0x80000)    \
+    V(FM,                   0x100000)   \
+    V(AUX_LINE,             0x200000)   \
+    V(SPEAKER_SAFE,         0x400000)   \
+    V(IP,                   0x800000)   \
+    V(BUS,                  0x1000000)  \
+    V(PROXY,                0x2000000)  \
+    V(USB_HEADSET,          0x4000000)  \
+    V(HEARING_AID,          0x8000000)  \
+    V(ECHO_CANCELLER,       0x10000000) \
+    V(DEFAULT,              0x40000000)
+
+char *show_audio_device_out(audio_devices_t x, char *s, size_t len)
+{
+    size_t c = 0;
+    AUDIO_DEVICE_OUT_LIST_DEF(MASK_STR);
+    if (x != 0 && c + 1 < len) {
+        c += snprintf(s + c, len - c, "unknown_mask=%x", x);
+    }
+    return s;
+}
+
+char *show_int_array(const int *a, size_t n, char delim, char *s, size_t len)
+{
+    if (n == 0) {
+        *s = '\0';
+        return s;
+    }
+    size_t i, c = 0;
+    for (i = 0; i != n && c < len; i++) {
+        if (a[i] == 0) {
+            break;
+        }
+        if (i != 0) {
+            c += snprintf(s + c, len - c, "%c%d", delim, a[i]);
+        } else {
+            c += snprintf(s + c, len - c, "%d", a[i]);
+        }
+    }
+    return s;
+}
+
+#define CASE_STR(x) case x: return # x;
+const char *show_alsa_device(alsa_device_t d)
+{
+    switch (d) {
+        CASE_STR(I2S_DEVICE);
+        CASE_STR(DIGITAL_DEVICE);
+        CASE_STR(TDM_DEVICE);
+        CASE_STR(EARC_DEVICE);
+        CASE_STR(DIGITAL_DEVICE2);
+    default: return "UNKNOWN_DEV";
+    }
+}
+
+// from alsa_device_parser.h
+const char *show_alsa_port(int p)
+{
+    switch (p) {
+        CASE_STR(PORT_I2S);
+        CASE_STR(PORT_SPDIF);
+        CASE_STR(PORT_PCM);
+        CASE_STR(PORT_TDM);
+        CASE_STR(PORT_PDM);
+        CASE_STR(PORT_SPDIFB);
+        CASE_STR(PORT_I2S2HDMI);
+        CASE_STR(PORT_TV);
+        CASE_STR(PORT_I2S1);
+        CASE_STR(PORT_I2S2);
+        CASE_STR(PORT_LOOPBACK);
+        CASE_STR(PORT_BUILTINMIC);
+        CASE_STR(PORT_EARC);
+        CASE_STR(PORT_ECHO_REFERENCE);
+        CASE_STR(PORT_I2S4HDMIRX);
+        CASE_STR(PORT_I2S4PARSER);
+    default: return "PORT_UNKNOWN";
+    }
+}
+
+#undef CASE_STR
+#define CASE_STR(x) case AUDIO_FORMAT_ ## x: return # x;
+const char *show_format(audio_format_t fmt)
+{
+    switch (fmt) {
+        CASE_STR(INVALID);
+        CASE_STR(PCM);
+        CASE_STR(MP3);
+        CASE_STR(AMR_NB);
+        CASE_STR(AMR_WB);
+        CASE_STR(AAC);
+        CASE_STR(HE_AAC_V1);
+        CASE_STR(HE_AAC_V2);
+        CASE_STR(VORBIS);
+        CASE_STR(OPUS);
+        CASE_STR(AC3);
+        CASE_STR(E_AC3);
+        CASE_STR(DTS);
+        CASE_STR(DTS_HD);
+        CASE_STR(IEC61937);
+        CASE_STR(DOLBY_TRUEHD);
+        CASE_STR(EVRC);
+        CASE_STR(EVRCB);
+        CASE_STR(EVRCWB);
+        CASE_STR(EVRCNW);
+        CASE_STR(AAC_ADIF);
+        CASE_STR(WMA);
+        CASE_STR(WMA_PRO);
+        CASE_STR(AMR_WB_PLUS);
+        CASE_STR(MP2);
+        CASE_STR(QCELP);
+        CASE_STR(DSD);
+        CASE_STR(FLAC);
+        CASE_STR(ALAC);
+        CASE_STR(APE);
+        CASE_STR(AAC_ADTS);
+        CASE_STR(SBC);
+        CASE_STR(APTX);
+        CASE_STR(APTX_HD);
+        CASE_STR(AC4);
+        CASE_STR(LDAC);
+        CASE_STR(MAT);
+        CASE_STR(AAC_LATM);
+        CASE_STR(CELT);
+        CASE_STR(APTX_ADAPTIVE);
+        CASE_STR(LHDC);
+        CASE_STR(LHDC_LL);
+        CASE_STR(APTX_TWSP);
+        /* Aliases */
+        CASE_STR(PCM_16_BIT);
+        CASE_STR(PCM_8_BIT);
+        CASE_STR(PCM_32_BIT);
+        CASE_STR(PCM_8_24_BIT);
+        CASE_STR(PCM_FLOAT);
+        CASE_STR(PCM_24_BIT_PACKED);
+
+        CASE_STR(AAC_MAIN);
+        CASE_STR(AAC_LC);
+        CASE_STR(AAC_SSR);
+        CASE_STR(AAC_LTP);
+        CASE_STR(AAC_HE_V1);
+        CASE_STR(AAC_SCALABLE);
+        CASE_STR(AAC_ERLC);
+        CASE_STR(AAC_LD);
+        CASE_STR(AAC_HE_V2);
+        CASE_STR(AAC_ELD);
+        CASE_STR(AAC_XHE);
+        CASE_STR(AAC_ADTS_MAIN);
+        CASE_STR(AAC_ADTS_LC);
+        CASE_STR(AAC_ADTS_SSR);
+        CASE_STR(AAC_ADTS_LTP);
+        CASE_STR(AAC_ADTS_HE_V1);
+        CASE_STR(AAC_ADTS_SCALABLE);
+        CASE_STR(AAC_ADTS_ERLC);
+        CASE_STR(AAC_ADTS_LD);
+        CASE_STR(AAC_ADTS_HE_V2);
+        CASE_STR(AAC_ADTS_ELD);
+        CASE_STR(AAC_ADTS_XHE);
+        CASE_STR(AAC_LATM_LC);
+        CASE_STR(AAC_LATM_HE_V1);
+        CASE_STR(AAC_LATM_HE_V2);
+
+        CASE_STR(E_AC3_JOC);
+
+        CASE_STR(MAT_1_0);
+        CASE_STR(MAT_2_0);
+        CASE_STR(MAT_2_1);
+    default:
+        return "unknown audio_format";
+    }
+}

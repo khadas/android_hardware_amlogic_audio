@@ -264,5 +264,63 @@ void aml_enter_aaudio_low_latency(struct aml_audio_device *adev);
 void aml_leave_aaudio_low_latency(struct aml_audio_device *adev);
 bool is_aaudio_low_latency_mode();
 
+#define AUDIO_CONFIG_STR_LEN        64
+static inline char *show_audio_config(audio_config_base_t *p, char *s, size_t n) {
+    size_t w;
+    if (p == NULL) {
+        w = snprintf(s, n, "(nil)");
+    } else {
+        w = snprintf(s, n, "(rt=%u ch_mask=0x%x fmt=0x%x)",
+                     p->sample_rate, p->channel_mask, p->format);
+    }
+    return s;
+}
 
+#define AUDIO_OUTPUT_FLAG_STR_LEN   256
+/**
+ * @brief show audio output flag to string
+ * when flag is 0x9, result string is "DIRECT,DEEP_BUFFER"
+ *
+ * @param x audio output flag
+ * @param s string buffer
+ * @param len length of string buffer, suggested size is AUDIO_OUTPUT_FLAG_STR_LEN
+ *
+ * @return string buffer
+ */
+char *show_audio_output_flags(audio_output_flags_t x, char *s, size_t len);
+
+#define AUDIO_DEVICE_OUT_STR_LEN    256
+/**
+ * @brief show output audio devices to string
+ * when device is 0x400, strings is "HDMI,"
+ *
+ * @param x output audio devices
+ * @param s string buffer
+ * @param len length of string buffer, suggested size is AUDIO_DEVICE_OUT_STR_LEN
+ *
+ * @return string buffer
+ */
+char *show_audio_device_out(audio_devices_t x, char *s, size_t len);
+
+/**
+ * @brief Show int array to string buffer
+ * It may early end when elemenent is zero
+ * show [1,2,3,0] with delimitor=',', string is "1,2,3"
+ * show [1,2,3] with delimitor=' ', string is "1 2 3"
+ *
+ * @param a array
+ * @param n array's capcity
+ * @param delim delimitor when showing array, suggested to ','
+ * @param s string buffer
+ * @param len length of string buffer
+ *
+ * @return string buffer's header
+ */
+char *show_int_array(const int *a, size_t n, char delim, char *s, size_t len);
+
+const char *show_alsa_device(alsa_device_t d);
+
+const char *show_alsa_port(int p);
+
+const char *show_format(audio_format_t fmt);
 #endif

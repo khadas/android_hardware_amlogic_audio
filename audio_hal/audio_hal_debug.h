@@ -42,6 +42,16 @@ int getprop_bool(const char *path);
 
 // utility function about pcm config
 #define PCM_CONFIG_STR_LEN          128
+/**
+ * @brief show pcm config to string
+ * For example, string is "(fmt=0 rt=48000 ch=2 period=1024*4 thr=1024-0 sil_sz=0 avail_min=0)"
+ *
+ * @param cfg config
+ * @param s string buffer
+ * @param len length of string buffer, suggested size is PCM_CONFIG_STR_LEN
+ *
+ * @return string buffer
+ */
 char *show_pcm_config(struct pcm_config *cfg, char *s, size_t len);
 
 static unsigned int bytes_to_frames(struct pcm_config *cfg, unsigned int bytes)
