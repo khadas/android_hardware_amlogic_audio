@@ -449,17 +449,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     if (patch && patch->need_do_avsync) {
                          memset(dec_data, 0, pcm_len);
                     } else {
-                        if (adev->mute_start)  {
-                            /* fade in start */
-                            ALOGI("start fade in");
-                            start_ease_in(adev->audio_ease);
-                            adev->mute_start = false;
-                        }
-
-                        if (adev->audio_patching) {
-                           /*ease in or ease out*/
-                           aml_audio_ease_process(adev->audio_ease, dec_data, pcm_len);
-                        }
+                        tv_do_ease_in(stream, dec_data, pcm_len);
                     }
 
                     /* if audio channel status changes to "NONAUDIO", software parser doesn't detect audio format change, mute audio */

@@ -112,26 +112,12 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
             adev->patch_src == SRC_DTV ||
             adev->patch_src == SRC_ARCIN) && patch) {
 
-        if (patch->need_do_avsync) {
+        if ((patch->need_do_avsync || !patch->input_signal_stable) && adev->patch_src != SRC_DTV) {
             if (!ms12->is_muted) {
                 set_ms12_main_audio_mute(ms12, true, 0);
             }
         } else {
-            ALOGV("adev->tv_mute %d ms12->is_muted %d ms12->do_easing %d 12_main_input_size %"PRIu64" ",
-                adev->tv_mute,ms12->is_muted, ms12->do_easing, ms12->ms12_main_input_size);
-            /*use ms12_main_input_size and tv_mute to do mute in case that tv_mute cmd later*/
-            if (ms12->ms12_main_input_size == 0 || adev->tv_mute) {
-                if (!ms12->is_muted) {
-                    set_ms12_main_audio_mute(ms12, true, 0);
-                }
-            } else {
-                if (!ms12->do_easing) {
-                    if (ms12->is_muted) {
-                        ALOGI("ms12 render easing in using %d ms ",MS12_AUDIO_FADEIN_TV_DURATION_US / 1000);
-                        set_ms12_main_audio_mute(ms12, false, MS12_AUDIO_FADEIN_TV_DURATION_US / 1000);
-                    }
-                }
-            }
+            tv_do_ease_in(stream, buffer, write_bytes);
         }
     }
 

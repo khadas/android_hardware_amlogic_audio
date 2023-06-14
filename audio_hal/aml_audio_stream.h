@@ -35,6 +35,12 @@
 #define MS12_AUDIO_FADEIN_TV_DURATION_US  200 * 1000
 #define AUDIO_FADEOUT_STB_DURATION_US 40 * 1000
 
+enum {
+    DO_FADE_AT_HAL,
+    DO_FADE_AT_ALSA,
+    DO_FADE_AT_MAX
+};
+
 #define RAW_USECASE_MASK ((1<<STREAM_RAW_DIRECT) | (1<<STREAM_RAW_HWSYNC) | (1<<STREAM_RAW_PATCH))
 /*
  * 1.AUDIO_FORMAT_PCM_16_BIT is suitable for Speaker
@@ -695,7 +701,8 @@ void release_tvin_buffer(struct aml_audio_patch *patch);
 uint32_t tv_in_write(struct audio_stream_out *stream, const void* buffer, size_t bytes);
 uint32_t tv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes);
 int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parms *parms);
-void tv_do_ease_out(struct aml_audio_device *aml_dev);
+void tv_do_ease_out(struct aml_audio_device *adev);
+void tv_do_ease_in(struct audio_stream_out *stream, void *write_buf, size_t write_bytes);
 
 /*
 *@brief check tv signal need to mute or not

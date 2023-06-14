@@ -2573,20 +2573,18 @@ int audio_dtv_patch_output_single_decoder(struct aml_audio_patch *patch,
     struct package *cur_package = patch->cur_package;
     aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     int ret = 0;
-    int main_size = 0;
-    if (!cur_package ) {
-        ALOGI("cur_package NULL");
+    if (!cur_package  || !cur_package->data || !cur_package->size) {
+        ALOGI("cur_package invalid");
+        if (cur_package) {
+            if (cur_package->data) {
+                aml_audio_free(cur_package->data);
+            }
+            aml_audio_free(cur_package);
+        }
+        cur_package = NULL;
         return ret;
     }
-    if (cur_package->data)  {
-        if (cur_package->size == 0) {
-            ALOGI("cur_package->size  %d", cur_package->size );
-            return ret;
-        }
-    } else {
-         ALOGI("cur_package->data NULL !!!");
-         return ret;
-    }
+
     if (!aml_out->aml_dec && patch->aformat == AUDIO_FORMAT_E_AC3 && !aml_out->ad_substream_supported) {
         aml_out->ad_substream_supported = is_ad_substream_supported((unsigned char *)cur_package->data, cur_package->size);
     }
@@ -2664,6 +2662,24 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
     aml_dec_t *aml_dec = aml_out->aml_dec;
     package_list *list = patch->dtv_package_list;
 
+    struct package *p_package = NULL;
+    p_package = patch->cur_package;
+    int ret = 0;
+    if (!p_package  || !p_package->data || !p_package->size) {
+        ALOGI("p_package invalid");
+        if (p_package) {
+            if (p_package->data) {
+                aml_audio_free(p_package->data);
+            }
+            if (p_package->ad_data) {
+                aml_audio_free(p_package->ad_data);
+            }
+            aml_audio_free(p_package);
+        }
+        p_package = NULL;
+        return ret;
+    }
+
     unsigned char *mixbuffer = aml_audio_malloc(EAC3_IEC61937_FRAME_SIZE);
     if (!mixbuffer) {
         ALOGE("audio_dtv_patch_output_dual_decoder aml_audio_malloc fail");
@@ -2671,11 +2687,9 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
     }
     uint16_t *p16_mixbuff = NULL;
     int main_size = 0, ad_size = 0, mix_size = 0 , dd_bsmod = 0;
-    int ret = 0;
 
-    struct package *p_package = NULL;
-    p_package = patch->cur_package;
     patch->cur_package->split_frame_size = 0;
+
 
     if (patch->aformat == AUDIO_FORMAT_AC3 ||
         patch->aformat == AUDIO_FORMAT_E_AC3) {
@@ -3639,7 +3653,7 @@ void aml_audio_flush_dtv_output(struct aml_stream_out *aml_out) {
             patch->cur_package->size = 0;
         }
     } else {
-        //patch->cur_package->size = 0;
+        patch->cur_package->size = 0;
     }
     if (aml_dev->dolby_lib_type == eDolbyMS12Lib) {
         if (!is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)) {
@@ -3864,11 +3878,13 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
                 if (status.state == PCM_STATE_XRUN) {
                     ALOGI("es data arrive jitter %" PRIu64 " ms and underrun do fade ", data_arrive_jitter_ms);
                     set_ms12_main_audio_mute(&aml_dev->ms12, true, 0);
+                    aml_dev->mute_start = true;
                 }
             }
             if (data_pts_jitter_ms >= AUDIO_PTS_DISCONTINUE_THRESHOLD) {
                 ALOGI("es data pts jitter %" PRIu64 " ms  do flush", data_pts_jitter_ms);
                 aml_audio_flush_dtv_output(aml_out);
+#if 0
                 while (!patch->output_thread_exit) {
                     if (dtv_package_is_full(list)) {
                         break;
@@ -3882,6 +3898,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
                     }
                     usleep(100000);
                 }
+#endif
             }
         }
 
