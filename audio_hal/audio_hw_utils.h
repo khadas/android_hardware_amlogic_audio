@@ -249,4 +249,6 @@ static inline bool is_tvinput_source(enum patch_src_assortion patch_src) {
            patch_src == SRC_LINEIN || patch_src == SRC_SPDIFIN || patch_src == SRC_ARCIN);
 }
 
+void aml_alsa_pcm_info_dump(struct pcm* pcm, int fd);
+
 #endif

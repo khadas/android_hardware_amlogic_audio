@@ -1700,6 +1700,38 @@ void mixer_dump(int s32Fd, const struct aml_audio_device *pstAmlDev)
     }
 }
 
+void mixer_using_alsa_device_dump(int s32Fd, const struct aml_audio_device *pstAmlDev)
+{
+    if (NULL == pstAmlDev || NULL == pstAmlDev->sm) {
+        dprintf(s32Fd, "\t[AML_HAL] device or sub mixing is NULL !\n");
+        return;
+    }
+    struct amlAudioMixer *pstAudioMixer = (struct amlAudioMixer *)pstAmlDev->sm->mixerData;
+    if (NULL == pstAudioMixer) {
+        dprintf(s32Fd, "\t[AML_HAL] amlAudioMixer is NULL !\n");
+        return;
+    }
+
+    output_port *pstOutPort = NULL;
+    MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(pstAudioMixer, &pstOutPort);
+    if (port_index == MIXER_OUTPUT_PORT_INVAL) {
+        AM_LOGE("%s :mixer_get_cur_outport is fail", __func__);
+        return ;
+    }
+
+    if (pstOutPort) {
+        struct pcm *pcm = pstOutPort->pcm_handle;
+        if (!pcm) {
+            pthread_mutex_unlock(&pstAudioMixer->outport_locks[port_index]);
+            return;
+        }
+
+        aml_alsa_pcm_info_dump(pcm, s32Fd);
+        pthread_mutex_unlock(&pstAudioMixer->outport_locks[port_index]);
+    }
+}
+
+
 int mixer_set_karaoke(struct amlAudioMixer *audio_mixer, struct kara_manager *kara)
 {
     output_port *out_port = NULL;

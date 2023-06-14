@@ -856,6 +856,13 @@ typedef struct alsa_handle {
     int pcm2_mute_cnt;
 } alsa_handle_t;
 
+void *get_internal_pcm(void *handle) {
+    if (!handle) {
+        return NULL;
+    }
+    return ((alsa_handle_t *)handle)->pcm;
+}
+
 static void alsa_write_new_rate_control(void *handle) {
 
     alsa_handle_t * alsa_handle = (alsa_handle_t *)handle;

@@ -62,6 +62,11 @@
 #define LOGFUNC(...) (ALOGD(__VA_ARGS__))
 #endif
 
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+#endif
+
+
 //DRC Mode
 #define DDPI_UDC_COMP_LINE 2
 #define DRC_MODE_BIT  0
@@ -2534,5 +2539,82 @@ void check_write_time(struct audio_stream_out *stream, size_t bytes)
 
     aml_out->last_write_start_time_in_ms = cur_write_start_time_in_ms;
     aml_out->last_write_data_in_byte = cur_write_data_in_byte;
+}
+
+
+void aml_alsa_pcm_info_dump(struct pcm* pcm, int fd)
+{
+    struct pcm_config alsa_config;
+    struct snd_pcm_info info;
+    struct snd_pcm_status status;
+    int ret = 0;
+
+    struct pcm_state_to_str {
+        int state;
+        const char *str;
+    } state_map[] = {
+        {PCM_STATE_OPEN, "OPEN"},
+        {PCM_STATE_SETUP, "SETUP"},
+        {PCM_STATE_PREPARED, "PREPARE"},
+        {PCM_STATE_RUNNING, "RUNNING"},
+        {PCM_STATE_XRUN, "XRUN"},
+        {PCM_STATE_DRAINING, "DRAINING"},
+        {PCM_STATE_PAUSED, "PAUSED"},
+        {PCM_STATE_SUSPENDED, "SUSPENDED"},
+        {PCM_STATE_DISCONNECTED, "DISCONNECTED"},
+    };
+
+    if (!pcm) {
+        return;
+    }
+
+    ret = pcm_get_config(pcm, &alsa_config);
+    if (ret < 0) {
+        return;
+    }
+
+    ret = pcm_ioctl(pcm, SNDRV_PCM_IOCTL_INFO, &info);
+    if (ret < 0) {
+        return;
+    }
+
+    ret = pcm_ioctl(pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+    if (ret < 0) {
+        return;
+    }
+
+    dprintf(fd, "    Card_Num:%d PCM_Num:%d Direction:%s\n", info.card, info.device, (info.stream==0 ? "PLAYBACK" : "CAPTURE"));
+    dprintf(fd, "\tinfo:\n");
+    dprintf(fd, "\t\tid:%s\n", info.id);
+    dprintf(fd, "\t\tname:%s\n", info.name);
+    dprintf(fd, "\t\tsubname:%s\n", info.subname);
+    dprintf(fd, "\t\tdevice:%d\n", info.device);
+    dprintf(fd, "\t\tsubdevice:%d\n", info.subdevice);
+    dprintf(fd, "\t\tsubdevice_count:%d\n", info.subdevices_count);
+    dprintf(fd, "\t\tsubdevices_avail:%d\n", info.subdevices_avail);
+
+    dprintf(fd, "\thw_params:\n");
+    dprintf(fd, "\t\tbit_depth:%d\n", pcm_format_to_bits(alsa_config.format));
+    dprintf(fd, "\t\tchannels:%d\n", alsa_config.channels);
+    dprintf(fd, "\t\trate:%d\n", alsa_config.rate);
+    dprintf(fd, "\t\tperiod_size:%d\n", alsa_config.period_size);
+    dprintf(fd, "\t\tperiod_count:%d\n", alsa_config.period_count);
+    dprintf(fd, "\t\tbuffer_size:%d\n", pcm_get_buffer_size(pcm));
+
+    dprintf(fd, "\tsw_params:\n");
+    dprintf(fd, "\t\tstart_threshold:%d\n", alsa_config.start_threshold);
+    dprintf(fd, "\t\tstop_threshold:%d\n", alsa_config.stop_threshold);
+    dprintf(fd, "\t\tsilence_threshold:%d\n", alsa_config.silence_threshold);
+    dprintf(fd, "\t\tsilence_size:%d\n", alsa_config.silence_size);
+
+    dprintf(fd, "\tstatus:\n");
+    dprintf(fd, "\t\tstate:%s\n", (status.state < ARRAY_SIZE(state_map) ? state_map[status.state].str : "UNKNOWN"));
+    dprintf(fd, "\t\ttrigger_time:%ld.%ld\n", status.trigger_tstamp.tv_sec, status.trigger_tstamp.tv_nsec);
+    dprintf(fd, "\t\ttstamp:%ld.%ld\n", status.tstamp.tv_sec, status.tstamp.tv_nsec);
+    dprintf(fd, "\t\tavail:%lu\n", status.avail);
+    dprintf(fd, "\t\tavail_max:%lu\n", status.avail_max);
+    dprintf(fd, "\t\t-----\n");
+    dprintf(fd, "\t\thw_ptr:%lu\n", status.hw_ptr);
+    dprintf(fd, "\t\tappl_ptr:%lu\n", status.appl_ptr);
 }
 

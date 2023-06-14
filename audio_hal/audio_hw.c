@@ -8757,6 +8757,8 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
 
     dolby_ms12_info_dump(fd);
 
+    aml_alsa_device_status_dump(aml_dev, fd);
+
     if (profile_is_valid(&aml_dev->usb_audio.in_profile)) {
         dprintf(fd, "\n-----------[AML_HAL] USB input device Capability-----------\n");
         profile_dump(&aml_dev->usb_audio.in_profile, fd);

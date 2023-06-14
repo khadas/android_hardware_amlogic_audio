@@ -669,6 +669,7 @@ void aml_audio_patch_dump(struct audio_patch *patch, int fd);
 void aml_audio_patches_dump(struct aml_audio_device* aml_dev, int fd);
 int aml_dev_dump_latency(struct aml_audio_device *aml_dev, int fd);
 void audio_patch_dump(struct aml_audio_device* aml_dev, int fd);
+void aml_alsa_device_status_dump(struct aml_audio_device* aml_dev, int fd);
 bool is_use_spdifb(struct aml_stream_out *out);
 bool is_dolby_ms12_support_compression_format(audio_format_t format);
 bool is_dolby_ddp_support_compression_format(audio_format_t format);

@@ -108,4 +108,8 @@ int aml_alsa_output_data_handle(void *handle, void *output_buffer, size_t size, 
 
 void alsa_out_reconfig_params(struct audio_stream_out *stream);
 enum pcm_format convert_audio_format_2_alsa_format(audio_format_t format);
+/*
+* get struct pcm* instance from alsa_handle
+*/
+void *get_internal_pcm(void *handle);
 #endif // _ALSA_MANAGER_H_

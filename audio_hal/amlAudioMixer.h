@@ -99,6 +99,7 @@ int mixer_set_padding_size(
 int mixer_set_continuous_output(struct amlAudioMixer *audio_mixer, bool continuous_output);
 int mixer_outport_pcm_restart(struct amlAudioMixer *audio_mixer);
 void mixer_dump(int s32Fd, const struct aml_audio_device *pstAmlDev);
+void mixer_using_alsa_device_dump(int s32Fd, const struct aml_audio_device *pstAmlDev);
 bool has_hwsync_stream_running(struct audio_stream_out *stream);
 /* usb karaoke for hal mixer */
 int mixer_set_karaoke(struct amlAudioMixer *audio_mixer, struct kara_manager *kara);

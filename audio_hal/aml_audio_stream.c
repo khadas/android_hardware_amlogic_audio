@@ -36,6 +36,7 @@
 #include "audio_format_parse.h"
 #include "alsa_config_parameters.h"
 #include "audio_hw_ms12.h"
+#include "amlAudioMixer.h"
 
 #ifdef MS12_V24_ENABLE
 #include "audio_hw_ms12_v2.h"
@@ -1227,6 +1228,65 @@ void audio_patch_dump(struct aml_audio_device* aml_dev, int fd)
 
 
 }
+
+
+void aml_alsa_device_status_dump(struct aml_audio_device* aml_dev, int fd)
+{
+    dprintf(fd, "\n-------------[AML_HAL]  ALSA devices status ---------------\n");
+    bool stream_using = false;
+    /* StreamOut using alsa devices list */
+    for (int i = 0; i < ALSA_DEVICE_CNT; i++) {
+        pthread_mutex_lock(&aml_dev->lock);
+        pthread_mutex_lock(&aml_dev->alsa_pcm_lock);
+        struct pcm *pcm_1 = aml_dev->pcm_handle[i];
+        void *alsa_handle = aml_dev->alsa_handle[i];
+        if (!pcm_1 && !alsa_handle) {
+            pthread_mutex_unlock(&aml_dev->alsa_pcm_lock);
+            pthread_mutex_unlock(&aml_dev->lock);
+            continue;
+        }
+
+        if (!stream_using) {
+            dprintf(fd, "  [AML_HAL] StreamOut using PCM list:\n");
+            stream_using = true;
+        }
+
+        if (pcm_1) {
+            aml_alsa_pcm_info_dump(pcm_1, fd);
+        }
+
+        if (alsa_handle) {
+            struct pcm* pcm_2 = (struct pcm*) get_internal_pcm(alsa_handle);
+            aml_alsa_pcm_info_dump(pcm_2, fd);
+        }
+        pthread_mutex_unlock(&aml_dev->alsa_pcm_lock);
+        pthread_mutex_unlock(&aml_dev->lock);
+    }
+    if (!stream_using) {
+        dprintf(fd, "  [AML_HAL] StreamOut using PCM list: None!\n");
+    }
+
+    /* Mixer outport using alsa devices list */
+    dprintf(fd, "  [AML_HAL] mixer using PCM list:\n");
+    mixer_using_alsa_device_dump(fd, aml_dev);
+
+    /* StreamIn using alsa devices list */
+    pthread_mutex_lock(&aml_dev->lock);
+    stream_using = false;
+    if (aml_dev->active_input) {
+        struct pcm *pcm = aml_dev->active_input->pcm;
+        if (pcm) {
+            stream_using = true;
+            dprintf(fd, "  [AML_HAL] StreamIn using PCM list:\n");
+            aml_alsa_pcm_info_dump(pcm, fd);
+        }
+    }
+    if (!stream_using) {
+       dprintf(fd, "  [AML_HAL] StreamIn using PCM list: None!\n");
+    }
+    pthread_mutex_unlock(&aml_dev->lock);
+}
+
 
 bool is_use_spdifb(struct aml_stream_out *out) {
     struct aml_audio_device *adev = out->dev;
