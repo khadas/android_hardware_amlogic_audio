@@ -85,6 +85,8 @@ typedef enum dmx_input
   26 // AFORMAT_MPEG-->mp3,AFORMAT_MPEG1-->mp1,AFROMAT_MPEG2-->mp2
 #define ACODEC_FMT_MPEG2 27
 #define ACODEC_FMT_WMAVOI 28
+#define ACODEC_FMT_AC4 29
+
 
 typedef enum dmx_ts_pes
 {
@@ -197,7 +199,11 @@ enum dmx_audio_format {
         AUDIO_AAC_ADTS = 3,     /* AAC-ADTS */
         AUDIO_AAC_LOAS = 4,     /* AAC-LOAS */
         AUDIO_DTS = 5,          /* DTS */
-        AUDIO_MAX
+        MEDIA_TS_SYS = 6,   /* TS System information (PAT, PMT, etc) */
+        MEDIA_PES_SUB = 7,  /* PES format subtitle/audio stream */
+        MEDIA_PTS_PACK = 8, /* PTS pack in proprietary format */
+        AUDIO_AC4 = 9,      /* AC4 */
+        AUDIO_MAX,
 };
 
 struct dmx_pes_filter_params

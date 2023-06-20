@@ -325,6 +325,9 @@ AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperSetADAudioParam(int aid, 
        case ACODEC_FMT_EAC3:
            aud_format = AUDIO_AC3;
            break;
+       case ACODEC_FMT_AC4:
+          aud_format = AUDIO_AC4;
+          break;
        case ACODEC_FMT_AAC:
            aud_format = AUDIO_AAC_ADTS;
            break;
@@ -451,6 +454,9 @@ AM_DmxErrorCode_t AmHwMultiDemuxWrapper::AmDemuxWrapperSetAudioParam(int aid, AM
        case ACODEC_FMT_EAC3:
            aud_format = AUDIO_AC3;
            break;
+       case ACODEC_FMT_AC4:
+          aud_format = AUDIO_AC4;
+          break;
        case ACODEC_FMT_AAC:
            aud_format = AUDIO_AAC_ADTS;
            break;
