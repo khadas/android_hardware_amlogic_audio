@@ -369,7 +369,7 @@ static int faad_decoder_process(aml_dec_t *aml_dec, unsigned char *buffer, int b
       int pcm_len = AAC_MAX_LENGTH;
       int decode_len = faad_op->decode(faad_op, (char *)(dec_pcm_data->buf + dec_pcm_data->data_len), &pcm_len, (char *)aac_dec->remain_data + used_size, aac_dec->remain_size  - used_size);
 
-      if (decode_len > 0) {
+      if (pcm_len > 0) {
           used_size += decode_len;
           dec_pcm_data->data_len += pcm_len;
           if (dec_pcm_data->data_len > dec_pcm_data->buf_size) {
