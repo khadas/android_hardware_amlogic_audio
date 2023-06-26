@@ -4048,6 +4048,11 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     ret = str_parms_get_int(parms, "hal_param_bt_avrcp_supported", &val);
     if (ret >= 0) {
         adev->bt_avrcp_supported = (val != 0);
+        /* Some Bt speakers(eg: JBL Go3...) send whether to support AVRCP later than the creation of audio_patch.
+         * We need to force the volume to the maximum when setting avrcp support. */
+        if (adev->bt_avrcp_supported) {
+            adev->sink_gain[OUTPORT_A2DP] = 1.0;
+        }
         goto exit;
     }
 
