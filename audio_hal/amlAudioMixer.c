@@ -1625,6 +1625,11 @@ int mixer_outport_pcm_restart(struct amlAudioMixer *audio_mixer)
         return -1;
     }
     R_CHECK_POINTER_LEGAL(-1, out_port, "");
+    /*
+    * tdm and spdif have same source for HDMI.
+    * Here need to restart pcm/tdm device when select audio source tdm to HDMITx.
+    * Or the sink device will no sound when it just only support pcm.
+    **/
     outport_pcm_restart(out_port);
     pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
     return 0;

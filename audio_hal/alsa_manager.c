@@ -586,6 +586,11 @@ write:
 
     }
 
+    /*
+    * tdm and spdif have same source for HDMI.
+    * Here need to restart pcm/tdm device when select audio source tdm to HDMITx.
+    * Or the sink device will no sound when it just only support pcm.
+    **/
     if (adev->raw_to_pcm_flag) {
         pcm_stop(aml_out->pcm);
         adev->raw_to_pcm_flag = false;

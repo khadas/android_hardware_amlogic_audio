@@ -1650,8 +1650,14 @@ static int out_flush_subMixingPCM(struct audio_stream_out *stream)
 
 int subMixingOutputRestart(struct aml_audio_device *adev)
 {
-    struct subMixing *sm = adev->sm;
-    struct amlAudioMixer *audio_mixer = sm->mixerData;
+    struct subMixing *sm = NULL;
+    struct amlAudioMixer *audio_mixer = NULL;
+
+    R_CHECK_POINTER_LEGAL(-EINVAL, adev, "");
+    sm = adev->sm;
+    R_CHECK_POINTER_LEGAL(-EINVAL, sm, "");
+    audio_mixer = sm->mixerData;
+    R_CHECK_POINTER_LEGAL(-EINVAL, audio_mixer, "");
 
     return mixer_outport_pcm_restart(audio_mixer);
 }

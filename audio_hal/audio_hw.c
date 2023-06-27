@@ -9026,7 +9026,11 @@ static int adev_set_device_connected_state_v7(struct audio_hw_device *dev,
         set_device_connect_state(aml_dev, parms, port->ext.device.type, connected);
         if (connected) {
             if (port->ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC) {
-                aml_dev->raw_to_pcm_flag = true;
+                if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
+                    aml_dev->raw_to_pcm_flag = true;
+                } else {
+                    subMixingOutputRestart(aml_dev);
+                }
             }
 
             if (aml_dev->bHDMIConnected == 1) {

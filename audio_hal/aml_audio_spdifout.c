@@ -409,6 +409,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
         device_config.device_port = alsa_device_get_port_index(device_id);
         phandle->spdif_port       = device_config.device_port;
         phandle->sample_rate      = spdif_config->rate;
+        //ALOGI("%s   device_id:%d  device_config.device_port:%d", __func__, device_id, device_config.device_port);
 
         aml_spdif_format = halformat_convert_to_spdif(audio_format, stream_config.config.channel_mask);
         aml_arc_format   = halformat_convert_to_arcformat(audio_format, stream_config.config.channel_mask);
@@ -477,7 +478,11 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
                     aml_audio_select_src_to_hdmi(bd_config->hdmitx_src);
                     phandle->restore_hdmitx_selection = 1;
                 }
-                aml_dev->raw_to_pcm_flag = true;
+                if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
+                    aml_dev->raw_to_pcm_flag = true;
+                } else {
+                    subMixingOutputRestart(aml_dev);
+                }
             }
         }
 
