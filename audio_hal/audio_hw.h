@@ -617,6 +617,7 @@ struct aml_audio_device {
     enum AML_SRC_TO_HDMITX hdmitx_multi_ch_src;
     enum AML_SRC_TO_HDMITX hdmitx_hbr_src;
     fg_stream_type_t foreground_stream_type;
+    bool continuous_enable_mixer_max_size;
 };
 
 struct meta_data {

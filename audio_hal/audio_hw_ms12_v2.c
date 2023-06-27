@@ -1073,6 +1073,14 @@ int get_the_dolby_ms12_prepared(
         input_sample_rate = OUTPUT_ALSA_SAMPLERATE;
     }
 
+    if (continuous_mode(adev) && adev->continuous_enable_mixer_max_size) {
+        ms12->enable_mixer_max_size = adev->continuous_enable_mixer_max_size;
+    } else {
+        ms12->enable_mixer_max_size = true;
+    }
+    ALOGI("%s : continuous_mode %d, continuous_enable_mixer_max_size %d, ms12->enable_mixer_max_size %d", __func__, \
+            continuous_mode(adev), adev->continuous_enable_mixer_max_size, ms12->enable_mixer_max_size);
+
     aml_ms12_config(ms12, input_format, input_channel_mask, input_sample_rate, output_config, get_ms12_path());
     ms12->dolby_ms12_init_flags = true;
     if (ms12->dolby_ms12_enable) {
@@ -1120,6 +1128,7 @@ int get_the_dolby_ms12_prepared(
     ms12->master_pcm_frames  = 0;
     ms12->ms12_main_input_size = 0;
     ms12->main_input_ns      = 0;
+    ms12->main_output_ns     = 0;
     ms12->do_easing = false;
     ms12->is_muted = false;
     ms12->b_legacy_ddpout    = dolby_ms12_get_ddp_5_1_out();
@@ -4189,6 +4198,36 @@ static int ms12_update_decoded_info_process(struct audio_stream_out *stream, voi
 
     return 0;
 
+}
+
+int dolby_ms12_main_resume_prepare(struct audio_stream_out *stream)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+
+    uint64_t ms12_dec_out_nframes = dolby_ms12_get_decoder_nframes_pcm_output(adev->ms12.dolby_ms12_ptr, aml_out->hal_internal_format, MAIN_INPUT_STREAM);
+    ms12->main_output_ns = ms12_dec_out_nframes * 1000000LL / 48;
+    /*why we add 1ms
+     *because the main_input_ns is not accurate enough, it lost the decimal part
+     *so we add 1ms to compensate
+     */
+    uint64_t main_buffer_duration_ns = (ms12->main_input_ns + NANO_SECOND_PER_MILLISECOND - ms12->main_output_ns);
+    ALOGI("%s main in =%" PRId64 " main out =%" PRId64 "", __func__, ms12->main_input_ns, ms12->main_output_ns);
+    ALOGI("%s main buffer duration =%d ms main buffer =%d ms", __func__, (int)(main_buffer_duration_ns / 1000000), (int)(MS12_MAIN_INPUT_BUF_NONEPCM_NS / 1000000));
+    /* after pause/resume, the virtual buf will begin calcuale from start point,
+     * but the buffer is not empty, then it is not match between virtual and real buf,
+     * now when resume we check the real ms12 buf duration and reset the virtual buf
+     */
+    if (main_buffer_duration_ns <= MS12_MAIN_INPUT_BUF_NONEPCM_NS) {
+        audio_virtual_buf_reset(aml_out->virtual_buf_handle);
+        audio_virtual_buf_process(aml_out->virtual_buf_handle, main_buffer_duration_ns);
+    } else {
+        audio_virtual_buf_reset(aml_out->virtual_buf_handle);
+        audio_virtual_buf_process(aml_out->virtual_buf_handle, MS12_MAIN_INPUT_BUF_NONEPCM_NS);
+    }
+
+    return 0;
 }
 
 

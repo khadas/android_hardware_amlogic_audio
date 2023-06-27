@@ -199,6 +199,7 @@ struct dolby_ms12_desc {
     void * info_spdif_dec_handle;
     void * info_ac3_parser_handle;
     int mat_stream_profile;
+    bool enable_mixer_max_size;
 };
 
 /*

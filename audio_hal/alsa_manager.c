@@ -50,6 +50,8 @@
 #define MAX_AVSYNC_WAIT_TIME (3*1000*1000)
 
 #define ALSA_DELAY_THRESHOLD_MS    (32)
+// Compensate : MS12 mixer size(256 sample) + DD output, sometimes dd will underrun.
+#define ALSA_DELAY_COMPENSATE_MS   (10)
 //The maximum dts-hd frame duration is 4096 frames(This equates to 85ms at 48k sample rate.).
 #define ALSA_DELAY_THRESHOLD_FOR_DTS_MS    (85)
 
@@ -81,8 +83,10 @@ static void alsa_write_rate_control(struct audio_stream_out *stream, size_t byte
     int sample_rate = MM_FULL_POWER_SAMPLING_RATE;
     int rate_multiply = 1;
     uint64_t frame_ms = 0;
+    uint64_t delay_threshold_ms = 0;
     snd_pcm_sframes_t frames = 0;
     int ret = 0;
+    bool b_output_ac3 = false;
     switch (out_format) {
     case AUDIO_FORMAT_E_AC3:
         frame_size = AUDIO_EAC3_FRAME_SIZE;
@@ -110,6 +114,18 @@ static void alsa_write_rate_control(struct audio_stream_out *stream, size_t byte
         if (out_format == AUDIO_FORMAT_E_AC3) {
             rate_multiply = 4;
         }
+
+        delay_threshold_ms = ALSA_DELAY_THRESHOLD_MS;
+        b_output_ac3 = ((adev->optical_format == AUDIO_FORMAT_AC3) || (adev->optical_format == AUDIO_FORMAT_E_AC3));
+        if (b_output_ac3 && !adev->continuous_enable_mixer_max_size && (delay_threshold_ms <= 32)) {
+            /*
+             * MS12 mixer(256 sample) + dap processing, sometimes pcm will output delay,
+             * then spdif(dd, 32ms/IEC_Frame) will be underrun.
+             * Increase spdif buffer level, so that ms12 have more time to process data.
+            */
+            delay_threshold_ms += ALSA_DELAY_COMPENSATE_MS;
+        }
+
         frame_ms = (uint64_t)frames * 1000LL/ (sample_rate * rate_multiply);
         if (is_dts_format(aml_out->hal_internal_format) && (frame_ms > ALSA_DELAY_THRESHOLD_FOR_DTS_MS)) {
             /*we will go to sleep, unlock mutex*/
@@ -120,12 +136,12 @@ static void alsa_write_rate_control(struct audio_stream_out *stream, size_t byte
             if (mutex_lock_status) {
                 pthread_mutex_lock(&adev->alsa_pcm_lock);
             }
-        } else if (!is_dts_format(aml_out->hal_internal_format) && (frame_ms > ALSA_DELAY_THRESHOLD_MS)) {
+        } else if (!is_dts_format(aml_out->hal_internal_format) && (frame_ms > delay_threshold_ms)) {
             /*we will go to sleep, unlock mutex*/
             if (pthread_mutex_unlock(&adev->alsa_pcm_lock) == 0) {
                 mutex_lock_status = 1;
             }
-            aml_audio_sleep((frame_ms - ALSA_DELAY_THRESHOLD_MS) * 1000);
+            aml_audio_sleep((frame_ms - delay_threshold_ms) * 1000);
             if (mutex_lock_status) {
                 pthread_mutex_lock(&adev->alsa_pcm_lock);
             }

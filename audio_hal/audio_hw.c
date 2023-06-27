@@ -6296,6 +6296,7 @@ hwsync_rewrite:
             /*SWPL-11531 resume the timer here, because we have data now*/
             /*resume ms12/hwsync here, as we receive the first data*/
             if (adev->ms12.need_ms12_resume) {
+                dolby_ms12_main_resume_prepare(stream);
                 ALOGI("%s resume the ms12 and hwsync", __func__);
                 pthread_mutex_lock(&ms12->lock);
                 ms12->ms12_resume_state = MS12_RESUME_FROM_RESUME;
@@ -9311,6 +9312,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->aml_truehd_passthrough_support = property_get_bool("ro.vendor.platform.is.aml_truehd_passthrough", false);
     adev->control_hdmitx_mute = property_get_bool(PROP_AUDIO_OUTPUT_HDMITX_CONTROL_MUTE, false);
     adev->spdif_coexist_other = property_get_bool(PROP_AUDIO_OUTPUT_SPDIF_COEXIST, true);
+    adev->continuous_enable_mixer_max_size = property_get_bool("ro.vendor.media.audio.continuous.enable_mixer_max_size", true);
 
     /*for ms12 case, we set default continuous mode*/
     if (eDolbyMS12Lib == adev->dolby_lib_type) {

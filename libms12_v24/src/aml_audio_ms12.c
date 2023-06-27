@@ -49,7 +49,12 @@ int get_dolby_ms12_init(struct dolby_ms12_desc *ms12_desc, char *dolby_ms12_path
     }
 
     /*increase ms12 mixer size from 256 to 1536, except the mat output case*/
-    dolby_ms12_enable_mixer_max_size(1);
+    if (ms12_desc->enable_mixer_max_size) {
+        dolby_ms12_enable_mixer_max_size(1);
+    } else {
+        dolby_ms12_enable_mixer_max_size(0);
+    }
+    ALOGI("%s : enable_mixer_max_size %d", __func__, ms12_desc->enable_mixer_max_size);
 
     if (ms12_desc->dolby_ms12_init_argv) {
         ms12_desc->dolby_ms12_ptr = dolby_ms12_init(ms12_desc->dolby_ms12_init_argc, ms12_desc->dolby_ms12_init_argv);

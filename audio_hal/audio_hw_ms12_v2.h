@@ -370,5 +370,9 @@ audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format);
 
 void set_dolby_ms12_main_speed(struct dolby_ms12_desc *ms12, double speed);
 
+/*
+ *@brief prepare the virtual buffer info when stream resume
+ */
+int dolby_ms12_main_resume_prepare(struct audio_stream_out *stream);
 
 #endif //end of _AUDIO_HW_MS12_H_

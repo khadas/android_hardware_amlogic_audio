@@ -190,6 +190,7 @@ struct dolby_ms12_desc {
     uint32_t ms12_timer_id;
     bool sys_data_write2alsa_status;
     struct pes_mixer_metadata pes_mixer_md;
+    bool enable_mixer_max_size;
 };
 
 /*

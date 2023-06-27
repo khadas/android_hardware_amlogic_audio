@@ -133,6 +133,8 @@
 #define DOLBY_MS12_AVSYNC_BEEP_DURATION (360)//ms, every 3s one beep
 #define MILLISECOND_2_PTS (90) // 1ms = 90 (pts)
 
+#define UNUSED(x) (void)(x)
+
 /*########################### IMPORTANT AUDIO HAL VERSION #####################################*/
 //typedef int (*output_callback)(void *buffer, void *priv, size_t size);
 #define AUDIO_HAL_VERSION_0 (0)//callback own 3 parameters
@@ -3084,6 +3086,12 @@ int dolby_ms12_main_pipeline_latency_frames(struct audio_stream_out *stream) {
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     /*after enable ms12 v1.3.2, we need implement it*/
+    return 0;
+}
+
+int dolby_ms12_main_resume_prepare(struct audio_stream_out *stream)
+{
+    UNUSED(stream);
     return 0;
 }
 
