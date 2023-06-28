@@ -5316,6 +5316,7 @@ int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, con
                         ALOGI("stream_id  %d ad_pid %d", current_metadata_unit->stream_id, dmx_info->ad_pid);
                         int  dmx_id  = current_metadata_unit->stream_id >> 16;//demux id
                         dmx_info->ad_pid = current_metadata_unit->stream_id & 0xFFFF;
+                        dmx_info->ad_fmt = dmx_info->main_fmt;
                         val = dmx_info->ad_pid;
                         val = (path_id << DVB_DEMUX_ID_BASE | val);
                         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_PID, val);
@@ -5323,7 +5324,8 @@ int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, con
                         val = (path_id << DVB_DEMUX_ID_BASE | val);
                         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_SUPPORT, val);
                         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_ENABLE, val);
-                        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_VOL_LEVEL, 100);
+                        val = (path_id << DVB_DEMUX_ID_BASE | 100);
+                        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_VOL_LEVEL, val);
 
                         if (is_dolby_ms12_support_compression_format(audio_patch->aformat)) {
                             cmd = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_STOP);
