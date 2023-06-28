@@ -994,6 +994,11 @@ bool check_tv_stream_signal(struct audio_stream_in *stream)
         in_mute = Stop_watch(in->mute_start_ts, in->mute_mdelay);
         if (!in_mute) {
             ALOGI("%s: unmute audio since audio signal is stable", __func__);
+            /* The data of ALSA has not been read for a long time in the muted state,
+             * resulting in the accumulation of data. So, cache of capture needs to be cleared.
+             */
+            if (!(in->device & AUDIO_DEVICE_IN_HDMI_ARC || in->device & AUDIO_DEVICE_IN_SPDIF))
+                pcm_stop(in->pcm);
             in->mute_log_cntr = 0;
             in->mute_flag = false;
         }
@@ -1007,7 +1012,7 @@ bool check_tv_stream_signal(struct audio_stream_in *stream)
                 patch->need_do_avsync = true;
             patch->input_signal_stable = false;
             adev->mute_start = true;
-            ALOGI("%s: audio is unstable, adev->mute_start %d patch->need_do_avsync %d", __func__,adev->mute_start,patch->need_do_avsync);
+            ALOGV("%s: audio is unstable, adev->mute_start %d patch->need_do_avsync %d", __func__, adev->mute_start, patch->need_do_avsync);
         }
         return false;
     } else {
