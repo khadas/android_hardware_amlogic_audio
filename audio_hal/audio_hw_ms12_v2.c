@@ -1958,6 +1958,7 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
         return -EINVAL;
     }
     adev = ms12_to_adev(ms12);
+    adev->ms12_to_be_cleanup = true;
     pthread_mutex_lock(&ms12->lock);
     pthread_mutex_lock(&ms12->main_lock);
 
@@ -2064,6 +2065,7 @@ exit:
     ALOGI("--%s(), locked", __FUNCTION__);
     pthread_mutex_unlock(&ms12->main_lock);
     pthread_mutex_unlock(&ms12->lock);
+    adev->ms12_to_be_cleanup = false;
     ALOGI("-%s()", __FUNCTION__);
     return 0;
 }

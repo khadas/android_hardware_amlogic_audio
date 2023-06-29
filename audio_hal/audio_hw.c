@@ -3498,12 +3498,18 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 
     /* After playback for previous dts stream, there is remain data in VirtualX library. It needs to clear data buffer of VirtualX by using
        zero data to replace these remain data. Otherwise it will play this remain data first when start playback next time*/
-    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0) {
-        for (int i = 0; i < VX_BUFFER_CLEAR_COUNT; i++) {
-             memset(adev->out_16_buf, 0, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
-             audio_post_process(&adev->native_postprocess, adev->out_16_buf, VX_BUFFER_CLEAR_STEREO_FRAME_SIZE);
-             audio_VX_post_process(&adev->native_postprocess, adev->out_16_buf, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
+    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0 && out->write_count > 0) {
+        char *tmp_buffer = aml_audio_malloc(VX_BUFFER_CLEAR_STEREO_FRAME_SIZE);
+        if (!tmp_buffer) {
+            ALOGE("tmp_buffer NULL %d",__LINE__);
         }
+        for (int i = 0; i < VX_BUFFER_CLEAR_COUNT; i++) {
+             memset(tmp_buffer, 0, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
+             audio_post_process(&adev->native_postprocess, (int16_t *)tmp_buffer, VX_BUFFER_CLEAR_STEREO_FRAME_SIZE);
+             audio_VX_post_process(&adev->native_postprocess, (int16_t *)tmp_buffer, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
+        }
+        aml_audio_free(tmp_buffer);
+        tmp_buffer = NULL;
     }
 
 #if ENABLE_DVB_PATCH
@@ -5806,12 +5812,18 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
     /* After playback for previous dts stream, there is remain data in VirtualX library. It needs to clear data buffer of VirtualX by using
        zero data to replace these remain data. Otherwise it will play this remain data first when start playback next time*/
     if (patch && (patch->input_src == AUDIO_DEVICE_IN_HDMI)) {
-        if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0) {
-            for (int count = 0; count < VX_BUFFER_CLEAR_COUNT; count++) {
-                 memset(adev->out_16_buf, 0, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
-                 audio_post_process(&adev->native_postprocess, adev->out_16_buf, VX_BUFFER_CLEAR_STEREO_FRAME_SIZE);
-                 audio_VX_post_process(&adev->native_postprocess, adev->out_16_buf, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
+        if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0 && aml_out->write_count > 0) {
+            char *tmp_buffer = aml_audio_malloc(VX_BUFFER_CLEAR_STEREO_FRAME_SIZE);
+            if (!tmp_buffer) {
+                ALOGE("tmp_buffer NULL %d",__LINE__);
             }
+            for (int i = 0; i < VX_BUFFER_CLEAR_COUNT; i++) {
+                 memset(tmp_buffer, 0, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
+                 audio_post_process(&adev->native_postprocess, (int16_t *)tmp_buffer, VX_BUFFER_CLEAR_STEREO_FRAME_SIZE);
+                 audio_VX_post_process(&adev->native_postprocess, (int16_t *)tmp_buffer, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
+            }
+            aml_audio_free(tmp_buffer);
+            tmp_buffer = NULL;
         }
     }
 

@@ -777,7 +777,7 @@ void aml_dtvsync_ms12_get_policy(struct audio_stream_out *stream)
         if (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_HOLD)
             usleep(15*1000);
 
-        if (patch->output_thread_exit == 1) {
+        if (patch->output_thread_exit == 1 || adev->ms12_to_be_cleanup) {
             ALOGI("input exit, break now\n");
             m_audiopolicy.audiopolicy = MEDIASYNC_AUDIO_DROP_PCM;
             break;

@@ -479,6 +479,7 @@ struct aml_audio_device {
     int  exiting_ms12;
     bool doing_reinit_ms12;    /*we are doing reinit ms12*/
     bool doing_cleanup_ms12;   /*we are doing cleanup ms12*/
+    bool ms12_to_be_cleanup;
     struct timespec ms12_exiting_start;
     int debug_flag;
     int dcvlib_bypass_enable;
