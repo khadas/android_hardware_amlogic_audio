@@ -7743,7 +7743,6 @@ void *audio_patch_input_threadloop(void *data)
             audio_format_t cur_aformat;
             cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
             if (in->data_type == DATA_NON_PCM && audio_is_linear_pcm(cur_aformat)) {
-                audio_raw_data_parse(patch->audio_parse_para, patch->in_buf, read_bytes);
                 bytes_avail = 0;
             }
 
