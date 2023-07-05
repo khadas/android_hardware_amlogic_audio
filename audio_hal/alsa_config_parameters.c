@@ -31,7 +31,7 @@
 #define HARDWARE_CHANNEL_STEREO         2
 #define HARDWARE_CHANNEL_7_1_MULTI      8
 #define LOW_LATENCY_PERIOD_SIZE                     256
-#define LOW_LATENCY_PLAYBACK_PERIOD_COUNT           3
+#define LOW_LATENCY_PLAYBACK_PERIOD_COUNT           4
 
 
 /*
@@ -217,7 +217,7 @@ static void get_pcm_hardware_config_parameters(
             hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count / 2;
         } else {
             hardware_config->period_count = LOW_LATENCY_PLAYBACK_PERIOD_COUNT;
-            hardware_config->start_threshold = hardware_config->period_size;
+            hardware_config->start_threshold = hardware_config->period_size * 2;
         }
     }
     hardware_config->avail_min = 0;
