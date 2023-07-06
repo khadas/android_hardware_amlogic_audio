@@ -224,6 +224,8 @@ static int faad_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_confi
     }
 
     ALOGI("ad_dec_pcm_data->buf %p", ad_dec_pcm_data->buf);
+    ALOGW("ad_dec_pcm_data->data_len %d ad_dec_pcm_data->buf_size %d dec_aac_data->data_len %d dec_aac_data->buf_size %d %d",
+        ad_dec_pcm_data->data_len, ad_dec_pcm_data->buf_size, dec_aac_data->data_len,dec_aac_data->buf_size,__LINE__);
     if (load_faad_decoder_lib(aac_dec) == 0) {
        if (aac_config->aac_format == AUDIO_FORMAT_AAC_LATM) {
            aac_dec->faad_op.nAudioDecoderType = ACODEC_FMT_AAC_LATM;
@@ -259,6 +261,7 @@ static int faad_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_confi
     aac_dec->remain_size = 0;
     memset(aac_dec->remain_data , 0 , AAC_REMAIN_BUFFER_SIZE * sizeof(char ));
     aac_dec->ad_remain_size = 0;
+    ad_dec_pcm_data->data_len = 0;
     memset(aac_dec->ad_remain_data , 0 , AAC_REMAIN_BUFFER_SIZE * sizeof(char ));
     ALOGE("%s success", __func__);
     return 0;
@@ -359,10 +362,20 @@ static int faad_decoder_process(aml_dec_t *aml_dec, unsigned char *buffer, int b
     int mark_remain_size = aac_dec->remain_size;
     ALOGV("remain_size %d bytes %d ad_decoder_supported %d ad_mixing_enable %d advol_level %d mixer_level %d",
         aac_dec->remain_size ,bytes, aac_dec->ad_decoder_supported, aac_dec->ad_mixing_enable, aac_dec->advol_level,aac_dec->mixer_level );
+
     if (bytes > 0) {
-        memcpy(aac_dec->remain_data + aac_dec->remain_size, buffer, bytes);
-        aac_dec->remain_size += bytes;
+           if (aac_dec->remain_size  + bytes >=  AAC_REMAIN_BUFFER_SIZE) {
+            ALOGE("aac_dec->remain_size + bytes  %d > %d  ,overflow", aac_dec->remain_size + bytes, AAC_REMAIN_BUFFER_SIZE );
+            aac_dec->remain_size = 0;
+            memset(aac_dec->remain_data, 0 , AAC_REMAIN_BUFFER_SIZE);
+            dec_pcm_data->data_len = 0;
+            return bytes;
+         } else {
+             memcpy(aac_dec->remain_data + aac_dec->remain_size, buffer, bytes);
+             aac_dec->remain_size += bytes;
+         }
     }
+
     dec_pcm_data->data_len = 0;
 
     while (aac_dec->remain_size >  used_size) {
@@ -427,6 +440,7 @@ static int faad_decoder_process(aml_dec_t *aml_dec, unsigned char *buffer, int b
             dec_pcm_data->data_len  = dec_pcm_data->data_len * 2;
             pAudioInfo.channels = 2;
     }
+
     if (aac_dec->ad_decoder_supported) {
         used_size = 0;
         int ad_in_size = aml_dec->ad_size;
@@ -486,18 +500,18 @@ static int faad_decoder_process(aml_dec_t *aml_dec, unsigned char *buffer, int b
                 break;
             }
         }
-        ad_faad_op->getinfo(ad_faad_op,&pADAudioInfo);
 
         if (ad_dec_pcm_data->data_len) {
             ALOGV("ad_dec_pcm_data->data_len %d", ad_dec_pcm_data->data_len);
+            ad_faad_op->getinfo(ad_faad_op,&pADAudioInfo);
+            ALOGV("pADAudioInfo.channels %d pAudioInfo.channels %d",pADAudioInfo.channels, pAudioInfo.channels);
         } else {
             if (ad_in_size == 0 && dec_pcm_data->data_len && (aac_dec->ad_need_cache_frames == 0) && (ad_dec_pcm_data->data_len == 0)) {
                 aac_dec->ad_need_cache_frames = AAC_AD_NEED_CACHE_FRAME_COUNT;
             }
         }
 
-        ALOGV("pADAudioInfo.channels %d pAudioInfo.channels %d",pADAudioInfo.channels, pAudioInfo.channels);
-        if (pADAudioInfo.channels == 1 && pAudioInfo.channels == 2) {
+        if (pADAudioInfo.channels == 1 && pAudioInfo.channels == 2 && ad_dec_pcm_data->data_len) {
             int16_t *samples_data = (int16_t *)ad_dec_pcm_data->buf;
             int i = 0, samples_num,samples;
             samples_num = ad_dec_pcm_data->data_len / sizeof(int16_t);
@@ -527,25 +541,31 @@ static int faad_decoder_process(aml_dec_t *aml_dec, unsigned char *buffer, int b
                 float ad_fade_coef = DbToAmpl(aac_dec->ad_fade * (-0.3f));
                 ALOGV("ad_fade %d ad_fade_coef %f",aac_dec->ad_fade, ad_fade_coef);
                 mixing_coefficient *= ad_fade_coef;
-                apply_volume(mixing_coefficient, dec_pcm_data->buf, sizeof(uint16_t), dec_pcm_data->data_len);
+                if (dec_pcm_data->data_len) {
+                     apply_volume(mixing_coefficient, dec_pcm_data->buf, sizeof(uint16_t), dec_pcm_data->data_len);
+                }
                 if (ad_dec_pcm_data->data_len) {
                     apply_volume_pan(aac_dec->ad_pan, ad_dec_pcm_data->buf, sizeof(uint16_t), ad_dec_pcm_data->data_len);
                 }
             }
-            apply_volume(ad_mixing_coefficient, ad_dec_pcm_data->buf, sizeof(uint16_t), ad_dec_pcm_data->data_len);
-            frames_written = do_mixing_2ch(dec_pcm_data->buf, ad_dec_pcm_data->buf ,
-                dec_pcm_data->data_len / 4 , AUDIO_FORMAT_PCM_16_BIT, AUDIO_FORMAT_PCM_16_BIT);
-            ALOGV("frames_written %d dec_pcm_data->data_len %d",frames_written, dec_pcm_data->data_len);
-            dec_pcm_data->data_len = frames_written * 4;
-            if (dec_pcm_data->data_len <= ad_dec_pcm_data->data_len) {
-                int data_offset = dec_pcm_data->data_len;
-                ad_dec_pcm_data->data_len -= data_offset;
-                if (ad_dec_pcm_data->data_len) {
-                     memmove(ad_dec_pcm_data->buf, ad_dec_pcm_data->buf + data_offset, ad_dec_pcm_data->data_len);
+            if (ad_dec_pcm_data->data_len) {
+                apply_volume(ad_mixing_coefficient, ad_dec_pcm_data->buf, sizeof(uint16_t), ad_dec_pcm_data->data_len);
+                frames_written = do_mixing_2ch(dec_pcm_data->buf, ad_dec_pcm_data->buf ,
+                    dec_pcm_data->data_len / 4 , AUDIO_FORMAT_PCM_16_BIT, AUDIO_FORMAT_PCM_16_BIT);
+                ALOGV("frames_written %d dec_pcm_data->data_len %d",frames_written, dec_pcm_data->data_len);
+                dec_pcm_data->data_len = frames_written * 4;
+
+                if (dec_pcm_data->data_len <= ad_dec_pcm_data->data_len) {
+                    int data_offset = dec_pcm_data->data_len;
+                    ad_dec_pcm_data->data_len -= data_offset;
+                    if (ad_dec_pcm_data->data_len) {
+                         memmove(ad_dec_pcm_data->buf, ad_dec_pcm_data->buf + data_offset, ad_dec_pcm_data->data_len);
+                    }
+                } else {
+                    ad_dec_pcm_data->data_len = 0;
                 }
-            } else {
-                ad_dec_pcm_data->data_len = 0;
             }
+
         }
 
     }
