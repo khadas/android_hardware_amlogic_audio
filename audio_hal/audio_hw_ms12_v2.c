@@ -2140,6 +2140,7 @@ static ssize_t aml_ms12_spdif_output_new (struct audio_stream_out *stream,
         }
         spdif_config.channel_mask = ch_mask;
         spdif_config.data_ch      = data_ch;
+        bitstream_desc->sample_rate = spdif_config.rate;
         ret = aml_audio_spdifout_open(&bitstream_desc->spdifout_handle, &spdif_config);
         if (ret != 0) {
             ALOGE("open spdif out failed\n");
@@ -2179,6 +2180,7 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     struct bitstream_out_desc *bitstream_out = &ms12->bitstream_out[BITSTREAM_OUTPUT_A];
+    struct bitstream_out_desc *bitstream_out_b = &ms12->bitstream_out[BITSTREAM_OUTPUT_B];
     audio_format_t output_format =  ms12_get_audio_hal_format(aml_out->hal_format);
     ALOGV("[%s:%d]output_format=0x%x hal_format=0x%#x internal=0x%x",__FUNCTION__,__LINE__, output_format, aml_out->hal_format, aml_out->hal_internal_format);
     bool is_dolby = (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3) || (aml_out->hal_internal_format == AUDIO_FORMAT_AC3);
@@ -2244,6 +2246,12 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
                 aml_audio_spdifout_close(bitstream_out->spdifout_handle);
                 ALOGI("%s spdif format changed from 0x%x to 0x%x", __FUNCTION__, bitstream_out->audio_format, output_format);
                 bitstream_out->spdifout_handle = NULL;
+            }
+            if ((bitstream_out_b->spdifout_handle != NULL ) &&
+                ((bitstream_out_b->audio_format != output_format) ||
+                (output_format != AUDIO_FORMAT_IEC61937 && bitstream_out_b->sample_rate !=  aml_out->hal_rate))) {
+                aml_audio_spdifout_close(bitstream_out_b->spdifout_handle);
+                bitstream_out_b->spdifout_handle = NULL;
             }
 
             if (bitstream_out->spdifout_handle == NULL) {
