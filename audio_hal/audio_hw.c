@@ -1651,6 +1651,8 @@ static int out_flush_new (struct audio_stream_out *stream)
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     ALOGI("%s(), stream(%p)\n", __func__, stream);
     out->frame_write_sum  = 0;
+    out->frame_offset = 0;
+    out->decoded_frame = 0;
     out->last_frames_position = 0;
     out->spdif_enc_init_frame_write_sum =  0;
     out->frame_skip_sum = 0;
@@ -1691,6 +1693,10 @@ static int out_flush_new (struct audio_stream_out *stream)
 
     if (out->hal_format == AUDIO_FORMAT_AC4) {
         aml_ac4_parser_reset(out->ac4_parser_handle);
+    }
+
+    if (out->ac3_parser_init) {
+        aml_ac3_parser_reset(out->ac3_parser_handle);
     }
 
     out->pause_status = false;
@@ -5681,6 +5687,14 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                             adev->ms12.main_input_bytes_offset    = aml_active_out->input_bytes_size;
                             ALOGI("active main start offset ns =%" PRId64 "", adev->ms12.main_input_start_offset_ns);
                         }
+                    }
+                }
+
+                if (!continuous_mode(adev) && is_dolby_format(aml_out->hal_format)) {
+                    if (aml_out->input_bytes_size && aml_out->decoded_frame != 0) {
+                        aml_out->frame_offset = aml_out->decoded_frame * 48000 / aml_out->hal_rate;
+                        aml_out->frame_write_sum = 0;
+                        ALOGI("%s input_bytes_size =%" PRIu64 " decoded frame =%" PRIu64 " frame_offset =%" PRIu64 "", __func__, aml_out->input_bytes_size, aml_out->decoded_frame, aml_out->frame_offset);
                     }
                 }
 

@@ -820,13 +820,13 @@ struct aml_stream_out {
     struct timespec last_avsync_timestamp;
     int64_t jitter_ms;
     int     audio_delay;
-
     void *kara;
     uint64_t hwsync_parsed_frames_sum_paused;
-
     uint32_t last_write_start_time_in_ms; // For checking the writing time
     uint32_t last_write_data_in_byte; // For checking the writing time
     bool is_mat_changed;
+    uint64_t frame_offset;
+    uint64_t decoded_frame;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

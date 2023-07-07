@@ -747,7 +747,11 @@ ssize_t hw_write (struct audio_stream_out *stream
             write_frames = aml_out->input_bytes_size / aml_out->hal_frame_size;
             //total_frame = write_frames;
         } else {
-            total_frame = aml_out->frame_write_sum + aml_out->frame_skip_sum;
+            if (eDolbyMS12Lib != adev->dolby_lib_type) {
+                total_frame = aml_out->frame_write_sum + aml_out->frame_skip_sum;
+            } else {
+                total_frame = aml_out->frame_write_sum + aml_out->frame_skip_sum + aml_out->frame_offset;
+            }
         }
     } else {
         if (eDolbyMS12Lib == adev->dolby_lib_type) {

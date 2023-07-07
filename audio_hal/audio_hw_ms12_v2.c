@@ -2193,15 +2193,21 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
         return -1;
     }
     /*for patch mode, the hal_rate is not correct, we should parse it*/
-    if (adev->audio_patching && is_dolby) {
+    if (is_dolby) {
         struct ac3_parser_info ac3_info = { 0 };
         void *main_frame_buffer = NULL;
         int32_t main_frame_size = 0;
         int32_t parser_used_size = 0;
         int32_t offset = 0;
         int32_t bytes_left = bytes;
+
+        if (!aml_out->ac3_parser_init) {
+            aml_ac3_parser_open(&aml_out->ac3_parser_handle);
+            aml_out->ac3_parser_init = true;
+        }
+
         do {
-            aml_ac3_parser_process(ms12->ac3_parser_handle, (char *)buffer + offset, bytes_left, &parser_used_size, &main_frame_buffer, &main_frame_size, &ac3_info);
+            aml_ac3_parser_process(aml_out->ac3_parser_handle, (char *)buffer + offset, bytes_left, &parser_used_size, &main_frame_buffer, &main_frame_size, &ac3_info);
             offset += parser_used_size;
             if (bytes_left >= parser_used_size) {
                 bytes_left -= parser_used_size;
@@ -2215,6 +2221,8 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
 
             if (ac3_info.sample_rate != 0 && main_frame_size) {
                 aml_out->hal_rate = ac3_info.sample_rate;
+                aml_out->decoded_frame += ac3_info.numblks * SAMPLE_NUMS_IN_ONE_BLOCK;
+                ALOGV("aml_out->decoded_frame =%" PRIu64 "", aml_out->decoded_frame);
             }
 
             //for Tv-61707, the format of PMT table is different with the actual format,
