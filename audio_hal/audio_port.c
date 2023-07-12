@@ -701,6 +701,11 @@ static ssize_t output_port_post_process(output_port *port, void *buffer, int byt
                 vol *= port->eq_data->p_gain.speaker * port->sink_gain[OUTPORT_SPEAKER];
                 if (port->postprocess)
                     audio_post_process(port->postprocess, vol_buf, frames);
+            } else if (dev == AML_AUDIO_OUT_DEV_TYPE_SPDIF) {
+                vol *= port->eq_data->p_gain.spdif_arc;
+            } else if (dev == AML_AUDIO_OUT_DEV_TYPE_OTHER) {
+                /* apply speaker volume for hdmitx of BDS products */
+                vol *= port->sink_gain[OUTPORT_SPEAKER];
             }
         }
 
