@@ -2962,12 +2962,14 @@ int mat_bitstream_output(void *buffer, void *priv_data, size_t size)
     if (adev->optical_format == AUDIO_FORMAT_PCM_16_BIT) {
         return 0;
     }
+#if 0
+    /* amazon special audio strategy requirements, trunk doesn't need it*/
     if (is_earc_connected && (aml_out->hal_ch >= 6 && aml_out->hal_internal_format == AUDIO_FORMAT_PCM_SUB_16_BIT)) {
         //for pcm multi channel when connected earc,
         //not use mat output and the data send to alsa/earc by mc_pcm_output, Hazel FIXME.
         return 0;
     }
-
+#endif
     if (adev->patch_src ==  SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
         if (adev->debug_flag > 1)
             ALOGI("func:%s, av sync drop data,need_drop_size=%d\n",
