@@ -39,7 +39,9 @@
 #include <tinyalsa/asoundlib.h>
 
 #include <audio_utils/channels.h>
+#include <audio_utils/format.h>
 
+#include "audio_hal_debug.h"
 #include "audio_usb_hal.h"
 //#include "audio_hw.h"
 #include "sub_mixing_factory.h"
@@ -656,10 +658,10 @@ int adev_open_usb_input_stream(struct usb_audio_device *hw_dev,
 
     karaoke->karaoke_enable = true;
 
-    in->adev->stream = (struct audio_stream_in *)in;
+    in->adev->stream_in = (struct audio_stream_in *)in; // check when close
 
 Exit:
-    ALOGV("--adev_open_usb_input_stream() exit, stream = %p, ret = %d", in->adev->stream, ret);
+    ALOGV("--adev_open_usb_input_stream() exit, stream = %p, ret = %d", in->adev->stream_in, ret);
     return ret;
 }
 
@@ -682,7 +684,7 @@ void adev_close_usb_input_stream(struct audio_stream_in *stream)
 
     aml_audio_free(in->conversion_buffer);
 
-    in->adev->stream = NULL;
+    in->adev->stream_in = NULL;
 
     aml_audio_free(stream);
 
@@ -691,3 +693,200 @@ void adev_close_usb_input_stream(struct audio_stream_in *stream)
     return;
 }
 
+// out_write -> goto MS12lib decode -> usb write
+
+/*
+ * another way
+ * out_write_new -> MS decoder/path -> hw_write -> usb write
+ *
+ *                                                               +------------+
+ *                                                           +-> | alsa write |
+ *                                                           |   +------------+
+ *                                                           |
+ * +---------------+    +-----------------+    +----------+  |   +-----------+
+ * | out_write_new | -> | MS decoder/path | -> | hw_write | -+-> | usb write |
+ * +---------------+    +-----------------+    +----------+  |   +-----------+
+ *                                                           |
+ *                                                           |   +------------+
+ *                                                           +-> | a2dp write |
+ *                                                               +------------+
+ */
+
+#define MID_BUFFER_NUM  3
+struct usb_out {
+    alsa_device_profile profile;
+    alsa_device_proxy proxy;
+    struct pcm_config proxy_config;
+
+    struct pcm_config hal_config;
+
+    void *mid_buffer[MID_BUFFER_NUM];
+    size_t mid_buffer_size[MID_BUFFER_NUM];
+};
+
+int usb_out_profile_init(struct usb_out *out, struct pcm_config *config, char *address)
+{
+    int ret;
+    AM_LOGI("out=%p config=%p address=%p/%s",
+            out, config, address, address ? address : "nil");
+    // usb output config
+    profile_init(&out->profile, PCM_OUT);
+    parse_card_device_params(address, &out->profile.card, &out->profile.device);
+    AM_LOGI("card=%d device=%d", out->profile.card, out->profile.device);
+    if (out->profile.card == -1 || out->profile.device == -1) {
+        return -1;
+    }
+    profile_read_device_info(&out->profile);
+
+    int default_rate = 48000; /** MS12 output path, default output 48kHz; Perfer 48kHz */
+    if (profile_is_sample_rate_valid(&out->profile, default_rate)) {
+        out->proxy_config.rate = default_rate;
+    } else {
+        out->proxy_config.rate = profile_get_default_sample_rate(&out->profile);
+    }
+    // ONLY 48k for now
+    out->proxy_config.format = profile_get_default_format(&out->profile);
+    out->proxy_config.channels = profile_get_default_channel_count(&out->profile);
+    out->proxy_config.period_count = config->period_count; // for pcm config comparing
+    out->proxy_config.period_size = config->period_size;
+
+#if (ANDROID_PLATFORM_SDK_VERSION > 33) || (ANDROID_PLATFORM_SDK_VERSION == 33 \
+            && (ANDROID_PLATFORM_SDK_EXTENSION_VERSION >= 5))
+    ret = proxy_prepare(&out->proxy, &out->profile, &out->proxy_config, false /* exact match */);
+#else
+    ret = proxy_prepare(&out->proxy, &out->profile, &out->proxy_config);
+#endif
+    // proxy_prepare doesn't update its alsa_config's period
+    // manually update here
+    out->proxy.alsa_config.period_count = config->period_count;
+    out->proxy.alsa_config.period_size = config->period_size;
+    AM_LOGI("tag=usb address=%s card=%d device=%d rate=%d format=%d ch=%d period=%d*%d ret=%d",
+            address, out->profile.card, out->profile.device,
+            out->proxy_config.rate, out->proxy_config.format, out->proxy_config.channels,
+            out->proxy_config.period_size, out->proxy_config.period_count,
+            ret);
+    return 0;
+}
+
+struct usb_out *usb_out_open(struct pcm_config *config, // rate, format, channel
+                             char *address) // card, device
+{
+    if (address == NULL) {
+        AM_LOGE("fail to open usb without valid address");
+        return NULL;
+    }
+    int ret = 0;
+    struct usb_out *out = calloc(1, sizeof(struct usb_out));
+    if (out == NULL) {
+        return NULL;
+    }
+
+    out->hal_config = *config;
+
+    ret = usb_out_profile_init(out, config, address);
+    if (ret != 0) {
+        AM_LOGE("fail to init usb profile");
+        free(out);
+        return NULL;
+    }
+
+    ret = proxy_open(&out->proxy);
+    if (ret < 0) {
+        AM_LOGE("fail to open proxy");
+        free(out);
+        return NULL;
+    }
+
+    size_t i;
+    for (i = 0; i != MID_BUFFER_NUM; i++) {
+        out->mid_buffer[i] = NULL;
+        out->mid_buffer_size[i] = 0;
+    }
+    return out;
+}
+
+void usb_out_close(struct usb_out *out)
+{
+    AM_LOGI("out=%p", out);
+    proxy_close(&out->proxy);
+    size_t i;
+    for (i = 0; i != MID_BUFFER_NUM; i++) {
+        if (out->mid_buffer[i] != 0) {
+            free(out->mid_buffer[i]);
+            out->mid_buffer_size[i] = 0;
+        }
+    }
+    free(out);
+}
+
+ssize_t usb_out_write(struct usb_out *out, const void *buffer, size_t bytes)
+{
+    int ret;
+    size_t fr = bytes_to_frames(&out->hal_config, bytes);
+    AM_LOGI("out=%p buffer=%p bytes=%zu fr=%zu", out, buffer, bytes, fr);
+    if (getprop_bool("vendor.media.audiohal.usb")) {
+        aml_audio_dump_audio_bitstreams("/data/audio/usb.raw", buffer, bytes);
+    }
+    int i = 0;
+    struct pcm_config cfg = out->hal_config, *st_cfg = &cfg;
+    if (st_cfg->format != out->proxy_config.format) {
+        struct pcm_config t = *st_cfg;
+        t.format = out->proxy_config.format;
+        out->mid_buffer[i] = chk_alloc(out->mid_buffer[i], &out->mid_buffer_size[i],
+                                       fr * bytes_per_frame(&t));
+
+        memcpy_by_audio_format(out->mid_buffer[i], audio_format_from_pcm_format(out->proxy_config.format), /*dst*/
+                               buffer, audio_format_from_pcm_format(st_cfg->format), /* src */
+                               fr * st_cfg->channels);
+
+        AM_LOGV("format %d,%d -> %d,%d buffer %p,%zu -> %p,%zu",
+                st_cfg->format, audio_format_from_pcm_format(st_cfg->format),
+                out->proxy_config.format, audio_format_from_pcm_format(out->proxy_config.format),
+                buffer, bytes, out->mid_buffer[i], out->mid_buffer_size[i]);
+        buffer = out->mid_buffer[i];
+        bytes = out->mid_buffer_size[i];
+        st_cfg->format = out->proxy_config.format;
+        i++;
+        if (getprop_bool("vendor.media.audiohal.usb")) {
+            aml_audio_dump_audio_bitstreams("/data/audio/usb1.raw", buffer, bytes);
+        }
+    }
+    if (st_cfg->channels != out->proxy_config.channels) {
+        out->mid_buffer[i] = chk_alloc(out->mid_buffer[i], &out->mid_buffer_size[i],
+                                       fr * bytes_per_frame(&out->proxy_config));
+
+        size_t sz = audio_bytes_per_sample(audio_format_from_pcm_format(st_cfg->format));
+        // shift 2 int16_t to pick 2,3 ch instead of 0,1 ch
+        adjust_channels((void *)((char *)buffer + 2 * sz), st_cfg->channels, /* src*/
+                        out->mid_buffer[i], out->proxy_config.channels, /* dst*/
+                        sz, bytes);
+
+        AM_LOGV("ch %d -> %d, buffer %p,%zu -> %p,%zu sz=%zu bytes=%zu",
+                st_cfg->channels, out->proxy_config.channels,
+                buffer, bytes, out->mid_buffer[i], out->mid_buffer_size[i],
+                sz, bytes);
+        buffer = out->mid_buffer[i];
+        bytes = out->mid_buffer_size[i];
+        st_cfg->channels = out->proxy_config.channels;
+        i++;
+    }
+    if (st_cfg->rate != out->proxy_config.rate) {
+        AM_LOGE("unsupported sample rate converting");
+        return bytes;
+    }
+    if (memcmp(st_cfg, &out->proxy_config, sizeof(*st_cfg)) != 0) {
+        char s0[PCM_CONFIG_STR_LEN], s1[PCM_CONFIG_STR_LEN];
+        AM_LOGE("tag=usb assert: after convert, st_cfg should equal to proxy config hal=%s pxy=%s",
+                show_pcm_config(st_cfg, s0, PCM_CONFIG_STR_LEN),
+                show_pcm_config(&out->proxy_config, s1, PCM_CONFIG_STR_LEN));
+        return bytes;
+    }
+    ret = proxy_write(&out->proxy, buffer, bytes);
+    if (ret != 0) {
+        AM_LOGE("fail to write to proxy");
+    }
+    if (getprop_bool("vendor.media.audiohal.usb")) {
+        aml_audio_dump_audio_bitstreams("/data/audio/usb_final.raw", buffer, bytes);
+    }
+    return bytes;
+}

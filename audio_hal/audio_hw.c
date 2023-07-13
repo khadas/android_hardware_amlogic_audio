@@ -42,6 +42,7 @@
 #endif
 
 #include <hardware/audio.h>
+#include <hardware/audio_alsaops.h>
 #include <sound/asound.h>
 #include <tinyalsa/asoundlib.h>
 #include <audio_route/audio_route.h>
@@ -3821,6 +3822,11 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
                        device & AUDIO_DEVICE_OUT_WIRED_HEADPHONE ||
                        device & AUDIO_DEVICE_OUT_WIRED_HEADSET) {
                 adev->out_device |= device;
+                if (adev->address != NULL) {
+                    free(adev->address);
+                }
+                adev->address = str_parms_to_str(parms);
+                AM_LOGI("tag=usb update address=%p/'%s'", adev->address, adev->address);
             }
         }
     } else {
@@ -3843,6 +3849,16 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
                        device & AUDIO_DEVICE_OUT_WIRED_HEADPHONE||
                        device & AUDIO_DEVICE_OUT_WIRED_HEADSET) {
                 adev->out_device &= (~device);
+                AM_LOGI("tag=usb disconnect address=%p", adev->address);
+                free(adev->address);
+                adev->address = NULL;
+                pthread_mutex_lock(&adev->usb_lock);
+                if (adev->usb) {
+                    usb_out_close(adev->usb);
+                    adev->usb = NULL;
+                }
+                pthread_mutex_unlock(&adev->usb_lock);
+                AM_LOGI("tag=usb usb_out_close");
             }
         }
     }
@@ -5099,7 +5115,7 @@ void adev_close_input_stream(struct audio_hw_device *dev,
 
     ALOGD("%s: enter: dev(%p) stream(%p)", __func__, dev, stream);
 
-    if (stream == adev->usb_audio.stream) {
+    if (stream == adev->usb_audio.stream_in) {
         struct stream_in *usb_in = (struct stream_in *)stream;
         adev->in_device &= ~usb_in->device;
         adev_close_usb_input_stream(stream);
@@ -7139,7 +7155,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     pthread_mutex_lock(&adev->lock);
     ret = usecase_change_validate_l(aml_out, false);
     if (ret < 0) {
-        ALOGE("%s() failed", __func__);
+        AM_LOGE("%s() failed", __func__);
         pthread_mutex_unlock(&adev->lock);
         aml_audio_trace_int("out_write_new", 0);
         return ret;
@@ -8245,8 +8261,10 @@ static int adev_set_device_connected_state_v7(struct audio_hw_device *dev,
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) dev;
     struct str_parms *parms = NULL;
     if (port->type == AUDIO_PORT_TYPE_DEVICE) {
-        AM_LOGI("address:%s, num_descriptors:%d, num_profiles:%d",
-            port->ext.device.address, port->num_extra_audio_descriptors, port->num_audio_profiles);
+        AM_LOGI("%s address:%s, num_descriptors:%d, num_profiles:%d",
+                connected ? "connected" : "disconnected",
+                port->ext.device.address,
+                port->num_extra_audio_descriptors, port->num_audio_profiles);
         parms = str_parms_create_str(port->ext.device.address);
 
         set_device_connect_state(aml_dev, parms, port->ext.device.type, connected);
@@ -8693,6 +8711,9 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->hw_sync_id = -1;
 
     adev->stream_bitrate = -1;
+    adev->address = NULL;
+    adev->usb = NULL;
+    pthread_mutex_init(&adev->usb_lock, NULL);
     pthread_mutex_unlock(&adev_mutex);
 
     adev->fmt_start_mute = false;

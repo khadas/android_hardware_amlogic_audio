@@ -1805,6 +1805,11 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
     case AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET:
         *hal_dev_port = OUTPORT_ANLG_DOCK_HEADSET;
         break;
+    case AUDIO_DEVICE_OUT_USB_HEADSET:
+    case AUDIO_DEVICE_OUT_USB_ACCESSORY:
+    case AUDIO_DEVICE_OUT_USB_DEVICE:
+        *hal_dev_port = OUTPORT_USB_HEADSET;
+        break;
     /* audio hal input device port */
     case AUDIO_DEVICE_IN_HDMI:
         *hal_dev_port = INPORT_HDMIIN;

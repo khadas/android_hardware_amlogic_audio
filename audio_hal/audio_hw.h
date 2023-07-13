@@ -518,6 +518,10 @@ struct aml_audio_device {
     struct patch_manager *patch_manager;
     struct audio_hw_resource_mgr *hw_resource_mgr;
     struct hdmi_capability_manager *hdmi_cap_mgr;
+
+    char *address; // for usb
+    struct usb_out *usb;
+    pthread_mutex_t usb_lock;
 };
 
 struct meta_data {

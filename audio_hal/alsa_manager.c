@@ -39,6 +39,7 @@
 #include "aml_config_data.h"
 #include "tv_patch_ctrl.h"
 #include "dtv_private_object.h"
+#include "audio_hal_debug.h"
 
 #define AML_ZERO_ADD_MIN_SIZE 1024
 
@@ -1443,5 +1444,21 @@ enum pcm_format convert_audio_format_2_alsa_format(audio_format_t format)
         AM_LOGE("invalid format:%#x, return 16bit format.", format);
         return PCM_FORMAT_S16_LE;
     }
+}
+
+char *show_pcm_config(struct pcm_config *cfg, char *s, size_t len)
+{
+    if (cfg == NULL) {
+        snprintf(s, len, "(nil)");
+    } else {
+        // should < STR_CFG_LEN
+        snprintf(s, len, "(fmt=%d,rt=%d,ch=%d,period=%d*%d,thr=%d-%d,sil=%d-%d,avail_min=%d)",
+                 cfg->format, cfg->rate, cfg->channels,
+                 cfg->period_count, cfg->period_size,
+                 cfg->start_threshold, cfg->stop_threshold,
+                 cfg->silence_threshold, cfg->silence_size,
+                 cfg->avail_min);
+    }
+    return s; // return pointer for nest-calling
 }
 

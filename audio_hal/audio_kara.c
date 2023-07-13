@@ -22,9 +22,11 @@
 #include <cutils/log.h>
 // android for memcpy_by_audio_format
 #include <audio_utils/format.h>
+#include <hardware/audio_alsaops.h> // for audio_format_from_pcm_format
 
 // aml audio
 #include "audio_hw_utils.h"
+#include "audio_hal_debug.h"
 #include <alsa_device_parser.h> // for alsa_device_get_card_index func
 #include "audio_kara.h"
 #include "audio_hw_resource_mgr.h"
@@ -34,78 +36,12 @@
 #define ERROR AM_LOGE
 
 // util function
-#define STR_CFG_LEN     64
-char *show_pcm_config(struct pcm_config *cfg, char *s, size_t len)
-{
-    if (cfg == NULL) {
-        snprintf(s, len, "(nil)");
-    } else {
-        // should < STR_CFG_LEN
-        snprintf(s, len, "(fmt=%d,rt=%d,ch=%d,period=%d*%d,thr=%d-%d-%d,avail_min=%d)",
-                 cfg->format, cfg->rate, cfg->channels,
-                 cfg->period_count, cfg->period_size,
-                 cfg->start_threshold, cfg->stop_threshold, cfg->silence_size,
-                 cfg->avail_min);
-    }
-    return s; // return pointer for nest-calling
-}
-
-static unsigned int bytes_to_frames(struct pcm_config *cfg, unsigned int bytes)
-{
-    return bytes / (cfg->channels * (pcm_format_to_bits(cfg->format) >> 3));
-}
-
-static unsigned int frames_to_bytes(struct pcm_config *cfg, unsigned int frames)
-{
-    return frames * (cfg->channels * (pcm_format_to_bits(cfg->format) >> 3));
-}
-
-static unsigned int bytes_per_frame(struct pcm_config *cfg)
-{
-    return cfg->channels * (pcm_format_to_bits(cfg->format) >> 3);
-}
-
-static void *chk_alloc(void *p, size_t *origin_sz, size_t sz) {
-    if (*origin_sz != sz) {
-        if (p) {
-            free(p);
-        }
-        void *new_p = NULL;
-        if (sz != 0) {
-            new_p = malloc(sz);
-        }
-        INFO("p=NULL/%zu => %p/%zu", *origin_sz, new_p, sz);
-        *origin_sz = sz;
-        return new_p;
-    }
-    return p;
-}
-
 static int bs_dump(const char *label, struct pcm_config *cfg, const void *buf, size_t frames)
 {
-    char s[STR_CFG_LEN];
-    snprintf(s, STR_CFG_LEN, "/data/audio/%s.%dhz_%dch_%dfmt.raw",
+    char s[PCM_CONFIG_STR_LEN];
+    snprintf(s, PCM_CONFIG_STR_LEN, "/data/audio/%s.%dhz_%dch_%dfmt.raw",
              label, cfg->rate, cfg->channels, cfg->format);
     return aml_audio_dump_audio_bitstreams(s, buf, frames_to_bytes(cfg, frames));
-}
-
-static audio_format_t format_alsa2audio(enum pcm_format fmt)
-{
-    switch (fmt) {
-    case PCM_FORMAT_S16_LE:
-        return AUDIO_FORMAT_PCM_16_BIT;
-    case PCM_FORMAT_S32_LE:
-        return AUDIO_FORMAT_PCM_32_BIT;
-    case PCM_FORMAT_S8:
-        return AUDIO_FORMAT_PCM_8_BIT;
-    case PCM_FORMAT_S24_LE:
-        return AUDIO_FORMAT_PCM_8_24_BIT;
-    case PCM_FORMAT_S24_3LE:
-        return AUDIO_FORMAT_PCM_24_BIT_PACKED;
-    default:
-        AM_LOGE("invalid format:%#x", fmt);
-        return -1;
-    }
 }
 
 /** mic
@@ -189,10 +125,10 @@ static void *usb_mic_open(int card, int device, struct pcm_config *main_cfg)
     }
     m->mix_src = MIX_SRC_USBIN;
     usb_mic_nego_cfg(card, device, &m->profile, main_cfg, &m->pcm_cfg);
-    char s_main[STR_CFG_LEN], s_ret[STR_CFG_LEN];
+    char s_main[PCM_CONFIG_STR_LEN], s_ret[PCM_CONFIG_STR_LEN];
     INFO("main %s mic %s",
-         show_pcm_config(main_cfg, s_main, STR_CFG_LEN),
-         show_pcm_config(&m->pcm_cfg, s_ret, STR_CFG_LEN));
+         show_pcm_config(main_cfg, s_main, PCM_CONFIG_STR_LEN),
+         show_pcm_config(&m->pcm_cfg, s_ret, PCM_CONFIG_STR_LEN));
     /** prepare proxy */
     int ret = 0;
 #if (ANDROID_PLATFORM_SDK_VERSION > 33) || (ANDROID_PLATFORM_SDK_VERSION == 33 \
@@ -214,7 +150,7 @@ static void *usb_mic_open(int card, int device, struct pcm_config *main_cfg)
         return NULL;
     }
     pcm_get_config(m->proxy.pcm, &m->pcm_cfg);
-    INFO("pcm=%p %s", m->proxy.pcm, show_pcm_config(&m->pcm_cfg, s_ret, STR_CFG_LEN));
+    INFO("pcm=%p %s", m->proxy.pcm, show_pcm_config(&m->pcm_cfg, s_ret, PCM_CONFIG_STR_LEN));
     return m;
 }
 
@@ -226,9 +162,9 @@ static void usb_mic_close(struct usb_mic_t *m)
 
 static int usb_mic_pop_with_cfg(struct usb_mic_t *m, void **data, size_t frames, struct pcm_config *cfg)
 {
-    char s[STR_CFG_LEN];
+    char s[PCM_CONFIG_STR_LEN];
     DEBUG("m=%p data=%p frames=%zu cfg=%p/%s",
-          m, data, frames, cfg, show_pcm_config(cfg, s, STR_CFG_LEN));
+          m, data, frames, cfg, show_pcm_config(cfg, s, PCM_CONFIG_STR_LEN));
     if (cfg->rate != m->pcm_cfg.rate) {
         ERROR("TODO: add resampler, fail to convert rate from %d to %d", m->pcm_cfg.rate, cfg->rate);
         return 0;
@@ -263,10 +199,10 @@ static void *pcm_mic_open(int card, int device, struct pcm_config *main_cfg)
     struct pcm_mic_t *m = malloc(sizeof(struct pcm_mic_t));
     m->mix_src = MIX_SRC_LINEIN;
     pcm_mic_nego_cfg(main_cfg, &m->pcm_cfg);
-    char s_main[STR_CFG_LEN], s_ret[STR_CFG_LEN];
+    char s_main[PCM_CONFIG_STR_LEN], s_ret[PCM_CONFIG_STR_LEN];
     INFO("main %s mic %s",
-         show_pcm_config(main_cfg, s_main, STR_CFG_LEN),
-         show_pcm_config(&m->pcm_cfg, s_ret, STR_CFG_LEN));
+         show_pcm_config(main_cfg, s_main, PCM_CONFIG_STR_LEN),
+         show_pcm_config(&m->pcm_cfg, s_ret, PCM_CONFIG_STR_LEN));
     m->pcm = pcm_open(card, device, PCM_IN, &m->pcm_cfg);
     if (m->pcm == NULL || !pcm_is_ready(m->pcm)) {
         ERROR("pcm_mic_open error: %p", m->pcm);
@@ -277,7 +213,7 @@ static void *pcm_mic_open(int card, int device, struct pcm_config *main_cfg)
         return NULL;
     }
     pcm_get_config(m->pcm, &m->pcm_cfg);
-    INFO("pcm=%p %s", m->pcm, show_pcm_config(&m->pcm_cfg, s_ret, STR_CFG_LEN));
+    INFO("pcm=%p %s", m->pcm, show_pcm_config(&m->pcm_cfg, s_ret, PCM_CONFIG_STR_LEN));
     return m;
 }
 
@@ -291,9 +227,9 @@ static void pcm_mic_close(struct pcm_mic_t *m)
 // read data as cfg
 static int pcm_mic_pop_with_cfg(struct pcm_mic_t *m, void **data, size_t frames, struct pcm_config *cfg)
 {
-    char s[STR_CFG_LEN];
+    char s[PCM_CONFIG_STR_LEN];
     DEBUG("m=%p data=%p frames=%zu cfg=%p/%s",
-          m, data, frames, cfg, show_pcm_config(cfg, s, STR_CFG_LEN));
+          m, data, frames, cfg, show_pcm_config(cfg, s, PCM_CONFIG_STR_LEN));
     if (cfg->rate != m->pcm_cfg.rate) {
         ERROR("fail to convert rate from %d to %d", m->pcm_cfg.rate, cfg->rate);
         return 0;
@@ -311,7 +247,7 @@ static int pcm_mic_pop_with_cfg(struct pcm_mic_t *m, void **data, size_t frames,
     *data = m->buf;
     *cfg = m->pcm_cfg; // copy struct pcm_config
     DEBUG("m=%p return data=%p fr=%zu sz=%zu cfg=%s",
-          m, m->buf, frames, m->sz, show_pcm_config(cfg, s, STR_CFG_LEN));
+          m, m->buf, frames, m->sz, show_pcm_config(cfg, s, PCM_CONFIG_STR_LEN));
     return frames;
 }
 
@@ -439,7 +375,7 @@ struct kara_t {
 
 void *audio_kara_open(int mix_src, int card, int device, struct pcm_config *main_cfg)
 {
-    char s[STR_CFG_LEN];
+    char s[PCM_CONFIG_STR_LEN];
     struct kara_t *k = malloc(sizeof(struct kara_t));
     if (k == NULL) {
         ERROR("fail to alloc for kara_t");
@@ -449,14 +385,14 @@ void *audio_kara_open(int mix_src, int card, int device, struct pcm_config *main
     k->mic = mic_open(mix_src, card, device, main_cfg);
     if (k->mic == NULL) {
         ERROR("fail to open mix src=%d dev=%d,%d main=%s",
-              mix_src, card, device, show_pcm_config(main_cfg, s, STR_CFG_LEN));
+              mix_src, card, device, show_pcm_config(main_cfg, s, PCM_CONFIG_STR_LEN));
         free(k);
         return NULL;
     }
     k->tmp_buf = NULL;
     k->tmp_buf_sz = 0;
     INFO("audio_kara open succ, src=%d dev=%d,%d main=%s",
-         mix_src, card, device, show_pcm_config(main_cfg, s, STR_CFG_LEN));
+         mix_src, card, device, show_pcm_config(main_cfg, s, PCM_CONFIG_STR_LEN));
     return k;
 }
 
@@ -486,8 +422,8 @@ static void *mix_channel_format(void *a, struct pcm_config *a_cfg,
     if (b_cfg->format != a_cfg->format) {
         // B = (format)B
         *tmp_buf = chk_alloc(*tmp_buf, tmp_sz, frames * bytes_per_frame(a_cfg));
-        memcpy_by_audio_format(*tmp_buf, format_alsa2audio(a_cfg->format),
-                               b, format_alsa2audio(b_cfg->format),
+        memcpy_by_audio_format(*tmp_buf, audio_format_from_pcm_format(a_cfg->format),
+                               b, audio_format_from_pcm_format(b_cfg->format),
                                frames * b_cfg->channels);
         b = *tmp_buf;
     }
@@ -507,10 +443,10 @@ static void *mix_channel_format(void *a, struct pcm_config *a_cfg,
             d += a_cfg->channels;
             s += b_cfg->channels;
         }
-        char sa[STR_CFG_LEN], sb[STR_CFG_LEN];
+        char sa[PCM_CONFIG_STR_LEN], sb[PCM_CONFIG_STR_LEN];
         DEBUG("a=%p/%s b=%p/%s fr=%zu",
-              a, show_pcm_config(a_cfg, sa, STR_CFG_LEN),
-              b, show_pcm_config(b_cfg, sb, STR_CFG_LEN),
+              a, show_pcm_config(a_cfg, sa, PCM_CONFIG_STR_LEN),
+              b, show_pcm_config(b_cfg, sb, PCM_CONFIG_STR_LEN),
               frames);
     } else {
         ERROR("unsupported output format=%d", a_cfg->format);

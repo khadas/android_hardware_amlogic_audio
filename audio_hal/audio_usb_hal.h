@@ -28,7 +28,7 @@
      /* input */
      alsa_device_profile in_profile;
      struct listnode input_stream_list;
-     struct audio_stream_in *stream;
+     struct audio_stream_in *stream_in;
 
      bool mic_muted;
      int32_t inputs_open; /* number of input streams currently open. */
@@ -93,4 +93,12 @@ int adev_open_usb_input_stream(struct usb_audio_device *hw_dev,
 
 void adev_close_usb_input_stream(struct audio_stream_in *stream);
 
+struct usb_out;
+struct usb_out *usb_out_open(struct pcm_config *config, // rate, format, channel
+                   char *address); // card, device
+void usb_out_close(struct usb_out *out);
+
+ssize_t usb_out_write(struct usb_out *out, const void *buffer, size_t bytes);
+
+ssize_t usb_check_write(struct aml_audio_device *adev, const void *buffer, size_t bytes, audio_config_base_t*cfg);
 #endif

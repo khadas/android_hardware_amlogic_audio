@@ -22,6 +22,7 @@
 #include <cutils/log.h>
 #include <system/audio.h>
 #include <hardware/audio.h>
+#include <hardware/audio_alsaops.h>
 #include <tinyalsa/asoundlib.h>
 #include <audio_utils/channels.h>
 #include <aml_android_utils.h>
@@ -415,6 +416,31 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
     return 0;
 }
 
+ssize_t usb_check_write(struct aml_audio_device *adev, const void *buffer, size_t bytes, audio_config_base_t*cfg)
+{
+    AM_LOGV("tag=usb adev=%p rate=%d ch=0x%x format=%x address=%p/'%s'",
+            adev, cfg->sample_rate, cfg->channel_mask, cfg->format,
+            adev->address, adev->address);
+    pthread_mutex_lock(&adev->usb_lock);
+    if (adev->usb == NULL) {
+        struct pcm_config pcm_config = {
+            .rate = cfg->sample_rate,
+            .channels = audio_channel_count_from_out_mask(cfg->channel_mask),
+            .format = pcm_format_from_audio_format(cfg->format),
+            .period_count = 4,
+            .period_size = 1536,
+        };
+        adev->usb = usb_out_open(&pcm_config, adev->address);
+    }
+    ssize_t ret = 0;
+    if (adev->usb) { // may fail
+        ret = usb_out_write(adev->usb, buffer, bytes);
+    } else {
+        AM_LOGE("devices=%x, fail to write usb", adev->cur_out_devices);
+    }
+    pthread_mutex_unlock(&adev->usb_lock);
+    return ret;
+}
 
 ssize_t hw_write (struct audio_stream_out *stream
                   , const void *buffer
@@ -424,6 +450,7 @@ ssize_t hw_write (struct audio_stream_out *stream
     AM_LOGV ("+%s() buffer %p bytes %zu", __func__, buffer, bytes);
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
+    audio_config_base_t in_data_config = {48000, AUDIO_CHANNEL_OUT_STEREO, AUDIO_FORMAT_PCM_16_BIT};
     const uint16_t *tmp_buffer = buffer;
     int16_t *effect_tmp_buf = NULL;
     struct aml_audio_patch *patch = get_dev_patch(adev);
@@ -449,6 +476,9 @@ ssize_t hw_write (struct audio_stream_out *stream
         ALOGE("%s invalid ch =%d bytes_per_sample=%d", __func__, ch, bytes_per_sample);
         return -1;
     }
+
+    in_data_config.channel_mask = data_info->channel_mask;
+    in_data_config.format = data_info->audio_format;
 
     out_frames = bytes / (ch * bytes_per_sample);
     adev->debug_flag = aml_audio_get_debug_flag();
@@ -522,7 +552,10 @@ ssize_t hw_write (struct audio_stream_out *stream
             adjust_ms = aml_out->insert_zero_data_ms;
         }
     }
-    if (aml_out->pcm || adev->a2dp_hal || is_include_sco_out_port(adev->cur_out_devices)) {
+    if (aml_out->pcm ||
+        adev->a2dp_hal ||
+        is_include_sco_out_port(adev->cur_out_devices) ||
+        is_include_usb_out_port(adev->cur_out_devices)) {
 #ifdef ADD_AUDIO_DELAY_INTERFACE
         ret = aml_audio_delay_process(AML_DELAY_OUTPORT_ALL, (void *) tmp_buffer, bytes,
                 output_format, MM_FULL_POWER_SAMPLING_RATE);
@@ -587,7 +620,11 @@ ssize_t hw_write (struct audio_stream_out *stream
                     memset(buf, 0, 1024);
                     while (adjust_bytes > 0) {
                         write_size = adjust_bytes > 1024 ? 1024 : adjust_bytes;
-                        ret = aml_alsa_output_write(stream, (void*)buf, write_size);
+                        if (is_include_usb_out_port(adev->cur_out_devices)) {
+                            ret = usb_check_write(adev, buffer, bytes, &in_data_config);
+                        } else {
+                            ret = aml_alsa_output_write(stream, (void*)buf, write_size);
+                        }
                         if (ret < 0) {
                             ALOGE("%s alsa write fail when insert", __func__);
                             break;
@@ -611,6 +648,8 @@ ssize_t hw_write (struct audio_stream_out *stream
             // For STB, do not send data to spdif/hdmitx when bt is connected and mute hdmitx cannot be controlled.
             memset((void *) buffer, 0, bytes);
             ret = aml_alsa_output_write(stream, (void *) buffer, bytes);
+        } else if (is_include_usb_out_port(adev->cur_out_devices)) {
+            ret = usb_check_write(adev, buffer, bytes, &in_data_config);
         } else {
 #ifdef AUDIO_KARA
             check_switch_audio_kara(stream);
