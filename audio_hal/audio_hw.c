@@ -5734,6 +5734,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             if (ret == 0 && adev->audio_patch && (adev->patch_src == SRC_HDMIIN ||
                 adev->patch_src == SRC_ATV || adev->patch_src == SRC_LINEIN)) {
                 adev->audio_patch->need_do_avsync = true;
+                adev->mute_start = true;
                 ALOGI("set ms12, then do avsync!");
             }
         }
