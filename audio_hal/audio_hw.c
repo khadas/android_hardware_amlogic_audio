@@ -8099,8 +8099,6 @@ int release_patch_l(struct aml_audio_device *aml_dev)
         goto exit;
     }
     tv_do_ease_out(aml_dev);
-    patch->output_thread_exit = 1;
-    patch->input_thread_exit = 1;
     if (IS_DIGITAL_IN_HW(patch->input_src))
         exit_pthread_for_audio_type_parse(patch->audio_parse_threadID,&patch->audio_parse_para);
     patch->input_thread_exit = 1;
@@ -8109,7 +8107,7 @@ int release_patch_l(struct aml_audio_device *aml_dev)
     pthread_join(patch->audio_output_threadID, NULL);
     ring_buffer_release(&patch->aml_ringbuffer);
     release_tvin_buffer(patch);
-
+    audio_route_set_speaker_mute(aml_dev, false);
     aml_audio_free(patch);
     aml_dev->audio_patch = NULL;
     aml_dev->audio_patch_2_af_stream = true;

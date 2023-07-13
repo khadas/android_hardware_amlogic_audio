@@ -4531,6 +4531,9 @@ static int create_dtv_output_stream_thread(struct aml_audio_patch *patch)
 static int release_dtv_output_stream_thread(struct aml_audio_patch *patch)
 {
     int ret = 0;
+
+    struct aml_audio_device *aml_dev = NULL;
+    aml_dev = (struct aml_audio_device *)patch->dev;
     ALOGI("++%s   ---- %d\n", __FUNCTION__, patch->output_thread_created);
     if (patch->output_thread_created == 1) {
         patch->output_thread_exit = 1;
@@ -4538,6 +4541,7 @@ static int release_dtv_output_stream_thread(struct aml_audio_patch *patch)
         pthread_join(patch->audio_output_threadID, NULL);
         pthread_mutex_destroy(&patch->dtv_output_mutex);
         patch->output_thread_created = 0;
+        audio_route_set_speaker_mute(aml_dev, false);
     }
     ALOGI("--%s", __FUNCTION__);
     return 0;
@@ -4792,7 +4796,6 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
     aml_dev->patch_src = SRC_INVAL;
     ALOGI("[audiohal_kpi]--%s Exit", __FUNCTION__);
     set_dtv_audio_clk_tuning(dev, 0);
-
     return 0;
 }
 

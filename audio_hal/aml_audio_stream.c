@@ -2173,7 +2173,6 @@ void tv_do_ease_out(struct aml_audio_device *aml_dev)
                 audio_route_set_speaker_mute(aml_dev, true);
                 aml_dev->mute_start = true;
             }
-
             break;
         case DO_FADE_AT_HAL:
 
