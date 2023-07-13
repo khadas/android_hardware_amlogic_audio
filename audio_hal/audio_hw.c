@@ -1,18 +1,18 @@
 /*
- * Copyright (C) 2017 Amlogic Corporation.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+* Copyright (C) 2017 Amlogic Corporation.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*      http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
 #define LOG_TAG "audio_hw_primary"
 //#define LOG_NDEBUG 0
@@ -4948,7 +4948,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
                                 struct audio_config *config,
                                 struct audio_stream_in **stream_in,
                                 audio_input_flags_t flags __unused,
-                                const char *address __unused,
+                                const char *address,
                                 audio_source_t source)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
@@ -5153,6 +5153,10 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         }
     }
 #endif
+    if (address && !strncmp(address, "AML_", 4)) {
+        ALOGI("%s(): aml TV source stream", __func__);
+        in->is_tv_src_stream = true;
+    }
 
     ALOGD("%s: exit", __func__);
     return 0;
@@ -7645,7 +7649,7 @@ void *audio_patch_input_threadloop(void *data)
     /*coverity[ missing_lock]*/
     patch->aformat = stream_config.format = patch->in_format;
 
-    ret = adev_open_input_stream(patch->dev, 0, patch->input_src, &stream_config, &stream_in, 0, NULL, 0);
+    ret = adev_open_input_stream(patch->dev, 0, patch->input_src, &stream_config, &stream_in, 0, "AML_TV_SOURCE", 0);
     if (ret < 0) {
         ALOGE("%s: open input steam failed ret = %d", __func__, ret);
         return (void *)0;

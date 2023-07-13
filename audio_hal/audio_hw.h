@@ -882,6 +882,7 @@ struct aml_stream_in {
     hdmiin_audio_packet_t last_audio_packet_type;
     int data_type;
     int hdmi_in_samplerate;
+    bool is_tv_src_stream;
 };
 typedef  int (*do_standby_func)(struct aml_stream_out *out);
 typedef  int (*do_startup_func)(struct aml_stream_out *out);

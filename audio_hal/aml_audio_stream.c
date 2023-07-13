@@ -2218,7 +2218,8 @@ void tv_do_ease_out(struct aml_audio_device *aml_dev)
 
 bool is_game_mode(struct aml_audio_device *aml_dev)
 {
-    if (!aml_dev->audio_patch ||
+    if (aml_dev->patch_src != SRC_HDMIIN ||
+        !aml_dev->audio_patch ||
         aml_dev->audio_patch->input_src != AUDIO_DEVICE_IN_HDMI ||
         aml_dev->audio_patch->IEC61937_format == true) {
         return false;

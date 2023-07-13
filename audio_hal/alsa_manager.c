@@ -787,10 +787,14 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
     int nodata_count = 0;
     struct pcm *pcm_handle = in->pcm;
     size_t frame_size = in->config.channels * pcm_format_to_bits(in->config.format) / 8;
-    bool hdmi_raw_in_flag = patch && (patch->input_src == AUDIO_DEVICE_IN_HDMI) && (!audio_is_linear_pcm(patch->aformat));
+    bool hdmi_raw_in_flag = false;
+    if (in->is_tv_src_stream) {
+         hdmi_raw_in_flag = patch && (patch->input_src == AUDIO_DEVICE_IN_HDMI) && (!audio_is_linear_pcm(patch->aformat));
+    }
 
     while (read_bytes < bytes) {
-        if (patch && patch->input_thread_exit) {
+        if (in->is_tv_src_stream && patch &&
+            patch->input_thread_exit) {
             memset((void*)buffer,0,bytes);
             return 0;
         }
