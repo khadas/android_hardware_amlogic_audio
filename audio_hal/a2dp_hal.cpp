@@ -44,6 +44,7 @@ using ::android::hardware::bluetooth::audio::V2_0::SessionType;
 #define A2DP_RING_BUFFER_DELAY_TIME_MS              (64)
 #define A2DP_SEND_DATA_TIMEOUT_RESET_MS             (300)
 #define A2DP_WAIT_STATE_DELAY_TIME_US               (8000)
+#define A2DP_LATENCY_INVALID_NS                     (NSEC_PER_SEC)
 #define DEFAULT_A2DP_LATENCY_NS                     (100 * NSEC_PER_MSEC) // Default delay to use when BT device does not report a delay
 #define A2DP_STATIC_DELAY_MS                        (0) // Additional device-specific delay
 #define AUDIO_HAL_FIXED_CFG_CHANNEL                 (AUDIO_CHANNEL_OUT_STEREO)
@@ -59,6 +60,7 @@ struct aml_a2dp_hal {
     char * buff_conv_format;
     size_t buff_size_conv_format;
     BluetoothStreamState state;
+    uint64_t a2dp_latency;
     bool is_sending_data;
     bool exit_out_monitor_thread;
     pthread_t out_monitor_thread_id;
@@ -199,6 +201,7 @@ int a2dp_out_open(struct aml_audio_device *adev) {
     hal->buff_conv_format = NULL;
     hal->buff_size_conv_format = 0;
     hal->state = BluetoothStreamState::UNKNOWN;
+    hal->a2dp_latency = A2DP_LATENCY_INVALID_NS;
     if (!hal->a2dphw.SetUp(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP)) {
         AM_LOGE("BluetoothAudioPortOut setup fail");
         pthread_mutex_unlock(&adev->a2dp_lock);
@@ -578,7 +581,7 @@ ssize_t a2dp_out_write(struct aml_audio_device *adev, audio_config_base_t *confi
     return written_size;
 }
 
-uint32_t a2dp_out_get_latency(struct aml_audio_device *adev __unused) {
+uint32_t a2dp_out_get_latency(struct aml_audio_device *adev) {
     uint64_t remote_delay_report_ns = 0;
     std::shared_ptr<BluetoothAudioSession> session_ptr =
         BluetoothAudioSessionInstance::GetSessionInstance(SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH);
@@ -586,7 +589,24 @@ uint32_t a2dp_out_get_latency(struct aml_audio_device *adev __unused) {
     if (!success || remote_delay_report_ns == 0) {
         remote_delay_report_ns = DEFAULT_A2DP_LATENCY_NS;
     }
-    return static_cast<uint32_t>(remote_delay_report_ns / NSEC_PER_MSEC + A2DP_STATIC_DELAY_MS);
+
+    pthread_mutex_lock(&adev->a2dp_lock);
+    struct aml_a2dp_hal * hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
+    if (!hal) {
+        pthread_mutex_unlock(&adev->a2dp_lock);
+        return 0;
+    }
+    /* Some BT devices(eg: Xiaomi Air2) will change the latency after the connection is successful,
+     * causing Youtube playback fail. */
+    if (hal->a2dp_latency == A2DP_LATENCY_INVALID_NS) {
+        hal->a2dp_latency = remote_delay_report_ns;
+        AM_LOGI("success:%d report_latency:%" PRIu64" ms, latency:%" PRIu64" ms", success,
+            remote_delay_report_ns / NSEC_PER_MSEC, hal->a2dp_latency / NSEC_PER_MSEC);
+    }
+    pthread_mutex_unlock(&adev->a2dp_lock);
+    AM_LOGV("success:%d report_latency:%" PRIu64" ms, latency:%" PRIu64" ms", success,
+        remote_delay_report_ns / NSEC_PER_MSEC, hal->a2dp_latency / NSEC_PER_MSEC);
+    return static_cast<uint32_t>(hal->a2dp_latency / NSEC_PER_MSEC + A2DP_STATIC_DELAY_MS);
 }
 
 
