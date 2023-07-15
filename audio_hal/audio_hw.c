@@ -5911,6 +5911,11 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         bool is_hwsync_header = hwsync_header_valid(temp_buf);
         if (is_hwsync_header && aml_out->hwsync == NULL) {
             output_stream_hwsync_prepare(aml_out, adev->hw_sync_id);
+            hw_sync = aml_out->hwsync;
+            if (hw_sync == NULL) {
+                ALOGE("%s, malloc hwsync failed", __func__);
+                return -ENOMEM;
+            }
         }
 
         if (aml_out->tsync_status != TSYNC_STATUS_RUNNING && aml_out->hw_sync_mode) {
@@ -6049,7 +6054,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
 
 hwsync_rewrite:
     /* handle HWSYNC audio data*/
-    if (aml_out->hw_sync_mode) {
+    if (aml_out->hw_sync_mode && hw_sync) {
         uint64_t  cur_pts = ULLONG_MAX;//defined in limits.h
         int outsize = 0;
 

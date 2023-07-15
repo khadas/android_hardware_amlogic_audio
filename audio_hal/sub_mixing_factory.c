@@ -1394,6 +1394,10 @@ static ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
         //tunnel stream and hwsync is null, prepare the tunnel resource.
         if (is_hwsync_header && aml_out->hwsync == NULL) {
             output_stream_hwsync_prepare(aml_out, adev->hw_sync_id);
+            if (aml_out->hwsync == NULL) {
+                ALOGE("%s, malloc hwsync failed", __func__);
+                return -ENOMEM;
+            }
         }
     }
 
