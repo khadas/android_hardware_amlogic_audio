@@ -77,6 +77,8 @@ static MediaSync_create_func gMediaSync_create = NULL;
 static MediaSync_allocInstance_func gMediaSync_allocInstance = NULL;
 
 static MediaSync_bindInstance_func gMediaSync_bindInstance = NULL;
+static MediaSync_bindInstance_func gMediaSync_bindStaticInstance = NULL;
+
 static MediaSync_setSyncMode_func gMediaSync_setSyncMode = NULL;
 
 static MediaSync_getSyncMode_func gMediaSync_getSyncMode = NULL;
@@ -131,6 +133,13 @@ static bool mediasync_wrap_create_init()
     gMediaSync_bindInstance =
     (MediaSync_bindInstance_func)dlsym(glibHandle, "MediaSync_bindInstance");
     if (gMediaSync_bindInstance == NULL) {
+        ALOGE(" dlsym MediaSync_bindInstance failed, err=%s \n", dlerror());
+        return err;
+    }
+
+    gMediaSync_bindStaticInstance =
+    (MediaSync_bindInstance_func)dlsym(glibHandle, "MediaSync_bindStaticInstance");
+    if (gMediaSync_bindStaticInstance == NULL) {
         ALOGE(" dlsym MediaSync_bindInstance failed, err=%s \n", dlerror());
         return err;
     }
@@ -323,6 +332,22 @@ bool mediasync_wrap_bindInstance(void* handle, uint32_t SyncInsId,
      }
      return false;
 }
+
+bool mediasync_wrap_bindStaticInstance(void* handle, uint32_t SyncInsId,
+                                sync_stream_type streamtype) {
+     if (handle != NULL)  {
+         mediasync_result ret = gMediaSync_bindStaticInstance(handle, SyncInsId, streamtype);
+         if (ret == AM_MEDIASYNC_OK) {
+            return true;
+         } else {
+            ALOGE("[%s] fail ret:%d\n", __func__, ret);
+         }
+     } else {
+        ALOGE("[%s] no handle\n", __func__);
+     }
+     return false;
+}
+
 bool mediasync_wrap_setSyncMode(void* handle, sync_mode mode) {
      if (handle != NULL)  {
          ALOGD(" mediasync_wrap_setSyncMode, mode=%d \n", mode);

@@ -358,6 +358,10 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
         out->hwsync->mediasync = adev->hw_mediasync;
         ret = aml_hwsync_wrap_set_id(out->hwsync, out->hwsync->hwsync_id);
         if (!ret) {
+            ALOGI("mediasync set hwsync id fail, try gMediaSync_bindStaticInstance");
+            ret = aml_hwsync_wrap_set_static_id(out->hwsync, out->hwsync->hwsync_id);
+        }
+        if (!ret) {
             ALOGD("%s: aml_hwsync_wrap_set_id fail: ret=%d, id=%d", __func__, ret, out->hwsync->hwsync_id);
             ret = aml_hwsync_wrap_get_id(out->hwsync->mediasync, &out->hwsync->hwsync_id);
             if (ret) {

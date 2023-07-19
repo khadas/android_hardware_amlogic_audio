@@ -3110,6 +3110,10 @@ int output_stream_hwsync_prepare(struct aml_stream_out *out, int hw_sync_id)
                 out->hwsync->hwsync_id = adev->hw_sync_id;
                 ret_set_id = aml_hwsync_wrap_set_id(out->hwsync, adev->hw_sync_id);
                 if (ret_set_id == false) {
+                    ALOGI("mediasync set hwsync id fail, try gMediaSync_bindStaticInstance");
+                    ret_set_id = aml_hwsync_wrap_set_static_id(out->hwsync, adev->hw_sync_id);
+                }
+                if (ret_set_id == false) {
                     ALOGI("mediasync set hwsync id fail, need get new one");
                     ret_set_id = aml_hwsync_wrap_get_id(out->hwsync->mediasync, &out->hwsync->hwsync_id);
                     if (ret_set_id && out->hwsync->hwsync_id != -1) {
@@ -5966,6 +5970,10 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
             aml_out->hwsync->use_mediasync = true;
             aml_out->hwsync->mediasync = adev->hw_mediasync;
             ret = aml_hwsync_wrap_set_id(aml_out->hwsync, aml_out->hwsync->hwsync_id);
+            if (!ret) {
+                ALOGI("mediasync set hwsync id fail, try gMediaSync_bindStaticInstance");
+                ret = aml_hwsync_wrap_set_static_id(aml_out->hwsync, aml_out->hwsync->hwsync_id);
+            }
             if (!ret) {
                 ALOGD("%s: aml_hwsync_wrap_set_id fail: ret=%d, id=%d", __func__, ret, aml_out->hwsync->hwsync_id);
                 ret = aml_hwsync_wrap_get_id(aml_out->hwsync->mediasync, &aml_out->hwsync->hwsync_id);

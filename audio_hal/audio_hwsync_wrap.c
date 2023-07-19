@@ -208,6 +208,14 @@ bool aml_hwsync_wrap_set_id(audio_hwsync_t *p_hwsync, uint32_t id)
     return false;
 }
 
+bool aml_hwsync_wrap_set_static_id(audio_hwsync_t *p_hwsync, uint32_t id)
+{
+    if (p_hwsync->mediasync) {
+        return mediasync_wrap_bindStaticInstance(p_hwsync->mediasync, id, MEDIA_AUDIO);
+    }
+    return false;
+}
+
 bool aml_hwsync_wrap_release(audio_hwsync_t *p_hwsync)
 {
 

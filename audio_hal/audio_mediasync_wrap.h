@@ -29,6 +29,9 @@ bool mediasync_wrap_allocInstance(void* handle, int32_t DemuxId,
 
 bool mediasync_wrap_bindInstance(void* handle, uint32_t SyncInsId, 
 										sync_stream_type streamtype);
+bool mediasync_wrap_bindStaticInstance(void* handle, uint32_t SyncInsId,
+										sync_stream_type streamtype);
+
 bool mediasync_wrap_setSyncMode(void* handle, sync_mode mode);
 bool mediasync_wrap_getSyncMode(void* handle, sync_mode *mode);
 bool mediasync_wrap_setPause(void* handle, bool pause);
