@@ -633,7 +633,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                             if (is_include_a2dp_out_port(adev->cur_out_devices)) {
                                 a2dp_out_write(adev, &in_data_config, (void*)buf, write_size);
                             }
-                            if (adev->is_STB && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
+                            if (!adev->is_TV && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
                                 // For STB, do not send data to spdif/hdmitx when bt is connected and mute hdmitx cannot be controlled.
                             } else {
                                 ret = aml_alsa_output_write(stream, (void*)buf, write_size);
@@ -675,7 +675,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                 }
                 a2dp_out_write(adev, &in_data_config, (void*)buffer, bytes);
             }
-            if (adev->is_STB && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
+            if (!adev->is_TV && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
                 // For STB, do not send data to spdif/hdmitx when bt is connected and mute hdmitx cannot be controlled.
             } else {
 #ifdef AUDIO_KARA

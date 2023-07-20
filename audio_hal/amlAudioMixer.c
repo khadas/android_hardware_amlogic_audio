@@ -523,7 +523,7 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
                 alsa_status = a2dp_out_get_status(adev);
                 a2dp_out_write(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
             }
-            if (adev->is_STB && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
+            if (!adev->is_TV && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
                 // For STB, do not send data to spdif/hdmitx when bt is connected and mute hdmitx cannot be controlled.
             } else {
                 if (audio_mixer->submix_standby) {

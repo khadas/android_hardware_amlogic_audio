@@ -3817,9 +3817,14 @@ static void aml_audio_output_routing(struct aml_audio_device *adev, audio_device
     // the hdmitx device, resulting in no sound.
     // 2. So, for stb, we don't mute the hdmitx. When customer needs to force speaker, it can be configured as mute tx.
     if (!adev->is_TV && !adev->control_hdmitx_mute) {
-        need_mute_devices &= (~AUDIO_DEVICE_OUT_HDMI);
+        if ((need_mute_devices & AUDIO_DEVICE_OUT_HDMI) != 0) {
+            adev->cur_out_devices &= ~AUDIO_DEVICE_OUT_HDMI;
+            need_mute_devices &= (~AUDIO_DEVICE_OUT_HDMI);
+            AM_LOGI("Non TV, control_hdmitx_mute false, do not control the hdmitx mute.");
+        }
     }
-    AM_LOGI("unmute_devices:%#x, mute_devices:%#x", need_unmute_devices, need_mute_devices);
+    AM_LOGI("cur_devices:%#x unmute_devices:%#x, mute_devices:%#x",
+        adev->cur_out_devices, need_unmute_devices, need_mute_devices);
     if (adev->is_arc_updating_sad) {
         AM_LOGI("updating arc SAD, no routing required.");
         return;
