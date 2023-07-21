@@ -826,7 +826,8 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
 int outport_get_latency_frames(output_port *port)
 {
     R_CHECK_POINTER_LEGAL(-EINVAL, port, "");
-    int ret = 0, frames = 0;
+    int ret = 0;
+    snd_pcm_sframes_t frames = 0;
     if (!port->pcm_handle || !pcm_is_ready(port->pcm_handle)) {
         return -EINVAL;
     }
