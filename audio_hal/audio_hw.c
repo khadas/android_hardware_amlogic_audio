@@ -1213,6 +1213,13 @@ static uint32_t audiohal_get_latency (const struct audio_stream_out *stream)
     }
 
     snd_pcm_sframes_t frames = out_get_latency_frames (stream);
+    // In the first pcm_open, and no data has been written, the latency of alsa is 0
+    // at this time. When AudioFlinger::PlaybackThread::createTrack_l, it is detected
+    // that the hardware latency_l is 0, which will cause the creation to fail.
+    if (frames == 0) {
+        frames = out->config.period_size * out->config.period_count;
+        AM_LOGW("alsa latency is 0, return max frames:%ld", frames);
+    }
     alsa_latency = (frames * 1000) / out->config.rate;
 
     whole_latency = alsa_latency;
