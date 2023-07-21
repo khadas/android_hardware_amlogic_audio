@@ -1036,7 +1036,7 @@ char* audio_type_convert_to_string(int s32AudioType)
 int audio_parse_get_audio_type_direct(audio_type_parse_t *status)
 {
     if (!status) {
-        ALOGE("NULL pointer of audio_type_parse_t\n");
+        ALOGV("%s, NULL pointer\n", __FUNCTION__);
         return -1;
     }
     return status->audio_type;
@@ -1045,7 +1045,7 @@ int audio_parse_get_audio_type_direct(audio_type_parse_t *status)
 audio_format_t audio_parse_get_audio_type(audio_type_parse_t *status)
 {
     if (!status) {
-        ALOGE("NULL pointer of audio_type_parse_t\n");
+        ALOGV("%s, NULL pointer\n", __FUNCTION__);
         return AUDIO_FORMAT_INVALID;
     }
     return audio_type_convert_to_android_audio_format_t(status->audio_type);
@@ -1054,7 +1054,7 @@ audio_format_t audio_parse_get_audio_type(audio_type_parse_t *status)
 audio_channel_mask_t audio_parse_get_audio_channel_mask(audio_type_parse_t *status)
 {
     if (!status) {
-        ALOGE("NULL pointer of audio_type_parse_t, return AUDIO_CHANNEL_OUT_STEREO\n");
+        ALOGV("%s, NULL pointer\n", __FUNCTION__);
         return AUDIO_CHANNEL_OUT_STEREO;
     }
     return status->audio_ch_mask;
@@ -1063,7 +1063,7 @@ audio_channel_mask_t audio_parse_get_audio_channel_mask(audio_type_parse_t *stat
 hdmiin_audio_packet_t audio_parse_get_audio_packet_type(audio_type_parse_t *status)
 {
     if (!status) {
-        ALOGE("NULL pointer of audio_type_parse_t\n");
+        ALOGV("%s, NULL pointer\n", __FUNCTION__);
         return AUDIO_PACKET_AUDS;
     }
     return status->hdmi_packet;

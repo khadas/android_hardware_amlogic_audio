@@ -5522,7 +5522,6 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-    struct aml_audio_patch *patch = adev->audio_patch;
 
     int ret = 0;
     bool main1_dummy = false;
@@ -5539,7 +5538,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
 
     /*get sink format*/
     get_sink_format (stream);
-    ALOGI("%s() patch %p aml_out:%p hal_internal_format %#x adev->dolby_lib_type = %d reset_decoder %d", __FUNCTION__, patch, aml_out, aml_out->hal_internal_format, adev->dolby_lib_type, reset_decoder);
+    ALOGI("%s() aml_out:%p hal_internal_format %#x adev->dolby_lib_type = %d reset_decoder %d", __FUNCTION__, aml_out, aml_out->hal_internal_format, adev->dolby_lib_type, reset_decoder);
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         bool is_compatible = false;
         bool is_direct_pcm = is_direct_stream_and_pcm_format(aml_out);
@@ -5837,7 +5836,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
 
     /* After playback for previous dts stream, there is remain data in VirtualX library. It needs to clear data buffer of VirtualX by using
        zero data to replace these remain data. Otherwise it will play this remain data first when start playback next time*/
-    if (patch && (patch->input_src == AUDIO_DEVICE_IN_HDMI)) {
+    if (is_audio_patch_valid(adev) && adev->audio_patch && (adev->audio_patch->input_src == AUDIO_DEVICE_IN_HDMI)) {
         if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0 && aml_out->write_count > 0) {
             char *tmp_buffer = aml_audio_malloc(VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
             if (!tmp_buffer) {
@@ -7659,6 +7658,10 @@ void *audio_patch_input_threadloop(void *data)
     int ring_buffer_size = 0;
     bool stable_flag = false;
     bool first_start = true;
+    patch->read_size = 0;
+    patch->sync_offset = -1;
+    patch->start_mute = false;
+    patch->mdelay = 0;
 
     ALOGI("++%s", __FUNCTION__);
 
@@ -7778,6 +7781,11 @@ void *audio_patch_input_threadloop(void *data)
                 aml_audio_trace_int("input_read_thread", read_bytes);
                 aml_alsa_input_read(&in->stream, patch->in_buf, read_bytes);
                 aml_audio_trace_int("input_read_thread", 0);
+
+                if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
+                    aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/tv_read.raw", patch->in_buf, read_bytes);
+                }
+
                 if (IS_DIGITAL_IN_HW(patch->input_src) && !check_digital_in_stream_signal(&in->stream)) {
                     memset(patch->in_buf, 0, bytes_avail);
                 }
@@ -7786,15 +7794,14 @@ void *audio_patch_input_threadloop(void *data)
                     memset(patch->in_buf, 0, bytes_avail);
                 }
             }
-
-            audio_format_t cur_aformat;
-            cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
-            if (in->data_type == DATA_NON_PCM && audio_is_linear_pcm(cur_aformat)) {
-                bytes_avail = 0;
-            }
-
-            if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
-                aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/tv_read.raw", patch->in_buf, read_bytes);
+            if (IS_DIGITAL_IN_HW(patch->input_src)) {
+                audio_format_t cur_aformat;
+                cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
+                if (in->data_type == DATA_NON_PCM) {
+                    if (audio_is_linear_pcm(cur_aformat))
+                        bytes_avail = 0;
+                    audio_raw_data_continuous_check(aml_dev, patch->audio_parse_para, patch->in_buf, read_bytes);
+                }
             }
         }
 
@@ -7948,9 +7955,9 @@ void *audio_patch_output_threadloop(void *data)
 
         if (patch->aformat == AUDIO_FORMAT_E_AC3)
             period_mul = EAC3_MULTIPLIER;
-        else if (audio_parse_get_audio_packet_type(patch->audio_parse_para) == AUDIO_PACKET_HBR)
+        else if (IS_DIGITAL_IN_HW(patch->input_src) && audio_parse_get_audio_packet_type(patch->audio_parse_para) == AUDIO_PACKET_HBR)
             period_mul = HBR_MULTIPLIER;    // 16
-        else if (patch->aformat == AUDIO_FORMAT_DTS_HD
+        else if (IS_DIGITAL_IN_HW(patch->input_src) && patch->aformat == AUDIO_FORMAT_DTS_HD
             && audio_parse_get_audio_packet_type(patch->audio_parse_para) != AUDIO_PACKET_HBR)
             period_mul = HBR_MULTIPLIER / 2;
         else
@@ -8119,6 +8126,8 @@ static int create_patch_l(struct audio_hw_device *dev,
     }
 
     aml_dev->audio_patch = patch;
+    /* Use flag to indicate that patch struct is ready.  TBD */
+    aml_dev->source_flag = true;
     ALOGD("%s: exit", __func__);
 
     return 0;
@@ -8144,6 +8153,8 @@ int release_patch_l(struct aml_audio_device *aml_dev)
         ALOGD("%s(), no patch to release", __func__);
         goto exit;
     }
+    /* Use flag to indicate that it will start to free patch struct.  TBD */
+    aml_dev->source_flag = false;
     tv_do_ease_out(aml_dev);
     if (IS_DIGITAL_IN_HW(patch->input_src))
         exit_pthread_for_audio_type_parse(patch->audio_parse_threadID,&patch->audio_parse_para);
@@ -8170,6 +8181,10 @@ exit:
     return 0;
 }
 
+bool is_audio_patch_valid(struct aml_audio_device *adev)
+{
+    return adev->source_flag;
+}
 int release_patch(struct aml_audio_device *aml_dev)
 {
     pthread_mutex_lock(&aml_dev->patch_lock);
@@ -9526,6 +9541,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     pthread_mutex_unlock(&adev_mutex);
 
     adev->insert_mute_flag = false;
+    adev->source_flag = false;
     aml_audio_board_config_init(&adev->board_config);
 
     adev->native_postprocess.libvx_exist = Check_VX_lib();

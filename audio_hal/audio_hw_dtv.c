@@ -4734,6 +4734,8 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     patch->debug_para.debug_last_out_vpts = 0;
     patch->debug_para.debug_last_demux_pcr = 0;
     patch->debug_para.debug_time_interval = property_get_int32(PROPERTY_DEBUG_TIME_INTERVAL, DEFAULT_TUNING_CLOCK_FACTOR);
+    /* Use flag to indicate that patch struct is ready.  TBD */
+    aml_dev->source_flag = true;
 
     patch->main_head_read_size = 0;
     ALOGI("--%s", __FUNCTION__);
@@ -4761,6 +4763,8 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
         return 0;
     }
 
+    /* Use flag to indicate that it will start to free patch struct.  TBD */
+    aml_dev->source_flag = false;
     patch->cmd_process_thread_exit = 1;
     pthread_cond_signal(&patch->dtv_cmd_process_cond);
     pthread_join(patch->audio_cmd_process_threadID, NULL);

@@ -653,11 +653,11 @@ bool is_HBR_stream(struct audio_stream_in *stream)
     struct aml_audio_device *aml_dev = in->dev;
     bool ret = false;
 
-    if (aml_dev->in_device & AUDIO_DEVICE_IN_HDMI) {
+    if (aml_dev->in_device & AUDIO_DEVICE_IN_HDMI && aml_dev->audio_patch) {
         struct aml_audio_patch *audio_patch = aml_dev->audio_patch;
         audio_type_parse_t *audio_type_status = (audio_type_parse_t *)audio_patch->audio_parse_para;
 
-        if (audio_type_status->soft_parser != 1) {
+        if (audio_patch && audio_type_status && audio_type_status->soft_parser != 1) {
             if (in->last_audio_packet_type == AUDIO_PACKET_HBR) {
                 ret = true;
             }
@@ -1582,6 +1582,71 @@ void audio_route_set_speaker_mute(struct aml_audio_device* aml_dev, int enable)
     return;
 }
 
+void audio_route_set_speaker_mute_l(struct aml_audio_device* aml_dev, int enable)
+{
+    if (aml_dev == NULL) {
+        return;
+    }
+
+    if (enable) {
+        //Need reset fading status, keep alsa mixer and audio route same status.
+        audio_route_apply_path(aml_dev->ar, "speaker_fadein");
+        audio_route_update_mixer(aml_dev->ar);
+        audio_route_apply_path(aml_dev->ar, "speaker_fadeout");
+    } else {
+        audio_route_apply_path(aml_dev->ar, "speaker_fadein");
+    }
+    audio_route_update_mixer(aml_dev->ar);
+
+    return;
+}
+
+void audio_raw_data_continuous_check(struct aml_audio_device *aml_dev, audio_type_parse_t *status, char *buffer, int size)
+{
+    audio_type_parse_t *audio_type_status = status;
+    struct aml_audio_patch* patch = aml_dev->audio_patch;
+
+    if (!audio_type_status || !aml_dev->audio_patch) {
+        return;
+    }
+
+    int sync_word_offset = find_61937_sync_word(buffer, size);
+    if (sync_word_offset >= 0) {
+        patch->sync_offset = sync_word_offset;
+        if (patch->start_mute) {
+            audio_route_set_speaker_mute_l(aml_dev, false);
+            patch->start_mute = false;
+            patch->mdelay = 0;
+        }
+        if (patch->read_size > 0) {
+            patch->read_size = 0;
+        }
+        if (!patch->read_size) {
+            patch->read_size = size;
+            patch->read_size -= sync_word_offset;
+        }
+    } else if (patch->sync_offset >= 0) {
+        if ((patch->read_size < audio_type_status->package_size) && ((patch->read_size + size) > audio_type_status->package_size)) {
+            audio_route_set_speaker_mute_l(aml_dev, true);
+            clock_gettime(CLOCK_MONOTONIC, &patch->start_ts);
+            patch->start_mute = true;
+            patch->read_size = 0;
+            patch->mdelay = DEFAULT_PLAYBACK_PERIOD_SIZE * DEFAULT_PLAYBACK_PERIOD_CNT / (MM_FULL_POWER_SAMPLING_RATE / 1000);
+        } else {
+            if (patch->start_mute) {
+                int flag = Stop_watch(patch->start_ts, patch->mdelay);
+                if (!flag) {
+                    patch->sync_offset = -1;
+                    patch->start_mute = false;
+                    audio_route_set_speaker_mute_l(aml_dev, false);
+                }
+            } else {
+                patch->read_size += size;
+            }
+        }
+    }
+}
+
 int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
                                        struct aml_stream_in *stream_in,
                                        ring_buffer_t *ringbuffer, int buffer_size)
@@ -2220,13 +2285,12 @@ bool is_game_mode(struct aml_audio_device *aml_dev)
 {
     if (aml_dev->patch_src != SRC_HDMIIN ||
         !aml_dev->audio_patch ||
-        aml_dev->audio_patch->input_src != AUDIO_DEVICE_IN_HDMI ||
-        aml_dev->audio_patch->IEC61937_format == true) {
+        (is_audio_patch_valid(aml_dev) && aml_dev->audio_patch && (aml_dev->audio_patch->input_src != AUDIO_DEVICE_IN_HDMI ||
+        aml_dev->audio_patch->IEC61937_format == true))) {
         return false;
     }
 
-    return (aml_dev->audio_patch->pic_mode == PQ_GAME);
-
+    return (is_audio_patch_valid(aml_dev) && aml_dev->audio_patch && aml_dev->audio_patch->pic_mode == PQ_GAME);
 }
 
 void aml_check_pic_mode(struct aml_audio_patch *patch)

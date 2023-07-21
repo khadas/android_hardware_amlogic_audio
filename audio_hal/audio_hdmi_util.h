@@ -145,7 +145,7 @@ int get_current_edid(struct aml_audio_device *adev, char *edid_array, int edid_a
  * return zero if success;
  */
 int update_edid_after_edited_audio_sad(struct aml_audio_device *adev, struct format_desc *fmt_desc);
-
+int find_61937_sync_word(char *buffer, int size);
 
 #endif //_AUDIO_HDMI_UTIL_H_
 

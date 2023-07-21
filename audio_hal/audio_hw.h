@@ -398,6 +398,8 @@ struct aml_audio_device {
     int usecase_cnt[STREAM_USECASE_MAX];
     struct aml_stream_out *active_outputs[STREAM_USECASE_MAX];
     pthread_mutex_t patch_lock;
+    /* Use flag to indicate creat or release patch of TV case.  TBD */
+    bool source_flag;
     struct aml_audio_patch *audio_patch;
     /* indicates atv to mixer patch, no need HAL patching  */
     bool dev2mix_patch;
@@ -1051,6 +1053,7 @@ int output_stream_hwsync_prepare(struct aml_stream_out *out, int hw_sync_id);
 bool aml_get_speaker_mute_status(void);
 /* timer callback function */
 void aml_stream_timer_callback_handler(union sigval sigv);
+bool is_audio_patch_valid(struct aml_audio_device *adev);
 
 /* 'bytes' are the number of bytes written to audio FIFO, for which 'timestamp' is valid.
  * 'available' is the number of frames available to read (for input) or yet to be played

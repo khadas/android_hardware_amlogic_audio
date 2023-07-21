@@ -780,7 +780,6 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
                         size_t bytes) {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
     struct aml_audio_device *aml_dev = in->dev;
-    struct aml_audio_patch *patch = aml_dev->audio_patch;
     char  *read_buf = (char *)buffer;
     int ret = 0;
     size_t  read_bytes = 0;
@@ -789,12 +788,13 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
     size_t frame_size = in->config.channels * pcm_format_to_bits(in->config.format) / 8;
     bool hdmi_raw_in_flag = false;
     if (in->is_tv_src_stream) {
-         hdmi_raw_in_flag = patch && (patch->input_src == AUDIO_DEVICE_IN_HDMI) && (!audio_is_linear_pcm(patch->aformat));
+         hdmi_raw_in_flag = is_audio_patch_valid(aml_dev) && aml_dev->audio_patch &&
+                (aml_dev->audio_patch->input_src == AUDIO_DEVICE_IN_HDMI) && (!audio_is_linear_pcm(aml_dev->audio_patch->aformat));
     }
 
     while (read_bytes < bytes) {
-        if (in->is_tv_src_stream && patch &&
-            patch->input_thread_exit) {
+        if (in->is_tv_src_stream && is_audio_patch_valid(aml_dev) &&
+            aml_dev->audio_patch && aml_dev->audio_patch->input_thread_exit) {
             memset((void*)buffer,0,bytes);
             return 0;
         }

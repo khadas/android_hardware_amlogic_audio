@@ -891,7 +891,6 @@ int get_the_dolby_ms12_prepared(
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     struct aml_stream_out *out;
     int output_config = MS12_OUTPUT_MASK_STEREO;
-    struct aml_audio_patch *patch = adev->audio_patch;
     uint64_t dtv_decoder_offset_base = 0;
     unsigned int sink_max_channels = 2;
     int ret = 0, associate_audio_mixing_enable = 0 , media_presentation_id = -1,mixing_level = 0,ad_vol = 100;
@@ -928,21 +927,21 @@ int get_the_dolby_ms12_prepared(
     }
 #ifdef ENABLE_DVB_PATCH
     aml_demux_audiopara_t *demux_info = NULL;
-    if (patch) {
-        demux_info = (aml_demux_audiopara_t *)patch->demux_info;
+    if (is_audio_patch_valid(adev) && adev->audio_patch) {
+        demux_info = (aml_demux_audiopara_t *)adev->audio_patch->demux_info;
     }
     if (input_format == AUDIO_FORMAT_AC3 ||
         input_format == AUDIO_FORMAT_E_AC3 ||
         input_format == AUDIO_FORMAT_AC4 ||
         input_format == AUDIO_FORMAT_AAC ||
         input_format == AUDIO_FORMAT_AAC_LATM) {
-        if (patch && demux_info) {
+        if (is_audio_patch_valid(adev) && adev->audio_patch && demux_info) {
             ms12->dual_decoder_support = demux_info->dual_decoder_support;
             associate_audio_mixing_enable = demux_info->associate_audio_mixing_enable;
             mixing_level = demux_info->mixing_level;
             ad_vol = demux_info->advol_level;
             media_presentation_id = demux_info->media_presentation_id;
-            dtv_decoder_offset_base = patch->decoder_offset;
+            dtv_decoder_offset_base = adev->audio_patch->decoder_offset;
        } else {
             ms12->dual_decoder_support = 0;
             associate_audio_mixing_enable = 0;
@@ -1050,13 +1049,13 @@ int get_the_dolby_ms12_prepared(
     /* 2.To reconfig the ms12 nodes depending on the user case when digital input case to refine ms12 performance */
     /* 3.For DDP-ARC,  top result about 60%+ CPU */
     /* 4.For MAT-eARC, top result about 50%+ CPU */
-    if (patch && \
-           (patch->input_src == AUDIO_DEVICE_IN_HDMI || patch->input_src == AUDIO_DEVICE_IN_SPDIF)) {
+    if (is_audio_patch_valid(adev) && adev->audio_patch && \
+           (adev->audio_patch->input_src == AUDIO_DEVICE_IN_HDMI || adev->audio_patch->input_src == AUDIO_DEVICE_IN_SPDIF)) {
         output_config = get_ms12_output_mask(adev->sink_format, adev->optical_format,
             (adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0);
     }
 
-    if (patch && patch->input_src == AUDIO_DEVICE_IN_HDMI) {
+    if (is_audio_patch_valid(adev) && adev->audio_patch && adev->audio_patch->input_src == AUDIO_DEVICE_IN_HDMI) {
         if (!adev->continuous_audio_mode &&
             ((input_format == AUDIO_FORMAT_AC3) || (input_format == AUDIO_FORMAT_E_AC3))) {
             dolby_ms12_set_enforce_timeslice(true);
@@ -1086,7 +1085,7 @@ int get_the_dolby_ms12_prepared(
     if (ms12->dolby_ms12_enable) {
         //register Dolby MS12 callback
         dolby_ms12_register_output_callback(ms12_output, (void *)out);
-        if ((adev->patch_src == SRC_DTV) && patch) {
+        if ((adev->patch_src == SRC_DTV) && is_audio_patch_valid(adev) && adev->audio_patch) {
             if (ms12->scaletempo == NULL) {
                 hal_scaletempo_init((struct scale_tempo **)&ms12->scaletempo);
             }
@@ -1187,7 +1186,7 @@ int get_the_dolby_ms12_prepared(
         set_ms12_ac4_presentation_group_index(ms12, media_presentation_id);
         ALOGI("%s line %d\n",__func__, __LINE__);
 #ifdef ENABLE_DVB_PATCH
-        if (patch && demux_info) {
+        if (is_audio_patch_valid(adev) && adev->audio_patch && demux_info) {
             char first_lang[4] = {0};
             dtv_convert_language_to_string(demux_info->media_first_lang,first_lang);
             set_ms12_ac4_1st_preferred_language_code(ms12, first_lang);
@@ -1195,7 +1194,7 @@ int get_the_dolby_ms12_prepared(
             dtv_convert_language_to_string(demux_info->media_second_lang,second_lang);
             set_ms12_ac4_2nd_preferred_language_code(ms12, second_lang);
 
-            int prefer_selection_type = (patch->is_dtv_src) ? PERFER_SELECTION_BY_LANGUAGE : PERFER_SELECTION_BY_AD_TYPE;
+            int prefer_selection_type = (is_audio_patch_valid(adev) && adev->audio_patch->is_dtv_src) ? PERFER_SELECTION_BY_LANGUAGE : PERFER_SELECTION_BY_AD_TYPE;
             ALOGI("%s line %d 1st %c %c %c 2nd %c %c %c pat %d\n",__func__, __LINE__, first_lang[0], first_lang[1], first_lang[2], second_lang[0], second_lang[1], second_lang[2], prefer_selection_type);
             set_ms12_ac4_prefer_presentation_selection_by_associated_type_over_language(ms12, prefer_selection_type);
         }

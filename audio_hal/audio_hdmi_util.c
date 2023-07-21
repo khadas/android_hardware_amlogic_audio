@@ -599,6 +599,24 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
     return 0;
 }
 
+int find_61937_sync_word(char *buffer, int size)
+{
+    int i = -1;
+    if (size < 8) {
+        return i;
+    }
+
+    for (i = 0; i < (size - 3); i++) {
+        if (buffer[i + 0] == 0x72 && buffer[i + 1] == 0xF8 && buffer[i + 2] == 0x1F && buffer[i + 3] == 0x4E) {
+            return i;
+        }
+        if (buffer[i + 0] == 0xF8 && buffer[i + 1] == 0x72 && buffer[i + 2] == 0x4E && buffer[i + 3] == 0x1F) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 #if ANDROID_PLATFORM_SDK_VERSION > 32
 void read_hdmi_arc_info(struct audio_hw_device *dev,
     const struct audio_extra_audio_descriptor *audio_descriptors, uint32_t size, bool connected) {

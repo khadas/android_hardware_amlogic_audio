@@ -608,6 +608,11 @@ struct aml_audio_patch {
     unsigned char main_head[32];
     bool need_save_main_head;
     int main_head_read_size;
+    int sync_offset;
+    int read_size;
+    struct timespec start_ts;
+    int mdelay;
+    bool start_mute;
 };
 
 struct audio_stream_out;
@@ -680,6 +685,7 @@ void update_audio_format(struct aml_audio_device *adev, audio_format_t format);
 int audio_route_set_hdmi_arc_mute(struct aml_mixer_handle *mixer_handle, int enable);
 int audio_route_set_spdif_mute(struct aml_mixer_handle *mixer_handle, int enable);
 void audio_route_set_speaker_mute(struct aml_audio_device* aml_dev, int enable);
+void audio_route_set_speaker_mute_l(struct aml_audio_device* aml_dev, int enable);
 int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
                                        struct aml_stream_in *stream_in,
                                        ring_buffer_t *ringbuffer, int buffer_size);
@@ -734,5 +740,6 @@ int aml_audio_earc_get_latency(struct aml_audio_device *adev);
 const char *write_func_to_str(enum stream_write_func func);
 bool is_HBR_stream(struct audio_stream_in *stream);
 bool is_hdmi_in_sample_rate_changed(struct audio_stream_in *stream);
+void audio_raw_data_continuous_check(struct aml_audio_device *aml_dev, audio_type_parse_t *status, char *buffer, int size);
 
 #endif /* _AML_AUDIO_STREAM_H_ */
