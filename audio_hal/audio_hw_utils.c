@@ -1381,9 +1381,9 @@ bool aml_audio_data_detect(int16_t *buf, size_t bytes, int detect_value)
 static int mixer_aux_start_ease_in(struct aml_stream_out *aml_out) {
     /*start ease in the audio*/
     ease_setting_t ease_setting;
-    aml_out->audio_stream_ease->data_format.format = AUDIO_FORMAT_PCM_16_BIT;
-    aml_out->audio_stream_ease->data_format.ch = 2;
-    aml_out->audio_stream_ease->data_format.sr = 48000;
+    aml_out->audio_stream_ease->data_format.format = aml_out->hal_format;
+    aml_out->audio_stream_ease->data_format.ch = aml_out->hal_ch;
+    aml_out->audio_stream_ease->data_format.sr = aml_out->hal_rate;
     aml_out->audio_stream_ease->ease_type = EaseLinear;
     ease_setting.duration = 40;
     ease_setting.start_volume = 0.0;
@@ -1419,9 +1419,14 @@ int aml_audio_data_handle(struct audio_stream_out *stream, const void* buffer, s
     int unit_size = 0;
     int detected_size = 0;
     size_t remaining_size = bytes;
+    audio_data_handle_state_t data_handle_state = out->audio_data_handle_state;
 
     ALOGV("%s out_stream usecase:%d-->%s, hal_format:%#x hal_ch:%u --> hal_frame_size:%u, hal_rate:%u, DETECT_AUDIO_DATA_UNIT:%u, bytes:%zu", __func__,
           out->usecase, usecase2Str(out->usecase), out->hal_format, out->hal_ch, out->hal_frame_size, out->hal_rate, DETECT_AUDIO_DATA_UNIT, bytes);
+    if ((data_handle_state == AUDIO_DATA_HANDLE_NONE) || (data_handle_state == AUDIO_DATA_HANDLE_MAX)) {
+        AM_LOGE("invalid audio_data_handle_state %d", data_handle_state);
+        return -1;
+    }
 
     while (out->audio_data_handle_state < AUDIO_DATA_HANDLE_FINISHED && remaining_size) {
         ALOGD("%s remaining_size:%zu,  out->audio_data_handle_status:%u", __func__, remaining_size, out->audio_data_handle_state);
@@ -1442,6 +1447,18 @@ int aml_audio_data_handle(struct audio_stream_out *stream, const void* buffer, s
                         out->audio_data_handle_state = AUDIO_DATA_HANDLE_DETECTED;
                         ALOGD("%s  detected the nonzero data, remaining_size:%zu  detected_size:%u", __func__, remaining_size, detected_size);
                         break;
+                    } else {
+                        ease_setting_t ease_setting;
+                        memset(&ease_setting, 0, sizeof(ease_setting));
+                        ease_setting.duration = 0;
+                        ease_setting.target_volume = 0.0;
+
+                        out->audio_stream_ease->data_format.format = out->hal_format;
+                        out->audio_stream_ease->data_format.ch = out->hal_ch;
+                        out->audio_stream_ease->data_format.sr = out->hal_rate;
+                        out->audio_stream_ease->ease_type = EaseLinear;
+                        aml_audio_ease_config(out->audio_stream_ease, &ease_setting);
+                        aml_audio_ease_process(out->audio_stream_ease, (void *)((int8_t *)buffer + detected_size), unit_size);
                     }
 
                     remaining_size -= unit_size;

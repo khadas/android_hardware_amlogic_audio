@@ -3469,6 +3469,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->resample_handle = NULL;
     out->speed_handle = NULL;
     *stream_out = &out->stream;
+    adev->debug_flag = aml_audio_get_debug_flag();
     ALOGD("%s: exit", __func__);
 
     return 0;

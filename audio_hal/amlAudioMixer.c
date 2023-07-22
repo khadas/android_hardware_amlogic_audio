@@ -833,12 +833,18 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
                 if (fade_out) {
                     struct aml_stream_out *out = (struct aml_stream_out *)in_port->notify_cbk_data;
                     audio_hwsync_t *hwsync = (out != NULL) ? (out->hwsync) : NULL;
+                    struct aml_audio_device *adev = (out != NULL) ? (out->dev) : NULL;
                     AM_LOGI("output port:%s fade out, pausing->pausing_1, tsync pause audio", mixerInputType2Str(type));
                     aml_hwsync_wrap_set_pause(hwsync);
                     audio_fade_func(in_port->data, ret, 0);
                     set_inport_state(in_port, PAUSED);
                     /* Mute the last data to prevent gap. */
                     ring_buffer_clear(in_port->r_buf);
+                    if (adev && adev->is_netflix) {
+                        // prepare for the next writing.
+                        in_port->first_read = true;
+                        out->audio_data_handle_state = AUDIO_DATA_HANDLE_START;
+                    }
                 } else if (fade_in) {
                     AM_LOGI("input port:%s fade in", mixerInputType2Str(type));
                     audio_fade_func(in_port->data, ret, 1);

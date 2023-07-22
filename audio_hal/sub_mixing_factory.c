@@ -110,7 +110,7 @@ static ssize_t aml_out_write_to_mixer(struct audio_stream_out *stream, const voi
     uint32_t latency_frames = 0;
     struct timespec ts;
 
-    if (adev->is_netflix && STREAM_PCM_NORMAL == out->usecase) {
+    if (adev->is_netflix && (STREAM_PCM_NORMAL == out->usecase || STREAM_PCM_HWSYNC == out->usecase)) {
         aml_audio_data_handle(stream, buffer, bytes);
     }
 
@@ -390,9 +390,12 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
         AM_LOGI("hwsync port type = %d",
                 get_input_port_type(&out->audioCfg, out->flags));
         out->standby = false;
+        out->audio_data_handle_state = AUDIO_DATA_HANDLE_START;
         mixer_set_continuous_output(sm->mixerData, false);
         /*wait video ready*/
-        {
+        if (out->hwsync->use_mediasync) {
+            aml_hwsync_wait_video_start(out->hwsync);
+        } else {
             int vframe_ready_cnt = 0;
             int delay_count = 0;
             while (delay_count < 10) {
@@ -562,6 +565,7 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
             NULL, NULL, 1.0);
         AM_LOGI("direct port:%s", mixerInputType2Str(get_input_port_type(&out->audioCfg, out->flags)));
         out->standby = false;
+        out->audio_data_handle_state = AUDIO_DATA_HANDLE_START;
     }
 
     clock_gettime(CLOCK_MONOTONIC, &tval);
