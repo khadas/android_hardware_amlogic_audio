@@ -8650,10 +8650,13 @@ static int adev_release_patch_restore_resource(struct aml_audio_device *aml_dev)
         }
         ALOGI("%s restore continuous_audio_mode=%d", __func__, aml_dev->continuous_audio_mode);
     }
-    aml_dev->audio_patching = 0;
-    /* save ATV src to deal with ATV HP hotplug */
-    if (aml_dev->patch_src != SRC_ATV && aml_dev->patch_src != SRC_DTV) {
-        aml_dev->patch_src = SRC_INVAL;
+    /*when pip mode , two audiopatch coexisits, if one audiopatch released , the patching flag will be set to  0*/
+    if (!aml_dev->audio_patch) {
+         aml_dev->audio_patching = 0;
+        /* save ATV src to deal with ATV HP hotplug */
+        if (aml_dev->patch_src != SRC_ATV) {
+            aml_dev->patch_src = SRC_INVAL;
+        }
     }
 
     return ret;
@@ -8700,7 +8703,6 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
         if (aml_dev->patch_src == SRC_DTV || ( aml_dev->audio_patch && aml_dev->audio_patch->is_dtv_src)) {
             ALOGI("patch src == DTV now line %d \n", __LINE__);
             release_dtv_patch(aml_dev);
-            aml_dev->audio_patching = 0;
         }
 #endif
         if (aml_dev->patch_src != SRC_DTV
@@ -8731,7 +8733,6 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
                 patch->sources[0].ext.device.type == AUDIO_DEVICE_IN_TV_TUNER) {
             ALOGI("patch src == DTV now line %d \n", __LINE__);
             release_dtv_patch(aml_dev);
-            aml_dev->audio_patching = 0;
         } else
 #endif
         {
@@ -8741,9 +8742,6 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
         /*for no patch case, we need to restore it*/
         ret = adev_release_patch_restore_resource(aml_dev);
 
-        if (aml_dev->patch_src != SRC_ATV && aml_dev->patch_src != SRC_DTV) {
-            aml_dev->patch_src = SRC_INVAL;
-        }
         if (aml_dev->audio_patching) {
             ALOGI("patch src reset to  DTV now line= %d \n", __LINE__);
             //aml_dev->patch_src = SRC_DTV;
