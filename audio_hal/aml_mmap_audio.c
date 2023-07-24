@@ -229,6 +229,7 @@ static int outMmapCreateBuffer(const struct audio_stream_out *stream,
     info->shared_memory_fd = pstParam->s32IonShareFd;
     info->buffer_size_frames = MMAP_WRITE_SIZE_FRAME * MMAP_BUFFER_BURSTS_NUM;
     info->burst_size_frames  = MMAP_WRITE_SIZE_FRAME;
+    info->flags |= AUDIO_MMAP_APPLICATION_SHAREABLE;
 
     aml_mmap_thread_param_st *pstThread = &pstParam->stThreadParam;
     if (pstThread->threadId != 0) {
