@@ -7750,14 +7750,31 @@ void *audio_patch_input_threadloop(void *data)
                 memset(patch->in_buf, 0, bytes_avail);
                 ring_buffer_clear(ringbuffer);
             } else {
+                /* For game mode, the sleep time is different with normal mode when play pcm stream. */
+                /* Because it reads about 10ms data from driver when it is in game mode. Otherwise it */
+                /* is about 20ms for normal mode. To avoid underrun happen, change sleep time to  */
+                /* corresponding mode. */
+                if (is_game_mode(aml_dev)) {
+                    usleep(10*1000);
+                } else {
+                    usleep(20*1000);
+                }
                 memset(patch->in_buf, 0, bytes_avail);
                 ring_buffer_clear(ringbuffer);
-                usleep(20*1000);
+                aml_dev->mute_flag = 1;
             }
         } else {
             if (aml_dev->patch_src == SRC_HDMIIN && in->audio_packet_type == AUDIO_PACKET_AUDS && in->config.channels != 2) {
                 input_stream_channels_adjust(&in->stream, patch->in_buf, read_bytes);
             } else {
+                if ((aml_dev->mute_flag == 1) && (audio_is_linear_pcm(patch->aformat)) && is_game_mode(aml_dev)) {
+                    ring_buffer_reset(ringbuffer);
+                    ret = pcm_ioctl(aml_dev->pcm_handle[I2S_DEVICE], SNDRV_PCM_IOCTL_RESET, 0);
+                    if (ret < 0) {
+                        ALOGE("cannot reset pcm!");
+                        }
+                    aml_dev->mute_flag = 0;
+                }
                 aml_audio_trace_int("input_read_thread", read_bytes);
                 aml_alsa_input_read(&in->stream, patch->in_buf, read_bytes);
                 aml_audio_trace_int("input_read_thread", 0);
@@ -7973,7 +7990,7 @@ void *audio_patch_output_threadloop(void *data)
                     (aml_dev->patch_src == SRC_ATV || aml_dev->patch_src == SRC_HDMIIN ||
                     aml_dev->patch_src == SRC_LINEIN)) {
 
-                if (!txlx_chip) {
+                if (!txlx_chip && !is_game_mode(aml_dev)) {
                     aml_dev_try_avsync(patch);
                     if (patch->skip_frames) {
                         ALOGD("%s(), skip this period data for avsync!", __func__);

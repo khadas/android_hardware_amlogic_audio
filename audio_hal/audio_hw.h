@@ -606,6 +606,7 @@ struct aml_audio_device {
     /* board specific json configs */
     struct audio_board_config board_config;
 
+    int mute_flag;
     unsigned int output_mix_source; // MIX_SRC_LINEIN, USBIN, NIL (default)
     // customized_usb is valid only when MIX_SRC_LINEIN==USBIN
     int customized_usb_card; // -1, invalid (default), [0,1,2..] valid
