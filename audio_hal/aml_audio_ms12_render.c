@@ -139,7 +139,7 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
 
     } else {
         /*not continuous mode, we use sink gain control the volume*/
-        if (!continuous_mode(adev)) {
+        if (adev->audio_patch) {
             /* non-TV device, here the dtv set the dolby ms12's volume*/
             dtv_set_ms12_volume_on_non_TV_device(aml_out);
 
@@ -329,16 +329,16 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
         if (ms12 && patch && patch->cur_package) {
             uint64_t  decoder_base = ms12->dtv_decoder_offset_base;
             uint64_t  decoder_offset = patch->decoder_offset;
-            if (decoder_base != 0 && decoder_offset >= decoder_base) {
-                decoder_offset -= decoder_base;
-            }
+
             if (adev->debug_flag) {
                 ALOGI("%s dolby pts %" PRIu64 " decoder_base =%" PRIu64 " decoder_offset =%" PRIu64 "", __func__, patch->cur_package->pts, decoder_base, decoder_offset);
             }
             if (patch->cur_package->pts != ULLONG_MAX && patch->cur_package->pts != DTVSYNC_INVALID_PTS) {
-                set_ms12_main_audio_pts(ms12, patch->cur_package->pts, decoder_offset);
+                //set_ms12_main_audio_pts(ms12, patch->cur_package->pts, decoder_offset);
+                aml_audio_hwsync_checkin_apts(aml_out->hwsync, decoder_offset, patch->cur_package->pts);
             } else {
-                set_ms12_main_audio_pts(ms12,  patch->dtvsync->out_end_apts, decoder_offset);
+                //set_ms12_main_audio_pts(ms12,  patch->dtvsync->out_end_apts, decoder_offset);
+                aml_audio_hwsync_checkin_apts(aml_out->hwsync, decoder_offset, patch->dtvsync->out_end_apts);
             }
             /* to init the pts information */
             if (patch->decoder_offset == 0) {
@@ -466,6 +466,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                                 aml_dtvsync_setParameter(patch->dtvsync, MEDIASYNC_KEY_ALSAREADY, &aml_out->alsa_running_status);
                                 aml_out->alsa_status_changed = false;
                             }
+                            #if 0
                             patch->dtvsync->cur_outapts = aml_dec->out_frame_pts - ms12_delayms * 90 - alsa_latency + force_setting_delayms * 90 + tune_latency;
                             if (get_debug_value(AML_DEBUG_AUDIOHAL_AUT)) {
                                 ALOGI("frame_pts:%" PRIx64 ", output_pts:%" PRIx64 ", latency:%" PRId64 " ms, tune_latency:%d ms.",\
@@ -478,6 +479,8 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                                        patch->dtvsync->cur_outapts, ms12_delayms, alsa_latency/90, tune_latency / 90);
                             if (aml_out->dtvsync_enable)
                                 aml_dtvsync_ms12_get_policy(stream);
+                            #endif
+                            aml_audio_hwsync_checkin_apts(aml_out->hwsync, patch->dtv_pcm_wrote, aml_dec->out_frame_pts);
                         }
                     }
 #endif

@@ -37,6 +37,7 @@
 #include "alsa_config_parameters.h"
 #include "audio_hw_ms12.h"
 #include "amlAudioMixer.h"
+#include "audio_hw_ms12_common.h"
 
 #ifdef MS12_V24_ENABLE
 #include "audio_hw_ms12_v2.h"
@@ -698,13 +699,7 @@ bool is_hdmi_in_stable_sw (struct audio_stream_in *stream)
     return true;
 }
 
-void release_audio_stream(struct audio_stream_out *stream)
-{
-    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
-    aml_audio_free(stream);
-}
-
-bool is_atv_in_stable_hw(struct audio_stream_in *stream)
+bool is_atv_in_stable_hw (struct audio_stream_in *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
     struct aml_audio_device *aml_dev = in->dev;
@@ -1073,8 +1068,9 @@ void aml_stream_out_info_print(struct aml_stream_out *aml_out, uint64_t *frames,
      * 3. The absolute value of jitter is over the threshold.
      * 4. Debug flag is enabled.
      */
-    if (llabs(aml_out->jitter_ms) > JITTER_PRINT_THRESHOLD || time_gap >= INFO_TIME_PRINT_THRESHOLD
-            || cur_info_time_in_ms - aml_out->last_periodic_print_time_in_ms > 5000 || adev->debug_flag > 1) {
+    if (llabs(aml_out->jitter_ms) > JITTER_PRINT_THRESHOLD
+        || cur_info_time_in_ms - aml_out->last_periodic_print_time_in_ms > 5000
+        || adev->debug_flag > 1) {
         char *stream_type = audio_is_linear_pcm(aml_out->hal_format) ? "pcm" : "raw";
         char *sync_mode = aml_out->hw_sync_mode ? "tunnel" : "non tunnel";
         char *jitter_case = aml_out->jitter_ms >= 0 ?
@@ -1820,6 +1816,9 @@ int update_sink_format_after_hotplug(struct aml_audio_device *adev)
             ALOGD("%s() active stream %p ms12_out %p\n", __FUNCTION__, stream, adev->ms12_out);
         }
     }
+    if (eDolbyMS12Lib == adev->dolby_lib_type) {
+        audiohal_send_msg_2_ms12(&adev->ms12, MS12_MESG_TYPE_RESET_MS12_ENCODER);
+    }
 
     return 0;
 }
@@ -1999,15 +1998,6 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
             } else {
                 ALOGI("[audiohal_kpi] %s, now create the dtv patch now\n ", __func__);
                 adev->patch_src = SRC_DTV;
-                if (eDolbyMS12Lib == adev->dolby_lib_type) {
-                    bool set_ms12_non_continuous = true;
-                    get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
-                    adev->exiting_ms12 = 1;
-                    clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
-                    if (adev->active_outputs[STREAM_PCM_NORMAL] != NULL)
-                        usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
-                }
-
 
                 ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER, AUDIO_DEVICE_OUT_SPEAKER);
                 if (ret == 0) {
@@ -2027,15 +2017,6 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
                 }
             }
 #endif
-            if (eDolbyMS12Lib == adev->dolby_lib_type && adev->continuous_audio_mode) {
-                ALOGI("In ATV exit MS12 continuous mode");
-                bool set_ms12_non_continuous = true;
-                get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
-                adev->exiting_ms12 = 1;
-                clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
-                if (adev->active_outputs[STREAM_PCM_NORMAL] != NULL)
-                    usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
-            }
 
             if (!adev->audio_patching) {
                 ALOGI("[audiohal_kpi] %s, create atv patching", __func__);
@@ -2058,14 +2039,6 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
                 }
             }
             adev->patch_src = SRC_INVAL;
-            if (eDolbyMS12Lib == adev->dolby_lib_type) {
-                get_dolby_ms12_cleanup(&adev->ms12, false);
-                /*continuous mode is using in ms12 prepare, we should lock it*/
-                pthread_mutex_lock(&adev->ms12.lock);
-                adev->continuous_audio_mode = 1;
-                pthread_mutex_unlock(&adev->ms12.lock);
-                ALOGI("%s restore continuous_audio_mode=%d", __func__, adev->continuous_audio_mode);
-            }
 #endif
         }
         goto exit;

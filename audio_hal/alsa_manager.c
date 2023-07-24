@@ -615,7 +615,7 @@ write:
 
     /*for ms12 case, we control the output buffer level*/
     if ((adev->continuous_audio_mode == 1) && (eDolbyMS12Lib == adev->dolby_lib_type)) {
-        alsa_write_rate_control(stream, bytes, aml_out->alsa_output_format);
+        //alsa_write_rate_control(stream, bytes, aml_out->alsa_output_format);
     } else if (is_dts_format(aml_out->hal_internal_format)) {
         alsa_write_rate_control(stream, bytes, aml_out->alsa_output_format);
     }
@@ -752,6 +752,30 @@ int aml_alsa_output_get_latency(struct audio_stream_out *stream) {
 
     return 0;
 }
+
+int aml_alsa_output_get_delayframe(struct audio_stream_out *stream) {
+    const struct aml_stream_out *aml_out = (const struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    int ret = 0;
+    snd_pcm_sframes_t frames = 0;
+    if (aml_out->pcm && pcm_is_ready(aml_out->pcm)) {
+        ret = pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
+        if (ret < 0) {
+            ALOGE("%s:%d, pcm_ioctl fail, ret:%#x, error info:%s",
+                __func__, __LINE__, ret, strerror(errno));
+            return ret;
+        }
+        ALOGV("aml_alsa_output_get_delayframe frames %ld",frames);
+        if ( frames > 0) {
+            return frames;
+        }
+    }
+
+    return 0;
+
+}
+
 
 void aml_close_continuous_audio_device(struct audio_hw_device *dev) {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;

@@ -2552,7 +2552,7 @@ void check_write_time(struct audio_stream_out *stream, size_t bytes)
     uint32_t cur_write_data_in_byte = bytes;
     int32_t write_time_gap_in_ms = cur_write_start_time_in_ms - aml_out->last_write_start_time_in_ms;
 
-    if (write_time_gap_in_ms > WRITE_TIME_PRINT_THRESHOLD || adev->debug_flag > 1) {
+    if (adev->debug_flag > 1) {
         ALOGW("%s: out_stream:%p, write count:%d, last write time:%d ms, last write data:%d byte,"
             "cur write time:%d ms, cur write data:%d byte, write time gap:%d ms (thr:%d ms)",
             __func__, stream, aml_out->write_count, aml_out->last_write_start_time_in_ms, aml_out->last_write_data_in_byte,

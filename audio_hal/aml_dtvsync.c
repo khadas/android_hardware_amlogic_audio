@@ -663,7 +663,7 @@ int aml_dtvsync_ms12_process_resample(struct audio_stream_out *stream,
 
     } else {
         set_dolby_ms12_main_speed(&adev->ms12, (double)speed);
-        dolby_ms12_main_flush(stream);
+        //dolby_ms12_main_flush(stream);
     }
     aml_out->output_speed = speed;
     return 0;
@@ -751,8 +751,13 @@ void aml_dtvsync_ms12_get_policy(struct audio_stream_out *stream)
     struct aml_audio_patch *patch = adev->audio_patch;
     struct mediasync_audio_policy m_audiopolicy;
     bool ret = true;
+#if 0
     if (patch->dtvsync->apolicy.audiopolicy != DTVSYNC_AUDIO_UNKNOWN &&
         patch->dtvsync->apolicy.audiopolicy != MEDIASYNC_AUDIO_DROP_PCM) {
+        return;
+    }
+#endif
+    if (patch == NULL) {
         return;
     }
     memset(&m_audiopolicy, 0, sizeof(m_audiopolicy));

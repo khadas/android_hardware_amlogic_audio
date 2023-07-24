@@ -200,6 +200,7 @@ struct dolby_ms12_desc {
     void * info_ac3_parser_handle;
     int mat_stream_profile;
     bool enable_mixer_max_size;
+	bool b_encoder_reset;
 };
 
 /*
@@ -254,5 +255,16 @@ int aml_ms12_lib_preload(char *dolby_ms12_path);
 
 int aml_ms12_lib_release();
 
+int aml_ms12_main_decoder_open(struct dolby_ms12_desc *ms12_desc
+                    , audio_format_t config_format
+                    , audio_channel_mask_t config_channel_mask
+                    , int config_sample_rate);
+
+
+int aml_ms12_main_decoder_close(struct dolby_ms12_desc *ms12_desc);
+
+int aml_ms12_main_decoder_process(struct dolby_ms12_desc *ms12_desc);
+
+int aml_ms12_main_encoder_reconfig(struct dolby_ms12_desc *ms12_desc, int output_config);
 
 #endif //end of __AML_AUDIO_MS12_H__

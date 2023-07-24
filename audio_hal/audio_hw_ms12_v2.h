@@ -235,6 +235,7 @@ bool is_ms12_passthrough(struct audio_stream_out *stream);
 
 void set_ms12_atmos_lock(struct dolby_ms12_desc *ms12, bool is_atmos_lock_on);
 void set_ms12_acmod2ch_lock(struct dolby_ms12_desc *ms12, bool is_lock_on);
+void set_ms12_chmod_lock(struct dolby_ms12_desc *ms12, bool is_lock_on);
 bool is_ms12_continuous_mode(struct aml_audio_device *adev);
 void set_ms12_main_volume(struct dolby_ms12_desc *ms12, float volume);
 
@@ -367,6 +368,8 @@ void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, uint6
 void set_ms12_main_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute, unsigned int duration);
 
 audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format);
+
+int dolby_ms12_encoder_reconfig(struct dolby_ms12_desc *ms12);
 
 void set_dolby_ms12_main_speed(struct dolby_ms12_desc *ms12, double speed);
 

@@ -3723,7 +3723,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
         ALOGI("%s live stream %p active,need standby aml_out->usecase:%d ",
               __func__, aml_out, aml_out->usecase);
         pthread_mutex_unlock(&aml_dev->lock);
-        aml_dev->continuous_audio_mode = 0;
+        //aml_dev->continuous_audio_mode = 0;
         /*
         there are several output cases. if there are no ms12 or submixing modules.
         we will output raw/lpcm directly.we need close device directly.

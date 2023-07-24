@@ -70,6 +70,7 @@ const char *mesg_type_2_string[MS12_MESG_TYPE_MAX] = {
     "MS12_MESG_TYPE_RESUME",
     "MS12_MESG_TYPE_SET_MAIN_DUMMY",
     "MS12_MESG_TYPE_UPDATE_RUNTIME_PARAMS",
+    "MS12_MESG_TYPE_RESET_MS12_ENCODER",
     "MS12_MESG_TYPE_EXIT_THREAD",
     "MS12_MESG_TYPE_SCHEDULER_STATE",
 };
@@ -279,27 +280,29 @@ Repop_Mesg:
         }
         pthread_mutex_unlock(&ms12->mutex);
 
-        while (NULL == ms12->ms12_main_stream_out && true != ms12->CommThread_ExitFlag) {
-            ALOGV("%s  ms12_out:%p, waiting ==> ms12_main_stream_out:%p", __func__,adev->ms12_out,ms12->ms12_main_stream_out);
-            aml_audio_sleep(5000); //sleep 5ms
-        };
         if (ms12->CommThread_ExitFlag) {
             goto Error;
         }
         ALOGV("%s  ms12_out:%p, ==> ms12_main_stream_out:%p", __func__,adev->ms12_out,ms12->ms12_main_stream_out);
         switch (mesg_p->mesg_type) {
             case MS12_MESG_TYPE_FLUSH:
-                dolby_ms12_main_flush(&ms12->ms12_main_stream_out->stream);//&adev->ms12_out->stream
+                if (ms12->ms12_main_stream_out != NULL)
+                    dolby_ms12_main_flush(&ms12->ms12_main_stream_out->stream);//&adev->ms12_out->stream
                 break;
             case MS12_MESG_TYPE_PAUSE:
-                dolby_ms12_main_pause(&ms12->ms12_main_stream_out->stream);
+                if (ms12->ms12_main_stream_out != NULL)
+                    dolby_ms12_main_pause(&ms12->ms12_main_stream_out->stream);
                 break;
             case MS12_MESG_TYPE_RESUME:
-                dolby_ms12_main_resume(&ms12->ms12_main_stream_out->stream);
+                if (ms12->ms12_main_stream_out != NULL)
+                    dolby_ms12_main_resume(&ms12->ms12_main_stream_out->stream);
                 break;
             case MS12_MESG_TYPE_SET_MAIN_DUMMY:
                 break;
             case MS12_MESG_TYPE_UPDATE_RUNTIME_PARAMS:
+                break;
+            case MS12_MESG_TYPE_RESET_MS12_ENCODER:
+                dolby_ms12_encoder_reconfig(ms12);
                 break;
             case MS12_MESG_TYPE_EXIT_THREAD:
                 ALOGD("%s mesg exit thread.", __func__);
@@ -550,38 +553,11 @@ void set_continuous_audio_mode(struct aml_audio_device *adev, int enable, int is
             sscanf(buf, "%d", &disable_continuous);
             ALOGI("%s[%s] disable_continuous %d\n", DISABLE_CONTINUOUS_OUTPUT, buf, disable_continuous);
         }
-        pthread_mutex_lock(&adev->lock);
-        if (continuous_mode(adev) && disable_continuous) {
-            // If the Netflix application is terminated, your platform must disable Atmos locking.
-            // For more information, see When to enable/disable Atmos lock.
-            // The following Netflix application state transition scenarios apply (state definitions described in Always Ready):
-            // Running->Not Running
-            // Not Running->Running
-            // Hidden->Visible
-            // Visible->Hidden
-            // Application crash / abnormal shutdown
-           if (eDolbyMS12Lib == adev->dolby_lib_type) {
-                adev->atoms_lock_flag = 0;
-                dolby_ms12_set_atmos_lock_flag(adev->atoms_lock_flag);
-            }
-
-            ALOGI("%s Dolby MS12 is at continuous output mode, here go to end it!\n", __FUNCTION__);
-            bool set_ms12_non_continuous = true;
-            get_dolby_ms12_cleanup(&adev->ms12, set_ms12_non_continuous);
-            //ALOGI("[%s:%d] get_dolby_ms12_cleanup\n", __FUNCTION__, __LINE__);
-            adev->exiting_ms12 = 1;
-            clock_gettime(CLOCK_MONOTONIC, &adev->ms12_exiting_start);
-            if (adev->active_outputs[STREAM_PCM_NORMAL] != NULL)
-                usecase_change_validate_l(adev->active_outputs[STREAM_PCM_NORMAL], true);
-            //continuous_stream_do_standby(adev);
+        if (disable_continuous) {
+            adev_ms12_cleanup((struct audio_hw_device *)adev);
         } else {
-            get_dolby_ms12_cleanup(&adev->ms12, false);
-            if ((!disable_continuous) && !continuous_mode(adev)) {
-                adev->mix_init_flag = false;
-                adev->continuous_audio_mode = 1;
-            }
+            adev_ms12_prepare((struct audio_hw_device *)adev);
         }
-        pthread_mutex_unlock(&adev->lock);
     }
 }
 

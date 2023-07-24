@@ -210,7 +210,7 @@ static void get_pcm_hardware_config_parameters(
    */
     if (continuous_mode && channels <= 8) {
         hardware_config->period_count = PLAYBACK_PERIOD_COUNT * 2;
-        hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count / 4;
+        hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count / 8;
     } else {
         if (!game_mode) {
             hardware_config->period_count = PLAYBACK_PERIOD_COUNT;

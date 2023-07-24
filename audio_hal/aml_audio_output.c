@@ -834,7 +834,7 @@ ssize_t hw_write (struct audio_stream_out *stream
             adev->ms12.sys_audio_timestamp.tv_sec = ts.tv_sec;
             adev->ms12.sys_audio_timestamp.tv_nsec = ts.tv_nsec;
             /*FIXME. 2ch 16 bit audio */
-            adev->ms12.sys_audio_frame_pos = adev->ms12.sys_audio_base_pos + adev->ms12.sys_audio_skip + sys_total_cost/4 - latency_frames;
+            adev->ms12.sys_audio_frame_pos = adev->ms12.sys_audio_base_pos + adev->ms12.sys_audio_skip + sys_total_cost - latency_frames;
             adev->ms12.sys_data_write2alsa_status = true;
         }
         if (adev->debug_flag) {

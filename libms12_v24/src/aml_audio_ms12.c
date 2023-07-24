@@ -155,6 +155,11 @@ int aml_ms12_lib_release() {
 
 int aml_ms12_cleanup(struct dolby_ms12_desc *ms12_desc)
 {
+    /*release dec/enc graph*/
+    dolby_ms12_main_decoder_close(ms12_desc->dolby_ms12_ptr);
+    dolby_ms12_encoder_close(ms12_desc->dolby_ms12_ptr);
+
+    /*release continuous graph*/
     dolby_ms12_status_self_cleanup();
     //dolby_ms12_config_params_self_cleanup();
     dolby_ms12_release(ms12_desc->dolby_ms12_ptr);
@@ -224,6 +229,74 @@ int aml_ms12_update_runtime_params_direct(struct dolby_ms12_desc *ms12_desc, int
     ALOGI("-%s() ret %d\n", __FUNCTION__, ret);
     return ret;
 }
+
+
+int aml_ms12_init_all_params(struct dolby_ms12_desc *ms12_desc) {
+    int ret = 0;
+    ret = dolby_ms12_init_all_params(ms12_desc->dolby_ms12_ptr, ms12_desc->dolby_ms12_init_argc, ms12_desc->dolby_ms12_init_argv);
+    return  ret;
+}
+
+int aml_ms12_main_decoder_open(struct dolby_ms12_desc *ms12_desc
+                    , audio_format_t config_format
+                    , audio_channel_mask_t config_channel_mask
+                    , int config_sample_rate) {
+    ALOGI("+%s() %d format=0x%x ch_mask=0x%x rate =%d\n", __FUNCTION__, __LINE__, config_format, config_channel_mask, config_sample_rate);
+    ms12_desc->input_config_format = config_format;
+    ms12_desc->config_channel_mask = config_channel_mask;
+    ms12_desc->config_sample_rate = config_sample_rate;
+
+    dolby_ms12_config_params_reset_config_params();
+
+    if ((get_audio_associate_format() == AUDIO_FORMAT_AC3) || (get_audio_associate_format() == AUDIO_FORMAT_E_AC3) ||
+        (get_audio_associate_format() == AUDIO_FORMAT_MAT)) {
+        dolby_ms12_config_params_set_associate_flag(true);
+    }
+
+    dolby_ms12_config_params_set_audio_stream_out_params(
+        2 //AUDIO_OUTPUT_FLAG_PRIMARY
+        , ms12_desc->input_config_format
+        , ms12_desc->config_channel_mask
+        , ms12_desc->config_sample_rate
+        , ms12_desc->output_config);
+    get_dolby_ms12_output_details(ms12_desc);
+
+    //aml_ms12_init_all_params(ms12_desc);
+    ALOGI("-%s() %d\n", __FUNCTION__, __LINE__);
+    dolby_ms12_main_decoder_open(ms12_desc->dolby_ms12_ptr, ms12_desc->dolby_ms12_init_argc, ms12_desc->dolby_ms12_init_argv);
+    return 0;
+}
+
+int aml_ms12_main_decoder_close(struct dolby_ms12_desc *ms12_desc) {
+    dolby_ms12_main_decoder_close(ms12_desc->dolby_ms12_ptr);
+    return 0;
+}
+
+int aml_ms12_main_decoder_process(struct dolby_ms12_desc *ms12_desc) {
+    dolby_ms12_main_decoder_process(ms12_desc->dolby_ms12_ptr);
+    return 0;
+}
+
+int aml_ms12_main_encoder_reconfig(struct dolby_ms12_desc *ms12_desc, int output_config) {
+    ms12_desc->output_config = output_config;
+
+    dolby_ms12_encoder_close(ms12_desc->dolby_ms12_ptr);
+
+    dolby_ms12_config_params_reset_config_params();
+    dolby_ms12_config_params_set_audio_stream_out_params(
+        2 //AUDIO_OUTPUT_FLAG_PRIMARY
+        , ms12_desc->input_config_format
+        , ms12_desc->config_channel_mask
+        , ms12_desc->config_sample_rate
+        , ms12_desc->output_config);
+    get_dolby_ms12_output_details(ms12_desc);
+    //aml_ms12_init_all_params(ms12_desc);
+
+    dolby_ms12_encoder_open(ms12_desc->dolby_ms12_ptr, ms12_desc->dolby_ms12_init_argc, ms12_desc->dolby_ms12_init_argv);
+
+    return 0;
+}
+
 
 #if 0
 int aml_ms12_update_runtime_params_lite(struct dolby_ms12_desc *ms12_desc)

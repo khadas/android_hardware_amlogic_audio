@@ -782,6 +782,7 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, uint64_t offset, uint
     uint64_t nearest_offset = 0;
     uint64_t min_offset = 0x7fffffffffffffff;
     int match_index = -1;
+    audio_format_t hal_internal_format = AUDIO_FORMAT_PCM_16_BIT;
 
     // add protection to avoid NULL pointer.
     if (!p_hwsync) {
@@ -800,6 +801,12 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, uint64_t offset, uint
         ALOGE("%s,adev == NULL", __func__);
     } else {
         debug_enable = aml_audio_get_hwsync_flag();
+    }
+
+    hal_internal_format = out->hal_internal_format;
+
+    if (eDolbyMS12Lib == adev->dolby_lib_type) {
+        hal_internal_format = ms12_get_audio_hal_format(out->hal_internal_format);
     }
 
     if (debug_enable) {
@@ -849,21 +856,13 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, uint64_t offset, uint
             *p_apts = nearest_pts;
             /*keep it as valid, it may be used for next lookup*/
             pts_tab[match_index].valid = 1;
-            /*sometimes, we can't get the correct ddp pts, but we have a nearest one
-             *we add one frame duration
-             */
-            if (out->hal_internal_format == AUDIO_FORMAT_AC3 ||
-                out->hal_internal_format == AUDIO_FORMAT_E_AC3) {
-                *p_apts += (1536 * 1000) / out->hal_rate * 90;
-                ALOGI("correct nearest pts 0x%" PRIx64 " offset %" PRIx64 " align %" PRIx64 "", *p_apts, nearest_offset, align);
-            }
             if (debug_enable)
                 ALOGI("find nearest pts 0x%" PRIx64 " offset %" PRIx64 " align %" PRIx64 "", *p_apts, nearest_offset, align);
         } else {
             ALOGE("%s,apts lookup failed,align %" PRIx64 ",offset %" PRIx64 "", __func__, align, offset);
         }
     }
-    if ((ret == 0) && audio_is_linear_pcm(out->hal_internal_format)) {
+    if ((ret == 0) && audio_is_linear_pcm(hal_internal_format)) {
         int diff = 0;
         int pts_diff = 0;
         uint32_t frame_size = out->hal_frame_size;

@@ -739,6 +739,7 @@ struct aml_stream_out {
     bool need_first_sync;
     uint64_t last_pts;
     uint64_t last_payload_offset;
+    uint64_t last_decout_frame;
     struct audio_config out_cfg;
     int debug_stream;
     uint64_t us_used_last_write;
@@ -805,8 +806,7 @@ struct aml_stream_out {
     bool iec_check;
     bool alsa_running_status;
     bool alsa_status_changed;
-    /*flag indicate the ms12 2ch lock is on*/
-    bool ms12_acmod2ch_lock_disable;
+
     bool write_status;
     int demux_id;
     struct timespec cbs_cmd_timestamp;
@@ -831,6 +831,7 @@ struct aml_stream_out {
     bool is_mat_changed;
     uint64_t frame_offset;
     uint64_t decoded_frame;
+    bool b_install_sync_callback;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);
@@ -1055,6 +1056,11 @@ bool aml_get_speaker_mute_status(void);
 /* timer callback function */
 void aml_stream_timer_callback_handler(union sigval sigv);
 bool is_audio_patch_valid(struct aml_audio_device *adev);
+
+int adev_ms12_prepare(struct audio_hw_device *dev);
+
+void adev_ms12_cleanup(struct audio_hw_device *dev);
+
 
 /* 'bytes' are the number of bytes written to audio FIFO, for which 'timestamp' is valid.
  * 'available' is the number of frames available to read (for input) or yet to be played

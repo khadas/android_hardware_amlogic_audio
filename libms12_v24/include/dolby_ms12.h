@@ -52,6 +52,15 @@ void * dolby_ms12_init(int argc, char **argv);
 //release dolby ms12
 void dolby_ms12_release(void *dolby_mS12_pointer);
 
+int dolby_ms12_init_all_params(void *dolbyMS12_pointer, int configNum, char **configParams);
+int dolby_ms12_main_decoder_open(void *dolbyMS12_pointer, int configNum, char **configParams);
+int dolby_ms12_main_decoder_close(void *dolbyMS12_pointer);
+int dolby_ms12_main_decoder_process(void *dolbyMS12_pointer);
+int dolby_ms12_encoder_open(void *dolbyMS12_pointer, int configNum, char **configParams);
+int dolby_ms12_encoder_close(void *dolbyMS12_pointer);
+
+
+
 /*@@
     @brief Input main[dolby/he-aac/pcm]
     @if single input as pcm, use this api
@@ -140,6 +149,15 @@ int dolby_ms12_output(void *dolby_mS12_pointer
                       , size_t request_out_buffer_size
                      );
 #endif
+
+/*@@
+    @brief register the sync callback
+    @void *dolby_mS12_pointer //dolby ms12 handle
+    @void *callback //sync callback handle
+    @void *priv_data //priv data
+*/
+int dolby_ms12_register_ms12sync_callback(void *dolby_mS12_pointer, void *callback, void *priv_data);
+
 
 /*@@
     @brief get all the runtime config params, as the style of "int argc, char **argv"
@@ -281,6 +299,8 @@ int dolby_ms12_set_scheduler_state(int sch_state);
 */
 unsigned long long dolby_ms12_get_decoder_nframes_pcm_output(void *ms12_pointer, int format, int is_main);
 
+unsigned long long dolby_ms12_get_continuous_nframes_pcm_output(void *ms12_pointer, int index);
+
 
 /*@@
     @brief set dolby-ms12's debug level
@@ -387,6 +407,8 @@ int dolby_ms12_mat_encoder_config
 int dolby_ms12_get_ac4_active_presentation(int *presentation_group_index);
 //whether the given presentation group index is present in a bitstream
 int dolby_ms12_ac4dec_check_the_pgi_is_present(int presentation_group_index);
+
+int dolby_ms12_set_alsa_delay_frame(int delay_frame);
 
 int dolby_ms12_register_scaletempo_callback(void *callback, void *priv_data);
 

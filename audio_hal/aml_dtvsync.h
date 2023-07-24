@@ -73,4 +73,8 @@ bool aml_dtvsync_reset(aml_dtvsync_t *p_dtvsync);
 
 void aml_dtvsync_release(aml_dtvsync_t *p_dtvsync);
 
+bool aml_dtvsync_ms12_adjust_clock(struct audio_stream_out *stream, int direct);
+
+int aml_dtvsync_ms12_process_resample(struct audio_stream_out *stream, struct dtvsync_audio_policy *p_policy);
+
 #endif
