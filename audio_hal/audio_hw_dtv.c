@@ -77,6 +77,7 @@
 #include "aml_audio_output.h"
 
 #define IEC61937_PAPB (0xf8724e1f)
+#define mixing_level_base (32)
 
 const unsigned int mute_dd_frame[] = {
     0x5d9c770b, 0xf0432014, 0xf3010713, 0x2020dc62, 0x4842020, 0x57100404, 0xf97c3e1f, 0x9fcfe7f3, 0xf3f97c3e, 0x3e9fcfe7, 0xe7f3f97c, 0x7c3e9fcf, 0xcfe7f3f9, 0xfb7c3e9f, 0xf97c75fe, 0x9fcfe7f3,
@@ -107,6 +108,15 @@ const unsigned int mute_ddp_frame[] = {
     0x3c1eefee, 0x3edfb66d, 0xb5d65a6b, 0x20606bad, 0x0, 0xdbb66d3c, 0xc7e3f178, 0x707777, 0x0, 0x0, 0x0, 0xe000000, 0x1eefeeee, 0xdfb66d3c, 0xd65a6b3e, 0x5a6badb5,
     0x6badb5d6, 0xadb5d65a, 0x406b, 0xb66d3c00, 0xe3f178db, 0x707777c7, 0x0, 0x0, 0x0, 0x0, 0xefeeee0e, 0xb66d3c1e, 0x5a6b3edf, 0x6badb5d6, 0x40, 0x7f227c55,
 };
+
+const float mixing_coefficient[65] = {
+    -100, -58, -45.5,   -43, -40.5, -38.5, -36.8,  -35, -33,   -31, -29.5, -27.5,  -26,//[-32 to -20]
+    -24,  -22,   -20, -18.5,   -17,   -15,   -13,  -11,  -9,    -6,    -5, -4.5,    -4,//[-19 to  -7]
+    -3.5,  -3,  -2.5,    -2,  -1.5,    -1,     0,  0.6,  1.2,  1.8,   2.4,    3,   3.6,//[-6  to   6]
+     4.2, 4.8,   5.4,     6,   6.3,   6.6,   6.9,  7.2,  7.5,  7.8,   8.1,   8.4,  8.7,//[7   to  19]
+     9.0, 9.2,   9.4,   9.6,   9.8,  10.0,  10.2, 10.4, 10.6, 10.8,   11.0, 11.5, 12.0,//[20  to  32]
+};
+
 static int pcr_apts_diff;
 
 static int create_dtv_output_stream_thread(struct aml_audio_patch *patch);
@@ -244,7 +254,8 @@ static inline bool non_dolby_format(int audio_format) {
     return !(audio_format == ACODEC_FMT_AC3 ||
             audio_format == ACODEC_FMT_EAC3 ||
             audio_format == ACODEC_FMT_AC4 ||
-            audio_format == ACODEC_FMT_TRUEHD);
+            audio_format == ACODEC_FMT_TRUEHD||
+            audio_format == ACODEC_FMT_NULL);
 }
 
 void  clean_dtv_demux_info(aml_demux_audiopara_t *demux_info) {
@@ -406,7 +417,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
             }
             if (non_dolby_format(demux_info->ad_fmt)) {
                  //for shine ad menu dolby low -10 medium 0 high 10 match -6db 0db 6db
-                 demux_info->mixing_level *= 0.6f;
+                 demux_info->mixing_level = mixing_coefficient[demux_info->mixing_level + mixing_level_base];
             }
             break;
         case AUDIO_DTV_PATCH_CMD_SET_MEDIA_PRESENTATION_ID:
