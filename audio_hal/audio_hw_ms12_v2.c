@@ -1380,7 +1380,9 @@ int dolby_ms12_main_process(
         ALOGI("\n%s() in continuous %d input ms12 bytes %d input bytes %zu\n",
               __FUNCTION__, adev->continuous_audio_mode, dolby_ms12_input_bytes, input_bytes);
     }
-
+    if (adev->ms12_to_be_cleanup && adev->audio_patch && adev->patch_src == SRC_DTV) {
+        return ret;
+    }
     pthread_mutex_lock(&ms12->main_lock);
 
     if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT) && audio_is_linear_pcm(aml_out->hal_internal_format)) {
@@ -3451,7 +3453,7 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
 
     if (do_sync_flag && aml_out->dtvsync_enable) {
         process_result = aml_dtvsync_ms12_process_policy(priv_data, ms12_info);
-        if (process_result == DTVSYNC_AUDIO_DROP)
+        if (process_result == DTVSYNC_AUDIO_DROP || adev->ms12_to_be_cleanup)
             return ret;
     }
 #endif
