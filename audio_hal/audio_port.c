@@ -724,6 +724,28 @@ static ssize_t output_port_post_process(output_port *port, void *buffer, int byt
     return 0;
 }
 
+static ssize_t output_port_stereo_post_process(output_port *port, void *buffer, int bytes)
+{
+    int16_t *buf16 = buffer;
+    int frames = bytes / FRAMESIZE_16BIT_STEREO;
+    port->processed_buf = buffer;
+
+    process_outport_msg(port);
+    if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
+        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/port_befor_postprocess.raw", buf16, bytes);
+    }
+
+    if (port->postprocess)
+        audio_post_process(port->postprocess, buffer, frames);
+
+    port->processed_bytes = bytes;
+    if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
+        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/port_processed.raw",
+            port->processed_buf, port->processed_bytes);
+    }
+    return 0;
+}
+
 static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes)
 {
     int bytes_to_write = bytes;
@@ -940,6 +962,10 @@ output_port *new_output_port(
     port->port_status = STOPPED;
     list_init(&port->msg_list);
 
+    port->volume = 1.0;
+    port->eq_gain = 1.0;
+    port->src_gain = 1.0;
+
     if (config->is_tv) {
         /* only TV platform need 2->8 process */
         char *proc_buf = NULL, *vol_buf = NULL;
@@ -958,10 +984,11 @@ output_port *new_output_port(
             goto err_vol_buf;
         }
         port->vol_buf = vol_buf;
-        port->volume = 1.0;
-        port->eq_gain = 1.0;
-        port->src_gain = 1.0;
 
+        ALOGI("%s(), rbuf bytes %d", __func__, rbuf_size * STEREO_16BIT_TO_2CH_32BIT);
+    } else {
+        AM_LOGI("init Box postprocess handler");
+        port->process = output_port_stereo_post_process;
         ALOGI("%s(), rbuf bytes %d", __func__, rbuf_size * STEREO_16BIT_TO_2CH_32BIT);
     }
     return port;

@@ -1175,8 +1175,6 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
     uint32_t                    need_output_ch = 2;
     uint32_t                    cur_output_ch = 0;
     uint32_t                    masks = 0;
-    size_t                      out_tmp_frame = audio_mixer->tmp_buffer_size / 4;
-    size_t                      tmp_buffer_need_size = audio_mixer->tmp_buffer_size + EFFECT_PROCESS_BLOCK_SIZE;
 
 
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
@@ -1286,22 +1284,7 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
     }
 
     pthread_mutex_lock(&audio_mixer->outport_locks[port_index]);
-
-    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0) {
-        int ret = aml_audio_check_and_realloc((void **)&adev->out_16_buf, &adev->out_16_buf_size, tmp_buffer_need_size);
-        if (ret != 0) {
-            AM_LOGE("ret:%d , alloc out_16_buf size:%zu fail", ret, tmp_buffer_need_size);
-            pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
-            return ret;
-        }
-        memcpy(adev->out_16_buf, audio_mixer->out_tmp_buffer, audio_mixer->tmp_buffer_size);
-        //TODO: When multi-channel speaker output, add audio effect processing.
-        out_tmp_frame = audio_post_process(&adev->native_postprocess, adev->out_16_buf, out_tmp_frame);
-        audio_mixer->tmp_buffer_size = out_tmp_frame * 4;
-        memcpy(out_port->data_buf, adev->out_16_buf, audio_mixer->tmp_buffer_size);
-    } else {
-        memcpy(out_port->data_buf, audio_mixer->out_tmp_buffer, audio_mixer->tmp_buffer_size);
-    }
+    memcpy(out_port->data_buf, audio_mixer->out_tmp_buffer, audio_mixer->tmp_buffer_size);
 
     if (getprop_bool("vendor.media.audiohal.outdump")) {
         sprintf(acFilePathStr, "/data/audio/audio_mixed_%dch", need_output_ch);
