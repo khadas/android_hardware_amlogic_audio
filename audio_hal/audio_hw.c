@@ -4092,6 +4092,10 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 
     ret = str_parms_get_int(parms, "hal_param_arc_earc_tx_enable", &val);
     if (ret >= 0) {
+        /* when enable/disable arc/earc, it will reset hpd, so need mute hdmiin audio */
+        if (adev->in_device & AUDIO_DEVICE_IN_HDMI)
+            adev->reset_hpd = 1;
+
         aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_ARC_EARC_TX_ENABLE, val);
         ALOGI("ARC eARC TX enable: %d\n", val);
         goto exit;

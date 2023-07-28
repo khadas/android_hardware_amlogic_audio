@@ -939,9 +939,16 @@ bool signal_status_check(audio_devices_t in_device, int *mute_time,
         bool hw_stable = is_hdmi_in_stable_hw(stream);
         bool hw_format_change = is_hdmi_in_hw_format_change(stream);
         bool hw_sample_rate_change = is_hdmi_in_sample_rate_changed(stream);
-        if ((!hw_stable) || is_audio_packet_changed || hw_format_change || hw_sample_rate_change || is_data_changed) {
+        if ((!hw_stable) || is_audio_packet_changed || hw_format_change || hw_sample_rate_change || is_data_changed || adev->reset_hpd) {
             /* HBR audio is stable about 1s */
             *mute_time = 500;
+
+            /* when reset hpd, it takes 2s for audio to be stable */
+            if (adev->reset_hpd) {
+                *mute_time = 2000;
+                adev->reset_hpd = 0;
+                ALOGI("%s mute hdmiin %d ms for reset hpd\n", __func__, *mute_time);
+            }
 
             in->last_audio_packet_type = cur_audio_packet;
             if (is_audio_packet_changed || hw_format_change) {
