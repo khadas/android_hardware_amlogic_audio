@@ -257,11 +257,14 @@ static int faad_decoder_init(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_confi
     aac_dec->advol_level = dec_config->advol_level;
     aac_dec->ad_fade = dec_config->ad_fade;
     aac_dec->ad_pan = dec_config->ad_pan;
+    aac_dec->ad_placement = dec_config->ad_placement;
+
     ALOGI("aac_dec->ad_decoder_supported %d",aac_dec->ad_decoder_supported);
     aac_dec->remain_size = 0;
     memset(aac_dec->remain_data , 0 , AAC_REMAIN_BUFFER_SIZE * sizeof(char ));
     aac_dec->ad_remain_size = 0;
     ad_dec_pcm_data->data_len = 0;
+    ad_dec_pcm_data->data_offset = 0;
     memset(aac_dec->ad_remain_data , 0 , AAC_REMAIN_BUFFER_SIZE * sizeof(char ));
     ALOGE("%s success", __func__);
     return 0;
@@ -418,6 +421,9 @@ static int faad_decoder_process(aml_dec_t *aml_dec, unsigned char *buffer, int b
           break;
       }
     }
+    if (dec_pcm_data->data_len) {
+        dump_faad_data(dec_pcm_data->buf, dec_pcm_data->data_len, "/data/faad_main.pcm");
+    }
     aac_dec->total_raw_size += used_size_return;
     aac_dec->total_pcm_size += dec_pcm_data->data_len;
     faad_op->getinfo(faad_op,&pAudioInfo);
@@ -460,7 +466,8 @@ static int faad_decoder_process(aml_dec_t *aml_dec, unsigned char *buffer, int b
         }
 
         ALOGV("aac_dec->ad_remain_size %d aac_dec->ad_need_cache_frames %d", aac_dec->ad_remain_size, aac_dec->ad_need_cache_frames);
-        while (aac_dec->ad_remain_size > used_size &&  !aac_dec->ad_need_cache_frames && dec_pcm_data->data_len) {
+        while (aac_dec->ad_remain_size > used_size &&  !aac_dec->ad_need_cache_frames &&
+            dec_pcm_data->data_len && ad_dec_pcm_data->data_len < dec_pcm_data->data_len) {
             int pcm_len = AAC_MAX_LENGTH;
             if (ad_dec_pcm_data->data_len > (AAC_MAX_LENGTH - AAC_MAX_FRAME_OUT_SIZE))  {
                 break;
@@ -501,67 +508,96 @@ static int faad_decoder_process(aml_dec_t *aml_dec, unsigned char *buffer, int b
         }
 
         if (ad_dec_pcm_data->data_len) {
-            ALOGV("ad_dec_pcm_data->data_len %d", ad_dec_pcm_data->data_len);
             ad_faad_op->getinfo(ad_faad_op,&pADAudioInfo);
-            ALOGV("pADAudioInfo.channels %d pAudioInfo.channels %d",pADAudioInfo.channels, pAudioInfo.channels);
+            ALOGV("pADAudioInfo.channels %d pAudioInfo.channels %d aac_dec->ad_placement %d",pADAudioInfo.channels, pAudioInfo.channels, aac_dec->ad_placement);
         } else {
             if (ad_in_size == 0 && dec_pcm_data->data_len && (aac_dec->ad_need_cache_frames == 0) && (ad_dec_pcm_data->data_len == 0)) {
                 aac_dec->ad_need_cache_frames = AAC_AD_NEED_CACHE_FRAME_COUNT;
             }
         }
 
-        if (pADAudioInfo.channels == 1 && pAudioInfo.channels == 2 && ad_dec_pcm_data->data_len) {
+        if (pAudioInfo.channels == 2 && ad_dec_pcm_data->data_len) {
             int16_t *samples_data = (int16_t *)ad_dec_pcm_data->buf;
             int i = 0, samples_num,samples;
-            samples_num = ad_dec_pcm_data->data_len / sizeof(int16_t);
-            for (; i < samples_num; i++) {
-                samples = samples_data[samples_num - i -1] ;
-                if (aac_dec->ad_placement == PLACEMENT_NORMAL)  {
-                   samples_data [ 2 * (samples_num - i -1) ] = samples;
-                   samples_data [ 2 * (samples_num - i -1) + 1]= samples;
-                } else if (aac_dec->ad_placement == PLACEMENT_RIGHT) {
-                    samples_data [ 2 * (samples_num - i -1) ] = samples;
-                    samples_data [ 2 * (samples_num - i -1) + 1]= 0;
-                } else if (aac_dec->ad_placement == PLACEMENT_LEFT) {
-                    samples_data [ 2 * (samples_num - i -1) ] = 0;
-                    samples_data [ 2 * (samples_num - i -1) + 1]= samples;
-                } else {
-                    ALOGW("invalid placement %d ", aac_dec->ad_placement);
+            if (pADAudioInfo.channels == 1) {
+                samples_num = ad_dec_pcm_data->data_len / sizeof(int16_t);
+                for (; i < samples_num; i++) {
+                    samples = samples_data[samples_num - i -1] ;
+                    if (aac_dec->ad_placement == PLACEMENT_NORMAL) {
+                       samples_data [ 2 * (samples_num - i -1) ] = samples;
+                       samples_data [ 2 * (samples_num - i -1) + 1]= samples;
+                    } else if (aac_dec->ad_placement == PLACEMENT_RIGHT) {
+                        samples_data [ 2 * (samples_num - i -1) ] = samples;
+                        samples_data [ 2 * (samples_num - i -1) + 1]= 0;
+                    } else if (aac_dec->ad_placement == PLACEMENT_LEFT) {
+                        samples_data [ 2 * (samples_num - i -1) ] = 0;
+                        samples_data [ 2 * (samples_num - i -1) + 1]= samples;
+                    } else {
+                        ALOGW("invalid placement %d ", aac_dec->ad_placement);
+                    }
+                }
+                ad_dec_pcm_data->data_len  = ad_dec_pcm_data->data_len * 2;
+
+            } else if (pADAudioInfo.channels == 2) {
+                samples_num = ad_dec_pcm_data->data_len /sizeof(int16_t);
+                for (; i < samples_num; i++) {
+                    samples = samples_data[i] ;
+                    if (aac_dec->ad_placement == PLACEMENT_NORMAL) {
+                      //do nothing
+                    } else if (aac_dec->ad_placement == PLACEMENT_RIGHT) {
+                        if (i % 2) {
+                            samples_data [ i] = samples;
+                        } else {
+                          samples_data [i]= 0;
+                        }
+                    } else if (aac_dec->ad_placement == PLACEMENT_LEFT) {
+                       if (i % 2) {
+                            samples_data [ i] = 0;
+                        } else {
+                          samples_data [i]= samples;
+                        }
+                    } else {
+                        ALOGW("invalid placement %d ", aac_dec->ad_placement);
+                    }
                 }
             }
-            ad_dec_pcm_data->data_len  = ad_dec_pcm_data->data_len * 2;
         }
 
-        if (aac_dec->ad_mixing_enable) {
+        if (aac_dec->ad_mixing_enable && dec_pcm_data->data_len) {
             int frames_written = 0;
             float mixing_coefficient = 1.0f;
             float ad_mixing_coefficient = DbToAmpl(aac_dec->mixer_level) * (aac_dec->advol_level / 100.0f);
             if (property_get_bool("vendor.media.dtv.pesmode",true)) {
                 float ad_fade_coef = DbToAmpl(aac_dec->ad_fade * (-0.3f));
-                ALOGV("ad_fade %d ad_fade_coef %f",aac_dec->ad_fade, ad_fade_coef);
+                ALOGV("ad_fade %d ad_fade_coef %f aac_dec->ad_pan %d",aac_dec->ad_fade, ad_fade_coef, aac_dec->ad_pan);
                 mixing_coefficient *= ad_fade_coef;
                 if (dec_pcm_data->data_len) {
                      apply_volume(mixing_coefficient, dec_pcm_data->buf, sizeof(uint16_t), dec_pcm_data->data_len);
                 }
-                if (ad_dec_pcm_data->data_len) {
+                if (ad_dec_pcm_data->data_len && ad_dec_pcm_data->data_offset == 0) {
                     apply_volume_pan(aac_dec->ad_pan, ad_dec_pcm_data->buf, sizeof(uint16_t), ad_dec_pcm_data->data_len);
                 }
             }
-            if (ad_dec_pcm_data->data_len) {
-                apply_volume(ad_mixing_coefficient, ad_dec_pcm_data->buf, sizeof(uint16_t), ad_dec_pcm_data->data_len);
+            if (ad_dec_pcm_data->data_len && ad_dec_pcm_data->data_len >= dec_pcm_data->data_len) {
+                if (ad_dec_pcm_data->data_offset == 0) {
+                    apply_volume(ad_mixing_coefficient, ad_dec_pcm_data->buf, sizeof(uint16_t), ad_dec_pcm_data->data_len);
+                }
+
                 frames_written = do_mixing_2ch(dec_pcm_data->buf, ad_dec_pcm_data->buf ,
                     dec_pcm_data->data_len / 4 , AUDIO_FORMAT_PCM_16_BIT, AUDIO_FORMAT_PCM_16_BIT);
                 ALOGV("frames_written %d dec_pcm_data->data_len %d",frames_written, dec_pcm_data->data_len);
                 dec_pcm_data->data_len = frames_written * 4;
 
-                if (dec_pcm_data->data_len <= ad_dec_pcm_data->data_len) {
+                if (dec_pcm_data->data_len < ad_dec_pcm_data->data_len) {
                     int data_offset = dec_pcm_data->data_len;
+                    ad_dec_pcm_data->data_offset += data_offset;
                     ad_dec_pcm_data->data_len -= data_offset;
                     if (ad_dec_pcm_data->data_len) {
                          memmove(ad_dec_pcm_data->buf, ad_dec_pcm_data->buf + data_offset, ad_dec_pcm_data->data_len);
                     }
                 } else {
                     ad_dec_pcm_data->data_len = 0;
+                    ad_dec_pcm_data->data_offset = 0;
                 }
             }
 

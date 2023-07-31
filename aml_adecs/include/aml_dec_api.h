@@ -123,7 +123,7 @@ typedef struct dec_data_info {
     int data_ch;
     int data_sr;
     bool is_dtscd;
-    //int data_bitwidth;
+    int data_offset;
 } dec_data_info_t;
 
 typedef struct aml_dec {

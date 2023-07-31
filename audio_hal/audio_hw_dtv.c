@@ -3973,7 +3973,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
         }
         if (demux_info->ad_placement != aml_out->dec_config.ad_placement) {
             aml_out->dec_config.ad_placement = demux_info->ad_placement;
-            aml_decoder_set_config(aml_dec, AML_DEC_CONFIG_PAN, &aml_out->dec_config);
+            aml_decoder_set_config(aml_dec, AML_DEC_CONFIG_PLACEMENT, &aml_out->dec_config);
         }
 
         pthread_mutex_unlock(&(patch->dtv_output_mutex));
@@ -5391,6 +5391,17 @@ int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, con
         hw_sync->hw_sync_metadata_unit_type  = AUDIO_ENCAPSULATION_METADATA_TYPE_NONE;
     }
 
+#if 0
+    int ad_placement = property_get_int32("vendor.media.audio.ad.placement", -1);
+    if (ad_placement != -1) {
+         dmx_info->ad_placement = ad_placement;
+         ALOGI(" dmx_info->ad_placement %d",  dmx_info->ad_placement);
+    }
+    float mixing_level = property_get_int32("vendor.media.audio.ad.mixing_level", 0);
+    if (mixing_level != 0) {
+        out_set_audio_description_mix_level(stream, mixing_level);
+    }
+#endif
     return bytes_cost;
 }
 
