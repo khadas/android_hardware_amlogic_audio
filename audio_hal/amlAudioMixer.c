@@ -1270,7 +1270,7 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
         }
     }
     static uint32_t no_data_cnt = 0;
-    if (!is_data_valid && (adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP)) {
+    if (!is_data_valid && (adev->cur_out_devices & AUDIO_DEVICE_OUT_ALL_A2DP)) {
         if (adev->debug_flag) {
             AM_LOGI("inport no valid data");
         }

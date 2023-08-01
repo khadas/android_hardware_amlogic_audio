@@ -594,7 +594,7 @@ uint32_t a2dp_out_get_latency(struct aml_audio_device *adev) {
     struct aml_a2dp_hal * hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
     if (!hal) {
         pthread_mutex_unlock(&adev->a2dp_lock);
-        return 0;
+        return remote_delay_report_ns / NSEC_PER_MSEC;
     }
     /* Some BT devices(eg: Xiaomi Air2) will change the latency after the connection is successful,
      * causing Youtube playback fail. */
@@ -608,7 +608,6 @@ uint32_t a2dp_out_get_latency(struct aml_audio_device *adev) {
         remote_delay_report_ns / NSEC_PER_MSEC, hal->a2dp_latency / NSEC_PER_MSEC);
     return static_cast<uint32_t>(hal->a2dp_latency / NSEC_PER_MSEC + A2DP_STATIC_DELAY_MS);
 }
-
 
 int a2dp_out_get_status(struct aml_audio_device *adev) {
     struct aml_a2dp_hal * hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
