@@ -27,15 +27,44 @@
 */
 #define EFFECT_PROCESS_BLOCK_SIZE (256 *  4)
 
+enum aml_post_effect_info_type {
+    EFFECT_TYPE_VIRTUAL_X = 0,
+    EFFECT_TYPE_TRUE_SURROUND_HD,
+    EFFECT_TYPE_HPEQ,
+    EFFECT_TYPE_BALANCE,
+    EFFECT_TYPE_TREBLEBASE,
+    EFFECT_TYPE_DBX,
+    EFFECT_TYPE_DPE,
+    EFFECT_TYPE_MS12_V2_DAP,
+    EFFECT_TYPE_VIRTUAL_SURROUND,
+    EFFECT_TYPE_MAX,
+};
+
+enum aml_effect_owner_type {
+    EFFECT_OWNEDBY_STREAMOUT = 0,
+    EFFECT_OWNEDBY_DEVICE,
+};
+
+struct effect_insert_seq_desc {
+    int type;
+    int seq;
+    const char *name;
+};
+
 struct aml_post_effect_info {
-    bool effect_is_repeat_create;
-    int effect_index;
+    effect_handle_t itfe;
+    //port_handle for device effect
+    audio_port_handle_t port;
+
+    //bool effect_is_repeat_create;
+    int index;
+    //insert sequence descriptor
+    const struct effect_insert_seq_desc *idesc;
 };
 
 struct aml_native_postprocess {
     int num_postprocessors;
-    effect_handle_t postprocessors[MAX_POSTPROCESSORS];
-    int total_postprocessors;
+    struct aml_post_effect_info postprocessors[MAX_POSTPROCESSORS];
 
     /* VirtualX effect license library exist flag */
     /* Path: (/vendor/lib/soundfx/libvx.so) */
@@ -44,12 +73,10 @@ struct aml_native_postprocess {
     /* channel num of effect input */
     int effect_in_ch;
     int AML_DTS_index;
-    /* audio flinger effect chain length*/
-    int audio_effectchain_length;
     //native private process handle: AI AQ
     void *ai_handle;
-    /*  0 vx; 1 tru_sur; 2 hpeq; 3 balance; 4 treblebass; 5 dbx; 6 dpe ;7 dapv2; 8 virtual_sur */
-    struct aml_post_effect_info effect_info[MAX_POSTPROCESSORS];
+    //if any effect is do process() should hold dev->effects_lock
+    pthread_mutex_t lock;
 };
 
 /*
@@ -66,16 +93,18 @@ struct aml_native_postprocess {
  */
 size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t in_frames);
 int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t bytes);
-int aml_add_audio_effect(struct aml_native_postprocess *native_postprocess, effect_handle_t effect);
-
-/* VirtualX: */
-/* path of virtualx effect license library */
-#define VIRTUALX_LICENSE_LIB_PATH "/vendor/lib/soundfx/libvx.so"
+int aml_add_audio_effect(struct aml_native_postprocess *native_postprocess, effect_handle_t effect, audio_port_handle_t port_handle __unused);
+int aml_remove_audio_effect(struct aml_native_postprocess *native_postprocess, effect_handle_t effect, audio_port_handle_t port_handle __unused);
 
 void VirtualX_reset(struct aml_native_postprocess *native_postprocess);
 void VirtualX_Channel_reconfig(struct aml_native_postprocess *native_postprocess, int ch_num);
-bool Check_VX_lib(void);
 int set_aml_dts_effect_param(struct aml_native_postprocess *native_postprocess, char *param);
 int get_aml_dts_effect_param(struct aml_native_postprocess *native_postprocess, char *param, const char *keys);
 
+//native_postprocess context init & release
+bool is_vendor_support_libvx(struct aml_native_postprocess *native_postprocess);
+
+int init_vendor_post_process(struct aml_native_postprocess *native_postprocess);
+
+void destroy_vendor_post_process(struct aml_native_postprocess *native_postprocess);
 #endif

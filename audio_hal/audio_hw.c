@@ -140,6 +140,11 @@
 #include <audio_utils/clock.h>
 
 #include "audio_kara.h"
+
+#include "audio_dummy_streamout.h"
+#include "aml_audio_stream_base.h"
+
+
 #define AUDIO_KARA
 
 //audio content recognize function
@@ -1864,7 +1869,7 @@ static int out_add_audio_effect(const struct audio_stream *stream, effect_handle
     pthread_mutex_lock (&dev->lock);
     pthread_mutex_lock (&out->lock);
 
-    status = aml_add_audio_effect(&dev->native_postprocess, effect);
+    status = aml_add_audio_effect(&dev->native_postprocess, effect, -1);
 
     if (status >= 0 && dev->useSubMix) {
         void *process = &dev->native_postprocess;
@@ -1873,7 +1878,6 @@ static int out_add_audio_effect(const struct audio_stream *stream, effect_handle
         ALOGI("%s, add audio postprocess: %p", __func__, process);
     }
 
-exit:
     pthread_mutex_unlock (&out->lock);
     pthread_mutex_unlock (&dev->lock);
     return status;
@@ -1881,47 +1885,18 @@ exit:
 
 static int out_remove_audio_effect(const struct audio_stream *stream __unused, effect_handle_t effect __unused)
 {
-    /*struct aml_stream_out *out = (struct aml_stream_out *) stream;
+    struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *dev = out->dev;
-    int i;
     int status = -EINVAL;
-    bool found = false;
 
     pthread_mutex_lock (&dev->lock);
     pthread_mutex_lock (&out->lock);
-    if (dev->native_postprocess.num_postprocessors <= 0) {
-        status = -ENOSYS;
-        goto exit;
-    }
 
-    for (i = 0; i < dev->native_postprocess.num_postprocessors; i++) {
-        if (found) {
-            dev->native_postprocess.postprocessors[i - 1] = dev->native_postprocess.postprocessors[i];
-            continue;
-        }
+    status = aml_remove_audio_effect(&dev->native_postprocess, effect, -1);
 
-        if (dev->native_postprocess.postprocessors[i] == effect) {
-            dev->native_postprocess.postprocessors[i] = NULL;
-            status = 0;
-            found = true;
-        }
-    }
-
-    if (status != 0)
-        goto exit;
-
-    dev->native_postprocess.num_postprocessors--;
-
-    effect_descriptor_t tmpdesc;
-    (*effect)->get_descriptor(effect, &tmpdesc);
-    ALOGI("%s, remove audio effect: %s in audio hal, effect_handle: %p, total num of effects: %d",
-        __FUNCTION__, tmpdesc.name, effect, dev->native_postprocess.num_postprocessors);
-
-exit:
     pthread_mutex_unlock (&out->lock);
     pthread_mutex_unlock (&dev->lock);
-    return status;*/
-    return 0;
+    return status;
 }
 
 static int out_get_next_write_timestamp (const struct audio_stream_out *stream __unused,
@@ -7148,6 +7123,23 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
             config->channel_mask, config->sample_rate, config->format, show_format(config->format),
             flags, show_audio_output_flags(flags, s1, AUDIO_OUTPUT_FLAG_STR_LEN),
             address);
+    ALOGD("%s: enter", __func__);
+
+    /* These streamout build for device effect */
+    if (((devices & AUDIO_DEVICE_OUT_EARPIECE) != 0) && (flags == AUDIO_OUTPUT_FLAG_NONE)) {
+        ret = adev_open_dummy_output_stream(dev,
+                                    handle,
+                                    devices,
+                                    flags,
+                                    config,
+                                    stream_out,
+                                    address);
+        if (*stream_out != NULL) {
+            struct aml_streamout_base *base = TO_BASE_PTR(*stream_out, struct audio_stream_out, aml_streamout_base);
+            base->common_usecase = STREAM_OUT_EFFECT;
+        }
+        return ret;
+    }
 
     ret = adev_open_output_stream(dev,
                                     handle,
@@ -7295,6 +7287,16 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
     bool b_active_stream = aml_out->total_write_size ? true : false;
 
     AM_LOGI("io handle %d: out:%p", aml_out->io_handle, aml_out);
+
+    struct aml_streamout_base *base = TO_BASE_PTR(stream, struct audio_stream_out, aml_streamout_base);
+
+    if (base->common_usecase == STREAM_OUT_EFFECT) {
+        adev_close_dummy_output_stream(dev, stream);
+        return;
+    }
+
+    ALOGD("%s: enter usecase = %s", __func__, usecase2Str(aml_out->usecase));
+
     /* free stream ease resource  */
     aml_audio_ease_close(aml_out->audio_stream_ease);
 
@@ -7853,14 +7855,14 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
     dprintf(fd, "[AML_HAL]      ms12 main mute  : %10d\n", aml_dev->ms12.is_muted);
     aml_audio_ease_t *audio_ease = aml_dev->audio_ease;
     if (!audio_ease) {
-         dprintf(fd, "[AML_HAL]      audio_ease is null \n");
+        dprintf(fd, "[AML_HAL]      audio_ease is null \n");
     } else {
         pthread_mutex_lock(&audio_ease->ease_lock);
         if (audio_ease && fabs(audio_ease->current_volume) <= 1e-6) {
             dprintf(fd, "[AML_HAL]      ease out muted. start:%f target:%f\n", audio_ease->start_volume, audio_ease->target_volume);
         }
         pthread_mutex_unlock(&audio_ease->ease_lock);
-   }
+    }
     aml_decoder_info_dump(aml_dev, fd);
 
     aml_adev_stream_out_dump(aml_dev, fd);
@@ -8060,6 +8062,9 @@ static int adev_close(hw_device_t *device)
 #ifdef ENABLE_AEC_APP
     release_aec(adev->aec);
 #endif
+
+    destroy_vendor_post_process(&adev->native_postprocess);
+
     g_adev = NULL;
 
     aml_audio_free(device);
@@ -8274,19 +8279,27 @@ static int adev_get_audio_port(struct audio_hw_device *dev __unused, struct audi
 static int adev_add_device_effect(struct audio_hw_device *dev,
                                   audio_port_handle_t device, effect_handle_t effect)
 {
+    int status;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) dev;
 
     ALOGD("func:%s device:%d effect_handle_t:%p, cur_out_devices:%#x", __func__, device, effect, aml_dev->cur_out_devices);
-    return 0;
+    pthread_mutex_lock (&aml_dev->lock);
+    status = aml_add_audio_effect(&aml_dev->native_postprocess, effect, device);
+    pthread_mutex_unlock (&aml_dev->lock);
+    return status;
 }
 
 static int adev_remove_device_effect(struct audio_hw_device *dev,
                                      audio_port_handle_t device, effect_handle_t effect)
 {
+    int status;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) dev;
 
     ALOGD("func:%s device:%d effect_handle_t:%p, cur_out_devices:%#x", __func__, device, effect, aml_dev->cur_out_devices);
-    return 0;
+    pthread_mutex_lock (&aml_dev->lock);
+    status = aml_remove_audio_effect(&aml_dev->native_postprocess, effect, device);
+    pthread_mutex_unlock (&aml_dev->lock);
+    return status;
 }
 #endif
 
@@ -8669,9 +8682,10 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->aaudio_low_latency_updated = false;
     adev->aaudio_low_latency_count = 0;
 
-    adev->native_postprocess.libvx_exist = Check_VX_lib();
-    if (adev->native_postprocess.libvx_exist)
+    init_vendor_post_process(&adev->native_postprocess);
+    if (is_vendor_support_libvx(&adev->native_postprocess)) {
         dca_set_out_ch_internal(0);
+    }
 
     create_async_write_thread();
 

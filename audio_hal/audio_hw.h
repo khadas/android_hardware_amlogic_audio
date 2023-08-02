@@ -64,6 +64,7 @@
 #include "aml_config_data.h"
 #include "audio_hw_resource_def.h"
 #include "../input/include/device_patch_mgr.h"
+#include "aml_audio_stream_base.h"
 
 
 /* number of frames per period */
@@ -552,6 +553,7 @@ typedef enum audio_data_handle_state {
 
 struct aml_stream_out {
     struct audio_stream_out stream;
+    struct aml_streamout_base base;
     /* see note below on mutex acquisition order */
     pthread_mutex_t lock;
     struct audio_config audioCfg;

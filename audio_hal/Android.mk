@@ -103,7 +103,8 @@ include $(BUILD_PREBUILT)
         aml_config_data.c \
         aml_audio_scaletempo.c \
         aml_audio_output.c \
-        aml_async_write.c
+        aml_async_write.c \
+        audio_dummy_streamout.c \
 
     LOCAL_C_INCLUDES += \
         system/media/audio_utils/include \

@@ -19,8 +19,75 @@
 #include "aml_dec_api.h"
 #include "aml_dts_dec_api.h"
 #include "aml_effects_util.h"
-
 #include "aml_ai_audio.h"
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+#endif
+
+/* path of virtualx effect license library */
+#define VIRTUALX_LICENSE_LIB_PATH "/vendor/lib/soundfx/libvx.so"
+#define DEBUG_ENABLE_DUMP_EFFECT_INFO 1
+
+bool Check_VX_lib(void);
+
+static struct effect_insert_seq_desc Effect_Insert_Seq_List[] = {
+    {
+        .type = EFFECT_TYPE_VIRTUAL_X,
+        .seq = 0, /* insert on the head of Effect chain */
+        .name = "VirtualX",
+    },
+    {
+        .type = EFFECT_TYPE_TRUE_SURROUND_HD,
+        .seq = -1, /* insert this effect by add sequeces */
+        .name = "True Surround HD",
+    },
+    {
+        .type = EFFECT_TYPE_HPEQ,
+        .seq = -1,
+        .name = "Hpeq",
+    },
+    {
+        .type = EFFECT_TYPE_BALANCE,
+        .seq = -1,
+        .name = "Balance",
+    },
+    {
+        .type = EFFECT_TYPE_TREBLEBASE,
+        .seq = -1,
+        .name = "TrebleBass",
+    },
+    {
+        .type = EFFECT_TYPE_DBX,
+        .seq = -1,
+        .name = "DBX",
+    },
+    {
+        .type = EFFECT_TYPE_DPE,
+        .seq = -1,
+        .name = "DPE",
+    },
+    {
+        .type = EFFECT_TYPE_MS12_V2_DAP,
+        .seq = -1,
+        .name = "MS12v2 DAP",
+    },
+    {
+        .type = EFFECT_TYPE_VIRTUAL_SURROUND,
+        .seq = -1,
+        .name = "Virtualsurround",
+    },
+};
+
+struct effect_insert_seq_desc *find_effect_insert_desc_by_name(const char* name)
+{
+    for (int i= 0; i < ARRAY_SIZE(Effect_Insert_Seq_List); i++) {
+        if (strcmp(name, Effect_Insert_Seq_List[i].name) == 0) {
+            return &Effect_Insert_Seq_List[i];
+        }
+    }
+    return NULL;
+}
 
 static int check_dts_config(struct aml_native_postprocess *native_postprocess) {
     int cur_channels = dca_get_out_ch_internal();
@@ -52,89 +119,183 @@ static int check_dts_config(struct aml_native_postprocess *native_postprocess) {
     return 0;
 }
 
-int aml_add_audio_effect(struct aml_native_postprocess *native_postprocess, effect_handle_t effect)
+static void dump_effect_info_list(struct aml_native_postprocess *native_postprocess)
 {
-    int i;
-    int status = 0;
-    char *str_vx = "VirtualX";
-    char *str_true_sur = "True Surround HD";
+    ALOGD("--- Dump effect info list ---");
+    for (int i = 0; i < native_postprocess->num_postprocessors; i++) {
+        struct aml_post_effect_info *temp = &native_postprocess->postprocessors[i];
+        ALOGD("\ti:%d effect:%s index:%d", i, (temp->idesc != NULL? temp->idesc->name : "customer"), temp->index);
+    }
+}
 
-    char *str_effects[] = {"VirtualX", "True Surround HD", "Hpeq",  "Balance", "TrebleBass", "DBX", "DPE", "MS12v2 DAP", "Virtualsurround"};
-    int j;
-
-    native_postprocess->audio_effectchain_length += 1;
-
-    if (native_postprocess->num_postprocessors >= MAX_POSTPROCESSORS) {
-        status = -ENOSYS;
-        return status;
+void update_effect_info_list(struct aml_native_postprocess *native_postprocess)
+{
+    int num_postprocessors = native_postprocess->num_postprocessors;
+    struct aml_post_effect_info *newEffectInfo = &native_postprocess->postprocessors[num_postprocessors - 1];
+    //If the effect is not dev by amlogic then insert it to the list tail
+    if (newEffectInfo->idesc == NULL) {
+        ALOGW("%s() warning, idesc = NULL not impl by AML, return!", __func__);
+        return;
     }
 
-    /* save audio effect handle in audio hal. if it is saved, skip this. */
-    for (i = 0; i < native_postprocess->num_postprocessors; i++) {
-        if (native_postprocess->postprocessors[i] == effect) {
-            status = 0;
-            return status;
+    if (newEffectInfo->idesc->seq < 0 || num_postprocessors <= 1) {
+        goto exit;
+    }
+
+    //adjust insert sequence
+    int insert_index = -1;
+    for (int i = 0; i < num_postprocessors; i++) {
+        struct aml_post_effect_info *tempEffect;
+        tempEffect =  &native_postprocess->postprocessors[i];
+        if (tempEffect->idesc->seq < 0) {
+            insert_index = tempEffect->index;
+            break;
         }
-    }
 
-    native_postprocess->postprocessors[native_postprocess->num_postprocessors++] = effect;
+        if (!tempEffect->idesc) {
+            insert_index = tempEffect->index;
+        }
 
-    effect_descriptor_t tmpdesc;
-    (*effect)->get_descriptor(effect, &tmpdesc);
-
-    for (j = 0; j < MAX_POSTPROCESSORS; j++) {
-        if (0 == strcmp(tmpdesc.name, str_effects[j])) {
-            if (native_postprocess->effect_info[j].effect_is_repeat_create == false) {
-                native_postprocess->effect_info[j].effect_index = native_postprocess->num_postprocessors;
-                native_postprocess->effect_info[j].effect_is_repeat_create = true;
-                if (0 == strcmp(tmpdesc.name, str_vx)) {
-                    native_postprocess->libvx_exist = Check_VX_lib();
-                    ALOGI("%s, add audio effect: '%s' exist flag : %s", __FUNCTION__, VIRTUALX_LICENSE_LIB_PATH,
-                        (native_postprocess->libvx_exist) ? "true" : "false");
-
-                    /* specify effect order for virtualx. VX does downmix from 5.1 to 2.0 */
-                    if (native_postprocess->num_postprocessors > 1 && native_postprocess->num_postprocessors < MAX_POSTPROCESSORS) {
-                        i = native_postprocess->num_postprocessors - 1;
-                        effect_handle_t tmp;
-                        tmp = native_postprocess->postprocessors[i];
-                        native_postprocess->postprocessors[i] = native_postprocess->postprocessors[0];
-                        native_postprocess->postprocessors[0] = tmp;
-                        for (int k = 0; k < MAX_POSTPROCESSORS; k++) {
-                            if (native_postprocess->effect_info[k].effect_index == 1) {
-                                //first effect index and vx effect index swap
-                                native_postprocess->effect_info[k].effect_index = native_postprocess->num_postprocessors;
-                                native_postprocess->effect_info[j].effect_index = 1;
-                            }
-                        }
-                        ALOGI("%s, add audio effect: Reorder VirtualX at the first of the effect chain.", __FUNCTION__);
-                    }
-                }
-            } else if (native_postprocess->effect_info[j].effect_is_repeat_create == true) {
-                if (native_postprocess->num_postprocessors > 1 && native_postprocess->num_postprocessors < MAX_POSTPROCESSORS) {
-                    i = native_postprocess->num_postprocessors - 1;
-                    native_postprocess->postprocessors[native_postprocess->effect_info[j].effect_index - 1] = native_postprocess->postprocessors[i];
-                    native_postprocess->postprocessors[i] = NULL;
-                    native_postprocess->num_postprocessors --;
-                }
-            }
+        if (newEffectInfo->idesc->seq < tempEffect->idesc->seq) {
+            insert_index = tempEffect->index;
             break;
         }
     }
 
-    //AML_DTS_index uses to select the effect_handle, so need to save it.
-    if (0 == strcmp(tmpdesc.name, str_true_sur)) {
-        native_postprocess->AML_DTS_index = i;
+    //swap old effect with new effect by insert index
+    if (insert_index >= 0 && insert_index < num_postprocessors) {
+        struct aml_post_effect_info tailEffect = native_postprocess->postprocessors[num_postprocessors -1];
+        for (int i = num_postprocessors - 1; i > insert_index; i--) {
+            native_postprocess->postprocessors[i] = native_postprocess->postprocessors[i - 1];
+        }
+        native_postprocess->postprocessors[insert_index] = tailEffect;
+        for (int i = 0; i < num_postprocessors; i++) {
+            struct aml_post_effect_info *tempEffect =  &native_postprocess->postprocessors[i];
+            tempEffect->index = i;
+        }
+
+        newEffectInfo = &native_postprocess->postprocessors[insert_index];
+        ALOGD("%s() Adjust seq! effect:%s new_index:%d old_index:%d", __func__, newEffectInfo->idesc->name, newEffectInfo->index, num_postprocessors - 1);
     }
 
-    ALOGI("%s, add audio effect: %s in audio hal, effect_handle: %p, total num of effects: %d",
-        __FUNCTION__, tmpdesc.name, effect, native_postprocess->num_postprocessors);
+exit:
+    //some special process
+    if (newEffectInfo->idesc->type == EFFECT_TYPE_VIRTUAL_X) {
+        native_postprocess->libvx_exist = Check_VX_lib();
+    } else if (newEffectInfo->idesc->type == EFFECT_TYPE_TRUE_SURROUND_HD) {
+        native_postprocess->AML_DTS_index = newEffectInfo->index;
+    }
+    ALOGD("%s() effect:%s handle:%p type:%d port_handle:%d index: %d", __func__,
+        newEffectInfo->idesc->name, newEffectInfo->itfe, newEffectInfo->idesc->type, newEffectInfo->port, newEffectInfo->index);
+}
 
-    if (native_postprocess->num_postprocessors > native_postprocess->total_postprocessors)
-        native_postprocess->total_postprocessors = native_postprocess->num_postprocessors;
+int aml_add_audio_effect(struct aml_native_postprocess *native_postprocess, effect_handle_t effect, audio_port_handle_t port_handle)
+{
+    int status = 0;
+    effect_descriptor_t desc;
 
+    pthread_mutex_lock(&native_postprocess->lock);
+
+    if (native_postprocess->num_postprocessors >= MAX_POSTPROCESSORS) {
+        status = -ENOSYS;
+        ALOGW("%s() warning, num_postprocessors > MAX_POSTPROCESSORS", __func__);
+        pthread_mutex_unlock(&native_postprocess->lock);
+        return status;
+    }
+
+    status = (*effect)->get_descriptor(effect, &desc);
+    if (status != 0) {
+        goto exit;
+    }
+
+    /* save audio effect handle in audio hal. if it is saved, skip this. */
+    for (int i = 0; i < native_postprocess->num_postprocessors; i++) {
+        if (native_postprocess->postprocessors[i].itfe == effect) {
+            status = 0;
+            ALOGW("%s() Warning, effect:%s already added!", __func__, desc.name);
+            goto exit;
+        }
+    }
+
+    const struct effect_insert_seq_desc *insert_desc = find_effect_insert_desc_by_name(desc.name);
+    if (insert_desc == NULL) {
+        ALOGW("%s() warning, Not find Effect:%s in Amlgic effect list!", __func__, desc.name);
+    }
+
+    native_postprocess->postprocessors[native_postprocess->num_postprocessors].itfe = effect;
+    native_postprocess->postprocessors[native_postprocess->num_postprocessors].idesc = insert_desc;
+    native_postprocess->postprocessors[native_postprocess->num_postprocessors].index = native_postprocess->num_postprocessors;
+    native_postprocess->postprocessors[native_postprocess->num_postprocessors].port = port_handle;
+    native_postprocess->num_postprocessors++;
+
+    update_effect_info_list(native_postprocess);
+
+exit:
+    pthread_mutex_unlock(&native_postprocess->lock);
+#ifdef DEBUG_ENABLE_DUMP_EFFECT_INFO
+    dump_effect_info_list(native_postprocess);
+#endif
+    ALOGI("%s() ret:%d effect:%s handle:%p port:%d num_postprocessors:%d", __FUNCTION__, status,
+        (status ==0? desc.name : "null"), effect, port_handle, native_postprocess->num_postprocessors);
     return status;
 }
 
+int aml_remove_audio_effect(struct aml_native_postprocess *native_postprocess, effect_handle_t effect, audio_port_handle_t port_handle __unused)
+{
+    int status = -EINVAL;
+    bool found = false;
+    effect_descriptor_t desc;
+    struct aml_post_effect_info *rmEffectInfo = NULL;
+
+    pthread_mutex_lock(&native_postprocess->lock);
+
+    if (native_postprocess->num_postprocessors <= 0) {
+        status = -ENOSYS;
+        goto exit;
+    }
+
+    for (int i = 0; i < native_postprocess->num_postprocessors; i++) {
+        if (found) {
+            native_postprocess->postprocessors[i - 1].itfe = native_postprocess->postprocessors[i].itfe;
+            native_postprocess->postprocessors[i - 1].index = native_postprocess->postprocessors[i].index;
+            native_postprocess->postprocessors[i - 1].idesc = native_postprocess->postprocessors[i].idesc;
+            native_postprocess->postprocessors[i - 1].port = native_postprocess->postprocessors[i].port;
+            continue;
+        }
+
+        if (native_postprocess->postprocessors[i].itfe == effect) {
+            native_postprocess->postprocessors[i].itfe = NULL;
+            native_postprocess->postprocessors[i].index = -1;
+            native_postprocess->postprocessors[i].idesc = NULL;
+            native_postprocess->postprocessors[i - 1].port = -1;
+            status = 0;
+            found = true;
+        }
+    }
+
+    if (status != 0) {
+        goto exit;
+    }
+
+    native_postprocess->num_postprocessors--;
+    status = (*effect)->get_descriptor(effect, &desc);
+    //update exist effect array offset
+    for (int i = 0; i < native_postprocess->num_postprocessors; i++) {
+        struct aml_post_effect_info * temp = &native_postprocess->postprocessors[i];
+        temp->index = i;
+    }
+
+exit:
+    pthread_mutex_unlock(&native_postprocess->lock);
+#ifdef DEBUG_ENABLE_DUMP_EFFECT_INFO
+    dump_effect_info_list(native_postprocess);
+#endif
+    ALOGI("%s() ret:%d effect:%s handle:%p port:%d num_postprocessors:%d", __FUNCTION__, status,
+        (status == 0 ? desc.name : "null"), effect, port_handle, native_postprocess->num_postprocessors);
+    return status;
+}
+
+/* Note: return value must be: in_frames */
 size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t in_frames)
 {
     int ret = 0, j = 0;
@@ -143,9 +304,10 @@ size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int
     int frames = in_frames;
     bool ai_process_done = false;
 
-    if (native_postprocess == NULL ||
-        native_postprocess->num_postprocessors != native_postprocess->total_postprocessors) {
-        return ret;
+    pthread_mutex_lock(&native_postprocess->lock);
+    if (native_postprocess->num_postprocessors == 0) {
+        pthread_mutex_unlock(&native_postprocess->lock);
+        return frames;
     }
 
     if (native_postprocess->libvx_exist) {
@@ -164,10 +326,7 @@ size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int
     }
 
     for (j = 0; j < native_postprocess->num_postprocessors; j++) {
-        effect_handle_t effect = native_postprocess->postprocessors[j];
-        if (!getEffectStatus(effect, native_postprocess->audio_effectchain_length)) {
-              continue;
-        }
+        effect_handle_t effect = native_postprocess->postprocessors[j].itfe;
         if (effect && (*effect) && (*effect)->process && in_buffer) {
             if (native_postprocess->libvx_exist && native_postprocess->effect_in_ch == 6 && j == 0) {
                 /* skip multi channel processing for dts streaming in VX */
@@ -191,8 +350,10 @@ size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int
     }
 
     if (ret < 0) {
-        ALOGE("postprocess failed\n");
+        ALOGE("postprocess failed! ret:%d", ret);
     }
+
+    pthread_mutex_unlock(&native_postprocess->lock);
     return frames;
 }
 
@@ -202,7 +363,7 @@ int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int
     audio_buffer_t in_buf;
     audio_buffer_t out_buf;
 
-    effect_handle_t effect = native_postprocess->postprocessors[0];
+    effect_handle_t effect = native_postprocess->postprocessors[0].itfe;
     if (effect && (*effect) && (*effect)->process && in_buffer &&
         native_postprocess->libvx_exist && native_postprocess->effect_in_ch == 6) {
         /* do multi channel processing for dts streaming in VX */
@@ -222,7 +383,7 @@ int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int
 
 static int VirtualX_setparameter(struct aml_native_postprocess *native_postprocess, int param, int ch_num, int cmdCode)
 {
-    effect_handle_t effect = native_postprocess->postprocessors[0];
+    effect_handle_t effect = native_postprocess->postprocessors[0].itfe;
     int32_t replyData = 0;
     uint32_t replySize = sizeof(int32_t);
     uint32_t cmdSize = (int)(sizeof(effect_param_t) + sizeof(uint32_t) + sizeof(uint32_t));
@@ -320,7 +481,7 @@ int set_aml_dts_effect_param(struct aml_native_postprocess *native_postprocess, 
 {
     int32_t value = 0, replyData = -1;
     uint32_t replySize = sizeof(int32_t);
-    effect_handle_t effect = native_postprocess->postprocessors[native_postprocess->AML_DTS_index];
+    effect_handle_t effect = native_postprocess->postprocessors[native_postprocess->AML_DTS_index].itfe;
     uint32_t cmdSize = (int)(sizeof(effect_param_t) + sizeof(uint32_t) + sizeof(uint32_t));
     uint32_t buf32[sizeof(effect_param_t) / sizeof(uint32_t) + 2];
     effect_param_t *p = (effect_param_t *)buf32;
@@ -455,7 +616,7 @@ exit:
 
 int get_aml_dts_effect_param(struct aml_native_postprocess *native_postprocess, char *param, const char *keys)
 {
-    effect_handle_t effect = native_postprocess->postprocessors[native_postprocess->AML_DTS_index];
+    effect_handle_t effect = native_postprocess->postprocessors[native_postprocess->AML_DTS_index].itfe;
     uint32_t cmdSize = (int)(sizeof(effect_param_t) + sizeof(uint32_t));
     uint32_t buf32[sizeof(effect_param_t) / sizeof(uint32_t) + 2];
     effect_param_t *p = (effect_param_t *)buf32;
@@ -591,3 +752,31 @@ exit:
     return 0;
 }
 
+
+bool is_vendor_support_libvx(struct aml_native_postprocess *native_postprocess)
+{
+    return native_postprocess->libvx_exist;
+}
+
+int init_vendor_post_process(struct aml_native_postprocess *native_postprocess)
+{
+    if (!native_postprocess) {
+        ALOGW("%s() Warning, native_postprocess = NULL!", __func__);
+        return -EINVAL;
+    }
+
+    memset(native_postprocess, 0, sizeof(struct aml_native_postprocess));
+    pthread_mutex_init(&native_postprocess->lock, NULL);
+    native_postprocess->libvx_exist = Check_VX_lib();
+    return 0;
+}
+
+void destroy_vendor_post_process(struct aml_native_postprocess *native_postprocess)
+{
+    if (!native_postprocess) {
+        ALOGW("%s() Warning, native_postprocess = NULL!", __func__);
+        return;
+    }
+
+    pthread_mutex_destroy(&native_postprocess->lock);
+}
