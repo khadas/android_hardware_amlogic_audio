@@ -395,8 +395,6 @@ int update_edid_after_edited_audio_sad(struct aml_audio_device *adev, struct for
             /* get the default EDID audio array */
             char EDID_cur_array[EDID_ARRAY_MAX_LEN] = {0};
             int available_edid_len = 0;
-            bool is_mat_pcm_supported = fmt_desc->atmos_supported;
-            bool is_truehd_supported = fmt_desc->atmos_supported;
 
             memcpy(EDID_cur_array, adev->default_EDID_array, EDID_ARRAY_MAX_LEN);
 
@@ -405,13 +403,13 @@ int update_edid_after_edited_audio_sad(struct aml_audio_device *adev, struct for
                 update_dolby_atmos_decoding_and_rendering_cap_for_ddp_sad(
                     (void *)(EDID_cur_array  + SAD_SIZE*n)
                     , (EDID_ARRAY_MAX_LEN - SAD_SIZE * n)
-                    , fmt_desc->atmos_supported
-                    , fmt_desc->atmos_supported);
+                    , hdmi_desc->ddp_fmt.atmos_supported
+                    , hdmi_desc->ddp_fmt.atmos_supported);
                 update_dolby_MAT_decoding_cap_for_dolby_MAT_and_dolby_TRUEHD_sad(
                     (void *)(EDID_cur_array  + SAD_SIZE*n)
                     , (EDID_ARRAY_MAX_LEN - SAD_SIZE * n)
-                    , is_mat_pcm_supported
-                    , is_truehd_supported);
+                    , hdmi_desc->mat_fmt.atmos_supported
+                    , hdmi_desc->mat_fmt.atmos_supported);
 
                 /* From the SAD table, one invalid SAD is like this [0, 0, 0], here filter the valid SAD */
                 if (EDID_cur_array[SAD_SIZE*n]) {
