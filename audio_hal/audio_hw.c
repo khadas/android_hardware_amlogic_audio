@@ -9290,6 +9290,17 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 
     adev->card = card;
     adev->ar = audio_route_init(adev->card, MIXER_XML_PATH);
+
+    /* some external codec init time last longer, wait 1s before timeout */
+    int retry_count = 0;
+    while (adev->ar == NULL) {
+        usleep(20 * 1000);  //20MS
+        adev->ar = audio_route_init(adev->card, MIXER_XML_PATH);
+        retry_count++;
+        if (retry_count > 50)
+            break;
+    }
+
     if (adev->ar == NULL) {
         ALOGE("audio route init failed");
         ret = -EINVAL;
