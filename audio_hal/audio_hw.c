@@ -1780,7 +1780,14 @@ static int out_get_render_position (const struct audio_stream_out *stream,
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = out->dev;
     *dsp_frames = 0;
-    ret = out_get_presentation_position(stream, &dsp_frame_uint64,&timestamp);
+    //None MS12 version, pcm stream was connected to sub_mixing write_direct_pcm for dolby streams.
+    //so get_presentation_position should be matched with sub_mixing to avsync.
+    if (adev->useSubMix) {
+        ret = out_get_presentation_position_port(stream, &dsp_frame_uint64,&timestamp);
+    } else {
+        ret = out_get_presentation_position(stream, &dsp_frame_uint64,&timestamp);
+    }
+
     if (ret == 0)
     {
         *dsp_frames = (uint32_t)(dsp_frame_uint64 & 0xffffffff);
@@ -3364,7 +3371,13 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->stream.set_volume = out_set_volume;
     out->stream.get_render_position = out_get_render_position;
     out->stream.get_next_write_timestamp = out_get_next_write_timestamp;
-    out->stream.get_presentation_position = out_get_presentation_position;
+    //None MS12 version, pcm stream was connected to sub_mixing write_direct_pcm for dolby streams.
+    //so get_presentation_position should be matched with sub_mixing to avsync.
+    if (adev->useSubMix) {
+        out->stream.get_presentation_position = out_get_presentation_position_port;
+    } else {
+        out->stream.get_presentation_position = out_get_presentation_position;
+    }
     out->stream.set_event_callback = out_set_event_callback;
 
     if (eDolbyMS12Lib == adev->dolby_lib_type) {

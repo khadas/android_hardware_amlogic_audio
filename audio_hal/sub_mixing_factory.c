@@ -659,7 +659,7 @@ static int on_input_avail_cbk(void *data)
     return 0;
 }
 
-static int out_get_presentation_position_port(
+int out_get_presentation_position_port(
         const struct audio_stream_out *stream,
         uint64_t *frames,
         struct timespec *timestamp)
@@ -825,10 +825,6 @@ static int initSubMixingInputPcm(
         out->stream.resume = out_resume_subMixingPCM;
         out->stream.flush = out_flush_subMixingPCM;
         out->stream.common.standby = out_standby_subMixingPCM;
-        if (flags & AUDIO_OUTPUT_FLAG_PRIMARY || flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
-            AM_LOGI("primary/tunnel stream presentation");
-            out->stream.get_presentation_position = out_get_presentation_position_port;
-        }
     }
 
     list_init(&out->mdata_list);

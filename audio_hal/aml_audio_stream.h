@@ -292,6 +292,8 @@ static inline bool is_dolby_format(audio_format_t format) {
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3:
     case AUDIO_FORMAT_E_AC3_JOC:
+    case AUDIO_FORMAT_AC4:
+    case AUDIO_FORMAT_MAT:
     case AUDIO_FORMAT_DOLBY_TRUEHD:
     case AUDIO_FORMAT_AAC:
     case AUDIO_FORMAT_HE_AAC_V1:
