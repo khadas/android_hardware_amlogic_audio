@@ -5854,8 +5854,22 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         if (patch && patch->is_dtv_src)
             patch->need_reconfig_mediasync = need_reconfig_output;
         adev->digital_audio_format_updated = 0;
+
+        if (adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) {
+            audio_route_set_speaker_mute_l(adev, true);
+            clock_gettime(CLOCK_MONOTONIC, &adev->fmt_start_ts);
+            adev->fmt_start_mute = true;
+            adev->fmt_mdelay = 2 * DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT / (MM_FULL_POWER_SAMPLING_RATE / 1000);
+        }
     }
 
+    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) && adev->fmt_start_mute) {
+        int flag = Stop_watch(adev->fmt_start_ts, adev->fmt_mdelay);
+        if (!flag) {
+            adev->fmt_start_mute = false;
+            audio_route_set_speaker_mute_l(adev, false);
+        }
+    }
     /* here to check if the audio output routing changed. */
     if (adev->cur_out_devices != aml_out->out_device) {
         ALOGI ("[%s:%d] output routing changed, need reconfig output, adev_dev:%#x, out_dev:%#x",
@@ -9336,6 +9350,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 
     adev->insert_mute_flag = false;
     adev->source_flag = false;
+    adev->fmt_start_mute = false;
     aml_audio_board_config_init(&adev->board_config);
 
     adev->native_postprocess.libvx_exist = Check_VX_lib();

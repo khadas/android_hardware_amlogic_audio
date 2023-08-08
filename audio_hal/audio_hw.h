@@ -622,6 +622,9 @@ struct aml_audio_device {
     fg_stream_type_t foreground_stream_type;
     bool continuous_enable_mixer_max_size;
     bool reset_hpd;
+    struct timespec fmt_start_ts;
+    bool fmt_start_mute;
+    int fmt_mdelay;
 };
 
 struct meta_data {
