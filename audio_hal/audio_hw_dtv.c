@@ -4090,6 +4090,9 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 continue;
             }
 
+            if (dtv_audio_instances->demux_index_working == -1)
+                dtv_audio_instances->demux_index_working = path_id;
+
             ring_buffer_reset(&patch->aml_ringbuffer);
             if (cmd == AUDIO_DTV_PATCH_CMD_START) {
                 patch->dtv_decoder_state = AUDIO_DTV_PATCH_DECODER_STATE_RUNNING;
