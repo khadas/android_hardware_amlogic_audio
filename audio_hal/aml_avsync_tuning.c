@@ -428,6 +428,12 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
     in = (struct audio_stream_in *)aml_dev->active_input;
     factor = (patch->aformat == AUDIO_FORMAT_E_AC3) ? 2 : 1;
 
+    /* if Aux-in has no video-in module, no need do av sync */
+    if (aml_dev->patch_src == SRC_LINEIN && get_tvin_delay(&aml_dev->alsa_mixer) < 0) {
+        patch->need_do_avsync = false;
+        return 0;
+    }
+
     char latency_details[256] = {0};
     ret = aml_dev_avsync_diff_in_path(patch, &vltcy, &altcy, latency_details);
     if (ret < 0) {
