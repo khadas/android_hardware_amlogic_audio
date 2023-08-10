@@ -9279,6 +9279,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         aml_audio_hwsync_open();
         adev->raw_to_pcm_flag = false;
         profile_init(&adev->usb_audio.in_profile, PCM_IN);
+        subMixingSetSrcGain(adev, aml_audio_get_s_gain_by_src(adev, SRC_OTHER));
 #ifdef USB_KARAOKE
         subMixingSetKaraoke(adev, &adev->usb_audio.karaoke);
         pthread_mutex_init(&adev->usb_audio.karaoke.lock, NULL);
