@@ -1740,6 +1740,7 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
         *hal_dev_port = OUTPORT_EARPIECE;
         break;
     case AUDIO_DEVICE_OUT_HDMI_ARC:
+    case AUDIO_DEVICE_OUT_HDMI_EARC:
         *hal_dev_port = OUTPORT_HDMI_ARC;
         break;
     case AUDIO_DEVICE_OUT_HDMI:

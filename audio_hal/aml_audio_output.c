@@ -264,6 +264,23 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     bd_config->default_alsa_ch * buffer_need_size);
             R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%zu fail", bd_config->default_alsa_ch * bytes);
 
+            audio_config_base_t in_data_config = {48000, AUDIO_CHANNEL_OUT_STEREO, AUDIO_FORMAT_PCM_16_BIT};
+            if (is_include_sco_out_port(adev->cur_out_devices)) {
+                memcpy(adev->out_16_buf, buffer, bytes);
+                write_to_sco(adev, &in_data_config, buffer, bytes);
+            } else if (is_include_a2dp_out_port(adev->cur_out_devices)) {
+                memcpy(adev->out_16_buf, buffer, bytes);
+                float volume = aml_audio_get_s_gain_by_src(adev, adev->patch_src);
+                if (is_tvinput_source(adev->patch_src) && adev->audio_patching) {
+                    /* for dev->a2dp path, volume control in audio hal. */
+                    volume *= adev->sink_gain[OUTPORT_A2DP];
+                } else {
+                    /* for mix->a2dp path, volume control in AudioFlinger. */
+                }
+                apply_volume(volume, adev->out_16_buf, sizeof(uint16_t), bytes);
+                a2dp_out_write(adev, &in_data_config, adev->out_16_buf, bytes);
+            }
+
             bool dap_processing = is_audio_postprocessing_add_dolbyms12_dap(adev) && adev->ms12.dolby_ms12_enable;
             if (dap_processing) {
                 ret = aml_audio_check_and_realloc((void **)&adev->audioeffect_tmp_buffer, &adev->audioeffect_tmp_buffer_size, buffer_need_size);
@@ -274,7 +291,6 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 }
             }
 
-            bool is_a2dp_path = is_include_a2dp_out_port(adev->out_device) && is_include_a2dp_out_port(adev->cur_out_devices);
             for (int dev = AML_AUDIO_OUT_DEV_TYPE_SPEAKER; dev < num_dev; dev++) {
                 float volume = aml_audio_get_s_gain_by_src(adev, adev->patch_src);
                 memcpy(adev->out_16_buf, buffer, bytes);
@@ -282,36 +298,25 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 /* apply volume for SPK/HP/SPDIF/HDMItx, HMDITX for BDS platform */
                 /* all source should apply source gain, spk: spk volume + effect */
                 if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
-                    if (is_a2dp_path) {
-                        if (is_tvinput_source(adev->patch_src)&& adev->audio_patching) {
-                            /* for dev->a2dp path, volume control in audio hal. */
-                            volume *= adev->sink_gain[OUTPORT_A2DP];
-                        } else {
-                            /* for mix->a2dp path, volume control in AudioFlinger. */
-                        }
-                    } else {
-                        /* special add external gain for media->speaker */
-                        if (adev->patch_src != SRC_DTV && adev->patch_src != SRC_ATV &&
-                            adev->patch_src != SRC_LINEIN && adev->patch_src != SRC_HDMIIN) {
-                            volume *= adev->eq_data.p_gain.media2spk_extra_gain;
-                        }
-                        volume *= adev->eq_data.p_gain.speaker * adev->sink_gain[OUTPORT_SPEAKER];
+                    /* special add external gain for media->speaker */
+                    if (adev->patch_src != SRC_DTV && adev->patch_src != SRC_ATV &&
+                        adev->patch_src != SRC_LINEIN && adev->patch_src != SRC_HDMIIN) {
+                        volume *= adev->eq_data.p_gain.media2spk_extra_gain;
                     }
+                    volume *= adev->eq_data.p_gain.speaker * adev->sink_gain[OUTPORT_SPEAKER];
 
                     /* for ms12 lib, and audio volume control in ms12, bypass all volume apply */
                     if (eDolbyMS12Lib == adev->dolby_lib_type && aml_out->ms12_vol_ctrl) {
                         volume = 1.0;
-                    } else if (adev->volume_ease.config_easing && dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER && !is_a2dp_path) {
+                    } else if (adev->volume_ease.config_easing) {
                         /* start audio volume easing */
                         float vol_now = aml_audio_ease_get_current_volume(adev->volume_ease.ease);
                         config_volume_easing(adev->volume_ease.ease, vol_now, volume);
                         adev->volume_ease.config_easing = false;
                     }
 
-                    if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER && !is_a2dp_path) {
-                        out_frames = audio_post_process(&adev->native_postprocess, adev->out_16_buf, out_frames);
-                        bytes = out_frames * 4;
-                    }
+                    out_frames = audio_post_process(&adev->native_postprocess, adev->out_16_buf, out_frames);
+                    bytes = out_frames * 4;
 
                     if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
                         aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audio_spk.pcm", adev->out_16_buf, bytes);
@@ -328,8 +333,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     volume *= adev->sink_gain[OUTPORT_SPEAKER];
                 }
 
-                if (dap_processing &&
-                    (dev == AML_AUDIO_OUT_DEV_TYPE_SPDIF || dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE || dev == AML_AUDIO_OUT_DEV_TYPE_OTHER)) {
+                if (dap_processing && dev != AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
                     memcpy(adev->out_16_buf, (unsigned char*)adev->audioeffect_tmp_buffer, bytes);
                 }
 
@@ -345,8 +349,6 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                             AUDIO_FORMAT_PCM_16_BIT, MM_FULL_POWER_SAMPLING_RATE);
                 }
 #endif
-
-
                 if (!adev->volume_ease.ease->do_easing || dev != AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
                     apply_volume_16to32(volume, adev->out_16_buf, adev->out_32_buf, bytes);
                 } else {
@@ -417,7 +419,6 @@ ssize_t hw_write (struct audio_stream_out *stream
     AM_LOGV ("+%s() buffer %p bytes %zu", __func__, buffer, bytes);
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
-    audio_config_base_t in_data_config = {48000, AUDIO_CHANNEL_OUT_STEREO, AUDIO_FORMAT_PCM_16_BIT};
     const uint16_t *tmp_buffer = buffer;
     int16_t *effect_tmp_buf = NULL;
     struct aml_audio_patch *patch = adev->audio_patch;
@@ -430,7 +431,6 @@ ssize_t hw_write (struct audio_stream_out *stream
     }
 
     int out_frames = 0;
-
     ssize_t ret = 0;
     int i;
     uint32_t latency_frames = 0;
@@ -441,16 +441,11 @@ ssize_t hw_write (struct audio_stream_out *stream
     int  alsa_port = -1;
 
     if (ch == 0 || bytes_per_sample == 0) {
-
         ALOGE("%s invalid ch =%d bytes_per_sample=%d", __func__, ch, bytes_per_sample);
         return -1;
     }
 
-    in_data_config.channel_mask = data_info->channel_mask;
-    in_data_config.format = data_info->audio_format;
-
     out_frames = bytes / (ch * bytes_per_sample);
-
     adev->debug_flag = aml_audio_get_debug_flag();
     if (adev->debug_flag) {
         ALOGI("+%s() buffer %p bytes %zu, format %#x out %p hw_sync_mode %d\n",
@@ -627,17 +622,10 @@ ssize_t hw_write (struct audio_stream_out *stream
                     memset(buf, 0, 1024);
                     while (adjust_bytes > 0) {
                         write_size = adjust_bytes > 1024 ? 1024 : adjust_bytes;
-                        if (is_include_sco_out_port(adev->cur_out_devices)) {
-                            ret = write_to_sco(adev, &in_data_config, buffer, bytes);
+                        if (!adev->is_TV && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
+                            // For STB, do not send data to spdif/hdmitx when bt is connected and mute hdmitx cannot be controlled.
                         } else {
-                            if (is_include_a2dp_out_port(adev->cur_out_devices)) {
-                                a2dp_out_write(adev, &in_data_config, (void*)buf, write_size);
-                            }
-                            if (!adev->is_TV && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
-                                // For STB, do not send data to spdif/hdmitx when bt is connected and mute hdmitx cannot be controlled.
-                            } else {
-                                ret = aml_alsa_output_write(stream, (void*)buf, write_size);
-                            }
+                            ret = aml_alsa_output_write(stream, (void*)buf, write_size);
                         }
                         if (ret < 0) {
                             ALOGE("%s alsa write fail when insert", __func__);
@@ -658,35 +646,17 @@ ssize_t hw_write (struct audio_stream_out *stream
             }
         }
 
-        if (is_include_sco_out_port(adev->cur_out_devices)) {
-            in_data_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
-            in_data_config.format = AUDIO_FORMAT_PCM_16_BIT;
-            ret = write_to_sco(adev, &in_data_config, buffer, bytes);
+        if (!adev->is_TV && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
+            // For STB, do not send data to spdif/hdmitx when bt is connected and mute hdmitx cannot be controlled.
         } else {
-            if (is_include_a2dp_out_port(adev->cur_out_devices)) {
-                /* mediasync need to now the real running status of devices for
-                both alsa and bt. alsa running status PCM_STATE_RUNNING is
-                the same as BluetoothStreamState STARTED.
-                */
-                int  cur_status = a2dp_out_get_status(adev);
-                if (cur_status != aml_out->alsa_running_status) {
-                    aml_out->alsa_running_status = cur_status;
-                    aml_out->alsa_status_changed = true;
-                }
-                a2dp_out_write(adev, &in_data_config, (void*)buffer, bytes);
-            }
-            if (!adev->is_TV && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
-                // For STB, do not send data to spdif/hdmitx when bt is connected and mute hdmitx cannot be controlled.
-            } else {
 #ifdef AUDIO_KARA
-                check_switch_audio_kara(stream);
-                if (aml_out->kara) {
-                    // WARNING: buffer is changed, discard 'const' qualifiers
-                    ret = audio_kara_mix(aml_out->kara, (void *)buffer, bytes);
-                }
-#endif
-                ret = aml_alsa_output_write(stream, (void *) buffer, bytes); // HDMI output HERE
+            check_switch_audio_kara(stream);
+            if (aml_out->kara) {
+                // WARNING: buffer is changed, discard 'const' qualifiers
+                ret = audio_kara_mix(aml_out->kara, (void *)buffer, bytes);
             }
+#endif
+            ret = aml_alsa_output_write(stream, (void *) buffer, bytes); // HDMI output HERE
         }
 
         //ALOGE("!!aml_alsa_output_write"); ///zzz

@@ -8088,7 +8088,12 @@ static struct audio_patch_set *register_audio_patch(struct audio_hw_device *dev,
         !(sources->type == AUDIO_PORT_TYPE_MIX && is_contain_d2d_patch(aml_dev, NULL))) {
         audio_devices_t out_devices = 0;
         for (int i = 0; i < num_sinks; i++) {
-            out_devices |= sinks[i].ext.device.type;
+            audio_devices_t sink = sinks[i].ext.device.type;
+            /* we think EARC is ARC device. */
+            if (sink == AUDIO_DEVICE_OUT_HDMI_EARC) {
+                sink = AUDIO_DEVICE_OUT_HDMI_ARC;
+            }
+            out_devices |= sink;
         }
         aml_audio_output_routing(aml_dev, out_devices);
     }
