@@ -995,9 +995,6 @@ int get_the_dolby_ms12_prepared(
      *In case of AC-4 or Dolby Digital Plus input,
      *set output DDP bitstream format DDP Atmos(5.1.2) or DDP(5.1)
      */
-    /* we always use atmos support in new continuous mode*/
-    bool is_atmos_supported = 1; //is_platform_supported_ddp_atmos(adev->hdmi_descs.ddp_fmt.atmos_supported, adev->active_outport, adev->is_TV);
-    set_ms12_out_ddp_5_1(input_format, is_atmos_supported);
 
     if (output_5_1_ddp) {
         dolby_ms12_set_encoder_channel_mode_locking_mode(output_5_1_ddp);
@@ -4028,6 +4025,9 @@ int dolby_ms12_encoder_reconfig(struct dolby_ms12_desc *ms12) {
             b_reset = 1;
         }
     }
+
+    bool is_atmos_supported = is_platform_supported_ddp_atmos(adev->hdmi_descs.ddp_fmt.atmos_supported, adev->out_device, adev->is_TV);
+    set_ms12_out_ddp_5_1(AUDIO_FORMAT_E_AC3, is_atmos_supported);
 
     if (b_reset) {
         ms12->optical_format = adev->optical_format;
