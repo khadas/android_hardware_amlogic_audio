@@ -592,7 +592,6 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                     patch->dtv_has_video = demux_info->has_video;
                     patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
                     patch->sync_type = dtv_audio_instances->dtvsync[path_id].sync_type;
-
                     ALOGI("dtv_has_video %d",patch->dtv_has_video);
                     ALOGI("demux_index_working %d handle %p",dtv_audio_instances->demux_index_working, dtv_audio_instances->demux_handle[path_id]);
                 }
@@ -3704,6 +3703,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
     int ret;
     float last_out_speed = 1.0f;
     int apts_diff = 0;
+    bool alsa_status = true;
     struct timespec ts,package_get_ts;
     clock_gettime(CLOCK_MONOTONIC, &package_get_ts);
     int64_t data_arrive_jitter_ms = 0;
@@ -3880,6 +3880,9 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
                 patch->need_reconfig_mediasync = false;
                 ALOGI("reset_dtvsync (mediasync:%p)", patch->dtvsync->mediasync);
                 aml_dtvsync_reset(patch->dtvsync);
+                ALOGI("aml_dtvsync_setParameter (MEDIASYNC_KEY_ALSAREADY)");
+                aml_dtvsync_setParameter(patch->dtvsync, MEDIASYNC_KEY_ALSAREADY, &alsa_status);
+
             }
         }
 
@@ -4150,11 +4153,14 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 ALOGI("patch->demux_handle %p patch->aformat %0x", patch->demux_handle, patch->aformat);
                 dtvsync = &dtv_audio_instances->dtvsync[path_id];
                 patch->dtvsync = dtvsync;
+                bool alsa_status = true;
                 if (dtvsync->mediasync_new != NULL) {
                     audio_format.format = patch->dtv_aformat;
                     mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_AUDIOFORMAT, &audio_format);
                     audio_outport.output_port = (audio_out_port)get_output_by_devices(aml_dev->cur_out_devices);
                     mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_AUDIO_EQUIPMENT, &audio_outport);
+                    ALOGI("aml_dtvsync_setParameter (MEDIASYNC_KEY_ALSAREADY)");
+                    mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_ALSAREADY, &alsa_status);
                     if (!patch->cbs_patch) {
                         mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_HASVIDEO, &patch->dtv_has_video);
                     }
