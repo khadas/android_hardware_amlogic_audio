@@ -3972,15 +3972,6 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
             adev->continuous_audio_mode_backup = adev->continuous_audio_mode;
             continuous_audio_mode = 0;
         }
-
-        if (eDolbyMS12Lib == adev->dolby_lib_type) {
-            if (adev->low_power) {
-                adev_ms12_cleanup((struct audio_hw_device *)adev);
-            } else {
-                adev_ms12_prepare((struct audio_hw_device *)adev);
-            }
-            //set_continuous_audio_mode(adev, continuous_audio_mode, 1);
-        }
         goto exit;
     }
 
@@ -8593,7 +8584,10 @@ int adev_ms12_prepare(struct audio_hw_device *dev) {
     audio_format_t aformat = AUDIO_FORMAT_E_AC3;
 
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-
+    if (adev->ms12_out) {
+        ALOGD("%s: ms12 stream exist", __func__);
+        return 0;
+    }
     ALOGD("%s: enter", __func__);
     stream_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
     stream_config.sample_rate = 48000;
@@ -8642,6 +8636,7 @@ void adev_ms12_cleanup(struct audio_hw_device *dev) {
     get_dolby_ms12_cleanup(&adev->ms12, true);
     if (stream_out)
         adev_close_output_stream_new(dev, stream_out);
+    adev->ms12_out = NULL;
 
     return;
 }
@@ -8672,8 +8667,6 @@ static int adev_close(hw_device_t *device)
     aml_audio_all_timer_delete();
 
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
-        get_dolby_ms12_cleanup(&adev->ms12, false);
-
         int wait_count = 0;
         while (adev->ms12_out != NULL) {
             if (wait_count >= 100) {
