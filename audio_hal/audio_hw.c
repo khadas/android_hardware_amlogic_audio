@@ -4311,7 +4311,11 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         ALOGD("get TV source param(kv: %s)", kvpairs);
         goto exit;
     }
-
+    ret = set_device_control(dev, parms);
+    if (ret >= 0) {
+        ALOGD("get device control param(kv: %s)", kvpairs);
+        goto exit;
+    }
     ret = str_parms_get_str(parms, "sound_track", value, sizeof(value));
     if (ret > 0) {
         int mode = atoi(value);
@@ -9114,6 +9118,11 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         adev->eq_drc_inited = true;
         ALOGI("%s() audio noise gate level: %fdB, attack_time = %dms, release_time = %dms", __func__,
               adev->aml_ng_level, adev->aml_ng_attack_time, adev->aml_ng_release_time);
+        /* read default dac vol for hp mute*/
+        int dac_unmute[2] = {251, 251};
+        aml_mixer_ctrl_get_array(&adev->alsa_mixer, AML_MIXER_ID_DAC_PLAYBACK_VOLUME, &dac_unmute, 2);
+        adev->dac_value = dac_unmute[0];
+        ALOGI("%s() audio dac gain: %d",__func__, adev->dac_value);
     }
     adev->next_unique_ID = 1;
     list_init(&adev->patch_list);

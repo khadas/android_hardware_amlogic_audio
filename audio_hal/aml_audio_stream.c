@@ -2299,3 +2299,53 @@ void aml_check_pic_mode(struct aml_audio_patch *patch)
 
 }
 
+int set_device_control(struct audio_hw_device *dev, struct str_parms *parms)
+{
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    int ret = -1, val = 0;
+
+    ret = str_parms_get_int(parms, "hp_mute", &val);
+    if (ret >= 0) {
+        int dac_value[2] = {251, 251};
+        if (val > 0) {
+            int mute[2] = {0,0};
+            aml_mixer_ctrl_set_array(&adev->alsa_mixer, AML_MIXER_ID_DAC_PLAYBACK_VOLUME, &mute, 2);
+            ALOGI("set hp mute,set dac to 0");
+        } else {
+            dac_value[0] = dac_value[1] = adev->dac_value;
+            aml_mixer_ctrl_set_array(&adev->alsa_mixer, AML_MIXER_ID_DAC_PLAYBACK_VOLUME, &dac_value, 2);
+            ALOGI("set hp unmute,set dac to dac_value[0]:%d,dac_value[1]:%d",dac_value[0], dac_value[1]);
+        }
+        goto exit;
+    }
+    ret = str_parms_get_int(parms, "set_hp_vol", &val);
+    if (ret >= 0) {
+        adev->sink_gain[OUTPORT_HEADPHONE] = DbToAmpl(val / 100.0);
+        ALOGI("set set_hp_vol = %f", adev->sink_gain[OUTPORT_HEADPHONE]);
+        goto exit;
+    }
+    ret = str_parms_get_int(parms, "set_bt_vol", &val);
+    if (ret >= 0) {
+        if (adev->bt_avrcp_supported)
+            adev->sink_gain[OUTPORT_A2DP] = 1.0;
+        else
+            adev->sink_gain[OUTPORT_A2DP] = DbToAmpl(val / 100.0);
+        ALOGI("bt_avrcp_supported:%d,set set_bt_vol = %f", adev->bt_avrcp_supported, adev->sink_gain[OUTPORT_A2DP]);
+        adev->a2dp_vol = adev->sink_gain[OUTPORT_A2DP];
+        goto exit;
+    }
+    ret = str_parms_get_int(parms, "a2dp_mute", &val);
+    if (ret >= 0) {
+        if (val > 0) {
+            adev->sink_gain[OUTPORT_A2DP] = 0.0;
+            ALOGI("set a2dp mute,a2dp gain is %f", adev->sink_gain[OUTPORT_A2DP]);
+        } else {
+            adev->sink_gain[OUTPORT_A2DP] = adev->a2dp_vol;
+            ALOGI("set a2dp unmute,resume a2dp gain:%f",adev->sink_gain[OUTPORT_A2DP]);
+        }
+        goto exit;
+    }
+exit:
+    return ret;
+}
+

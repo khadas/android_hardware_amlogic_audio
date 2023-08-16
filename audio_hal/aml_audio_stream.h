@@ -739,5 +739,6 @@ const char *write_func_to_str(enum stream_write_func func);
 bool is_HBR_stream(struct audio_stream_in *stream);
 bool is_hdmi_in_sample_rate_changed(struct audio_stream_in *stream);
 void audio_raw_data_continuous_check(struct aml_audio_device *aml_dev, audio_type_parse_t *status, char *buffer, int size);
+int set_device_control(struct audio_hw_device *dev, struct str_parms *parms);
 
 #endif /* _AML_AUDIO_STREAM_H_ */

@@ -625,6 +625,8 @@ struct aml_audio_device {
     struct timespec fmt_start_ts;
     bool fmt_start_mute;
     int fmt_mdelay;
+    float a2dp_vol;
+    int dac_value;
 };
 
 struct meta_data {
