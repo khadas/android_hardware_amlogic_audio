@@ -59,7 +59,7 @@ extern void audio_extn_hfp_set_parameters(struct aml_audio_device *adev, struct 
 #define CAPTURE_PERIOD_COUNT 4
 
 #define HFP_CARD 0
-#define HFP_UL_RD_DEVICE 3
+#define HFP_UL_RD_DEVICE 7
 #define HFP_UL_WR_DEVICE 0
 #define HFP_DL_RD_DEVICE 0
 #define HFP_DL_WR_DEVICE 1
@@ -87,6 +87,12 @@ struct hfp_module {
     unsigned int hfp_card;
 };
 
+struct aec_context {
+    void *aml_aec;
+    int mic_channels; //number of mic channels for loopback
+    struct pcm_config config;
+};
+
 typedef struct ul_task_hfp_t {
     bool exit_run;
     pthread_t thread_id;
@@ -97,6 +103,9 @@ typedef struct ul_task_hfp_t {
     aml_audio_resample_t *resample_handle;
     struct aml_mixer_handle *mixer;
     struct aml_audio_device *ul_dev;
+    int mic_channels;
+    struct pcm_config config;
+    struct aec_context *aec_handle;
 } UL_HFP_T;
 
 static UL_HFP_T *g_ul_task_hfp = NULL;

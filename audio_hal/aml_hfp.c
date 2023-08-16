@@ -34,7 +34,9 @@
 #include <ctype.h>
 #include <cutils/log.h>
 #include "aml_hfp.h"
-
+#include "aml_audio_signal_process.h"
+#include <audio_utils/channels.h>
+#include <pthread.h>
 
 struct hfp_module hfpmod = {
     .hfp_sco_rx = NULL,
@@ -51,6 +53,17 @@ struct hfp_module hfpmod = {
 
 struct pcm_config pcm_config_hfp = {
     .channels = 1,
+    .rate = 16000,
+    .period_size = 240,
+    .period_count = 2,
+    .format = PCM_FORMAT_S16_LE,
+    .start_threshold = 0,
+    .stop_threshold = 0,
+    .avail_min = 0,
+};
+
+struct pcm_config pcm_config_hfp_aec = {
+    .channels = 6,
     .rate = 16000,
     .period_size = 240,
     .period_count = 2,
@@ -124,20 +137,193 @@ bool if_hfp_running_submix(output_port *port, int bytes) {
         return true;
     }
 }
+/**
+ * \create an instance of aec
+ * \param mic_chan: the number of mic channels in the total channel during loopback recording
+ * \param pconfig: the configuration parameter when using pcm_open to open the device
+ * \return structure containing necessary parameters and instances of aec
+ */
+static struct aec_context* aec_create(int mic_channels, struct pcm_config config)
+{
+    if (config.rate != 8000 && config.rate != 16000) {
+        AM_LOGE("%s aec does not support %d rate\n", __func__, config.rate);
+        return NULL;
+    }
+    AI_ASP_CONFIG_S mConfig;
+
+    memset(&mConfig, 0, sizeof(mConfig));
+    mConfig.SampleRate = config.rate; // 8k 16k
+
+    mConfig.FrameSample = AML_FRAME_SIZE;
+    mConfig.FormatDataByte = AML_DATA_BIT >> 3;
+    mConfig.MicChannels = mic_channels;
+    mConfig.RefChannels = config.channels - mic_channels;
+
+    mConfig.stFrontCfg.f32MicMulValue = 1.0; //(0.0, 10.0)
+    mConfig.stFrontCfg.s32AdaptDelayAlign = 1;
+    mConfig.stFrontCfg.s32RefreshFreqGap = 10;
+    mConfig.stFrontCfg.s32RefDelayMicAlignLength = 16000; //[0, 4*FrameSample]
+    mConfig.stFrontCfg.s32RefDelayMicRange = 16000; //[0, 4*FrameSample]
+
+    mConfig.bHpfOpen = 0;
+    if (mConfig.bHpfOpen) {
+        mConfig.stHpfCfg.s32Order = 1;
+        mConfig.stHpfCfg.s32HpfFreq = 200;
+    }
+
+    mConfig.bAecOpen = 1;
+    if (mConfig.bAecOpen) {
+        mConfig.stAecCfg.s32Mode = 2;
+        mConfig.stAecCfg.s32EchoPathLength = mConfig.SampleRate / 4;
+        mConfig.stAecCfg.bUsrSingleRefChannelMode = 0;
+        if (mConfig.stAecCfg.bUsrSingleRefChannelMode)
+            mConfig.stAecCfg.s32SingleChannelId = 0;
+
+        mConfig.stAecCfg.bPf1Open = 0;
+        if (mConfig.stAecCfg.bPf1Open) {
+            mConfig.stAecCfg.stAecPf1Cfg.s32BandWidth = 128;
+            mConfig.stAecCfg.stAecPf1Cfg.s32RefreshLength = 10;
+        }
+
+        mConfig.stAecCfg.bPf2Open = 1;
+        if (mConfig.stAecCfg.bPf2Open) {
+            mConfig.stAecCfg.stAecPf2Cfg.s32Intensity = 2;
+            mConfig.stAecCfg.stAecPf2Cfg.s32ComfortNoise = 1;
+        }
+        mConfig.stAecCfg.bPf3Open = 0;
+    }
+
+    mConfig.bDereverberationOpen = 0;
+    if (mConfig.bDereverberationOpen) {
+        mConfig.stDereverberationCfg.s32StartPoint = 1;
+        mConfig.stDereverberationCfg.s32PathLength = 8;
+    }
+
+    mConfig.bAnrOpen = 1;
+    if (mConfig.bAnrOpen) {
+        mConfig.stAnrCfg.s32Mode = 1;
+        mConfig.stAnrCfg.s32NrIntensity = 1;
+        mConfig.stAnrCfg.s32Reserved = 0;
+    }
+
+    mConfig.bGainOpen = 0;
+    if (mConfig.bGainOpen) {
+        mConfig.stGainCfg.s32Mode = 1;
+        mConfig.stGainCfg.s32FixGainDB = 25;
+        mConfig.stGainCfg.s32AgcGainDB = 9;
+        mConfig.stGainCfg.s32AgcGainLevel = 3;
+    }
+
+    mConfig.bNoiseOpen = 0;
+    if (mConfig.bNoiseOpen) {
+        mConfig.stNoiseCfg.s32Snr = 80;
+    }
+    mConfig.bDetecteEnergyOpen = 0;
+
+    struct aec_context* aec = aml_audio_calloc(1, sizeof(struct aec_context));
+    aec->config = config;
+    aec->mic_channels = mic_channels;
+    aec->aml_aec = aml_asp_create(&mConfig);
+    return aec;
+}
+
+/**
+ * \destroy an instance of aec
+ * \param aml_aec: instance of aec
+ * \return NULL
+ */
+static void aec_destroy(struct aec_context *aec)
+{
+    if (aec->aml_aec != NULL)
+        aml_asp_destroy(aec->aml_aec);
+    aec->aml_aec = NULL;
+    aml_audio_free(aec);
+}
+
+/**
+ * \AEC processing of input data
+ * \param aec_task: structure pointer containing necessary parameters and instances of aec
+ * \param in: input data
+ * \param out: output data
+ * \return 1 if aec process successful.
+ * \return 0 if aec process failed.
+ */
+static int aec_process(struct aec_context* aec, void* in, void* out)
+{
+    int in_chan = aec->config.channels;
+    int out_chan = aec->mic_channels;
+    int bytes = pcm_format_to_bits(aec->config.format) >> 3;
+    int process_ret = 0;
+
+    if (aec->aml_aec != NULL) {
+        int i = 0;
+        for (i = 0; i < out_chan; i++)
+            aml_asp_import(aec->aml_aec, (void *)((char *)in + i * bytes), in_chan, i, MicType);
+        for (i = out_chan; i < in_chan; i++)
+            aml_asp_import(aec->aml_aec, (void *)((char *)in + i * bytes), in_chan, i - out_chan, RefType);
+        process_ret = aml_asp_process(aec->aml_aec);
+        if (process_ret == 0) {
+            AM_LOGE("%s %d error: no aec process\n", __func__, __LINE__);
+            return process_ret;
+        }
+        for (i = 0; i < out_chan; i++)
+            aml_asp_export(aec->aml_aec, (void *)((char *)out + i * bytes), out_chan, i);
+    } else
+        AM_LOGE("%s aml_aec is NULL\n", __func__);
+    return process_ret;
+}
 
 static void* aml_hfp_ul_thread(void* data) {
     UL_HFP_T *ul_task = (UL_HFP_T *)data;
     void *buffer = NULL;
+    void *buffer_aec = NULL;
+    void *buffer_out = NULL;
     unsigned int size;
+    unsigned int size_aec;
+    unsigned int size_out;
 
     ul_task->pcm_hfp_pcm_tx = hfpmod.hfp_pcm_tx;
     ul_task->pcm_hfp_sco_rx = hfpmod.hfp_sco_rx;
 
-    size = pcm_frames_to_bytes(ul_task->pcm_hfp_pcm_tx, pcm_get_buffer_size(ul_task->pcm_hfp_pcm_tx) / 6);//32ms
-    buffer = aml_audio_calloc(1,size);
+    if (g_ul_task_hfp->thread_created == 0) {
+        pthread_exit(0);
+        AM_LOGI("thread_created is 0 exit thread");
+        return NULL;
+    }
+
+/*Due to the limitations of libAudioSignalProcess. a, only 256 frames can be processed at a time*/
+    size = pcm_frames_to_bytes(ul_task->pcm_hfp_pcm_tx, AML_FRAME_SIZE);//16ms
+    buffer = aml_audio_calloc(1, size);
 
     if (!buffer) {
         AM_LOGE("Unable to allocate %u bytes", size);
+        pcm_close(ul_task->pcm_hfp_pcm_tx);
+        pcm_close(ul_task->pcm_hfp_sco_rx);
+        ul_task->pcm_hfp_pcm_tx = NULL;
+        ul_task->pcm_hfp_sco_rx = NULL;
+        return NULL;
+    }
+
+    size_aec = ul_task->mic_channels * (pcm_format_to_bits(ul_task->config.format) >> 3) * AML_FRAME_SIZE;
+    buffer_aec = aml_audio_calloc(1, size_aec);
+
+    if (!buffer_aec) {
+        AM_LOGE("Unable to allocate %u bytes", size_aec);
+        aml_audio_free(buffer);
+        pcm_close(ul_task->pcm_hfp_pcm_tx);
+        pcm_close(ul_task->pcm_hfp_sco_rx);
+        ul_task->pcm_hfp_pcm_tx = NULL;
+        ul_task->pcm_hfp_sco_rx = NULL;
+        return NULL;
+    }
+
+    size_out = pcm_config_hfp.channels * (pcm_format_to_bits(ul_task->config.format) >> 3) * AML_FRAME_SIZE;
+    buffer_out = aml_audio_calloc(1, size_out);
+
+    if (!buffer_out) {
+        AM_LOGE("Unable to allocate %u bytes", size_out);
+        aml_audio_free(buffer_aec);
+        aml_audio_free(buffer);
         pcm_close(ul_task->pcm_hfp_pcm_tx);
         pcm_close(ul_task->pcm_hfp_sco_rx);
         ul_task->pcm_hfp_pcm_tx = NULL;
@@ -150,9 +336,19 @@ static void* aml_hfp_ul_thread(void* data) {
           if (ret != 0) {
              AM_LOGD("pcm_read fail need:%d, ret:%d", size, ret);
           }
-
-          void  *dec_data = (void *)buffer;
-          ul_task->data_len = (int)size;
+        unsigned sample_size_in_bytes = pcm_format_to_bits(ul_task->config.format) >> 3;
+        if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
+            aml_audio_dump_audio_bitstreams("/data/audio/before_aec_16k_6ch_16bit.pcm", buffer, size);
+        }
+        ret = aec_process(ul_task->aec_handle, buffer, buffer_aec);
+        if (ret == 0)
+            adjust_channels(buffer, ul_task->config.channels, buffer_aec, ul_task->mic_channels, sample_size_in_bytes, size);
+        if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
+            aml_audio_dump_audio_bitstreams("/data/audio/after_aec_16k_4ch_16bit.pcm", buffer_aec, size_aec);
+        }
+        adjust_channels(buffer_aec, ul_task->mic_channels, buffer_out, pcm_config_hfp.channels, sample_size_in_bytes, size_aec);
+        void *dec_data = (void *)buffer_out;
+        ul_task->data_len = (int)size_out;
 
         //no need src for pdm && bt with the same fmt (16b && 1ch && 16k)
 	  if (ul_task->data_len > 0) {
@@ -178,6 +374,9 @@ static void* aml_hfp_ul_thread(void* data) {
 
     AM_LOGD("exit---");
     aml_audio_free(buffer);
+    aml_audio_free(buffer_aec);
+    aml_audio_free(buffer_out);
+
     return NULL;
 }
 
@@ -415,7 +614,7 @@ static int32_t start_hfp(struct aml_audio_device *adev,
           __func__, adev->card, pcm_ul_rd_index);
     hfpmod.hfp_pcm_tx = pcm_open(adev->card,
                                    pcm_ul_rd_index,
-                                   PCM_IN, &pcm_config_hfp);
+                                   PCM_IN, &pcm_config_hfp_aec);
     if (hfpmod.hfp_pcm_tx && !pcm_is_ready(hfpmod.hfp_pcm_tx)) {
         ALOGE("%s: %s", __func__, pcm_get_error(hfpmod.hfp_pcm_tx));
         ret = -EIO;
@@ -454,6 +653,11 @@ static int32_t start_hfp(struct aml_audio_device *adev,
 
     g_ul_task_hfp->exit_run = false;
 
+    int mic_channels = 4;
+
+    g_ul_task_hfp->aec_handle = aec_create(mic_channels, pcm_config_hfp_aec);
+    g_ul_task_hfp->mic_channels = mic_channels;
+    g_ul_task_hfp->config = pcm_config_hfp_aec;
     ret = pthread_create(&g_ul_task_hfp->thread_id, NULL, aml_hfp_ul_thread, g_ul_task_hfp);
     if (ret) {
         AM_LOGE("g_ul_task_hfp error creating thread: %s", strerror(ret));
@@ -520,6 +724,13 @@ static int32_t stop_hfp(struct aml_audio_device *adev)
     hfpmod.is_hfp_running = false;
     adev->enable_hfp = false;
 
+    g_ul_task_hfp->exit_run = 1;
+    pthread_join(g_ul_task_hfp->thread_id, NULL);
+    g_ul_task_hfp->thread_id = 0;
+    g_dl_task_hfp->exit_run = 1;
+    pthread_join(g_dl_task_hfp->thread_id, NULL);
+    g_dl_task_hfp->thread_id = 0;
+    aec_destroy(g_ul_task_hfp->aec_handle);
     ALOGD("%s: exit: status(%d)", __func__, ret);
 
     return ret;

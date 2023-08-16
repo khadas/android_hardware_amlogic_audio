@@ -160,6 +160,9 @@ include $(BUILD_PREBUILT)
         libbase \
         libfmq
 
+    LOCAL_STATIC_LIBRARIES += \
+        libAudioSignalProcess
+
     LOCAL_SRC_FILES += \
         audio_tsync_wrap.c \
         audio_hwsync_wrap.c \
