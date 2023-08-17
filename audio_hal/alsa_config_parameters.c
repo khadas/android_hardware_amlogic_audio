@@ -199,10 +199,16 @@ static void get_pcm_hardware_config_parameters(
         hardware_config->format = PCM_FORMAT_S32_LE;
     }
     hardware_config->rate = rate;//default sample rate = 48KHz
-    if (!game_mode)
-        hardware_config->period_size = PERIOD_SIZE;
-    else
+    if (!game_mode) {
+        hardware_config->period_size = PERIOD_SIZE;  // Default is 48K
+        if (rate >= 176400) {
+            hardware_config->period_size *= 4;
+        } else if (rate >= 88200) {
+            hardware_config->period_size *= 2;
+        }
+    } else {
         hardware_config->period_size = LOW_LATENCY_PERIOD_SIZE;
+    }
     /*
     Currently, alsa buffer configured a limited buffer size max 32bit * 8 ch  1024 *8
     the configuration will return fail when channel > 8 as need larger dma buffer size.
