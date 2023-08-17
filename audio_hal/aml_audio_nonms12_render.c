@@ -477,6 +477,15 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                         check_audio_level("after process", dec_data, pcm_len);
                     }
                     aml_out->hwsync_header_stripped = true;
+                    if (adev->dev2mix_patch) {
+                        if (patch && (patch->need_do_avsync == true) && (patch->input_signal_stable == false) &&
+                            ((adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) || (adev->out_device & AUDIO_DEVICE_OUT_ALL_USB)) &&
+                            ((adev->in_device & AUDIO_DEVICE_IN_HDMI) || (adev->in_device & AUDIO_DEVICE_IN_LINE))){
+                        } else {
+                            tv_in_write(stream, dec_data, pcm_len);
+                            memset((char *)dec_data, 0, pcm_len);
+                        }
+                    }
                     mixer_main_buffer_write_sm(stream, dec_data, pcm_len);
                 }
             }
