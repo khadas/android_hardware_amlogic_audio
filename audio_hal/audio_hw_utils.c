@@ -1850,6 +1850,8 @@ int android_fmt_convert_to_dmx_fmt(audio_format_t android_fmt) {
             return ACODEC_FMT_MPEG;
         case AUDIO_FORMAT_PCM:
             return ACODEC_FMT_PCM_S16LE;
+        case AUDIO_FORMAT_AC4:
+            return ACODEC_FMT_AC4;
         default:
             return ACODEC_FMT_NULL;
     }
