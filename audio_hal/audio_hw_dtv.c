@@ -4940,7 +4940,7 @@ int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct aud
         ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, val);
 
         aml_dtvsync_t *dtvsync = &dtv_audio_instances->dtvsync[path_id];
-        if (dtvsync->mediasync_new != NULL) {
+        if (dtvsync->mediasync_new) {
             dtvsync->mediasync = dtvsync->mediasync_new;
         }
 
@@ -4994,7 +4994,7 @@ int out_pause_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
         if (aml_out->stream_status == STREAM_PAUSED) {
             return ret;
         }
-        if (dtvsync->mediasync_new != NULL) {
+        if (dtvsync && dtvsync->mediasync_new) {
             aml_dtvsync_setPause(dtvsync, true);
         }
         cmd = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_PAUSE);
@@ -5019,7 +5019,7 @@ int out_resume_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
         if (aml_out->stream_status != STREAM_PAUSED) {
             return ret;
         }
-        if (dtvsync->mediasync_new != NULL) {
+        if (dtvsync && dtvsync->mediasync_new) {
             aml_dtvsync_setPause(dtvsync, false);
         }
         cmd = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_RESUME);
@@ -5052,7 +5052,7 @@ int out_flush_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
         if (aml_out->stream_status != STREAM_PAUSED || costtime_ms > 200) {
             return ret;
         }
-        if (dtvsync->mediasync_new != NULL) {
+        if (dtvsync && dtvsync->mediasync_new) {
             aml_dtvsync_setPause(dtvsync, false);
         }
     }
@@ -5110,7 +5110,7 @@ int out_start_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
                 cmd = (dtv_audio_instances->demux_index_working << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_STOP);
                 dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, cmd);
             }
-            if (dtvsync->mediasync_new != NULL) {
+            if (dtvsync && dtvsync->mediasync_new) {
                 audio_format.format = dmx_info->main_fmt;
                 mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_AUDIOFORMAT, &audio_format);
                 if (!adev->audio_patch->cbs_patch)
