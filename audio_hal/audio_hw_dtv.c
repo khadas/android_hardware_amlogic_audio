@@ -664,23 +664,38 @@ int dtv_patch_get_latency(struct aml_audio_device *aml_dev)
     if (aml_dev->is_multi_demux) {
         if (patch->demux_handle)  {
              if (Get_Audio_LastES_Apts(patch->demux_handle, &last_queue_es_apts) == 0) {
-                 ALOGV("last_queue_es_apts %" PRId64,last_queue_es_apts);
                  patch->last_checkin_apts = last_queue_es_apts;
+                 if (patch->dtvsync) {
+                     ALOGI("last_queue_es_apts %" PRId64 "patch->cur_package->pts %" PRId64,last_queue_es_apts, patch->dtvsync->cur_outapts);
+                     if (last_queue_es_apts < patch->dtvsync->cur_outapts) {
+                         if (patch->last_checkin_apts < patch->last_min_pts) {
+                             patch->last_checkin_apts = patch->last_max_pts;
+                         } else {
+                            patch->last_checkin_apts = patch->last_max_pts + (patch->last_checkin_apts - patch->last_min_pts);
+                         }
+                     }
+                 }
              }
         }
+        if (patch->dtvsync)  {
+            ALOGI("lastcheckinapts %" PRId64" patch->dtvsync->cur_outapts %" PRId64 " patch->last_max_pts %" PRId64 " patch->last_min_pts %" PRId64,
+                patch->last_checkin_apts, patch->dtvsync->cur_outapts, patch->last_max_pts, patch->last_min_pts);
+        } else {
+            ALOGI("patch->cur_package NULL");
+        }
 
-        ALOGV("lastcheckinapts %d patch->cur_outapts %d ", patch->last_checkin_apts, patch->cur_outapts);
         if (patch->last_checkin_apts != 0xffffffff) {
             if (patch->skip_amadec_flag) {
                 if (patch->dtvsync) {
-                    if (patch->dtvsync->cur_outapts > 0 && patch->last_checkin_apts - patch->dtvsync->cur_outapts)
+                     ALOGI("patch->dtvsync->cur_outapts %" PRId64,patch->dtvsync->cur_outapts);
+                    if (patch->dtvsync->cur_outapts > 0 && (patch->last_checkin_apts - patch->dtvsync->cur_outapts))
                         latencyms = (patch->last_checkin_apts - patch->dtvsync->cur_outapts) / 90;
                 } else {
                     ALOGV("patch->dtvsync NULL");
                 }
             } else {
-                if (patch->cur_outapts > 0 && patch->last_checkin_apts > patch->cur_outapts)
-                    latencyms = (patch->last_checkin_apts - patch->cur_outapts) / 90;
+                if (patch->dtvsync->cur_outapts > 0 && (patch->last_checkin_apts > patch->dtvsync->cur_outapts))
+                    latencyms = (patch->last_checkin_apts - patch->dtvsync->cur_outapts) / 90;
             }
         }
     } else {
@@ -3833,6 +3848,8 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
             if (!patch->dtv_first_apts_flag) {
               if (p_package->pts_dts_flag != 0) {
                   patch->dtv_first_apts_flag = 1;
+                  patch->last_min_pts = p_package->pts;
+                  patch->last_max_pts = p_package->pts;
               } else {
                 if (p_package->data) {
                     aml_audio_free(p_package->data);
@@ -3848,6 +3865,15 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
                 pthread_mutex_unlock(&patch->mutex);
                 continue;
               }
+            }else {
+               if (patch->last_min_pts > p_package->pts)  {
+                   patch->last_min_pts = p_package->pts;
+               }
+
+               if (patch->last_max_pts < p_package->pts)  {
+                   patch->last_max_pts = p_package->pts;
+               }
+
             }
             struct timespec current_ts;
             clock_gettime(CLOCK_MONOTONIC, &current_ts);
@@ -5358,7 +5384,6 @@ int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, con
                         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_ENABLE, val);
                         val = (path_id << DVB_DEMUX_ID_BASE | 100);
                         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_AD_VOL_LEVEL, val);
-
                         if (is_dolby_ms12_support_compression_format(audio_patch->aformat)) {
                             cmd = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_STOP);
                             dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, cmd);
