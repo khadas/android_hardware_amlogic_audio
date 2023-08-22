@@ -3247,7 +3247,7 @@ Aml_MS12_SyncPolicy_t ms12_sync_callback(void *priv_data, unsigned long long u64
                     new_apts = 0;
                 }
             } else {
-                if (aml_dtvsync->cur_outapts) {
+                if (aml_dtvsync->cur_outapts && aml_dtvsync->cur_outapts != DTVSYNC_INIT_PTS) {
                     new_apts = aml_dtvsync->cur_outapts + (u64DecOutFrame - aml_out->last_decout_frame) * 90 / 48;
                 }
             }

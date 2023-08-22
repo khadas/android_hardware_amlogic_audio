@@ -504,12 +504,6 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                         if (dtvsync->mediasync_new == NULL)
                             ALOGI("mediasync create failed\n");
                         else {
-                            //Need to initialize pts when start play.
-                            //For MS12 will out negative apts at begin, so initialize with big small number
-                            dtvsync->cur_outapts = DTVSYNC_INIT_PTS;
-                            dtvsync->out_start_apts = DTVSYNC_INIT_PTS;
-                            dtvsync->out_end_apts = DTVSYNC_INIT_PTS;
-                            dtvsync->last_package_pts = DTVSYNC_INIT_PTS;
                             dtvsync->mediasync_id = demux_info->media_sync_id;
                             ALOGI("path_id:%d,dtvsync media_sync_id=%d, init cur_outapts: %" PRId64 "\n", path_id, dtvsync->mediasync_id, dtvsync->cur_outapts);
                             mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_ISOMXTUNNELMODE, &audio_sync_mode);
@@ -4154,13 +4148,22 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
                 dtvsync = &dtv_audio_instances->dtvsync[path_id];
                 patch->dtvsync = dtvsync;
                 bool alsa_status = true;
+                ALOGI("dtvsync->mediasync_new %p dtvsync %p ", dtvsync->mediasync_new, dtvsync);
+                if (patch->dtvsync) {
+                    ALOGI("aml_dtvsync_setParameter (MEDIASYNC_KEY_ALSAREADY)");
+                    aml_dtvsync_setParameter(patch->dtvsync, MEDIASYNC_KEY_ALSAREADY, &alsa_status);
+                    //Need to initialize pts when start play.
+                    //For MS12 will out negative apts at begin, so initialize with big small number
+                    dtvsync->cur_outapts = DTVSYNC_INIT_PTS;
+                    dtvsync->out_start_apts = DTVSYNC_INIT_PTS;
+                    dtvsync->out_end_apts = DTVSYNC_INIT_PTS;
+                    dtvsync->last_package_pts = DTVSYNC_INIT_PTS;
+                }
                 if (dtvsync->mediasync_new != NULL) {
                     audio_format.format = patch->dtv_aformat;
                     mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_AUDIOFORMAT, &audio_format);
                     audio_outport.output_port = (audio_out_port)get_output_by_devices(aml_dev->cur_out_devices);
                     mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_AUDIO_EQUIPMENT, &audio_outport);
-                    ALOGI("aml_dtvsync_setParameter (MEDIASYNC_KEY_ALSAREADY)");
-                    mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_ALSAREADY, &alsa_status);
                     if (!patch->cbs_patch) {
                         mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_HASVIDEO, &patch->dtv_has_video);
                     }
