@@ -1544,7 +1544,7 @@ int audio_route_set_hdmi_arc_mute(struct aml_mixer_handle *mixer_handle, int ena
     if (extern_arc) {
         return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_SPDIF_MUTE, enable);
     } else {
-        return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_HDMI_ARC_AUDIO_ENABLE, !enable);
+        return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_ARC_EARC_SPDIFOUT_REG_MUTE, enable);
     }
 }
 

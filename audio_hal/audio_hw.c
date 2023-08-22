@@ -3911,6 +3911,8 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
         check_usb_card_device(parms, device);
         if (audio_is_output_device(device)) {
             if ((device & AUDIO_DEVICE_OUT_HDMI_ARC) || (device & AUDIO_DEVICE_OUT_HDMI)) {
+                if (device & AUDIO_DEVICE_OUT_HDMI_ARC)
+                    aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_HDMI_ARC_AUDIO_ENABLE, true);
                 adev->bHDMIConnected = 1;
                 adev->bHDMIConnected_update = 1;
                 memset(adev->last_arc_hdmi_array, 0, EDID_ARRAY_MAX_LEN);
@@ -3929,6 +3931,13 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
                 adev->bHDMIConnected = 0;
                 adev->bHDMIConnected_update = 1;
                 memset(adev->last_arc_hdmi_array,0,EDID_ARRAY_MAX_LEN);
+                if (device & AUDIO_DEVICE_OUT_HDMI_ARC) {
+                    int attend_type = aml_audio_earctx_get_type(adev);
+
+                    /* only when cable is unplug, then switch arc off */
+                    if (attend_type != ATTEND_TYPE_EARC && attend_type != ATTEND_TYPE_ARC)
+                        aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_HDMI_ARC_AUDIO_ENABLE, false);
+                }
             } else if (device & AUDIO_DEVICE_OUT_ALL_A2DP) {
                 adev->out_device &= (~device);
                 adev->bt_avrcp_supported = false;
@@ -9216,7 +9225,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_SPEAKER, false);
     aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_WIRED_HEADPHONE, false);
     aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_HDMI, false);
-    //aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_HDMI_ARC, false);
+    aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_HDMI_ARC, false);
     aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_SPDIF, adev->spdif_coexist_other);
 
     if (eDolbyMS12Lib != adev->dolby_lib_type) {
