@@ -761,7 +761,11 @@ int out_get_presentation_position_port(
                                                          adev->ms12.dolby_ms12_enable,
                                                          is_earc);
         frame_latency = latency_ms * (out->hal_rate / MSEC_PER_SEC);
-        *frames += frame_latency ;
+        if (frame_latency < 0 && *frames < abs(frame_latency)) {
+            *frames = 0;
+        } else {
+            *frames += frame_latency ;
+        }
         if (adev->debug_flag) {
             AM_LOGI("tuning_latency_ms %d, frame_latency:%d", latency_ms, frame_latency);
         }
