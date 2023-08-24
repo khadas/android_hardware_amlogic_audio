@@ -888,10 +888,11 @@ void aml_dtvsync_release(aml_dtvsync_t *p_dtvsync)
         pthread_mutex_lock(&p_dtvsync->ms_lock);
         ALOGI("mediasync_new:%p, mediasync:%p", p_dtvsync->mediasync_new, p_dtvsync->mediasync);
         void *tmp = NULL;
-        if (p_dtvsync->mediasync_new)
+        if (p_dtvsync->mediasync_new) {
             tmp = p_dtvsync->mediasync_new;
-        mediasync_wrap_destroy(p_dtvsync->mediasync_new);
-        p_dtvsync->mediasync_new = NULL;
+            mediasync_wrap_destroy(p_dtvsync->mediasync_new);
+            p_dtvsync->mediasync_new = NULL;
+        }
 
         if (p_dtvsync->mediasync && p_dtvsync->mediasync != tmp)
             mediasync_wrap_destroy(p_dtvsync->mediasync);
