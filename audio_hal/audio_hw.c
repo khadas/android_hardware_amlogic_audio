@@ -5688,6 +5688,11 @@ void aml_stream_timer_callback_handler(union sigval sigv)
 
     if (adev && out && is_hwsync_lpcm) {
         adev->frame_write_sum_updated = false;
+
+        //cts tunnel underrun case failed, depond on pause/resume invoked from AudioFlinger.
+        //sometimes AudioFlinger always invoke the pause to Hal during 800ms for track retry count.
+        //so add this code to control pause/resume MediaSync and video in Hal.
+        out_pause_new((struct audio_stream_out *)out);
     }
     AM_LOGI("%s is_hwsync_lpcm:%d frame_write_sum_updated:%d", __func__, is_hwsync_lpcm, adev->frame_write_sum_updated);
     return ;
@@ -7026,6 +7031,14 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     if (adev->debug_flag > 1) {
         ALOGI("+<IN>%s: out_stream(%p) position(%zu)", __func__, stream, bytes);
     }
+    //cts tunnel underrun case failed, depond on pause/resume invoked from AudioFlinger.
+    //sometimes AudioFlinger always invoke the pause to Hal during 800ms for track retry count.
+    //so add this code to control pause/resume MediaSync and video in Hal.
+    if (adev->dolby_lib_type == eDolbyMS12Lib
+        && aml_out->usecase == STREAM_PCM_HWSYNC && aml_out->pause_status == true) {
+        out_resume_new(stream);
+    }
+
 #ifdef ENABLE_DVB_PATCH
 #if ANDROID_PLATFORM_SDK_VERSION > 29
     if ((aml_out->dev->patch_src == SRC_DTV) &&
