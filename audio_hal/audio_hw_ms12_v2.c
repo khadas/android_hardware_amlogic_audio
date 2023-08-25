@@ -2802,8 +2802,10 @@ int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_i
         //AC4 should use the 1.0 volume and control the volume through the PCM output.
         //In the STB, PCM output will be always without DAP device processing.
         //will not call the dap_pcm_output().
-        if (is_AC4_stream_with_pcm_sink_on_stb(aml_out)) {
-            apply_volume(get_ac4_stream_volume(aml_out), buffer, sizeof(uint16_t), size);
+        if  (ms12->ms12_main_stream_out && (adev->ms12.main_input_fmt == AUDIO_FORMAT_AC4)) {
+            if (is_AC4_stream_with_pcm_sink_on_stb(ms12->ms12_main_stream_out)) {
+                apply_volume(get_ac4_stream_volume(ms12->ms12_main_stream_out), buffer, sizeof(uint16_t), size);
+            }
         }
         aml_audio_trace_int("stereo_output", size);
         ms12_output_master(buffer, priv_data, size, output_format, ms12_info);
