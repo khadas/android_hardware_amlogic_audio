@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef _AUDIO_DTV_UTILS_H_
-#define _AUDIO_DTV_UTILS_H_
+#ifndef _DTV_PATCH_UTILS_H_
+#define _DTV_PATCH_UTILS_H_
 
 #include "dmx_audio_es.h"
 #include "aml_dec_api.h"
-#include "aml_dtvsync.h"
+#include "dtv_patch_dtvsync.h"
 
 #define TSYNC_PCRSCR "/sys/class/tsync/pts_pcrscr"
 #define TSYNC_EVENT "/sys/class/tsync/event"
@@ -166,4 +166,4 @@ int dtv_patch_cmd_is_empty(struct cmd_node *dtv_cmd_list);
 AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts,  aml_demux_audiopara_t *demux_info);
 void dtv_convert_language_to_string(int language_int, char * language_string);
 
-#endif
+#endif  /* _DTV_PATCH_UTILS_H_ */

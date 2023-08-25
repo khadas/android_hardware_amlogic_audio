@@ -49,7 +49,7 @@
 
 #include "aml_audio_stream.h"
 #include "audio_hw.h"
-#include "audio_hw_dtv.h"
+#include "dtv_patch.h"
 #include "audio_hw_profile.h"
 #include "audio_hw_utils.h"
 #include "dtv_patch_out.h"
@@ -59,7 +59,7 @@
 #include "audio_dtv_ad.h"
 #include "alsa_config_parameters.h"
 #include "alsa_device_parser.h"
-#include "aml_audio_hal_avsync.h"
+#include "dtv_patch_hal_avsync.h"
 #include "aml_audio_spdifout.h"
 #include "aml_audio_timer.h"
 #include "aml_volume_utils.h"
@@ -68,7 +68,7 @@
 #include "audio_dtv_sync.h"
 #include "aml_ddp_dec_api.h"
 #include "aml_dts_dec_api.h"
-#include "audio_dtv_utils.h"
+#include "dtv_patch_utils.h"
 #include "aml_audio_ac3parser.h"
 #include "aml_audio_report.h"
 #include "aml_audio_sysfs.h"
@@ -124,16 +124,6 @@ static int release_dtv_output_stream_thread(struct aml_audio_patch *patch);
 static int create_dtv_input_stream_thread(struct aml_audio_patch *patch);
 static int release_dtv_input_stream_thread(struct aml_audio_patch *patch);
 
-static void ts_wait_time(struct timespec *ts, uint32_t time)
-{
-    clock_gettime(CLOCK_REALTIME, ts);
-    ts->tv_sec += time / 1000000;
-    ts->tv_nsec += (time * 1000) % 1000000000;
-    if (ts->tv_nsec >= 1000000000) {
-        ts->tv_sec++;
-        ts->tv_nsec -=1000000000;
-    }
-}
 
 static void dtv_check_audio_reset()
 {
@@ -1480,7 +1470,7 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
             }
 
         } else if (eDolbyDcvLib == aml_dev->dolby_lib_type) {
-            if(ddp_dec) {
+            if (ddp_dec) {
                 if (ddp_dec->curFrmSize != 0) {
                     write_len = ddp_dec->curFrmSize;
                 }
@@ -1841,7 +1831,7 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
                         break;
                     }
                 }
-                if (mEsData){
+                if (mEsData) {
                     if (patch->cur_outapts > 0) {
                         demux_info->ad_package_status = check_ad_package_status(patch->cur_outapts, mEsData->pts, demux_info);
                         if (demux_info->ad_package_status == AD_PACK_STATUS_DROP) {

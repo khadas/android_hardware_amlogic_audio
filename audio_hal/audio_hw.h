@@ -43,11 +43,12 @@
 #else
 #include "../libms12_v24/include/aml_audio_ms12.h"
 #endif
+#include "../input/include/tv_patch_format_parser.h"
+#include "../input/include/hdmirx_utils.h"
 
 #include "audio_port.h"
 #include "aml_audio_ease.h"
 #include "aml_malloc_debug.h"
-#include "audio_hdmi_util.h"
 #include "aml_audio_speed_manager.h"
 
 #ifdef ADD_AUDIO_DELAY_INTERFACE
@@ -58,7 +59,6 @@
 #include "aml_audio_resampler.h"
 #include "aml_dec_api.h"
 #include "aml_dts_dec_api.h"
-#include "audio_format_parse.h"
 #include "audio_usb_hal.h"
 #include "aml_audio_timer.h"
 #include "aml_config_data.h"
@@ -1053,8 +1053,6 @@ int do_input_standby (struct aml_stream_in *in);
 
 int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby);
 int get_audio_patch_by_src_dev(struct audio_hw_device *dev, audio_devices_t dev_type, struct audio_patch **p_audio_patch);
-int create_patch(struct audio_hw_device *dev, audio_devices_t input, audio_devices_t output);
-int release_patch(struct aml_audio_device *aml_dev);
 int aml_audio_input_routing(struct audio_hw_device *dev, enum IN_PORT inport);
 int output_stream_hwsync_prepare(struct aml_stream_out *out, int hw_sync_id);
 bool aml_get_speaker_mute_status(void);
@@ -1065,6 +1063,27 @@ bool is_audio_patch_valid(struct aml_audio_device *adev);
 int adev_ms12_prepare(struct audio_hw_device *dev);
 
 void adev_ms12_cleanup(struct audio_hw_device *dev);
+
+
+//add for HDMI code refine. TODO
+int adev_open_input_stream(struct audio_hw_device *dev,
+                                audio_io_handle_t handle __unused,
+                                audio_devices_t devices,
+                                struct audio_config *config,
+                                struct audio_stream_in **stream_in,
+                                audio_input_flags_t flags __unused,
+                                const char *address,
+                                audio_source_t source);
+void adev_close_input_stream(struct audio_hw_device *dev, struct audio_stream_in *stream);
+int adev_open_output_stream_new(struct audio_hw_device *dev,
+                                audio_io_handle_t handle,
+                                audio_devices_t devices,
+                                audio_output_flags_t flags,
+                                struct audio_config *config,
+                                struct audio_stream_out **stream_out,
+                                const char *address);
+void adev_close_output_stream_new(struct audio_hw_device *dev, struct audio_stream_out *stream);
+
 
 
 /* 'bytes' are the number of bytes written to audio FIFO, for which 'timestamp' is valid.

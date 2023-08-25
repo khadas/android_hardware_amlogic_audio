@@ -11,8 +11,8 @@
  *
  */
 
-#ifndef __AUDIO_FORMAT_PARSE_H__
-#define __AUDIO_FORMAT_PARSE_H__
+#ifndef __TV_PATCH_FORMAT_PARSER_H__
+#define __TV_PATCH_FORMAT_PARSER_H__
 
 #include <system/audio.h>
 #include <tinyalsa/asoundlib.h>
@@ -154,4 +154,4 @@ int audio_parse_get_audio_samplerate(audio_type_parse_t *status);
 
 int eArcIn_audio_format_detection(struct aml_mixer_handle *mixer_handle);
 
-#endif
+#endif /* __TV_PATCH_FORMAT_PARSER_H__ */

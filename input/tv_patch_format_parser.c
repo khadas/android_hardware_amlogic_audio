@@ -1,6 +1,4 @@
 /*
- * hardware/amlogic/audio/TvAudio/audio_format_parse.c
- *
  * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This source code is subject to the terms and conditions defined in the
@@ -11,7 +9,7 @@
  *
  */
 
-#define LOG_TAG "audio_format_parse"
+#define LOG_TAG "tv_patch_format_parser"
 //#define LOG_NDEBUG 0
 
 #include <pthread.h>
@@ -25,14 +23,13 @@
 
 #include "aml_audio_spdifdec.h"
 #include "aml_audio_stream.h"
-#include "audio_format_parse.h"
+#include "tv_patch_format_parser.h"
 #include "aml_dump_debug.h"
 #include "ac3_parser_utils.h"
-
 #include "aml_alsa_mixer.h"
 #include "audio_hw_utils.h"
-
 #include "alsa_device_parser.h"
+#include "tv_patch_ctrl.h"
 
 #define AML_DCA_SW_CORE_16M             0x7ffe8001  ///< dts-cd 16bit 1024 framesize
 #define AML_DCA_SW_CORE_14M             0x1fffe800  ///< dts-cd 14bit 1024 or 512 framesize

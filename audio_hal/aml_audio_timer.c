@@ -354,3 +354,32 @@ int64_t calc_time_interval_us(struct timespec *ts_start, struct timespec *ts_end
 
     return interval_us;
 }
+
+void ts_wait_time(struct timespec *ts, uint32_t time)
+{
+    clock_gettime(CLOCK_REALTIME, ts);
+    ts->tv_sec += time / 1000000;
+    ts->tv_nsec += (time * 1000) % 1000000000;
+    if (ts->tv_nsec >= 1000000000) {
+        ts->tv_sec++;
+        ts->tv_nsec -=1000000000;
+    }
+}
+
+bool Stop_watch(struct timespec start_ts, int64_t time) {
+    struct timespec end_ts;
+    int64_t start_ms, end_ms;
+    int64_t interval_ms;
+
+    clock_gettime (CLOCK_MONOTONIC, &end_ts);
+    start_ms = start_ts.tv_sec * 1000LL +
+               start_ts.tv_nsec / 1000000LL;
+    end_ms = end_ts.tv_sec * 1000LL +
+             end_ts.tv_nsec / 1000000LL;
+    interval_ms = end_ms - start_ms;
+    if (interval_ms < time) {
+        return true;
+    }
+    return false;
+}
+

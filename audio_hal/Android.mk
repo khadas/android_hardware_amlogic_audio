@@ -49,6 +49,11 @@ include $(BUILD_PREBUILT)
     LOCAL_MODULE_RELATIVE_PATH := hw
     LOCAL_SRC_FILES := \
         audio_hw.c \
+        ../input/tv_patch.c \
+        ../input/tv_patch_avsync.c \
+        ../input/tv_patch_ctrl.c \
+        ../input/tv_patch_format_parser.c \
+        ../input/hdmirx_utils.c  \
         aml_hfp.c \
         audio_hw_utils.c \
         audio_hwsync.c \
@@ -61,7 +66,6 @@ include $(BUILD_PREBUILT)
         alsa_config_parameters.c \
         spdif_encoder_api.c \
         audio_post_process.c \
-        aml_avsync_tuning.c \
         dolby_lib_api.c \
         amlAudioMixer.c \
         hw_avsync.c \
@@ -80,9 +84,7 @@ include $(BUILD_PREBUILT)
         ../amlogic_AQ_tools/audio_eq_drc_parser.c \
         ../amlogic_AQ_tools/ini/dictionary.c \
         ../amlogic_AQ_tools/ini/iniparser.c \
-        audio_format_parse.c \
         aml_audio_dev2mix_process.c \
-        audio_hdmi_util.c  \
         earc_utils.c \
         aml_vad_wakeup.cpp \
         aml_audio_ms12_render.c \
@@ -116,6 +118,7 @@ include $(BUILD_PREBUILT)
         $(LOCAL_PATH)/../amlogic_AQ_tools/ini \
         $(LOCAL_PATH)/../utils/cJSON \
         vendor/amlogic/common/frameworks/av/libaudioeffect/VirtualX \
+        hardware/amlogic/audio/input/include \
         hardware/amlogic/audio/aml_adecs/include \
         hardware/amlogic/audio/aml_resampler/include \
         hardware/amlogic/audio/aml_parser/include \
@@ -158,10 +161,10 @@ include $(BUILD_PREBUILT)
 
 ifneq ($(BOARD_DISABLE_DVB_AUDIO), true)
         LOCAL_CFLAGS += -DENABLE_DVB_PATCH
-        LOCAL_SRC_FILES += audio_hw_dtv.c \
-                           audio_dtv_utils.c \
-                           aml_dtvsync.c \
-                           aml_audio_hal_avsync.c \
+        LOCAL_SRC_FILES += ../input/dtv_patch.c \
+                           ../input/dtv_patch_utils.c \
+                           ../input/dtv_patch_dtvsync.c \
+                           ../input/dtv_patch_hal_avsync.c \
 
         LOCAL_C_INCLUDES += \
                 $(LOCAL_PATH)/../../LibAudio/amadec/include \

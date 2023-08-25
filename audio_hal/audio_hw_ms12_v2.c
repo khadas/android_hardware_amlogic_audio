@@ -54,9 +54,11 @@
 #include "aml_malloc_debug.h"
 #include "audio_hw_ms12_common.h"
 #include "aml_audio_report.h"
-#include "aml_dtvsync.h"
+#include "dtv_patch_dtvsync.h"
 #include "aml_audio_scaletempo.h"
 #include "aml_audio_output.h"
+#include "tv_patch_ctrl.h"
+
 
 #define DOLBY_DRC_LINE_MODE 0
 #define DOLBY_DRC_RF_MODE   1

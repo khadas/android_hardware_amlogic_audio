@@ -16,8 +16,8 @@
 
 
 
-#ifndef _AML_DTVSYNC_H_
-#define _AML_DTVSYNC_H_
+#ifndef _DTV_PATCH_DTVSYNC_H_
+#define _DTV_PATCH_DTVSYNC_H_
 
 #include <stdbool.h>
 #include "audio_mediasync_wrap.h"
@@ -77,4 +77,4 @@ bool aml_dtvsync_ms12_adjust_clock(struct audio_stream_out *stream, int direct);
 
 int aml_dtvsync_ms12_process_resample(struct audio_stream_out *stream, struct dtvsync_audio_policy *p_policy);
 
-#endif
+#endif  /* _DTV_PATCH_DTVSYNC_H_ */

@@ -28,7 +28,7 @@
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
 #ifdef ENABLE_DVB_PATCH
-#include "audio_dtv_utils.h"
+#include "dtv_patch_utils.h"
 #endif
 #include "aml_dec_api.h"
 #include "aml_ddp_dec_api.h"

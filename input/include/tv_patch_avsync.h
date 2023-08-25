@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef _AML_AVSYNC_TUNING_H_
-#define _AML_AVSYNC_TUNING_H_
+#ifndef _TV_PATCH_AVSYNC_H_
+#define _TV_PATCH_AVSYNC_H_
 
 /* FIXME: add more SAMPLERATE and CHANNEL COUNT support */
 #define SAMPLE_RATE_MS (48)
@@ -50,4 +50,4 @@ int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *la
 int aml_dev_sample_video_path_latency(struct aml_audio_patch *patch);
 int aml_dev_avsync_diff_in_path(struct aml_audio_patch *patch, int *av_diff,
         int *Altcy, char *latency_details);
-#endif /*_AML_AVSYNC_TUNING_H_ */
+#endif /* _TV_PATCH_AVSYNC_H_ */

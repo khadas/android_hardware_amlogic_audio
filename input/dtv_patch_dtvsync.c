@@ -244,7 +244,7 @@ bool aml_dtvsync_getParameter(aml_dtvsync_t *p_dtvsync, mediasync_parameter type
 bool aml_dtvsync_queue_audio_frame(aml_dtvsync_t *p_dtvsync, struct mediasync_audio_queue_info* info)
 {
     bool ret = false;
-    if(p_dtvsync) {
+    if (p_dtvsync) {
         pthread_mutex_lock(&p_dtvsync->ms_lock);
         ret = mediasync_wrap_queueAudioFrame(p_dtvsync->mediasync, info);
         pthread_mutex_unlock(&p_dtvsync->ms_lock);

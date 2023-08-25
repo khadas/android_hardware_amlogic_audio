@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef _AML_AUDIO_HAL_AVSYNC_H_
-#define _AML_AUDIO_HAL_AVSYNC_H_
+#ifndef _DTV_PATCH_HAL_AVSYNC_H_
+#define _DTV_PATCH_HAL_AVSYNC_H_
 
 /* decoder/tsync fs node */
 #define TSYNC_PCRSCR               "/sys/class/tsync/pts_pcrscr"
@@ -313,4 +313,4 @@ void dtv_avsync_pause_process(struct audio_stream_out *stream, int cmd);
 void dtv_avsync_param_reset(struct audio_stream_out *stream);
 
 
-#endif
+#endif  /* _DTV_PATCH_HAL_AVSYNC_H_ */

@@ -37,7 +37,7 @@
 #include <time.h>
 #include <utils/Timers.h>
 #include "aml_malloc_debug.h"
-#include "audio_dtv_utils.h"
+#include "dtv_patch_utils.h"
 
 int dtv_package_list_flush(package_list *list)
 {
@@ -252,7 +252,7 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, aml_d
             return AD_PACK_STATUS_NORMAL;
         }
     }
-    switch(ad_status) {
+    switch (ad_status) {
         case AD_PACK_STATUS_NORMAL:
             if (main_pts >= ad_pts) {
                 timems_diff = (main_pts - ad_pts) / 90;

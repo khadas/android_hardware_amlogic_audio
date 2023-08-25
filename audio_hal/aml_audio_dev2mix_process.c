@@ -27,6 +27,7 @@
 #include "aml_audio_dev2mix_process.h"
 #include "alsa_manager.h"
 #include "alsa_config_parameters.h"
+#include "tv_patch_ctrl.h"
 
 struct aml_audio_parser {
     ring_buffer_t           aml_ringbuffer;

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef _AUDIO_HW_DTV_H_
-#define _AUDIO_HW_DTV_H_
+#ifndef _DTV_PATCH_H_
+#define _DTV_PATCH_H_
 
 #include <cutils/str_parms.h>
 
@@ -136,4 +136,4 @@ int audio_get_sample_rate_channels(int *sample_rate, int *channels, int *lfepres
 void get_dtv_amadec_audio_info (struct aml_audio_device *dev );
 
 
-#endif
+#endif /* _DTV_PATCH_H_ */

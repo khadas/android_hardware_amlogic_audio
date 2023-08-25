@@ -26,7 +26,7 @@
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
 #include "aml_audio_stream.h"
-#include "aml_avsync_tuning.h"
+#include "tv_patch_avsync.h"
 #include "alsa_manager.h"
 #include "dolby_lib_api.h"
 #include "aml_alsa_mixer.h"

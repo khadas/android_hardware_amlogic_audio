@@ -27,7 +27,7 @@
 #include "audio_hw.h"
 #include "alsa_device_parser.h"
 #include "aml_audio_spdifout.h"
-#include "audio_hw_dtv.h"
+#include "dtv_patch.h"
 #include "spdif_encoder_api.h"
 #include "audio_hw_utils.h"
 #include "alsa_manager.h"

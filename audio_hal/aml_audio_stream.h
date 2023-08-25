@@ -26,9 +26,9 @@
 #include "aml_dump_debug.h"
 
 #ifdef ENABLE_DVB_PATCH
-#include "audio_dtv_utils.h"
-#include "aml_audio_hal_avsync.h"
-#include "aml_dtvsync.h"
+#include "dtv_patch_utils.h"
+#include "dtv_patch_hal_avsync.h"
+#include "dtv_patch_dtvsync.h"
 #endif
 #define AUDIO_FADEOUT_TV_DURATION_US 100 * 1000
 #define MS12_AUDIO_FADEOUT_TV_DURATION_US 60 * 1000
@@ -640,29 +640,10 @@ static inline bool need_hw_mix(usecase_mask_t masks)
  */
 void get_sink_format(struct audio_stream_out *stream);
 
-/*@brief check the hdmi rx audio stability by HW register */
-bool is_hdmi_in_stable_hw(struct audio_stream_in *stream);
-/*@brief check the hdmi rx audio format stability by SW parser */
-bool is_hdmi_in_stable_sw(struct audio_stream_in *stream);
-/*@brief check the ATV audio stability by HW register */
-bool is_atv_in_stable_hw(struct audio_stream_in *stream);
-int set_audio_source(struct aml_mixer_handle *mixer_handle,
-        enum input_source audio_source, bool is_auge);
-int enable_HW_resample(struct aml_mixer_handle *mixer_handle, int enable_sr);
-bool Stop_watch(struct timespec start_ts, int64_t time);
-bool signal_status_check(audio_devices_t in_device, int *mute_time,
-                         struct audio_stream_in *stream);
 
-int set_resample_source(struct aml_mixer_handle *mixer_handle, enum ResampleSource source);
-int set_spdifin_pao(struct aml_mixer_handle *mixer_handle,int enable);
 
-/*@brief check the AV audio stability by HW register */
-bool is_av_in_stable_hw(struct audio_stream_in *stream);
+//for DTV
 bool is_dual_output_stream(struct audio_stream_out *stream);
-int get_spdifin_samplerate(struct aml_mixer_handle *mixer_handle);
-int get_hdmiin_samplerate(struct aml_mixer_handle *mixer_handle);
-int get_hdmiin_channel(struct aml_mixer_handle *mixer_handle);
-hdmiin_audio_packet_t get_hdmiin_audio_packet(struct aml_mixer_handle *mixer_handle);
 
 /* dumpsys media.audio_flinger interfaces */
 const char *audio_port_role_to_str(audio_port_role_t role);
@@ -686,10 +667,7 @@ int audio_route_set_hdmi_arc_mute(struct aml_mixer_handle *mixer_handle, int ena
 int audio_route_set_spdif_mute(struct aml_mixer_handle *mixer_handle, int enable);
 void audio_route_set_speaker_mute(struct aml_audio_device* aml_dev, int enable);
 void audio_route_set_speaker_mute_l(struct aml_audio_device* aml_dev, int enable);
-int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
-                                       struct aml_stream_in *stream_in,
-                                       ring_buffer_t *ringbuffer, int buffer_size);
-int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, size_t bytes);
+
 
 
 /*
@@ -698,49 +676,16 @@ int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, s
  */
 int update_sink_format_after_hotplug(struct aml_audio_device *adev);
 
-int stream_check_reconfig_param(struct audio_stream_out *stream);
-
-void aml_check_pic_mode(struct aml_audio_patch *patch);
-bool is_game_mode(struct aml_audio_device *aml_dev);
-
 void create_tvin_buffer(struct aml_audio_patch *patch);
 void release_tvin_buffer(struct aml_audio_patch *patch);
 uint32_t tv_in_write(struct audio_stream_out *stream, const void* buffer, size_t bytes);
 uint32_t tv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes);
-int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parms *parms);
 void tv_do_ease_out(struct aml_audio_device *adev);
 void tv_do_ease_in(struct audio_stream_out *stream, void *write_buf, size_t write_bytes);
 
-/*
-*@brief check tv signal need to mute or not
-* return false if signal need to mute
-*/
-bool check_tv_stream_signal (struct audio_stream_in *stream);
-
-/*
-*@brief check digital-in signal need to mute(PAUSE/MUTE) or not
-* return false if signal need to mute
-*/
-bool check_digital_in_stream_signal(struct audio_stream_in *stream);
-
-/*
- * @brief set HDMIIN audio mode: "SPDIF", "I2S", "TDM"
- * return negative if fails.
- */
-int set_hdmiin_audio_mode(struct aml_mixer_handle *mixer_handle, char *mode);
-
-enum hdmiin_audio_mode {
-    HDMIIN_MODE_SPDIF = 0,
-    HDMIIN_MODE_I2S   = 1,
-    HDMIIN_MODE_TDM   = 2
-};
-enum hdmiin_audio_mode get_hdmiin_audio_mode(struct aml_mixer_handle *mixer_handle);
+const char *write_func_to_str(enum stream_write_func func);
 int aml_audio_earctx_get_type(struct aml_audio_device *adev);
 int aml_audio_earc_get_latency(struct aml_audio_device *adev);
-const char *write_func_to_str(enum stream_write_func func);
-bool is_HBR_stream(struct audio_stream_in *stream);
-bool is_hdmi_in_sample_rate_changed(struct audio_stream_in *stream);
-void audio_raw_data_continuous_check(struct aml_audio_device *aml_dev, audio_type_parse_t *status, char *buffer, int size);
 int set_device_control(struct audio_hw_device *dev, struct str_parms *parms);
 
 #endif /* _AML_AUDIO_STREAM_H_ */

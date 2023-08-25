@@ -16,8 +16,8 @@
 
 
 
-#ifndef  _AUDIO_HDMI_UTIL_H_
-#define _AUDIO_HDMI_UTIL_H_
+#ifndef  _HDMIRX_UTILS_H_
+#define _HDMIRX_UTILS_H_
 
 /**
  *  Audio Format Description of CEC Short Audio Descriptor
@@ -96,7 +96,7 @@ struct aml_arc_hdmi_desc {
 /*@ brief update edid
  * return void;
  */
-void update_edid(struct aml_audio_device *adev, bool default_edid, void *edid_array, int edid_length);
+void update_edid(struct audio_hw_device *dev, bool default_edid, void *edid_array, int edid_length);
 
 /*@ brief "set_ARC_format" for HDMIRX
  * return zero if success;
@@ -139,13 +139,13 @@ int update_dolby_MAT_decoding_cap_for_dolby_MAT_and_dolby_TRUEHD_sad(
 /*@ brief get current edid
  * return zero if success;
  */
-int get_current_edid(struct aml_audio_device *adev, char *edid_array, int edid_array_len);
+int get_current_edid(struct audio_hw_device *dev, char *edid_array, int edid_array_len);
 
 /*@ brief after edited the audio sad, then update edid
  * return zero if success;
  */
-int update_edid_after_edited_audio_sad(struct aml_audio_device *adev, struct format_desc *fmt_desc);
+int update_edid_after_edited_audio_sad(struct audio_hw_device *dev, struct format_desc *fmt_desc);
 int find_61937_sync_word(char *buffer, int size);
 
-#endif //_AUDIO_HDMI_UTIL_H_
+#endif /* _HDMIRX_UTILS_H_ */
 

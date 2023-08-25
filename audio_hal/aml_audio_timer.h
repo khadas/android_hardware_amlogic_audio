@@ -97,5 +97,7 @@ uint64_t aml_audio_get_systime(void);
 uint64_t aml_audio_get_systime_ns(void);
 struct timespec aml_audio_ns_to_time(uint64_t ns);
 int64_t calc_time_interval_us(struct timespec *ts_start, struct timespec *ts_end);
+void ts_wait_time(struct timespec *ts, uint32_t time);
+bool Stop_watch(struct timespec start_ts, int64_t time);
 
 #endif /* __AUDIO_TIMER_H__ */
