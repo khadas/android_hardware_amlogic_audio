@@ -2712,7 +2712,10 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             aml_audio_dump_audio_bitstreams("/data/audio/tv_in_read.raw",
                 buffer, bytes);
         }
-        apply_volume(source_gain * adev->src_gain[adev->active_inport], buffer, sizeof(uint16_t), bytes);
+
+        enum IN_PORT inport = INPORT_HDMIIN;
+        android_dev_convert_to_hal_dev(in->device | AUDIO_DEVICE_BIT_IN, (int *)&inport);
+        apply_volume(source_gain * adev->src_gain[inport], buffer, sizeof(uint16_t), bytes);
         goto exit;
     } else {
 
@@ -7553,7 +7556,6 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
             }
             input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
             aml_dev->active_inport = inport;
-            aml_dev->src_gain[inport] = 1.0;
             AM_LOGI("dev(%s) -> dev(%s) patch, patch_src:%s", inputPort2Str(inport),
                 audioDevType2Str(sink_config->ext.device.type), patchSrc2Str(aml_dev->patch_src));
             AM_LOGI("input dev:%#x, all output dev:%#x", src_config->ext.device.type, aml_dev->out_device);
@@ -7669,7 +7671,6 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
                 set_audio_source(&aml_dev->alsa_mixer, input_src, alsa_device_is_auge());
             }
             aml_dev->active_inport = inport;
-            aml_dev->src_gain[inport] = 1.0;
             if (inport == INPORT_HDMIIN || inport == INPORT_ARCIN || inport == INPORT_SPDIF
                 || inport == INPORT_LINEIN || ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_ATV))) {
                  aml_dev->dev2mix_patch = true;
