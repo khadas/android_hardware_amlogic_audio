@@ -166,7 +166,16 @@
 #define  AVSYNC_NONMS12_TUNNEL_TV_DDP_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.tunnel.tv.ddp"
 
 #define  AVSYNC_NONMS12_TUNNEL_STB_PCM_LATENCY                          (0)
-#define  AVSYNC_NONMS12_TUNNEL_STB_DDP_CVBS_LATENCY                     (0)//through CVBS, target is  [-30, 100]
+
+/*
+ * Issue: SWPL-131002, Android U+Kernel 5.15][DDP]AVsync results are out of standards(HDMI & CVBS)
+ * when using DDP license decoder, test the CVBS-AVSync item.
+ * The stream file is 1080p/av_sync/5ch_24fps_av_sync_7.mp4.
+ * After manually modify the property value from 0 -> 20
+ * got the result from +45 to (-7  / +5 / +5 / +5 / +10 / +17 / 0 / -7 / -3 / 0),
+ * and about 5% chance to occurs +37ms.
+ */
+#define  AVSYNC_NONMS12_TUNNEL_STB_DDP_CVBS_LATENCY                     (20)//through CVBS, target is  [-30, 100]
 /*
  * For Display 4K30Hz vs 4K60Hz, the UHD_2997 has different avsync result.
  * This is TODO, which wait for the Video Delay API.
@@ -177,7 +186,7 @@
  * PCM_FHD_2997 > -7 ~ -23
  * PCM_FHD_5994 > -10 ~ -24
  */
-#define  AVSYNC_NONMS12_TUNNEL_STB_DDP_HDMI_LATENCY                     (30)//through HDMI,  target is [-45, 0]
+#define  AVSYNC_NONMS12_TUNNEL_STB_DDP_HDMI_LATENCY                     (50)//through HDMI,  target is [-45, 0]
 
 #define  AVSYNC_NONMS12_TUNNEL_STB_PCM_LATENCY_PROPERTY             "vendor.media.audio.hal.nonms12.tunnel.stb.pcm"
 #define  AVSYNC_NONMS12_TUNNEL_STB_DDP_CVBS_LATENCY_PROPERTY        "vendor.media.audio.hal.nonms12.tunnel.stb.ddp_cvbs"
@@ -220,7 +229,7 @@
 /* for different output format */
 #define  AVSYNC_NONMS12_STB_PCMOUT_LATENCY                     (0)
 #define  AVSYNC_NONMS12_STB_DDOUT_LATENCY                      (0)
-#define  AVSYNC_NONMS12_STB_DDPOUT_LATENCY                     (50)
+#define  AVSYNC_NONMS12_STB_DDPOUT_LATENCY                     (10)
 
 #define  AVSYNC_NONMS12_STB_PCMOUT_LATENCY_PROPERTY            "vendor.media.audio.hal.nonms12.stb.pcmout"
 #define  AVSYNC_NONMS12_STB_DDOUT_LATENCY_PROPERTY             "vendor.media.audio.hal.nonms12.stb.ddout"

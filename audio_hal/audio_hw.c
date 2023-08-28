@@ -5946,8 +5946,14 @@ hwsync_rewrite:
 
                     // FIXME : out_get_latency should return the exact latency value.
                     // Temporary patch for tv non-dolby, in order not to retune ddp/ott_non-dolby avsync.
-                    if (adev->is_TV && (eDolbyDcvLib == adev->dolby_lib_type)) {
-                        latency = out_get_alsa_latency_frames(stream)* 1000 / aml_out->config.rate;;
+                    /*
+                     * Issue: SWPL-131002, Android U+Kernel 5.15][DDP]AVsync results are out of standards(HDMI & CVBS)
+                     * The out_get_latency() only return the ALSA latency.
+                     * When the pcm data go through submix method,
+                     * The out_get_alsa_latency_frames() can return the Cache&ALSA latency.
+                     */
+                    if (eDolbyDcvLib == adev->dolby_lib_type) {
+                        latency = out_get_alsa_latency_frames(stream)* 1000 / aml_out->config.rate;
                     }
 
                     /*here we need add video delay*/
