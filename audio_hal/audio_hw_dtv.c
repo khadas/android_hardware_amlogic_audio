@@ -3410,7 +3410,9 @@ void *audio_dtv_patch_input_threadloop(void *data)
                                         if (aml_dev->debug_flag)
                                             ALOGI("data_get_cost_ms %d ms", data_get_cost_ms);
                                         if (!dtv_package_is_empty(list) && data_get_cost_ms < 1000) {
-                                            usleep(5000);
+                                            pthread_mutex_unlock(&aml_dev->dtv_lock);
+                                            usleep(15000);
+                                            pthread_mutex_lock(&aml_dev->dtv_lock);
                                             continue;
                                         }
                                     }
