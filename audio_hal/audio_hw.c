@@ -3685,18 +3685,9 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         out->resample_outbuf = NULL;
     }
 
-    /*all the ms12 related function is done */
-    if (out->restore_continuous == true) {
-        ALOGI("restore ms12 continuous mode");
-        pthread_mutex_lock(&adev->ms12.lock);
-        adev->continuous_audio_mode = 1;
-        pthread_mutex_unlock(&adev->ms12.lock);
-    }
-
     /*the dolby lib is changed, so we need restore it*/
     if (out->restore_dolby_lib_type) {
         pthread_mutex_lock(&adev->ms12.lock);
-        adev->continuous_audio_mode = 1;
         adev->dolby_lib_type = adev->dolby_lib_type_last;
         pthread_mutex_unlock(&adev->ms12.lock);
         ALOGI("%s restore dolby lib =%d", __func__, adev->dolby_lib_type);
@@ -6561,63 +6552,61 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
             if (adev->a2dp_no_reconfig_ms12 <= curr)
                 adev->a2dp_no_reconfig_ms12 = 0;
         }
-        if (continuous_mode(adev)) {
-            /*only system sound active*/
-            if (!hw_mix && (!(dolby_stream_active(adev) || hwsync_lpcm_active(adev)))) {
-                /* here to check if the audio HDMI ARC format updated. */
-                if (((adev->arc_hdmi_updated) || (adev->a2dp_updated) || (adev->digital_audio_format_updated) || (adev->bHDMIConnected_update))
-                    && (adev->ms12.dolby_ms12_enable == true)) {
-                    //? if we need protect
-                    if ((adev->a2dp_no_reconfig_ms12 > 0) && (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && (adev->a2dp_updated == 0)) {
-                        need_reset_decoder = false;
-                        ALOGD("%s: a2dp output and change audio format, no reconfig ms12 for hdmi update", __func__);
-                    } else {
-                        need_reset_decoder = true;
-                        if (adev->digital_audio_format_updated) {
-                            ALOGI("%s(), digital audio format updated, [PCM(0)/SPDIF(4)/AUTO(5)] current %d", __func__, adev->digital_audio_format);
-                        }
-                        else
-                            ALOGI("%s() %s%s%s changing status, need reconfig Dolby MS12\n", __func__,
-                                    (adev->arc_hdmi_updated==0)?" ":"HDMI ARC EndPoint ",
-                                    (adev->bHDMIConnected_update==0)?" ":"HDMI ",
-                                    (adev->a2dp_updated==0)?" ":"a2dp ");
+        /*only system sound active*/
+        if (!hw_mix && (!(dolby_stream_active(adev) || hwsync_lpcm_active(adev)))) {
+            /* here to check if the audio HDMI ARC format updated. */
+            if (((adev->arc_hdmi_updated) || (adev->a2dp_updated) || (adev->digital_audio_format_updated) || (adev->bHDMIConnected_update))
+                && (adev->ms12.dolby_ms12_enable == true)) {
+                //? if we need protect
+                if ((adev->a2dp_no_reconfig_ms12 > 0) && (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && (adev->a2dp_updated == 0)) {
+                    need_reset_decoder = false;
+                    ALOGD("%s: a2dp output and change audio format, no reconfig ms12 for hdmi update", __func__);
+                } else {
+                    need_reset_decoder = true;
+                    if (adev->digital_audio_format_updated) {
+                        ALOGI("%s(), digital audio format updated, [PCM(0)/SPDIF(4)/AUTO(5)] current %d", __func__, adev->digital_audio_format);
                     }
-                    adev->arc_hdmi_updated = 0;
-                    adev->a2dp_updated = 0;
-                    adev->digital_audio_format_updated = 0;
-                    adev->bHDMIConnected_update = 0;
-                    need_reconfig_output = true;
+                    else
+                        ALOGI("%s() %s%s%s changing status, need reconfig Dolby MS12\n", __func__,
+                                (adev->arc_hdmi_updated==0)?" ":"HDMI ARC EndPoint ",
+                                (adev->bHDMIConnected_update==0)?" ":"HDMI ",
+                                (adev->a2dp_updated==0)?" ":"a2dp ");
                 }
-
-                /* here to check if the audio output routing changed. */
-                if ((adev->cur_out_devices != aml_out->out_device) && (adev->ms12.dolby_ms12_enable == true)) {
-                    ALOGI("%s(), output routing changed from 0x%x to 0x%x,need MS12 reconfig output", __func__, aml_out->out_device, adev->cur_out_devices);
-                    aml_out->out_device = adev->cur_out_devices;
-                    need_reconfig_output = true;
-                }
-                /* here to check if the hdmi audio output format dynamic changed. */
-                if (adev->last_digital_audio_format != adev->digital_audio_format) {
-                    ALOGI("digital audio format is changed from %d to %d need reconfig output", adev->last_digital_audio_format, adev->digital_audio_format);
-                    adev->last_digital_audio_format = adev->digital_audio_format;
-                    need_reconfig_output = true;
-                }
-            }
-            /* here to check if ms12 is already enabled, if main stream is doing init ms12, we don't need do it */
-            if (!adev->ms12.dolby_ms12_enable && !adev->doing_reinit_ms12 && !adev->doing_cleanup_ms12) {
-                ALOGI("%s(), 0x%x, Switching system output to MS12, need MS12 reconfig output", __func__, aml_out->out_device);
+                adev->arc_hdmi_updated = 0;
+                adev->a2dp_updated = 0;
+                adev->digital_audio_format_updated = 0;
+                adev->bHDMIConnected_update = 0;
                 need_reconfig_output = true;
-                need_reset_decoder = true;
             }
 
-            if (need_reconfig_output) {
-                /*during ms12 switch, the frame write may be not matched with
-                  the input size, we need to align it*/
-                if (aml_out->frame_write_sum * frame_size != aml_out->input_bytes_size) {
-                    ALOGI("Align the frame write from %" PRId64 " to %" PRId64 "", aml_out->frame_write_sum, aml_out->input_bytes_size/frame_size);
-                    aml_out->frame_write_sum = aml_out->input_bytes_size/frame_size;
-                }
-                config_output(stream,need_reset_decoder);
+            /* here to check if the audio output routing changed. */
+            if ((adev->cur_out_devices != aml_out->out_device) && (adev->ms12.dolby_ms12_enable == true)) {
+                ALOGI("%s(), output routing changed from 0x%x to 0x%x,need MS12 reconfig output", __func__, aml_out->out_device, adev->cur_out_devices);
+                aml_out->out_device = adev->cur_out_devices;
+                need_reconfig_output = true;
             }
+            /* here to check if the hdmi audio output format dynamic changed. */
+            if (adev->last_digital_audio_format != adev->digital_audio_format) {
+                ALOGI("digital audio format is changed from %d to %d need reconfig output", adev->last_digital_audio_format, adev->digital_audio_format);
+                adev->last_digital_audio_format = adev->digital_audio_format;
+                need_reconfig_output = true;
+            }
+        }
+        /* here to check if ms12 is already enabled, if main stream is doing init ms12, we don't need do it */
+        if (!adev->ms12.dolby_ms12_enable && !adev->doing_reinit_ms12 && !adev->doing_cleanup_ms12) {
+            ALOGI("%s(), 0x%x, Switching system output to MS12, need MS12 reconfig output", __func__, aml_out->out_device);
+            need_reconfig_output = true;
+            need_reset_decoder = true;
+        }
+
+        if (need_reconfig_output) {
+            /*during ms12 switch, the frame write may be not matched with
+              the input size, we need to align it*/
+            if (aml_out->frame_write_sum * frame_size != aml_out->input_bytes_size) {
+                ALOGI("Align the frame write from %" PRId64 " to %" PRId64 "", aml_out->frame_write_sum, aml_out->input_bytes_size/frame_size);
+                aml_out->frame_write_sum = aml_out->input_bytes_size/frame_size;
+            }
+            config_output(stream,need_reset_decoder);
         }
 
         //when Dolby MS12 use not 1.0 volume "-sys_prim_mixgain <3 int>
@@ -6951,7 +6940,7 @@ int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby)
 
     /* choose the out_write functions by usecase masks */
     hw_mix = need_hw_mix(aml_dev->usecase_masks);
-    if (aml_dev->continuous_audio_mode == 0) {
+    if (aml_dev->dolby_lib_type != eDolbyMS12Lib) {
         if (hw_mix) {
             /**
              * normal pcm write to aux buffer
