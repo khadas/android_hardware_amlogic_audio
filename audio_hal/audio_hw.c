@@ -1560,7 +1560,7 @@ static int out_pause_new (struct audio_stream_out *stream)
         }
         //In the shine-platform, Video can not be paused when playback DTS content in ExoPlayer tunnel mode.
         //During pause, tsync_pause() function must be set,And you can't set a new PTS for the tsync module before resuming, otherwise the video will keep playing.
-        if (!aml_out->hwsync->use_mediasync && aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_STOP) {
+        if (aml_out->hwsync && !aml_out->hwsync->use_mediasync && aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_STOP) {
             ALOGI("%s set AUDIO_PAUSE\n",__func__);
             aml_hwsync_wrap_set_pause(aml_out->hwsync);
             aml_out->tsync_status = TSYNC_STATUS_PAUSED;
