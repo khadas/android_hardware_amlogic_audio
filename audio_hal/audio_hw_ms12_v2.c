@@ -4029,7 +4029,10 @@ int dolby_ms12_encoder_reconfig(struct dolby_ms12_desc *ms12) {
     }
 
     bool is_atmos_supported = is_platform_supported_ddp_atmos(adev->hdmi_descs.ddp_fmt.atmos_supported, adev->out_device, adev->is_TV);
-    set_ms12_out_ddp_5_1(AUDIO_FORMAT_E_AC3, is_atmos_supported);
+    if (dolby_ms12_get_ddp_5_1_out() != !is_atmos_supported) {
+        set_ms12_out_ddp_5_1(AUDIO_FORMAT_E_AC3, is_atmos_supported);
+        b_reset = 1;
+    }
 
     if (b_reset) {
         ms12->optical_format = adev->optical_format;
