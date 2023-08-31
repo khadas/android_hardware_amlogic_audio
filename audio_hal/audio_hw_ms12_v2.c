@@ -2242,7 +2242,7 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
             //case 2: the aml_out->hal_internal_format is AUDIO_FORMAT_E_AC3 and the actual format is AUDIO_FORMAT_AC3,
             //so we need to judge the format whether or not there are accurate depending on the ac3_info.nIsEc3.
 
-            if (ac3_info.nIsEc3 == 1 && aml_out->hal_internal_format == AUDIO_FORMAT_AC3) {
+            if (ac3_info.nIsEc3 == 1 && aml_out->hal_internal_format == AUDIO_FORMAT_AC3 && (ms12->dual_decoder_support == false)) {
                 ALOGV("output_format=0x%x hal_format=0x%#x internal=0x%x nIsEc3 = %d",output_format, aml_out->hal_format, aml_out->hal_internal_format,ac3_info.nIsEc3);
                 aml_out->hal_internal_format = AUDIO_FORMAT_E_AC3;
                 output_format = AUDIO_FORMAT_E_AC3;
@@ -3873,6 +3873,7 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
     if (do_sync_flag) {
         dolby_ms12_register_ms12sync_callback(ms12->dolby_ms12_ptr, ms12_sync_callback, (void *)stream);
         aml_out->b_install_sync_callback = true;
+        ALOGI("%s set sync callback %p", __func__, stream);
     }
 
     aml_ms12_main_decoder_open(ms12, hal_internal_format, aml_out->hal_channel_mask, sample_rate);
@@ -3942,6 +3943,7 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
 
     if (aml_out->b_install_sync_callback) {
         dolby_ms12_register_ms12sync_callback(ms12->dolby_ms12_ptr, NULL, NULL);
+        ALOGI("%s set sync callback NULL", __func__);
     }
 
     dolby_ms12_register_scaletempo_callback(NULL, NULL);

@@ -3503,83 +3503,11 @@ err:
     return ret;
 }
 
-//static int out_standby_new(struct audio_stream *stream);
-static void adev_close_output_stream(struct audio_hw_device *dev,
-                                    struct audio_stream_out *stream)
-{
+static void close_ms12_output_main_stream(struct audio_stream_out *stream) {
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
-    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    struct aml_audio_device *adev = out->dev;
+    struct aml_stream_out *ms12_out = (struct aml_stream_out *)adev->ms12_out;
 
-    int ret = 0;
-    ALOGD("%s: enter: dev(%p) stream(%p) flags(%d)", __func__, dev, stream, out->flags);
-    if (out->restore_hdmitx_selection) {
-        /* switch back to spdifa when the dual stream is done */
-        aml_audio_select_src_to_hdmi(AML_SPDIF_A_TO_HDMITX);
-        out->restore_hdmitx_selection = false;
-    }
-    if (!adev) {
-        ALOGE("%s(), adev is NULL", __func__);
-        return ;
-    }
-
-    stream->common.standby(&stream->common);
-    if (out->dev_usecase_masks) {
-        adev->usecase_masks &= ~(1 << out->usecase);
-    }
-
-    pthread_mutex_lock(&out->lock);
-
-    /* After playback for previous dts stream, there is remain data in VirtualX library. It needs to clear data buffer of VirtualX by using
-       zero data to replace these remain data. Otherwise it will play this remain data first when start playback next time*/
-    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0 && out->write_count > 0) {
-        char *tmp_buffer = aml_audio_malloc(VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
-        if (!tmp_buffer) {
-            ALOGE("tmp_buffer NULL %d",__LINE__);
-        }
-        for (int i = 0; i < VX_BUFFER_CLEAR_COUNT; i++) {
-             memset(tmp_buffer, 0, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
-             audio_post_process(&adev->native_postprocess, (int16_t *)tmp_buffer, VX_BUFFER_CLEAR_STEREO_FRAME_SIZE);
-             audio_VX_post_process(&adev->native_postprocess, (int16_t *)tmp_buffer, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
-        }
-        aml_audio_free(tmp_buffer);
-        tmp_buffer = NULL;
-    }
-
-#if ENABLE_DVB_PATCH
-#if ANDROID_PLATFORM_SDK_VERSION > 29
-    if (dtv_tuner_framework(stream)) {
-        /*enter into tuner framework case, we need to stop&release audio dtv patch*/
-        ALOGD("[audiohal_kpi] %s:patching %d, dev:%p, out->dev:%p, patch:%p", __func__, out->dev->audio_patching, dev, out->dev, ((struct aml_audio_device *)dev)->audio_patch);
-        out_stop_dtv_stream_for_tunerframework(stream);
-        /*coverity[sleep]*/
-        ret = disable_dtv_patch_for_tuner_framework(stream);
-        if (!ret) {
-            ALOGI("%s: finish releasing patch", __func__);
-        }
-    }
-#endif
-#endif
-
-    if (out->spdifenc_init) {
-        aml_spdif_encoder_close(out->spdifenc_handle);
-        out->spdifenc_handle = NULL;
-        out->spdifenc_init = false;
-    }
-
-    if (out->ac3_parser_init) {
-        aml_ac3_parser_close(out->ac3_parser_handle);
-        out->ac3_parser_handle = NULL;
-        out->ac3_parser_init = false;
-    }
-
-    if (out->flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) {
-        outMmapDeInit(out);
-    }
-
-    if (out->hal_format == AUDIO_FORMAT_AC4) {
-        aml_ac4_parser_close(out->ac4_parser_handle);
-        out->ac4_parser_handle = NULL;
-    }
     /*main stream is closed, close the ms12 main decoder*/
     if (out->is_ms12_main_decoder) {
         pthread_mutex_lock(&adev->ms12.lock);
@@ -3636,7 +3564,95 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             dolby_ms12_hwsync_release();
         }
         dolby_ms12_main_close(stream);
+        out->is_ms12_main_decoder = false;
     }
+
+    return;
+}
+
+
+//static int out_standby_new(struct audio_stream *stream);
+static void adev_close_output_stream(struct audio_hw_device *dev,
+                                    struct audio_stream_out *stream)
+{
+    struct aml_stream_out *out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+
+    int ret = 0;
+    ALOGD("%s: enter: dev(%p) stream(%p) flags(%d)", __func__, dev, stream, out->flags);
+    if (out->restore_hdmitx_selection) {
+        /* switch back to spdifa when the dual stream is done */
+        aml_audio_select_src_to_hdmi(AML_SPDIF_A_TO_HDMITX);
+        out->restore_hdmitx_selection = false;
+    }
+    if (!adev) {
+        ALOGE("%s(), adev is NULL", __func__);
+        return ;
+    }
+
+    stream->common.standby(&stream->common);
+    if (out->dev_usecase_masks) {
+        adev->usecase_masks &= ~(1 << out->usecase);
+    }
+
+    pthread_mutex_lock(&out->lock);
+
+    if (out->is_ms12_main_decoder) {
+        close_ms12_output_main_stream(stream);
+    }
+
+    /* After playback for previous dts stream, there is remain data in VirtualX library. It needs to clear data buffer of VirtualX by using
+       zero data to replace these remain data. Otherwise it will play this remain data first when start playback next time*/
+    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0 && out->write_count > 0) {
+        char *tmp_buffer = aml_audio_malloc(VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
+        if (!tmp_buffer) {
+            ALOGE("tmp_buffer NULL %d",__LINE__);
+        }
+        for (int i = 0; i < VX_BUFFER_CLEAR_COUNT; i++) {
+             memset(tmp_buffer, 0, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
+             audio_post_process(&adev->native_postprocess, (int16_t *)tmp_buffer, VX_BUFFER_CLEAR_STEREO_FRAME_SIZE);
+             audio_VX_post_process(&adev->native_postprocess, (int16_t *)tmp_buffer, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
+        }
+        aml_audio_free(tmp_buffer);
+        tmp_buffer = NULL;
+    }
+
+#if ENABLE_DVB_PATCH
+#if ANDROID_PLATFORM_SDK_VERSION > 29
+    if (dtv_tuner_framework(stream)) {
+        /*enter into tuner framework case, we need to stop&release audio dtv patch*/
+        ALOGD("[audiohal_kpi] %s:patching %d, dev:%p, out->dev:%p, patch:%p", __func__, out->dev->audio_patching, dev, out->dev, ((struct aml_audio_device *)dev)->audio_patch);
+        out_stop_dtv_stream_for_tunerframework(stream);
+        /*coverity[sleep]*/
+        ret = disable_dtv_patch_for_tuner_framework(stream);
+        if (!ret) {
+            ALOGI("%s: finish releasing patch", __func__);
+        }
+    }
+#endif
+#endif
+
+    if (out->spdifenc_init) {
+        aml_spdif_encoder_close(out->spdifenc_handle);
+        out->spdifenc_handle = NULL;
+        out->spdifenc_init = false;
+    }
+
+    if (out->ac3_parser_init) {
+        aml_ac3_parser_close(out->ac3_parser_handle);
+        out->ac3_parser_handle = NULL;
+        out->ac3_parser_init = false;
+    }
+
+    if (out->flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) {
+        outMmapDeInit(out);
+    }
+
+    if (out->hal_format == AUDIO_FORMAT_AC4) {
+        aml_ac4_parser_close(out->ac4_parser_handle);
+        out->ac4_parser_handle = NULL;
+    }
+
     if (out->hwsync) {
         if (adev->hw_mediasync && (adev->hw_mediasync == out->hwsync->mediasync)) {
             aml_audio_hwsync_release(out->hwsync);
@@ -5743,6 +5759,20 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         ALOGE ("%s() invalid buffer %p\n", __FUNCTION__, buffer);
         return -1;
     }
+
+    /*
+     * During the stream playback,if the new stream is also an main(dolby/direct-pcm/multi-pcm)
+     * stream and the original main stream is still running, we should release the old main stream at first.
+     */
+
+    if (eDolbyMS12Lib == adev->dolby_lib_type) {
+        if (ms12->ms12_main_stream_out != NULL && ms12->ms12_main_stream_out != aml_out) {
+            ALOGI("%s main stream is not same, release the old one =%p  new =%p ", __func__, ms12->ms12_main_stream_out, aml_out);
+            out_standby_new((struct audio_stream *)ms12->ms12_main_stream_out);
+            close_ms12_output_main_stream((struct audio_stream_out *)ms12->ms12_main_stream_out);
+        }
+    }
+
 
     if (aml_out->standby && eDolbyMS12Lib == adev->dolby_lib_type_last) {
         ALOGI("%s(), standby to unstandby", __func__);
