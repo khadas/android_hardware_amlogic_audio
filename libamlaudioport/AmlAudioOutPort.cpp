@@ -29,6 +29,7 @@ namespace android {
                         audio_channel_mask_t channelMask,
                         audio_output_flags_t flags) {
         handle = -1;
+        memset(&config,0,sizeof(struct audio_config));
         streamType = AUDIO_STREAM_MUSIC;
         config.sample_rate = sampleRate;
         config.format = format;
