@@ -1321,7 +1321,7 @@ void * aml_audio_get_muteframe(audio_format_t output_format, int * frame_size, i
 
 void aml_audio_switch_output_mode(int16_t *buf, size_t bytes, AM_AOUT_OutputMode_t mode)
 {
-    int16_t tmp;
+    int16_t tmp,tmp2;
 
     for (unsigned int i= 0; i < bytes / 2; i = i + 2) {
         switch (mode) {
@@ -1341,6 +1341,11 @@ void aml_audio_switch_output_mode(int16_t *buf, size_t bytes, AM_AOUT_OutputMode
                 buf[i] = tmp;
                 buf[i + 1] = tmp;
                 break;
+            case AM_AOUT_OUTPUT_JOINT_STEREO:
+                tmp = buf[i]  + buf[i + 1];
+                tmp2 = buf[i] - buf[i + 1];
+                buf[i] = tmp;
+                buf[i + 1] = tmp2;
             default :
                 break;
         }

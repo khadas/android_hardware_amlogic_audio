@@ -61,12 +61,6 @@ int dvb_audio_set_mute(int mute) {
 
 }
 
-int dvb_audio_set_output_mode(int mode) {
-    char temp_buf[64] = {0};
-    sprintf (temp_buf, "hal_param_audio_output_mode=%d", mode);
-    return aml_audioport->setParameters(String8(temp_buf));
-}
-
 int dvb_audio_set_pre_gain(int gain) {
     ALOGI("gain %d",gain);
     return NO_ERROR;
@@ -123,6 +117,59 @@ int dvb_audio_get_ac4_active_pres_id(int demux_id) {
          mString.clear();
          return -1;
     }
+}
+
+int dvb_audio_set_sound_mode(int demux_id, int mode) {
+    ALOGV("demux_id %d",demux_id);
+    char temp_buf[64] = {0};
+    sprintf (temp_buf, "hal_param_audio_output_mode=%d", mode);
+    return aml_audioport->setParameters(String8(temp_buf));
+}
+
+int dvb_audio_get_sound_mode(int demux_id) {
+    ALOGV("demux_id %d",demux_id);
+    int dtv_sound_mode = 0;
+    int ret = 0;
+    struct str_parms *parms;
+    String8 mString = aml_audioport->getParameters(String8("hal_param_audio_output_mode"));
+    if (!mString.isEmpty()) {
+       parms = str_parms_create_str(mString.c_str());
+       ret = str_parms_get_int(parms, "hal_param_audio_output_mode", &dtv_sound_mode);
+       if (ret < 0)
+           ALOGE("str_parms_get_int is error ");
+       str_parms_destroy (parms);
+       mString.clear();
+       ALOGI("dtv_sound_mode:%d ", dtv_sound_mode);
+       return dtv_sound_mode;
+    } else {
+        mString.clear();
+        return dtv_sound_mode;
+    }
+
+}
+
+int dvb_audio_set_param(AUDIO_DTV_PATCH_CMD_TYPE para_type, int demux_id, int val)
+{
+  switch (para_type) {
+      case AUDIO_DTV_PATCH_CMD_OUTPUT_MODE:
+        dvb_audio_set_sound_mode(demux_id, val);
+        break;
+      default:
+          ALOGI("unsupport para_type %d", para_type);
+    }
+    return 0;
+
+}
+int dvb_audio_get_param(AUDIO_DTV_PATCH_CMD_TYPE para_type, int demux_id, int *val)
+{
+    switch (para_type) {
+      case AUDIO_DTV_PATCH_CMD_OUTPUT_MODE:
+         *val = dvb_audio_get_sound_mode(demux_id);
+        break;
+      default:
+          ALOGI("unsupport para_type %d", para_type);
+    }
+    return 0;
 }
 
 int dvb_audio_get_status(void *status) {

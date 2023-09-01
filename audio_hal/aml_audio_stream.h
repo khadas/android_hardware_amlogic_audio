@@ -141,7 +141,8 @@ typedef enum {
     AM_AOUT_OUTPUT_DUAL_LEFT,  /**< Left audio output to dual channel*/
     AM_AOUT_OUTPUT_DUAL_RIGHT, /**< Right audio output to dual channel*/
     AM_AOUT_OUTPUT_SWAP,        /**< Swap left and right channel*/
-    AM_AOUT_OUTPUT_LRMIX       /**< mix left and right channel*/
+    AM_AOUT_OUTPUT_LRMIX,      /**< mix left and right channel*/
+    AM_AOUT_OUTPUT_JOINT_STEREO, /**< Joint stereo output*/
 } AM_AOUT_OutputMode_t;
 
 enum tunerhal_audio_streamtype    {
