@@ -142,6 +142,9 @@
 #include "audio_kara.h"
 #define AUDIO_KARA
 
+//audio content recognize function
+#include "aml_ai_audio.h"
+
 #define CARD_AMLOGIC_BOARD 0
 /* ALSA ports for AML */
 #define PORT_I2S 0
@@ -8163,6 +8166,10 @@ static int adev_close(hw_device_t *device)
     stopReceiveAudioData();
 #endif
 
+#ifdef ENABLE_AML_ACR
+    aml_close_ai_audio_module(&adev->native_postprocess);
+#endif
+
     if (adev->out_16_buf) {
         aml_audio_free(adev->out_16_buf);
     }
@@ -8850,6 +8857,12 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         dca_set_out_ch_internal(0);
 
     create_async_write_thread();
+
+#ifdef ENABLE_AML_ACR
+    if (aml_open_ai_audio_module(&adev->native_postprocess, &adev->alsa_mixer) < 0) {
+        aml_close_ai_audio_module(&adev->native_postprocess);
+    }
+#endif
 
     ALOGD("%s: exit", __func__);
     return 0;

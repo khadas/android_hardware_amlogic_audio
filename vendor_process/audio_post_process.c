@@ -20,6 +20,8 @@
 #include "aml_dts_dec_api.h"
 #include "aml_effects_util.h"
 
+#include "aml_ai_audio.h"
+
 static int check_dts_config(struct aml_native_postprocess *native_postprocess) {
     int cur_channels = dca_get_out_ch_internal();
 
@@ -139,6 +141,7 @@ size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int
     audio_buffer_t in_buf;
     audio_buffer_t out_buf;
     int frames = in_frames;
+    bool ai_process_done = false;
 
     if (native_postprocess == NULL ||
         native_postprocess->num_postprocessors != native_postprocess->total_postprocessors) {
@@ -147,6 +150,17 @@ size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int
 
     if (native_postprocess->libvx_exist) {
         check_dts_config(native_postprocess);
+    }
+
+    if (native_postprocess->libvx_exist && native_postprocess->effect_in_ch == 6) {
+        ai_process_done = false;
+    } else {
+        if (native_postprocess->ai_handle) {
+            in_buf.frameCount =  out_buf.frameCount = frames;
+            in_buf.s16 = out_buf.s16 = in_buffer;
+            ret = aml_ai_audio_process(native_postprocess->ai_handle, &in_buf, &out_buf);
+            ai_process_done = true;
+        }
     }
 
     for (j = 0; j < native_postprocess->num_postprocessors; j++) {
@@ -162,8 +176,15 @@ size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int
                 /* do 2 channel processing */
                 in_buf.frameCount =  out_buf.frameCount = frames;
                 in_buf.s16 = out_buf.s16 = in_buffer;
-                if ((*effect)->process)
+
+                if (native_postprocess->ai_handle && !ai_process_done) {
+                    ret = aml_ai_audio_process(native_postprocess->ai_handle, &in_buf, &out_buf);
+                    ai_process_done = true;
+                }
+
+                if ((*effect)->process) {
                     ret = (*effect)->process(effect, &in_buf, &out_buf);
+                }
             }
             frames = out_buf.frameCount;
         }
@@ -235,7 +256,7 @@ void VirtualX_Channel_reconfig(struct aml_native_postprocess *native_postprocess
 
     if (native_postprocess->libvx_exist) {
         ret = VirtualX_setparameter(native_postprocess,
-                                    DTS_PARAM_CHANNEL_NUM,
+                                    PARAM_CHANNEL_NUM,
                                     ch_num, EFFECT_CMD_SET_PARAM);
         if (ret != ch_num) {
             ALOGE("Set VX input channel error: channel %d, ret = %d\n", ch_num, ret);

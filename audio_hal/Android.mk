@@ -65,7 +65,8 @@ include $(BUILD_PREBUILT)
         aml_audio_stream.c \
         alsa_config_parameters.c \
         spdif_encoder_api.c \
-        audio_post_process.c \
+        ../vendor_process/audio_post_process.c \
+        ../vendor_process/aml_ai_audio.c \
         dolby_lib_api.c \
         amlAudioMixer.c \
         hw_avsync.c \
@@ -80,10 +81,10 @@ include $(BUILD_PREBUILT)
         aml_audio_delay.c \
         aml_audio_spdifout.c \
         aml_audio_ms12_sync.c \
-        ../amlogic_AQ_tools/audio_eq_drc_compensation.c \
-        ../amlogic_AQ_tools/audio_eq_drc_parser.c \
-        ../amlogic_AQ_tools/ini/dictionary.c \
-        ../amlogic_AQ_tools/ini/iniparser.c \
+        ../aml_aq_hw/audio_eq_drc_compensation.c \
+        ../aml_aq_hw/audio_eq_drc_parser.c \
+        ../aml_aq_hw/ini/dictionary.c \
+        ../aml_aq_hw/ini/iniparser.c \
         aml_audio_dev2mix_process.c \
         earc_utils.c \
         aml_vad_wakeup.cpp \
@@ -114,22 +115,24 @@ include $(BUILD_PREBUILT)
         $(LOCAL_PATH)/../utils/ini/include \
         $(LOCAL_PATH)/../rcaudio \
         $(LOCAL_PATH)/../utils/tinyalsa/include \
-        $(LOCAL_PATH)/../amlogic_AQ_tools \
-        $(LOCAL_PATH)/../amlogic_AQ_tools/ini \
+        $(LOCAL_PATH)/../aml_aq_hw \
+        $(LOCAL_PATH)/../aml_aq_hw/ini \
         $(LOCAL_PATH)/../utils/cJSON \
-        vendor/amlogic/common/frameworks/av/libaudioeffect/VirtualX \
         hardware/amlogic/audio/input/include \
         hardware/amlogic/audio/aml_adecs/include \
         hardware/amlogic/audio/aml_resampler/include \
         hardware/amlogic/audio/aml_parser/include \
-        hardware/amlogic/audio/aml_speed/include
+        hardware/amlogic/audio/aml_speed/include \
+        hardware/amlogic/audio/vendor_process/libaudioeffect/VirtualX \
+        hardware/amlogic/audio/vendor_process/libaudioeffect/aiaq/include \
+        hardware/amlogic/audio/vendor_process/include
 
-    LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/lib_aml_ng.a
-    LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/Amlogic_EQ_Param_Generator.a
-    LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../amlogic_AQ_tools/Amlogic_DRC_Param_Generator.a
-    LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/../amlogic_AQ_tools/Amlogic_EQ_Param_Generator64.a
-    LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/../amlogic_AQ_tools/Amlogic_DRC_Param_Generator64.a
-    LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/../amlogic_AQ_tools/lib_aml_ng64.a
+    LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../aml_aq_hw/lib_aml_ng.a
+    LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../aml_aq_hw/Amlogic_EQ_Param_Generator.a
+    LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../aml_aq_hw/Amlogic_DRC_Param_Generator.a
+    LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/../aml_aq_hw/Amlogic_EQ_Param_Generator64.a
+    LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/../aml_aq_hw/Amlogic_DRC_Param_Generator64.a
+    LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/../aml_aq_hw/lib_aml_ng64.a
 
     LOCAL_SHARED_LIBRARIES := \
         liblog libcutils libamltinyalsa \
@@ -158,6 +161,9 @@ include $(BUILD_PREBUILT)
 
     LOCAL_C_INCLUDES += \
         vendor/amlogic/common/mediahal_sdk/include \
+
+#For audio content recognize
+LOCAL_CFLAGS += -DENABLE_AML_ACR
 
 ifneq ($(BOARD_DISABLE_DVB_AUDIO), true)
         LOCAL_CFLAGS += -DENABLE_DVB_PATCH
@@ -234,7 +240,7 @@ endif
 ifeq ($(strip $(TARGET_BOOTLOADER_BOARD_NAME)), atom)
     LOCAL_CFLAGS += -DIS_ATOM_PROJECT
     LOCAL_SRC_FILES += \
-        audio_aec_process.cpp
+        ../vendor_process/audio_aec_process.cpp
     LOCAL_C_INCLUDES += \
         $(TOPDIR)vendor/harman/atom/google_aec \
         $(TOPDIR)vendor/harman/atom/harman_api
@@ -243,18 +249,18 @@ ifeq ($(strip $(TARGET_BOOTLOADER_BOARD_NAME)), atom)
 endif
 
 #For ATV Far Field AEC
-ifeq ($(BOARD_ENABLE_FAR_FIELD_AEC), true)
+#ifeq ($(BOARD_ENABLE_FAR_FIELD_AEC), true)
     LOCAL_CFLAGS += -DENABLE_AEC_APP
     LOCAL_SRC_FILES += \
-        audio_aec.c \
-        fifo_wrapper.cpp
+        ../vendor_process/audio_aec.c \
+        ../vendor_process/fifo_wrapper.cpp
     #$(info "audio: ATV far field enabled, compile and link aec lib")
     #LOCAL_CFLAGS += -DENABLE_AEC_HAL
     #LOCAL_SRC_FILES += \
     #    audio_aec_process.cpp
     #LOCAL_SHARED_LIBRARIES += \
     #     libgoogle_aec
-endif
+#endif
 
 # AML_ASYNC_WRITE_COMPRESS_ENABLE = true
 ifeq ($(AML_ASYNC_WRITE_COMPRESS_ENABLE), true)

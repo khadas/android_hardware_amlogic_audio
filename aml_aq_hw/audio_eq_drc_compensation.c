@@ -30,6 +30,7 @@
 #include "aml_EQ_param_gen.h"
 #include "aml_DRC_param_gen.h"
 #include "audio_post_process.h"
+#include "aml_ai_audio.h"
 
 #undef  LOG_TAG
 #define LOG_TAG  "audio_hw_primary"
@@ -562,6 +563,14 @@ void get_AQ_parameters(const struct audio_hw_device *dev, char *temp_buf, const 
         sprintf(temp_buf, "aq_tuning_dap_enable=%d", value);
         goto exit;
     }
+    parm = strstr(keys, "ai_audio_result");
+    if (parm) {
+        float score;
+        int label;
+        int set_value = get_aml_ai_process_result(adev->native_postprocess.ai_handle, &score, &label);
+        sprintf(temp_buf, "aq_tuning:ai_audio_result=%d", set_value);
+        goto exit;
+    }
 
 exit:
     ALOGI("%s(), [%s]", __func__, temp_buf);
@@ -779,6 +788,22 @@ int set_AQ_parameters(struct audio_hw_device *dev, struct str_parms *parms)
         if (eq_mode_set(&adev->eq_data, val) < 0)
             ALOGE("%s: eq_mode_set failed", __FUNCTION__);
         goto exit;
+    }
+
+    /* Audio AI AQ */
+    parm = strstr(value, "aiaq");
+    if (parm) {
+        parm += 4;
+        parm = strstr(value, "-enable");
+        if (parm) {
+            parm += 8;
+            int enable = 0;
+            sscanf(parm, "%d", &enable);
+            enable = enable ? 1 : 0;
+            int tmp = aml_ai_audio_module_command(adev->native_postprocess.ai_handle, enable);
+            ALOGI("%s() AI AQ enable: %d, Ret:%d", __func__, enable, tmp);
+            goto exit;
+        }
     }
 
 exit:

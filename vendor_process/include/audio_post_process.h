@@ -46,6 +46,8 @@ struct aml_native_postprocess {
     int AML_DTS_index;
     /* audio flinger effect chain length*/
     int audio_effectchain_length;
+    //native private process handle: AI AQ
+    void *ai_handle;
     /*  0 vx; 1 tru_sur; 2 hpeq; 3 balance; 4 treblebass; 5 dbx; 6 dpe ;7 dapv2; 8 virtual_sur */
     struct aml_post_effect_info effect_info[MAX_POSTPROCESSORS];
 };

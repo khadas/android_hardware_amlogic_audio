@@ -111,6 +111,7 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_SPDIF_OUT_CHANNEL_STATUS, "spdif out channel status"},
     {AML_MIXER_ID_HDMIIN_NONAUDIO,      "HDMIIN NONAUDIO"},
     {AML_MIXER_ID_DAC_PLAYBACK_VOLUME,  "DAC Digital Playback Volume"},
+    {AML_MIXER_ID_AI_SOUND_MODE,         "AI Sort Result"},
 };
 
 static char *get_mixer_name_by_id(int mixer_id)

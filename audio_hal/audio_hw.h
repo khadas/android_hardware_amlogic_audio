@@ -33,9 +33,9 @@
 
 #define ADD_AUDIO_DELAY_INTERFACE
 #include "audio_hwsync.h"
-#include "audio_post_process.h"
+#include "../vendor_process/include/audio_post_process.h"
 #include "aml_hw_mixer.h"
-#include "../amlogic_AQ_tools/audio_eq_drc_compensation.h"
+#include "../aml_aq_hw/audio_eq_drc_compensation.h"
 #include "aml_audio_types_def.h"
 #include "aml_alsa_mixer.h"
 #ifndef MS12_V24_ENABLE
