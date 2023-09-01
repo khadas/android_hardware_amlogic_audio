@@ -4882,7 +4882,6 @@ int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct aud
     if (config->offload_info.content_id != 0 && config->offload_info.sync_id != 0)
     {
         adev->patch_src = SRC_DTV;
-        adev->out_device = 0x400;
         dtv_audio_instances->dtv_scene = DTV_TUNER_FRAMEWORK;
         /*2.create audio dtv patch*/
         ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER, AUDIO_DEVICE_OUT_SPEAKER);
