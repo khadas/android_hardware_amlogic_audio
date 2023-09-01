@@ -3612,7 +3612,7 @@ static int aml_audio_outport_enable(struct aml_audio_device *adev, audio_devices
             enable? "unmute" : "mute", audioDevType2Str(device));
 
     switch (device) {
-    case AUDIO_DEVICE_OUT_EARPIECE:
+    case AUDIO_DEVICE_OUT_FM:
         break;
     case AUDIO_DEVICE_OUT_SPEAKER:
         audio_route_apply_path(adev->ar, enable? "speaker" : "speaker_off");

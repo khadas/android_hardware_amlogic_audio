@@ -1758,8 +1758,8 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
 {
     switch (android_dev) {
     /* audio hal output device port */
-    case AUDIO_DEVICE_OUT_EARPIECE:
-        *hal_dev_port = OUTPORT_EARPIECE;
+    case AUDIO_DEVICE_OUT_FM:
+        *hal_dev_port = OUTPORT_FM;
         break;
     case AUDIO_DEVICE_OUT_HDMI_ARC:
     case AUDIO_DEVICE_OUT_HDMI_EARC:
@@ -2101,7 +2101,7 @@ const char* outputPort2Str(enum OUT_PORT type)
     ENUM_TYPE_TO_STR(OUTPORT_A2DP)
     ENUM_TYPE_TO_STR(OUTPORT_BT_SCO)
     ENUM_TYPE_TO_STR(OUTPORT_BT_SCO_HEADSET)
-    ENUM_TYPE_TO_STR(OUTPORT_EARPIECE)
+    ENUM_TYPE_TO_STR(OUTPORT_FM)
     ENUM_TYPE_TO_STR(OUTPORT_ANLG_DOCK_HEADSET)
     ENUM_TYPE_TO_STR(OUTPORT_MAX)
     ENUM_TYPE_TO_STR_END
@@ -2521,7 +2521,7 @@ enum OUT_PORT get_output_by_devices(audio_devices_t devices)
     if (cnt == 0) {
         return OUTPORT_SPEAKER;
     } else if (cnt == 1) {
-        if (devices == AUDIO_DEVICE_OUT_EARPIECE) {
+        if (devices == AUDIO_DEVICE_OUT_FM) {
             return OUTPORT_SPEAKER;
         } else {
             int output_port;

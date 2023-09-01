@@ -222,7 +222,7 @@ enum OUT_PORT {
     OUTPORT_BT_SCO              = 8,
     OUTPORT_BT_SCO_HEADSET      = 9,
     OUTPORT_USB_HEADSET         = 10,
-    OUTPORT_EARPIECE            = 11,
+    OUTPORT_FM                  = 11,
     OUTPORT_ANLG_DOCK_HEADSET   = 12,
     /*if the audio_hal_primary unsupport the output devices, we need to route to OUTPUT_NULL*/
     OUTPORT_NULL                = 13,
