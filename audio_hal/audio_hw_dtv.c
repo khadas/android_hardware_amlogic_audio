@@ -320,6 +320,8 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
         case AUDIO_DTV_PATCH_CMD_SET_MUTE:
             ALOGE ("Amlogic_HAL - %s: TV-Mute:%d.", __FUNCTION__,val);
             adev->tv_mute = val;
+            if (ms12 && !adev->tv_mute && ms12->is_muted)
+                adev->mute_start = true;
             break;
         case AUDIO_DTV_PATCH_CMD_SET_VOLUME:
             dtv_volume_switch = (float)val / 100; // val range is [0, 100], conversion range is [0, 1]
