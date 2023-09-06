@@ -54,7 +54,12 @@
 #include "aml_malloc_debug.h"
 #include "audio_hw_ms12_common.h"
 #include "aml_audio_report.h"
+
+
+#ifdef ENABLE_DVB_PATCH
 #include "dtv_patch_dtvsync.h"
+#endif
+
 #include "aml_audio_scaletempo.h"
 #include "aml_audio_output.h"
 #include "tv_patch_ctrl.h"
@@ -142,11 +147,14 @@
 #define MILLISECOND_2_PTS (90) // 1ms = 90 (pts)
 
 #define IEC61937_PAPB (0xf8724e1f)
+
+#ifdef ENABLE_DVB_PATCH
 typedef struct Aml_MS12_SyncPolicy_s {
     dtvsync_policy eSyncPolicy;
     int s32TagFrame;
     int s32CurFrame;
 } Aml_MS12_SyncPolicy_t;
+#endif
 
 typedef struct Aml_MS12_Delay_s {
     unsigned int u32DelayFrame;
@@ -3198,6 +3206,7 @@ static int ms12_debug_out_stereo_pcm_synced_frame_pts
 }
 
 
+#ifdef ENABLE_DVB_PATCH
 Aml_MS12_SyncPolicy_t ms12_sync_callback(void *priv_data, unsigned long long u64DecOutFrame, Aml_MS12_Delay_t stDelay, Aml_MS12_SyncPolicy_t syncpolicy_status) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
     struct audio_stream_out *stream_out = (struct audio_stream_out *)aml_out;
@@ -3335,7 +3344,6 @@ Aml_MS12_SyncPolicy_t ms12_sync_callback(void *priv_data, unsigned long long u64
     return audio_sync_policy;
 }
 
-
 void ms12_do_dtv_sync(struct audio_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
@@ -3361,9 +3369,8 @@ void ms12_do_dtv_sync(struct audio_stream_out *stream)
             }
        }
     }
-
 }
-
+#endif
 
 int dolby_ms12_get_latency(audio_format_t output_format, int pcm_type)
 {
@@ -3780,14 +3787,16 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     int ret = 0, associate_audio_mixing_enable = 0 , media_presentation_id = -1, mixing_level = 0,ad_vol = 100;
     struct aml_audio_patch *patch = adev->audio_patch;
-    aml_demux_audiopara_t *demux_info = NULL;
     uint32_t dtv_decoder_offset_base = 0;
     unsigned int sample_rate = aml_out->hal_rate;
 
+#ifdef ENABLE_DVB_PATCH
+    aml_demux_audiopara_t *demux_info = NULL;
     if (patch) {
         demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     }
     bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
+#endif
 
     audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
 
@@ -3823,7 +3832,7 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
         sample_rate = DDP_OUTPUT_SAMPLE_RATE;
     }
 
-
+#ifdef ENABLE_DVB_PATCH
     if (hal_internal_format == AUDIO_FORMAT_AC3 ||
         hal_internal_format == AUDIO_FORMAT_E_AC3 ||
         hal_internal_format == AUDIO_FORMAT_AC4 ||
@@ -3853,6 +3862,7 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
         set_audio_associate_format(hal_internal_format);
         ALOGI("%s set_audio_associate_format %#x", __FUNCTION__, hal_internal_format);
     }
+#endif
     dolby_ms12_set_associated_audio_mixing(associate_audio_mixing_enable);
     dolby_ms12_set_user_control_value_for_mixing_main_and_associated_audio(mixing_level);
 
@@ -3872,14 +3882,16 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
         }
     }
 
+#ifdef ENABLE_DVB_PATCH
     if (do_sync_flag) {
         dolby_ms12_register_ms12sync_callback(ms12->dolby_ms12_ptr, ms12_sync_callback, (void *)stream);
         aml_out->b_install_sync_callback = true;
         ALOGI("%s set sync callback %p", __func__, stream);
     }
-
+#endif
     aml_ms12_main_decoder_open(ms12, hal_internal_format, aml_out->hal_channel_mask, sample_rate);
 
+#ifdef ENABLE_DVB_PATCH
     if ((adev->patch_src == SRC_DTV) && patch) {
         if (ms12->scaletempo == NULL) {
             hal_scaletempo_init((struct scale_tempo **)&ms12->scaletempo);
@@ -3892,7 +3904,7 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
         }
 
     }
-
+#endif
     /* In Netflix test case, the volume should add into the list. */
     /* In DTV case, at start, will set the 0.0 to mute, after about 100~200ms, the volume will set to normal value.*/
     /* so, the DTV case, the volume list should add 0.0 as the first one. */

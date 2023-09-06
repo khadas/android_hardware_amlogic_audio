@@ -45,6 +45,7 @@
 #include "tv_patch_avsync.h"
 #include "aml_ng.h"
 #include "alsa_device_parser.h"
+#include "audio_hw_ms12_v2.h"
 #include "tv_patch_ctrl.h"
 
 

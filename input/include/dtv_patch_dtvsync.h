@@ -19,11 +19,15 @@
 #ifndef _DTV_PATCH_DTVSYNC_H_
 #define _DTV_PATCH_DTVSYNC_H_
 
+#ifdef ENABLE_DVB_PATCH
+
 #include <stdbool.h>
 #include "audio_mediasync_wrap.h"
 #include "audio_hw_ms12_v2.h"
 #include "MediaSyncInterface.h"
 #include "dmx_audio_es.h"
+
+
 //#define SYSTIME_CORRECTION_THRESHOLD        (90000*10/100)
 
 typedef enum {
@@ -77,4 +81,6 @@ bool aml_dtvsync_ms12_adjust_clock(struct audio_stream_out *stream, int direct);
 
 int aml_dtvsync_ms12_process_resample(struct audio_stream_out *stream, struct dtvsync_audio_policy *p_policy);
 
-#endif  /* _DTV_PATCH_DTVSYNC_H_ */
+#endif
+#endif /* _DTV_PATCH_DTVSYNC_H_ */
+
