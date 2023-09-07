@@ -68,6 +68,15 @@ typedef enum {
 } AML_DOLBY_ACMOD;
 
 
+typedef enum {
+    MS12_COMPRESSOR_CLIPPING_PROTECTION = 0,
+    MS12_COMPRESSOR_STANDARD_FILM       = 1,
+    MS12_COMPRESSOR_LIGHT_FILM          = 2,
+    MS12_COMPRESSOR_STANDARD_MUSIC      = 3,
+    MS12_COMPRESSOR_LIGHT_MUSIC         = 4,
+    MS12_COMPRESSOR_SPEECH              = 5
+} MS12_COMPRESSOR_PROFILES;
+
 /*
  *@brief get dolby ms12 prepared
  */
@@ -377,5 +386,7 @@ void set_dolby_ms12_main_speed(struct dolby_ms12_desc *ms12, double speed);
  *@brief prepare the virtual buffer info when stream resume
  */
 int dolby_ms12_main_resume_prepare(struct audio_stream_out *stream);
+
+void set_ms12_set_compressor_profile(struct dolby_ms12_desc *ms12, int profile);
 
 #endif //end of _AUDIO_HW_MS12_H_

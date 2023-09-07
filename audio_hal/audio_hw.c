@@ -4095,6 +4095,12 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
             dolby_ms12_enable_atmos_drop(val);
 
             if (adev->is_netflix) {
+                set_ms12_set_compressor_profile(ms12, MS12_COMPRESSOR_CLIPPING_PROTECTION);
+            } else {
+                set_ms12_set_compressor_profile(ms12, MS12_COMPRESSOR_STANDARD_FILM);
+            }
+
+            if (adev->is_netflix) {
                 aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
             } else {
                 /* currently system send the "continuous_audio_mode=0" in below a few scenario,

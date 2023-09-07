@@ -4532,4 +4532,13 @@ int dolby_ms12_main_resume_prepare(struct audio_stream_out *stream)
     return 0;
 }
 
+void set_ms12_set_compressor_profile(struct dolby_ms12_desc *ms12, int profile)
+{
+    char parm[64] = "";
 
+    sprintf(parm, "%s %d", "-rp", profile);
+    if ((strlen(parm)) > 0 && ms12) {
+        dolby_ms12_set_pcm_compressor_profile(profile);
+        aml_ms12_update_runtime_params(ms12, parm);
+    }
+}
