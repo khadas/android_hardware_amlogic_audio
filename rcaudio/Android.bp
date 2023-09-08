@@ -34,7 +34,7 @@ cc_library_shared {
 
     include_dirs: [
         "external/tinyalsa/include",
-        "hardware/amlogic/audio/aml_adecs/include",
+        "hardware/amlogic/audio/decoder/include",
         "hardware/amlogic/audio/aml_resampler/include",
         "hardware/amlogic/audio/aml_parser/include",
         "hardware/amlogic/audio/aml_speed/include",

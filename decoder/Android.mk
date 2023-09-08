@@ -1,4 +1,6 @@
 LOCAL_PATH:= $(call my-dir)
+
+# build libamladecs so
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
     aml_dts_dec_api.c    \
@@ -32,7 +34,12 @@ LOCAL_C_INCLUDES := \
    $(LOCAL_PATH)/../aml_speed/include \
    $(LOCAL_PATH)/../audio_hal \
    $(LOCAL_PATH)/../aml_parser/include \
-   $(LOCAL_PATH)/../utils/cJSON
+   $(LOCAL_PATH)/../utils/cJSON \
+   $(LOCAL_PATH)/../../aml_resampler/include \
+   $(LOCAL_PATH)/../../aml_speed/include \
+   $(LOCAL_PATH)/../../audio_hal \
+   $(LOCAL_PATH)/../../aml_parser/include \
+   $(LOCAL_PATH)/../../utils/cJSON
 
 
 #add dolby ms12support
@@ -41,12 +48,10 @@ LOCAL_C_INCLUDES := \
 #by default, we compile V2,V1 is not used now. TBD
 ifneq ($(TARGET_BUILD_DOLBY_MS12_V1), true)
     LOCAL_CFLAGS += -DMS12_V24_ENABLE
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12_v24/include \
-                        hardware/amlogic/audio/libms12_v24/include
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/libms12_v24/include \
     LOCAL_SHARED_LIBRARIES += libms12api_v24
 else
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include \
-                        hardware/amlogic/audio/libms12/include
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/libms12/include \
     LOCAL_SHARED_LIBRARIES += libms12api
 endif
 

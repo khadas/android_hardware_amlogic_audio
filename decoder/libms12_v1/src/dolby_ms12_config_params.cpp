@@ -293,7 +293,7 @@ extern "C" void dolby_ms12_config_params_cleanup_config_params(char **ConfigPara
         return config_param->CleanupConfigParams(ConfigParams, max_raw_size);
     }
 }
-extern "C" audio_format_t dolby_ms12_config_params_get_dobly_config_output_format(void)
+extern "C" audio_format_t dolby_ms12_config_params_get_dolby_config_output_format(void)
 {
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();

@@ -14,7 +14,7 @@
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
 #include "hw_avsync_callbacks.h"
-#include "../libms12/include/aml_audio_ms12.h"
+#include "aml_audio_ms12.h"
 #include "dolby_lib_api.h"
 #include "alsa_device_parser.h"
 #include "a2dp_hal.h"

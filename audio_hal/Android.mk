@@ -119,7 +119,7 @@ include $(BUILD_PREBUILT)
         $(LOCAL_PATH)/../aml_aq_hw/ini \
         $(LOCAL_PATH)/../utils/cJSON \
         hardware/amlogic/audio/input/include \
-        hardware/amlogic/audio/aml_adecs/include \
+        hardware/amlogic/audio/decoder/include \
         hardware/amlogic/audio/aml_resampler/include \
         hardware/amlogic/audio/aml_parser/include \
         hardware/amlogic/audio/aml_speed/include \
@@ -225,14 +225,12 @@ ifneq ($(TARGET_BUILD_DOLBY_MS12_V1), true)
     LOCAL_SRC_FILES += audio_hw_ms12_common.c
     LOCAL_SRC_FILES += audio_hw_ms12_v2.c
     LOCAL_CFLAGS += -DMS12_V24_ENABLE
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12_v24/include \
-                        hardware/amlogic/audio/libms12_v24/include
+    LOCAL_C_INCLUDES += hardware/amlogic/audio/decoder/libms12_v24/include
     LOCAL_SHARED_LIBRARIES += libms12api_v24
 else
     LOCAL_SRC_FILES += audio_hw_ms12_common.c
     LOCAL_SRC_FILES += audio_hw_ms12.c
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libms12/include \
-                        hardware/amlogic/audio/libms12/include
+    LOCAL_C_INCLUDES += hardware/amlogic/audio/decoder/libms12_v1/include
     LOCAL_SHARED_LIBRARIES += libms12api
 endif
 

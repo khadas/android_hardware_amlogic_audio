@@ -334,7 +334,7 @@ extern "C" int dolby_ms12_config_params_get_dolby_config_output_config(void)
     ALOGV("%s()\n", __FUNCTION__);
     android::DolbyMS12ConfigParams *config_param = getInstance();
     if (config_param) {
-        return config_param->GetDoblyConfigOutputConfig();
+        return config_param->GetDolbyConfigOutputConfig();
     } else {
         return 0;
     }

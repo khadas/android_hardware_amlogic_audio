@@ -1,0 +1,58 @@
+package {
+    default_applicable_licenses: [
+        "hardware_amlogic_audio_decoder_libms12_v24_license",
+    ],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "hardware_amlogic_audio_decoder_libms12_v24_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
+cc_library {
+    name: "libms12api_v24",
+    vendor: true,
+    srcs: [
+        "src/DolbyMS12.cpp",
+        "src/DolbyMS12ConfigParams.cpp",
+		"src/DolbyMS12Status.cpp",
+		"src/dolby_ms12_config_params.cpp",
+		"src/dolby_ms12.cpp",
+		"src/dolby_ms12_status.cpp",
+		"src/aml_audio_ms12.c",
+    ],
+    cflags: [
+        "-Werror",
+        "-Wno-macro-redefined",
+		"-DDOLBY_MS12_ENABLE",
+		"-DREPLACE_OUTPUT_BUFFER_WITH_CALLBACK",
+    ],
+    export_include_dirs: ["include"],
+    local_include_dirs: ["include"],
+    shared_libs: [
+        "libcutils",
+        "libutils",
+        "liblog",
+        "libamaudioutils",
+    ],
+    include_dirs: [
+		"system/media/audio/include",
+		"hardware/libhardware/include",
+        "hardware/amlogic/audio/utils/include",
+		"hardware/amlogic/audio/decoder/libms12_v24/include",
+    ],
+
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+}

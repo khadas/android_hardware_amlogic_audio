@@ -482,7 +482,7 @@ static int faad_decoder_process(aml_dec_t *aml_dec, unsigned char *buffer, int b
                     ALOGV("ad decode len %d  > ad_dec_pcm_data->buf_size %d ", ad_dec_pcm_data->data_len, ad_dec_pcm_data->buf_size);
                 }
 
-                if(ad_dec_pcm_data->data_len) {
+                if (ad_dec_pcm_data->data_len) {
                     memmove(aac_dec->ad_remain_data, aac_dec->ad_remain_data + used_size, aac_dec->ad_remain_size);
                     aac_dec->ad_remain_size = aac_dec->ad_remain_size - used_size;
                     break;

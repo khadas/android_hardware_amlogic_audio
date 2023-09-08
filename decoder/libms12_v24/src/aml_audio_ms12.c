@@ -97,7 +97,7 @@ int aml_ms12_config(struct dolby_ms12_desc *ms12_desc
     ms12_desc->config_channel_mask = config_channel_mask;
     ms12_desc->config_sample_rate = config_sample_rate;
     ms12_desc->output_config = output_config;
-    ALOGI("%s() config input format %#x channle mask %#x samplerate %d output config %#x\n",
+    ALOGI("%s() config input format %#x channel mask %#x samplerate %d output config %#x\n",
           __FUNCTION__, config_format, config_channel_mask, config_sample_rate, output_config);
     dolby_ms12_config_params_reset_config_params();
     if (get_audio_system_format() == AUDIO_FORMAT_PCM_16_BIT) {

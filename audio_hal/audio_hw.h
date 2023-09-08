@@ -39,9 +39,9 @@
 #include "aml_audio_types_def.h"
 #include "aml_alsa_mixer.h"
 #ifndef MS12_V24_ENABLE
-#include "../libms12/include/aml_audio_ms12.h"
+#include "../decoder/libms12_v1/include/aml_audio_ms12.h"
 #else
-#include "../libms12_v24/include/aml_audio_ms12.h"
+#include "../decoder/libms12_v24/include/aml_audio_ms12.h"
 #endif
 #include "../input/include/tv_patch_format_parser.h"
 #include "../input/include/hdmirx_utils.h"

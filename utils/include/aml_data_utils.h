@@ -346,7 +346,7 @@ int audio_effect_real_lfe_gain(short* buffer, int frame_size, int LPF_Gain);
 
 /******************************************************************************
  * Function: check_beep_frame()
- * Description: used for dobly avsync stream pts bep debug
+ * Description: used for dolby avsync stream pts bep debug
  * Input:
  *     buffer             - inbuffer data
  *     bytes              - data size of output data

@@ -86,7 +86,7 @@ typedef struct {
     short        data;
 } BITSTREAM;
 
-const short chanary[MAXCHANCFGS] = { 2, 1, 2, 3, 3, 4, 4, 5 };
+const short chanArry[MAXCHANCFGS] = { 2, 1, 2, 3, 3, 4, 4, 5 };
 enum {
     MODE11 = 0,
     MODE_RSVD = 0,
@@ -232,7 +232,7 @@ static int Get_DD_Parameters(void *buf, int *sample_rate, int *frame_size, int *
     bitstream_unprj(p_bstrm, &lfeon, 1);
 
     *ChMask = IndependentFrame_Acmod_Lfeon_to_ChannelMask(acmod, lfeon);
-    numch = chanary[acmod];
+    numch = chanArry[acmod];
 
     //*ChNum = numch + lfeon;
     //ALOGI("DEBUG:numch=%d sample_rate=%d %p [%s %d]",ChNum,sample_rate,this,__FUNCTION__,__LINE__);

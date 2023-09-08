@@ -55,6 +55,7 @@ void dolby_ms12_config_params_set_app_flag(bool flag);
  */
 bool dolby_ms12_config_params_get_app_flag(void);
 
+
 /**
  * @brief Set input&output parameters
 
@@ -62,55 +63,30 @@ bool dolby_ms12_config_params_get_app_flag(void);
  * @audio_format_t input_format //audio stream out format
  * @audio_channel_mask_t channel_mask //audio stream out channel mask
  * @int sample_rate //audio stream out sample rate
- * @int output_config //dolby ms12 output mask[dd/ddp/mat/stereo/mc/speaker]
+ * @audio_format_t output_format //dolby ms12 output format[ec3/ac3/pcm]
  */
 void dolby_ms12_config_params_set_audio_stream_out_params(
     audio_output_flags_t flags
     , audio_format_t input_format
     , audio_channel_mask_t channel_mask
     , int sample_rate
-    , int output_config);
+    , audio_format_t output_format);
 
 /**
- * @brief Set channel mask for application sound input
- *
- * @mask channel mask to set
+ * @brief Set the surround sound to DolbyMS12GetOutProfile
  */
-void dolby_ms12_config_params_set_channel_mask_app(audio_channel_mask_t mask);
-
-/**
- * @brief Set channel mask for system sound input
- *
- * @mask channel mask to set
- */
-void dolby_ms12_config_params_set_channel_mask_system(audio_channel_mask_t mask);
-
-/**
- * @brief Set channel mask for UI(OTT) sound input
- *
- * @mask channel mask to set
- */
-void dolby_ms12_config_params_set_channel_mask_ui(audio_channel_mask_t mask);
+bool dolby_ms12_config_params_set_surround_sound_by_out_profile(void);
 
 // /*config params begin*/
 // /**/
 // int dolby_ms12_config_params_set_input_output_file_name(char **ConfigParams, int *row_index);
 // int dolby_ms12_config_params_set_functional_switches(char **ConfigParams, int *row_index);
 // int dolby_ms12_config_params_set_ddplus_switches(char **ConfigParams, int *row_index);
-// int dolby_ms12_config_params_set_ac4_switches(char **ConfigParams, int *row_index);
 // int dolby_ms12_config_params_set_pcm_switches(char **ConfigParams, int *row_index);
 // int dolby_ms12_config_params_set_heaac_switches(char **ConfigParams, int *row_index);
 // int dolby_ms12_config_params_set_dap_device_switches(char **ConfigParams, int *row_index);
 // int dolby_ms12_config_params_set_dap_content_switches(char **ConfigParams, int *row_index);
 // /*config params end*/
-
-/**
- * @brief Get MS12 DAP runtime parameters
- * @key query dap parameter name
- *
- * @return an allocated string for settings
- */
-char *dolby_ms12_query_dap_parameters(const char *key);
 
 /**
  * @brief Get the dolby_ms12_init() input params
@@ -120,7 +96,6 @@ char *dolby_ms12_query_dap_parameters(const char *key);
  */
 char **dolby_ms12_config_params_get_config_params(int *argc);
 
-#if 0
 /**
  * @brief Get the dolby_ms12_update_runtime_params() input params
  * @int *argc //dolby_ms12_init *argc
@@ -128,17 +103,6 @@ char **dolby_ms12_config_params_get_config_params(int *argc);
  * @return the char **argv
  */
 char **dolby_ms12_config_params_get_runtime_config_params(int *argc);
-#endif
-
-/**
- * @brief Update dolby_ms12 runtime params
- * @int *argc //dolby_ms12_init *argc
- * @char *cmd //dolby_ms12_init *argv
-
- * @return the char **argv
- */
-char **dolby_ms12_config_params_update_runtime_config_params(int *argc, char *cmd);
-
 //char **dolby_ms12_config_params_prepare_config_params(int max_raw_size, int max_column_size);
 //void dolby_ms12_config_params_cleanup_config_params(char **ConfigParams, int max_raw_size);
 
@@ -150,15 +114,11 @@ char **dolby_ms12_config_params_update_runtime_config_params(int *argc, char *cm
  */
 char **dolby_ms12_config_params_get_runtime_config_params_lite(int *argc);
 
-/**
- * @brief Get dolby ms12 output config, its value is defined in "dolby_ms12_output_mask.h".
- */
-int dolby_ms12_config_params_get_dolby_config_output_config(void);
 
 /**
  * @brief Get dolby ms12 output format
  */
-audio_format_t dolby_ms12_config_params_get_dobly_config_output_format(void);
+audio_format_t dolby_ms12_config_params_get_dolby_config_output_format(void);
 
 /**
  * @brief Get dolby ms12 output sample rate
@@ -201,28 +161,13 @@ void dolby_ms12_set_drc_cut(int val);
  * @brief set DRC boost value for 2-channel downmix
  * int val//0 - 100; Default = 100
  */
-void dolby_ms12_set_drc_boost_stereo(int val);
+void dolby_ms12_set_drc_boost_system(int val);
 
 /**
  * @brief set DRC cut value for 2-channel downmix
  * int val//0 - 100; Default = 100
  */
-void dolby_ms12_set_drc_cut_stereo(int val);
-
-/**
- * @brief Channel configuration of Application Sounds input
- */
-void dolby_ms12_set_channel_mask_of_app_sound_input(audio_channel_mask_t channel_mask);
-
-/**
- * @brief Channel configuration of System Sounds input
- */
-void dolby_ms12_set_channel_mask_of_system_sound_input(audio_channel_mask_t channel_mask);
-
-/**
- * @brief Channel configuration of UI(OTT) Sounds input
- */
-void dolby_ms12_set_channel_mask_of_ui_sound_input(audio_channel_mask_t channel_mask);
+void dolby_ms12_set_drc_cut_system(int val);
 
 /**
  * @brief DAPv2 initialisation mode
@@ -269,6 +214,12 @@ void dolby_ms12_set_downmix_modes(int val);
  * 1 = on
  */
 void dolby_ms12_set_evaluation_mode(int val);
+
+
+/**
+ * @brief Maximum number of channels in the signal chain (6 or 8)
+ */
+void dolby_ms12_set_maximum_number_of_channels_in_the_signal_chain(int val);
 
 /**
  * @brief Downmix 7.1 PCM signal to 5.1 on the multichannel outputs
@@ -376,51 +327,6 @@ void dolby_ms12_set_system_sound_mixer_gain_values_for_system_sounds_input(MixGa
  */
 void dolby_ms12_set_ddp_associated_substream_selection(int val);
 
-//AC4 SWITCHES
-/**
- * @brief [ac4] 1st preferred language code (3 Letter ISO 639)
- */
-void dolby_ms12_set_ac4_lang(char *str);
-
-/**
- * @brief [ac4] 2nd preferred language code (3 Letter ISO 639)
- */
-void dolby_ms12_set_ac4_lang2(char *str);
-
-/**
- * @brief [ac4] Preferred associated type of service
- * 1: Visually Impaired (VI) (Default)
- * 2: Hearing Impaired (HI)
- * 3: Commentary
- */
-void dolby_ms12_set_ac4_ac(int val);
-
-/**
- * @brief [ac4] Preferred presentation selection by associated type over language
- * 0: Prefer selection by language
- * 1: Prefer selection by associated type (default)
- */
-void dolby_ms12_set_ac4_pat(int val);
-
-/**
- * @brief [ac4] Presentation group index to be decoded. Overrides the presentation selection by preferred language amd associated type.
- * 0..510: Presentation group index
- * -1: Switch back to automatic selection by language and associated type (default)
- */
-void dolby_ms12_set_ac4_presgroupidx(int val);
-
-/**
- * @brief [ac4] Dialogue enhancement gain that will be applied in the decoder
- * [0-12] default 0db
- */
-void dolby_ms12_set_ac4_de(int val);
-
-/**
- * @brief [ac4] The short program identifier as an 16 bit unsigned value or -1 for no program ID (default)
- */
-void dolby_ms12_set_ac4_shortprogid(int val);
-
-//PCM SWITCHES
 /**
  * @brief [pcm] Compressor profile
  * 0 [clipping protection only]
@@ -447,22 +353,29 @@ void dolby_ms12_set_heaac_associated_instance_restricted_to_2channels(int val);
 void dolby_ms12_set_heaac_default_dialnorm_value(int val);
 
 /**
- * @brief [he-aac] Set dual-mono reproduction mode
- * 0 = Stereo/both channels (Default)
- * 1 = Left/first channel
- * 2 = Right/second channel
+ * @brief [he-aac] Set transport format
+ * 0 = auto-detect (Default)
+ * 1 = ADTS
+ * 2 = LOAS
+ * 3 = RAW (Default for file playback)
  */
-void dolby_ms12_set_heaac_dualmono_reproduction_mode(int val);
+void dolby_ms12_set_heaac_transport_format(int val);
 
-/**
- * @brief [he-aac] Set ARIB channel mapping flag
- * 0 = Standard channel mapping (Default)
- * 1 = ARIB channel mapping (without attenuation)
- *
- */
-void dolby_ms12_set_heaac_arib_channel_mapping_flag(int val);
 
 //DAP SWITCHES (device specific)
+
+/**
+ * @brief dap calibration boost
+ * (0...192, def: 0)
+ */
+void dolby_ms12_set_dap_calibration_boost(int val);
+
+/**
+ * @brief DAP Downmix mode
+ * 0 = Lt/Rt (Default)
+ * 1 = Lo/Ro
+ */
+void dolby_ms12_set_dap_downmix_mode(int val);
 
 /**
  * @brief dap gains
@@ -501,6 +414,15 @@ int dolby_ms12_get_dap_surround_virtualizer(void);
 void dolby_ms12_set_dap_graphic_eq(DAPGraphicEQ *dapGraphicEQParameters);
 
 /**
+ * @brief dap optimizer
+ * - optimizer_enable (0,1, def: 0)
+ * - opt_nb_bands (1...20, def: 10)
+ * - opt_band_center_freq (20...20000, def: {32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000})
+ * - opt_band_gains[MAX_CHANNELS] (-480...480, def: {{10*0, 10*0, 10*0, 10*0, 10*0, 10*0, 10*0, 10*0})
+ */
+void dolby_ms12_set_dap_optimizer(DAPOptimizer *dapOptimizerParameters);
+
+/**
  * @brief dap bass enhancer
  * - bass_enable (0,1, def: 0)
  * - bass_boost (0...384, def: 192)
@@ -508,6 +430,21 @@ void dolby_ms12_set_dap_graphic_eq(DAPGraphicEQ *dapGraphicEQParameters);
  * - bass_width (2..64, def: 16)
  */
 void dolby_ms12_set_dap_bass_enhancer(DAPBassEnhancer *dapBassEnhancerParameters);
+
+/**
+ * @brief dap regulator
+ * - regulator_enable (0,1, def: 1)
+ * - regulator_mode (0,1, def: 0)
+ * - regulator_overdrive (0...192, def: 0)
+ * - regulator_timbre (0...16, def: 16)
+ * - regulator_distortion (0...144, def: 96)
+ * - reg_nb_bands (1...20, def: 2)
+ * - reg_band_center (20...20000, def: {20,20000}
+ * - reg_low_thresholds (-2080...0, def: {-192, -192})
+ * - reg_high_thresholds (-2080...0, def: {0, 0})
+ * - reg_isolated_bands (0,1 def: {0,0})
+ */
+void dolby_ms12_set_dap_regulator(DAPRegulator *dapRegulatorParameters);
 
 /**
  * @brief dap virtual bass
@@ -535,8 +472,9 @@ void dolby_ms12_set_dap_mi_steering(DAPMISteering *dapMiSteeringParameters);
 
 /**
  * @brief dap leveler
- * - leveler_enable (0,1,2, def: 0)
- * - leveler_amount (0...10, def: 4)
+ * - leveler_enable (0,1, def: 0)
+ * - leveler_amount (0...10, def: 7)
+ * - leveler_ignore_il (0, 1, def: 0)
  */
 void dolby_ms12_set_dap_leveler(DAPLeveler *dapLevelerParameters);
 
@@ -554,6 +492,7 @@ void dolby_ms12_set_dap_ieq(DAPIEQ *dapIEQParameters);
  * @brief dap dialogue enhancer
  * - de_enable (0,1, def: 0)
  * - de_amount (0...16, def: 0)
+ * - de_ducking (0...16, def: 0)
  */
 void dolby_ms12_set_dap_dialogue_enhancer(DAPDialogueEnhancer *dapDialogueEnhancerParameters);
 
@@ -561,6 +500,11 @@ void dolby_ms12_set_dap_dialogue_enhancer(DAPDialogueEnhancer *dapDialogueEnhanc
  * @brief set dual output flag, when hdmi-arc not connected, and using the dolby ms12, that optical is always on.
  */
 void dolby_ms12_set_dual_output_flag(bool need_dual_output);
+
+/**
+ * @brief set dual bitstream output, HDMI out ddp, spdif output dd
+ */
+void dolby_ms12_set_dual_bitstream_out(bool need_dual_output);
 
 
 /**
@@ -631,49 +575,7 @@ void dolby_ms12_set_ott_sound_input_enable(bool flag);
  */
 bool dolby_ms12_get_ott_sound_input_enable(void);
 
-/**
- * @brief set the ms12 ddp(5.1) out parameter
- *-legacy_ddplus_out  <int>   Downmix Atmos signals rendered from 5.1.2 to 5.1
- *                            before reencoding to Dolby Digital Plus to connect legacy AVRs.
- *                            In case of AC-4 or Dolby Digital Plus input,
- *                            the decoder is configured to directly output 5.1 to save computational complexity.
- *                            0 = off (default) (output 5.1.2 DDP with Atmos)
- *                            1 = on (output 5.1 DDP)
- */
-void dolby_ms12_set_ddp_5_1_out(bool flag);
-
-/**
- * @brief get the status of ms12 out ddp(5.1)
- *        return true  when OUT ddp(5.1)
- *               false when OUT ddp-atmos(5.1.2)
- */
-bool dolby_ms12_get_ddp_5_1_out(void);
-
-
-/**
- * @brief set ddp enforce mode, then it can save one frame latency,
- * it is only used for hdmi case
- */
-void dolby_ms12_set_enforce_timeslice(bool is_enforce);
-
-/**
- * @brief set tv tuning flag
- */
-void dolby_ms12_set_tv_tuning_flag(bool tv_tuning_flag);
-
-
-/**
- * @brief set hdmi output type
- * -hdmi_output_type     <int> DD/DD+ output is used for
- *                           0 = Full HDMI (default)
- *                           1 = HDMI ARC
- *                           2 = HDMI E-ARC
- */
-void dolby_ms12_set_hdmi_output_type(int hdmi_output_type);
-
-int dolby_ms12_get_channel_config(audio_channel_mask_t channel_mask);
-
-int dolby_ms12_get_lfe_config(audio_channel_mask_t channel_mask);
+char **dolby_ms12_config_params_update_runtime_config_params(int *argc, char *cmd);
 
 /*End*/
 

@@ -112,7 +112,7 @@ public:
     //cleanup the mConfigParams Array
     virtual void CleanupConfigParams(char **ConfigParams, int max_raw_size);
 
-    virtual int GetDoblyConfigOutputConfig(void)
+    virtual int GetDolbyConfigOutputConfig(void)
     {
         return mDolbyMS12OutConfig;
     }

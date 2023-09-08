@@ -929,7 +929,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
                     char temp[16] = { 0 };
                     size += sprintf(aud_cap, "sup_sampling_rates=%d", audio_cap_item->samplerate[0]);
                     for (i = 1; i < AUDIO_PROFILE_SAMPLERATE_NUM; i++) {
-                        /*these dobly audio only support to 48000*/
+                        /*these dolby audio only support to 48000*/
                         if (format == AUDIO_FORMAT_AC3 ||
                             format == AUDIO_FORMAT_E_AC3 ||
                             format == AUDIO_FORMAT_E_AC3_JOC) {
