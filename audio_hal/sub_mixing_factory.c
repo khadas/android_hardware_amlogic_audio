@@ -1147,6 +1147,13 @@ ssize_t mixer_main_buffer_write_sm (struct audio_stream_out *stream, const void 
         return bytes;
     }
 
+    /* do fade in if former standby fadeout is done,
+       maybe called by aml_audio_nonms12_render directly
+    */
+    if (is_output_device_muted(adev, AUDIO_DEVICE_OUT_SPEAKER, true)) {
+        set_output_device_mute(adev, AUDIO_DEVICE_OUT_SPEAKER, false, true);
+    }
+
     /* handle HWSYNC audio data*/
     /* tv ddp hwsync : hwsync header had been removed by "mixer_main_buffer_write" */
     if (aml_out->hw_sync_mode && !aml_out->hwsync_header_stripped) {
@@ -1781,6 +1788,11 @@ static int subMixingOutMsg(struct aml_audio_device *adev, PORT_MSG msg, void *in
     struct subMixing *sm = adev->sm;
     struct amlAudioMixer *audio_mixer = NULL;
     int ret = 0;
+    R_CHECK_POINTER_LEGAL(-EINVAL, adev, "");
+    sm = adev->sm;
+    R_CHECK_POINTER_LEGAL(-EINVAL, sm, "");
+    audio_mixer = sm->mixerData;
+    R_CHECK_POINTER_LEGAL(-EINVAL, audio_mixer, "");
 
     audio_mixer = sm->mixerData;
     send_mixer_outport_message(audio_mixer, MIXER_OUTPUT_PORT_STEREO_PCM, msg, info, info_len);
