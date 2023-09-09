@@ -328,7 +328,7 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
 int aml_audio_hwsync_set_first_pts(audio_hwsync_t *p_hwsync, uint64_t pts);
 int aml_audio_hwsync_checkin_apts(audio_hwsync_t *p_hwsync, uint64_t offset, uint64_t apts);
 int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, uint64_t offset, uint64_t *p_apts);
-int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, uint64_t offset, int frame_len, int *p_adjust_ms);
+int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, uint64_t apts, int *p_adjust_ms);
 void aml_audio_hwsync_init(audio_hwsync_t *p_hwsync, struct aml_stream_out  *out);
 
 void* aml_audio_hwsync_create(void);

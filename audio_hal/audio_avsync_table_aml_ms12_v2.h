@@ -35,7 +35,9 @@
 #define  AVSYNC_MS12_NONTUNNEL_PCM_LATENCY               (10)
 #define  AVSYNC_MS12_NONTUNNEL_DDP_LATENCY               (20)
 #define  AVSYNC_MS12_NONTUNNEL_ATMOS_LATENCY             (15)
-#define  AVSYNC_MS12_TUNNEL_PCM_LATENCY                  (-30)
+
+#define  AVSYNC_MS12_TUNNEL_PCM_CVBS_LATENCY             (-30)
+#define  AVSYNC_MS12_TUNNEL_PCM_LATENCY                  (70)
 #define  AVSYNC_MS12_TUNNEL_DD_LATENCY                   (0) //TODO, no case for ac3
 
 /*
@@ -53,15 +55,15 @@
 /*AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY works in HDMI port:*/
 /*For DDP source under HDMI output*/
 /*40->90, the result change from +25ms to -25ms*/
-#define  AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY                  (90)
+#define  AVSYNC_MS12_TUNNEL_DDP_HDMI_LATENCY                  (70)
 #define  AVSYNC_MS12_TUNNEL_ATMOS_LATENCY                (20)
 
 #define  AVSYNC_MS12_NONTUNNEL_AC4_LATENCY               (70)
 
 /* CVBS or TV-Speaker output, Dolby AVSync target is [-45, +125] */
-#define  AVSYNC_MS12_TUNNEL_AC4_CVBS_LATENCY                  (0)
+#define  AVSYNC_MS12_TUNNEL_AC4_CVBS_LATENCY                  (-40)
 /* HDMI or other output, Dolby AVSync target is [-45, 0] */
-#define  AVSYNC_MS12_TUNNEL_AC4_HDMI_LATENCY                  (50)
+#define  AVSYNC_MS12_TUNNEL_AC4_HDMI_LATENCY                  (30)
 
 
 #define  AVSYNC_MS12_NONTUNNEL_BYPASS_LATENCY            (-130)
@@ -76,13 +78,13 @@
 #define  AVSYNC_MS12_NETFLIX_NONTUNNEL_BYPASS_LATENCY            (-130)
 #define  AVSYNC_MS12_NETFLIX_TUNNEL_BYPASS_LATENCY               (-185)
 
-#define  AVSYNC_MS12_PCM_OUT_LATENCY                     (0)
+#define  AVSYNC_MS12_PCM_OUT_LATENCY                     (-10)
 #define  AVSYNC_MS12_DD_OUT_LATENCY                      (50)
 /*
  * 75 -> 35 for result as +20 -> +40
  * 75 -> 115 for result as +20 -> -20
  */
-#define  AVSYNC_MS12_DDP_OUT_LATENCY                     (70)
+#define  AVSYNC_MS12_DDP_OUT_LATENCY                     (80)
 
 /*
  * 10 -> -20 for result as +20 -> +50
@@ -133,6 +135,7 @@
 #define  AVSYNC_MS12_NONTUNNEL_BYPASS_LATENCY_PROPERTY   "vendor.media.audio.hal.ms12.nontunnel.bypass"
 #define  AVSYNC_MS12_NETFLIX_NONTUNNEL_BYPASS_LATENCY_PROPERTY   "vendor.media.audio.hal.ms12.netflix.nontunnel.bypass"
 
+#define  AVSYNC_MS12_TUNNEL_PCM_CVBS_LATENCY_PROPERTY    "vendor.media.audio.hal.ms12.tunnel.pcm_cvbs"
 #define  AVSYNC_MS12_TUNNEL_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.tunnel.pcm"
 #define  AVSYNC_MS12_TUNNEL_DD_LATENCY_PROPERTY          "vendor.media.audio.hal.ms12.tunnel.dd"
 

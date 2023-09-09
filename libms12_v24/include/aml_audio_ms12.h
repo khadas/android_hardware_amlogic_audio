@@ -200,7 +200,9 @@ struct dolby_ms12_desc {
     void * info_ac3_parser_handle;
     int mat_stream_profile;
     bool enable_mixer_max_size;
-	bool b_encoder_reset;
+    bool b_encoder_reset;
+    pthread_mutex_t main_apts_update_lock;
+    bool main_input_insert_zero;
 };
 
 /*

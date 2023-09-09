@@ -258,9 +258,15 @@ static int get_ms12_tunnel_input_latency(audio_format_t input_format, enum OUT_P
     char *prop_name = NULL;
     switch (input_format) {
     case AUDIO_FORMAT_PCM_16_BIT: {
-        /*for non tunnel ddp2h/heaac case:netflix AL1 case */
-        prop_name = AVSYNC_MS12_TUNNEL_PCM_LATENCY_PROPERTY;
-        latency_ms = AVSYNC_MS12_TUNNEL_PCM_LATENCY;
+        /* CVBS output DDP target is [-45, +125]*/
+        if ((port == OUTPORT_SPEAKER) || (port == OUTPORT_AUX_LINE)) {
+            prop_name = AVSYNC_MS12_TUNNEL_PCM_CVBS_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_MS12_TUNNEL_PCM_CVBS_LATENCY;
+        } else {
+            /*for non tunnel ddp2h/heaac case:netflix AL1 case */
+            prop_name = AVSYNC_MS12_TUNNEL_PCM_LATENCY_PROPERTY;
+            latency_ms = AVSYNC_MS12_TUNNEL_PCM_LATENCY;
+        }
         break;
     }
     case AUDIO_FORMAT_AC3:
@@ -891,9 +897,7 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = out->dev;
     int32_t latency_frames = 0;
-    int32_t alsa_delay = 0;
     int32_t tuning_delay = 0;
-    int32_t ms12_pipeline_delay = 0;
     int32_t atmos_tuning_delay = 0;
     int32_t bypass_delay = 0;
     int32_t video_delay = 0;
@@ -912,9 +916,6 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
         platform_type = SBR;
     }
 
-
-    /*we need get the correct ms12 out pcm */
-    alsa_delay = (int32_t)out_get_ms12_latency_frames(stream);
     //ALOGI("latency_frames =%d", latency_frames);
     tuning_delay = get_ms12_tunnel_latency_offset(get_output_by_devices(adev->cur_out_devices),
                                                       out->hal_internal_format,
@@ -931,8 +932,6 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
          */
         atmos_tuning_delay = get_ms12_atmos_latency_offset(true, adev->is_netflix) * 48;
     }
-    /*ms12 pipe line has some delay, we need consider it*/
-    ms12_pipeline_delay = dolby_ms12_main_pipeline_latency_frames(stream);
 
     if (adev->ms12.is_bypass_ms12) {
         bypass_delay = get_ms12_bypass_latency_offset(true, adev->is_netflix) * 48;
@@ -944,10 +943,10 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
         dv_delay = get_sink_dv_latency_offset(true, adev->is_netflix) * 48;
     }
 
-    latency_frames = alsa_delay + tuning_delay + atmos_tuning_delay + ms12_pipeline_delay + bypass_delay + video_delay + dv_delay;
+    latency_frames = tuning_delay + atmos_tuning_delay + bypass_delay + video_delay + dv_delay;
 
-    ALOGV("latency frames =%d alsa delay=%d ms tuning delay=%d ms ms12 pipe =%d ms atmos =%d ms video delay %d ms dv_delay %d ms",
-        latency_frames, alsa_delay / 48, tuning_delay / 48, ms12_pipeline_delay / 48, atmos_tuning_delay / 48, video_delay / 48, dv_delay / 48);
+    ALOGV("latency frames =%d tuning delay=%d ms atmos =%d ms video delay %d ms dv_delay %d ms",
+        latency_frames, tuning_delay / 48, atmos_tuning_delay / 48, video_delay / 48, dv_delay / 48);
     return latency_frames;
 }
 
@@ -1314,6 +1313,7 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
 
     {
         if (direct_continuous((struct audio_stream_out *)stream)) {
+            pthread_mutex_lock(&adev->ms12.main_apts_update_lock);
             clock_gettime(CLOCK_MONOTONIC, timestamp);
             frames_written_hw = adev->ms12.last_frames_position;
             if (adev->ms12.ms12_position_update) {
@@ -1327,6 +1327,7 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
                 }
                 frames_written_hw += diff_ms * (MM_FULL_POWER_SAMPLING_RATE/MSEC_PER_SEC);
             }
+            pthread_mutex_unlock(&adev->ms12.main_apts_update_lock);
 
         }
 

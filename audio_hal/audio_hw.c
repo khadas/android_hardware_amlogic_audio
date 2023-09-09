@@ -2032,7 +2032,7 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         if  (llabs(jitter_diff) > JITTER_DURATION_MS && adev->debug_flag) {
             ALOGI("%s jitter out last pos info: %p %"PRIu64", sec = %ld, nanosec = %ld\n",__func__,out, out->last_frame_reported,
                 out->last_timestamp_reported.tv_sec, out->last_timestamp_reported.tv_nsec);
-            ALOGI("%s jitter  system time diff %"PRIu64" ms, position diff %"PRIu64" ms, jitter %"PRIu64" ms \n",
+            ALOGI("%s jitter  system time diff %"PRIu64" ms, position diff %"PRIu64" ms, jitter %"PRId64" ms \n",
                 __func__,system_time_ms,frame_diff_ms,jitter_diff);
         }
 
@@ -5705,7 +5705,8 @@ void aml_stream_timer_callback_handler(union sigval sigv)
         //cts tunnel underrun case failed, depond on pause/resume invoked from AudioFlinger.
         //sometimes AudioFlinger always invoke the pause to Hal during 800ms for track retry count.
         //so add this code to control pause/resume MediaSync and video in Hal.
-        out_pause_new((struct audio_stream_out *)out);
+        if (!out->is_insert_zero_data)
+            out_pause_new((struct audio_stream_out *)out);
     }
     AM_LOGI("%s is_hwsync_lpcm:%d frame_write_sum_updated:%d", __func__, is_hwsync_lpcm, adev->frame_write_sum_updated);
     return ;

@@ -513,47 +513,7 @@ ssize_t hw_write (struct audio_stream_out *stream
     }
 
     if (eDolbyMS12Lib == adev->dolby_lib_type && !is_bypass_dolbyms12(stream)) {
-        if (aml_out->hw_sync_mode && !adev->ms12.is_continuous_paused) {
-            // history here: ms12lib->pcm_output()->hw_write() aml_out is passed as private data
-            //               when registering output callback function in dolby_ms12_register_pcm_callback()
-            // some times "aml_out->hwsync->aout == NULL"
-            // one case is no main audio playing, only aux audio playing (Netflix main screen)
-            // in this case dolby_ms12_get_consumed_payload() always return 0, no AV sync can be done zzz
-            if (aml_out->hwsync->aout) {
-                if (is_bypass_dolbyms12(stream)) {
-                    aml_audio_hwsync_audio_process(aml_out->hwsync, aml_out->hwsync->payload_offset, out_frames, &adjust_ms);
-                }
-                else {
-                    if (!audio_is_linear_pcm(aml_out->hal_internal_format)) {
-                        /*if udc decode doesn't generate any data, we should not use the consume offset to get pts*/
-                        ALOGV("udc generate pcm =%" PRId64 "", dolby_ms12_get_main_pcm_generated(stream));
-                        if (dolby_ms12_get_main_pcm_generated(stream)) {
-                            aml_audio_hwsync_audio_process(aml_out->hwsync, dolby_ms12_get_main_bytes_consumed(stream), out_frames, &adjust_ms);
-                        }
-                    } else {
-                        /* because the pcm consumed payload offset is at the end of consume buffer,
-                         * we need the beginning position and ms12 always
-                         * output 1536 frame every time
-                         */
-                        uint64_t consume_payload = dolby_ms12_get_main_bytes_consumed(stream);
-                        /* for non 48khz hwsync pcm, the pts check in is used original 44.1khz offset,
-                         * but we resample it before send to ms12, so we consumed offset is 48khz,
-                         * so we need convert it
-                         */
-                        if (audio_is_linear_pcm(aml_out->hwsync->aout->hal_internal_format) &&
-                            (aml_out->hwsync->aout->hal_rate != 48000)) {
-                            consume_payload = consume_payload * aml_out->hwsync->aout->hal_rate / 48000;
-                        }
-
-                        aml_audio_hwsync_audio_process(aml_out->hwsync, consume_payload, out_frames, &adjust_ms);
-                    }
-                }
-            } else {
-                if (adev->debug_flag) {
-                    ALOGI("%s,aml_out->hwsync->aout == NULL",__FUNCTION__);
-                }
-            }
-        }
+       // remove old ms12 hwsync code into ms12_sync_callback
     } else {
         if (aml_out->hw_sync_mode && aml_out->is_insert_zero_data) {
             adjust_ms = aml_out->insert_zero_data_ms;
@@ -763,7 +723,7 @@ ssize_t hw_write (struct audio_stream_out *stream
         aml_out->lasttimestamp.tv_sec = aml_out->timestamp.tv_sec;
         aml_out->lasttimestamp.tv_nsec = aml_out->timestamp.tv_nsec;
         if (total_frame >= latency_frames) {
-            if (!adev->frame_write_sum_updated || aml_out->is_insert_zero_data) {
+            if (!adev->frame_write_sum_updated || adev->ms12.main_input_insert_zero) {
                 aml_out->last_frames_position = total_frame;
             } else {
                 aml_out->last_frames_position = total_frame - latency_frames;
@@ -788,12 +748,14 @@ ssize_t hw_write (struct audio_stream_out *stream
              */
             if (total_frame != adev->ms12.last_ms12_pcm_out_position) {
                 struct timespec ts;
+                pthread_mutex_lock(&adev->ms12.main_apts_update_lock);
                 clock_gettime(CLOCK_MONOTONIC, &ts);
                 adev->ms12.timestamp.tv_sec = ts.tv_sec;
                 adev->ms12.timestamp.tv_nsec = ts.tv_nsec;
                 adev->ms12.last_frames_position = aml_out->last_frames_position;
                 adev->ms12.last_ms12_pcm_out_position = total_frame;
                 adev->ms12.ms12_position_update = true;
+                pthread_mutex_unlock(&adev->ms12.main_apts_update_lock);
             }
         }
         /* check sys audio position */
