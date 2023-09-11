@@ -6455,6 +6455,12 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
         ALOGI("%s(), standby to unstandby", __func__);
         aml_out->audio_data_handle_state = AUDIO_DATA_HANDLE_START;
         aml_out->standby = false;
+
+        // NTS PCM mode: volume-tunel-nontunel/audio-lat-heaac testcase.
+        if (adev->is_netflix && (eDolbyMS12Lib == adev->dolby_lib_type) && !dolby_stream_active(adev)) {
+            ALOGI("%s : without dolby_stream, netflix pcm drc use line mode", __func__);
+            dynamic_set_dolby_ms12_drc_parameters(&adev->ms12);
+        }
     }
 
     if (aml_out->is_normal_pcm && !aml_out->normal_pcm_mixing_config) {
@@ -6678,6 +6684,11 @@ ssize_t mixer_app_buffer_write(struct audio_stream_out *stream, const void *buff
 
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             set_ms12_app_pcm_acmod_lfe(ms12, aml_out->hal_channel_mask);
+            // NTS PCM mode: volume-tunel-nontunel/audio-lat-heaac testcase.
+            if (adev->is_netflix && !dolby_stream_active(adev)) {
+                ALOGI("%s : without dolby_stream, netflix pcm drc use line mode", __func__);
+                dynamic_set_dolby_ms12_drc_parameters(&adev->ms12);
+            }
         }
     }
 
