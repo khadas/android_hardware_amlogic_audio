@@ -38,6 +38,8 @@
 #include "aml_audio_ms12_sync.h"
 #include "aml_audio_output.h"
 #include "dolby_lib_api.h"
+#include "dtv_private_object.h"
+#include "audio_hw_resource_mgr.h"
 
 extern unsigned long decoder_apts_lookup(unsigned int offset);
 static void aml_audio_stream_volume_process(struct audio_stream_out *stream, void *buf, int sample_size, int channels, int bytes) {
@@ -51,14 +53,14 @@ static void aml_audio_stream_volume_process(struct audio_stream_out *stream, voi
     for non tv, system sound vol control at audioflinger, so dtv sound vol
     control need to do before mixing.
     */
-    if (!aml_dev->is_TV || aml_dev->is_BDS) {
+    if (!is_TV(aml_dev) || is_BDS(aml_dev)) {
         float port_gain = 1.0;
         if ((aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI) != 0) {
-            if (aml_dev->audio_patching == true) {
+            if (is_dev_patch_running(aml_dev)) {
                port_gain = aml_dev->sink_gain[OUTPORT_HDMI];
             }
         } else if (is_include_a2dp_out_port(aml_dev->cur_out_devices)) {
-            if (aml_dev->audio_patching == true)
+            if (is_dev_patch_running(aml_dev))
                port_gain = aml_dev->sink_gain[OUTPORT_A2DP];
         } else  if ((aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0) {
             port_gain = aml_dev->sink_gain[OUTPORT_SPEAKER];
@@ -78,9 +80,9 @@ static void aml_audio_stream_volume_process(struct audio_stream_out *stream, voi
     Indeed,all the input source main need to be applied before the mixer
     need hdmi/av.. source gain here also.now only DTV available.
     */
-    if (aml_dev->patch_src ==  SRC_DTV) {
-        volume[0] *= aml_dev->dtv_volume;
-        volume[1] *= aml_dev->dtv_volume;
+    if (is_same_patch_src(aml_dev, SRC_DTV)) {
+        volume[0] *= get_dtv_volume(aml_dev);
+        volume[1] *= get_dtv_volume(aml_dev);
     }
     last_volume[0] = aml_out->last_volume_l;
     last_volume[1] = aml_out->last_volume_r;
@@ -102,7 +104,7 @@ static void aml_audio_stream_volume_process(struct audio_stream_out *stream, voi
 
 static inline bool check_sink_pcm_sr_cap(struct aml_audio_device *adev, int sample_rate)
 {
-    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+    struct aml_arc_hdmi_desc *hdmi_desc = get_arc_hdmi_cap(adev);
 
     switch (sample_rate) {
         case 32000: return !!(hdmi_desc->pcm_fmt.sample_rate_mask & (1<<0));
@@ -128,10 +130,10 @@ ssize_t aml_audio_spdif_output(struct audio_stream_out *stream, void **spdifout_
         return -1;
     }
 
-    if (aml_dev->patch_src == SRC_DTV && aml_dev->audio_patch && aml_dev->audio_patch->need_drop_size > 0) {
+    if (is_same_patch_src(aml_dev, SRC_DTV) && is_dev_patch_exist(aml_dev) && get_dev_patch(aml_dev)->need_drop_size > 0) {
         if (aml_dev->debug_flag > 1)
             ALOGI("%s, av sync drop data,need_drop_size=%d\n",
-                __FUNCTION__, aml_dev->audio_patch->need_drop_size);
+                __FUNCTION__, get_dev_patch(aml_dev)->need_drop_size);
         return ret;
     }
 
@@ -188,7 +190,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     struct aml_native_postprocess *VX_postprocess = &adev->native_postprocess;
     struct aml_mixer_handle *mixer_handle = &(adev->alsa_mixer);
     audio_type_parse_t *audio_type_status = NULL;
@@ -204,7 +206,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
 #ifdef ENABLE_DVB_PATCH
     dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
-    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->is_tv_src_stream;
+    bool dtv_stream_flag = patch && is_same_patch_src(adev, SRC_DTV) && aml_out->is_tv_src_stream;
     bool do_sync_flag = dtv_stream_flag && patch->skip_amadec_flag;
 #endif
 
@@ -329,7 +331,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     }
                 }
                 if ( dtv_stream_flag &&
-                    (adev->start_mute_flag == 1 || adev->tv_mute)) {
+                    (is_dtv_start_mute(adev) || adev->tv_mute)) {
                     memset(dec_pcm_data->buf, 0, dec_pcm_data->data_len);
                 }
 #endif
@@ -369,7 +371,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     if (dec_pcm_data->data_sr > 0)
                         aml_out->config.rate = dec_pcm_data->data_sr;
                 }
-                if (!adev->is_TV) {
+                if (!is_TV(adev)) {
                     aml_out->config.channels = dec_pcm_data->data_ch;
                 }
 
@@ -393,7 +395,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                         /* in aml_audio_dtv_get_nonms12_latency, it use 50(supposed tuning 50 ms)*48Khz as default, will return 50*48 */
                         int ddp_tuning_latency = 90 * aml_audio_dtv_get_nonms12_latency(stream) / 48;
                         int force_setting_delay = 0;
-                        if (adev->bHDMIARCon) {
+                        if (is_arc_connected(adev)) {
                             force_setting_delay = 90 * aml_getprop_int(PROPERTY_LOCAL_PASSTHROUGH_LATENCY);
                         }
 
@@ -439,12 +441,12 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     check_audio_level("render pcm", dec_data, pcm_len);
                 }
 
-                if (adev->patch_src == SRC_HDMIIN ||
-                            adev->patch_src == SRC_SPDIFIN ||
-                            adev->patch_src == SRC_LINEIN ||
-                            adev->patch_src == SRC_ATV ||
-                            adev->patch_src == SRC_DTV ||
-                            adev->patch_src == SRC_ARCIN) {
+                if (is_same_patch_src(adev, SRC_HDMIIN)  ||
+                    is_same_patch_src(adev, SRC_SPDIFIN) ||
+                    is_same_patch_src(adev, SRC_LINEIN)  ||
+                    is_same_patch_src(adev, SRC_ATV)     ||
+                    is_same_patch_src(adev, SRC_DTV)     ||
+                    is_same_patch_src(adev, SRC_ARCIN)) {
 
                     if (patch && patch->need_do_avsync) {
                          memset(dec_data, 0, pcm_len);
@@ -453,7 +455,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     }
 
                     /* if audio channel status changes to "NONAUDIO", software parser doesn't detect audio format change, mute audio */
-                    if (adev->patch_src == SRC_HDMIIN && audio_type_status != NULL &&
+                    if (is_same_patch_src(adev, SRC_HDMIIN) && audio_type_status != NULL &&
                             audio_type_status->soft_parser && patch->IEC61937_format == false &&
                             aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_HDMIIN_NONAUDIO) == 1) {
                         memset(dec_data, 0, pcm_len);
@@ -585,8 +587,8 @@ static void ddp_decoder_config_prepare(struct audio_stream_out *stream, aml_dcv_
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_arc_hdmi_desc *p_hdmi_descs = &adev->hdmi_descs;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_arc_hdmi_desc *p_hdmi_descs = get_arc_hdmi_cap(adev);
+    struct aml_audio_patch *patch = get_dev_patch(adev);
 
     adev->dcvlib_bypass_enable = 0;
     ddp_config->digital_raw = AML_DEC_CONTROL_CONVERT;
@@ -713,16 +715,17 @@ static void pcm_decoder_config_prepare(struct audio_stream_out *stream, aml_pcm_
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
+    struct aml_arc_hdmi_desc * hdmi_descs = get_arc_hdmi_cap(adev);
 
     pcm_config->channel    = aml_out->hal_ch;
     pcm_config->samplerate = aml_out->hal_rate;
     pcm_config->pcm_format = aml_out->hal_format;
-    pcm_config->max_out_channels = adev->hdmi_descs.pcm_fmt.max_channels;
+    pcm_config->max_out_channels = hdmi_descs->pcm_fmt.max_channels;
     if (ATTEND_TYPE_EARC  == aml_audio_earctx_get_type(adev)) {
         pcm_config->max_out_channels = 8;
     }
     ALOGV("%s  max_out_channels:%d,  hdmi_descs max_channels:%d",
-        __func__, pcm_config->max_out_channels, adev->hdmi_descs.pcm_fmt.max_channels);
+        __func__, pcm_config->max_out_channels, hdmi_descs->pcm_fmt.max_channels);
 
     return;
 }
@@ -731,7 +734,7 @@ int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t f
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     struct audio_board_config *bd_config = &adev->board_config;
 
 #ifdef ENABLE_DVB_PATCH

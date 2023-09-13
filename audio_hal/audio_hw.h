@@ -57,11 +57,13 @@
 
 #include "aml_audio_resample_manager.h"
 #include "aml_audio_resampler.h"
-#include "aml_dec_api.h"
-#include "aml_dts_dec_api.h"
+#include "../decoder/include/aml_dec_api.h"
+#include "../decoder/include/aml_dts_dec_api.h"
 #include "audio_usb_hal.h"
 #include "aml_audio_timer.h"
 #include "aml_config_data.h"
+#include "audio_hw_resource_def.h"
+#include "../input/include/device_patch_mgr.h"
 
 /* number of frames per period */
 /*
@@ -192,59 +194,6 @@ enum Result {
 #define SYSTEM_APP_SOUND_MIXING_ON 1
 #define SYSTEM_APP_SOUND_MIXING_OFF 0
 
-enum patch_src_assortion {
-    SRC_DTV                     = 0,
-    SRC_ATV                     = 1,
-    SRC_LINEIN                  = 2,
-    SRC_HDMIIN                  = 3,
-    SRC_SPDIFIN                 = 4,
-    SRC_REMOTE_SUBMIXIN         = 5,
-    SRC_WIRED_HEADSETIN         = 6,
-    SRC_BUILTIN_MIC             = 7,
-    SRC_BT_SCO_HEADSET_MIC      = 8,
-    SRC_ECHO_REFERENCE          = 9,
-    SRC_ARCIN                   = 10,
-    SRC_USB                     = 11,
-    SRC_LOOPBACK                = 12,
-    SRC_OTHER                   = 13,
-    SRC_INVAL                   = 14
-};
-
-enum OUT_PORT {
-    OUTPORT_SPEAKER             = 0,
-    OUTPORT_HDMI_ARC            = 1,
-    OUTPORT_HDMI                = 2,
-    OUTPORT_SPDIF               = 3,
-    OUTPORT_AUX_LINE            = 4,
-    OUTPORT_HEADPHONE           = 5,
-    OUTPORT_REMOTE_SUBMIX       = 6,
-    OUTPORT_A2DP                = 7,
-    OUTPORT_BT_SCO              = 8,
-    OUTPORT_BT_SCO_HEADSET      = 9,
-    OUTPORT_USB_HEADSET         = 10,
-    OUTPORT_FM                  = 11,
-    OUTPORT_ANLG_DOCK_HEADSET   = 12,
-    /*if the audio_hal_primary unsupport the output devices, we need to route to OUTPUT_NULL*/
-    OUTPORT_NULL                = 13,
-    OUTPORT_MAX                 = 14,
-};
-
-enum IN_PORT {
-    INPORT_TUNER                = 0,
-    INPORT_HDMIIN               = 1,
-    INPORT_SPDIF                = 2,
-    INPORT_LINEIN               = 3,
-    INPORT_REMOTE_SUBMIXIN      = 4,
-    INPORT_WIRED_HEADSETIN      = 5,
-    INPORT_BUILTIN_MIC          = 6,
-    INPORT_BT_SCO_HEADSET_MIC   = 7,
-    INPORT_ECHO_REFERENCE       = 8,
-    INPORT_ARCIN                = 9,
-    INPORT_USB                  = 10,
-    INPORT_LOOPBACK             = 11,
-    INPORT_MAX                  = 12
-};
-
 struct audio_patch_set {
     struct listnode list;
     struct audio_patch audio_patch;
@@ -279,18 +228,6 @@ typedef enum audio_stream_status {
     STREAM_PAUSED,
     STREAM_STATUS_MAX
 } stream_status_t;
-
-/* Base on user settings */
-typedef enum picture_mode {
-    PQ_STANDARD = 0,
-    PQ_MOVIE,
-    PQ_DYNAMIC,
-    PQ_NATURAL,
-    PQ_GAME,
-    PQ_PC,
-    PQ_CUSTOM,
-    PQ_MODE_MAX
-} picture_mode_t ;
 
 /*foreground stream type for direct or offload,
 **it is mainly for marking lastest stream in AudioHal,
@@ -331,6 +268,8 @@ struct aml_bt_output {
     size_t resampler_in_frames;
 };
 
+struct audio_hw_resource_mgr;
+
 #define HDMI_ARC_MAX_FORMAT  20
 struct aml_audio_device {
     struct audio_hw_device hw_device;
@@ -354,7 +293,6 @@ struct aml_audio_device {
     //which is equal to user_setting.
     bool speaker_mute_user_setting;
     unsigned int card;
-    struct audio_route *ar;
     struct echo_reference_itfe *echo_reference;
     bool low_power;
     struct aml_stream_out *hwsync_output;
@@ -363,7 +301,6 @@ struct aml_audio_device {
     bool pcm_paused;
     unsigned hdmi_arc_ad[HDMI_ARC_MAX_FORMAT];
     bool hi_pcm_mode;
-    bool audio_patching;
     /* audio configuration for dolby HDMI/SPDIF output */
     int digital_audio_format;
     int last_digital_audio_format;
@@ -371,39 +308,25 @@ struct aml_audio_device {
     bool spdif_enable;
     int hdmi_is_pth_active;
     int disable_pcm_mixing;
-    /* The HDMI ARC capability info currently set. */
-    struct aml_arc_hdmi_desc hdmi_descs;
-    /* Save the HDMI ARC actual capability info. */
-    struct aml_arc_hdmi_desc hdmi_arc_capability_desc;
-    /* HDMIRX default EDID */
-    char default_EDID_array[EDID_ARRAY_MAX_LEN];
-    /*it is used to save the string of last set_arc_hdmi and to check whether ARC or EARC status has changed*/
-    char last_arc_hdmi_array[EDID_ARRAY_MAX_LEN];
-    bool need_to_update_arc_status;
-    int arc_hdmi_updated;
+
     int a2dp_updated;
     void * a2dp_hal;
     pthread_mutex_t a2dp_lock;
     bool bt_avrcp_supported;
     int digital_audio_format_updated;
     struct aml_native_postprocess native_postprocess;
-    /* used only for real TV source */
-    enum patch_src_assortion patch_src;
+
     /* for port config info */
     float sink_gain[OUTPORT_MAX];
     float speaker_volume;
     audio_devices_t cur_out_devices;
-    float src_gain[INPORT_MAX];
-    enum IN_PORT active_inport;
+
     /* message to handle usecase changes */
     bool usecase_changed;
     uint32_t usecase_masks;
     int usecase_cnt[STREAM_USECASE_MAX];
     struct aml_stream_out *active_outputs[STREAM_USECASE_MAX];
-    pthread_mutex_t patch_lock;
-    /* Use flag to indicate creat or release patch of TV case.  TBD */
-    bool source_flag;
-    struct aml_audio_patch *audio_patch;
+
     /* indicates atv to mixer patch, no need HAL patching  */
     bool dev2mix_patch;
     /* Now only two pcm handle supported: I2S, SPDIF */
@@ -448,9 +371,6 @@ struct aml_audio_device {
 
     /*used for dts decoder*/
     struct dca_dts_dec dts_hd;
-    bool bHDMIARCon;
-    bool bHDMIConnected;
-    bool bHDMIConnected_update;
     bool bDVEnable;
     int16_t *out_16_buf;
     size_t out_16_buf_size;
@@ -497,57 +417,31 @@ struct aml_audio_device {
     int spdif_fmt_hw;
     bool ms12_ott_enable;
     bool ms12_main1_dolby_dummy;
-    /*amlogic soft ware noise gate fot analog TV source*/
-    void* aml_ng_handle;
-    int aml_ng_enable;
-    float aml_ng_level;
-    int aml_ng_attack_time;
-    int aml_ng_release_time;
     int system_app_mixing_status;
     int audio_type;
     struct aml_mixer_handle alsa_mixer;
     struct subMixing *sm;
     struct aml_audio_mixer *audio_mixer;
-    bool is_BDS;
-    bool is_TV;
-    bool is_STB;
-    bool is_SBR;
     bool useSubMix;
     //int cnt_stream_using_mixer;
     int tsync_fd;
     bool raw_to_pcm_flag;
     bool is_netflix;
-    int dtv_aformat;
-    unsigned int dtv_i2s_clock;
-    unsigned int dtv_spdif_clock;
-    unsigned int dtv_droppcm_size;
+
     int need_reset_ringbuffer;
     unsigned int tv_mute;
-    int sub_apid;
-    int sub_afmt;
-    int pid;
-    int demux_id;
-    int is_multi_demux;
-    bool compensate_video_enable;
-    bool patch_start;
+
     bool mute_start;
+    bool compensate_video_enable;
+
     aml_audio_ease_t  *audio_ease;
-    /*four variable used for when audio discontinue and underrun,
-      whether mute output*/
-    int discontinue_mute_flag;
-    int audio_discontinue;
-    int no_underrun_count;
-    int no_underrun_max;
+
     int dap_bypass_enable;
     float dap_bypassgain;
-    int start_mute_flag;
-    int start_mute_count;
-    int start_mute_max;
-    int underrun_mute_flag;
-    int ad_start_enable;
+
     int count;
     int sound_track_mode;
-    int dtv_sound_mode;
+
     void *alsa_handle[ALSA_DEVICE_CNT];
     int FactoryChannelReverse;
     bool dual_spdif_support; /*1 means supports spdif_a & spdif_b & spdif interface*/
@@ -555,21 +449,13 @@ struct aml_audio_device {
     bool control_hdmitx_mute; /* allow to control the mute of hdmitx. */
     bool spdif_coexist_other; /* spdif coexist other device */
 
-    /* user setting picture mode */
-    picture_mode_t pic_mode;
-    bool mode_reconfig_in;
-    bool mode_reconfig_out;
-    bool mode_reconfig_ms12;
-    /* user setting picture mode end */
-
     uint64_t  sys_audio_frame_written;
     void* hw_mediasync;
     struct aec_t *aec;
     bool bt_wbs;
     int security_mem_level;
     int dolby_ms12_dap_init_mode;
-    void *aml_dtv_audio_instances;
-    pthread_mutex_t dtv_lock;
+
     /* display audio format on UI, both streaming and hdmiin*/
     audio_hal_info_t audio_hal_info;
     bool is_ms12_tuning_dat; /* a flag to determine the MS12 tuning data file is existing */
@@ -579,14 +465,9 @@ struct aml_audio_device {
     struct usb_audio_device usb_audio;
     //change variable name from hw_mediasync_id to hw_sync_id for more easy to extension.
     int32_t hw_sync_id;
-    /* mute flag after insert policy */
-    bool insert_mute_flag;
+
     struct timespec mute_start_ts;
-    /*
-    AudioHalWrapper set volume , dtv_volume range [0, 1]
-    set process: TsPlayer::SetAudioVolume(volume) -> dtv_volume
-    */
-    float dtv_volume; // Todo: This parameter is not used yet
+
     /* -End- */
     bool arc_connected_reconfig;  /*when arc connected, set it as to true*/
     bool is_arc_updating_sad;  /* earc->arc/arc->earc, update SAD. */
@@ -611,7 +492,6 @@ struct aml_audio_device {
     /* board specific json configs */
     struct audio_board_config board_config;
 
-    int mute_flag;
     unsigned int output_mix_source; // MIX_SRC_LINEIN, USBIN, NIL (default)
     // customized_usb is valid only when MIX_SRC_LINEIN==USBIN
     int customized_usb_card; // -1, invalid (default), [0,1,2..] valid
@@ -634,6 +514,10 @@ struct aml_audio_device {
     bool aaudio_low_latency;
     bool aaudio_low_latency_updated;
     int  aaudio_low_latency_count;
+    /* Modularized shared resource management */
+    struct patch_manager *patch_manager;
+    struct audio_hw_resource_mgr *hw_resource_mgr;
+    struct hdmi_capability_manager *hdmi_cap_mgr;
 };
 
 struct meta_data {
@@ -811,6 +695,7 @@ struct aml_stream_out {
     uint16_t easing_time;
     float output_speed;
     int dtvsync_enable;
+
     uint64_t write_time;
     uint64_t pause_time;
     int write_count;
@@ -884,8 +769,8 @@ struct aml_stream_in {
     int spdif_fmt_hw;
     /* SW parser audio format */
     audio_format_t spdif_fmt_sw;
-    struct timespec mute_start_ts;
     bool mute_flag;
+    struct timespec mute_start_ts;
     int mute_log_cntr;
     int mute_mdelay;
     struct aml_audio_device *dev;
@@ -930,18 +815,6 @@ inline bool primary_continuous(struct audio_stream_out *stream)
     }
 }
 
-inline bool dtv_tuner_framework(struct audio_stream_out *stream)
-{
-    struct aml_stream_out *out = (struct aml_stream_out *)stream;
-    if (out && (out->dev) && (out->dev->patch_src == SRC_DTV) &&
-         out->dev->audio_patching &&
-        (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) &&
-        (out->audioCfg.offload_info.content_id != 0)&&
-        (out->audioCfg.offload_info.sync_id != 0)) {
-        return true;
-   }
-   return false;
-}
 /* called when adev locked */
 static inline int dolby_stream_active(struct aml_audio_device *adev)
 {
@@ -1030,6 +903,8 @@ inline bool is_bypass_submix_active(struct aml_audio_device *adev)
  */
 audio_format_t get_output_format(struct audio_stream_out *stream);
 
+bool dtv_tuner_framework(struct audio_stream_out *stream);
+
 int do_output_standby_l(struct audio_stream *stream);
 
 ssize_t out_write_new(struct audio_stream_out *stream,
@@ -1061,12 +936,11 @@ int do_input_standby (struct aml_stream_in *in);
 
 int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby);
 int get_audio_patch_by_src_dev(struct audio_hw_device *dev, audio_devices_t dev_type, struct audio_patch **p_audio_patch);
-int aml_audio_input_routing(struct audio_hw_device *dev, enum IN_PORT inport);
 int output_stream_hwsync_prepare(struct aml_stream_out *out, int hw_sync_id);
 bool aml_get_speaker_mute_status(void);
 /* timer callback function */
 void aml_stream_timer_callback_handler(union sigval sigv);
-bool is_audio_patch_valid(struct aml_audio_device *adev);
+bool is_dev_patch_valid(struct aml_audio_device *adev);
 
 int adev_ms12_prepare(struct audio_hw_device *dev);
 

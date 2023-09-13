@@ -26,8 +26,8 @@
 // aml audio
 #include "audio_hw_utils.h"
 #include <alsa_device_parser.h> // for alsa_device_get_card_index func
-
 #include "audio_kara.h"
+#include "audio_hw_resource_mgr.h"
 
 #define DEBUG AM_LOGV // set AM_LOGD for debug, set AM_LOGV to suppress log
 #define INFO  AM_LOGI
@@ -584,7 +584,7 @@ void check_switch_audio_kara(struct audio_stream_out *stream)
         } else if (adev->output_mix_source == MIX_SRC_LINEIN) {
             pcm_get_config(aml_out->pcm, &cfg);
 
-            aml_audio_input_routing(&adev->hw_device, INPORT_LINEIN);
+            do_input_device_routing(adev, AUDIO_DEVICE_IN_LINE, true);
 
             int card = alsa_device_get_card_index();
             int device = alsa_device_update_pcm_index(PORT_I2S, CAPTURE);

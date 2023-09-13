@@ -15,7 +15,7 @@
  */
 
 
-#define LOG_TAG "audio_hw_hdmi"
+#define LOG_TAG "audio_hw_hdmirx_utils"
 //#define LOG_NDEBUG 0
 
 /*
@@ -47,6 +47,7 @@
 
 #include <errno.h>
 #include <cutils/log.h>
+#include <pthread.h>
 
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
@@ -56,6 +57,7 @@
 #include "dolby_lib_api.h"
 #include <aml_android_utils.h>
 #include <earc_utils.h>
+#include "audio_hw_resource_mgr.h"
 
 char sad_str_default[5][5] = {
      {2, 0, 0, 0, 0},
@@ -65,12 +67,28 @@ char sad_str_default[5][5] = {
      {12, 0, 0, 0, 0},
 };
 
+//assign it to hw_resource_manager or patch_manager
+typedef struct hdmi_capability_manager {
+    /* The HDMI ARC capability info currently set. */
+    struct aml_arc_hdmi_desc hdmi_descs;
+    /* Save the HDMI ARC actual capability info. */
+    struct aml_arc_hdmi_desc hdmi_arc_capability_desc;
+    /*it is used to save the string of last set_arc_hdmi and to check whether ARC or EARC status has changed*/
+    char last_arc_hdmi_array[EDID_ARRAY_MAX_LEN]; //
+    /* HDMIRX default EDID */
+    char default_EDID_array[EDID_ARRAY_MAX_LEN]; //
+    bool need_to_update_arc_status;
+    int arc_hdmi_updated;
+
+    pthread_mutex_t lock;
+} hdmi_capability_manager;
+
 struct audio_format_code_list {
     AML_HDMI_FORMAT_E  id;
     char audio_format_code_name[32];
 };
 
-static struct audio_format_code_list gAudioFormatList[] = {
+static const struct audio_format_code_list gAudioFormatList[] = {
     {AML_HDMI_FORMAT_RESERVED1, "AML_HDMI_FORMAT_RESERVED1"},
     {AML_HDMI_FORMAT_LPCM, "AUDIO_FORMAT_LPCM"},
     {AML_HDMI_FORMAT_AC3, "AUDIO_FORMAT_AC3"},
@@ -89,18 +107,127 @@ static struct audio_format_code_list gAudioFormatList[] = {
     {AML_HDMI_FORMAT_RESERVED2, "AUDIO_FORMAT_RESERVED2"},
 };
 
-/* default_edid = 1, restore default edid
- * default_edid = 0, update AVR ARC capability to edid.
- */
-void update_edid(struct audio_hw_device *dev, bool default_edid, void *edid_array, int edid_length)
+static const char *get_audio_format_code_name_by_id(int fmt_id)
+{
+    int i;
+    int cnt_mixer = sizeof(gAudioFormatList) / sizeof(struct audio_format_code_list);
+
+    for (i = 0; i < cnt_mixer; i++) {
+        if (gAudioFormatList[i].id == fmt_id) {
+            return gAudioFormatList[i].audio_format_code_name;
+        }
+    }
+
+    return NULL;
+}
+
+struct hdmi_capability_manager *get_hdmi_capability_manager(struct aml_audio_device *adev);
+
+static bool is_arc_status_update(struct aml_audio_device *adev)
+{
+    struct hdmi_capability_manager *mgr = get_hdmi_capability_manager(adev);
+    return mgr->need_to_update_arc_status;
+}
+
+static void set_arc_status_update(struct aml_audio_device *adev, bool enable)
+{
+    struct hdmi_capability_manager *mgr = get_hdmi_capability_manager(adev);
+    mgr->need_to_update_arc_status = enable;
+}
+
+void set_arc_hdmi_updated(struct aml_audio_device *adev, bool enable)
+{
+    struct hdmi_capability_manager *mgr = get_hdmi_capability_manager(adev);
+    mgr->arc_hdmi_updated = enable;
+}
+
+bool is_arc_hdmi_updated(struct aml_audio_device *adev)
+{
+   struct hdmi_capability_manager *mgr = get_hdmi_capability_manager(adev);
+   return mgr->arc_hdmi_updated;
+}
+
+const char *get_default_edid_str(struct aml_audio_device *adev)
+{
+    struct hdmi_capability_manager *mgr = get_hdmi_capability_manager(adev);
+    return mgr->default_EDID_array;
+}
+
+/*
+* function: read edid from hdmirx and update it to default string
+*/
+static int read_default_edid_from_hdmirx(struct audio_hw_device *dev, int request_len)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
-    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+    struct hdmi_capability_manager *mgr = get_hdmi_capability_manager(adev);
+    char EDID_audio_array[EDID_ARRAY_MAX_LEN] = {0};
+    int n = 0;
+    int ret = 0;
+    int edid_dbg = get_debug_value(AML_DEBUG_AUDIOHAL_EDID);
+
+    ret = aml_mixer_ctrl_get_array(&adev->alsa_mixer, AML_MIXER_ID_HDMIIN_AUDIO_EDID,
+        EDID_audio_array, EDID_ARRAY_MAX_LEN);
+
+    ALOGV("%s line %d mixer %s ret %d\n", __func__, __LINE__, "HDMIIN AUDIO EDID", ret);
+
+    if (ret == 0) {
+        /* got the SAD_array with first TLV_HEADER_SIZE all zero */
+        memmove(EDID_audio_array, EDID_audio_array + TLV_HEADER_SIZE, EDID_ARRAY_MAX_LEN - TLV_HEADER_SIZE);
+    }
+
+    if (edid_dbg) {
+        for (n = 0; n < EDID_ARRAY_MAX_LEN; n++) {
+            ALOGI("%s line %d EDID_cur_array(%d) [%#x]\n",  __func__, __LINE__, n, EDID_audio_array[n]);
+        }
+    }
+
+    char *dest_str = mgr->default_EDID_array;
+    if (request_len >= EDID_ARRAY_MAX_LEN)
+        memcpy(dest_str, EDID_audio_array, EDID_ARRAY_MAX_LEN);
+    else {
+        ALOGE("%s line %d request_len %d is less than %d, some info may lost!\n",
+            __func__, __LINE__, request_len, EDID_ARRAY_MAX_LEN);
+        memcpy(dest_str, EDID_audio_array, request_len);
+    }
+    return 0;
+}
+
+/*
+ * restore default edid to hdmirx
+ */
+static void write_default_edid_to_hdmirx(struct audio_hw_device *dev, int length)
+{
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    struct hdmi_capability_manager *mgr = get_hdmi_capability_manager(adev);
+    struct aml_arc_hdmi_desc *hdmi_desc = &mgr->hdmi_descs;
+    int edid_dbg = get_debug_value(AML_DEBUG_AUDIOHAL_EDID);
+    char *edid_string = mgr->default_EDID_array;
+    if (edid_dbg) {
+        for (int n = 0; n < length + TLV_HEADER_SIZE ; n++) {
+            ALOGI("%s line %d SAD_array(%d) [%#x]\n", __func__, __LINE__, n, edid_string[n]);
+        }
+    }
+
+    aml_mixer_ctrl_set_array(&adev->alsa_mixer, AML_MIXER_ID_HDMIIN_AUDIO_EDID,
+            edid_string, TLV_HEADER_SIZE);
+
+    hdmi_desc->default_edid = true;
+}
+
+/*
+ * Function: restore re-construct edid to hdmirx
+ * Description:
+ *  update AVR ARC capability to edid
+ */
+static void write_new_edid_to_hdmirx(struct audio_hw_device *dev, void *edid_array, int edid_length)
+{
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    struct hdmi_capability_manager *mgr = get_hdmi_capability_manager(adev);
+    struct aml_arc_hdmi_desc *hdmi_desc = &mgr->hdmi_descs;
     int edid_dbg = get_debug_value(AML_DEBUG_AUDIOHAL_EDID);
 
     int suitable_edid_len = edid_length;
-    ALOGD("%s() edid_length %d default_edid %d will %s\n", __func__, edid_length ,default_edid
-        , default_edid ? "restore default edid" : "update AVR ARC capability to edid");
+    ALOGD("%s() edid_length %d will %s\n", __func__, edid_length ,"");
 
     char *EDID_audio_array = edid_array;
 
@@ -110,15 +237,11 @@ void update_edid(struct audio_hw_device *dev, bool default_edid, void *edid_arra
         }
     }
 
-    if (default_edid == true) {
-        aml_mixer_ctrl_set_array(&adev->alsa_mixer, AML_MIXER_ID_HDMIIN_AUDIO_EDID,
-            edid_array, TLV_HEADER_SIZE);
-    } else {
-        suitable_edid_len = (edid_length <= (EDID_ARRAY_MAX_LEN - TLV_HEADER_SIZE)) ? (edid_length) : (EDID_ARRAY_MAX_LEN - TLV_HEADER_SIZE);
-        aml_mixer_ctrl_set_array(&adev->alsa_mixer, AML_MIXER_ID_HDMIIN_AUDIO_EDID,
+    suitable_edid_len = (edid_length <= (EDID_ARRAY_MAX_LEN - TLV_HEADER_SIZE)) ? (edid_length) : (EDID_ARRAY_MAX_LEN - TLV_HEADER_SIZE);
+    aml_mixer_ctrl_set_array(&adev->alsa_mixer, AML_MIXER_ID_HDMIIN_AUDIO_EDID,
             edid_array, (suitable_edid_len + TLV_HEADER_SIZE));
-    }
-    hdmi_desc->default_edid = default_edid;
+
+    hdmi_desc->default_edid = false;
 }
 
 /*
@@ -136,7 +259,7 @@ void update_edid(struct audio_hw_device *dev, bool default_edid, void *edid_arra
  *|            | acmod 28 is supported.                        |                                              |
  *|-----------------------------------------------------------------------------------------------------------|
  */
-int update_dolby_atmos_decoding_and_rendering_cap_for_ddp_sad(
+static int update_dolby_atmos_decoding_and_rendering_cap_for_ddp_sad(
     void *array
     , int count
     , bool is_acmod_28_supported
@@ -182,7 +305,7 @@ int update_dolby_atmos_decoding_and_rendering_cap_for_ddp_sad(
  *--------------------------------------------------------------------------------------------
  *Note: If bit 0 of byte 3 is set to 0, then bits 1 through 7 of byte 3 are also set to 0.
  */
-int update_dolby_MAT_decoding_cap_for_dolby_MAT_and_dolby_TRUEHD_sad(
+static int update_dolby_MAT_decoding_cap_for_dolby_MAT_and_dolby_TRUEHD_sad(
     void *array
     , int count
     , bool is_mat_pcm_supported
@@ -214,45 +337,36 @@ int update_dolby_MAT_decoding_cap_for_dolby_MAT_and_dolby_TRUEHD_sad(
     return ret;
 }
 
-
-int get_current_edid(struct audio_hw_device *dev, char *edid_array, int edid_array_len)
+bool is_same_edid_str(const char *str_a, const char *str_b)
 {
-    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
-    char EDID_audio_array[EDID_ARRAY_MAX_LEN] = {0};
-    int n = 0;
-    int ret = 0;
-    int edid_dbg = get_debug_value(AML_DEBUG_AUDIOHAL_EDID);
+    return (strcmp(str_a, str_b) == 0 ? true : false);
+}
 
-    if (!adev || !edid_array || (edid_array_len <= 0)) {
-        ALOGD("%s line %d adev %p edid_array %p ret %d\n", __func__, __LINE__, adev, edid_array, edid_array_len);
-        return -1;
-    }
+/********************* APIs open for other module ******************************/
 
-    ret = aml_mixer_ctrl_get_array(&adev->alsa_mixer, AML_MIXER_ID_HDMIIN_AUDIO_EDID,
-        EDID_audio_array, EDID_ARRAY_MAX_LEN);
+struct aml_arc_hdmi_desc *get_arc_hdmi_cap(struct aml_audio_device *adev)
+{
+    struct hdmi_capability_manager *mgr = get_hdmi_capability_manager(adev);
+    return &mgr->hdmi_descs;
+}
 
-    ALOGV("%s line %d mixer %s ret %d\n", __func__, __LINE__, "HDMIIN AUDIO EDID", ret);
 
-    if (ret == 0) {
-        /* got the SAD_array with first TLV_HEADER_SIZE all zero */
-        memmove(EDID_audio_array, EDID_audio_array + TLV_HEADER_SIZE, EDID_ARRAY_MAX_LEN - TLV_HEADER_SIZE);
-    }
+void clear_arc_cached_edid(struct aml_audio_device *adev)
+{
+    struct hdmi_capability_manager *mgr = get_hdmi_capability_manager(adev);
+    memset(mgr->last_arc_hdmi_array, 0, EDID_ARRAY_MAX_LEN);
+}
 
-    if (edid_dbg) {
-        for (n = 0; n < EDID_ARRAY_MAX_LEN; n++) {
-            ALOGI("%s line %d EDID_cur_array(%d) [%#x]\n",  __func__, __LINE__, n, EDID_audio_array[n]);
-        }
-    }
+void update_arc_cached_edid(struct aml_audio_device *adev, const char *str)
+{
+    struct hdmi_capability_manager *mgr = get_hdmi_capability_manager(adev);
+    memcpy(mgr->last_arc_hdmi_array, str, EDID_ARRAY_MAX_LEN);
+}
 
-    if (edid_array_len >= EDID_ARRAY_MAX_LEN)
-        memcpy(edid_array, EDID_audio_array, EDID_ARRAY_MAX_LEN);
-    else {
-        ALOGE("%s line %d edid_array_len %d is less than %d, something is lost!\n",
-            __func__, __LINE__, edid_array_len, EDID_ARRAY_MAX_LEN);
-        memcpy(edid_array, EDID_audio_array, edid_array_len);
-    }
-
-    return 0;
+const char *get_arc_cached_edid(struct aml_audio_device *adev)
+{
+    struct hdmi_capability_manager *mgr = get_hdmi_capability_manager(adev);
+    return mgr->last_arc_hdmi_array;
 }
 
 /* here is the array spec, about two cases */
@@ -263,8 +377,9 @@ int get_current_edid(struct audio_hw_device *dev, char *edid_array, int edid_arr
 /*                  [21, 7, 80][62, 31, -64][87, 6, 3]*/
 int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
 {
-    struct aml_audio_device *adev = (struct aml_audio_device *) dev;
-    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    struct hdmi_capability_manager *mgr = get_hdmi_capability_manager(adev);
+    struct aml_arc_hdmi_desc *hdmi_desc = get_arc_hdmi_cap(adev);
     char *pt = NULL, *tmp = NULL;
     int i = 0;
     int edid_dbg = get_debug_value(AML_DEBUG_AUDIOHAL_EDID);
@@ -285,12 +400,12 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
 
     /*if the latest set_arc_hdmi string is same as the last, do not update the EDID*/
     /*if not, we need to update the EDID and copy the string to last_arc_hdmi_array*/
-    if (strcmp(value,adev->last_arc_hdmi_array) == 0) {
-        adev->need_to_update_arc_status = false;
+    if (is_same_edid_str(value, get_arc_cached_edid(adev))) {
+        set_arc_status_update(adev, false);
         return 0;
     } else {
-        adev->need_to_update_arc_status = true;
-        memcpy(adev->last_arc_hdmi_array, value, EDID_ARRAY_MAX_LEN);
+        set_arc_status_update(adev, true);
+        update_arc_cached_edid(adev, value);
     }
 
     memset(hdmi_desc->target_EDID_array, 0, EDID_ARRAY_MAX_LEN);
@@ -314,11 +429,10 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
 
     if (hdmi_desc->EDID_length == 0) {
         ALOGI("ARC is disconnect!, Reset to default EDID.");
-        adev->arc_hdmi_updated = 0;
-        update_edid(dev, true, (void *)&hdmi_desc->target_EDID_array[0], hdmi_desc->EDID_length);
+        set_arc_hdmi_updated(adev, false);
+        write_default_edid_to_hdmirx(dev, hdmi_desc->EDID_length);
     } else {
-        /* get default edid of hdmirx */
-        get_current_edid(dev, adev->default_EDID_array, EDID_ARRAY_MAX_LEN);
+        read_default_edid_from_hdmirx(dev, EDID_ARRAY_MAX_LEN);
 
         /* if dts decoder doesn't support, don't update dts edid */
         if (!adev->dts_decode_enable) {
@@ -353,25 +467,10 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
     return 0;
 }
 
-
-static char *get_audio_format_code_name_by_id(int fmt_id)
-{
-    int i;
-    int cnt_mixer = sizeof(gAudioFormatList) / sizeof(struct audio_format_code_list);
-
-    for (i = 0; i < cnt_mixer; i++) {
-        if (gAudioFormatList[i].id == fmt_id) {
-            return gAudioFormatList[i].audio_format_code_name;
-        }
-    }
-
-    return NULL;
-}
-
 int update_edid_after_edited_audio_sad(struct audio_hw_device *dev, struct format_desc *fmt_desc)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
-    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+    struct aml_arc_hdmi_desc *hdmi_desc = get_arc_hdmi_cap(adev);
     if (!fmt_desc)
         return 0;
     ALOGD("Update [%s] support:%d, ch:%d, sample_mask:%#x, bit_rate:%d, atmos:%d",
@@ -387,19 +486,19 @@ int update_edid_after_edited_audio_sad(struct audio_hw_device *dev, struct forma
 
     if (BYPASS == adev->digital_audio_format) {
         /* update the AVR's EDID */
-        update_edid(dev, false, (void *)&hdmi_desc->target_EDID_array[0], hdmi_desc->EDID_length);
+        write_default_edid_to_hdmirx(dev, hdmi_desc->EDID_length);
         ALOGI("Bypass mode!, update AVR EDID.");
     }
     else if (AUTO == adev->digital_audio_format) {
         if (!fmt_desc->is_support) {
             //if AVR doesn't support DDP, update EDID to default EDID
-            update_edid(dev, true, (void *)&hdmi_desc->target_EDID_array[0], hdmi_desc->EDID_length);
+            write_default_edid_to_hdmirx(dev, hdmi_desc->EDID_length);
         } else {
             /* get the default EDID audio array */
             char EDID_cur_array[EDID_ARRAY_MAX_LEN] = {0};
             int available_edid_len = 0;
-
-            memcpy(EDID_cur_array, adev->default_EDID_array, EDID_ARRAY_MAX_LEN);
+            const char *default_edid_str = get_default_edid_str(adev);
+            memcpy(EDID_cur_array, default_edid_str, EDID_ARRAY_MAX_LEN);
 
             /* edit the current EDID audio array to add DDP-SAD(byte3-bit0~1) and MAT-SAD(byte3-bit0~1)*/
             for (int n = 0; n < EDID_ARRAY_MAX_LEN / SAD_SIZE; n++) {
@@ -454,11 +553,11 @@ int update_edid_after_edited_audio_sad(struct audio_hw_device *dev, struct forma
             }
 
             /* update the EDID after editing*/
-            update_edid(dev, false, (void *)EDID_cur_array, available_edid_len);
+            write_new_edid_to_hdmirx(dev, (void *)EDID_cur_array, available_edid_len);
         }
     } else if (hdmi_desc->default_edid == false) {
         /* Reset the audio default EDID */
-        update_edid(dev, true, (void *)&hdmi_desc->target_EDID_array[0], hdmi_desc->EDID_length);
+        write_default_edid_to_hdmirx(dev, hdmi_desc->EDID_length);
     }
     return 0;
 }
@@ -466,7 +565,8 @@ int update_edid_after_edited_audio_sad(struct audio_hw_device *dev, struct forma
 int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *) dev;
-    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+    struct hdmi_capability_manager *mgr = get_hdmi_capability_manager(adev);
+    struct aml_arc_hdmi_desc *hdmi_desc = get_arc_hdmi_cap(adev);
     struct format_desc *fmt_desc = NULL;
     char *pt = NULL, *tmp = NULL;
     int i = 0, val = 0;
@@ -481,7 +581,7 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
     /*because pcm format is not updated now, so we add a check here, we can remove this after pcm format is added
      * when it is set arc mode, we should use 2ch pcm
      */
-    if (adev->bHDMIARCon) {
+    if (is_arc_connected(adev)) {
         if (aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_ATTENDED_TYPE) == ATTEND_TYPE_EARC) {
             hdmi_desc->pcm_fmt.max_channels = 8;
         } else {
@@ -510,9 +610,9 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
             } else if (val == AML_HDMI_FORMAT_MAT) {
                 fmt_desc = &hdmi_desc->mat_fmt;
                 /*if arc format is changed or ARC switch to EARC, we need update it, then new output can be configured*/
-                if (adev->need_to_update_arc_status) {
-                    adev->need_to_update_arc_status = false;
-                    adev->arc_hdmi_updated = 1;
+                if (is_arc_status_update(adev)) {
+                    set_arc_status_update(adev, false);
+                    set_arc_hdmi_updated(adev, true);
                 }
             } else if (val == AML_HDMI_FORMAT_LPCM) {
                 fmt_desc = &hdmi_desc->pcm_fmt;
@@ -590,7 +690,7 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
         pt = strtok_r (NULL, "[], ", &tmp);
         i++;
     }
-    memcpy(&adev->hdmi_arc_capability_desc, hdmi_desc, sizeof(struct aml_arc_hdmi_desc));
+    memcpy(&mgr->hdmi_arc_capability_desc, hdmi_desc, sizeof(struct aml_arc_hdmi_desc));
     if (fmt_desc) {
         ALOGI("----[%s] support:%d, ch:%d, sample_mask:%#x, bit_rate:%d, atmos:%d",
             hdmiFormat2Str(fmt_desc->fmt),fmt_desc->is_support, fmt_desc->max_channels,
@@ -600,23 +700,6 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
     return 0;
 }
 
-int find_61937_sync_word(char *buffer, int size)
-{
-    int i = -1;
-    if (size < 8) {
-        return i;
-    }
-
-    for (i = 0; i < (size - 3); i++) {
-        if (buffer[i + 0] == 0x72 && buffer[i + 1] == 0xF8 && buffer[i + 2] == 0x1F && buffer[i + 3] == 0x4E) {
-            return i;
-        }
-        if (buffer[i + 0] == 0xF8 && buffer[i + 1] == 0x72 && buffer[i + 2] == 0x4E && buffer[i + 3] == 0x1F) {
-            return i;
-        }
-    }
-    return -1;
-}
 
 #if ANDROID_PLATFORM_SDK_VERSION > 32
 void read_hdmi_arc_info(struct audio_hw_device *dev,
@@ -757,9 +840,10 @@ void update_earc_sad(struct audio_hw_device *dev)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *) dev;
     struct audio_extra_audio_descriptor audio_descriptors = {};
-
+    struct aml_arc_hdmi_desc * hdmi_descs = get_arc_hdmi_cap(adev);
     char cds[AUDIO_HAL_CHAR_MAX_LEN] = {0};
-    earctx_fetch_cds(&adev->alsa_mixer, cds, 0, &adev->hdmi_descs);
+
+    earctx_fetch_cds(&adev->alsa_mixer, cds, 0, hdmi_descs);
 
     char *p;
     int cnt = 0;
@@ -790,3 +874,40 @@ void update_earc_sad(struct audio_hw_device *dev)
     read_hdmi_arc_info(dev, &audio_descriptors, 1, true);
 }
 #endif
+
+
+struct hdmi_capability_manager *get_hdmi_capability_manager(struct aml_audio_device *adev)
+{
+    if (adev->hdmi_cap_mgr == NULL) {
+        struct hdmi_capability_manager *mgr = aml_audio_calloc(1, sizeof(struct hdmi_capability_manager));
+        adev->hdmi_cap_mgr = mgr;
+    }
+    return adev->hdmi_cap_mgr;
+}
+
+int init_hdmi_capability_manager(struct aml_audio_device *adev)
+{
+    int ret = 0;
+    struct hdmi_capability_manager *mgr = get_hdmi_capability_manager(adev);
+    if (!mgr) {
+        ALOGE("%s() Error, hdmi_capability_manager = NULL, return!", __func__);
+        return -EINVAL;
+    }
+
+    pthread_mutex_init(&mgr->lock, NULL);
+    ALOGI("%s() OK", __func__);
+    return ret;
+}
+
+void destroy_hdmi_capability_manager(struct aml_audio_device *adev)
+{
+    if (!adev->hdmi_cap_mgr) {
+        return;
+    }
+
+    struct hdmi_capability_manager *mgr = get_hdmi_capability_manager(adev);
+    pthread_mutex_destroy(&mgr->lock);
+    free(mgr);
+    adev->hdmi_cap_mgr = NULL;
+    ALOGI("%s() done!", __func__);
+}

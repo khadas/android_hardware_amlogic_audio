@@ -20,6 +20,7 @@
 #define _AUDIO_HWSYNC_H_
 
 #include <stdbool.h>
+#include <cutils/log.h>
 
 #define SYSTIME_CORRECTION_THRESHOLD        (90000*10/100)
 #define NSEC_PER_SECOND 1000000000ULL

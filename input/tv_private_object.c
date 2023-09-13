@@ -1,0 +1,58 @@
+/*
+* Copyright (C) 2017 Amlogic Corporation.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*      http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+
+#define LOG_TAG "audio_hw_tv_patch"
+
+#include <stdio.h>
+#include <errno.h>
+
+#include "tv_private_object.h"
+#include "device_patch_mgr.h"
+
+
+bool is_tv_mute(struct aml_audio_device *adev)
+{
+    struct tv_private_object *tv_obj = get_tv_object(adev);
+    return tv_obj->mute_flag;
+}
+
+void enable_tv_mute(struct aml_audio_device *adev, bool enable)
+{
+    struct tv_private_object *tv_obj = get_tv_object(adev);
+    tv_obj->mute_flag = enable;
+}
+
+int init_tv_object(struct aml_audio_device *adev)
+{
+    struct tv_private_object *tv_obj = get_tv_object(adev);
+    if (!tv_obj) {
+        ALOGE("%s() Error, tv_obj = NULL, return!", __func__);
+        return -EINVAL;
+    }
+
+    tv_obj->mute_flag = false;
+    return 0;
+}
+
+int destroy_tv_object(struct aml_audio_device *adev)
+{
+    struct tv_private_object *tv_obj = get_tv_object(adev);
+    if (!tv_obj) {
+        return -EINVAL;
+    }
+
+    return 0;
+}

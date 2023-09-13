@@ -37,6 +37,9 @@
 #include "audio_hw_ms12_common.h"
 #include "aml_audio_ms12_sync.h"
 #include "aml_audio_output.h"
+#include "tv_private_object.h"
+#include "dtv_private_object.h"
+#include "audio_hw_resource_mgr.h"
 
 #define MS12_MAIN_WRITE_LOOP_THRESHOLD                  (2000)
 #define AUDIO_IEC61937_FRAME_SIZE 4
@@ -52,7 +55,7 @@ int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     int ms12_latencyms = 0;
 
@@ -92,7 +95,7 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
     int ret = 0;
     int total_write = 0;
     void *buffer = (void *)write_buf;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     int write_retry =0;
     size_t used_size = 0;
     audio_data_info_t data_info = { 0 };
@@ -109,14 +112,14 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
             __func__, __LINE__, aml_out->hal_format, output_format, adev->sink_format,ms12->do_easing);
     }
 
-    if ((adev->patch_src == SRC_HDMIIN ||
-            adev->patch_src == SRC_SPDIFIN ||
-            adev->patch_src == SRC_LINEIN ||
-            adev->patch_src == SRC_ATV ||
-            adev->patch_src == SRC_DTV ||
-            adev->patch_src == SRC_ARCIN) && patch) {
+    if ((is_same_patch_src(adev, SRC_HDMIIN)  ||
+         is_same_patch_src(adev, SRC_SPDIFIN) ||
+         is_same_patch_src(adev, SRC_LINEIN)  ||
+         is_same_patch_src(adev, SRC_ATV)     ||
+         is_same_patch_src(adev, SRC_DTV)     ||
+         is_same_patch_src(adev, SRC_ARCIN)) && patch) {
 
-        if ((patch->need_do_avsync || !patch->input_signal_stable) && adev->patch_src != SRC_DTV) {
+        if ((patch->need_do_avsync || !patch->input_signal_stable) && !is_same_patch_src(adev, SRC_DTV)) {
             if (!ms12->is_muted) {
                 set_ms12_main_audio_mute(ms12, true, 0);
             }
@@ -139,7 +142,7 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
 
     } else {
         /*not continuous mode, we use sink gain control the volume*/
-        if (adev->audio_patch) {
+        if (is_dev_patch_exist(adev)) {
             /* non-TV device, here the dtv set the dolby ms12's volume*/
             dtv_set_ms12_volume_on_non_TV_device(aml_out);
 
@@ -159,7 +162,7 @@ re_write:
             ALOGI("%s dolby_ms12_main_process before write_bytes %zu!\n", __func__, write_bytes);
         }
 #ifdef ENABLE_DVB_PATCH
-        bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->is_tv_src_stream;
+        bool dtv_stream_flag = patch && is_same_patch_src(adev, SRC_DTV) && aml_out->is_tv_src_stream;
         if (dtv_stream_flag && patch->output_thread_exit) {
             return return_bytes;
         }
@@ -219,7 +222,7 @@ static int aml_audio_ms12_process(struct audio_stream_out *stream, const void *w
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
     int return_bytes = write_bytes;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     bool need_separate_frame  = false;
     int ret = 0;
 
@@ -237,7 +240,7 @@ static int aml_audio_ms12_process(struct audio_stream_out *stream, const void *w
      */
     if (!adev->continuous_audio_mode && !patch && !audio_is_linear_pcm(aml_out->hal_format)) {
         need_separate_frame = true;
-    } else if (patch && (adev->patch_src == SRC_DTV) && (BYPASS == adev->digital_audio_format)) {
+    } else if (patch && is_same_patch_src(adev, SRC_DTV) && (BYPASS == adev->digital_audio_format)) {
         need_separate_frame = true;
     }
     if (need_separate_frame) {
@@ -284,7 +287,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
     int return_bytes = bytes;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     void *output_buffer = NULL;
     size_t output_buffer_bytes = 0;
     int out_frames = 0;
@@ -294,7 +297,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     bool bypass_aml_dec = false;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 #ifdef ENABLE_DVB_PATCH
-    bool dtv_stream_flag = patch && (adev->patch_src == SRC_DTV) && aml_out->is_tv_src_stream;
+    bool dtv_stream_flag = patch && is_same_patch_src(adev, SRC_DTV) && aml_out->is_tv_src_stream;
     bool do_sync_flag = dtv_stream_flag && patch && patch->skip_amadec_flag && patch->dtvsync->sync_type == DTVSYNC_MEDIASYNC;
 #endif
 
@@ -406,7 +409,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                 if (dec_pcm_data->data_len > 0) {
                     void  *dec_data = (void *)dec_pcm_data->buf;
 #ifdef ENABLE_DVB_PATCH
-                    if (dtv_stream_flag && adev->start_mute_flag == 1) {
+                    if (dtv_stream_flag && is_dtv_start_mute(adev)) {
                         memset(dec_pcm_data->buf, 0, dec_pcm_data->data_len);
                     }
 #endif
@@ -456,7 +459,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                         alsa_latency = 90 *(out_get_alsa_latency_frames(stream)  * 1000) / aml_out->config.rate;
                         int tune_latency = aml_audio_dtv_get_ms12_latency(stream) * SECOND_2_PTS / dec_pcm_data->data_sr;
 
-                        if (adev->bHDMIARCon) {
+                        if (is_arc_connected(adev)) {
                             force_setting_delayms = aml_getprop_int(PROPERTY_LOCAL_PASSTHROUGH_LATENCY);
                         }
 

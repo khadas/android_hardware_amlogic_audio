@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_hw_primary"
+#define LOG_TAG "audio_hw_tv_avsync"
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>
@@ -30,6 +30,7 @@
 #include "alsa_manager.h"
 #include "dolby_lib_api.h"
 #include "aml_alsa_mixer.h"
+#include "audio_hw_resource_mgr.h"
 
 enum error_status {
     INPUT_ERROR = 1,
@@ -67,7 +68,7 @@ static int get_tvin_min_delay(struct aml_mixer_handle *mixer_handle)
 
 static void check_skip_frames(struct aml_audio_device *aml_dev)
 {
-    struct aml_audio_patch *patch = aml_dev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(aml_dev);
     snd_pcm_sframes_t frames = 0;
     struct pcm *pcm_handle = aml_dev->pcm_handle[I2S_DEVICE];
     struct pcm *pcm_handle_spdif = aml_dev->pcm_handle[DIGITAL_DEVICE];
@@ -79,7 +80,7 @@ static void check_skip_frames(struct aml_audio_device *aml_dev)
     patch->skip_frames = 0;
     /* for spk, check i2s device latency */
     if (pcm_handle && patch->need_do_avsync == true &&
-        patch->is_avsync_start == false && aml_dev->bHDMIARCon == 0) {
+        patch->is_avsync_start == false && !is_arc_connected(aml_dev)) {
         if (pcm_ioctl(pcm_handle, SNDRV_PCM_IOCTL_DELAY, &frames) >= 0) {
             alsa_out_i2s_ltcy = frames / SAMPLE_RATE_MS;
 
@@ -93,7 +94,7 @@ static void check_skip_frames(struct aml_audio_device *aml_dev)
     int alsa_out_spdif_ltcy = -1;
     /* for arc, check spdif device latency */
     if (pcm_handle_spdif && patch->need_do_avsync == true &&
-        patch->is_avsync_start == false && aml_dev->bHDMIARCon == 1) {
+        patch->is_avsync_start == false && is_arc_connected(aml_dev)) {
         if (pcm_ioctl(pcm_handle_spdif, SNDRV_PCM_IOCTL_DELAY, &frames) >= 0) {
             alsa_out_spdif_ltcy = calc_frame_to_latency(frames, aml_dev->sink_format);
 
@@ -160,7 +161,7 @@ static int ringbuffer_seek(struct aml_audio_patch *patch, int tune_val)
 int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *latency_details)
 {
     struct aml_stream_in *in = aml_dev->active_input;
-    struct aml_audio_patch *patch = aml_dev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(aml_dev);
     int rbuf_ltcy = 0, spk_tuning_ltcy = 0, ms12_ltcy = 0, alsa_in_ltcy = 0;
     int alsa_out_i2s_ltcy = 0, alsa_out_spdif_ltcy = 0, alsa_output_latency = 0;;
     int whole_path_ltcy = 0, in_path_ltcy = 0, out_path_ltcy = 0;
@@ -217,7 +218,7 @@ int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *la
         }
 
         /* if arc is connected and format setting is "Passthrough", bypass MS12 */
-        if (aml_dev->bHDMIARCon == 1 && aml_dev->digital_audio_format == BYPASS)
+        if (is_arc_connected(aml_dev) && aml_dev->digital_audio_format == BYPASS)
             ms12_ltcy = 0;
 
         patch->audio_latency.ms12_latency = ms12_ltcy;
@@ -429,7 +430,7 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
     factor = (patch->aformat == AUDIO_FORMAT_E_AC3) ? 2 : 1;
 
     /* if Aux-in has no video-in module, no need do av sync */
-    if (aml_dev->patch_src == SRC_LINEIN && get_tvin_delay(&aml_dev->alsa_mixer) < 0) {
+    if (is_same_patch_src(aml_dev, SRC_LINEIN) && get_tvin_delay(&aml_dev->alsa_mixer) < 0) {
         patch->need_do_avsync = false;
         return 0;
     }

@@ -21,8 +21,6 @@
 #include <tinyalsa/asoundlib.h>
 #include <cutils/properties.h>
 #include <audio_utils/channels.h>
-#include <audio_route/audio_route.h>
-
 
 #include "aml_alsa_mixer.h"
 #include "aml_audio_stream.h"
@@ -37,6 +35,8 @@
 #include "audio_hw_ms12.h"
 #include "amlAudioMixer.h"
 #include "audio_hw_ms12_common.h"
+#include "audio_hw_resource_mgr.h"
+#include "dtv_private_object.h"
 
 #ifdef MS12_V24_ENABLE
 #include "audio_hw_ms12_v2.h"
@@ -79,7 +79,7 @@ static audio_format_t ms12_max_support_output_format() {
  */
 static audio_format_t get_sink_capability (struct aml_audio_device *adev)
 {
-    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+    struct aml_arc_hdmi_desc *hdmi_desc = get_arc_hdmi_cap(adev);
 
     bool dd_is_support = hdmi_desc->dd_fmt.is_support;
     bool ddp_is_support = hdmi_desc->ddp_fmt.is_support;
@@ -91,11 +91,11 @@ static audio_format_t get_sink_capability (struct aml_audio_device *adev)
     //TV + STB case (BDS)
     //TODO HDMITX+ARC mixed connected case
     //need check active port ???
-    if (!adev->is_TV || adev->is_BDS)
+    if (!is_TV(adev) || is_BDS(adev))
     {
         char *cap = NULL;
         /*we should get the real audio cap, so we need it report the correct truehd info*/
-        cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_FORMATS,0,&(adev->hdmi_descs), true);
+        cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_FORMATS,0, hdmi_desc, true);
         if (cap) {
             /*
              * Dolby MAT 2.0/2.1 has low latency vs Dolby MAT 1.0(TRUEHD inside)
@@ -136,7 +136,7 @@ static audio_format_t get_sink_capability (struct aml_audio_device *adev)
         mat_is_support = hdmi_desc->mat_fmt.is_support;
 
     } else {
-        if (mat_is_support || adev->hdmi_descs.mat_fmt.MAT_PCM_48kHz_only) {
+        if (mat_is_support || hdmi_desc->mat_fmt.MAT_PCM_48kHz_only) {
             sink_capability = AUDIO_FORMAT_MAT;
             mat_is_support = true;
             hdmi_desc->mat_fmt.is_support = true;
@@ -149,7 +149,7 @@ static audio_format_t get_sink_capability (struct aml_audio_device *adev)
         /* eARC TXs support formats at least support dd, for Test ID HFR5-1-27 */
         if (sink_capability == AUDIO_FORMAT_PCM_16_BIT &&
             aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_ATTENDED_TYPE) == ATTEND_TYPE_EARC &&
-            adev->bHDMIARCon) {
+            is_arc_connected(adev)) {
             sink_capability = AUDIO_FORMAT_AC3;
             dd_is_support = true;
             hdmi_desc->dd_fmt.is_support = true;
@@ -175,7 +175,7 @@ static audio_format_t get_sink_capability (struct aml_audio_device *adev)
 
 static audio_format_t get_sink_dts_capability (struct aml_audio_device *adev)
 {
-    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+    struct aml_arc_hdmi_desc *hdmi_desc = get_arc_hdmi_cap(adev);
 
     bool dts_is_support = hdmi_desc->dts_fmt.is_support;
     bool dtshd_is_support = hdmi_desc->dtshd_fmt.is_support;
@@ -183,14 +183,14 @@ static audio_format_t get_sink_dts_capability (struct aml_audio_device *adev)
     audio_format_t sink_capability = AUDIO_FORMAT_PCM_16_BIT;
 
     //STB case
-    if (!adev->is_TV)
+    if (!is_TV(adev))
     {
         char *cap = NULL;
-        cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_FORMATS,0,&(adev->hdmi_descs), true);
+        cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_FORMATS,0,hdmi_desc, true);
         if (cap) {
-            if (adev->hdmi_descs.dts_fmt.is_support) {
+            if (hdmi_desc->dts_fmt.is_support) {
                 sink_capability = AUDIO_FORMAT_DTS;
-            } else if (adev->hdmi_descs.dtshd_fmt.is_support) {
+            } else if (hdmi_desc->dtshd_fmt.is_support) {
                 sink_capability = AUDIO_FORMAT_DTS_HD;
             }
             ALOGI("%s mbox+dvb case sink_capability %#x\n", __FUNCTION__, sink_capability);
@@ -211,19 +211,19 @@ static audio_format_t get_sink_dts_capability (struct aml_audio_device *adev)
 
 static audio_format_t get_sink_mpegh_capability (struct aml_audio_device *adev)
 {
-    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+    struct aml_arc_hdmi_desc *hdmi_desc = get_arc_hdmi_cap(adev);
 
     bool mpegh_is_support = hdmi_desc->mpegh_fmt.is_support;
 
     audio_format_t sink_capability = AUDIO_FORMAT_PCM_16_BIT;
 
     //STB case
-    if (!adev->is_TV)
+    if (!is_TV(adev))
     {
         char *cap = NULL;
-        cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_FORMATS, 0, &(adev->hdmi_descs), true);
+        cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_FORMATS, 0, hdmi_desc, true);
         if (cap) {
-            if (adev->hdmi_descs.mpegh_fmt.is_support) {
+            if (hdmi_desc->mpegh_fmt.is_support) {
                 sink_capability = (audio_format_t)AUDIO_FORMAT_MPEGH;
             }
             ALOGI("%s mbox+dvb case sink_capability %#x\n", __FUNCTION__, sink_capability);
@@ -241,11 +241,11 @@ static audio_format_t get_sink_mpegh_capability (struct aml_audio_device *adev)
 
 static void get_sink_pcm_capability(struct aml_audio_device *adev)
 {
-    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+    struct aml_arc_hdmi_desc *hdmi_desc = get_arc_hdmi_cap(adev);
     char *cap = NULL;
     hdmi_desc->pcm_fmt.sample_rate_mask = 0;
 
-    cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES, AUDIO_FORMAT_PCM_16_BIT,&(adev->hdmi_descs), true);
+    cap = (char *) get_hdmi_sink_cap_new (AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES, AUDIO_FORMAT_PCM_16_BIT,hdmi_desc, true);
     if (cap) {
         /*
          * bit:    6     5     4    3    2    1    0
@@ -275,7 +275,7 @@ static void get_sink_pcm_capability(struct aml_audio_device *adev)
 
 static unsigned int get_sink_format_max_channels(struct aml_audio_device *adev, audio_format_t sink_format) {
     unsigned int max_channels = 2;
-    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+    struct aml_arc_hdmi_desc *hdmi_desc = get_arc_hdmi_cap(adev);
 
     switch (sink_format) {
     case AUDIO_FORMAT_PCM_16_BIT:
@@ -479,7 +479,7 @@ void get_sink_format(struct audio_stream_out *stream)
     // condition 1: ARC port, single output.
     // condition 2: for STB case with dolby-ms12 libs
     // condition 3: T7 BDS with HDMITX case
-    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0 || !adev->is_TV || adev->is_BDS) {
+    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0 || !is_TV(adev) || is_BDS(adev)) {
         struct audio_board_config *bd_config = &adev->board_config;
         ALOGI("%s() HDMI ARC or mbox + dvb case", __FUNCTION__);
         switch (adev->digital_audio_format) {
@@ -719,63 +719,10 @@ void aml_stream_out_dump(struct aml_stream_out *aml_out, int fd)
     }
 }
 
-void aml_audio_port_config_dump(struct audio_port_config *port_config, int fd)
-{
-    if (port_config == NULL)
-        return;
-
-    dprintf(fd, "\t-id(%d), role(%s), type(%s)\n", port_config->id, audioPortRole2Str(port_config->role), audioPortType2Str(port_config->type));
-    switch (port_config->type) {
-    case AUDIO_PORT_TYPE_DEVICE:
-        dprintf(fd, "\t-port device: type(%#x) addr(%s)\n",
-               port_config->ext.device.type, port_config->ext.device.address);
-        break;
-    case AUDIO_PORT_TYPE_MIX:
-        dprintf(fd, "\t-port mix: io handle(%d)\n", port_config->ext.mix.handle);
-        break;
-    default:
-        break;
-    }
-}
-
-void aml_audio_patch_dump(struct audio_patch *patch, int fd)
-{
-    int i = 0;
-
-    dprintf(fd, " handle %d\n", patch->id);
-    for (i = 0; i < patch->num_sources; i++) {
-        dprintf(fd, "    [src  %d]\n", i);
-        aml_audio_port_config_dump(&patch->sources[i], fd);
-    }
-
-    for (i = 0; i < patch->num_sinks; i++) {
-        dprintf(fd, "    [sink %d]\n", i);
-        aml_audio_port_config_dump(&patch->sinks[i], fd);
-    }
-}
-
-void aml_audio_patches_dump(struct aml_audio_device* aml_dev, int fd)
-{
-    struct audio_patch_set *patch_set = NULL;
-    struct audio_patch *patch = NULL;
-    struct listnode *node = NULL;
-    int i = 0;
-
-    dprintf(fd, "\nAML Audio Patches:\n");
-    list_for_each(node, &aml_dev->patch_list) {
-        dprintf(fd, "  patch %d:", i);
-        patch_set = node_to_item (node, struct audio_patch_set, list);
-        if (patch_set)
-            aml_audio_patch_dump(&patch_set->audio_patch, fd);
-
-        i++;
-    }
-}
-
 int aml_dev_dump_latency(struct aml_audio_device *aml_dev, int fd)
 {
     struct aml_stream_in *in = aml_dev->active_input;
-    struct aml_audio_patch *patch = aml_dev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(aml_dev);
 
     dprintf(fd, "-------------[AML_HAL] audio Latency--------------------------\n");
 
@@ -798,44 +745,6 @@ int aml_dev_dump_latency(struct aml_audio_device *aml_dev, int fd)
     }
     return 0;
 }
-
-void audio_patch_dump(struct aml_audio_device* aml_dev, int fd)
-{
-    struct aml_audio_patch *pstPatch = aml_dev->audio_patch;
-    if (NULL == pstPatch) {
-        dprintf(fd, "-------------[AML_HAL] audio patch [not create]-----------\n");
-        return;
-    }
-    dprintf(fd, "-------------[AML_HAL] audio patch [%p]---------------\n", pstPatch);
-    if (pstPatch->aml_ringbuffer.size != 0) {
-        uint32_t u32FreeBuffer = get_buffer_write_space(&pstPatch->aml_ringbuffer);
-        dprintf(fd, "[AML_HAL]      RingBuf   size: %10d Byte|  UnusedBuf:%10d Byte(%d%%)\n",
-        pstPatch->aml_ringbuffer.size, u32FreeBuffer, u32FreeBuffer* 100 / pstPatch->aml_ringbuffer.size);
-    } else {
-        dprintf(fd, "[AML_HAL]      patch  RingBuf    : buffer size is 0\n");
-    }
-    if (pstPatch->audio_parse_para) {
-        int s32AudioType = ((audio_type_parse_t*)pstPatch->audio_parse_para)->audio_type;
-        dprintf(fd, "[AML_HAL]      Hal audio Type: [0x%x]%-10s| Src Format:%#10x\n", s32AudioType,
-            audio_type_convert_to_string(s32AudioType),  pstPatch->aformat);
-    }
-
-    dprintf(fd, "[AML_HAL]      IN_SRC        : %#10x     | OUT_SRC   :%#10x\n", pstPatch->input_src, pstPatch->output_src);
-    dprintf(fd, "[AML_HAL]      IN_Format     : %#10x     | OUT_Format:%#10x\n", pstPatch->aformat, pstPatch->out_format);
-    dprintf(fd, "[AML_HAL]      sink format: %#x\n", aml_dev->sink_format);
-    if ((aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0) {
-        struct aml_arc_hdmi_desc *hdmi_desc = &aml_dev->hdmi_descs;
-        bool dd_is_support = hdmi_desc->dd_fmt.is_support;
-        bool ddp_is_support = hdmi_desc->ddp_fmt.is_support;
-        bool mat_is_support = hdmi_desc->mat_fmt.is_support;
-
-        dprintf(fd, "[AML_HAL]      -dd: %d, ddp: %d, mat: %d\n",
-                dd_is_support, ddp_is_support, mat_is_support);
-    }
-
-
-}
-
 
 void aml_alsa_device_status_dump(struct aml_audio_device* aml_dev, int fd)
 {
@@ -1139,76 +1048,6 @@ void update_audio_format(struct aml_audio_device *adev, audio_format_t format)
      */
 }
 
-int audio_route_set_hdmi_arc_mute(struct aml_mixer_handle *mixer_handle, int enable)
-{
-    int extern_arc = 0;
-
-    if (check_chip_name("t5", 3, mixer_handle) || check_chip_name("t5d", 3, mixer_handle))
-        extern_arc = 1;
-    if (extern_arc) {
-        return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_SPDIF_MUTE, enable);
-    } else {
-        return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_ARC_EARC_SPDIFOUT_REG_MUTE, enable);
-    }
-}
-
-int audio_route_set_spdif_mute(struct aml_mixer_handle *mixer_handle, int enable)
-{
-    int extern_arc = 0;
-
-    if (check_chip_name("t5", 3, mixer_handle) || check_chip_name("t5d", 3, mixer_handle))
-        extern_arc = 1;
-
-    if (extern_arc) {
-        return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_SPDIF_B_MUTE, enable);
-    } else {
-        return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_SPDIF_MUTE, enable);
-    }
-}
-
-void audio_route_set_speaker_mute(struct aml_audio_device* aml_dev, int enable)
-{
-    if (aml_dev == NULL) {
-        return;
-    }
-
-    if (enable) {
-        //Need reset fading status, keep alsa mixer and audio route same status.
-        audio_route_apply_path(aml_dev->ar, "speaker_fadein");
-        audio_route_update_mixer(aml_dev->ar);
-        audio_route_apply_path(aml_dev->ar, "speaker_fadeout");
-    } else {
-        audio_route_apply_path(aml_dev->ar, "speaker_fadein");
-    }
-    audio_route_update_mixer(aml_dev->ar);
-    // Need time to fedaout
-    if (enable) {
-        aml_audio_sleep(15000);
-    }
-
-    return;
-}
-
-void audio_route_set_speaker_mute_l(struct aml_audio_device* aml_dev, int enable)
-{
-    if (aml_dev == NULL) {
-        return;
-    }
-
-    if (enable) {
-        //Need reset fading status, keep alsa mixer and audio route same status.
-        audio_route_apply_path(aml_dev->ar, "speaker_fadein");
-        audio_route_update_mixer(aml_dev->ar);
-        audio_route_apply_path(aml_dev->ar, "speaker_fadeout");
-    } else {
-        audio_route_apply_path(aml_dev->ar, "speaker_fadein");
-    }
-    audio_route_update_mixer(aml_dev->ar);
-
-    return;
-}
-
-
 
 int update_sink_format_after_hotplug(struct aml_audio_device *adev)
 {
@@ -1254,38 +1093,13 @@ int update_sink_format_after_hotplug(struct aml_audio_device *adev)
 }
 
 
-void create_tvin_buffer(struct aml_audio_patch *patch)
-{
-    int ret;
-
-    if (patch->is_dtv_src) {
-        /* dtv case: buffer len = 32 * 4 ms */
-        ret = ring_buffer_init(&patch->tvin_ringbuffer, (32 * 4) * (48 * 4));
-    } else {
-        ret = ring_buffer_init(&patch->tvin_ringbuffer, 4 * 48 * 64);
-    }
-    ALOGI("[%s] aring_buffer_init ret=%d\n", __FUNCTION__, ret);
-    if (ret == 0) {
-        patch->tvin_buffer_inited = 1;
-    }
-
-}
-
-void release_tvin_buffer(struct aml_audio_patch *patch)
-{
-    if (patch->tvin_buffer_inited == 1) {
-        patch->tvin_buffer_inited = 0;
-        ring_buffer_release(&(patch->tvin_ringbuffer));
-    }
-}
-
 uint32_t tv_in_write(struct audio_stream_out *stream, const void* buffer, size_t bytes)
 {
     R_CHECK_POINTER_LEGAL(bytes, stream, "");
     R_CHECK_POINTER_LEGAL(bytes, buffer, "");
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     R_CHECK_POINTER_LEGAL(bytes, patch, "");
     if (bytes == 0 || patch->tvin_buffer_inited != 1) {
         return bytes;
@@ -1297,9 +1111,9 @@ uint32_t tv_in_write(struct audio_stream_out *stream, const void* buffer, size_t
             ALOGI("%s, dtv avsync drop %d bytes, need_drop_size %d\n", __func__, (int)bytes, patch->need_drop_size);
             return bytes;
         }
-        if (adev->discontinue_mute_flag == 1 || adev->start_mute_flag || !patch->dtv_first_apts_flag) {
+        if (is_dtv_discontinue_mute(adev) || is_dtv_start_mute(adev) || !patch->dtv_first_apts_flag) {
             ALOGI("%s, dtv avsync mute %d bytes, start_mute %d, discontinue_mute %d", __func__, (int)bytes,
-                adev->start_mute_flag, adev->discontinue_mute_flag);
+                is_dtv_start_mute(adev), is_dtv_discontinue_mute(adev));
             memset((char *)buffer, 0, bytes);
         }
     }
@@ -1334,7 +1148,7 @@ uint32_t tv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
     R_CHECK_POINTER_LEGAL(bytes, buffer, "");
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
     struct aml_audio_device *adev = in->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     R_CHECK_POINTER_LEGAL(bytes, patch, "");
     if (bytes == 0 || patch->tvin_buffer_inited != 1) {
         memset(buffer, 0, bytes);
@@ -1392,7 +1206,7 @@ void tv_do_ease_in(struct audio_stream_out *stream, void *write_buf, size_t writ
             if (aml_dev->mute_start) {
                 /* fade in start */
                 ALOGI("start fade in fade_mode %d", fade_mode);
-                audio_route_set_speaker_mute(aml_dev, false);
+                set_output_device_mute(aml_dev, AUDIO_DEVICE_OUT_SPEAKER, false, true);
                 aml_dev->mute_start = false;
             }
             break;
@@ -1427,7 +1241,7 @@ void tv_do_ease_in(struct audio_stream_out *stream, void *write_buf, size_t writ
                     start_ease_in(aml_dev->audio_ease);
                     aml_dev->mute_start = false;
                 }
-                if (aml_dev->audio_patching) {
+                if (is_dev_patch_running(aml_dev)) {
                       /*ease in or ease out*/
                      aml_audio_ease_process(aml_dev->audio_ease, write_buf, write_bytes);
                 }
@@ -1448,7 +1262,9 @@ void tv_do_ease_out(struct aml_audio_device *aml_dev)
     switch (fade_mode) {
         case DO_FADE_AT_ALSA:
             if (aml_dev->mute_start == false) {
-                audio_route_set_speaker_mute(aml_dev, true);
+                set_output_device_mute(aml_dev, AUDIO_DEVICE_OUT_SPEAKER, true, true/*use fade*/);
+                // Need time to fedaout
+                aml_audio_sleep(15000);
                 aml_dev->mute_start = true;
             }
             break;
@@ -1466,7 +1282,7 @@ void tv_do_ease_out(struct aml_audio_device *aml_dev)
                     ALOGI("%s()skip fade out", __func__);
                 } else {
                     ALOGI("%s()do fade out fade_mode %d", __func__, fade_mode);
-                    if (aml_dev->is_TV) {
+                    if (is_TV(aml_dev)) {
                         if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
                             duration_ms = property_get_int32("vendor.media.audio.dtv.fadeout.us", MS12_AUDIO_FADEOUT_TV_DURATION_US) / 1000;
                         } else {
@@ -1482,7 +1298,7 @@ void tv_do_ease_out(struct aml_audio_device *aml_dev)
                         usleep(2 * duration_ms * 1000);
                         aml_dev->ms12.do_easing = false;
                     } else {
-                        start_ease_out(aml_dev->audio_ease, aml_dev->is_TV, duration_ms / 2);
+                        start_ease_out(aml_dev->audio_ease, is_TV(aml_dev), duration_ms / 2);
                         usleep(duration_ms * 1000);
                     }
                 }

@@ -17,6 +17,8 @@
 #ifndef _DTV_PATCH_HAL_AVSYNC_H_
 #define _DTV_PATCH_HAL_AVSYNC_H_
 
+struct aml_audio_patch;
+
 /* decoder/tsync fs node */
 #define TSYNC_PCRSCR               "/sys/class/tsync/pts_pcrscr"
 #define TSYNC_EVENT                "/sys/class/tsync/event"

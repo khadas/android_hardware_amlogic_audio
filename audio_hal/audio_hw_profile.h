@@ -17,6 +17,10 @@
 #ifndef _AUDIO_HW_PROFILE_H_
 #define _AUDIO_HW_PROFILE_H_
 
+struct aml_arc_hdmi_desc;
+struct audio_hw_device;
+struct audio_stream;
+
 int get_external_card(int type);
 char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_hdmi_desc *p_hdmi_descs);
 char*  get_hdmi_sink_cap_new(const char *keys,audio_format_t format,struct aml_arc_hdmi_desc *p_hdmi_descs, bool report_truehd);

@@ -1,5 +1,5 @@
 /*
-* Copyright 2023 Amlogic Inc. All rights reserved.
+* Copyright (C) 2017 Amlogic Corporation.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,11 +14,25 @@
 * limitations under the License.
 */
 
-#ifndef _TV_PATCH_H_
-#define _TV_PATCH_H_
 
-int create_tv_patch(struct aml_audio_device *aml_dev, audio_devices_t input, audio_devices_t output);
-int release_tv_patch(struct aml_audio_device *aml_dev);
+#ifndef TV_PRIVATE_OBJECT_H_
+#define TV_PRIVATE_OBJECT_H_
 
-#endif /* _TV_PATCH_H_ */
+#include <stdio.h>
+#include <stdbool.h>
+#include <sys/types.h>
 
+struct aml_audio_device;
+
+struct tv_private_object {
+    bool mute_flag;
+};
+
+
+bool is_tv_mute(struct aml_audio_device *adev);
+void enable_tv_mute(struct aml_audio_device *adev, bool enable);
+
+int init_tv_object(struct aml_audio_device *adev);
+int destroy_tv_object(struct aml_audio_device *adev);
+
+#endif

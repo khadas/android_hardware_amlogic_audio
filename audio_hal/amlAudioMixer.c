@@ -47,6 +47,7 @@
 #include "aml_audio_timer.h"
 #include "aml_malloc_debug.h"
 #include "aml_audio_spdifout.h"
+#include "audio_hw_resource_mgr.h"
 
 
 enum {
@@ -498,7 +499,7 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
             }
             in_data_config.sample_rate = out_port->cfg.sampleRate;
             in_data_config.format = out_port->cfg.format;
-            if (adev->is_TV)
+            if (is_TV(adev))
                 apply_volume(adev->sink_gain[OUTPORT_BT_SCO], out_port->data_buf, sizeof(uint16_t),
                     out_port->bytes_avail);
             ret = write_to_sco(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
@@ -519,8 +520,8 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
                 }
                 in_data_config.sample_rate = out_port->cfg.sampleRate;
                 in_data_config.format = out_port->cfg.format;
-                if (adev->is_TV) {
-                    float volume = aml_audio_get_s_gain_by_src(adev, adev->patch_src);
+                if (is_TV(adev)) {
+                    float volume = aml_audio_get_s_gain_by_src(adev, get_dev_patch_src(adev));
 
                     volume *= adev->sink_gain[OUTPORT_A2DP];
                     apply_volume(volume, out_port->data_buf, sizeof(uint16_t),
@@ -529,7 +530,7 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
                 alsa_status = a2dp_out_get_status(adev);
                 a2dp_out_write(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
             }
-            if (!adev->is_TV && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
+            if (!is_TV(adev) && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
                 // For STB, do not send data to spdif/hdmitx when bt is connected and mute hdmitx cannot be controlled.
             } else {
                 if (audio_mixer->submix_standby) {
@@ -1047,7 +1048,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
                 aml_audio_dump_audio_bitstreams("/data/audio/sysAftermix.raw",
                         p_2ch_mixer->mixed_buf, frames * FRAMESIZE_32BIT_STEREO);
             }
-            if (adev->is_TV) {
+            if (is_TV(adev)) {
                 apply_volume(gain_speaker, p_2ch_mixer->mixed_buf,
                     sizeof(uint32_t), frames * FRAMESIZE_32BIT_STEREO);
             }
@@ -1074,7 +1075,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
             if (DEBUG_DUMP)
                 aml_audio_dump_audio_bitstreams("/data/audio/tmpMixed1.raw",
                     p_2ch_mixer->mixed_buf, frames * p_2ch_mixer->mixed_frame_size);
-            if (adev->is_TV) {
+            if (is_TV(adev)) {
                 apply_volume(gain_speaker, p_2ch_mixer->mixed_buf,
                     sizeof(uint32_t), frames * FRAMESIZE_32BIT_STEREO);
             }
@@ -1109,7 +1110,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
             aml_audio_dump_audio_bitstreams("/data/audio/sysTmp.raw",
                     p_2ch_mixer->mixed_buf, frames * FRAMESIZE_32BIT_STEREO);
         }
-        if (adev->is_TV) {
+        if (is_TV(adev)) {
             apply_volume(gain_speaker, p_2ch_mixer->mixed_buf,
                 sizeof(uint32_t), frames * FRAMESIZE_32BIT_STEREO);
         }
@@ -1167,7 +1168,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
                 aml_audio_dump_audio_bitstreams("/data/audio/dirctTmp.raw",
                         p_2ch_mixer->mixed_buf, frames * FRAMESIZE_32BIT_STEREO);
             }
-            if (adev->is_TV) {
+            if (is_TV(adev)) {
                 apply_volume(gain_speaker, p_2ch_mixer->mixed_buf,
                     sizeof(uint32_t), frames * FRAMESIZE_32BIT_STEREO);
             }
@@ -1260,8 +1261,9 @@ static int mixer_config_multich_output(struct amlAudioMixer *audio_mixer, struct
     struct audioCfg *p_mixer_cfg = &audio_mixer->multich_mixer.cfg;
     struct audioCfg cfg;
     bool input_port_empty = true;
+    struct aml_arc_hdmi_desc* hdmi_descs = get_arc_hdmi_cap(adev);
 
-    sink_max_channels = adev->hdmi_descs.pcm_fmt.max_channels;
+    sink_max_channels = hdmi_descs->pcm_fmt.max_channels;
     if (is_bypass_submix_active(adev)) {
         AM_LOGV("is_bypass_submix_active");
         return 0;
@@ -1381,6 +1383,7 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
     void                        *mixed_data_ptr = NULL;
     int                         mixed_data_size = 0;
     mc_output_port              *mc_out_port = NULL;
+    struct aml_arc_hdmi_desc * hdmi_descs = get_arc_hdmi_cap(adev);
 
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
     if (port_index == MIXER_OUTPUT_PORT_INVAL) {
@@ -1542,7 +1545,7 @@ static void *mixer_32b_threadloop(void *data)
         tpast_us = tspec_diff_to_us(audio_mixer->tval_last_write, tval_new);
         // audio patching should not in this write
         // TODO: fix me, make compatible with source output
-        if (!audio_mixer->adev->audio_patching) {
+        if (!is_dev_patch_running(audio_mixer->adev)) {
             mixer_output_write(audio_mixer);
             mixer_update_tstamp(audio_mixer);
         }

@@ -744,7 +744,7 @@ static void set_dolby_ms12_dap_init_mode(struct aml_audio_device *adev)
 
     /* Dolby MS12 V2 uses DAP Tuning file */
     if (adev->is_ms12_tuning_dat) {
-        dap_init_mode = get_ms12_dap_init_mode(adev->is_TV);
+        dap_init_mode = get_ms12_dap_init_mode(is_TV(adev));
     }
     else {
         dap_init_mode = 0;
@@ -796,7 +796,7 @@ int get_the_dolby_ms12_prepared(
     int dolby_ms12_drc_mode = DOLBY_DRC_RF_MODE;
     int system_app_mixing_status = SYSTEM_APP_SOUND_MIXING_OFF;
     struct aml_stream_out *out;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     aml_demux_audiopara_t *demux_info = NULL;
     uint64_t dtv_decoder_offset_base = 0;
     int  output_config;
@@ -875,7 +875,7 @@ int get_the_dolby_ms12_prepared(
             out->hal_format = aml_out->hal_internal_format;
             ALOGI("%s format convert to %#x in ott\n", __func__, out->hal_format);
         }
-        if (adev->is_TV) {
+        if (is_TV(adev)) {
             out->is_tv_platform  = 1;
             out->config.channels = 8;
             out->config.format = PCM_FORMAT_S32_LE;
@@ -896,7 +896,7 @@ int get_the_dolby_ms12_prepared(
     dolby_ms12_set_system_app_audio_mixing(system_app_mixing_status);
 
     /* set DAP init mode */
-    dolby_ms12_set_dap2_initialisation_mode(get_ms12_dap_init_mode(adev->is_TV));
+    dolby_ms12_set_dap2_initialisation_mode(get_ms12_dap_init_mode(is_TV(adev)));
 
     //init the dolby ms12
     ms12->dual_bitstream_support = adev->dual_spdif_support;
@@ -1831,7 +1831,7 @@ int dolby_ms12_bypass_process(struct audio_stream_out *stream, void *buffer, siz
     bool is_dolby = (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3) || (aml_out->hal_internal_format == AUDIO_FORMAT_AC3);
     spdif_config_t spdif_config = { 0 };
     /*for patch mode, the hal_rate is not correct, we should parse it*/
-    if (adev->audio_patching && is_dolby) {
+    if (is_dev_patch_running(adev) && is_dolby) {
         struct ac3_parser_info ac3_info = { 0 };
         void *main_frame_buffer = NULL;
         int32_t main_frame_size = 0;
@@ -2078,10 +2078,10 @@ void ms12_do_dtv_sync(struct audio_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     aml_dtvsync_t *aml_dtvsync = NULL;
 
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
+    bool do_sync_flag = is_same_patch_src(adev, SRC_DTV) && patch && patch->skip_amadec_flag;
 
     if (do_sync_flag) {
         if (patch->skip_amadec_flag && aml_out->dtvsync_enable) {
@@ -2128,7 +2128,7 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     aml_dtvsync_t *aml_dtvsync = NULL;
     audio_format_t output_format = (ms12_info) ? ms12_info->data_type : AUDIO_FORMAT_PCM_16_BIT;
@@ -2164,7 +2164,7 @@ void ms12_output_update_audio_pts(struct audio_stream_out *stream, aml_ms12_dec_
         /* ms12 tuning latency which is determined by different input-format/output-format/end-port */
         int ms12_tuning_delay_pts = aml_audio_dtv_get_ms12_latency(stream) * 1000 * MILLISECOND_2_PTS / sample_rate;
         int force_setting_delay_pts = 0;
-        if (adev->bHDMIARCon) {
+        if (is_arc_connected(adev)) {
            force_setting_delay_pts = aml_getprop_int(PROPERTY_LOCAL_PASSTHROUGH_LATENCY)  * MILLISECOND_2_PTS;
         }
 
@@ -2217,17 +2217,17 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     struct audio_stream_out *stream_out = (struct audio_stream_out *)aml_out;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     aml_dtvsync_t *aml_dtvsync = NULL;
     audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag && aml_out->is_tv_src_stream;
+    bool do_sync_flag = is_same_patch_src(adev, SRC_DTV) && patch && patch->skip_amadec_flag && aml_out->is_tv_src_stream;
     dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
     audio_format_t output_format = (ms12_info) ? ms12_info->data_type : AUDIO_FORMAT_PCM_16_BIT;
     unsigned int main_apts_high32b = (ms12_info) ? ms12_info->main_apts_high32b : 0;
     unsigned int main_apts_low32b = (ms12_info) ? ms12_info->main_apts_low32b : 0;
     unsigned int main1_apts_high32b = (ms12_info) ? ms12_info->main1_apts_high32b : 0;
     unsigned int main1_apts_low32b = (ms12_info) ? ms12_info->main1_apts_low32b : 0;
-    bool dtv_stream_flag = patch && (adev->patch_src  == SRC_DTV) && aml_out->is_tv_src_stream;
+    bool dtv_stream_flag = patch && is_same_patch_src(adev,SRC_DTV) && aml_out->is_tv_src_stream;
     int ret = 0;
 
     if (adev->debug_flag > 1) {
@@ -2353,8 +2353,8 @@ int stereo_pcm_output_l(void *buffer, void *priv_data, size_t size)
     struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-    struct aml_audio_patch *patch = adev->audio_patch;
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
+    bool do_sync_flag = is_same_patch_src(adev, SRC_DTV) && patch && patch->skip_amadec_flag;
     int ret = 0;
 
     ret = stereo_pcm_output(buffer, priv_data, size, NULL);
@@ -2410,8 +2410,8 @@ int bitstream_output_l(void *buffer, void *priv_data, size_t size)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
+    bool do_sync_flag = is_same_patch_src(adev, SRC_DTV) && patch && patch->skip_amadec_flag;
     int ret = 0;
 
     /* dtv avsync pre-checking and processing */
@@ -2462,10 +2462,10 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
         return 0;
     }
 
-    if (adev->patch_src == SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
+    if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_exist(adev) && get_dev_patch(adev)->need_drop_size > 0) {
         if (adev->debug_flag > 1)
             ALOGI("func:%s, av sync drop data,need_drop_size=%d\n",
-                __FUNCTION__, adev->audio_patch->need_drop_size);
+                __FUNCTION__, get_dev_patch(adev)->need_drop_size);
         return ret;
     }
 
@@ -2494,8 +2494,8 @@ int spdif_bitstream_output_l(void *buffer, void *priv_data, size_t size)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
+    bool do_sync_flag = is_same_patch_src(adev, SRC_DTV) && patch && patch->skip_amadec_flag;
     int ret = 0;
 
     /* dtv avsync pre-checking and processing */
@@ -2559,10 +2559,10 @@ int spdif_bitstream_output(void *buffer, void *priv_data, size_t size)
         return 0;
     }
 
-    if (adev->patch_src == SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
+    if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_exist(adev)&& get_dev_patch(adev)->need_drop_size > 0) {
         if (adev->debug_flag > 1)
             ALOGI("func:%s, av sync drop data,need_drop_size=%d\n",
-                __FUNCTION__, adev->audio_patch->need_drop_size);
+                __FUNCTION__, get_dev_patch(adev)->need_drop_size);
         return ret;
     }
 
@@ -2820,8 +2820,8 @@ bool is_dolby_ms12_main_stream(struct audio_stream_out *stream) {
 bool is_support_ms12_reset(struct audio_stream_out *stream) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
-    bool is_atmos_supported = is_platform_supported_ddp_atmos(adev->hdmi_descs.ddp_fmt.atmos_supported,
-        adev->cur_out_devices, adev->is_TV);
+    bool is_atmos_supported = is_platform_supported_ddp_atmos(hdmi_descs->ddp_fmt.atmos_supported,
+        adev->cur_out_devices, is_TV(adev));
     bool need_reset_ms12_out = !is_ms12_out_ddp_5_1_suitable(is_atmos_supported);
     /* we meet 3 conditions:
      * 1. edid atmos support not match with currently ms12 output

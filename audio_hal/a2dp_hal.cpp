@@ -364,7 +364,7 @@ static bool a2dp_state_process(struct aml_audio_device *adev, audio_config_base_
         }
         AM_LOGI("a2dp state is %s",  a2dpStatus2String(cur_state));
     } else if (cur_state == BluetoothStreamState::STARTED) {
-         if (adev->audio_patch && adev->tv_mute) {
+         if (is_dev_patch_exist(adev)&& adev->tv_mute) {
             /* tv_mute for atv switch channel */
             AM_LOGI("tv_mute:%d, start standby", adev->tv_mute);
             a2dp_out_standby_l(adev);
@@ -374,8 +374,7 @@ static bool a2dp_state_process(struct aml_audio_device *adev, audio_config_base_
     } else if (cur_state == BluetoothStreamState::DISABLED) {
         // TODO: A2DP is disconnected. do nothing.
     } else {
-        struct aml_audio_patch *patch = adev->audio_patch;
-        if (!(adev->tv_mute && patch)) {
+        if (!(adev->tv_mute && is_dev_patch_exist(adev))) {
             a2dp_out_resume_l(adev);
         }
         // a2dp_out_resume maybe cause over 100ms, so set last_write_time after resume,

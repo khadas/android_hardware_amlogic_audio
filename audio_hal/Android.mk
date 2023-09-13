@@ -49,11 +49,18 @@ include $(BUILD_PREBUILT)
     LOCAL_MODULE_RELATIVE_PATH := hw
     LOCAL_SRC_FILES := \
         audio_hw.c \
+        audio_hw_resource_mgr.c \
         ../input/tv_patch.c \
         ../input/tv_patch_avsync.c \
         ../input/tv_patch_ctrl.c \
         ../input/tv_patch_format_parser.c \
         ../input/hdmirx_utils.c  \
+        ../input/component_picture_mode.c \
+        ../input/component_noise_gate.c \
+        ../input/device_patch.c \
+        ../input/tv_private_object.c \
+        ../input/dtv_private_object.c \
+        ../input/device_patch_mgr.c \
         aml_hfp.c \
         audio_hw_utils.c \
         audio_hwsync.c \
@@ -118,14 +125,16 @@ include $(BUILD_PREBUILT)
         $(LOCAL_PATH)/../aml_aq_hw \
         $(LOCAL_PATH)/../aml_aq_hw/ini \
         $(LOCAL_PATH)/../utils/cJSON \
-        hardware/amlogic/audio/input/include \
-        hardware/amlogic/audio/decoder/include \
+        hardware/amlogic/audio/aml_adecs/include \
         hardware/amlogic/audio/aml_resampler/include \
         hardware/amlogic/audio/aml_parser/include \
         hardware/amlogic/audio/aml_speed/include \
         hardware/amlogic/audio/vendor_process/libaudioeffect/VirtualX \
         hardware/amlogic/audio/vendor_process/libaudioeffect/aiaq/include \
-        hardware/amlogic/audio/vendor_process/include
+        hardware/amlogic/audio/vendor_process/include \
+        hardware/amlogic/audio/input/include \
+        hardware/amlogic/audio/decoder/include \
+
 
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../aml_aq_hw/lib_aml_ng.a
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../aml_aq_hw/Amlogic_EQ_Param_Generator.a

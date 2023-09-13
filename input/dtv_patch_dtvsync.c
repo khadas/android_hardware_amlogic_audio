@@ -34,9 +34,10 @@
 #include <cutils/properties.h>
 #include "audio_hw_utils.h"
 #include "aml_audio_spdifout.h"
-#include "audio_hw_ms12_v2.h"
+#include "audio_hw_ms12.h"
 #include "aml_audio_stream.h"
 #include "aml_audio_output.h"
+#include "dtv_private_object.h"
 
 #define DD_MUTE_FRAME_SIZE 1536
 #define EAC3_IEC61937_FRAME_SIZE 24576
@@ -269,7 +270,7 @@ bool aml_dtvsync_insertpcm(struct audio_stream_out *stream, audio_format_t forma
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     int insert_size = 0, times = 0;
 
     audio_data_info_t data_info = { 0 };
@@ -316,7 +317,7 @@ bool aml_dtvsync_insertpcm(struct audio_stream_out *stream, audio_format_t forma
 bool aml_dtvsync_spdif_insertraw(struct audio_stream_out *stream,  void **spdifout_handle, int time_ms, int is_packed) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     unsigned char *buffer = aml_audio_calloc(1,EAC3_IEC61937_FRAME_SIZE);
     if (!buffer) {
         ALOGE("aml_audio_malloc is fail");
@@ -345,7 +346,7 @@ bool aml_audio_spdif_insertpcm(struct audio_stream_out *stream,  void **spdifout
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     int insert_size = 0;
     int t1 = 0;
 
@@ -377,7 +378,7 @@ bool aml_dtvsync_adjustclock(struct audio_stream_out *stream, struct mediasync_a
     int direct = -1;
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     aml_dec_t *aml_dec = aml_out->aml_dec;
 
     direct = p_policy->param1;
@@ -409,7 +410,7 @@ bool aml_dtvsync_ms12_adjust_clock(struct audio_stream_out *stream, int direct)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     aml_dec_t *aml_dec = aml_out->aml_dec;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     struct bitstream_out_desc *bitstream_out;
@@ -455,7 +456,7 @@ int aml_dtvsync_nonms12_process_insert(struct audio_stream_out *stream,
     int insert_time_ms = 0;
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     aml_dec_t *aml_dec = aml_out->aml_dec;
     dec_data_info_t * raw_in_data = NULL;
     if (aml_dec) {
@@ -511,14 +512,15 @@ int aml_dtvsync_nonms12_process_insert(struct audio_stream_out *stream,
 }
 
 int aml_dtvsync_ms12_process_insert(void *priv_data, int insert_time_ms,
-                                    aml_ms12_dec_info_t *ms12_info)
+                                    void *ms12_info_f)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     struct bitstream_out_desc *bitstream_out;
     unsigned char *buffer =  aml_audio_calloc(1,EAC3_IEC61937_FRAME_SIZE);
+    aml_ms12_dec_info_t *ms12_info = (aml_ms12_dec_info_t *)ms12_info_f;
     if (!buffer) {
         ALOGE("aml_audio_malloc is fail");
         return -1;
@@ -606,7 +608,7 @@ int aml_dtvsync_process_resample(struct audio_stream_out *stream,
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     float speed = 0.0f;
     int ret = -1;
 
@@ -639,7 +641,7 @@ int aml_dtvsync_ms12_process_resample(struct audio_stream_out *stream,
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     float speed = 0.0f;
     int ret = -1;
 
@@ -673,7 +675,7 @@ dtvsync_process_res  aml_dtvsync_nonms12_process(struct audio_stream_out *stream
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     aml_dec_t *aml_dec = aml_out->aml_dec;
     dec_data_info_t * dec_pcm_data;
     float speed = 0.0f;
@@ -722,22 +724,22 @@ dtvsync_process_res  aml_dtvsync_nonms12_process(struct audio_stream_out *stream
         return DTVSYNC_AUDIO_DROP;
     } else if (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_INSERT) {
 
-        adev->underrun_mute_flag = true;
+        enable_dtv_underrun_mute(adev, true);
         aml_dtvsync_nonms12_process_insert(stream,  &m_audiopolicy);
 
     } else if (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_ADJUST_CLOCK) {
 
         aml_dtvsync_adjustclock(stream, &m_audiopolicy);
-        adev->underrun_mute_flag = false;
+        enable_dtv_underrun_mute(adev, false);
 
     } else if (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_RESAMPLE) {
 
-        adev->underrun_mute_flag = false;
+        enable_dtv_underrun_mute(adev, false);
         aml_dtvsync_process_resample(stream, &m_audiopolicy, speed_enabled);
     } else if (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_MUTE) {
-        adev->underrun_mute_flag = true;
+        enable_dtv_underrun_mute(adev, true);
     } else if (m_audiopolicy.audiopolicy == MEDIASYNC_AUDIO_NORMAL_OUTPUT) {
-        adev->underrun_mute_flag = false;
+        enable_dtv_underrun_mute(adev, false);
     }
 
     return DTVSYNC_AUDIO_OUTPUT;
@@ -748,7 +750,7 @@ void aml_dtvsync_ms12_get_policy(struct audio_stream_out *stream)
 
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     struct mediasync_audio_policy m_audiopolicy;
     bool ret = true;
 #if 0
@@ -795,15 +797,16 @@ void aml_dtvsync_ms12_get_policy(struct audio_stream_out *stream)
 
 }
 
-dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_dec_info_t *ms12_info)
+dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, void *ms12_info_f)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
     struct audio_stream_out *stream_out = (struct audio_stream_out *)aml_out;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     aml_dtvsync_t *aml_dtvsync = patch->dtvsync;
     struct dtvsync_audio_policy *async_policy = NULL;
+    aml_ms12_dec_info_t *ms12_info = (aml_ms12_dec_info_t *)ms12_info_f;
     if (aml_dtvsync != NULL) {
         async_policy = &(aml_dtvsync->apolicy);
         if (async_policy->audiopolicy != MEDIASYNC_AUDIO_NORMAL_OUTPUT &&
@@ -824,14 +827,14 @@ dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_de
              * */
             if (async_policy->param2 == 0) {
                 ALOGI("discontinue audio insert");
-                adev->insert_mute_flag = true;
+                enable_dtv_insert_mute(adev, true);
                 clock_gettime(CLOCK_MONOTONIC, &adev->mute_start_ts);
             }
 
         } else if (async_policy->audiopolicy == MEDIASYNC_AUDIO_ADJUST_CLOCK) {
 
             aml_dtvsync_ms12_adjust_clock(stream_out, async_policy->param1);
-            adev->underrun_mute_flag = false;
+            enable_dtv_underrun_mute(adev, false);
 
         } else if (async_policy->audiopolicy == MEDIASYNC_AUDIO_RESAMPLE) {
 
@@ -839,10 +842,10 @@ dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_de
 
         } else if (async_policy->audiopolicy == MEDIASYNC_AUDIO_MUTE) {
 
-            adev->underrun_mute_flag = true;
+            enable_dtv_underrun_mute(adev, true);
 
         } else if (async_policy->audiopolicy == MEDIASYNC_AUDIO_NORMAL_OUTPUT) {
-            adev->underrun_mute_flag = false;
+            enable_dtv_underrun_mute(adev, false);
         }
 
         /* stream beginning with silence frame, discontinue case,
@@ -850,8 +853,8 @@ dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_de
          * not silence frame from decoder, need mute.
          * */
         int duration_mute = property_get_int32("vendor.media.audio.hal.ms12.dtv.insert_mute", MS12_MUTE_TIME_AFTER_INSERT);
-        if (adev->insert_mute_flag && !Stop_watch(adev->mute_start_ts, duration_mute)) {
-            adev->insert_mute_flag = false;
+        if (is_dtv_insert_mute(adev) && !Stop_watch(adev->mute_start_ts, duration_mute)) {
+            enable_dtv_insert_mute(adev, false);
         }
     }
     if (async_policy)

@@ -26,7 +26,7 @@
 #include "karaoke_manager.h"
 
 #include "audio_hwsync_wrap.h"
-
+#include "audio_hw_resource_mgr.h"
 
 //#define DEBUG_TIME
 
@@ -63,7 +63,7 @@ static int initSubMixingOutput(
     R_CHECK_POINTER_LEGAL(-EINVAL, sm, "");
     if (sm->type == MIXER_LPCM) {
         struct audioCfg cfg;
-        output_get_default_config(&cfg, adev->is_TV);
+        output_get_default_config(&cfg, is_TV(adev));
         struct amlAudioMixer *amixer = newAmlAudioMixer(adev, cfg);
         R_CHECK_POINTER_LEGAL(-ENOMEM, amixer, "newAmlAudioMixer failed");
         sm->mixerData = amixer;
@@ -72,7 +72,7 @@ static int initSubMixingOutput(
             ALOGI("%s(), eq data addr %p", __func__, &adev->eq_data);
             subMixingSetEQData(adev, &adev->eq_data);
         }
-        if (adev->is_TV) {
+        if (is_TV(adev)) {
             ALOGI("%s(), sink gain addr %p", __func__, adev->sink_gain);
             subMixingSetSinkGain(adev, adev->sink_gain);
         }
@@ -751,7 +751,7 @@ int out_get_presentation_position_port(
             *frames -= frame_diff_for_client;
         }
         *timestamp = adjusted_timestamp;
-    } else if (!adev->audio_patching) {
+    } else if (!is_dev_patch_running(adev)) {
         if ((out->hw_sync_mode || out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)
             && (!out->frame_write_sum_updated || out->is_insert_zero_data || out->pause_status || out->standby)) {
             pthread_mutex_lock(&out->apts_update_lock);

@@ -33,6 +33,8 @@
 #include "alsa_manager.h"
 #include "dolby_lib_api.h"
 #include "aml_config_data.h"
+#include "audio_hw_resource_mgr.h"
+#include "dtv_private_object.h"
 
 typedef struct spdifout_handle {
     int device_id; /*used for refer aml_dev->alsa_handle*/
@@ -64,7 +66,7 @@ static int select_digital_device(struct spdifout_handle *phandle) {
      *
      */
 
-    if (!aml_dev->is_TV || aml_dev->is_BDS) {
+    if (!is_TV(aml_dev) || is_BDS(aml_dev)) {
         struct audio_board_config *bd_config = &aml_dev->board_config;
         if (aml_dev->dual_spdif_support) {
             if (phandle->audio_format == AUDIO_FORMAT_AC3 ||
@@ -259,18 +261,18 @@ void aml_audio_set_spdif_format(int spdif_port, eMixerSpdif_Format aml_spdif_for
     if (spdif_port == PORT_SPDIF) {
         spdif_format_ctr_id = AML_MIXER_ID_SPDIF_FORMAT;
         if (aml_spdif_format == AML_DOLBY_DIGITAL_PLUS) {
-            audio_route_set_spdif_mute(&aml_dev->alsa_mixer, 1);
+            set_output_device_mute(aml_dev, AUDIO_DEVICE_OUT_SPDIF, true, false/*no fade*/);
         } else {
             if (aml_dev->spdif_enable && ((aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_SPDIF) != 0 ||
                 aml_dev->spdif_coexist_other)) {
-                audio_route_set_spdif_mute(&aml_dev->alsa_mixer, 0);
+                set_output_device_mute(aml_dev, AUDIO_DEVICE_OUT_SPDIF, false, false/*no fade*/);
             }
         }
     } else if (spdif_port == PORT_SPDIFB) {
         spdif_format_ctr_id = AML_MIXER_ID_SPDIF_B_FORMAT;
         if (aml_dev->spdif_enable && ((aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_SPDIF) != 0 ||
             aml_dev->spdif_coexist_other)) {
-            audio_route_set_spdif_mute(&aml_dev->alsa_mixer, 0);
+            set_output_device_mute(aml_dev, AUDIO_DEVICE_OUT_SPDIF, false, false/*no fade*/);
         }
     } else if (spdif_port == PORT_I2S2HDMI) {
         spdif_format_ctr_id = AML_MIXER_ID_I2S2HDMI_FORMAT;
@@ -470,7 +472,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
             !aml_dev->dual_spdif_support &&
             spdif_config->audio_format == AUDIO_FORMAT_E_AC3) {
             /*we don't have dual spdif output and spdif output is ddp, we need mute spdif*/
-            audio_route_set_spdif_mute(&aml_dev->alsa_mixer, true);
+            set_output_device_mute(aml_dev, AUDIO_DEVICE_OUT_SPDIF, true, false/*no fade*/);
             phandle->spdif_mute = true;
         }
 
@@ -584,15 +586,15 @@ int aml_audio_spdifout_process(void *phandle, void *buffer, size_t byte)
 
 #endif
 
-    if (aml_dev->audio_patch) {
-        if (aml_dev->sink_gain[get_output_by_devices(aml_dev->cur_out_devices)] < FLOAT_ZERO && aml_dev->is_STB) {
+    if (is_dev_patch_exist(aml_dev)) {
+        if (aml_dev->sink_gain[get_output_by_devices(aml_dev->cur_out_devices)] < FLOAT_ZERO && is_STB(aml_dev)) {
             b_mute = true;
         } else {
-            if ((aml_dev->patch_src == SRC_DTV) &&
-                (aml_dev->discontinue_mute_flag ||
-                aml_dev->start_mute_flag ||
+            if (is_same_patch_src(aml_dev, SRC_DTV) &&
+                (is_dtv_discontinue_mute(aml_dev) ||
+                is_dtv_start_mute(aml_dev) ||
                 aml_dev->tv_mute ||
-                aml_dev->insert_mute_flag)) {
+                is_dtv_insert_mute(aml_dev))) {
                 b_mute = true;
             }
         }
@@ -704,7 +706,7 @@ int aml_audio_spdifout_close(void *phandle)
 
     /*if spdif is muted when open, we need unmute it when close*/
     if (spdifout_phandle->spdif_mute /*&& (aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_SPDIF) != 0*/) {
-        audio_route_set_spdif_mute(&aml_dev->alsa_mixer, false);
+        set_output_device_mute(aml_dev, AUDIO_DEVICE_OUT_SPDIF, false, false/*no fade*/);
         spdifout_phandle->spdif_mute = false;
     }
 

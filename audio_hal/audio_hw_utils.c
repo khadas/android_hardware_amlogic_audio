@@ -55,7 +55,10 @@
 #include "audio_avsync_table_aml_ms12_v2.h"
 #endif
 #include "aml_async_write.h"
-
+#include "tv_private_object.h"
+#include "dtv_private_object.h"
+#include "audio_hw_resource_mgr.h"
+#include "device_patch.h"
 
 #ifdef LOG_NDEBUG_FUNCTION
 #define LOGFUNC(...) ((void)0)
@@ -485,16 +488,6 @@ bool is_rtl_bt_module()
     return false;
 }
 
-bool is_multi_demux()
-{
-    if (access("/sys/module/dvb_demux/",F_OK) == 0 ||
-        access("/sys/module/amlogic_dvb_demux/",F_OK) == 0) {
-        ALOGI("use AmHwMultiDemux mode\n");
-        return true;
-    }
-    ALOGI("use AmHwDemux mode\n");
-    return false;
-}
 
 /*
 convert audio formats to supported audio format
@@ -2554,21 +2547,21 @@ bool is_AC4_stream_with_pcm_sink_on_stb(struct aml_stream_out *aml_out)
 {
     struct aml_audio_device *adev = aml_out->dev;
 
-    bool is_dtv_patch = (adev->audio_patch && adev->patch_src == SRC_DTV);
+    bool is_dtv_patch = (is_dev_patch_exist(adev) && is_same_patch_src(adev, SRC_DTV));
     bool is_local_offload =
         (!is_dtv_patch &&
         (aml_out->flags & (AUDIO_OUTPUT_FLAG_DIRECT|AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD)));
     if (adev->debug_flag > 1) {
-        ALOGI("%s line %d audio_patch %p flags %d\n", __func__, __LINE__, adev->audio_patch, aml_out->flags);
+        ALOGI("%s line %d audio_patch %p flags %d\n", __func__, __LINE__, get_dev_patch(adev), aml_out->flags);
     }
     bool is_ac4 = (aml_out->hal_internal_format == AUDIO_FORMAT_AC4);
     bool is_pcm_sink_format = (adev->sink_format == AUDIO_FORMAT_PCM_16_BIT);
     if (adev->debug_flag > 1) {
         ALOGI("%s line %d is_TV %d is_dtv_patch %d is_local_offload %d is_ac4 %d is_pcm_sink_format %d\n",
-            __func__, __LINE__, adev->is_TV, is_dtv_patch, is_local_offload, is_ac4, is_pcm_sink_format);
+            __func__, __LINE__, is_TV(adev), is_dtv_patch, is_local_offload, is_ac4, is_pcm_sink_format);
     }
 
-    return (!adev->is_TV && (is_dtv_patch || is_local_offload) && is_ac4 && is_pcm_sink_format);
+    return (!is_TV(adev) && (is_dtv_patch || is_local_offload) && is_ac4 && is_pcm_sink_format);
 }
 
 float get_ac4_stream_volume(struct aml_stream_out *aml_out)
@@ -2576,19 +2569,19 @@ float get_ac4_stream_volume(struct aml_stream_out *aml_out)
     struct aml_audio_device *adev = aml_out->dev;
     float ret = 1.0f;
 
-    bool is_dtv_patch = (adev->audio_patch && adev->patch_src == SRC_DTV);
+    bool is_dtv_patch = (is_dev_patch_exist(adev) && is_same_patch_src(adev, SRC_DTV));
     bool is_local_offload =
-        (!adev->audio_patch &&
+        (!is_dev_patch_exist(adev) &&
         (aml_out->flags & (AUDIO_OUTPUT_FLAG_DIRECT|AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD)));
 
     if (is_dtv_patch) {
         if (!adev->dev2mix_patch) {
             ret = adev->sink_gain[get_output_by_devices(adev->cur_out_devices)];
         }
-        if (adev->tv_mute && adev->audio_patch) {
+        if (adev->tv_mute && get_dev_patch(adev)) {
             ret = 0.0f;
         }
-        ret *= adev->dtv_volume;
+        ret *= get_dtv_volume(adev);
         if (adev->debug_flag > 1) {
             ALOGI("%s line %d target AC4 volume %f\n", __func__, __LINE__, ret);
         }

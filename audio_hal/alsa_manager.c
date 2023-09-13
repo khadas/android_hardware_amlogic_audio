@@ -38,7 +38,7 @@
 #include "audio_hw_ms12_common.h"
 #include "aml_config_data.h"
 #include "tv_patch_ctrl.h"
-
+#include "dtv_private_object.h"
 
 #define AML_ZERO_ADD_MIN_SIZE 1024
 
@@ -156,6 +156,7 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
     struct aml_audio_device *adev = aml_out->dev;
     struct audio_board_config *bd_config = &adev->board_config;
     struct pcm_config *config = &aml_out->config;
+     struct aml_audio_patch *audio_patch;
     struct pcm_config config_raw;
     unsigned int device = aml_out->device;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
@@ -194,7 +195,8 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
         if (aml_out->dual_output_flag && adev->optical_format != AUDIO_FORMAT_PCM_16_BIT) {
             device = I2S_DEVICE;
             config->rate = MM_FULL_POWER_SAMPLING_RATE;
-            if (adev->audio_patch && IS_DIGITAL_IN_HW(adev->audio_patch->input_src) && is_dts_format(aml_out->hal_internal_format)) {
+            audio_patch = get_dev_patch(adev);
+            if (is_dev_patch_exist(adev)&& IS_DIGITAL_IN_HW(audio_patch->input_src) && is_dts_format(aml_out->hal_internal_format)) {
                 // do nothing, the start_threshold was set in mixer_main_buffer_write()
             } else {
                 config->start_threshold = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
@@ -369,11 +371,12 @@ size_t aml_alsa_output_write(struct audio_stream_out *stream,
                              size_t bytes) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
+    struct aml_audio_patch *audio_patch = NULL;
     int ret = 0;
     struct pcm_config *config = &aml_out->config;
     size_t frame_size = audio_stream_out_frame_size(stream);
     bool need_trigger = false;
-    bool is_dtv = (adev->patch_src == SRC_DTV);
+    bool is_dtv = is_same_patch_src(adev, SRC_DTV);
     bool is_dtv_live = 1;
     bool has_video = adev->is_has_video;
     unsigned int first_apts = 0;
@@ -519,21 +522,24 @@ write:
         return bytes;
     }
     /*+[SE][BUG][SWPL-14811] add drop ac3 pcm function*/
-    if (adev->patch_src == SRC_DTV && adev->audio_patch != NULL && adev->audio_patch->need_drop_size > 0) {
-        if (adev->audio_patch->need_drop_size >= (int)bytes) {
-            adev->audio_patch->need_drop_size -= bytes;
-            if (adev->audio_patch->last_apts >= adev->audio_patch->last_pcrpts) {
-                adev->audio_patch->need_drop_size = 0;
+    audio_patch = get_dev_patch(adev);
+    if (is_same_patch_src(adev, SRC_DTV)
+        && is_dev_patch_exist(adev) &&
+        audio_patch->need_drop_size > 0) {
+        if (audio_patch->need_drop_size >= (int)bytes) {
+            audio_patch->need_drop_size -= bytes;
+            if (audio_patch->last_apts >= audio_patch->last_pcrpts) {
+                audio_patch->need_drop_size = 0;
             } else
                 return bytes;
         } else {
-            ALOGI("bytes:%zu, need_drop_size=%d\n", bytes, adev->audio_patch->need_drop_size);
-            if (adev->discontinue_mute_flag) {
-                memset(audio_data + adev->audio_patch->need_drop_size, 0x0,
-                        bytes - adev->audio_patch->need_drop_size);
+            ALOGI("bytes:%zu, need_drop_size=%d\n", bytes, audio_patch->need_drop_size);
+            if (is_dtv_discontinue_mute(adev)) {
+                memset(audio_data + audio_patch->need_drop_size, 0x0,
+                        bytes - audio_patch->need_drop_size);
             }
-            ret = pcm_write(aml_out->pcm, audio_data + adev->audio_patch->need_drop_size,
-                    bytes - adev->audio_patch->need_drop_size);
+            ret = pcm_write(aml_out->pcm, audio_data + audio_patch->need_drop_size,
+                    bytes - audio_patch->need_drop_size);
             if (ret < 0) {
                 const char *err_str = pcm_get_error(aml_out->pcm);
                 ALOGE("%s alsa write fail when drop ac3, err=%s", __func__, err_str);
@@ -541,7 +547,7 @@ write:
                 if (strstr(err_str, "pipe") > 0)
                     pcm_ioctl(aml_out->pcm, SNDRV_PCM_IOCTL_PREPARE);
             }
-            adev->audio_patch->need_drop_size = 0;
+            audio_patch->need_drop_size = 0;
             ALOGI("drop finish\n");
             return bytes;
         }
@@ -559,32 +565,32 @@ write:
         }
         if (status.state == PCM_STATE_XRUN) {
             ALOGW("[%s:%d] alsa underrun", __func__, __LINE__);
-            if (adev->audio_discontinue) {
-                adev->discontinue_mute_flag = 1;
-                adev->no_underrun_count = 0;
+            if (is_dtv_audio_discontinue(adev)) {
+                enable_dtv_discontinue_mute(adev, 1);
+                set_dtv_no_underrun_count(adev, 0);
             }
-        } else if (adev->discontinue_mute_flag == 1 && adev->patch_src ==  SRC_DTV ) {
-            if (adev->audio_patch != NULL && adev->audio_discontinue == 0 &&
-                adev->audio_patch->dtv_audio_tune == AUDIO_RUNNING) {
-                adev->discontinue_mute_flag = 0;
-                adev->no_underrun_count = 0;
-            } else if (adev->no_underrun_count++ >= adev->no_underrun_max) {
-                adev->discontinue_mute_flag = 0;
-                adev->no_underrun_count = 0;
+        } else if (is_dtv_discontinue_mute(adev) && is_same_patch_src(adev, SRC_DTV)) {
+            if (is_dev_patch_exist(adev) && !is_dtv_audio_discontinue(adev) &&
+                audio_patch->dtv_audio_tune == AUDIO_RUNNING) {
+                enable_dtv_discontinue_mute(adev, 0);
+                set_dtv_no_underrun_count(adev, 0);
+            } else if (inc_dtv_no_underrun_count(adev) >= get_dtv_no_underrun_max(adev)) {
+                enable_dtv_discontinue_mute(adev, 0);
+                set_dtv_no_underrun_count(adev, 0);;
             }
         }
 
         /* add mute after insert policy */
         /* add mute when start_mute_flag is true in single demux */
-        if (adev->patch_src == SRC_DTV && (adev->discontinue_mute_flag ||
-            adev->underrun_mute_flag || adev->insert_mute_flag ||
-            (!adev->is_multi_demux && adev->start_mute_flag))) {
+        if (is_same_patch_src(adev, SRC_DTV) && (is_dtv_discontinue_mute(adev) ||
+            is_dtv_underrun_mute(adev) || is_dtv_insert_mute(adev) ||
+            (!is_dtv_multi_demux(adev) && is_dtv_start_mute(adev)))) {
             memset(buffer, 0x0, bytes);
             if (debug_enable) {
                 ALOGI("[%s:%d] mute audio, discontinue_mute:%d, underrun_mute:%d, insert_mute:%d, is_multi:%d, start_mute:%d",
                     __func__, __LINE__,
-                    adev->discontinue_mute_flag, adev->underrun_mute_flag, adev->insert_mute_flag,
-                    adev->is_multi_demux, adev->start_mute_flag);
+                    is_dtv_discontinue_mute(adev), is_dtv_underrun_mute(adev), is_dtv_insert_mute(adev),
+                    is_dtv_multi_demux(adev), is_dtv_start_mute(adev));
             }
         }
         if (get_debug_value(AML_DUMP_AUDIOHAL_ALSA)) {
@@ -805,6 +811,7 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
                         size_t bytes) {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
     struct aml_audio_device *aml_dev = in->dev;
+    struct aml_audio_patch *audio_patch = get_dev_patch(aml_dev);
     char  *read_buf = (char *)buffer;
     int ret = 0;
     size_t  read_bytes = 0;
@@ -813,13 +820,15 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
     size_t frame_size = in->config.channels * pcm_format_to_bits(in->config.format) / 8;
     bool hdmi_raw_in_flag = false;
     if (in->is_tv_src_stream) {
-         hdmi_raw_in_flag = is_audio_patch_valid(aml_dev) && aml_dev->audio_patch &&
-                (aml_dev->audio_patch->input_src == AUDIO_DEVICE_IN_HDMI) && (!audio_is_linear_pcm(aml_dev->audio_patch->aformat));
+         hdmi_raw_in_flag = is_dev_patch_valid(aml_dev) && audio_patch &&
+                (audio_patch->input_src == AUDIO_DEVICE_IN_HDMI) && (!audio_is_linear_pcm(audio_patch->aformat));
     }
 
     while (read_bytes < bytes) {
-        if (in->is_tv_src_stream && is_audio_patch_valid(aml_dev) &&
-            aml_dev->audio_patch && aml_dev->audio_patch->input_thread_exit) {
+        if (in->is_tv_src_stream &&
+            is_dev_patch_valid(aml_dev) &&
+            is_dev_patch_exist(aml_dev) &&
+            audio_patch->input_thread_exit) {
             memset((void*)buffer,0,bytes);
             return 0;
         }
@@ -1146,11 +1155,11 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
      */
     if (eDolbyMS12Lib == adev->dolby_lib_type)
     {
-        struct aml_audio_patch *patch = adev->audio_patch;
+        struct aml_audio_patch *patch = get_dev_patch(adev);
         if ((alsa_handle->write_cnt == 0)
             && patch
-            && adev->audio_patching
-            && (adev->patch_src == SRC_HDMIIN)
+            && is_dev_patch_running(adev)
+            && is_same_patch_src(adev, SRC_HDMIIN)
             && (patch->aformat == AUDIO_FORMAT_MAT)
             && (adev->sink_format == alsa_handle->format)
             && (alsa_handle->format != AUDIO_FORMAT_MAT)) {

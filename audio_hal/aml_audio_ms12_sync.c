@@ -30,6 +30,7 @@
 #endif
 #include "aml_audio_spdifout.h"
 #include "aml_audio_ms12_sync.h"
+#include "audio_hw_resource_mgr.h"
 
 #define MS12_OUTPUT_5_1_DDP "vendor.media.audio.ms12.output.5_1_ddp"
 
@@ -328,7 +329,7 @@ static int get_ms12_netflix_nontunnel_input_latency(audio_format_t input_format)
 
     switch (input_format) {
     case AUDIO_FORMAT_PCM_16_BIT: {
-        if (adev->is_TV) {
+        if (is_TV(adev)) {
             prop_name = AVSYNC_MS12_TV_NETFLIX_NONTUNNEL_PCM_LATENCY_PROPERTY;
             latency_ms = AVSYNC_MS12_TV_NETFLIX_NONTUNNEL_PCM_LATENCY;
         } else {
@@ -339,7 +340,7 @@ static int get_ms12_netflix_nontunnel_input_latency(audio_format_t input_format)
     }
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3: {
-        if (adev->is_TV) {
+        if (is_TV(adev)) {
             prop_name = AVSYNC_MS12_TV_NETFLIX_NONTUNNEL_DDP_LATENCY_PROPERTY;
             latency_ms = AVSYNC_MS12_TV_NETFLIX_NONTUNNEL_DDP_LATENCY;
         } else {
@@ -373,7 +374,7 @@ static int get_ms12_netflix_tunnel_input_latency(audio_format_t input_format) {
     switch (input_format) {
     case AUDIO_FORMAT_PCM_16_BIT: {
         /*for non tunnel ddp2h/heaac case:netflix AL1 case */
-        if (adev->is_TV) {
+        if (is_TV(adev)) {
             prop_name = AVSYNC_MS12_TV_NETFLIX_TUNNEL_PCM_LATENCY_PROPERTY;
             latency_ms = AVSYNC_MS12_TV_NETFLIX_TUNNEL_PCM_LATENCY;
         } else {
@@ -385,7 +386,7 @@ static int get_ms12_netflix_tunnel_input_latency(audio_format_t input_format) {
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3: {
         /*for non tunnel dolby ddp5.1 case:netflix AV1/HDR10/HEVC case*/
-        if (adev->is_TV) {
+        if (is_TV(adev)) {
             prop_name = AVSYNC_MS12_TV_NETFLIX_TUNNEL_DDP_LATENCY_PROPERTY;
             latency_ms = AVSYNC_MS12_TV_NETFLIX_TUNNEL_DDP_LATENCY;
         } else {
@@ -642,7 +643,7 @@ static int get_ms12_nontunnel_latency_offset(enum OUT_PORT port
     if (is_netflix) {
         input_latency_ms  = get_ms12_netflix_nontunnel_input_latency(input_format);
         output_latency_ms = get_ms12_netflix_output_latency(output_format);
-        if (adev->bDVEnable && !adev->is_TV) {
+        if (adev->bDVEnable && !is_TV(adev)) {
             output_latency_ms += get_sink_dv_latency_offset(false, true);
         }
         port_latency_ms = get_ms12_netflix_port_latency(port, output_format);
@@ -853,11 +854,12 @@ static int aml_audio_output_ddp_atmos(struct audio_stream_out *stream)
     int ret = 0;
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = out->dev;
+    struct aml_arc_hdmi_desc* hdmi_descs = get_arc_hdmi_cap(adev);
 
     bool is_atmos_supported = is_platform_supported_ddp_atmos(
-                            adev->hdmi_descs.ddp_fmt.atmos_supported
+                            hdmi_descs->ddp_fmt.atmos_supported
                             , adev->cur_out_devices
-                            , adev->is_TV);
+                            , is_TV(adev));
 
     bool is_ddp_atmos_format = (out->hal_format == AUDIO_FORMAT_E_AC3_JOC);
 
@@ -906,13 +908,13 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
     device_type_t platform_type = STB;
     bool is_earc = (ATTEND_TYPE_EARC == aml_audio_earctx_get_type(adev));
 
-    if (adev->is_STB) {
+    if (is_STB(adev)) {
         platform_type = STB;
     }
-    else if (adev->is_TV) {
+    else if (is_TV(adev)) {
         platform_type = TV;
     }
-    else if (adev->is_SBR) {
+    else if (is_SBR(adev)) {
         platform_type = SBR;
     }
 
@@ -937,7 +939,7 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
         bypass_delay = get_ms12_bypass_latency_offset(true, adev->is_netflix) * 48;
     }
 
-    if (adev->is_TV) {
+    if (is_TV(adev)) {
         video_delay = get_ms12_tunnel_video_delay(stream) * 48;
     } else if (adev->bDVEnable) {
         dv_delay = get_sink_dv_latency_offset(true, adev->is_netflix) * 48;
@@ -1188,7 +1190,7 @@ static int get_nonms12_tunnel_latency_offset(enum OUT_PORT port
 
     if (is_netflix) {
         input_latency_ms  = get_nonms12_netflix_tunnel_input_latency(input_format, platform_type);
-        if (adev->is_TV) {
+        if (is_TV(adev)) {
             output_latency_ms = aml_audio_get_netflix_port_latency(port, output_format);
         }
     } else {
@@ -1224,13 +1226,13 @@ int aml_audio_get_nonms12_tunnel_latency(struct audio_stream_out * stream)
     device_type_t platform_type = STB;
     bool is_earc = (ATTEND_TYPE_EARC == aml_audio_earctx_get_type(adev));
 
-    if (adev->is_STB) {
+    if (is_STB(adev)) {
         platform_type = STB;
     }
-    else if (adev->is_TV) {
+    else if (is_TV(adev)) {
         platform_type = TV;
     }
-    else if (adev->is_SBR) {
+    else if (is_SBR(adev)) {
         platform_type = SBR;
     }
 
@@ -1294,13 +1296,13 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
     device_type_t platform_type = STB;
     bool is_earc = (ATTEND_TYPE_EARC == aml_audio_earctx_get_type(adev));
 
-    if (adev->is_STB) {
+    if (is_STB(adev)) {
         platform_type = STB;
     }
-    else if (adev->is_TV) {
+    else if (is_TV(adev)) {
         platform_type = TV;
     }
-    else if (adev->is_SBR) {
+    else if (is_SBR(adev)) {
         platform_type = SBR;
     }
 
@@ -1556,7 +1558,7 @@ int dtv_get_ms12_port_latency(struct audio_stream_out *stream, enum OUT_PORT por
         case OUTPORT_SPEAKER:
         case OUTPORT_AUX_LINE:
         {
-            if (adev->is_TV) {
+            if (is_TV(adev)) {
                 latency_ms = AVSYNC_MS12_TV_DTV_SPEAKER_LATENCY;
                 prop_name = AVSYNC_MS12_TV_DTV_SPEAKER_LATENCY_PROPERTY;
             } else {
@@ -1634,7 +1636,7 @@ int aml_audio_dtv_get_ms12_latency(struct audio_stream_out *stream)
         stream, get_output_by_devices(adev->cur_out_devices), out->hal_internal_format, adev->ms12.optical_format);
 
     latency_frames = tuning_frame_delay;
-    if (adev->is_TV) {
+    if (is_TV(adev)) {
         latency_frames += get_media_video_delay(&adev->alsa_mixer) * out->hal_rate / 1000;
     }
 
@@ -1825,7 +1827,7 @@ int aml_audio_dtv_get_nonms12_latency(struct audio_stream_out * stream)
         get_output_by_devices(adev->cur_out_devices), out->hal_internal_format, adev->sink_format);
 
     latency_frames = tuning_delay;
-    if (adev->is_TV) {
+    if (is_TV(adev)) {
         latency_frames += get_media_video_delay(&adev->alsa_mixer) * out->hal_rate / 1000;
         latency_frames += property_get_int32(AVSYNC_DTV_TV_MODE_LATENCY_PROPERTY, AVSYNC_DTV_TV_MODE_LATENCY) * out->hal_rate / 1000;
     }

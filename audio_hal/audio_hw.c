@@ -100,6 +100,11 @@
 #include "aml_hfp.h"
 
 #include "aml_async_write.h"
+#include "audio_hw_resource_mgr.h"
+#include "device_patch.h"
+#include "component_noise_gate.h"
+#include "tv_private_object.h"
+#include "hdmirx_utils.h"
 
 #define ENABLE_NANO_NEW_PATH 1
 #if ENABLE_NANO_NEW_PATH
@@ -141,6 +146,11 @@
 //audio content recognize function
 #include "aml_ai_audio.h"
 
+#include "device_patch.h"
+#include "component_picture_mode.h"
+#include "dtv_private_object.h"
+#include "hdmirx_utils.h"
+
 #define CARD_AMLOGIC_BOARD 0
 /* ALSA ports for AML */
 #define PORT_I2S 0
@@ -162,7 +172,6 @@
 #define MM_LOW_POWER_SAMPLING_RATE 44100
 /* sampling rate when using MM full power port */
 #define MM_FULL_POWER_SAMPLING_RATE 48000
-#define MIXER_XML_PATH "/vendor/etc/mixer_paths.xml"
 #define DOLBY_MS12_INPUT_FORMAT_TEST
 
 #define IEC61937_PACKET_SIZE_OF_AC3                     (0x1800)
@@ -294,25 +303,21 @@ static void select_devices (struct aml_audio_device *adev)
              headset_on, headphone_on, speaker_on, hdmi_on, earpiece);
     ALOGD ("%s : in_device(%#x), mic_in(%#x), headset_mic(%#x)", __func__,
              adev->in_device, mic_in, headset_mic);
-    audio_route_reset (adev->ar);
     if (hdmi_on) {
-        audio_route_apply_path (adev->ar, "hdmi");
+        do_output_device_routing(adev, AUDIO_DEVICE_OUT_AUX_DIGITAL, true);
     }
     if (headphone_on || headset_on || anlg_dock_headset_on) {
-        audio_route_apply_path (adev->ar, "headphone");
+        do_output_device_routing(adev, AUDIO_DEVICE_OUT_WIRED_HEADPHONE, true);
     }
     if (speaker_on || earpiece) {
-        audio_route_apply_path (adev->ar, "speaker");
+        do_output_device_routing(adev, AUDIO_DEVICE_OUT_SPEAKER, true);
     }
     if (mic_in) {
-        audio_route_apply_path (adev->ar, "main_mic");
+        do_input_device_routing(adev, AUDIO_DEVICE_IN_BUILTIN_MIC, true);
     }
     if (headset_mic) {
-        audio_route_apply_path (adev->ar, "headset-mic");
+        do_input_device_routing(adev, AUDIO_DEVICE_IN_WIRED_HEADSET, true);
     }
-
-    audio_route_update_mixer (adev->ar);
-
 }
 
 static void select_mode (struct aml_audio_device *adev)
@@ -1259,7 +1264,7 @@ static uint32_t out_get_latency (const struct audio_stream_out *stream)
     }
     alsa_latency = (frames * 1000) / out->config.rate;
 
-    if (adev->is_TV) {
+    if (is_TV(adev)) {
         ms12_latency = get_ms12_buffer_latency((struct aml_stream_out *)out);
         ms12_pipeline_latency = HAL_MS12_PIPELINE_LATENCY;
         whole_latency =  ms12_latency + ms12_pipeline_latency + alsa_latency;
@@ -1281,6 +1286,19 @@ static uint32_t out_get_alsa_latency (const struct audio_stream_out *stream)
     const struct aml_stream_out *out = (const struct aml_stream_out *) stream;
     snd_pcm_sframes_t frames = out_get_alsa_latency_frames (stream);
     return (frames * 1000) / out->config.rate;
+}
+
+bool dtv_tuner_framework(struct audio_stream_out *stream)
+{
+    struct aml_stream_out *out = (struct aml_stream_out *)stream;
+    if (out && (out->dev) && is_same_patch_src(out->dev, SRC_DTV) &&
+        is_dev_patch_running(out->dev) &&
+        (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) &&
+        (out->audioCfg.offload_info.content_id != 0)&&
+        (out->audioCfg.offload_info.sync_id != 0)) {
+        return true;
+   }
+   return false;
 }
 
 static int out_set_volume (struct audio_stream_out *stream, float left, float right)
@@ -1361,7 +1379,8 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
             it will use a separate output stream to store all the input information,
             such as format,ch,sr and pts info.
         */
-        adev->dtv_volume =  left;
+
+        set_dtv_volume(adev, left);
     }
     return 0;
 }
@@ -1386,7 +1405,9 @@ static int out_pause (struct audio_stream_out *stream)
         }
     }
     out->write_count = 0;
-    audio_route_set_speaker_mute(adev, true);
+    set_output_device_mute(adev, AUDIO_DEVICE_OUT_SPEAKER, true, true/*use fade*/);
+    //need time to fadeout
+    aml_audio_sleep(15000);
     pthread_mutex_lock (&adev->lock);
     pthread_mutex_lock (&out->lock);
     /* a stream should fail to pause if not previously started */
@@ -1447,7 +1468,7 @@ static int out_resume (struct audio_stream_out *stream)
 
     out->write_count = 0;
     aml_audio_trace_int("out_resume", 1);
-    audio_route_set_speaker_mute(adev, false);
+    set_output_device_mute(adev, AUDIO_DEVICE_OUT_SPEAKER, false, true);
     pthread_mutex_lock (&adev->lock);
     pthread_mutex_lock (&out->lock);
     /* a stream should fail to resume if not previously paused */
@@ -2603,7 +2624,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     struct aml_audio_device *adev = in->dev;
     int channel_count = audio_channel_count_from_in_mask(in->hal_channel_mask);
     size_t in_frames = bytes / audio_stream_in_frame_size(&in->stream);
-    struct aml_audio_patch* patch = adev->audio_patch;
+    struct aml_audio_patch* patch = get_dev_patch(adev);
     size_t cur_in_bytes, cur_in_frames;
 
     ALOGV("%s(): stream: %p, source: %d, bytes %zu in->devices %0x", __func__, in, in->source, bytes, in->device);
@@ -2705,7 +2726,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
 #endif
 
     if (adev->dev2mix_patch) {
-        float source_gain = aml_audio_get_s_gain_by_src(adev, adev->patch_src);
+        float source_gain = aml_audio_get_s_gain_by_src(adev, get_dev_patch_src(adev));
         ret = tv_in_read(stream, buffer, bytes);
         bytes = ret;
         if (getprop_bool("vendor.media.audiohal.indump")) {
@@ -2714,8 +2735,9 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
         }
 
         enum IN_PORT inport = INPORT_HDMIIN;
+        float in_port_gain = get_active_inport_gain(adev);
         android_dev_convert_to_hal_dev(in->device | AUDIO_DEVICE_BIT_IN, (int *)&inport);
-        apply_volume(source_gain * adev->src_gain[inport], buffer, sizeof(uint16_t), bytes);
+        apply_volume(source_gain * in_port_gain, buffer, sizeof(uint16_t), bytes);
         goto exit;
     } else {
 
@@ -3319,7 +3341,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
      * This is because out_set_parameters() with a route is not
      * guaranteed to be called after an output stream is opened.
      */
-    if (adev->is_TV) {
+    if (is_TV(adev)) {
         struct audio_board_config *bd_config = &adev->board_config;
 
         out->is_tv_platform = 1;
@@ -3504,7 +3526,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 #if ANDROID_PLATFORM_SDK_VERSION > 29
     if (dtv_tuner_framework(stream)) {
         /*enter into tuner framework case, we need to stop&release audio dtv patch*/
-        ALOGD("[audiohal_kpi] %s:patching %d, dev:%p, out->dev:%p, patch:%p", __func__, out->dev->audio_patching, dev, out->dev, ((struct aml_audio_device *)dev)->audio_patch);
+        ALOGD("[audiohal_kpi] %s:patching %d, dev:%p, out->dev:%p, patch:%p", __func__, is_dev_patch_running(out->dev), dev, out->dev, get_dev_patch(((struct aml_audio_device *)dev)));
         out_stop_dtv_stream_for_tunerframework(stream);
         /*coverity[sleep]*/
         ret = disable_dtv_patch_for_tuner_framework(stream);
@@ -3615,47 +3637,46 @@ static int aml_audio_outport_enable(struct aml_audio_device *adev, audio_devices
     case AUDIO_DEVICE_OUT_FM:
         break;
     case AUDIO_DEVICE_OUT_SPEAKER:
-        audio_route_apply_path(adev->ar, enable? "speaker" : "speaker_off");
+        do_output_device_routing(adev, AUDIO_DEVICE_OUT_SPEAKER, enable);
         break;
     case AUDIO_DEVICE_OUT_HDMI:
-        adev->bHDMIConnected = enable;
-        adev->bHDMIConnected_update = true;
-        audio_route_apply_path(adev->ar, enable ? "hdmi" : "hdmi_off");
+        set_output_device_avail(adev, AUDIO_DEVICE_OUT_HDMI, enable);
+        do_output_device_routing(adev, AUDIO_DEVICE_OUT_HDMI, enable);
         if (enable) {
             update_sink_format_after_hotplug(adev);
         } else {
-            adev->hdmi_descs.mat_fmt.MAT_PCM_48kHz_only = false;
-            adev->hdmi_descs.pcm_fmt.max_channels = 2;
+            struct aml_arc_hdmi_desc * hdmi_descs = get_arc_hdmi_cap(adev);
+            hdmi_descs->mat_fmt.MAT_PCM_48kHz_only = false;
+            hdmi_descs->pcm_fmt.max_channels = 2;
         }
         break;
     case AUDIO_DEVICE_OUT_HDMI_ARC:
-        adev->bHDMIConnected = enable;
-        adev->bHDMIARCon = enable;
-        adev->bHDMIConnected_update = true;
-        memset(adev->last_arc_hdmi_array, 0, EDID_ARRAY_MAX_LEN);
-        adev->arc_hdmi_updated = true;
+        set_output_device_avail(adev, AUDIO_DEVICE_OUT_HDMI_ARC, enable);
+        clear_arc_cached_edid(adev);
+        set_arc_hdmi_updated(adev, true);
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             /*when arc is connected, disable dap*/
             set_ms12_full_dap_disable(&adev->ms12, enable);
         }
-        audio_route_set_hdmi_arc_mute(&adev->alsa_mixer, !enable);
+        set_output_device_mute(adev, AUDIO_DEVICE_OUT_HDMI_ARC, !enable, false);
         if (enable) {
             update_sink_format_after_hotplug(adev);
         } else {
-            adev->hdmi_descs.mat_fmt.MAT_PCM_48kHz_only = false;
-            adev->hdmi_descs.pcm_fmt.max_channels = 2;
+            struct aml_arc_hdmi_desc * hdmi_descs = get_arc_hdmi_cap(adev);
+            hdmi_descs->mat_fmt.MAT_PCM_48kHz_only = false;
+            hdmi_descs->pcm_fmt.max_channels = 2;
         }
         break;
     case AUDIO_DEVICE_OUT_WIRED_HEADSET:
     case AUDIO_DEVICE_OUT_WIRED_HEADPHONE:
-        audio_route_apply_path(adev->ar, enable? "headphone" : "headphone_off");
+        do_output_device_routing(adev, AUDIO_DEVICE_OUT_WIRED_HEADPHONE, enable);
         break;
     case AUDIO_DEVICE_OUT_SPDIF:
         /* 1. audio_patch of Android cannot coexist with devices with different modules.
          * 2. So, we need to mute SPDIF when USB is inserted, and SPDIF also needs to mute when dev->dev is played.
          */
         if (!adev->spdif_coexist_other || (adev->cur_out_devices & AUDIO_DEVICE_OUT_ALL_USB) != 0) {
-            audio_route_set_spdif_mute(&adev->alsa_mixer, !enable);
+            set_output_device_mute(adev, AUDIO_DEVICE_OUT_SPDIF, !enable, false/*no fade*/);
         }
         break;
     case AUDIO_DEVICE_OUT_BLUETOOTH_A2DP:
@@ -3673,7 +3694,7 @@ static int aml_audio_outport_enable(struct aml_audio_device *adev, audio_devices
         AM_LOGW("cur device:%#x unsupported", device);
         break;
     }
-    audio_route_update_mixer(adev->ar);
+
     if (enable) {
         adev->cur_out_devices |= device;
     } else {
@@ -3692,7 +3713,7 @@ static void aml_audio_output_routing(struct aml_audio_device *adev, audio_device
     // 1. When playing an offload stream and then playing TalkBack(AUDIO_STREAM_ACCESSIBILITY), framework will delete
     // the hdmitx device, resulting in no sound.
     // 2. So, for stb, we don't mute the hdmitx. When customer needs to force speaker, it can be configured as mute tx.
-    if (!adev->is_TV && !adev->control_hdmitx_mute) {
+    if (!is_TV(adev) && !adev->control_hdmitx_mute) {
         if ((need_mute_devices & AUDIO_DEVICE_OUT_HDMI) != 0) {
             adev->cur_out_devices &= ~AUDIO_DEVICE_OUT_HDMI;
             need_mute_devices &= (~AUDIO_DEVICE_OUT_HDMI);
@@ -3714,53 +3735,6 @@ static void aml_audio_output_routing(struct aml_audio_device *adev, audio_device
         }
         i++;
     }
-}
-
-int aml_audio_input_routing(struct audio_hw_device *dev,
-                                    enum IN_PORT inport)
-{
-    struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
-
-    if (aml_dev->active_inport != inport) {
-        ALOGI("%s: switch from %s to %s", __func__,
-            inputPort2Str(aml_dev->active_inport), inputPort2Str(inport));
-        switch (inport) {
-        case INPORT_HDMIIN:
-            audio_route_apply_path(aml_dev->ar, "hdmirx_in");
-            break;
-        case INPORT_LINEIN:
-            audio_route_apply_path(aml_dev->ar, "line_in");
-            break;
-        case INPORT_BUILTIN_MIC:
-            audio_route_apply_path(aml_dev->ar, "main_mic");
-            break;
-        default:
-            ALOGW("%s: cur inport:%d unsupport", __func__, inport);
-            break;
-        }
-
-        audio_route_update_mixer(aml_dev->ar);
-        aml_dev->active_inport = inport;
-    }
-
-    return 0;
-}
-
-static int aml_audio_set_speaker_mute(struct aml_audio_device *adev, char *value)
-{
-    int ret = 0;
-    if (strncmp(value, "true", 4) == 0 || strncmp(value, "1", 1) == 0) {
-        adev->speaker_mute_user_setting = 1;
-        audio_route_apply_path(adev->ar, "speaker_off");
-        audio_route_update_mixer(adev->ar);
-    } else if (strncmp(value, "false", 5) == 0 || strncmp(value, "0", 1) == 0) {
-        adev->speaker_mute_user_setting = 0;
-        audio_route_apply_path(adev->ar, "speaker");
-        audio_route_update_mixer(adev->ar);
-    } else {
-        ALOGE("%s() unsupport speaker_mute value: %s", __func__, value);
-    }
-    return 0;
 }
 
 static int check_usb_card_device(struct str_parms *parms, int device)
@@ -3807,11 +3781,11 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
         check_usb_card_device(parms, device);
         if (audio_is_output_device(device)) {
             if ((device & AUDIO_DEVICE_OUT_HDMI_ARC) || (device & AUDIO_DEVICE_OUT_HDMI)) {
-                if (device & AUDIO_DEVICE_OUT_HDMI_ARC)
+                if (device & AUDIO_DEVICE_OUT_HDMI_ARC) {
                     aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_HDMI_ARC_AUDIO_ENABLE, true);
-                adev->bHDMIConnected = 1;
-                adev->bHDMIConnected_update = 1;
-                memset(adev->last_arc_hdmi_array, 0, EDID_ARRAY_MAX_LEN);
+                }
+                set_output_device_avail(adev, AUDIO_DEVICE_OUT_HDMI, true);
+                clear_arc_cached_edid(adev);
             } else if (device & AUDIO_DEVICE_OUT_ALL_A2DP) {
                 a2dp_out_open(adev);
                 adev->out_device |= device;
@@ -3824,9 +3798,8 @@ static void set_device_connect_state(struct aml_audio_device *adev, struct str_p
     } else {
         if (audio_is_output_device(device)) {
             if ((device & AUDIO_DEVICE_OUT_HDMI_ARC) || (device & AUDIO_DEVICE_OUT_HDMI)) {
-                adev->bHDMIConnected = 0;
-                adev->bHDMIConnected_update = 1;
-                memset(adev->last_arc_hdmi_array,0,EDID_ARRAY_MAX_LEN);
+                set_output_device_avail(adev, AUDIO_DEVICE_OUT_HDMI, true);
+                clear_arc_cached_edid(adev);
                 if (device & AUDIO_DEVICE_OUT_HDMI_ARC) {
                     int attend_type = aml_audio_earctx_get_type(adev);
 
@@ -3865,14 +3838,16 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     if (ret >= 0) {
         int continuous_audio_mode = 0;
         if (strcmp (value, AUDIO_PARAMETER_VALUE_ON) == 0) {
-            audio_route_set_speaker_mute(adev, false);
+            set_output_device_mute(adev, AUDIO_DEVICE_OUT_SPEAKER, false, true/*use fade*/);
             adev->low_power = false;
             continuous_audio_mode = adev->continuous_audio_mode_backup;
             pthread_cond_broadcast(&adev->wake_cond);
             ALOGI("%s : %s pthread_cond_broadcast", __func__, kvpairs);
         } else {
             /* mute speaker when suspend */
-            audio_route_set_speaker_mute(adev, true);
+            set_output_device_mute(adev, AUDIO_DEVICE_OUT_SPEAKER, true, true/*use fade*/);
+            //need time to fadeout
+            aml_audio_sleep(15000);
             adev->low_power = true;
             adev->continuous_audio_mode_backup = adev->continuous_audio_mode;
             continuous_audio_mode = 0;
@@ -3901,7 +3876,7 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 
     ret = str_parms_get_int(parms, "Audio spdif mute", &val);
     if (ret >= 0) {
-        audio_route_set_spdif_mute(&adev->alsa_mixer, val);
+        set_output_device_mute(adev, AUDIO_DEVICE_OUT_SPDIF, val, false/*no fade*/);
         ALOGI("[%s:%d] set SPDIF mute status: %d", __func__, __LINE__, val);
         goto exit;
     }
@@ -3910,7 +3885,7 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     if (ret >= 0) {
         set_device_connect_state(adev, parms, val, false);
 
-        /*if (adev->bHDMIConnected == 0) {
+        /*if (!is_HDMI_connected(adev)) {
             aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_STANDBY);
         }*/
         goto exit;
@@ -3927,7 +3902,7 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
             }
         }
 
-        if (adev->bHDMIConnected == 1) {
+        if (is_HDMI_connected(adev)) {
             aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
         }
         goto exit;
@@ -3980,13 +3955,17 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     //add for fire os tv for Dolby audio setting
     ret = str_parms_get_int (parms, "hdmi_format", &val);
     if (ret >= 0 ) {
-        if (adev->digital_audio_format != val)
+        if (adev->digital_audio_format != val) {
             adev->digital_audio_format_updated = 1;
+        }
         adev->digital_audio_format = val;
 
         /* only switch from/to bypass mode, update the DUT's EDID */
-        if (adev->digital_audio_format == BYPASS || adev->last_digital_audio_format == BYPASS)
-            update_edid_after_edited_audio_sad(dev, &adev->hdmi_descs.ddp_fmt);
+        if (adev->digital_audio_format == BYPASS || adev->last_digital_audio_format == BYPASS) {
+            struct aml_arc_hdmi_desc *hdmi_descs = get_arc_hdmi_cap(adev);
+            struct format_desc *ddp_fmt = &hdmi_descs->ddp_fmt;
+            update_edid_after_edited_audio_sad(dev, ddp_fmt);
+        }
         adev->last_digital_audio_format = adev->digital_audio_format;
 
         adev->last_digital_audio_format = adev->digital_audio_format;
@@ -4008,12 +3987,11 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     if (ret >= 0 ) {
         ALOGI ("[%s:%d] set spdif output enable:%d", __func__, __LINE__, val);
         if (val == 0) {
-            audio_route_apply_path(adev->ar, "spdif_off");
+            do_output_device_routing(adev, AUDIO_DEVICE_OUT_SPDIF, false);
         } else {
-            audio_route_apply_path(adev->ar, "spdif_on");
+            do_output_device_routing(adev, AUDIO_DEVICE_OUT_SPDIF, true);
         }
         adev->spdif_enable = (val == 0) ? false : true;
-        audio_route_update_mixer(adev->ar);
         goto exit;
     }
 
@@ -4059,7 +4037,16 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     //  HDMI plug in and UI [Sound Output Device] set to "ARC" will receive speaker_mute = 1
     ret = str_parms_get_str (parms, "speaker_mute", value, sizeof (value) );
     if (ret >= 0) {
-        aml_audio_set_speaker_mute(adev, value);
+        if (strncmp(value, "true", 4) == 0 || strncmp(value, "1", 1) == 0) {
+            set_output_device_mute(adev, AUDIO_DEVICE_OUT_SPEAKER, true, false/*not use fade*/);
+            adev->speaker_mute_user_setting = 1;
+        } else if (strncmp(value, "false", 5) == 0 || strncmp(value, "0", 1) == 0) {
+            set_output_device_mute(adev, AUDIO_DEVICE_OUT_SPEAKER, false, false/*not use fade*/);
+            adev->speaker_mute_user_setting = 0;
+        } else {
+            ALOGE("%s() unsupport speaker_mute value: %s", __func__, value);
+        }
+
         goto exit;
     }
 
@@ -4221,11 +4208,11 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     ret = str_parms_get_str(parms, "sound_track", value, sizeof(value));
     if (ret > 0) {
         int mode = atoi(value);
-        if (adev->audio_patch != NULL) {
+        if (is_dev_patch_exist(adev)) {
             ALOGI("%s()the audio patch is not NULL \n", __func__);
-            if (adev->patch_src == SRC_DTV) {
+            if (is_same_patch_src(adev, SRC_DTV)) {
                 ALOGI("DTV sound mode %d ",mode);
-                adev->audio_patch->mode = mode;
+                get_dev_patch(adev)->mode = mode;
             }
             goto exit;
         }
@@ -4295,14 +4282,14 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     ret = str_parms_get_str(parms, "picture_mode", value, sizeof(value));
     if (ret >= 0) {
         if (strncmp(value, "PQ_MODE_STANDARD", 16) == 0) {
-            adev->pic_mode = PQ_STANDARD;
+            set_dev_pic_mode(adev, PQ_STANDARD);
         } else if (strncmp(value, "PQ_MODE_GAME", 12) == 0) {
-            adev->pic_mode = PQ_GAME;
+            set_dev_pic_mode(adev, PQ_GAME);
         } else {
-            adev->pic_mode = PQ_STANDARD ;
+            set_dev_pic_mode(adev, PQ_STANDARD);
             ALOGE("%s() unsupport value %s choose pic mode (default) standard\n", __func__, value);
         }
-        ALOGI("%s(), set pic mode to: %d\n", __func__, adev->pic_mode);
+        ALOGI("%s(), set pic mode to: %d\n", __func__, get_dev_pic_mode(adev));
         goto exit;
     }
 
@@ -4443,7 +4430,7 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     if (ret >= 0) {
         adev->spdif_coexist_other = (val != 0);
         if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPDIF) == 0 && !adev->dev2mix_patch && adev->spdif_enable) {
-            audio_route_set_spdif_mute(&adev->alsa_mixer, !adev->spdif_coexist_other);
+            set_output_device_mute(adev, AUDIO_DEVICE_OUT_SPDIF, !adev->spdif_coexist_other, false/*no fade*/);
         }
         goto exit;
     }
@@ -4460,7 +4447,7 @@ static void adev_get_hal_control_volume_en(struct aml_audio_device *adev, char *
 {
     bool hal_control_vol_en = true;
     /* For STB product.*/
-    if ((!adev->is_TV || adev->is_BDS) && (adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI) != 0) {
+    if ((!is_TV(adev) || is_BDS(adev)) && (adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI) != 0) {
         /*  Audio_hal has no ability to control volume at the following scence:
          *    1. non-ms12, output non-pcm, cec closed.
          *    2. ms12, output non-pcm, cec closed, passthrough.
@@ -4494,10 +4481,10 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
     if (!strcmp (keys, AUDIO_PARAMETER_HW_AV_SYNC) ) {
         ALOGI ("get hw_av_sync id\n");
 #ifdef ENABLE_DVB_PATCH
-        if (adev->patch_src == SRC_DTV && adev->audio_patching ==1) {
+        if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_running(adev)) {
             unsigned int path_id = 0;
-            aml_dtv_audio_instances_t *dtv_audio_instances = (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
-            if (adev->audio_patch->cbs_patch) {
+            aml_dtv_audio_instances_t *dtv_audio_instances = get_dtv_audio_instance(adev);
+            if (get_dev_patch(adev)->cbs_patch) {
                   path_id = dtv_audio_instances->last_path_id;
             }
             if (dtv_audio_instances) {
@@ -4564,18 +4551,19 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         sprintf (temp_buf, "disable_pcm_mixing=%d", adev->disable_pcm_mixing);
         return strdup (temp_buf);
     } else if (strstr (keys, "hdmi_encodings") ) {
-        bool aml_dd =  adev->hdmi_descs.dd_fmt.is_support;
-        bool aml_ddp = adev->hdmi_descs.ddp_fmt.is_support;
+        struct aml_arc_hdmi_desc *hdmi_descs = get_arc_hdmi_cap(adev);
+        bool aml_dd =  hdmi_descs->dd_fmt.is_support;
+        bool aml_ddp = hdmi_descs->ddp_fmt.is_support;
         sprintf (temp_buf, "hdmi_encodings=%s", "pcm;");
         if (aml_ddp) {
             sprintf (temp_buf + strlen(temp_buf), "ac3;eac3;");
-            if (adev->hdmi_descs.ddp_fmt.atmos_supported) {
+            if (hdmi_descs->ddp_fmt.atmos_supported) {
                 sprintf (temp_buf + strlen(temp_buf), "atmos;");
             }
         } else if (aml_dd) {
             sprintf (temp_buf + strlen(temp_buf), "ac3;");
         }
-        AM_LOGI("atmos = %d, keys: [%s]", adev->hdmi_descs.ddp_fmt.atmos_supported, temp_buf);
+        AM_LOGI("atmos = %d, keys: [%s]", hdmi_descs->ddp_fmt.atmos_supported, temp_buf);
         return strdup (temp_buf);
     } else if (strstr (keys, "is_passthrough_active") ) {
         bool active = false;
@@ -4587,8 +4575,8 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         // now only one passthrough instance, do not check
         /* if (adev->usecase_masks & RAW_USECASE_MASK)
             active = true;
-        else if (adev->audio_patch && (adev->audio_patch->aformat == AUDIO_FORMAT_E_AC3 \
-                                       || adev->audio_patch->aformat == AUDIO_FORMAT_AC3) ) {
+        else if (is_dev_patch_exist(adev) && (get_dev_patch(adev)->aformat == AUDIO_FORMAT_E_AC3 \
+                                       || get_dev_patch(adev)->aformat == AUDIO_FORMAT_AC3) ) {
             active = true;
         } */
         pthread_mutex_unlock (&adev->lock);
@@ -4611,11 +4599,11 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         sprintf(temp_buf, "dolby_ms12_enable=%d", ms12_enable);
         return  strdup(temp_buf);
     } else if (strstr (keys, "stream_dra_channel") ) {
-       if (adev->audio_patch != NULL && adev->patch_src == SRC_DTV) {
-          if (adev->audio_patch->dtv_NchOriginal > 8 || adev->audio_patch->dtv_NchOriginal < 1) {
+       if (is_dev_patch_exist(adev) && is_same_patch_src(adev, SRC_DTV)) {
+          if (get_dev_patch(adev)->dtv_NchOriginal > 8 || get_dev_patch(adev)->dtv_NchOriginal < 1) {
               sprintf (temp_buf, "0.0");
             } else {
-              sprintf(temp_buf, "channel_num=%d.%d", adev->audio_patch->dtv_NchOriginal,adev->audio_patch->dtv_lfepresent);
+              sprintf(temp_buf, "channel_num=%d.%d", get_dev_patch(adev)->dtv_NchOriginal,get_dev_patch(adev)->dtv_lfepresent);
               ALOGD ("temp_buf=%s\n", temp_buf);
             }
        } else {
@@ -4623,7 +4611,7 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
        }
         return strdup(temp_buf);
     } else if (strstr(keys, "HDMI Switch")) {
-        sprintf(temp_buf, "HDMI Switch=%d", (AUDIO_DEVICE_OUT_HDMI & adev->cur_out_devices || adev->bHDMIConnected == 1));
+        sprintf(temp_buf, "HDMI Switch=%d", (AUDIO_DEVICE_OUT_HDMI & adev->cur_out_devices || is_HDMI_connected(adev)));
         ALOGD("temp_buf %s", temp_buf);
         return strdup(temp_buf);
     } else if (!strcmp(keys, "hal_param_tv_mute")) {
@@ -4644,19 +4632,19 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         ALOGV("temp_buf %s", temp_buf);
         return strdup(temp_buf);
     } else if (strstr (keys, "hal_param_audio_output_mode") ) {
-        int audio_output_mode = adev->dtv_sound_mode;
+        int audio_output_mode = get_dtv_sound_mode(adev);
         sprintf(temp_buf, "hal_param_audio_output_mode=%d", audio_output_mode);
         ALOGD("temp_buf %s", temp_buf);
         return strdup(temp_buf);
     } else if (strstr (keys, "hal_param_audio_is_tv") ) {
-        int is_tv = adev->is_TV;
-        sprintf(temp_buf, "hal_param_audio_is_tv=%d", adev->is_TV);
+        int is_tv = is_TV(adev);
+        sprintf(temp_buf, "hal_param_audio_is_tv=%d", is_TV(adev));
         ALOGD("temp_buf %s", temp_buf);
         return strdup(temp_buf);
     } else if (strstr (keys, "hal_param_get_earctx_cds") ) {
         char cds[AUDIO_HAL_CHAR_MAX_LEN] = {0};
-
-        earctx_fetch_cds(&adev->alsa_mixer, cds, 0, &adev->hdmi_descs);
+        struct aml_arc_hdmi_desc * hdmi_descs = get_arc_hdmi_cap(adev);
+        earctx_fetch_cds(&adev->alsa_mixer, cds, 0, hdmi_descs);
         sprintf(temp_buf, "hal_param_get_earctx_cds=%s", cds);
         return strdup(temp_buf);
     } else if (strstr (keys, "hal_param_get_earctx_attend_type") ) {
@@ -5360,7 +5348,7 @@ static aec_timestamp get_timestamp(void) {
 audio_format_t get_non_ms12_output_format(audio_format_t src_format, struct aml_audio_device *aml_dev)
 {
     audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
-    struct aml_arc_hdmi_desc *hdmi_desc = &aml_dev->hdmi_descs;
+    struct aml_arc_hdmi_desc *hdmi_desc = get_arc_hdmi_cap(aml_dev);
     if (aml_dev->digital_audio_format == AUTO) {
         if (src_format == AUDIO_FORMAT_E_AC3 ) {
             if (hdmi_desc->ddp_fmt.is_support)
@@ -5404,7 +5392,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
         bool is_mmap_pcm = is_mmap_stream_and_pcm_format(aml_out);
         bool is_ms12_pcm_volume_control = (is_direct_pcm && !is_mmap_pcm);
         bool is_a2dp_device = (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP);
-        bool is_dtv = (adev->audio_patch && adev->patch_src == SRC_DTV);
+        bool is_dtv = (is_dev_patch_exist(adev) && is_same_patch_src(adev, SRC_DTV));
 
         //ALOGI("%s is_ms12_pcm_volume_control:%d, is_a2dp_device:%d, out_device:0x%x, volume_l:%f",
         //        __func__, is_ms12_pcm_volume_control, is_a2dp_device, aml_out->out_device, aml_out->volume_l);
@@ -5461,9 +5449,11 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             dolby_ms12_encoder_reconfig(&adev->ms12);
             pthread_mutex_unlock(&adev->lock);
             /* if ms12 reconfig, do avsync */
-            if (ret == 0 && adev->audio_patch && (adev->patch_src == SRC_HDMIIN ||
-                adev->patch_src == SRC_ATV || adev->patch_src == SRC_LINEIN)) {
-                adev->audio_patch->need_do_avsync = true;
+            if (ret == 0 && is_dev_patch_exist(adev) &&
+                (is_same_patch_src(adev, SRC_HDMIIN) ||
+                 is_same_patch_src(adev, SRC_ATV) ||
+                 is_same_patch_src(adev, SRC_LINEIN))) {
+                get_dev_patch(adev)->need_do_avsync = true;
                 adev->mute_start = true;
                 ALOGI("set ms12, then do avsync!");
             }
@@ -5544,7 +5534,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
 
     /* After playback for previous dts stream, there is remain data in VirtualX library. It needs to clear data buffer of VirtualX by using
        zero data to replace these remain data. Otherwise it will play this remain data first when start playback next time*/
-    if (is_audio_patch_valid(adev) && adev->audio_patch && (adev->audio_patch->input_src == AUDIO_DEVICE_IN_HDMI)) {
+    if (is_dev_patch_valid(adev) && is_dev_patch_exist(adev) && (get_dev_patch(adev)->input_src == AUDIO_DEVICE_IN_HDMI)) {
         if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0 && aml_out->write_count > 0) {
             char *tmp_buffer = aml_audio_malloc(VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
             if (!tmp_buffer) {
@@ -5601,7 +5591,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_stream_out *ms12_out = (struct aml_stream_out *)adev->ms12_out;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     int case_cnt;
     int ret = -1;
     void *output_buffer = NULL;
@@ -5739,7 +5729,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
     }
 
     /* here to check if the audio HDMI ARC format updated. */
-    if (adev->arc_hdmi_updated) {
+    if (is_arc_hdmi_updated(adev)) {
         ALOGI ("%s(), arc format updated, need reconfig output", __func__);
         need_reconfig_output = true;
         /*
@@ -5749,7 +5739,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         hdmi in user case, we need reset the pipeline to get proper one.
         */
         need_reset_decoder = true;//digital_input_src ? true: false;
-        adev->arc_hdmi_updated = 0;
+        set_arc_hdmi_updated(adev, false);
     }
     /* here to check if the hdmi audio output format dynamic changed. */
     if (adev->last_digital_audio_format != adev->digital_audio_format ) {
@@ -5778,7 +5768,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         adev->digital_audio_format_updated = 0;
 
         if (adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) {
-            audio_route_set_speaker_mute_l(adev, true);
+            set_output_device_mute(adev, AUDIO_DEVICE_OUT_SPEAKER, true, true/*use fade*/);
             clock_gettime(CLOCK_MONOTONIC, &adev->fmt_start_ts);
             adev->fmt_start_mute = true;
             adev->fmt_mdelay = 2 * DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT / (MM_FULL_POWER_SAMPLING_RATE / 1000);
@@ -5789,7 +5779,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         int flag = Stop_watch(adev->fmt_start_ts, adev->fmt_mdelay);
         if (!flag) {
             adev->fmt_start_mute = false;
-            audio_route_set_speaker_mute_l(adev, false);
+            set_output_device_mute(adev, AUDIO_DEVICE_OUT_SPEAKER, false, true);
         }
     }
     /* here to check if the audio output routing changed. */
@@ -5803,11 +5793,11 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         aml_out->out_device = adev->cur_out_devices;
     }
 
-    if (adev->bHDMIConnected_update) {
+    if (is_HDMI_reconnected(adev)) {
         ALOGI("%s(), hdmi connect updated, need reconfig output", __func__);
         need_reconfig_output = true;
         need_reset_decoder = true;
-        adev->bHDMIConnected_update = 0;
+        set_HDMI_reconnected_flag(adev, false);
     }
 
 hwsync_rewrite:
@@ -6088,7 +6078,7 @@ hwsync_rewrite:
 
     /* here to check if the audio input format changed. */
     audio_format_t cur_aformat;
-    if (adev->audio_patch && aml_out->is_tv_src_stream && IS_DIGITAL_IN_HW(patch->input_src)) {
+    if (is_dev_patch_exist(adev) && aml_out->is_tv_src_stream && IS_DIGITAL_IN_HW(patch->input_src)) {
         cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
         if (cur_aformat != patch->aformat) {
             ALOGI ("HDMI/SPDIF input format changed from %#x to %#x\n", patch->aformat, cur_aformat);
@@ -6481,7 +6471,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
         /*only system sound active*/
         if (!hw_mix && (!(dolby_stream_active(adev) || hwsync_lpcm_active(adev)))) {
             /* here to check if the audio HDMI ARC format updated. */
-            if (((adev->arc_hdmi_updated) || (adev->a2dp_updated) || (adev->digital_audio_format_updated) || (adev->bHDMIConnected_update))
+            if (((is_arc_hdmi_updated(adev)) || (adev->a2dp_updated) || (adev->digital_audio_format_updated) || is_HDMI_reconnected(adev))
                 && (adev->ms12.dolby_ms12_enable == true)) {
                 //? if we need protect
                 if ((adev->a2dp_no_reconfig_ms12 > 0) && (aml_out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) && (adev->a2dp_updated == 0)) {
@@ -6494,14 +6484,14 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
                     }
                     else
                         ALOGI("%s() %s%s%s changing status, need reconfig Dolby MS12\n", __func__,
-                                (adev->arc_hdmi_updated==0)?" ":"HDMI ARC EndPoint ",
-                                (adev->bHDMIConnected_update==0)?" ":"HDMI ",
+                                (!is_arc_hdmi_updated(adev))?" ":"HDMI ARC EndPoint ",
+                                (!is_HDMI_reconnected(adev))?" ":"HDMI ",
                                 (adev->a2dp_updated==0)?" ":"a2dp ");
                 }
-                adev->arc_hdmi_updated = 0;
+                set_arc_hdmi_updated(adev, false);
                 adev->a2dp_updated = 0;
                 adev->digital_audio_format_updated = 0;
-                adev->bHDMIConnected_update = 0;
+                set_HDMI_reconnected_flag(adev, false);
                 need_reconfig_output = true;
             }
 
@@ -6811,7 +6801,7 @@ int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby)
 ** then enable it.
 **/
 #if 1
-        if (0 == aml_dev->usecase_masks && aml_dev->is_TV) {
+        if (0 == aml_dev->usecase_masks && is_TV(aml_dev)) {
             // send the SCHEDULER_STANDBY to ms12.
             aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_STANDBY);
         } else {
@@ -6949,6 +6939,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     if (adev->debug_flag > 1) {
         ALOGI("+<IN>%s: out_stream(%p) position(%zu)", __func__, stream, bytes);
     }
+
     //cts tunnel underrun case failed, depond on pause/resume invoked from AudioFlinger.
     //sometimes AudioFlinger always invoke the pause to Hal during 800ms for track retry count.
     //so add this code to control pause/resume MediaSync and video in Hal.
@@ -6959,15 +6950,15 @@ ssize_t out_write_new(struct audio_stream_out *stream,
 
 #ifdef ENABLE_DVB_PATCH
 #if ANDROID_PLATFORM_SDK_VERSION > 29
-    if ((aml_out->dev->patch_src == SRC_DTV) &&
-        aml_out->dev->audio_patching &&
+    if (is_same_patch_src(aml_out->dev, SRC_DTV) &&
+        is_dev_patch_running(adev) &&
         (aml_out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) &&
         (aml_out->audioCfg.offload_info.content_id != 0)&&
         (aml_out->audioCfg.offload_info.sync_id != 0)) {
         /*enter into tuner framework case, this data is from framework.
         we need to make its write dummy*/
         if (adev->debug_flag > 1) {
-            ALOGD("%s:patching %d, adev:%p, out->dev:%p, patch:%p.finish write", __func__, aml_out->dev->audio_patching, adev, aml_out->dev, adev->audio_patch);
+            ALOGD("%s:patching %d, adev:%p, out->dev:%p, patch:%p.finish write", __func__, is_dev_patch_running(adev), adev, aml_out->dev, get_dev_patch(adev));
         }
         ret = out_write_dtv_stream_for_tunerframework(stream, buffer, bytes);
         if (aml_out->standby) {
@@ -7000,7 +6991,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
 
     check_write_time((struct audio_stream_out *)aml_out, bytes);
 
-    if (!aml_out->is_tv_src_stream && (aml_out->flags & AUDIO_OUTPUT_FLAG_DIRECT) && adev->audio_patch) {
+    if (!aml_out->is_tv_src_stream && (aml_out->flags & AUDIO_OUTPUT_FLAG_DIRECT) && is_dev_patch_exist(adev)) {
         /*amlogic audio hal path only support one raw path, if dtv path exits, skip audiotrack raw data.
         if raw direct output, apk use render position for  apts calc, that maybe effect the avsync*/
         ALOGW("tv path exsits, need drop the stream data !!!");
@@ -7036,7 +7027,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
      */
     if (!aml_out->is_sink_format_prepared) {
         get_sink_format(&aml_out->stream);
-        if (!adev->is_TV || adev->is_BDS) {
+        if (!is_TV(adev) || is_BDS(adev)) {
             if (is_use_spdifb(aml_out)) {
                 aml_audio_select_src_to_hdmi(AML_SPDIF_B_TO_HDMITX);
                 aml_out->restore_hdmitx_selection = true;
@@ -7176,9 +7167,9 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
                 /* when dvb switch to netflix,dvb send cmd stop and dtv decoder_state
                     AUDIO_DTV_PATCH_DECODER_STATE_INIT, but when hdmi plug in and out dvb
                     do not send cmd stop and only release audiopatch,dtv decoder_state AUDIO_DTV_PATCH_DECODER_STATE_RUNNING*/
-                while  (adev->audio_patch && adev->audio_patching
-                    && adev->patch_src == SRC_DTV && retry_count < 50
-                    && adev->audio_patch->dtv_decoder_state == AUDIO_DTV_PATCH_DECODER_STATE_INIT) {
+                while  (is_dev_patch_exist(adev) && is_dev_patch_running(adev)
+                    && is_same_patch_src(adev, SRC_DTV) && retry_count < 50
+                    && get_dev_patch(adev)->dtv_decoder_state == AUDIO_DTV_PATCH_DECODER_STATE_INIT) {
                     usleep(20000);
                     retry_count++;
                     ALOGW("waiting dtv patch release before create submixing path %d\n",retry_count);
@@ -7194,7 +7185,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
         } else {
             //aml_out->bypass_submix = true;
             ALOGI("%s(), direct usecase: %s", __func__, usecase2Str(aml_out->usecase));
-            if (adev->is_TV) {
+            if (is_TV(adev)) {
                 aml_out->stream.write = out_write_new;
                 aml_out->stream.common.standby = out_standby_new;
             }
@@ -7231,7 +7222,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
 #if ENABLE_DVB_PATCH
 #if ANDROID_PLATFORM_SDK_VERSION > 29
     /*valid audio_config means enter in tuner framework case, then we need to create&start audio dtv patch*/
-    ALOGD("%s: dev:%p, fmt:%d, dmx fmt:%d, content id:%d,sync id %d,adev->patch_src %d, adev->audio_patching %d", __func__, dev, config->offload_info.format, android_fmt_convert_to_dmx_fmt(config->offload_info.format), config->offload_info.content_id, config->offload_info.sync_id, adev->patch_src, adev->audio_patching);
+    ALOGD("%s: dev:%p, fmt:%d, dmx fmt:%d, content id:%d,sync id %d,adev->patch_src %d, adev->audio_patching %d", __func__, dev, config->offload_info.format, android_fmt_convert_to_dmx_fmt(config->offload_info.format), config->offload_info.content_id, config->offload_info.sync_id, get_dev_patch_src(adev), is_dev_patch_running(adev));
     enable_dtv_patch_for_tuner_framework(config, *stream_out);
     aml_out->audioCfg.offload_info.content_id = config->offload_info.content_id;
     aml_out->audioCfg.offload_info.sync_id = config->offload_info.sync_id;
@@ -7342,14 +7333,6 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
 
     ALOGD("%s: exit", __func__);
 }
-
-
-
-bool is_audio_patch_valid(struct aml_audio_device *adev)
-{
-    return adev->source_flag;
-}
-
 
 static void dump_audio_patch_set (struct audio_patch_set *patch_set)
 {
@@ -7520,8 +7503,10 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
     enum IN_PORT inport = INPORT_HDMIIN;
     unsigned int i = 0;
     int ret = -1;
-    aml_dev->no_underrun_max = property_get_int32("vendor.media.audio_hal.nounderrunmax", 60);
-    aml_dev->start_mute_max = property_get_int32("vendor.media.audio_hal.startmutemax", 50);
+    int patch_source = 0;
+
+    set_dtv_no_underrun_max(aml_dev, property_get_int32("vendor.media.audio_hal.nounderrunmax", 60));
+    set_dtv_start_mute_max(aml_dev, property_get_int32("vendor.media.audio_hal.startmutemax", 50));
 
     if ((src_config->ext.device.type == AUDIO_DEVICE_IN_WIRED_HEADSET) || (src_config->ext.device.type == AUDIO_DEVICE_IN_BLUETOOTH_BLE)) {
         ALOGD("bluetooth voice search is in use, bypass adev_create_audio_patch()!!\n");
@@ -7537,10 +7522,11 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
     patch_set = register_audio_patch(dev, num_sources, sources, num_sinks, sinks, handle);
     R_CHECK_POINTER_LEGAL(-ENOMEM, patch_set, "create patch fail");
 
-    AM_LOGI("id:%d num_src:%d num_sik:%d %s->%s, patch_src:%s", *handle, num_sources, num_sinks, audioPortType2Str(src_config->type),
-        audioPortType2Str(sink_config->type), patchSrc2Str(aml_dev->patch_src));
+    AM_LOGI("enter id:%d num_src:%d num_sik:%d %s->%s, patch_src:%s", *handle, num_sources, num_sinks, audioPortType2Str(src_config->type),
+        audioPortType2Str(sink_config->type), patchSrc2Str(get_dev_patch_src(aml_dev)));
 
-    if (sink_config->type == AUDIO_PORT_TYPE_DEVICE) {
+    if (sink_config->type == AUDIO_PORT_TYPE_DEVICE) /* sink config categorization -1 */
+    {
         for (i = 0; i < num_sinks; i++) {
             AM_LOGI("sink[%d]:%s(%#x)", i, audioDevType2Str(sinks[i].ext.device.type), sinks[i].ext.device.type);
         }
@@ -7553,6 +7539,7 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
             if (sink_config->config_mask & AUDIO_PORT_CONFIG_CHANNEL_MASK) {
                 channel_cnt = audio_channel_count_from_out_mask(sink_config->channel_mask);
             }
+
             ret = android_dev_convert_to_hal_dev(src_config->ext.device.type, (int *)&inport);
             if (ret != 0) {
                 ALOGE("[%s:%d] device->device patch: unsupport input dev:%#x.", __func__, __LINE__, src_config->ext.device.type);
@@ -7561,85 +7548,41 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
                 patch_set = NULL;
             }
 
-            aml_audio_input_routing(dev, inport);
-            if (AUDIO_DEVICE_IN_ECHO_REFERENCE != src_config->ext.device.type &&
-                AUDIO_DEVICE_IN_TV_TUNER != src_config->ext.device.type) {
-                aml_dev->patch_src = android_input_dev_convert_to_hal_patch_src(src_config->ext.device.type);
-            }
-            input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
-            aml_dev->active_inport = inport;
-            AM_LOGI("dev(%s) -> dev(%s) patch, patch_src:%s", inputPort2Str(inport),
-                audioDevType2Str(sink_config->ext.device.type), patchSrc2Str(aml_dev->patch_src));
-            AM_LOGI("input dev:%#x, all output dev:%#x", src_config->ext.device.type, aml_dev->out_device);
-            if (inport == INPORT_TUNER) {
-                if (aml_dev->is_TV) {
-                    if (aml_dev->patch_src != SRC_DTV)
-                        aml_dev->patch_src = SRC_ATV;
-                } else {
-                   aml_dev->patch_src = SRC_DTV;
-                }
-            }
+            patch_source = get_patch_source(aml_dev, src_config->ext.device.type, PATCH_ROUTE_DEV_DEV);
+
+            AM_LOGI("dev(%s) -> dev(%s) patch, patch_src:%s in_device:%#x all_out_devices:%#x",
+                inputPort2Str(inport), audioDevType2Str(sink_config->ext.device.type), patchSrc2Str(patch_source),
+                src_config->ext.device.type, aml_dev->out_device);
+
             // ATV path goes to dev set_params which could
             // tell atv or dtv source and decide to create or not.
             // One more case is ATV->ATV, should recreate audio patch.
-            if ((inport != INPORT_TUNER)
-                    || ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_ATV))) {
-                if (input_src != SRC_NA) {
-                    set_audio_source(&aml_dev->alsa_mixer, input_src, alsa_device_is_auge());
-                }
-
-                if (aml_dev->audio_patch) {
-                    ALOGD("%s: patch exists, first release it", __func__);
-                    ALOGD("%s: new input %#x, old input %#x",
-                        __func__, inport, aml_dev->audio_patch->input_src);
-#ifdef ENABLE_DVB_PATCH
-                    if (aml_dev->audio_patch->is_dtv_src)
-                        release_dtv_patch(aml_dev);
-                    else
-#endif
-                        release_patch(aml_dev);
-                }
-                ret = create_patch(dev, src_config->ext.device.type, aml_dev->cur_out_devices);
-                if (ret) {
-                    ALOGE("[%s:%d] create patch failed, all cur dev:%#x.", __func__, __LINE__, aml_dev->cur_out_devices);
-                    ret = -EINVAL;
+            if ((inport != INPORT_TUNER) || ((inport == INPORT_TUNER) && (patch_source == SRC_ATV))) {
+                ret = patch_mgr_create_patch(aml_dev,
+                                            patch_source,
+                                            src_config->ext.device.type,
+                                            aml_dev->cur_out_devices,
+                                            PATCH_TYPE_TV);
+                if (ret != 0) {
                     unregister_audio_patch(dev, patch_set);
                     patch_set = NULL;
+                    ret = -EINVAL;
+                    ALOGE("[%s:%d] create tv patch failed, all_out_devices:%#x.", __func__, __LINE__, aml_dev->cur_out_devices);
                 }
-                aml_dev->audio_patching = 1;
-            } else if ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_DTV)) {
+            } else if ((inport == INPORT_TUNER) && (patch_source == SRC_DTV)) {
 #ifdef ENABLE_DVB_PATCH
-                 if (/*aml_dev->is_TV*/1) {
-
-                     if (aml_dev->is_TV) {
-                         if ((aml_dev->patch_src == SRC_DTV) && aml_dev->audio_patching) {
-                             ALOGI("%s, now release the dtv patch now\n ", __func__);
-                             ret = release_dtv_patch(aml_dev);
-                             if (!ret) {
-                                 aml_dev->audio_patching = 0;
-                             }
-                         }
-                         ALOGI("%s, now end release dtv patch the audio_patching is %d ", __func__, aml_dev->audio_patching);
-                         ALOGI("%s, now create the dtv patch now\n ", __func__);
-                     }
-
-                     aml_dev->patch_src = SRC_DTV;
-                     aml_dev->foreground_stream_type = FG_STREAM_TYPE_PATCH;
-                     ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER,
-                                            AUDIO_DEVICE_OUT_SPEAKER);
-                     if (ret == 0) {
-                        aml_dev->audio_patching = 1;
-                     }
-                     ALOGI("%s, now end create dtv patch the audio_patching is %d ", __func__, aml_dev->audio_patching);
-                 }
+                aml_dev->foreground_stream_type = FG_STREAM_TYPE_PATCH;
+                ret = patch_mgr_create_patch(aml_dev,
+                                        patch_source,
+                                        src_config->ext.device.type,
+                                        aml_dev->cur_out_devices,
+                                        PATCH_TYPE_DTV);
+                if (ret != 0) {
+                    ALOGE("[%s:%d] create dtv patch failed, all_out_devices:%#x.", __func__, __LINE__, aml_dev->cur_out_devices);
+                }
 #endif
-            }
-            if (input_src == LINEIN && aml_dev->aml_ng_enable) {
-                aml_dev->aml_ng_handle = init_noise_gate(aml_dev->aml_ng_level,
-                                         aml_dev->aml_ng_attack_time, aml_dev->aml_ng_release_time);
-                ALOGE("%s: init amlogic noise gate: level: %fdB, attack_time = %dms, release_time = %dms",
-                      __func__, aml_dev->aml_ng_level,
-                      aml_dev->aml_ng_attack_time, aml_dev->aml_ng_release_time);
+            } else {
+                ALOGE("[%s:%d] create patch failed, all_out_devices:%#x.", __func__, __LINE__, aml_dev->cur_out_devices);
             }
         } else if (src_config->type == AUDIO_PORT_TYPE_MIX) {  /* 2. mix to device audio patch */
             AM_LOGI("mix(%d) -> dev(%s) patch", src_config->ext.mix.handle, audioDevType2Str(sink_config->ext.device.type));
@@ -7649,8 +7592,9 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
             ret = -EINVAL;
             unregister_audio_patch(dev, patch_set);
         }
-    } else if (sink_config->type == AUDIO_PORT_TYPE_MIX) {
-
+    }
+    else if (sink_config->type == AUDIO_PORT_TYPE_MIX) /* sink config categorization -2 */
+    {
         if (src_config->type == AUDIO_PORT_TYPE_DEVICE) { /* 3.device to mix audio patch */
             ret = android_dev_convert_to_hal_dev(src_config->ext.device.type, (int *)&inport);
             if (ret != 0) {
@@ -7658,84 +7602,60 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
                 unregister_audio_patch(dev, patch_set);
                 patch_set = NULL;
             }
-            aml_audio_input_routing(dev, inport);
-            input_src = android_input_dev_convert_to_hal_input_src(src_config->ext.device.type);
-            if (AUDIO_DEVICE_IN_TV_TUNER == src_config->ext.device.type) {
-                aml_dev->dev2mix_patch = true;
-                if (aml_dev->is_TV) {
-                   if (input_src == ATV) {
-                       aml_dev->patch_src = SRC_ATV;
-                   }
-                } else {
-                   /*for stb ,AUDIO_DEVICE_IN_TV_TUNER is always DTV */
-                   if (input_src == ATV) {
-                       aml_dev->patch_src = SRC_DTV;
-                   }
-                }
-            } else if (AUDIO_DEVICE_IN_ECHO_REFERENCE != src_config->ext.device.type) {
-                if (AUDIO_DEVICE_IN_BUILTIN_MIC != src_config->ext.device.type &&
-                    AUDIO_DEVICE_IN_BACK_MIC != src_config->ext.device.type )
-                    aml_dev->patch_src = android_input_dev_convert_to_hal_patch_src(src_config->ext.device.type);
-            }
+
+            patch_source = get_patch_source(aml_dev, src_config->ext.device.type, PATCH_ROUTE_DEV_MIX);
+
             AM_LOGI("dev(%s) -> mix(%d) patch, patch_src:%s, in dev:%#x",
-                inputPort2Str(inport), sink_config->ext.mix.handle, patchSrc2Str(aml_dev->patch_src), src_config->ext.device.type);
-            if (input_src != SRC_NA) {
-                set_audio_source(&aml_dev->alsa_mixer, input_src, alsa_device_is_auge());
-            }
-            aml_dev->active_inport = inport;
-            if (inport == INPORT_HDMIIN || inport == INPORT_ARCIN || inport == INPORT_SPDIF
-                || inport == INPORT_LINEIN || ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_ATV))) {
+                inputPort2Str(inport), sink_config->ext.mix.handle, patchSrc2Str(patch_source), src_config->ext.device.type);
+
+            if (inport == INPORT_HDMIIN ||
+                inport == INPORT_ARCIN  ||
+                inport == INPORT_SPDIF  ||
+                inport == INPORT_LINEIN ||
+                ((inport == INPORT_TUNER) && (patch_source == SRC_ATV))) {
                  aml_dev->dev2mix_patch = true;
 #if 0
                 aml_dev2mix_parser_create(dev, src_config->ext.device.type);
 #endif
-                if (input_src != SRC_NA) {
-                    set_audio_source(&aml_dev->alsa_mixer, input_src, alsa_device_is_auge());
-                }
-
-
-                if (aml_dev->audio_patch) {
-                    ALOGD("%s: patch exists, first release it", __func__);
-                    ALOGD("%s: new input %#x, old input %#x",
-                        __func__, inport, aml_dev->audio_patch->input_src);
-#ifdef ENABLE_DVB_PATCH
-                    if (aml_dev->audio_patch->is_dtv_src)
-                        release_dtv_patch(aml_dev);
-                    else
-#endif
-                        release_patch(aml_dev);
-                }
-                ret = create_patch(dev, src_config->ext.device.type, aml_dev->cur_out_devices);
+                ret = patch_mgr_create_patch(aml_dev,
+                                patch_source,
+                                src_config->ext.device.type,
+                                aml_dev->cur_out_devices,
+                                PATCH_TYPE_TV);
                 if (ret) {
-                    ALOGE("[%s:%d] create patch failed, cur out dev:%#x.", __func__, __LINE__, aml_dev->cur_out_devices);
+                    ALOGE("[%s:%d] create patch failed, all_out_devices:%#x.", __func__, __LINE__, aml_dev->cur_out_devices);
                     unregister_audio_patch(dev, patch_set);
                     patch_set = NULL;
                 }
-                aml_dev->audio_patching = 1;
-
-            } else if ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_DTV)){///zzz
+            } else if ((inport == INPORT_TUNER) && (patch_source == SRC_DTV)){///zzz
 #ifdef ENABLE_DVB_PATCH
-                if (/*aml_dev->is_TV*/1) {
+                if (/*is_TV(aml_dev)*/1) {
                     ALOGI("%s, !!! now create the dtv patch now\n ", __func__);
-                    ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER, AUDIO_DEVICE_OUT_SPEAKER);
-                    if (ret == 0) {
-                        aml_dev->audio_patching = 1;
-                    }
+                    aml_dev->dev2mix_patch = true;
+                    ret = patch_mgr_create_patch(aml_dev,
+                                patch_source,
+                                src_config->ext.device.type,
+                                aml_dev->cur_out_devices,
+                                PATCH_TYPE_DTV);
                 }
 #endif
+            } else {
+                ALOGE("[%s:%d] create patch failed, all_out_devices:%#x.", __func__, __LINE__, aml_dev->cur_out_devices);
             }
-            aml_audio_input_routing(dev, inport);
             ret = 0;
         } else {
             AM_LOGE("invalid patch, source error, source:%d(%s)->MIX", src_config->type, audioPortType2Str(src_config->type));
             ret = -EINVAL;
             unregister_audio_patch(dev, patch_set);
         }
-    } else {
+    }
+    else /* sink config categorization -3 */
+    {
         AM_LOGE("invalid patch, sink:%d(%s) error", sink_config->type, audioPortType2Str(sink_config->type));
         ret = -EINVAL;
         unregister_audio_patch(dev, patch_set);
     }
+
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, TYPE_PCM);
     return ret;
 }
@@ -7743,6 +7663,9 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
 static int adev_release_patch_restore_resource(struct aml_audio_device *aml_dev)
 {
     int ret = 0;
+    if (!aml_dev) {
+        ret = -EINVAL;
+    }
 
 #if 0
     /* for no patch case, we need to restore it, especially note the multi-instance audio-patch */
@@ -7763,16 +7686,6 @@ static int adev_release_patch_restore_resource(struct aml_audio_device *aml_dev)
         ALOGI("%s restore continuous_audio_mode=%d", __func__, aml_dev->continuous_audio_mode);
     }
 #endif
-    aml_dev->audio_patching = 0;
-    /*when pip mode , two audiopatch coexisits, if one audiopatch released , the patching flag will be set to  0*/
-    if (!aml_dev->audio_patch) {
-         aml_dev->audio_patching = 0;
-        /* save ATV src to deal with ATV HP hotplug */
-        if (aml_dev->patch_src != SRC_ATV) {
-            aml_dev->patch_src = SRC_INVAL;
-        }
-
-    }
 
     return ret;
 }
@@ -7807,66 +7720,59 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
     R_CHECK_POINTER_LEGAL(-EINVAL, patch, "Can't get patch id:%d in list", handle);
 
     /* aml_dev patch is not the release patch */
-    if (aml_dev->audio_patch && aml_dev->audio_patch->input_src != patch->sources[0].ext.device.type)
+    if (get_dev_patch(aml_dev) && get_dev_patch(aml_dev)->input_src != patch->sources[0].ext.device.type) {
         goto exit_unregister;
-    AM_LOGI("id:%d %s->%s patch_src:%s", handle, audioPortType2Str(patch->sources[0].type),
-        audioPortType2Str(patch->sinks[0].type), patchSrc2Str(aml_dev->patch_src));
+    }
 
+    AM_LOGI("id:%d %s->%s patch_src:%s", handle, audioPortType2Str(patch->sources[0].type),
+        audioPortType2Str(patch->sinks[0].type), patchSrc2Str(get_dev_patch_src(aml_dev)));
+
+    //1.Release device to device patch
     if (patch->sources[0].type == AUDIO_PORT_TYPE_DEVICE
         && patch->sinks[0].type == AUDIO_PORT_TYPE_DEVICE) {
 #ifdef ENABLE_DVB_PATCH
-        if (aml_dev->patch_src == SRC_DTV || ( aml_dev->audio_patch && aml_dev->audio_patch->is_dtv_src)) {
-            ALOGI("patch src == DTV now line %d \n", __LINE__);
-            release_dtv_patch(aml_dev);
-        }
+        ret = patch_mgr_release_patch(aml_dev, PATCH_TYPE_DTV);
 #endif
-        if (aml_dev->patch_src != SRC_DTV
-                && aml_dev->patch_src != SRC_INVAL
-                && aml_dev->audio_patching == 1) {
-            release_patch(aml_dev);
-            if (aml_dev->patch_src == SRC_LINEIN && aml_dev->aml_ng_handle) {
-
-                release_noise_gate(aml_dev->aml_ng_handle);
-                aml_dev->aml_ng_handle = NULL;
-            }
-        }
-
+        ret = patch_mgr_release_patch(aml_dev, PATCH_TYPE_TV);
         /*for no patch case, we need to restore it*/
         ret = adev_release_patch_restore_resource(aml_dev);
     }
 
+    //2.Release device to Mix patch
     if (patch->sources[0].type == AUDIO_PORT_TYPE_DEVICE
         && patch->sinks[0].type == AUDIO_PORT_TYPE_MIX) {
 #if 0
-        if (aml_dev->patch_src == SRC_HDMIIN) {
+        if (is_same_patch_src(aml_dev, SRC_HDMIIN)) {
             aml_dev2mix_parser_release(aml_dev);
         }
 #endif
 
 #ifdef ENABLE_DVB_PATCH
-        if (aml_dev->patch_src == SRC_DTV &&
+        if (is_same_patch_src(aml_dev, SRC_DTV) &&
                 patch->sources[0].ext.device.type == AUDIO_DEVICE_IN_TV_TUNER) {
             ALOGI("patch src == DTV now line %d \n", __LINE__);
-            release_dtv_patch(aml_dev);
+            ret = patch_mgr_release_patch(aml_dev, PATCH_TYPE_DTV);
         } else
 #endif
         {
-            release_patch(aml_dev);
+            ret = patch_mgr_release_patch(aml_dev, PATCH_TYPE_TV);
         }
 
         /*for no patch case, we need to restore it*/
         ret = adev_release_patch_restore_resource(aml_dev);
 
-        if (aml_dev->audio_patching) {
+        if (is_dev_patch_running(aml_dev)) {
             ALOGI("patch src reset to  DTV now line= %d \n", __LINE__);
             //aml_dev->patch_src = SRC_DTV;
-            aml_dev->active_inport = INPORT_TUNER;
+            set_input_device_avail(aml_dev, AUDIO_DEVICE_IN_TV_TUNER, true);
         }
-        if (!aml_dev->audio_patch)  {
+        if (!is_dev_patch_exist(aml_dev))  {
             aml_dev->dev2mix_patch = false;
         }
     }
+
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, TYPE_PCM);
+
 #ifdef ADD_AUDIO_DELAY_INTERFACE
     aml_audio_delay_clear(AML_DELAY_OUTPORT_SPEAKER);
     aml_audio_delay_clear(AML_DELAY_OUTPORT_SPDIF);
@@ -7909,7 +7815,7 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
     dprintf(fd, "[AML_HAL] digital_audio_format : %10d |  cur_out_devices   :    %#x\n",
         aml_dev->digital_audio_format, aml_dev->cur_out_devices);
     dprintf(fd, "[AML_HAL]      A2DP gain       : %10f |  patch_src         :    %s\n",
-        aml_dev->sink_gain[OUTPORT_A2DP], patchSrc2Str(aml_dev->patch_src));
+        aml_dev->sink_gain[OUTPORT_A2DP], patchSrc2Str(get_dev_patch_src(aml_dev)));
     dprintf(fd, "[AML_HAL]      SPEAKER gain    : %10f |  HDMI gain         :    %f\n",
         aml_dev->sink_gain[OUTPORT_SPEAKER], aml_dev->sink_gain[OUTPORT_HDMI]);
     dprintf(fd, "[AML_HAL]      ms12 main volume: %10f\n", aml_dev->ms12.main_volume);
@@ -7937,8 +7843,8 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
         subMixingDump(fd, aml_dev);
     }
 
-    aml_audio_patches_dump(aml_dev, fd);
-    audio_patch_dump(aml_dev, fd);
+    adev_audio_patches_dump(aml_dev, fd);
+
     a2dp_hal_dump(aml_dev, fd);
 
     dolby_ms12_info_dump(fd);
@@ -8089,37 +7995,28 @@ static int adev_close(hw_device_t *device)
     if (adev->tmp_buffer_8ch) {
         aml_audio_free(adev->tmp_buffer_8ch);
     }
-    if (adev->aml_ng_handle) {
-        release_noise_gate(adev->aml_ng_handle);
-        adev->aml_ng_handle = NULL;
-    }
+
     ring_buffer_release(&(adev->spk_tuning_rbuf));
-    if (adev->ar) {
-        audio_route_free(adev->ar);
-    }
+
     eq_drc_release(&adev->eq_data);
-    close_mixer_handle(&adev->alsa_mixer);
-#if ENABLE_DVB_PATCH
-    if (adev->aml_dtv_audio_instances) {
-        aml_dtv_audio_instances_t *dtv_audio_instances = (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
-        for (int index = 0; index < DVB_DEMUX_SUPPORT_MAX_NUM; index ++) {
-            aml_dtvsync_t *dtvsync =  &dtv_audio_instances->dtvsync[index];
-            pthread_mutex_destroy(&dtvsync->ms_lock);
-        }
-        aml_audio_free(adev->aml_dtv_audio_instances);
-    }
-#endif
+
     if (adev->sm) {
         deleteHalSubMixing(adev->sm);
     }
     aml_audio_hwsync_close();
-    pthread_mutex_destroy(&adev->patch_lock);
-#if ENABLE_DVB_PATCH
-    pthread_mutex_destroy(&adev->dtv_lock);
-#endif
+
+    /** rlease some global shared resources **/
+    destroy_hdmi_capability_manager(adev);
+
+    destroy_hw_resource_mgr(adev);
+
+    destroy_patch_manager(adev);
+
+    close_mixer_handle(&adev->alsa_mixer);
+    /** done **/
 
 #ifdef ADD_AUDIO_DELAY_INTERFACE
-    if (adev->is_TV) {
+    if (is_TV(adev)) {
         aml_audio_delay_deinit();
     }
 #endif
@@ -8204,9 +8101,9 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
     }
     if (config->type == AUDIO_PORT_TYPE_DEVICE && config->role == AUDIO_PORT_ROLE_SOURCE) {
         android_dev_convert_to_hal_dev(config->ext.device.type, (int *)&inport);
-        aml_dev->src_gain[inport] = DbToAmpl(config->gain.values[0] / 100.0);
+        set_inport_gain(aml_dev, inport, DbToAmpl(config->gain.values[0] / 100.0));
         AM_LOGI("set src_gain[%s]: %f, cur_out_devices:%#x", inputPort2Str(inport),
-            aml_dev->src_gain[inport], aml_dev->cur_out_devices);
+            get_inport_gain(aml_dev, inport), aml_dev->cur_out_devices);
         devs_nums = __builtin_popcount(aml_dev->cur_out_devices);
         if (devs_nums == 1) {
             out_device = aml_dev->cur_out_devices;
@@ -8234,9 +8131,9 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
             aml_dev->sink_gain[outport], aml_dev->cur_out_devices);
     }
 
-    if (config->role == AUDIO_PORT_ROLE_SOURCE && eDolbyMS12Lib == aml_dev->dolby_lib_type && aml_dev->is_TV) {
+    if (config->role == AUDIO_PORT_ROLE_SOURCE && eDolbyMS12Lib == aml_dev->dolby_lib_type && is_TV(aml_dev)) {
         /* dev->dev and DTV src gain using MS12 primary gain */
-        if (aml_dev->audio_patching || aml_dev->patch_src == SRC_DTV) {
+        if (is_dev_patch_running(aml_dev) || is_same_patch_src(aml_dev, SRC_DTV)) {
             pthread_mutex_lock(&aml_dev->lock);
              /* Raw data from hdmi, alexa voice case, the souece stream need duck about 20dB */
             ALOGI("%s line %d set ms12 main volume %f\n", __func__, __LINE__, DbToAmpl(config->gain.values[1]/100));
@@ -8291,7 +8188,7 @@ static int adev_set_device_connected_state_v7(struct audio_hw_device *dev,
                 }
             }
 
-            if (aml_dev->bHDMIConnected == 1) {
+            if (is_HDMI_connected(aml_dev)) {
                 struct dolby_ms12_desc *ms12 = &(aml_dev->ms12);
 
                 aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
@@ -8460,23 +8357,31 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     }
 
     adev->card = card;
-    adev->ar = audio_route_init(adev->card, MIXER_XML_PATH);
 
-    /* some external codec init time last longer, wait 1s before timeout */
-    int retry_count = 0;
-    while (adev->ar == NULL) {
-        usleep(20 * 1000);  //20MS
-        adev->ar = audio_route_init(adev->card, MIXER_XML_PATH);
-        retry_count++;
-        if (retry_count > 50)
-            break;
-    }
+    /* 1st open mixer ctrl for audio hal */
+    open_mixer_handle(&adev->alsa_mixer);
 
-    if (adev->ar == NULL) {
-        ALOGE("audio route init failed");
+    /* init arc hdmi capability manager */
+    if (init_hdmi_capability_manager(adev) < 0) {
+        ALOGE("%s() line:%d error! new hdmi_capability_manager failed", __func__, __LINE__);
         ret = -EINVAL;
         goto err_adev;
     }
+
+    /* some external codec init time last longer, wait 1s before timeout */
+    if (init_audio_hw_resource_mgr(adev, &adev->alsa_mixer) < 0) {
+        ALOGE("%s() line:%d error! audio route init failed", __func__, __LINE__);
+        ret = -EINVAL;
+        goto err_adev;
+    }
+
+    /* init device patch manager */
+    if (init_patch_manager(adev) < 0) {
+        ALOGE("%s() line:%d error! new patch_manger failed", __func__, __LINE__);
+        ret = -EINVAL;
+        goto err_adev;
+    }
+
     /* Set the default route before the PCM stream is opened */
     adev->mode = AUDIO_MODE_NORMAL;
     adev->out_device = AUDIO_DEVICE_OUT_SPEAKER | AUDIO_DEVICE_OUT_SPDIF;
@@ -8493,14 +8398,14 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         ALOGI("%s() audio device gain: speaker:%f, spdif_arc:%f, headphone:%f", __func__,
            adev->eq_data.p_gain.speaker, adev->eq_data.p_gain.spdif_arc,
               adev->eq_data.p_gain.headphone);
-        adev->aml_ng_enable = adev->eq_data.noise_gate.aml_ng_enable;
+
+        init_noise_gate_wrap(adev, adev->eq_data.noise_gate.aml_ng_enable,
+                                adev->eq_data.noise_gate.aml_ng_level,
+                                adev->eq_data.noise_gate.aml_ng_attack_time,
+                                adev->eq_data.noise_gate.aml_ng_release_time);
+
         adev->aml_dap_v1_enable = adev->eq_data.aml_dap_v1_enable;
-        adev->aml_ng_level = adev->eq_data.noise_gate.aml_ng_level;
-        adev->aml_ng_attack_time = adev->eq_data.noise_gate.aml_ng_attack_time;
-        adev->aml_ng_release_time = adev->eq_data.noise_gate.aml_ng_release_time;
         adev->eq_drc_inited = true;
-        ALOGI("%s() audio noise gate level: %fdB, attack_time = %dms, release_time = %dms", __func__,
-              adev->aml_ng_level, adev->aml_ng_attack_time, adev->aml_ng_release_time);
         /* read default dac vol for hp mute*/
         int dac_unmute[2] = {251, 251};
         aml_mixer_ctrl_get_array(&adev->alsa_mixer, AML_MIXER_ID_DAC_PLAYBACK_VOLUME, &dac_unmute, 2);
@@ -8593,8 +8498,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     }
     adev->continuous_audio_mode = adev->continuous_audio_mode_default;
     pthread_mutex_init(&adev->alsa_pcm_lock, NULL);
-    pthread_mutex_init(&adev->patch_lock, NULL);
-    open_mixer_handle(&adev->alsa_mixer);
+
     /* Set the earctx mode by the property, only need set false */
     earctx_mode = property_get_bool("persist.sys.vendor.earc_settings", true);
     if (!earctx_mode) {
@@ -8602,11 +8506,14 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         ALOGI("eARC_TX eARC Mode get from property: %d\n", earctx_mode);
     }
 
+    //TODO: move those default setting at HW resource mgr
+    enable_device_force_routing(adev, true);
     aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_SPEAKER, false);
     aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_WIRED_HEADPHONE, false);
     aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_HDMI, false);
     aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_HDMI_ARC, false);
     aml_audio_outport_enable(adev, AUDIO_DEVICE_OUT_SPDIF, adev->spdif_coexist_other);
+    enable_device_force_routing(adev, false);
 
     if (eDolbyMS12Lib != adev->dolby_lib_type) {
         adev->ms12.dolby_ms12_enable = false;
@@ -8622,32 +8529,13 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         adev->dcvlib_bypass_enable = 1;
     }
 
-    adev->audio_patch = NULL;
     memset(&adev->dts_hd, 0, sizeof(struct dca_dts_dec));
     adev->sound_track_mode = 0;
-    adev->dtv_sound_mode = 0;
-#if ENABLE_DVB_PATCH
-    adev->aml_dtv_audio_instances = aml_audio_calloc(1, sizeof(aml_dtv_audio_instances_t));
-    if (adev->aml_dtv_audio_instances == NULL) {
-        ALOGE("malloc aml_dtv_audio_instances failed");
-        ret = -ENOMEM;
-        goto err_spk_tuning_rbuf;
-    } else {
-        aml_dtv_audio_instances_t *dtv_audio_instances = (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
-        for (int index = 0; index < DVB_DEMUX_SUPPORT_MAX_NUM; index ++) {
-            aml_dtvsync_t *dtvsync =  &dtv_audio_instances->dtvsync[index];
-            pthread_mutex_init(&dtvsync->ms_lock, NULL);
-        }
-    }
-
-    pthread_mutex_init(&adev->dtv_lock, NULL);
-#endif
 
 #if ENABLE_NANO_NEW_PATH
     nano_init();
 #endif
     ALOGI("%s() adev->dolby_lib_type = %d", __FUNCTION__, adev->dolby_lib_type);
-    adev->patch_src = SRC_INVAL;
     adev->audio_type = LPCM;
 
 /*[SEI-2018-10-29] add for HBG remote audio support { */
@@ -8662,20 +8550,6 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         goto err_dtv_audio_instances;
     }
 #endif
-
-/*[SEI-2018-10-29] add for HBG remote audio support } */
-#if defined(TV_AUDIO_OUTPUT)
-    adev->is_TV = true;
-    /* by default, BDS will share the same audio feature as TV */
-    adev->is_BDS = /*check_chip_name("t7", 2, &adev->alsa_mixer) ? true : */false;
-    /*Now SoundBar type is depending on TV audio as only tv support multi-channel LPCM output*/
-    adev->is_SBR = aml_audio_check_sbr_product();
-    ALOGI("%s(), TV platform,soundbar platform %d", __func__,adev->is_SBR);
-#else
-    adev->is_STB = property_get_bool("ro.vendor.platform.is.stb", false);
-    ALOGI("%s(), OTT platform", __func__);
-#endif
-
 
 #ifdef ENABLE_AEC_APP
     if (init_aec(CAPTURE_CODEC_SAMPLING_RATE, NUM_AEC_REFERENCE_CHANNELS,
@@ -8694,7 +8568,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         __func__, adev->useSubMix ? "TRUE": "FALSE");
 
     if (adev->useSubMix) {
-        initHalSubMixing(&adev->sm, MIXER_LPCM, adev, adev->is_TV);
+        initHalSubMixing(&adev->sm, MIXER_LPCM, adev, is_TV(adev));
         aml_audio_hwsync_open();
         adev->raw_to_pcm_flag = false;
         profile_init(&adev->usb_audio.in_profile, PCM_IN);
@@ -8724,10 +8598,8 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     // set debug_flag here to see more debug log when debugging.
     adev->debug_flag = aml_audio_get_debug_flag();
     adev->count = 1;
-    adev->is_multi_demux = is_multi_demux();
 
-    memset(&(adev->hdmi_descs), 0, sizeof(struct aml_arc_hdmi_desc));
-    ALOGD("%s adev->dolby_lib_type:%d  !adev->is_TV:%d", __func__, adev->dolby_lib_type, !adev->is_TV);
+    ALOGD("%s adev->dolby_lib_type:%d  !is_TV(adev):%d", __func__, adev->dolby_lib_type, !is_TV(adev));
     /* create thread for communication between Audio Hal and MS12 */
     if ((eDolbyMS12Lib == adev->dolby_lib_type)) {
         ret = ms12_mesg_thread_create(&adev->ms12);
@@ -8748,13 +8620,9 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->hw_mediasync = NULL;
     adev->hw_sync_id = -1;
 
-    /* dtv_volume init , range [0, 1]*/
-    adev->dtv_volume = 1.0;
     adev->stream_bitrate = -1;
     pthread_mutex_unlock(&adev_mutex);
 
-    adev->insert_mute_flag = false;
-    adev->source_flag = false;
     adev->fmt_start_mute = false;
     aml_audio_board_config_init(&adev->board_config);
 
@@ -8783,7 +8651,6 @@ Err_MS12_MesgThreadCreate:
 err_vol_ease:
     aml_audio_ease_close(adev->audio_ease);
 err_dtv_audio_instances:
-    aml_audio_free(adev->aml_dtv_audio_instances);
 err_spk_tuning_rbuf:
     ring_buffer_release(&adev->spk_tuning_rbuf);
 err_out_32_buf:

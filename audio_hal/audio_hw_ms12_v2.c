@@ -58,12 +58,14 @@
 
 #ifdef ENABLE_DVB_PATCH
 #include "dtv_patch_dtvsync.h"
+#include "dmx_audio_es.h"
 #endif
 
 #include "aml_audio_scaletempo.h"
 #include "aml_audio_output.h"
 #include "tv_patch_ctrl.h"
-
+#include "dtv_private_object.h"
+#include "audio_hw_resource_mgr.h"
 
 #define DOLBY_DRC_LINE_MODE 0
 #define DOLBY_DRC_RF_MODE   1
@@ -849,7 +851,7 @@ static void set_dolby_ms12_dap_init_mode(struct aml_audio_device *adev)
 
     /* Dolby MS12 V2 uses DAP Tuning file */
     if (adev->is_ms12_tuning_dat) {
-        dap_init_mode = get_ms12_dap_init_mode(adev->is_TV);
+        dap_init_mode = get_ms12_dap_init_mode(is_TV(adev));
     }
     else {
         dap_init_mode = adev->dolby_ms12_dap_init_mode;
@@ -969,21 +971,21 @@ int get_the_dolby_ms12_prepared(
     }
 #ifdef ENABLE_DVB_PATCH
     aml_demux_audiopara_t *demux_info = NULL;
-    if (is_audio_patch_valid(adev) && adev->audio_patch) {
-        demux_info = (aml_demux_audiopara_t *)adev->audio_patch->demux_info;
+    if (is_dev_patch_valid(adev) && is_dev_patch_exist(adev)) {
+        demux_info = (aml_demux_audiopara_t *)get_dev_patch(adev)->demux_info;
     }
     if (input_format == AUDIO_FORMAT_AC3 ||
         input_format == AUDIO_FORMAT_E_AC3 ||
         input_format == AUDIO_FORMAT_AC4 ||
         input_format == AUDIO_FORMAT_AAC ||
         input_format == AUDIO_FORMAT_AAC_LATM) {
-        if (is_audio_patch_valid(adev) && adev->audio_patch && demux_info) {
+        if (is_dev_patch_valid(adev) && is_dev_patch_exist(adev) && demux_info) {
             ms12->dual_decoder_support = demux_info->dual_decoder_support;
             associate_audio_mixing_enable = demux_info->associate_audio_mixing_enable;
             mixing_level = demux_info->mixing_level;
             ad_vol = demux_info->advol_level;
             media_presentation_id = demux_info->media_presentation_id;
-            dtv_decoder_offset_base = adev->audio_patch->decoder_offset;
+            dtv_decoder_offset_base = get_dev_patch(adev)->decoder_offset;
        } else {
             ms12->dual_decoder_support = 0;
             associate_audio_mixing_enable = 0;
@@ -1045,7 +1047,7 @@ int get_the_dolby_ms12_prepared(
         // MS12_OUTPUT_MASK_MC : NTS LLP-AUDIO-OUTPUT-LATENCY-STB-6CH
         output_config = MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_MAT | MS12_OUTPUT_MASK_MC;
     } else {
-        if (adev->is_TV) {
+        if (is_TV(adev)) {
             output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_SPEAKER;
         } else {
             // MS12_OUTPUT_MASK_MC : NTS LLP-AUDIO-OUTPUT-LATENCY-STB-6CH
@@ -1053,7 +1055,7 @@ int get_the_dolby_ms12_prepared(
         }
     }
     /* for soundbar, we only need speaker output */
-    if (adev->is_SBR)
+    if (is_SBR(adev))
         output_config = MS12_OUTPUT_MASK_SPEAKER|MS12_OUTPUT_MASK_STEREO;
 
     /* earc AVR connected, so we enable multi channel pcm out*/
@@ -1071,13 +1073,13 @@ int get_the_dolby_ms12_prepared(
     /* 2.To reconfig the ms12 nodes depending on the user case when digital input case to refine ms12 performance */
     /* 3.For DDP-ARC,  top result about 60%+ CPU */
     /* 4.For MAT-eARC, top result about 50%+ CPU */
-    if (is_audio_patch_valid(adev) && adev->audio_patch && \
-           (adev->audio_patch->input_src == AUDIO_DEVICE_IN_HDMI || adev->audio_patch->input_src == AUDIO_DEVICE_IN_SPDIF)) {
+    if (is_dev_patch_valid(adev) && is_dev_patch_exist(adev) && \
+           (get_dev_patch(adev)->input_src == AUDIO_DEVICE_IN_HDMI || get_dev_patch(adev)->input_src == AUDIO_DEVICE_IN_SPDIF)) {
         output_config = get_ms12_output_mask(adev->sink_format, adev->optical_format,
             (adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0);
     }
 
-    if (is_audio_patch_valid(adev) && adev->audio_patch && adev->audio_patch->input_src == AUDIO_DEVICE_IN_HDMI) {
+    if (is_dev_patch_valid(adev) && is_dev_patch_exist(adev) && get_dev_patch(adev)->input_src == AUDIO_DEVICE_IN_HDMI) {
         if (!adev->continuous_audio_mode &&
             ((input_format == AUDIO_FORMAT_AC3) || (input_format == AUDIO_FORMAT_E_AC3))) {
             dolby_ms12_set_enforce_timeslice(true);
@@ -1107,7 +1109,7 @@ int get_the_dolby_ms12_prepared(
     if (ms12->dolby_ms12_enable) {
         //register Dolby MS12 callback
         dolby_ms12_register_output_callback(ms12_output, (void *)out);
-        if ((adev->patch_src == SRC_DTV) && is_audio_patch_valid(adev) && adev->audio_patch) {
+        if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_valid(adev) && is_dev_patch_exist(adev)) {
             if (ms12->scaletempo == NULL) {
                 hal_scaletempo_init((struct scale_tempo **)&ms12->scaletempo);
             }
@@ -1211,7 +1213,7 @@ int get_the_dolby_ms12_prepared(
         set_ms12_ac4_presentation_group_index(ms12, media_presentation_id);
         ALOGI("%s line %d\n",__func__, __LINE__);
 #ifdef ENABLE_DVB_PATCH
-        if (is_audio_patch_valid(adev) && adev->audio_patch && demux_info) {
+        if (is_dev_patch_valid(adev) && is_dev_patch_exist(adev) && demux_info) {
             char first_lang[4] = {0};
             dtv_convert_language_to_string(demux_info->media_first_lang,first_lang);
             set_ms12_ac4_1st_preferred_language_code(ms12, first_lang);
@@ -1219,7 +1221,7 @@ int get_the_dolby_ms12_prepared(
             dtv_convert_language_to_string(demux_info->media_second_lang,second_lang);
             set_ms12_ac4_2nd_preferred_language_code(ms12, second_lang);
 
-            int prefer_selection_type = (is_audio_patch_valid(adev) && adev->audio_patch->is_dtv_src) ? PERFER_SELECTION_BY_LANGUAGE : PERFER_SELECTION_BY_AD_TYPE;
+            int prefer_selection_type = (is_dev_patch_valid(adev) && get_dev_patch(adev)->is_dtv_src) ? PERFER_SELECTION_BY_LANGUAGE : PERFER_SELECTION_BY_AD_TYPE;
             ALOGI("%s line %d 1st %c %c %c 2nd %c %c %c pat %d\n",__func__, __LINE__, first_lang[0], first_lang[1], first_lang[2], second_lang[0], second_lang[1], second_lang[2], prefer_selection_type);
             set_ms12_ac4_prefer_presentation_selection_by_associated_type_over_language(ms12, prefer_selection_type);
         }
@@ -1232,7 +1234,7 @@ int get_the_dolby_ms12_prepared(
     }
 
     /*if arc is connected, we need disable dap*/
-    if (ms12->dolby_ms12_enable && adev->cur_out_devices == OUTPORT_HDMI_ARC && adev->bHDMIConnected == 1) {
+    if (ms12->dolby_ms12_enable && adev->cur_out_devices == OUTPORT_HDMI_ARC && is_HDMI_connected(adev)) {
         set_ms12_full_dap_disable(ms12, true);
     }
 
@@ -1291,7 +1293,7 @@ Err:
 
 static inline bool is_hdmiin_source_for_audio_patch(struct aml_audio_device *adev)
 {
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch =  get_dev_patch(adev);
     bool is_hdmiin_input_src = (patch && (patch->input_src == AUDIO_DEVICE_IN_HDMI));
 
     return is_hdmiin_input_src;
@@ -1405,15 +1407,15 @@ int dolby_ms12_main_process(
                             (ms12_hal_format == AUDIO_FORMAT_AAC_LATM) || \
                             (ms12_hal_format == AUDIO_FORMAT_HE_AAC_V1) || \
                             (ms12_hal_format == AUDIO_FORMAT_HE_AAC_V2));
-    struct aml_audio_patch *patch = adev->audio_patch;
-    bool do_sync_flag = (adev->patch_src == SRC_DTV) && patch && patch->skip_amadec_flag;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
+    bool do_sync_flag = is_same_patch_src(adev, SRC_DTV) && patch && patch->skip_amadec_flag;
 
     if (adev->debug_flag >= 2) {
         ALOGI("\n%s() in continuous %d input ms12 bytes %d input bytes %zu\n",
               __FUNCTION__, adev->continuous_audio_mode, dolby_ms12_input_bytes, input_bytes);
     }
 
-    if (adev->ms12_to_be_cleanup && adev->audio_patch && adev->patch_src == SRC_DTV) {
+    if (adev->ms12_to_be_cleanup && is_dev_patch_exist(adev) && is_same_patch_src(adev, SRC_DTV)) {
         return ret;
     }
 
@@ -2226,8 +2228,8 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
     audio_format_t output_format =  ms12_get_audio_hal_format(aml_out->hal_format);
     ALOGV("[%s:%d]output_format=0x%x hal_format=0x%#x internal=0x%x",__FUNCTION__,__LINE__, output_format, aml_out->hal_format, aml_out->hal_internal_format);
     bool is_dolby = (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3) || (aml_out->hal_internal_format == AUDIO_FORMAT_AC3);
-    struct aml_audio_patch *patch = adev->audio_patch;
-    bool do_sync_flag = ((adev->patch_src == SRC_DTV) && patch && patch->skip_amadec_flag);
+    struct aml_audio_patch *patch = get_dev_patch(adev);
+    bool do_sync_flag = (is_same_patch_src(adev, SRC_DTV) && patch && patch->skip_amadec_flag);
     spdif_config_t spdif_config = { 0 };
     audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
     if (!buffer) {
@@ -2272,7 +2274,7 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
             //case 2: the aml_out->hal_internal_format is AUDIO_FORMAT_E_AC3 and the actual format is AUDIO_FORMAT_AC3,
             //so we need to judge the format whether or not there are accurate depending on the ac3_info.nIsEc3.
 
-            if (ac3_info.nIsEc3 == 1 && aml_out->hal_internal_format == AUDIO_FORMAT_AC3 && (ms12->dual_decoder_support == false)) {
+            if (ac3_info.nIsEc3 == 1 && aml_out->hal_internal_format == AUDIO_FORMAT_AC3  && (ms12->dual_decoder_support == false)) {
                 ALOGV("output_format=0x%x hal_format=0x%#x internal=0x%x nIsEc3 = %d",output_format, aml_out->hal_format, aml_out->hal_internal_format,ac3_info.nIsEc3);
                 aml_out->hal_internal_format = AUDIO_FORMAT_E_AC3;
                 output_format = AUDIO_FORMAT_E_AC3;
@@ -2357,7 +2359,7 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
         } else {
             aml_audio_spdifout_mute(bitstream_out->spdifout_handle, 0);
         }
-        if (adev->patch_src == SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
+        if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_exist(adev) && get_dev_patch(adev)->need_drop_size > 0) {
             return 0;
         }
 #ifdef ENABLE_DVB_PATCH
@@ -2497,7 +2499,7 @@ int dolby_truehd_bypass_process(struct audio_stream_out *stream, void *buffer, s
         } else {
             aml_audio_spdifout_mute(bitstream_out->spdifout_handle, 0);
         }
-        if (adev->patch_src == SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
+        if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_exist(adev)&& get_dev_patch(adev)->need_drop_size > 0) {
             return 0;
         }
 
@@ -2902,10 +2904,10 @@ int bitstream_output(void *buffer, void *priv_data, size_t size)
         return 0;
     }
 
-    if (adev->patch_src == SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
+    if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_exist(adev) && get_dev_patch(adev)->need_drop_size > 0) {
         if (adev->debug_flag > 1)
             ALOGI("func:%s, av sync drop data,need_drop_size=%d\n",
-                __FUNCTION__, adev->audio_patch->need_drop_size);
+                __FUNCTION__, get_dev_patch(adev)->need_drop_size);
         return ret;
     }
 
@@ -2982,10 +2984,10 @@ int spdif_bitstream_output(void *buffer, void *priv_data, size_t size)
         return 0;
     }
 
-    if (adev->patch_src ==  SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
+    if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_exist(adev) && get_dev_patch(adev)->need_drop_size > 0) {
         if (adev->debug_flag > 1)
             ALOGI("func:%s, av sync drop data,need_drop_size=%d\n",
-                __FUNCTION__, adev->audio_patch->need_drop_size);
+                __FUNCTION__, get_dev_patch(adev)->need_drop_size);
         return ret;
     }
 
@@ -3041,10 +3043,10 @@ int mat_bitstream_output(void *buffer, void *priv_data, size_t size)
         return 0;
     }
 #endif
-    if (adev->patch_src ==  SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
+    if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_exist(adev) && get_dev_patch(adev)->need_drop_size > 0) {
         if (adev->debug_flag > 1)
             ALOGI("func:%s, av sync drop data,need_drop_size=%d\n",
-                __FUNCTION__, adev->audio_patch->need_drop_size);
+                __FUNCTION__, get_dev_patch(adev)->need_drop_size);
         return ret;
     }
 
@@ -3169,10 +3171,10 @@ int mc_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_
         return 0;
     }
 
-    if (adev->patch_src ==  SRC_DTV && adev->audio_patch && adev->audio_patch->need_drop_size > 0) {
+    if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_exist(adev) && get_dev_patch(adev)->need_drop_size > 0) {
         if (adev->debug_flag > 1)
             ALOGI("func:%s, av sync drop data,need_drop_size=%d\n",
-                __FUNCTION__, adev->audio_patch->need_drop_size);
+                __FUNCTION__, get_dev_patch(adev)->need_drop_size);
         return ret;
     }
 
@@ -3356,7 +3358,7 @@ Aml_MS12_SyncPolicy_t ms12_dtv_sync_callback(void *priv_data, unsigned long long
     struct audio_stream_out *stream_out = (struct audio_stream_out *)aml_out;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     aml_dtvsync_t *aml_dtvsync = NULL;
     struct dtvsync_audio_policy *async_policy = NULL;
     uint64_t apts = 0;
@@ -3368,7 +3370,7 @@ Aml_MS12_SyncPolicy_t ms12_dtv_sync_callback(void *priv_data, unsigned long long
     audio_format_t audio_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
     int delay_frame = 0;
     int delay_pts_diff = 0;
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
+    bool do_sync_flag = is_same_patch_src(adev, SRC_DTV) && patch && patch->skip_amadec_flag;
     decoded_frame = dolby_ms12_get_decoder_nframes_pcm_output(ms12->dolby_ms12_ptr, audio_format, MAIN_INPUT_STREAM);
     int debug_enable = get_debug_value(AML_DEBUG_AUDIOHAL_HW_SYNC);
 
@@ -3423,7 +3425,7 @@ Aml_MS12_SyncPolicy_t ms12_dtv_sync_callback(void *priv_data, unsigned long long
             if (new_apts) {
                 int ms12_tuning_delay_pts = aml_audio_dtv_get_ms12_latency(stream_out) * 1000 * MILLISECOND_2_PTS / 48000;
                 int force_setting_delay_pts = 0;
-                if (adev->bHDMIARCon) {
+                if (is_HDMI_connected(adev)) {
                     force_setting_delay_pts = aml_getprop_int(PROPERTY_LOCAL_PASSTHROUGH_LATENCY)  * MILLISECOND_2_PTS;
                 }
                 aml_dtvsync->cur_outapts = new_apts + ms12_tuning_delay_pts + force_setting_delay_pts;
@@ -3474,13 +3476,13 @@ Aml_MS12_SyncPolicy_t ms12_dtv_sync_callback(void *priv_data, unsigned long long
                         ALOGI("%s insert %d ms frame =%d tag frame =%d cur_frame=%d ", __func__, async_policy->param1/1000, insert_frames, audio_sync_policy.s32TagFrame, audio_sync_policy.s32CurFrame);
                 } else if (async_policy->audiopolicy == DTVSYNC_AUDIO_ADJUST_CLOCK) {
                     aml_dtvsync_ms12_adjust_clock(stream_out, async_policy->param1);
-                    adev->underrun_mute_flag = false;
+                    enable_dtv_underrun_mute(adev, false);
                 } else if (async_policy->audiopolicy == DTVSYNC_AUDIO_RESAMPLE) {
                     aml_dtvsync_ms12_process_resample(stream_out, async_policy);
                 } else if (async_policy->audiopolicy == DTVSYNC_AUDIO_MUTE) {
-                    adev->underrun_mute_flag = true;
+                    enable_dtv_underrun_mute(adev, true);
                 } else if (async_policy->audiopolicy == DTVSYNC_AUDIO_NORMAL_OUTPUT) {
-                    adev->underrun_mute_flag = false;
+                    enable_dtv_underrun_mute(adev, false);
                 }
             }
         }
@@ -3495,7 +3497,7 @@ void ms12_do_dtv_sync(struct audio_stream_out *stream)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     aml_dtvsync_t *aml_dtvsync = NULL;
 
     bool do_sync_flag =  (patch->dtvsync->sync_type == DTVSYNC_MEDIASYNC);
@@ -3580,7 +3582,7 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
     struct audio_stream_out *stream_out = (struct audio_stream_out *)aml_out;
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
 
     audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
     audio_format_t output_format = (ms12_info) ? ms12_info->data_type : AUDIO_FORMAT_PCM_16_BIT;
@@ -3636,6 +3638,7 @@ int ms12_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_t 
             }
         }
     }
+
     if (audio_is_linear_pcm(output_format) && ms12_info) {
         if (ms12_info->pcm_type == MC_LPCM) {
             mc_pcm_output(buffer, priv_data, size, ms12_info);
@@ -3786,16 +3789,16 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     int ret = 0, associate_audio_mixing_enable = 0 , media_presentation_id = -1, mixing_level = 0,ad_vol = 100;
-    struct aml_audio_patch *patch = adev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(adev);
     uint32_t dtv_decoder_offset_base = 0;
     unsigned int sample_rate = aml_out->hal_rate;
 
 #ifdef ENABLE_DVB_PATCH
-    aml_demux_audiopara_t *demux_info = NULL;
+    aml_demux_audiopara_t * demux_info = NULL;
     if (patch) {
         demux_info = (aml_demux_audiopara_t *)patch->demux_info;
     }
-    bool do_sync_flag = adev->patch_src  == SRC_DTV && patch && patch->skip_amadec_flag;
+    bool do_sync_flag = is_same_patch_src(adev, SRC_DTV) && patch && patch->skip_amadec_flag;
 #endif
 
     audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
@@ -3893,13 +3896,12 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
     if (aml_out->hw_sync_mode) {
         dolby_ms12_register_ms12sync_callback(ms12->dolby_ms12_ptr, ms12_sync_callback, (void *)stream);
         aml_out->b_install_sync_callback = true;
-        ALOGI("%s set sync callback %p", __func__, stream);
     }
 
     aml_ms12_main_decoder_open(ms12, hal_internal_format, aml_out->hal_channel_mask, sample_rate);
 
 #ifdef ENABLE_DVB_PATCH
-    if ((adev->patch_src == SRC_DTV) && patch) {
+    if (is_same_patch_src(adev, SRC_DTV) && patch) {
         if (ms12->scaletempo == NULL) {
             hal_scaletempo_init((struct scale_tempo **)&ms12->scaletempo);
         }
@@ -4034,12 +4036,14 @@ int dolby_ms12_encoder_reconfig(struct dolby_ms12_desc *ms12) {
     bool current_mat_encoder_enable = ms12->output_config & MS12_OUTPUT_MASK_MAT;
     bool current_ddp_encoder_enable = ms12->output_config & MS12_OUTPUT_MASK_DDP;
     bool b_reset = 0;
+    struct aml_arc_hdmi_desc* hdmi_descs = NULL;
 
     ALOGI("+%s()", __FUNCTION__);
     if (!ms12) {
         return -EINVAL;
     }
     adev = ms12_to_adev(ms12);
+    hdmi_descs = get_arc_hdmi_cap(adev);
 
     if (adev->sink_capability == AUDIO_FORMAT_MAT) {
         output_config = MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_MAT;
@@ -4053,7 +4057,7 @@ int dolby_ms12_encoder_reconfig(struct dolby_ms12_desc *ms12) {
         }
     }
 
-    bool is_atmos_supported = is_platform_supported_ddp_atmos(adev->hdmi_descs.ddp_fmt.atmos_supported, adev->out_device, adev->is_TV);
+    bool is_atmos_supported = is_platform_supported_ddp_atmos(hdmi_descs->ddp_fmt.atmos_supported, adev->out_device, is_TV(adev));
     if (dolby_ms12_get_ddp_5_1_out() != !is_atmos_supported) {
         set_ms12_out_ddp_5_1(AUDIO_FORMAT_E_AC3, is_atmos_supported);
         b_reset = 1;
@@ -4113,7 +4117,8 @@ bool is_dolby_ms12_main_stream(struct audio_stream_out *stream) {
 bool is_support_ms12_reset(struct audio_stream_out *stream) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
-    bool is_atmos_supported = is_platform_supported_ddp_atmos(adev->hdmi_descs.ddp_fmt.atmos_supported, adev->cur_out_devices, adev->is_TV);
+    struct aml_arc_hdmi_desc * hdmi_descs = get_arc_hdmi_cap(adev);
+    bool is_atmos_supported = is_platform_supported_ddp_atmos(hdmi_descs->ddp_fmt.atmos_supported, adev->cur_out_devices, is_TV(adev));
     bool need_reset_ms12_out = !is_ms12_out_ddp_5_1_suitable(is_atmos_supported);
     /* we meet 3 conditions:
      * 1. edid atmos support not match with currently ms12 output

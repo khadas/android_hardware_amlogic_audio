@@ -19,6 +19,12 @@
 #ifndef  _HDMIRX_UTILS_H_
 #define _HDMIRX_UTILS_H_
 
+#include <sys/types.h>
+
+struct audio_hw_device;
+struct aml_audio_device;
+struct hdmi_capability_manager;
+
 /**
  *  Audio Format Description of CEC Short Audio Descriptor
  *  CEA-861-D: Table 37. RequestShortAudioDescriptorAction.java
@@ -93,10 +99,13 @@ struct aml_arc_hdmi_desc {
     struct format_desc mpegh_fmt;
 };
 
-/*@ brief update edid
- * return void;
- */
-void update_edid(struct audio_hw_device *dev, bool default_edid, void *edid_array, int edid_length);
+struct aml_arc_hdmi_desc *get_arc_hdmi_cap(struct aml_audio_device *adev);
+
+void clear_arc_cached_edid(struct aml_audio_device *adev);
+
+void set_arc_hdmi_updated(struct aml_audio_device *adev, bool enable);
+
+bool is_arc_hdmi_updated(struct aml_audio_device *adev);
 
 /*@ brief "set_ARC_format" for HDMIRX
  * return zero if success;
@@ -108,6 +117,11 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len);
  */
 int set_arc_format(struct audio_hw_device *dev, char *value, size_t len);
 
+/*@ brief after edited the audio sad, then update edid
+ * return zero if success;
+ */
+int update_edid_after_edited_audio_sad(struct audio_hw_device *dev, struct format_desc *fmt_desc);
+
 #if ANDROID_PLATFORM_SDK_VERSION > 32
 /*@ brief "read_hdmi_arc_info" for v7
  */
@@ -115,37 +129,14 @@ void read_hdmi_arc_info(struct audio_hw_device *dev,
         const struct audio_extra_audio_descriptor *audio_descriptors, uint32_t size, bool connected);
 
 void update_earc_sad(struct audio_hw_device *dev);
-
 #endif
 
-/*@ brief update dolby atmos decoding and rendering cap for ddp sad
- * return zero if success;
- */
-int update_dolby_atmos_decoding_and_rendering_cap_for_ddp_sad(
-    void *array
-    , int count
-    , bool is_acmod_28_supported
-    , bool is_joc_supported);
 
-/*@ brief update dolby MAT decoding cap for dolby MAT and dolby TRUEHD_sad
- * return zero if success;
- */
-int update_dolby_MAT_decoding_cap_for_dolby_MAT_and_dolby_TRUEHD_sad(
-    void *array
-    , int count
-    , bool is_mat_pcm_supported
-    , bool is_truehd_supported);
+//new & get & release instance
+struct hdmi_capability_manager *get_hdmi_capability_manager(struct aml_audio_device *adev);
 
-/*@ brief get current edid
- * return zero if success;
- */
-int get_current_edid(struct audio_hw_device *dev, char *edid_array, int edid_array_len);
+int init_hdmi_capability_manager(struct aml_audio_device *adev);
 
-/*@ brief after edited the audio sad, then update edid
- * return zero if success;
- */
-int update_edid_after_edited_audio_sad(struct audio_hw_device *dev, struct format_desc *fmt_desc);
-int find_61937_sync_word(char *buffer, int size);
-
+void destroy_hdmi_capability_manager(struct aml_audio_device *adev);
 #endif /* _HDMIRX_UTILS_H_ */
 

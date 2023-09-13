@@ -49,7 +49,8 @@
 #include "aml_audio_ms12_bypass.h"
 #include "aml_malloc_debug.h"
 #include "audio_hwsync_wrap.h"
-
+#include "dtv_private_object.h"
+#include "audio_hw_resource_mgr.h"
 
 /*
  *@brief
@@ -444,7 +445,7 @@ int aml_set_ms12_scheduler_state(struct dolby_ms12_desc *ms12)
 {
     struct aml_audio_device *adev = aml_adev_get_handle();
     int sch_state = ms12->ms12_scheduler_state;
-    bool is_arc_connecting = (adev->bHDMIConnected == 1);/*(adev->active_outport == OUTPORT_HDMI_ARC);*/
+    bool is_arc_connecting = is_HDMI_connected(adev);/*(adev->active_outport == OUTPORT_HDMI_ARC);*/
     bool is_netflix = adev->is_netflix;
     unsigned int remaining_time = 0;
 
@@ -636,22 +637,22 @@ void dtv_set_ms12_volume_on_non_TV_device(struct aml_stream_out *aml_out)
     if (!adev->dev2mix_patch) {
         out_gain = adev->sink_gain[get_output_by_devices(adev->cur_out_devices)];
     }
-    if (adev->tv_mute && adev->audio_patch) {
+    if (adev->tv_mute && is_dev_patch_exist(adev)) {
         out_gain = 0.0f;
     }
     /*
     for tv case, volume control it in audio_hal_data_processing
     for non tv case, dtv stream vol control in dolby_ms12_set_main_volume
     */
-    if (!adev->is_TV) {
-        if (adev->audio_patch && adev->patch_src == SRC_DTV) {
+    if (!is_TV(adev)) {
+        if (is_dev_patch_exist(adev) && is_same_patch_src(adev, SRC_DTV)) {
             //when Dolby MS12 use not 1.0 volume "-sys_prim_mixgain <3 int>
             //the PCM Render can not output at a same volume for both DDP and AC4.
             //AC4 should use the 1.0 volume and control the volume through the PCM output.
             //After add this patch, the Bitstream output volume will always 1.0,
             //its volume should be controled by the Sink Device.
             if (!is_AC4_stream_with_pcm_sink_on_stb(aml_out)) {
-                out_gain *= adev->dtv_volume;
+                out_gain *= get_dtv_volume(adev);
             }
             else {
                 out_gain = 1.0f;

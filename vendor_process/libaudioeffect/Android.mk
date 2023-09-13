@@ -12,5 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# !!! Note: Starting with Android U libaudioeffect will only be compiled at Audio HAL
+# Another libaudioeffect copies still exist and will only be build before Android U
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -gt 33 && echo OK),OK)
 LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 include $(call all-subdir-makefiles)
+endif
+

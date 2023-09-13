@@ -15,15 +15,15 @@
  */
 
 
-
 #ifndef _DTV_PATCH_DTVSYNC_H_
 #define _DTV_PATCH_DTVSYNC_H_
 
 #ifdef ENABLE_DVB_PATCH
 
 #include <stdbool.h>
+
+#include "audio_hw_ms12.h"
 #include "audio_mediasync_wrap.h"
-#include "audio_hw_ms12_v2.h"
 #include "MediaSyncInterface.h"
 #include "dmx_audio_es.h"
 
@@ -59,7 +59,7 @@ bool aml_dtvsync_spdif_insertraw(struct audio_stream_out *stream,  void **spdifo
 
 bool aml_audio_spdif_insertpcm(struct audio_stream_out *stream,  void **spdifout_handle, int time_ms);
 
-bool aml_dtvsync_ms12_insert_pcm(void *priv_data, int time_ms, enum MS12_PCM_TYPE pcm_type);
+bool aml_dtvsync_ms12_insert_pcm(void *priv_data, int time_ms, int pcm_type);
 
 bool aml_dtvsync_ms12_insertraw(void *priv_data, int time_ms, audio_format_t output_format);
 
@@ -69,7 +69,7 @@ dtvsync_process_res aml_dtvsync_nonms12_process(struct audio_stream_out *stream,
 
 void aml_dtvsync_ms12_get_policy(struct audio_stream_out *stream);
 
-dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, aml_ms12_dec_info_t *ms12_info);
+dtvsync_process_res aml_dtvsync_ms12_process_policy(void *priv_data, void *ms12_info);
 
 bool aml_dtvsync_setPause(aml_dtvsync_t *p_dtvsync, bool pause);
 

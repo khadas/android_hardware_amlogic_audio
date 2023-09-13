@@ -36,6 +36,7 @@
 #include "audio_hw_utils.h"
 #include "alsa_device_parser.h"
 #include "dolby_lib_api.h"
+#include "audio_hw_resource_mgr.h"
 
 #define SOUND_CARDS_PATH "/proc/asound/cards"
 #define SOUND_PCM_PATH  "/proc/asound/pcm"
@@ -1741,7 +1742,7 @@ inline static int hdmi_arc_process_channel_str(struct format_desc *format_desc, 
 char *get_hdmi_arc_cap(struct audio_hw_device *dev, const char *keys, audio_format_t format)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
-    struct aml_arc_hdmi_desc *hdmi_desc = &adev->hdmi_descs;
+    struct aml_arc_hdmi_desc *hdmi_desc = get_arc_hdmi_cap(adev);
     char *aud_cap = (char*)aml_audio_malloc(1024);
     int size = 0;
     if (aud_cap == NULL) {
@@ -1783,7 +1784,7 @@ char *get_hdmi_arc_cap(struct audio_hw_device *dev, const char *keys, audio_form
             size += hdmi_arc_process_channel_str(&hdmi_desc->dtshd_fmt, aud_cap + size);
         } else if (AUDIO_FORMAT_PCM_16_BIT == format) {
             /*when earc is connected, it supports 8ch pcm*/
-            if (aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_ATTENDED_TYPE) == ATTEND_TYPE_EARC && adev->bHDMIARCon) {
+            if (aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_ATTENDED_TYPE) == ATTEND_TYPE_EARC && is_arc_connected(adev)) {
                 hdmi_desc->pcm_fmt.max_channels = 8;
             }
             size += hdmi_arc_process_channel_str(&hdmi_desc->pcm_fmt, aud_cap + size);
@@ -2039,20 +2040,21 @@ char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(con
         } else if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
             cap = (char *) strdup_a2dp_cap_default(adev, keys, format);
         } else {
-            if (out->is_tv_platform == 1 && !adev->is_BDS) {
+            if (out->is_tv_platform == 1 && !is_BDS(adev)) {
                 cap = (char *)strdup_tv_platform_cap_default(keys, format);
             } else {
                 if (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) {
                         cap = (char *) get_offload_cap(keys,format);
                 } else {
                     /*for truehd passthrough case, we need check whether this device support or not*/
-                    cap = (char *)get_hdmi_sink_cap_new(keys,format,&(adev->hdmi_descs), adev->aml_truehd_passthrough_support);
+                    struct aml_arc_hdmi_desc * hdmi_descs = get_arc_hdmi_cap(adev);
+                    cap = (char *)get_hdmi_sink_cap_new(keys,format, hdmi_descs, adev->aml_truehd_passthrough_support);
 
                     /* below patch is for dd only sink device.
                      * When connect dd only device, if we support ms12 or ddp convert,
                      * we should also reply we support ddp
                      */
-                    dd_only_support  = adev->hdmi_descs.dd_fmt.is_support && !adev->hdmi_descs.ddp_fmt.is_support;
+                    dd_only_support  = hdmi_descs->dd_fmt.is_support && !hdmi_descs->ddp_fmt.is_support;
                     if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_FORMATS) && cap) {
                         if (dd_only_support && conv_support) {
                             strcat(cap, "|AUDIO_FORMAT_E_AC3");
@@ -2060,7 +2062,7 @@ char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(con
                     } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS) && cap) {
                         if (format == AUDIO_FORMAT_E_AC3) {
                             if (dd_only_support && conv_support) {
-                                int dd_max_channels = adev->hdmi_descs.dd_fmt.max_channels;
+                                int dd_max_channels = hdmi_descs->dd_fmt.max_channels;
                                 if (dd_max_channels == 8) {
                                     sprintf(cap, "sup_channels=%s", SUPPORT_MAX_CHANNEL_8CH);
                                 } else if (dd_max_channels == 6){

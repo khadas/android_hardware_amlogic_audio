@@ -9,7 +9,7 @@
  *
  */
 
-#define LOG_TAG "tv_patch_format_parser"
+#define LOG_TAG "audio_hw_tv_patch_format_parser"
 //#define LOG_NDEBUG 0
 
 #include <pthread.h>
@@ -381,8 +381,8 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size,
     static unsigned int _dtscd_checked_bytes = 0;
     struct aml_audio_device *adev = (struct aml_audio_device *)aml_adev_get_handle();
     audio_type_parse_t *audio_type_status = NULL;
-    if (adev && adev->audio_patch)  {
-        audio_type_status = adev->audio_patch->audio_parse_para;
+    if (adev && is_dev_patch_exist(adev))  {
+        audio_type_status = get_dev_patch(adev)->audio_parse_para;
     }
     //DoDumpData(temp_buffer, bytes, CC_DUMP_SRC_TYPE_INPUT_PARSE);
     pos_sync_word = seek_61937_sync_word((char*)temp_buffer, bytes);

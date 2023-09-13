@@ -61,8 +61,6 @@ int stream_check_reconfig_param(struct audio_stream_out *stream);
 
 
 /*==================================mixer control commands=========================================*/
-int set_audio_source(struct aml_mixer_handle *mixer_handle,
-        enum input_source audio_source, bool is_auge);
 int enable_HW_resample(struct aml_mixer_handle *mixer_handle, int enable_sr);
 int get_spdifin_samplerate(struct aml_mixer_handle *mixer_handle);
 int get_hdmiin_samplerate(struct aml_mixer_handle *mixer_handle);

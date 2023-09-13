@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 
-#define LOG_TAG "audio_hw_tv_patch"
+#define LOG_TAG "audio_hw_tv_patch_ctrl"
 //#define LOG_NDEBUG 0
 
 #include <errno.h>
@@ -47,11 +47,31 @@
 #include "alsa_device_parser.h"
 #include "audio_hw_ms12_v2.h"
 #include "tv_patch_ctrl.h"
-
+#include "audio_hw_resource_mgr.h"
+#include "device_patch_mgr.h"
+#include "component_picture_mode.h"
 
 #define INVALID_TYPE                -1
 
 /*==================================input commands=========================================*/
+static inline int find_61937_sync_word(char *buffer, int size)
+{
+    int i = -1;
+    if (size < 8) {
+        return i;
+    }
+
+    for (i = 0; i < (size - 3); i++) {
+        if (buffer[i + 0] == 0x72 && buffer[i + 1] == 0xF8 && buffer[i + 2] == 0x1F && buffer[i + 3] == 0x4E) {
+            return i;
+        }
+        if (buffer[i + 0] == 0xF8 && buffer[i + 1] == 0x72 && buffer[i + 2] == 0x4E && buffer[i + 3] == 0x1F) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 /* expand channels or contract channels*/
 int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, size_t bytes)
 {
@@ -94,8 +114,8 @@ bool is_HBR_stream(struct audio_stream_in *stream)
     struct aml_audio_device *aml_dev = in->dev;
     bool ret = false;
 
-    if (aml_dev->in_device & AUDIO_DEVICE_IN_HDMI && aml_dev->audio_patch) {
-        struct aml_audio_patch *audio_patch = aml_dev->audio_patch;
+    if (aml_dev->in_device & AUDIO_DEVICE_IN_HDMI && get_dev_patch(aml_dev)) {
+        struct aml_audio_patch *audio_patch = get_dev_patch(aml_dev);
         audio_type_parse_t *audio_type_status = (audio_type_parse_t *)audio_patch->audio_parse_para;
 
         if (audio_patch && audio_type_status && audio_type_status->soft_parser != 1) {
@@ -109,14 +129,14 @@ bool is_HBR_stream(struct audio_stream_in *stream)
 
 bool is_game_mode(struct aml_audio_device *aml_dev)
 {
-    if (aml_dev->patch_src != SRC_HDMIIN ||
-        !aml_dev->audio_patch ||
-        (is_audio_patch_valid(aml_dev) && aml_dev->audio_patch && (aml_dev->audio_patch->input_src != AUDIO_DEVICE_IN_HDMI ||
-        aml_dev->audio_patch->IEC61937_format == true))) {
+    if (is_same_patch_src(aml_dev, SRC_HDMIIN) ||
+        !is_dev_patch_exist(aml_dev) ||
+        (is_dev_patch_valid(aml_dev) && is_dev_patch_exist(aml_dev) && (get_dev_patch(aml_dev)->input_src != AUDIO_DEVICE_IN_HDMI ||
+        get_dev_patch(aml_dev)->IEC61937_format == true))) {
         return false;
     }
 
-    return (is_audio_patch_valid(aml_dev) && aml_dev->audio_patch && aml_dev->audio_patch->pic_mode == PQ_GAME);
+    return (is_dev_patch_valid(aml_dev) && get_dev_patch(aml_dev) && get_dev_patch(aml_dev)->pic_mode == PQ_GAME);
 }
 
 void aml_check_pic_mode(struct aml_audio_patch *patch)
@@ -127,20 +147,20 @@ void aml_check_pic_mode(struct aml_audio_patch *patch)
     }
     aml_dev = (struct aml_audio_device *)patch->dev;
 
-    if (aml_dev->pic_mode == PQ_GAME && patch->mode_reconfig_flag == true) {
+    if (get_dev_pic_mode(aml_dev) == PQ_GAME && patch->mode_reconfig_flag == true) {
         ALOGD("%s(), IEC61937 data, reconfig audio path", __func__);
-        aml_dev->mode_reconfig_in = true;
-        aml_dev->mode_reconfig_out = true;
+        reconfig_dev_pic_mode_in(aml_dev, true);
+        reconfig_dev_pic_mode_out(aml_dev, true);
         patch->mode_reconfig_flag = false;
         return;
     }
 
     /* in PCM data case, picture mode setting changed */
-    if (patch->IEC61937_format == false && patch->pic_mode != aml_dev->pic_mode) {
-        ALOGD("%s(), pic mode changes from %d to %d", __func__, patch->pic_mode, aml_dev->pic_mode);
-        aml_dev->mode_reconfig_in = true;
-        aml_dev->mode_reconfig_out = true;
-        patch->pic_mode = aml_dev->pic_mode;
+    if (patch->IEC61937_format == false && patch->pic_mode != get_dev_pic_mode(aml_dev)) {
+        ALOGD("%s(), pic mode changes from %d to %d", __func__, patch->pic_mode, get_dev_pic_mode(aml_dev));
+        reconfig_dev_pic_mode_in(aml_dev, true);
+        reconfig_dev_pic_mode_out(aml_dev, true);
+        patch->pic_mode = get_dev_pic_mode(aml_dev);
     }
 
 }
@@ -225,7 +245,7 @@ bool check_tv_stream_signal(struct audio_stream_in *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
     struct aml_audio_device *adev = in->dev;
-    struct aml_audio_patch* patch = adev->audio_patch;
+    struct aml_audio_patch* patch = get_dev_patch(adev);
     int in_mute = 0;
     bool stable = true;
     stable = signal_status_check(adev->in_device, &in->mute_mdelay, stream);
@@ -274,7 +294,7 @@ bool check_digital_in_stream_signal(struct audio_stream_in *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
     struct aml_audio_device *aml_dev = in->dev;
-    struct aml_audio_patch *patch = aml_dev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(aml_dev);
     audio_type_parse_t *audio_type_status = (audio_type_parse_t *)patch->audio_parse_para;
     enum audio_type cur_audio_type = LPCM;
 
@@ -304,9 +324,9 @@ bool check_digital_in_stream_signal(struct audio_stream_in *stream)
 void audio_raw_data_continuous_check(struct aml_audio_device *aml_dev, audio_type_parse_t *status, char *buffer, int size)
 {
     audio_type_parse_t *audio_type_status = status;
-    struct aml_audio_patch* patch = aml_dev->audio_patch;
+    struct aml_audio_patch* patch = get_dev_patch(aml_dev);
 
-    if (!audio_type_status || !aml_dev->audio_patch) {
+    if (!audio_type_status || !get_dev_patch(aml_dev)) {
         return;
     }
 
@@ -314,7 +334,7 @@ void audio_raw_data_continuous_check(struct aml_audio_device *aml_dev, audio_typ
     if (sync_word_offset >= 0) {
         patch->sync_offset = sync_word_offset;
         if (patch->start_mute) {
-            audio_route_set_speaker_mute_l(aml_dev, false);
+            set_output_device_mute(aml_dev, AUDIO_DEVICE_OUT_SPEAKER, false, true);;
             patch->start_mute = false;
             patch->mdelay = 0;
         }
@@ -327,7 +347,7 @@ void audio_raw_data_continuous_check(struct aml_audio_device *aml_dev, audio_typ
         }
     } else if (patch->sync_offset >= 0) {
         if ((patch->read_size < audio_type_status->package_size) && ((patch->read_size + size) > audio_type_status->package_size)) {
-            audio_route_set_speaker_mute_l(aml_dev, true);
+            set_output_device_mute(aml_dev, AUDIO_DEVICE_OUT_SPEAKER, true, true);
             clock_gettime(CLOCK_MONOTONIC, &patch->start_ts);
             patch->start_mute = true;
             patch->read_size = 0;
@@ -338,7 +358,7 @@ void audio_raw_data_continuous_check(struct aml_audio_device *aml_dev, audio_typ
                 if (!flag) {
                     patch->sync_offset = -1;
                     patch->start_mute = false;
-                    audio_route_set_speaker_mute_l(aml_dev, false);
+                    set_output_device_mute(aml_dev, AUDIO_DEVICE_OUT_SPEAKER, false, true);;
                 }
             } else {
                 patch->read_size += size;
@@ -359,6 +379,7 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
     hdmiin_audio_packet_t last_audio_packet = AUDIO_PACKET_AUDS;
     int period_size = 0;
     int buf_size = 0;
+    bool pic_mode_reconfig_in = false;
 
     if (!aml_dev || !stream_in) {
         ALOGE("%s line %d aml_dev %p stream_in %p\n", __func__, __LINE__, aml_dev, stream_in);
@@ -366,7 +387,8 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
     }
 
     /* check game mode change and reconfig input */
-    if (aml_dev->mode_reconfig_in) {
+    get_pic_mode_config(aml_dev, &pic_mode_reconfig_in, NULL, NULL);
+    if (pic_mode_reconfig_in) {
         int play_buffer_size = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
 
         if (is_game_mode(aml_dev)) {
@@ -392,7 +414,7 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
             ring_buffer_reset_size(ringbuffer, buf_size);
         }
 
-        aml_dev->mode_reconfig_in = false;
+        reconfig_dev_pic_mode_in(aml_dev, false);
     }
 
     last_channel_count = stream_in->config.channels;
@@ -458,8 +480,10 @@ int stream_check_reconfig_param(struct audio_stream_out *stream)
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     struct audio_board_config *bd_config = &adev->board_config;
     int period_size = 0;
+    bool pic_mode_reconfig_out = false;
 
-    if (adev->mode_reconfig_out) {
+    get_pic_mode_config(adev, NULL, &pic_mode_reconfig_out, NULL);
+    if (pic_mode_reconfig_out) {
         ALOGD("%s(), game mode reconfig out", __func__);
         if (ms12->dolby_ms12_enable && !is_bypass_dolbyms12(stream)) {
             get_hardware_config_parameters(&(adev->ms12_config),
@@ -469,46 +493,15 @@ int stream_check_reconfig_param(struct audio_stream_out *stream)
                 out->is_tv_platform, continuous_mode(adev),
                 is_game_mode(adev));
 
-            adev->mode_reconfig_ms12 = true;
+            reconfig_dev_pic_mode_ms12(adev, true);
         }
         alsa_out_reconfig_params(stream);
-        adev->mode_reconfig_out = false;
+        reconfig_dev_pic_mode_out(adev, false);
     }
     return 0;
 }
 
 /*==================================mixer control commands=========================================*/
-int set_audio_source(struct aml_mixer_handle *mixer_handle,
-        enum input_source audio_source, bool is_auge)
-{
-    int src = audio_source;
-
-    if (is_auge) {
-        switch (audio_source) {
-        case LINEIN:
-            src = TDMIN_A;
-            break;
-        case ATV:
-            src = FRATV;
-            break;
-        case HDMIIN:
-            src = FRHDMIRX;
-            break;
-        case ARCIN:
-            src = EARCRX_DMAC;
-            break;
-        case SPDIFIN:
-            src = SPDIFIN_AUGE;
-            break;
-        default:
-            ALOGW("%s(), src: %d not support", __func__, src);
-            src = FRHDMIRX;
-            break;
-        }
-    }
-
-    return aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_AUDIO_IN_SRC, src);
-}
 
 int set_resample_source(struct aml_mixer_handle *mixer_handle, enum ResampleSource source)
 {
@@ -620,7 +613,7 @@ bool is_hdmi_in_stable_sw (struct audio_stream_in *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
     struct aml_audio_device *aml_dev = in->dev;
-    struct aml_audio_patch *patch = aml_dev->audio_patch;
+    struct aml_audio_patch *patch = get_dev_patch(aml_dev);
     audio_format_t fmt;
 
     /* now, only hdmiin->(spk, hp, arc) cases init the soft parser thread
@@ -705,7 +698,7 @@ bool is_hdmi_in_hw_format_change(struct audio_stream_in *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
     struct aml_audio_device *aml_dev = in->dev;
-    struct aml_audio_patch *audio_patch = aml_dev->audio_patch;
+    struct aml_audio_patch *audio_patch = get_dev_patch(aml_dev);
     audio_type_parse_t *audio_type_status = (audio_type_parse_t *)audio_patch->audio_parse_para;
     int tl1_chip = check_chip_name("tl1", 3, &aml_dev->alsa_mixer);
     int type = 0;
