@@ -300,6 +300,8 @@ extern int get_audio_discontinue(void);
 extern int dtv_get_tsync_mode(void);
 extern int get_dtv_pcr_sync_mode(void);
 extern unsigned long decoder_apts_lookup(unsigned int offset);
+extern int drop_dtv_pcm(struct audio_stream_out *stream, const void *buffer, size_t bytes);
+extern void call_dtv_avsync_callback(struct audio_stream_out *stream,size_t bytes);
 
 void dtv_adjust_i2s_output_clock(struct aml_audio_patch* patch, int direct, int step);
 unsigned int dtv_get_i2s_output_clock(struct aml_audio_patch* patch);

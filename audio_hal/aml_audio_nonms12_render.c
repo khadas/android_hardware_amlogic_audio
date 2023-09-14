@@ -40,6 +40,8 @@
 #include "dolby_lib_api.h"
 #include "dtv_private_object.h"
 #include "audio_hw_resource_mgr.h"
+#include "dtv_patch_hal_avsync.h"
+
 
 extern unsigned long decoder_apts_lookup(unsigned int offset);
 static void aml_audio_stream_volume_process(struct audio_stream_out *stream, void *buf, int sample_size, int channels, int bytes) {
@@ -187,7 +189,6 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
     int alsa_latency = 0;
     int decoder_latency = 0;
     int decoder_remain_cache = 0;
-
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_audio_patch *patch = get_dev_patch(adev);
@@ -203,7 +204,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
     bool speed_enabled = false;
     bool dts_pcm_direct_output = false;
     int decoder_remain_size = 0;
-
+    int ret_size;
 #ifdef ENABLE_DVB_PATCH
     dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
     bool dtv_stream_flag = patch && is_same_patch_src(adev, SRC_DTV) && aml_out->is_tv_src_stream;
@@ -488,7 +489,25 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                             memset((char *)dec_data, 0, pcm_len);
                         }
                     }
-                    mixer_main_buffer_write_sm(stream, dec_data, pcm_len);
+#ifdef ENABLE_DVB_PATCH
+
+                    if (is_same_patch_src(adev, SRC_DTV)) {
+                        if (patch && !get_dev_patch(adev)->skip_amadec_flag) {
+                            call_dtv_avsync_callback(stream,pcm_len);
+                            if (get_dev_patch(adev)->need_drop_size > 0) {
+                                ret_size = drop_dtv_pcm(stream, dec_data, pcm_len);
+                                if (ret_size >= pcm_len)
+                                    return pcm_len;
+                                else
+                                    mixer_main_buffer_write_sm(stream, (unsigned char*)dec_data + ret_size, pcm_len - ret_size);
+                            } else
+                                mixer_main_buffer_write_sm(stream, dec_data, pcm_len);
+                        } else
+                            mixer_main_buffer_write_sm(stream, dec_data, pcm_len);
+                    } else
+#endif
+
+                        mixer_main_buffer_write_sm(stream, dec_data, pcm_len);
                 }
             }
 
