@@ -83,7 +83,7 @@ int dvb_audio_get_latencyms(int demux_id) {
     sprintf (temp_buf, "hal_param_dtv_latencyms_id=%d", demux_id);
     aml_audioport->setParameters(String8(temp_buf));
     String8 mString = aml_audioport->getParameters(String8("hal_param_dtv_latencyms"));
-    if (!mString.isEmpty()) {
+    if (!mString.empty()) {
         parms = str_parms_create_str(mString.c_str());
         ret = str_parms_get_int(parms, "hal_param_dtv_latencyms", &latencyms);
         if (ret < 0)
@@ -104,7 +104,7 @@ int dvb_audio_get_ac4_active_pres_id(int demux_id) {
     int ret = 0;
     struct str_parms *parms;
     String8 mString = aml_audioport->getParameters(String8("get_ac4_active_pres_id"));
-    if (!mString.isEmpty()) {
+    if (!mString.empty()) {
         parms = str_parms_create_str(mString.c_str());
         ret = str_parms_get_int(parms, "ac4_active_pres_id", &ac4_active_pres_id);
         if (ret < 0)
