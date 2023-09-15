@@ -894,13 +894,13 @@ inline struct aml_stream_out *direct_active(struct aml_audio_device *adev)
     return NULL;
 }
 
-inline bool is_bypass_submix_active(struct aml_audio_device *adev)
+static inline bool is_bypass_submix_active(struct aml_audio_device *adev)
 {
     int i = 0;
     struct aml_stream_out *out = NULL;
     for (i = 0 ; i < STREAM_USECASE_MAX; i++) {
         out = adev->active_outputs[i];
-        if (out && (out->bypass_submix)) {
+        if (out && (out->bypass_submix) && !out->pause_status) {
             return true;
         }
     }
