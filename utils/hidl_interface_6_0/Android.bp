@@ -63,8 +63,6 @@ cc_library_shared {
         "system/media/audio_utils/include",
         "system/media/audio/include/",
         "frameworks/av/include/",
-        "frameworks/av/media/libaudiohal/impl/",
-        "frameworks/av/media/libaudiohal/include/",
         "frameworks/native/libs/binder/include/",
     ],
 }
@@ -73,10 +71,6 @@ cc_library_shared {
     name: "libamlaudiohal_deathhandler@6.0",
     vendor: true,
     proprietary: true,
-
-    include_dirs: [
-        "frameworks/av/media/libaudiohal/include/",
-    ],
 
     srcs: [
         "HalDeathHandlerHidl.cpp",
@@ -103,7 +97,6 @@ cc_library_headers {
     vendor: true,
     proprietary: true,
 
-    include_dirs: [
-        "frameworks/av/media/libaudiohal/include/",
-    ],
+    export_include_dirs: ["include"],
+
 }

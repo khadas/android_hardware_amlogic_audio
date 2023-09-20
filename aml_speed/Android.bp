@@ -22,6 +22,7 @@ cc_library_shared {
 
     header_libs: [
         "libaudio_system_headers",
+        "libamaudioutils_headers",
     ],
 
     arch: {

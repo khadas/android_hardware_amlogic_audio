@@ -25,15 +25,11 @@
 
 namespace android
 {
-class DevicesFactoryHalInterface;
-class DeviceHalInterface;
 class StreamOutHalInterface;
 
 class AmlAudioOutPort : public RefBase
 {
     public:
-    sp<DevicesFactoryHalInterface> mDevicesFactoryHal;
-    sp<DeviceHalInterface> hwDevice;
     sp<StreamOutHalInterface> outStream;
     const char address= {};
     struct audio_config config;
@@ -142,8 +138,6 @@ class AmlAudioOutPort : public RefBase
      * the full content of the buffer.
      */
     ssize_t     write(const void* buffer, size_t size, bool blocking);
-
-    status_t getHwDevice();
 
     status_t setParameters(const String8& keyValuePairs);
     String8  getParameters(const String8& keys);

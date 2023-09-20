@@ -46,14 +46,10 @@ cc_library_shared {
         "EffectsFactoryHalHidl.cpp",
         "StreamHalHidl.cpp",
     ],
-
     include_dirs: [
-        "frameworks/av/media/libaudiohal/impl/",
-        "frameworks/av/media/libaudiohal/include/",
         "frameworks/av/include/",
         "frameworks/av/media/utils/include/",
     ],
-
     cflags: [
         "-Wall",
         "-Wextra",
@@ -120,8 +116,6 @@ cc_library_shared {
     ],
 
     include_dirs: [
-        "frameworks/av/media/libaudiohal/impl/",
-        "frameworks/av/media/libaudiohal/include/",
         "frameworks/av/include/",
         "frameworks/av/media/utils/include/",
     ],

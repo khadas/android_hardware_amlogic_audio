@@ -61,11 +61,13 @@ cc_library_shared {
         "libcutils",
         "liblog",
         "libutils",
+        "libamaudioutils",
     ],
     header_libs: [
         "libaudio_system_headers",
         "libbinder_headers",
         "libhardware_headers",
+        "libamaudioutils_headers",
     ],
     export_include_dirs: ["include"],
 }

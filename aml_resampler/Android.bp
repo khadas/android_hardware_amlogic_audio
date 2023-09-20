@@ -21,6 +21,7 @@ cc_library_shared {
         "libaudioclient_headers",
         "libaudioutils_headers",
         "libaudio_system_headers",
+        "libamaudioutils_headers",
     ],
     shared_libs: [
         "libamaudioutils",

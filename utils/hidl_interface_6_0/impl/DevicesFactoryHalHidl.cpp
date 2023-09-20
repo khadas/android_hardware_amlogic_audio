@@ -160,6 +160,15 @@ status_t DevicesFactoryHalHidl::getHalPids(std::vector<pid_t> *pids) {
     return NO_ERROR;
 }
 
+status_t DevicesFactoryHalHidl::registerAtExitHandler(void* cookie, std::function<void()> handler) {
+    if (handler == nullptr) {
+        ALOGW("[%s:%d] handler is null", __func__, __LINE__);
+        return INVALID_OPERATION;
+    }
+    HalDeathHandler::getInstance()->registerAtExitHandler(cookie, handler);
+    return NO_ERROR;
+}
+
 status_t DevicesFactoryHalHidl::setCallbackOnce(sp<DevicesFactoryHalCallback> callback) {
     ALOG_ASSERT(callback != nullptr);
     bool needToCallCallback = false;

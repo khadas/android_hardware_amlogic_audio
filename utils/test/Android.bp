@@ -22,6 +22,9 @@ cc_binary {
         "libamaudioutils",
     ],
 
+    header_libs: [
+        "libamaudioutils_headers",
+    ],
 }
 
 cc_binary_host {

@@ -45,11 +45,7 @@ cc_library_shared {
         "libbinder_headers",
         "libhardware_headers",
         "libutils_headers",
-    ],
-
-    export_include_dirs: [
-        "include",
-        "ini/include",
+        "libamaudioutils_headers",
     ],
 
     srcs: [
@@ -97,6 +93,17 @@ cc_library_shared {
         "-Wno-unused-parameter",
         "-Wno-unused-variable",
         "-Wno-unused-function",
+    ],
+}
+
+cc_library_headers {
+    name: "libamaudioutils_headers",
+    vendor: true,
+    proprietary: true,
+
+    export_include_dirs: [
+        "include",
+        "ini/include",
     ],
 }
 

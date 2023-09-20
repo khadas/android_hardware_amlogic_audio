@@ -25,8 +25,29 @@
 
 namespace android {
 
+class StreamOutHalInterface;
+status_t initCheck();
+
 status_t setParameters(const String8& keyValuePairs);
-String8  getParameters(const String8& keys);
+String8 getParameters(const String8& keys);
+
+status_t openOutputStream(
+        audio_io_handle_t handle,
+        audio_devices_t devices,
+        audio_output_flags_t flags,
+        struct audio_config *config,
+        const char *address,
+        sp<StreamOutHalInterface> *outStream);
+
+status_t createAudioPatch(
+        unsigned int num_sources,
+        const struct audio_port_config *sources,
+        unsigned int num_sinks,
+        const struct audio_port_config *sinks,
+        audio_patch_handle_t *patch);
+
+// Releases an audio patch.
+status_t releaseAudioPatch(audio_patch_handle_t patch);
 
 }
 

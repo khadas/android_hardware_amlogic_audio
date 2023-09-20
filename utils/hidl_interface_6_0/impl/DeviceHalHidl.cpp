@@ -98,7 +98,7 @@ DeviceHalHidl::~DeviceHalHidl() {
         mDevice.clear();
         hardware::IPCThreadState::self()->flushCommands();
 #elif MAJOR_VERSION >= 6
-        mDevice->close();
+        processReturn("close", mDevice->close());
 #endif
     }
 }
