@@ -124,7 +124,7 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 #define FLOAT_ZERO              (0.00002)   /* the APM mute volume is 0.00001, less than 0.00002 we think is mute. */
 #define TV_SPEAKER_OUTPUT_CH_NUM    10
 
-#define OFFLOAD_BUFFER_SIZE_DURATION_MS (50) // Unit:ms. Need to be able to cover the delay of the offload pipeline.
+#define OFFLOAD_BUFFER_SIZE_DURATION_MS (85) // Unit:ms. Each decoded data can be played for 85 ms
 #define DTS_OFFLOAD_BUFFER_MAX_SIZE     (32768)
 #define OFFLOAD_BUFFER_SIZE_ALIGNMENT    (8)
 

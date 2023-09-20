@@ -608,8 +608,8 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
             size = DTS1_PERIOD_SIZE / 2;
         } else {
-            if (adev->stream_bitrate != 0  && adev->stream_bitrate != -1 && adev->stream_bitrate <= 384000) {
-                size = ((adev->stream_bitrate >> 3) / 1000) * OFFLOAD_BUFFER_SIZE_DURATION_MS; // 1ms datasize * 50ms
+            if (adev->stream_bitrate != 0  && adev->stream_bitrate != -1 && adev->stream_bitrate <= 768000) {     //lbr bitrate range = 32000~768000
+                size = ((adev->stream_bitrate >> 3) / 1000) * OFFLOAD_BUFFER_SIZE_DURATION_MS;
                 /*align to 8 byte*/
                 size = size & ~(OFFLOAD_BUFFER_SIZE_ALIGNMENT - 1);
                 if (size > DTS_OFFLOAD_BUFFER_MAX_SIZE) {
@@ -627,8 +627,8 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         if (stream->get_format(stream) == AUDIO_FORMAT_IEC61937) {
             size = 4 * PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;
         } else {
-            if (adev->stream_bitrate != 0  && adev->stream_bitrate != -1 && adev->stream_bitrate <= 384000) {
-                size = ((adev->stream_bitrate >> 3) / 1000) * OFFLOAD_BUFFER_SIZE_DURATION_MS; // 1ms datasize * 50ms
+            if (adev->stream_bitrate != 0  && adev->stream_bitrate != -1 && adev->stream_bitrate <= 768000) {
+                size = ((adev->stream_bitrate >> 3) / 1000) * OFFLOAD_BUFFER_SIZE_DURATION_MS;
                 /*align to 8 byte*/
                 size = size & ~(OFFLOAD_BUFFER_SIZE_ALIGNMENT - 1);
                 if (size > DTS_OFFLOAD_BUFFER_MAX_SIZE) {
