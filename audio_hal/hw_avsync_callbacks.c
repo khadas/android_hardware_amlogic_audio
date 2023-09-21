@@ -227,7 +227,6 @@ int on_meta_data_cbk(void *cookie,
             aml_hwsync_wrap_is_amaster(out->hwsync, &amaster_mode);
             if (!amaster_mode) {
                 ALOGE("%s not amaster mode", __func__);
-                out->first_pts_set = false;
                 return 0;
             }
             int insert_size = 0;

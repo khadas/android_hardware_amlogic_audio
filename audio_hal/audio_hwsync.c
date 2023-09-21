@@ -619,8 +619,6 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, uint64_t apts, int 
             aml_hwsync_wrap_is_amaster(out->hwsync, &amaster_mode);
             if (!amaster_mode) {
                 ALOGE("%s not amaster mode", __func__);
-                p_hwsync->first_apts_flag = false;
-                p_hwsync->wait_video_done = false;
                 return 0;
             }
 
