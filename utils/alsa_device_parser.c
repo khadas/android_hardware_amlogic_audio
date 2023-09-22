@@ -251,7 +251,7 @@ void alsa_device_parser_pcm_string(struct alsa_info *p_info, char *InputBuffer)
 		mAudioDeviceDescriptor->mCardindex = atoi(Rch);
 		Rch = strtok(NULL, ":");
 		mAudioDeviceDescriptor->mPcmIndex = atoi(Rch);
-		Rch = strtok(NULL, ": ");
+		Rch = strtok(NULL, ":");
 		if (Rch) {
 			memcpy(mStreamName, Rch, 256);
 			PortName = strstr(mStreamName, "alsaPORT-");
