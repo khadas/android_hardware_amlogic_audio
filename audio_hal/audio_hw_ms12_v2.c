@@ -3421,7 +3421,12 @@ Aml_MS12_SyncPolicy_t ms12_dtv_sync_callback(void *priv_data, unsigned long long
 
             }
             if (new_apts) {
-                aml_dtvsync->cur_outapts = new_apts;
+                int ms12_tuning_delay_pts = aml_audio_dtv_get_ms12_latency(stream_out) * 1000 * MILLISECOND_2_PTS / 48000;
+                int force_setting_delay_pts = 0;
+                if (adev->bHDMIARCon) {
+                    force_setting_delay_pts = aml_getprop_int(PROPERTY_LOCAL_PASSTHROUGH_LATENCY)  * MILLISECOND_2_PTS;
+                }
+                aml_dtvsync->cur_outapts = new_apts + ms12_tuning_delay_pts + force_setting_delay_pts;
                 ms12_do_dtv_sync(stream_out);
 
                 if (async_policy->audiopolicy != DTVSYNC_AUDIO_NORMAL_OUTPUT)
