@@ -21,7 +21,7 @@ int aml_spdif_encoder_open(void **spdifenc_handle, audio_format_t format);
 int aml_spdif_encoder_close(void *phandle);
 int aml_spdif_encoder_process(void *phandle, const void *buffer, size_t numBytes, void **output_buf, size_t *out_size);
 int aml_spdif_encoder_mute(void *phandle, bool bmute);
-
+int aml_spdif_encoder_reset(void *phandle);
 
 
 #endif // _ALSA_MANAGER_H_

@@ -557,6 +557,7 @@ static int output_port_start(output_port *port)
         pcm_cfg.start_threshold = pcm_cfg.period_size * pcm_cfg.period_count / 2;
     }
 
+    port->alsa_buffer_frames = pcm_cfg.period_size * pcm_cfg.period_count;
     //pcm_cfg.stop_threshold = pcm_cfg.period_size * pcm_cfg.period_count - 128;
     //pcm_cfg.silence_threshold = pcm_cfg.stop_threshold;
     //pcm_cfg.silence_size = 1024;

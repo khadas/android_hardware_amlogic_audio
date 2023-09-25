@@ -192,6 +192,7 @@ typedef struct OUTPUT_PORT {
     struct aec_t *aec;
 #endif
     struct kara_manager *kara;
+    uint32_t alsa_buffer_frames;
 } output_port;
 
 bool is_inport_valid(aml_mixer_input_port_type_e index);

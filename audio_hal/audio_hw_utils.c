@@ -59,6 +59,8 @@
 #include "dtv_private_object.h"
 #include "audio_hw_resource_mgr.h"
 #include "device_patch.h"
+#include "aml_audio_spdifout.h"
+
 
 #ifdef LOG_NDEBUG_FUNCTION
 #define LOGFUNC(...) ((void)0)
@@ -761,6 +763,7 @@ int aml_audio_get_netflix_port_latency(enum OUT_PORT port, audio_format_t output
             break;
         case OUTPORT_SPEAKER:
         case OUTPORT_AUX_LINE:
+        case OUTPORT_HEADPHONE:
             if ((output_format == AUDIO_FORMAT_PCM_16_BIT) || (output_format == AUDIO_FORMAT_PCM_32_BIT)) {
                 latency_ms = AVSYNC_NONMS12_NETFLIX_SPEAKER_OUT_PCM_LATENCY;
                 prop_name = AVSYNC_NONMS12_NETFLIX_SPEAKER_OUT_PCM_LATENCY_PROPERTY;
@@ -961,13 +964,26 @@ uint32_t out_get_alsa_latency_frames(const struct audio_stream_out *stream)
 
     whole_latency_frames = out->config.period_size * out->config.period_count / 2;
     if (adev->useSubMix) {
+        int delay_ms = 0;
         struct subMixing *sm = adev->sm;
         struct amlAudioMixer *audio_mixer = sm->mixerData;
         if (out->standby)
             return whole_latency_frames;
 
-        frames = mixer_get_inport_latency_frames(audio_mixer, out->inputPortID)
-                    + mixer_get_outport_latency_frames(audio_mixer);
+        if (adev->optical_format == AUDIO_FORMAT_E_AC3
+            && !audio_is_linear_pcm(out->hal_format)
+            && out->spdifout_handle) {
+            // npcm data will not enter submmix process, only npcm decoded data will.
+            delay_ms = aml_audio_spdifout_get_delay(out->spdifout_handle);
+            if (delay_ms <= 0) {
+                return whole_latency_frames;
+            } else {
+                frames = delay_ms * out->config.rate/1000;
+            }
+        } else {
+            frames = mixer_get_inport_latency_frames(audio_mixer, out->inputPortID)
+                        + mixer_get_outport_latency_frames(audio_mixer);
+        }
     } else {
         if (!out->pcm || !pcm_is_ready(out->pcm)) {
             return whole_latency_frames;

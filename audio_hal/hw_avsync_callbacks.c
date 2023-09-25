@@ -14,6 +14,7 @@
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
 #include "aml_malloc_debug.h"
+#include "aml_audio_ms12_sync.h"
 
 enum hwsync_status pcm_check_hwsync_status(uint apts_gap)
 {
@@ -76,6 +77,10 @@ int on_meta_data_cbk(void *cookie,
     }
     ALOGV("%s(), pout %p", __func__, out);
 
+    if (out->dev && out->dev->is_netflix) {
+        tuning_latency = aml_audio_get_nonms12_tunnel_latency(&out->stream, AUDIO_FORMAT_PCM_16_BIT)/48;
+    }
+
     frame_size = audio_stream_out_frame_size(&out->stream);
     //sample_rate = out->audioCfg.sample_rate;
     if (out->audioCfg.sample_rate != sample_rate)
@@ -131,6 +136,12 @@ int on_meta_data_cbk(void *cookie,
         }
         return -EINVAL;
     }
+    if (out->dev && out->dev->is_netflix) {
+        if (!out->alsa_running_status && out->write_count < 20) {
+            ALOGW("%s(), stream %p alsa is not running ...", __func__, out);
+            return -EINVAL;
+        }
+    }
 
     if (out->hwsync && out->hwsync->use_mediasync) {
         if (!out->first_pts_set) {
@@ -138,6 +149,7 @@ int on_meta_data_cbk(void *cookie,
             int delay_count = 0;
             hwsync_header_construct(header);
             latency = (int32_t)out_get_outport_latency((struct audio_stream_out *)out) * 90;
+            ALOGD("%s(), out:%p latency %d, tuning_latency %d", __func__, out, latency/90, tuning_latency);
             latency += tuning_latency * 90;
 
             ALOGD("%s(), out:%p set media start pts %" PRId64 ", latency %d, last position %" PRId64 "",
@@ -230,7 +242,11 @@ int on_meta_data_cbk(void *cookie,
                 return 0;
             }
             int insert_size = 0;
-            insert_size = pcr_pts_gap * 48 * 4;
+            int frame_size = 4;
+            if (audio_is_linear_pcm(out->hal_format) && out->hal_frame_size > 0) {
+                frame_size = out->hal_frame_size;
+            }
+            insert_size = pcr_pts_gap * 48 * frame_size;
             insert_size = insert_size & (~63);
             ALOGI("%s(), pcrscr %" PRIu64 " ms adjusted_apts %" PRIu64 " ms", __func__, pcr/90, pts64/90);
             ALOGI("audio gap: pcr < apts %d ms, need insert data %d\n", pcr_pts_gap, insert_size);
@@ -332,8 +348,12 @@ int on_meta_data_cbk(void *cookie,
             // apts leading needs inserting frame and pcr leading needs discarding frame
             if (pts64 > pcr) {
                 int insert_size = 0;
+                int frame_size = 4;
+                if (audio_is_linear_pcm(out->hal_format) && out->hal_frame_size > 0) {
+                    frame_size = out->hal_frame_size;
+                }
 
-                insert_size = apts_gap / 90 * 48 * 4;
+                insert_size = apts_gap / 90 * 48 * frame_size;
                 insert_size = insert_size & (~63);
                 ALOGI("%s(), pcrscr %" PRIu64 " ms adjusted_apts %" PRIu64 " ms", __func__, pcr/90, pts64/90);
                 ALOGI("audio gap: pcr < apts %d ms, need insert data %d\n", apts_gap / 90, insert_size);

@@ -26,6 +26,7 @@ typedef enum info_type {
 
 typedef union output_info {
     int delay_ms;
+    int alsa_state;
 } alsa_output_info_t;
 
 typedef struct aml_stream_config {

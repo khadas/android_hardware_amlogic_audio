@@ -51,6 +51,9 @@ size_t spdif_encoder_ad_get_current_position(void *phandle);
  */
 void spdif_encoder_ad_flush_output_current_position(void *phandle);
 
+
+void spdif_encoder_ad_reset(void *phandle);
+
 #ifdef __cplusplus
 }
 #endif

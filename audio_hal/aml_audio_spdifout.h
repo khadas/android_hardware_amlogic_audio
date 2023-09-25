@@ -62,5 +62,6 @@ int aml_audio_spdifout_get_delay(void *phandle);
 */
 int aml_audio_spdifout_config_earc_ca(void *phandle, int channel_mask);
 
+int aml_audio_spdifout_get_status(void *phandle);
 
 #endif

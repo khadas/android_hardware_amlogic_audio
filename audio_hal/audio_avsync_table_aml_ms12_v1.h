@@ -298,6 +298,7 @@
 #define  AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_PCM_LATENCY    (0)
 #define  AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_DD_LATENCY     (0)
 #define  AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_DDP_LATENCY    (120)
+#define  AVSYNC_MS12_NETFLIX_HDMI_ARC_OUT_MAT_LATENCY    (0)
 #define  AVSYNC_MS12_NETFLIX_HDMI_OUT_LATENCY            (10)
 #define  AVSYNC_MS12_NETFLIX_SPEAKER_LATENCY        (-25)
 
@@ -335,11 +336,11 @@
 
 
 /*below DDP tuning is for NonMS12*/
-//  0 --> 3
-#define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_PCM_LATENCY                 (3)
+//  0 --> -3 -> 20
+#define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_PCM_LATENCY                 (20)
 #define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_DD_LATENCY                  (-95)
-// -25
-#define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_DDP_LATENCY                 (-25)
+// -25 -> -40
+#define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_DDP_LATENCY                 (30)
 
 #define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_PCM_LATENCY_PROPERTY        "vendor.media.audio.hal.nonms12.netflix.hdmi.pcm"
 #define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_DD_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.netflix.hdmi.dd"
@@ -361,18 +362,18 @@
 
 
 
-#define  AVSYNC_NONMS12_NETFLIX_TUNNEL_PCM_LATENCY                   (30)
-#define  AVSYNC_NONMS12_NETFLIX_TUNNEL_DDP_LATENCY                   (30)
+#define  AVSYNC_NONMS12_NETFLIX_TUNNEL_PCM_LATENCY                   (-32)
+#define  AVSYNC_NONMS12_NETFLIX_TUNNEL_MULTICH_PCM_LATENCY           (-15)
+#define  AVSYNC_NONMS12_NETFLIX_TUNNEL_DDP_LATENCY                   (2)  // 30 -> 54 -> 2
 
 #define  AVSYNC_NONMS12_NETFLIX_TUNNEL_PCM_LATENCY_PROPERTY          "vendor.media.audio.hal.nonms12.netflix.tunnel.pcm"
+#define  AVSYNC_NONMS12_NETFLIX_TUNNEL_MULTICH_PCM_LATENCY_PROPERTY  "vendor.media.audio.hal.nonms12.netflix.tunnel.multich.pcm"
 #define  AVSYNC_NONMS12_NETFLIX_TUNNEL_DDP_LATENCY_PROPERTY          "vendor.media.audio.hal.nonms12.netflix.tunnel.ddp"
 
 
 #define  AVSYNC_NONMS12_TV_NETFLIX_TUNNEL_PCM_LATENCY                (0)
+#define  AVSYNC_NONMS12_TV_NETFLIX_TUNNEL_MULTICH_PCM_LATENCY        (-15)
 #define  AVSYNC_NONMS12_TV_NETFLIX_TUNNEL_DDP_LATENCY                (20)  // 20
-
-#define  AVSYNC_NONMS12_TV_NETFLIX_TUNNEL_PCM_LATENCY_PROPERTY       "vendor.media.audio.hal.nonms12.netflix.tunnel.pcm"
-#define  AVSYNC_NONMS12_TV_NETFLIX_TUNNEL_DDP_LATENCY_PROPERTY       "vendor.media.audio.hal.nonms12.netflix.tunnel.ddp"
 
 
 #define  AVSYNC_DV_NETFLIX_TUNNEL_LATENCY                   (15)

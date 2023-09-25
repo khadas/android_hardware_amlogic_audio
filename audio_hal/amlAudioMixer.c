@@ -553,23 +553,6 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
                 }
             }
         }
-
-        masks = audio_mixer->inportsMasks;
-        while (masks) {
-            in_port = mixer_get_inport_by_mask_right_first(audio_mixer, &masks);
-            if (in_port == NULL) {
-                continue;
-            }
-            aml_out = (struct aml_stream_out *)in_port->notify_cbk_data;
-            if ((aml_out == NULL) || aml_out->standby) {
-                continue;
-            }
-            if (aml_out && (alsa_status != aml_out->alsa_running_status)) {
-                ALOGI("%s alsa_running_status[%p] change from %d to %d", __func__, aml_out, aml_out->alsa_running_status, alsa_status);
-                aml_out->alsa_running_status = alsa_status;
-                aml_out->alsa_status_changed = true;
-            }
-        }
         set_outport_data_avail(out_port, 0);
     };
     pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
@@ -580,8 +563,28 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
     if (mc_out_port && mc_out_port->bytes_avail > 0) {
         mc_out_port->write(mc_out_port, mc_out_port->data_buf, mc_out_port->bytes_avail);
         mc_out_port->bytes_avail = 0;
+        // multi-ch-pcm(its functionality like ddp51) has higher priority than stereo pcm.
+        alsa_status = aml_audio_spdifout_get_status(mc_out_port->spdifout_handle);
     }
     pthread_mutex_unlock(&audio_mixer->mc_out_lock);
+
+    // update audio stream running status
+    masks = audio_mixer->inportsMasks;
+    while (masks) {
+        in_port = mixer_get_inport_by_mask_right_first(audio_mixer, &masks);
+        if (in_port == NULL) {
+            continue;
+        }
+        aml_out = (struct aml_stream_out *)in_port->notify_cbk_data;
+        if ((aml_out == NULL) || aml_out->standby) {
+            continue;
+        }
+        if (alsa_status != aml_out->alsa_running_status) {
+            ALOGI("%s alsa_running_status[%p] change from %d to %d", __func__, aml_out, aml_out->alsa_running_status, alsa_status);
+            aml_out->alsa_running_status = alsa_status;
+            aml_out->alsa_status_changed = true;
+        }
+    }
 
     return 0;
 }
@@ -1668,10 +1671,13 @@ uint32_t mixer_get_outport_latency_frames(struct amlAudioMixer *audio_mixer)
     out_port = audio_mixer->out_ports[port_index];
     if (out_port == NULL) {
         AM_LOGW("out_port is null");
-        return -1;
+        return 0;
     }
-    uint32_t ret = outport_get_latency_frames(out_port);
-    return ret;
+    int latency_frames = outport_get_latency_frames(out_port);
+    if (latency_frames <= 0) {
+        latency_frames = out_port->alsa_buffer_frames/2;
+    }
+    return latency_frames;
 }
 
 int pcm_mixer_thread_run(struct amlAudioMixer *audio_mixer)

@@ -793,6 +793,12 @@ int aml_audio_spdifout_stop(void *phandle) {
     alsa_handle = aml_dev->alsa_handle[device_id];
 
     ret = aml_alsa_output_stop_new(alsa_handle);
+    if (ret == 0 && spdifout_phandle->spdif_enc_handle) {
+        // discard encoder internal data, for alsa buffer data has been dropped.
+        // seems it will let avsync result more stable ?
+        ALOGI("spdifout_phandle %p, spdif_enc_handle %p", spdifout_phandle, spdifout_phandle->spdif_enc_handle);
+        aml_spdif_encoder_reset(spdifout_phandle->spdif_enc_handle);
+    }
 
     return ret;
 }
@@ -837,6 +843,27 @@ int aml_audio_spdifout_config_earc_ca(void *phandle, int channel_mask) {
     }
 
     return ret;
+}
+
+int aml_audio_spdifout_get_status(void *phandle) {
+    int ret = 0;
+    struct spdifout_handle *spdifout_phandle = (struct spdifout_handle *)phandle;
+    struct aml_audio_device *aml_dev = (struct aml_audio_device *)adev_get_handle();
+    int device_id = -1;
+    void *alsa_handle = NULL;
+    int alsa_state;
+    bool running_status = false;
+    if (phandle == NULL) {
+        return running_status;
+    }
+    device_id = spdifout_phandle->device_id;
+    alsa_handle = aml_dev->alsa_handle[device_id];
+
+    ret = aml_alsa_output_getinfo(alsa_handle, OUTPUT_INFO_STATUS, (alsa_output_info_t *)&alsa_state);
+    if (ret == 0) {
+        running_status = (alsa_state == PCM_STATE_RUNNING);
+    }
+    return running_status;
 }
 
 

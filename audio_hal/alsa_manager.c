@@ -1343,6 +1343,17 @@ int aml_alsa_output_getinfo(void *handle, alsa_info_type_t type, alsa_output_inf
         info->delay_ms = delay * 1000 / (rate * rate_multiply);
         return 0;
     }
+    case OUTPUT_INFO_STATUS: {
+        struct snd_pcm_status status;
+        ret = pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_STATUS, &status);
+        if (ret < 0) {
+            info->alsa_state = -1;
+            return -1;
+        }
+        info->alsa_state = status.state;
+        return 0;
+    }
+
     default:
         return -1;
     }

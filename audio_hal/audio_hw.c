@@ -853,7 +853,6 @@ static int out_flush (struct audio_stream_out *stream)
                 ALOGE("aml_audio_spdifout_stop error =%d", ret);
             }
         }
-
     }
     standby_func (out);
     out->frame_write_sum  = 0;
@@ -864,6 +863,16 @@ static int out_flush (struct audio_stream_out *stream)
     //out->pause_status = false;
     out->input_bytes_size = 0;
     aml_audio_hwsync_init(out->hwsync, out);
+
+    if (adev->useSubMix) {
+        struct amlAudioMixer *audio_mixer = NULL;
+        struct subMixing *sm = adev->sm;
+
+        if (out->inputPortID != -1 && sm) {
+            audio_mixer = sm->mixerData;
+            send_mixer_inport_message(audio_mixer, out->inputPortID, MSG_FLUSH);
+        }
+    }
 
 exit:
     pthread_mutex_unlock (&adev->lock);
@@ -1281,12 +1290,6 @@ static uint32_t out_get_latency (const struct audio_stream_out *stream)
 
 }
 
-static uint32_t out_get_alsa_latency (const struct audio_stream_out *stream)
-{
-    const struct aml_stream_out *out = (const struct aml_stream_out *) stream;
-    snd_pcm_sframes_t frames = out_get_alsa_latency_frames (stream);
-    return (frames * 1000) / out->config.rate;
-}
 
 bool dtv_tuner_framework(struct audio_stream_out *stream)
 {
@@ -1419,7 +1422,18 @@ static int out_pause (struct audio_stream_out *stream)
                 __func__, out->standby, out->pause_status);
         r = INVALID_STATE;
         goto exit;
+    } else {
+        if (adev->useSubMix) {
+            struct amlAudioMixer *audio_mixer = NULL;
+            struct subMixing *sm = adev->sm;
+
+            if (out->inputPortID != -1 && sm) {
+                audio_mixer = sm->mixerData;
+                send_mixer_inport_message(audio_mixer, out->inputPortID, MSG_PAUSE);
+            }
+        }
     }
+
     if (out->hw_sync_mode) {
         adev->hwsync_output = NULL;
         int cnt = 0;
@@ -1441,6 +1455,7 @@ static int out_pause (struct audio_stream_out *stream)
     if (out->spdifout2_handle) {
         aml_audio_spdifout_pause(out->spdifout2_handle);
     }
+
 exit1:
     out->pause_status = true;
 exit:
@@ -1481,6 +1496,16 @@ static int out_resume (struct audio_stream_out *stream)
         r = INVALID_STATE;
 
         goto exit;
+    } else {
+        if (adev->useSubMix) {
+            struct amlAudioMixer *audio_mixer = NULL;
+            struct subMixing *sm = adev->sm;
+
+            if (out->inputPortID != -1 && sm) {
+                audio_mixer = sm->mixerData;
+                send_mixer_inport_message(audio_mixer, out->inputPortID, MSG_RESUME);
+            }
+        }
     }
 
     r = aml_alsa_output_resume(stream);
@@ -5873,10 +5898,11 @@ hwsync_rewrite:
                     uint64_t apts;
                     int debug_enable = get_debug_value(AML_DEBUG_AUDIOHAL_HW_SYNC);
                     int latency = (int)out_get_latency(stream);
-                    int tuning_latency = aml_audio_get_nonms12_tunnel_latency(stream) / 48;
+                    int tuning_latency = aml_audio_get_nonms12_tunnel_latency(stream, adev->sink_format) / 48;
                     int latency_pts = 0;
                     int video_delay_ms = 0;
                     bool valid_pts = true;
+                    bool alsa_running_status = true;
 
                     // FIXME : out_get_latency should return the exact latency value.
                     // Temporary patch for tv non-dolby, in order not to retune ddp/ott_non-dolby avsync.
@@ -5933,7 +5959,17 @@ hwsync_rewrite:
                         write_drop_threshold = 0;
                     }
 
-                    if (aml_out->alsa_running_status == true && valid_pts) {
+                    /*
+                     * npcm data will not enter submmix process, only npcm decoded data will,
+                     * if current active output is npcm, just check the npcm alsa running status
+                    */
+                    if (eDolbyDcvLib == adev->dolby_lib_type && adev->useSubMix
+                        && !audio_is_linear_pcm(aml_out->hal_format) && adev->optical_format == AUDIO_FORMAT_E_AC3
+                        && aml_out->spdifout_handle) {
+                        alsa_running_status = aml_audio_spdifout_get_status(aml_out->spdifout_handle);
+                    }
+
+                    if (alsa_running_status && valid_pts) {
                         if (hw_sync->first_apts_flag == false) {
                             aml_audio_hwsync_set_first_pts(aml_out->hwsync, apts64);
                         }
@@ -5983,7 +6019,7 @@ hwsync_rewrite:
                         }
                     } else {
                         ALOGI("%s  write_count:%d, drop this pts (alsa_running_status:%d [%p], valid_pts:%d)", __func__,
-                            aml_out->write_count, aml_out->alsa_running_status, aml_out, valid_pts);
+                            aml_out->write_count, alsa_running_status, aml_out, valid_pts);
                     }
                 } else {
                     uint64_t apts;

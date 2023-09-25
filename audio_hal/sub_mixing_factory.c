@@ -581,7 +581,12 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
         out->standby = false;
         out->audio_data_handle_state = AUDIO_DATA_HANDLE_START;
     }
-    if (audio_is_linear_pcm(out->hal_format)) {
+
+    /*
+     * if out->aml_dec isn't NULL, lpcm5.1/7.1 will be downmix to 2ch.
+     * then output_stream information is incorrect.
+    */
+    if (audio_is_linear_pcm(out->hal_format) && out->aml_dec == NULL) {
         frame_size = out->hal_frame_size;
         channels = audio_channel_count_from_out_mask(out->hal_channel_mask);
         sample_size = audio_bytes_per_sample(out->hal_format);
@@ -763,28 +768,6 @@ int out_get_presentation_position_port(
             ret = mixer_get_presentation_position(audio_mixer,
                 out->inputPortID, frames, timestamp);
             pthread_mutex_unlock(&out->apts_update_lock);
-            tuning_latency_frame = aml_audio_get_pcm_latency_offset(adev->sink_format, adev->is_netflix)*48;
-            if (out->hw_sync_mode || out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
-                tuning_latency_frame = 0;//this is pcm format, it should be 0ms for latency.
-            }
-            if (tuning_latency_frame > 0 && *frames < (uint64_t)tuning_latency_frame) {
-                *frames = 0;
-            } else {
-                *frames = *frames - tuning_latency_frame;
-            }
-
-            //convert the frames for resample in AudioHal.
-            if (out->hal_rate != MM_FULL_POWER_SAMPLING_RATE) {
-                *frames = (*frames * out->hal_rate) / MM_FULL_POWER_SAMPLING_RATE;
-            }
-            AM_LOGV("usecase:%s  *frames:%"PRIu64", tuning_latency_frame:%d", usecase2Str(out->usecase), *frames, tuning_latency_frame);
-
-            if (ret == 0) {
-                out->last_frames_position = *frames;
-            } else {
-                *frames = out->last_frames_position;
-                AM_LOGW("pts not valid yet");
-            }
         }
         if (adev->debug_flag)
             AM_LOGI("%s out->standby:%d pause_status:%d frame_write_sum_updated:%d, frames:%"PRIu64", frame_write_sum:%"PRIu64"", __func__,
@@ -797,21 +780,35 @@ int out_get_presentation_position_port(
     }
 
     int latency_ms = 0;
-    if (!adev->is_netflix && ret == 0) {
+    if (ret == 0) {
         latency_ms = aml_audio_get_latency_offset(adev->cur_out_devices,
                                                          out->hal_internal_format,
                                                          adev->sink_format,
                                                          adev->ms12.dolby_ms12_enable,
                                                          is_earc);
+        if (!adev->is_netflix && (out->hw_sync_mode || out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)) {
+            latency_ms = 0;//this is pcm format, it should be 0ms for latency.
+        }
+
         frame_latency = latency_ms * (out->hal_rate / MSEC_PER_SEC);
         if (frame_latency < 0 && *frames < abs(frame_latency)) {
             *frames = 0;
         } else {
             *frames += frame_latency ;
         }
+
+        // convert the frames for resample in AudioHal
+        if (out->hal_rate != MM_FULL_POWER_SAMPLING_RATE) {
+            *frames = (*frames * out->hal_rate) / MM_FULL_POWER_SAMPLING_RATE;
+        }
+
         if (adev->debug_flag) {
             AM_LOGI("tuning_latency_ms %d, frame_latency:%d", latency_ms, frame_latency);
         }
+        out->last_frames_position = *frames;
+    } else {
+        *frames = out->last_frames_position;
+        AM_LOGW("pts not valid yet");
     }
 
     {
@@ -837,7 +834,7 @@ int out_get_presentation_position_port(
         if  (llabs(jitter_diff) > JITTER_DURATION_MS && adev->debug_flag) {
             AM_LOGI("jitter out last pos info: %p %"PRIu64", sec:%ld, nanosec:%ld\n", out, out->last_frame_reported,
                 out->last_timestamp_reported.tv_sec, out->last_timestamp_reported.tv_nsec);
-            AM_LOGI("jitter system time diff %"PRIu64" ms, position diff %"PRIu64" ms, jitter %"PRIu64" ms \n",
+            AM_LOGI("jitter system time diff %"PRIu64" ms, position diff %"PRIu64" ms, jitter %"PRId64" ms \n",
                 system_time_ms,frame_diff_ms,jitter_diff);
         }
 
