@@ -2445,6 +2445,50 @@ int aml_get_stream_dump_file_name(audio_format_t audio_format, char *file_name)
     return 0;
 }
 
+uint32_t aml_audio_read_audio_data_by_file(const char *file, const char *prop,
+    char *buffer, uint32_t bytes, long int *cur_pos) {
+// The frame header of a wav file is 44 bytes
+#define WAV_FREAME_HEADER_SIZE_BYTE                 (44)
+
+    R_CHECK_POINTER_LEGAL(-1, file, "file is null");
+    R_CHECK_POINTER_LEGAL(-1, prop, "file:%s, prop is null", file);
+    R_CHECK_POINTER_LEGAL(-1, prop, "file:%s, cur_pos is null", file);
+
+    if (0 == getprop_bool(prop)) {
+        return 0;
+    }
+    int ret = 0;
+    FILE *file_fd = fopen(file, "r");
+    R_CHECK_POINTER_LEGAL(-1, file_fd, "open file:%s failed, %s", file, strerror(errno));
+
+    struct stat file_stat;
+    ret = stat(file, &file_stat);
+    R_CHECK_RET(ret, "get file size fail. file:%s, err:%s", file, strerror(errno));
+
+    if (*cur_pos > file_stat.st_size || *cur_pos < 0) {
+        AM_LOGW("file:%s, cur_pos:%ld is invalid, file_size:%lld, restart read file",
+            file, *cur_pos, (long long)file_stat.st_size);
+        *cur_pos = WAV_FREAME_HEADER_SIZE_BYTE;
+    } else if (*cur_pos == 0) {
+        *cur_pos = WAV_FREAME_HEADER_SIZE_BYTE;
+    }
+
+    ret = fseek(file_fd, *cur_pos, SEEK_SET);
+    NO_R_CHECK_RET(ret, "file:%s, fseek failed, ret:%#x, %s", file, ret, strerror(errno));
+
+    size_t read_size = fread(buffer, 1, bytes, file_fd);
+    if (read_size != bytes) {
+        ALOGI("file:%s, restart read file", file);
+        *cur_pos = WAV_FREAME_HEADER_SIZE_BYTE;
+        fseek(file_fd, *cur_pos, SEEK_SET);
+        read_size = fread((char *)buffer + read_size, 1, bytes - read_size, file_fd);
+    }
+    *cur_pos += read_size;
+    ALOGV("file:%s, cur_pos:%ld, read_size:%zu", file, *cur_pos, read_size);
+    fclose(file_fd);
+    return 0;
+}
+
 enum OUT_PORT get_output_by_devices(audio_devices_t devices)
 {
     int cnt = __builtin_popcount(devices);

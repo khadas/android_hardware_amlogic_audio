@@ -193,6 +193,9 @@ const char* audioDevType2Str(audio_devices_t type);
 bool aml_audio_check_sbr_product();
 void check_audio_level(const char *name, const void *buffer, size_t bytes);
 
+uint32_t aml_audio_read_audio_data_by_file(const char *file, const char *prop,
+    char *buffer, uint32_t bytes, long int *cur_pos);
+
 int aml_audio_trace_int(char *name, int value);
 int aml_audio_trace_debug_level(void);
 

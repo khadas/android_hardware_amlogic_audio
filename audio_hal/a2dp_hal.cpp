@@ -44,11 +44,17 @@ using ::android::hardware::bluetooth::audio::V2_0::SessionType;
 #define A2DP_RING_BUFFER_DELAY_TIME_MS              (64)
 #define A2DP_SEND_DATA_TIMEOUT_RESET_MS             (300)
 #define A2DP_WAIT_STATE_DELAY_TIME_US               (8000)
+#define A2DP_WRITE_DATE_TIME_OUT_MS                 (64)
 #define A2DP_LATENCY_INVALID_NS                     (NSEC_PER_SEC)
 #define DEFAULT_A2DP_LATENCY_NS                     (100 * NSEC_PER_MSEC) // Default delay to use when BT device does not report a delay
 #define A2DP_STATIC_DELAY_MS                        (0) // Additional device-specific delay
 #define AUDIO_HAL_FIXED_CFG_CHANNEL                 (AUDIO_CHANNEL_OUT_STEREO)
 #define AUDIO_HAL_FIXED_CFG_FORMAT                  (AUDIO_FORMAT_PCM_16_BIT)
+#define AUDIO_HAL_FIXED_FRAME_SIZE                  (audio_channel_count_from_out_mask(AUDIO_HAL_FIXED_CFG_CHANNEL) * \
+                                                        audio_bytes_per_sample(AUDIO_HAL_FIXED_CFG_FORMAT))
+#define A2DP_TEST_AUDIO_FILE_PATH                  "/data/a2dp_test.wav"
+#define A2DP_TEST_AUDIO_FILE_PROP                  "vendor.media.audiohal.a2dp.test"
+#define A2DP_TEST_AUDIO_CHECK_MUTE_PROP            "vendor.media.audiohal.a2dp.checkmute"
 
 
 struct aml_a2dp_hal {
@@ -118,7 +124,7 @@ static bool a2dp_wait_status(struct aml_a2dp_hal *hal) {
     return false;
 }
 
-static void dump_a2dp_output_data(aml_a2dp_hal *hal, const void *buffer, uint32_t size) {
+static void dump_a2dp_output_data(aml_a2dp_hal *hal, const void *buffer, size_t size) {
     if (getprop_bool("vendor.media.audiohal.a2dpdump")) {
         char acFilePathStr[ENUM_TYPE_STR_MAX_LEN];
         size_t out_per_sample_byte = audio_bytes_per_sample(hal->config.format);
@@ -352,10 +358,11 @@ static bool a2dp_state_process(struct aml_audio_device *adev, audio_config_base_
     if (cur_state == BluetoothStreamState::STARTING) {
         if (data_delta_time_us > 0) {
             if (adev->debug_flag) {
-                AM_LOGD("write too fast, need sleep:%" PRId64 " ms", data_delta_time_us / 1000);
+                AM_LOGD("write too fast, need sleep:%" PRId64 " ms", data_delta_time_us / USEC_PER_MSEC);
             }
             usleep(data_delta_time_us);
         }
+        AM_LOGI("a2dp state is %s",  a2dpStatus2String(cur_state));
     } else if (cur_state == BluetoothStreamState::STARTED) {
          if (adev->audio_patch && adev->tv_mute) {
             /* tv_mute for atv switch channel */
@@ -395,7 +402,7 @@ static ssize_t a2dp_in_data_process(aml_a2dp_hal *hal, audio_config_base_t *conf
             tmp_buffer[2 * i + 1]   = (tmp_buffer_8ch[8 * i + 1] >> 16);
         }
     } else if (config->channel_mask == AUDIO_CHANNEL_OUT_STEREO && config->format == AUDIO_FORMAT_PCM_16_BIT) {
-        frames = bytes / (2 * 2);
+        frames = bytes / AUDIO_HAL_FIXED_FRAME_SIZE;
         realloc_ret = aml_audio_check_and_realloc((void **)&hal->buff_conv_format, &hal->buff_size_conv_format, bytes);
         if (realloc_ret != 0) {
             AM_LOGE("aml_audio_check_and_realloc fail");
@@ -424,8 +431,7 @@ static ssize_t a2dp_data_resample_process(aml_a2dp_hal *hal, audio_config_base_t
     int out_frames = in_frames;
     *output_buffer = buffer;
     if (input_cfg->sample_rate != hal->config.sample_rate) {
-        size_t in_frame_size = audio_channel_count_from_out_mask(AUDIO_HAL_FIXED_CFG_CHANNEL) *
-            audio_bytes_per_sample(AUDIO_HAL_FIXED_CFG_FORMAT);
+        size_t in_frame_size = AUDIO_HAL_FIXED_FRAME_SIZE;
         /* The resampled frames may be large than the theoretical value.
          * So, there is an extra 32 bytes allocated to prevent overflows.
          */
@@ -454,11 +460,9 @@ static ssize_t a2dp_data_resample_process(aml_a2dp_hal *hal, audio_config_base_t
     return out_frames;
 }
 
-static ssize_t a2dp_out_data_process(aml_a2dp_hal *hal, audio_config_base_t *config __unused,
+static size_t a2dp_out_data_process(aml_a2dp_hal *hal, audio_config_base_t *config __unused,
     const void *buffer, size_t in_frames, const void **output_buffer) {
-    size_t in_frame_size = audio_channel_count_from_out_mask(AUDIO_HAL_FIXED_CFG_CHANNEL) *
-        audio_bytes_per_sample(AUDIO_HAL_FIXED_CFG_FORMAT);
-    ssize_t out_size = in_frames * in_frame_size;
+    size_t out_size = in_frames * AUDIO_HAL_FIXED_FRAME_SIZE;
     if (hal->config.channel_mask == AUDIO_CHANNEL_OUT_MONO) {
         int16_t *tmp_buffer = (int16_t *)buffer;
         for (int i=0; i<in_frames; i++) {
@@ -498,12 +502,12 @@ static ssize_t a2dp_out_data_process(aml_a2dp_hal *hal, audio_config_base_t *con
 
 static ssize_t a2dp_out_write_l(struct aml_audio_device *adev, audio_config_base_t *config, const void* buffer, size_t bytes) {
     aml_a2dp_hal *hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
-    int wr_size = 0;
+    static long int test_file_position = 0;
+    size_t wr_size = 0;
     const void *wr_buff = NULL;
     ssize_t cur_frames = 0;
     ssize_t resample_frames = 0;
-    uint32_t bytes_written = 0;
-    uint64_t pre_time_us = 0;
+    size_t bytes_written = 0;
     size_t sent = 0;
 
     if (adev->a2dp_hal == NULL) {
@@ -523,6 +527,10 @@ static ssize_t a2dp_out_write_l(struct aml_audio_device *adev, audio_config_base
         return bytes;
     }
 
+    // For debug a2dp data. 48Khz, 2channel, 2byte.
+    aml_audio_read_audio_data_by_file(A2DP_TEST_AUDIO_FILE_PATH, A2DP_TEST_AUDIO_FILE_PROP,
+        hal->buff_conv_format, cur_frames * AUDIO_HAL_FIXED_FRAME_SIZE, &test_file_position);
+
     resample_frames = a2dp_data_resample_process(hal, config, hal->buff_conv_format, cur_frames, &wr_buff);
     if (resample_frames < 0) {
         return bytes;
@@ -534,16 +542,31 @@ static ssize_t a2dp_out_write_l(struct aml_audio_device *adev, audio_config_base
     }
 
     dump_a2dp_output_data(hal, wr_buff, wr_size);
-    pre_time_us = aml_audio_get_systime();
+    uint64_t write_enter_time_us = aml_audio_get_systime();
     while (bytes_written < wr_size) {
+        size_t need_write = wr_size - bytes_written;
+        if (getprop_bool(A2DP_TEST_AUDIO_CHECK_MUTE_PROP)) {
+            check_audio_level("a2dp_check", (char *)wr_buff + bytes_written, need_write);
+        }
         a2dp_notify_monitor(hal, true);
-        sent = hal->a2dphw.WriteData((char *)wr_buff + bytes_written, wr_size - bytes_written);
+        uint64_t write_start_time_us = aml_audio_get_systime();
+        sent = hal->a2dphw.WriteData((char *)wr_buff + bytes_written, need_write);
+        uint64_t write_stop_time_us = aml_audio_get_systime();
+        uint64_t write_data_time_ms = (write_stop_time_us - write_start_time_us) / USEC_PER_MSEC;
+        if (adev->debug_flag || write_data_time_ms > 40) {
+            /* Debug the time of write data to policy and the time of the write_data */
+            uint64_t data_time_ms = need_write / (hal->config.sample_rate * audio_bytes_per_sample(hal->config.format)
+                * audio_channel_count_from_out_mask(hal->config.channel_mask) / MSEC_PER_SEC);
+            AM_LOGD("write:%zu sent:%zu total:%zu write_time: %" PRIu64 " ms data_time: %" PRIu64 " ms",
+                need_write, sent, wr_size, write_data_time_ms, data_time_ms);
+        }
         a2dp_notify_monitor(hal);
         bytes_written += sent;
         /* The cache of BT stack is about 40ms data, and exit from writing data
          * after timeout of 64ms here. */
-        if (bytes_written < wr_size && (aml_audio_get_systime() - pre_time_us) > 64 * USEC_PER_MSEC) {
-            AM_LOGW("WriteData timeout 100 ms, quit now.");
+        if (bytes_written < wr_size &&
+            (write_stop_time_us - write_enter_time_us) > A2DP_WRITE_DATE_TIME_OUT_MS * USEC_PER_MSEC) {
+            AM_LOGW("WriteData timeout: %" PRIu64 " ms, quit now.", (write_stop_time_us - write_enter_time_us) / USEC_PER_MSEC);
             break;
         }
     }
@@ -583,30 +606,29 @@ ssize_t a2dp_out_write(struct aml_audio_device *adev, audio_config_base_t *confi
 
 uint32_t a2dp_out_get_latency(struct aml_audio_device *adev) {
     uint64_t remote_delay_report_ns = 0;
-    std::shared_ptr<BluetoothAudioSession> session_ptr =
-        BluetoothAudioSessionInstance::GetSessionInstance(SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH);
-    bool success = session_ptr->GetPresentationPosition(&remote_delay_report_ns, nullptr, nullptr);
-    if (!success || remote_delay_report_ns == 0) {
-        remote_delay_report_ns = DEFAULT_A2DP_LATENCY_NS;
-    }
-
     pthread_mutex_lock(&adev->a2dp_lock);
     struct aml_a2dp_hal * hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
     if (!hal) {
         pthread_mutex_unlock(&adev->a2dp_lock);
-        return remote_delay_report_ns / NSEC_PER_MSEC;
+        return DEFAULT_A2DP_LATENCY_NS / NSEC_PER_MSEC;
     }
     /* Some BT devices(eg: Xiaomi Air2) will change the latency after the connection is successful,
      * causing Youtube playback fail. */
     if (hal->a2dp_latency == A2DP_LATENCY_INVALID_NS) {
-        hal->a2dp_latency = remote_delay_report_ns;
+        std::shared_ptr<BluetoothAudioSession> session_ptr =
+            BluetoothAudioSessionInstance::GetSessionInstance(SessionType::A2DP_SOFTWARE_ENCODING_DATAPATH);
+        bool success = session_ptr->GetPresentationPosition(&remote_delay_report_ns, nullptr, nullptr);
+        if (!success || remote_delay_report_ns == 0) {
+            hal->a2dp_latency = DEFAULT_A2DP_LATENCY_NS;
+        } else {
+            hal->a2dp_latency = remote_delay_report_ns;
+        }
         AM_LOGI("success:%d report_latency:%" PRIu64" ms, latency:%" PRIu64" ms", success,
             remote_delay_report_ns / NSEC_PER_MSEC, hal->a2dp_latency / NSEC_PER_MSEC);
     }
+    remote_delay_report_ns = hal->a2dp_latency;
     pthread_mutex_unlock(&adev->a2dp_lock);
-    AM_LOGV("success:%d report_latency:%" PRIu64" ms, latency:%" PRIu64" ms", success,
-        remote_delay_report_ns / NSEC_PER_MSEC, hal->a2dp_latency / NSEC_PER_MSEC);
-    return static_cast<uint32_t>(hal->a2dp_latency / NSEC_PER_MSEC + A2DP_STATIC_DELAY_MS);
+    return static_cast<uint32_t>(remote_delay_report_ns / NSEC_PER_MSEC + A2DP_STATIC_DELAY_MS);
 }
 
 int a2dp_out_get_status(struct aml_audio_device *adev) {
@@ -648,6 +670,7 @@ int a2dp_hal_dump(struct aml_audio_device *adev, int fd) {
         dprintf(fd, "-------------[AM_HAL][A2DP]-------------\n");
         dprintf(fd, "-[AML_HAL]      out_rate      : %10d     | out_ch    :%10d\n", hal->config.sample_rate, audio_channel_count_from_out_mask(hal->config.channel_mask));
         dprintf(fd, "-[AML_HAL]      out_format    : %#10x     | cur_state :%10s\n", hal->config.format, a2dpStatus2String(hal->a2dphw.GetState()));
+        dprintf(fd, "-[AML_HAL]      a2dp_latency  : %" PRIu64" ms\n", hal->a2dp_latency / NSEC_PER_MSEC);
         aml_audio_resample_t *resample = hal->resample;
         if (resample) {
             audio_resample_config_t *config = &resample->resample_config;
