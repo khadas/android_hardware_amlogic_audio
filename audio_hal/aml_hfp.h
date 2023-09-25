@@ -77,6 +77,7 @@ struct hfp_module {
     struct pcm *hfp_sco_rx;
     struct pcm *hfp_sco_tx;
     struct pcm *hfp_pcm_rx;
+    struct pcm *hfp_pcm_rx_sub;
     struct pcm *hfp_pcm_tx;
     float  hfp_volume;
     float  mic_volume;
@@ -89,12 +90,13 @@ struct hfp_module {
 typedef struct ul_task_hfp_t {
     bool exit_run;
     pthread_t thread_id;
-    unsigned int thread_enable : 1;
+    int thread_created;
     struct pcm *pcm_hfp_sco_rx;
     struct pcm *pcm_hfp_pcm_tx;
     int data_len;
     aml_audio_resample_t *resample_handle;
     struct aml_mixer_handle *mixer;
+    struct aml_audio_device *ul_dev;
 } UL_HFP_T;
 
 static UL_HFP_T *g_ul_task_hfp = NULL;
@@ -102,18 +104,19 @@ static UL_HFP_T *g_ul_task_hfp = NULL;
 typedef struct dl_task_hfp_t {
     bool exit_run;
     pthread_t thread_id;
-    int thread_enable : 1;
+    int thread_created;
     struct pcm *pcm_hfp_sco_tx;
     struct pcm *pcm_hfp_pcm_rx;
     int data_len;
     aml_audio_resample_t *resample_handle;
     struct aml_mixer_handle *mixer;
+    struct aml_audio_device *dl_dev;
 } DL_HFP_T;
 
 extern struct hfp_module hfpmod;
 extern struct pcm_config pcm_config_hfp;
 extern struct pcm_config pcm_config_hfp_hfp_rx;
 
-extern bool if_hfp_running(struct aml_stream_out *hfp_out, struct audio_stream_out *stream, size_t bytes);
-
+bool if_hfp_running(struct aml_stream_out *hfp_out, struct audio_stream_out *stream, size_t bytes);
+bool if_hfp_running_submix(output_port *port, int bytes);
 #endif

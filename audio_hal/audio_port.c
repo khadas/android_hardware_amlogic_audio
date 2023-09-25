@@ -37,6 +37,7 @@
 #include "aml_dump_debug.h"
 #include "aml_audio_spdifout.h"
 #include "tv_patch_ctrl.h"
+#include "aml_hfp.h"
 
 #ifdef ENABLE_AEC_APP
 #include "audio_aec.h"
@@ -768,6 +769,19 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
         usleep(5000);
         return bytes;
     }
+
+    /* do hfp related when hfp write, for submix default frame_size 32 */
+    if (if_hfp_running_submix(port, bytes)) {
+        if (port->pcm_handle) {
+            output_port_standby(port);
+            port->pcm_handle = NULL;
+        }
+        usleep(bytes * 1000000 / 32 / 48000);
+        return bytes;
+    }
+
+    if (port->pcm_handle == NULL)
+        output_port_start(port);
 
     if (pcm_is_ready(port->pcm_handle)) {
         struct snd_pcm_status status;

@@ -115,6 +115,16 @@ bool if_hfp_running(struct aml_stream_out *hfp_out, struct audio_stream_out *str
      }
 }
 
+bool if_hfp_running_submix(output_port *port, int bytes) {
+    hfpmod.hfp_pcm_rx_sub = port->pcm_handle;
+    UNUSED(bytes);
+    if (!hfpmod.is_hfp_running) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
 static void* aml_hfp_ul_thread(void* data) {
     UL_HFP_T *ul_task = (UL_HFP_T *)data;
     void *buffer = NULL;
@@ -122,12 +132,6 @@ static void* aml_hfp_ul_thread(void* data) {
 
     ul_task->pcm_hfp_pcm_tx = hfpmod.hfp_pcm_tx;
     ul_task->pcm_hfp_sco_rx = hfpmod.hfp_sco_rx;
-
-    if (g_ul_task_hfp->thread_enable == 0) {
-        pthread_exit(0);
-        AM_LOGI("thread_enable is 0 exit thread");
-        return NULL;
-    }
 
     size = pcm_frames_to_bytes(ul_task->pcm_hfp_pcm_tx, pcm_get_buffer_size(ul_task->pcm_hfp_pcm_tx) / 6);//32ms
     buffer = aml_audio_calloc(1,size);
@@ -165,42 +169,36 @@ static void* aml_hfp_ul_thread(void* data) {
     }
 
     if (ul_task->pcm_hfp_sco_rx) {
-        pcm_close(ul_task->pcm_hfp_sco_rx);
-        ul_task->pcm_hfp_sco_rx = NULL;
+        ul_task->pcm_hfp_sco_rx = NULL; // pcm_close at stop_hfp
     }
     /*coverity[check_after_deref]*/
     if (ul_task->pcm_hfp_pcm_tx) {
-        pcm_close(ul_task->pcm_hfp_pcm_tx);
-        ul_task->pcm_hfp_pcm_tx = NULL;
+        ul_task->pcm_hfp_pcm_tx = NULL; // pcm_close at stop_hfp
     }
 
     AM_LOGD("exit---");
     aml_audio_free(buffer);
-
     return NULL;
 }
 
 static void* aml_hfp_dl_thread(void* data) {
     DL_HFP_T *dl_task = (DL_HFP_T *)data;
+    struct aml_audio_device *dev = dl_task->dl_dev;
+
     void *buffer = NULL;
-    unsigned int size;
-    size_t hfp_out_32_buf_size;
-    int32_t *hfp_out_32_buf = NULL;
     int16_t *dec_data_1_t_2 = NULL;
-    size_t hfp_tmp_buffer_8ch_size;
-    size_t dec_data_1_t_2_buf_size;
-    int32_t *hfp_tmp_buffer_8ch = NULL;
-    size_t hfp_out_frames;
+    int32_t *hfp_out_32_buf = NULL;
     int32_t *hfp_tmp_buffer = NULL;
+    int32_t *hfp_tmp_buffer_8ch = NULL;
+
+    unsigned int size;
+    size_t dec_data_1_t_2_buf_size;
+    size_t hfp_out_32_buf_size;
+    size_t hfp_out_frames;
+    size_t hfp_tmp_buffer_8ch_size;
 
     dl_task->pcm_hfp_pcm_rx = hfpmod.hfp_pcm_rx;
     dl_task->pcm_hfp_sco_tx = hfpmod.hfp_sco_tx;
-
-    if (g_dl_task_hfp->thread_enable == 0) {
-        pthread_exit(0);
-        AM_LOGE("thread_enable is 0 exit thread");
-        return NULL;
-    }
 
     size = pcm_frames_to_bytes(dl_task->pcm_hfp_sco_tx, pcm_get_buffer_size(dl_task->pcm_hfp_sco_tx) / 6);//32ms
     dec_data_1_t_2_buf_size = size * 2;
@@ -211,19 +209,7 @@ static void* aml_hfp_dl_thread(void* data) {
 
     if ((!buffer) || (!hfp_out_32_buf) || (!hfp_tmp_buffer_8ch) || (!dec_data_1_t_2)) {
         AM_LOGE("Unable to allocate %u bytes", size);
-        pcm_close(dl_task->pcm_hfp_pcm_rx);
-        pcm_close(dl_task->pcm_hfp_sco_tx);
-        dl_task->pcm_hfp_pcm_rx = NULL;
-        dl_task->pcm_hfp_sco_tx = NULL;
-        if (buffer)
-            aml_audio_free(buffer);
-        if (hfp_out_32_buf)
-            aml_audio_free(hfp_out_32_buf);
-        if (dec_data_1_t_2)
-            aml_audio_free(dec_data_1_t_2);
-        if (hfp_tmp_buffer_8ch)
-            aml_audio_free(hfp_tmp_buffer_8ch);
-        return NULL;
+        goto exit;
     }
 
     while (!dl_task->exit_run  && hfpmod.is_hfp_running) {
@@ -304,22 +290,36 @@ static void* aml_hfp_dl_thread(void* data) {
             }
         }
     }
-    /*coverity[check_after_deref]*/
-    if (dl_task->pcm_hfp_sco_tx ) {
-        pcm_close(dl_task->pcm_hfp_sco_tx );
-        dl_task->pcm_hfp_sco_tx  = NULL;
+
+exit:
+    AM_LOGD("exit---");
+    if (dl_task->pcm_hfp_sco_tx) {
+        dl_task->pcm_hfp_sco_tx  = NULL; // pcm_close at stop_hfp
+    }
+    if (dl_task->pcm_hfp_pcm_rx) {
+        dl_task->pcm_hfp_pcm_rx = NULL;  // pcm_close at stop_hfp
     }
 
-    if (dl_task->pcm_hfp_pcm_rx) {
-        pcm_close(dl_task->pcm_hfp_pcm_rx);
-        dl_task->pcm_hfp_pcm_rx = NULL;
+    if (buffer) {
+        aml_audio_free(buffer);
+        buffer = NULL;
     }
-    AM_LOGD("exit---");
-    aml_audio_free(buffer);
-    aml_audio_free(hfp_out_32_buf);
-    aml_audio_free(dec_data_1_t_2);
-    aml_audio_free(hfp_tmp_buffer_8ch);
-    aml_audio_free(hfp_tmp_buffer);
+
+    if (dec_data_1_t_2) {
+        aml_audio_free(dec_data_1_t_2);
+        dec_data_1_t_2 = NULL;
+    }
+
+    if (hfp_out_32_buf) {
+        aml_audio_free(hfp_out_32_buf);
+        hfp_out_32_buf = NULL;
+    }
+
+    if (hfp_tmp_buffer_8ch) {
+        aml_audio_free(hfp_tmp_buffer_8ch);
+        hfp_tmp_buffer_8ch = NULL;
+        hfp_tmp_buffer = NULL;
+    }
     return NULL;
 }
 
@@ -335,19 +335,16 @@ static int32_t start_hfp(struct aml_audio_device *adev,
     int pcm_dl_wr_index = -1;
 
     hfpmod.is_hfp_running = true;
-
-    /* maybe for sync issue */
-    while (!(PCM_STATE_SETUP == pcm_state(hfpmod.hfp_pcm_rx))) {
-             AM_LOGE("wait to PCM_STATE_SETUP");
-             aml_audio_sleep(5000);
-    }
-
     if (adev->enable_hfp == true) {
         ALOGD("%s: HFP is already active!\n", __func__);
         return 0;
     }
     adev->enable_hfp = true;
-
+    /* maybe for sync issue */
+    while (NULL != hfpmod.hfp_pcm_rx_sub) {
+             AM_LOGE("wait to PCM_STATE_SETUP");
+             aml_audio_sleep(1000);
+    }
     pcm_config_hfp.channels = 1;
     pcm_config_hfp.format = convert_audio_format_2_alsa_format(format);
     pcm_config_hfp.period_count = HFP_PLAYBACK_PERIOD_COUNT;
@@ -431,6 +428,7 @@ static int32_t start_hfp(struct aml_audio_device *adev,
     } else {
         g_ul_task_hfp = (UL_HFP_T *)aml_audio_calloc(1, sizeof(UL_HFP_T));
         g_ul_task_hfp->exit_run = true;
+        g_ul_task_hfp->ul_dev = adev;
     }
 
     R_CHECK_POINTER_LEGAL(-1, g_ul_task_hfp, "");
@@ -444,6 +442,7 @@ static int32_t start_hfp(struct aml_audio_device *adev,
     } else {
         g_dl_task_hfp = (DL_HFP_T *)aml_audio_calloc(1, sizeof(DL_HFP_T));
         g_dl_task_hfp->exit_run = true;
+        g_dl_task_hfp->dl_dev = adev;
     }
 
     R_CHECK_POINTER_LEGAL(-1, g_dl_task_hfp, "");
@@ -452,23 +451,23 @@ static int32_t start_hfp(struct aml_audio_device *adev,
         return -1;
     }
 
-    g_ul_task_hfp->thread_enable = 1;
-    g_dl_task_hfp->thread_enable = 1;
 
     g_ul_task_hfp->exit_run = false;
-    g_dl_task_hfp->exit_run = false;
 
     ret = pthread_create(&g_ul_task_hfp->thread_id, NULL, aml_hfp_ul_thread, g_ul_task_hfp);
     if (ret) {
         AM_LOGE("g_ul_task_hfp error creating thread: %s", strerror(ret));
-        return false;
+        goto exit;
     }
+    g_ul_task_hfp->thread_created = 1;
 
+    g_dl_task_hfp->exit_run = false;
     ret = pthread_create(&g_dl_task_hfp->thread_id, NULL, aml_hfp_dl_thread, g_dl_task_hfp);
     if (ret) {
         AM_LOGE("g_dl_task_hfp error creating thread: %s", strerror(ret));
-        return false;
+        goto exit;
     }
+    g_dl_task_hfp->thread_created = 1;
 
     hfp_set_volume(adev, hfpmod.hfp_volume);//for volume Ctrl
 
@@ -485,15 +484,42 @@ static int32_t stop_hfp(struct aml_audio_device *adev)
 {
     int32_t i, ret = 0;
 
+    ALOGI("%s: enter", __func__);
+    if (g_dl_task_hfp && g_dl_task_hfp->thread_created) {
+        g_dl_task_hfp->exit_run = true;
+        pthread_join(g_dl_task_hfp->thread_id, NULL);
+        g_dl_task_hfp->thread_id = 0;
+        g_dl_task_hfp->thread_created = 0;
+    }
+    ALOGI("%s: release dl thread", __func__);
+
+    if (g_ul_task_hfp && g_ul_task_hfp->thread_created) {
+        g_ul_task_hfp->exit_run = true;
+        pthread_join(g_ul_task_hfp->thread_id, NULL);
+        g_ul_task_hfp->thread_id = 0;
+        g_ul_task_hfp->thread_created = 0;
+    }
+    ALOGI("%s: release ul thread", __func__);
+
+    if (hfpmod.hfp_sco_rx) {
+        pcm_close(hfpmod.hfp_sco_rx);
+        hfpmod.hfp_sco_rx = NULL;
+    }
+    if (hfpmod.hfp_sco_tx) {
+        pcm_close(hfpmod.hfp_sco_tx);
+        hfpmod.hfp_sco_tx = NULL;
+    }
+    if (hfpmod.hfp_pcm_rx) {
+        pcm_close(hfpmod.hfp_pcm_rx);
+        hfpmod.hfp_pcm_rx = NULL;
+    }
+    if (hfpmod.hfp_pcm_tx) {
+        pcm_close(hfpmod.hfp_pcm_tx);
+        hfpmod.hfp_pcm_tx = NULL;
+    }
     hfpmod.is_hfp_running = false;
     adev->enable_hfp = false;
 
-    g_ul_task_hfp->exit_run = 1;
-    pthread_join(g_ul_task_hfp->thread_id, NULL);
-    g_ul_task_hfp->thread_id = 0;
-    g_dl_task_hfp->exit_run = 1;
-    pthread_join(g_dl_task_hfp->thread_id, NULL);
-    g_dl_task_hfp->thread_id = 0;
     ALOGD("%s: exit: status(%d)", __func__, ret);
 
     return ret;
