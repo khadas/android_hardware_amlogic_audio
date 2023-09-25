@@ -445,8 +445,8 @@ struct aml_audio_patch {
     pthread_cond_t cond;
     void *in_buf;
     size_t in_buf_size;
-    size_t numDecodedSamples;
-    size_t numOutputSamples;
+    uint64_t numDecodedSamples;
+    uint64_t numOutputSamples;
     void *out_buf;
     size_t out_buf_size;
     void *out_tmpbuf;
@@ -513,8 +513,8 @@ struct aml_audio_patch {
     unsigned char dtv_NchOriginal;
     unsigned char dtv_lfepresent;
     unsigned int dtv_first_apts;
-    unsigned int dtv_pcm_wrote;
-    unsigned int dtv_pcm_readed;
+    uint64_t dtv_pcm_wrote;
+    uint64_t dtv_pcm_readed;
     unsigned int dtv_decoder_ready;
     unsigned int input_thread_created;
     unsigned int output_thread_created;

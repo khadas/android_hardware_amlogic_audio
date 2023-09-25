@@ -2488,7 +2488,7 @@ void dtv_adjust_output_clock(struct aml_audio_patch * patch, int direct, int ste
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) adev;
     bool spdif_b = dual;
     if (aml_audio_get_debug_flag())
-        ALOGI("dtv_adjust_output_clock not set,%" PRIx64 ",%x",patch->decoder_offset,patch->dtv_pcm_readed);
+        ALOGI("dtv_adjust_output_clock not set,%" PRIx64 ",%" PRIx64 "",patch->decoder_offset,patch->dtv_pcm_readed);
     if (!aml_dev || step <= 0 || patch->dtv_audio_mode) {
         return;
     }
