@@ -107,6 +107,8 @@ static void aml_vad_thread(VAD_WAKEUP_T* vad) {
             break;
         }
     }
+    pcm_close(vad->pcm);
+    vad->pcm = NULL;
     AM_LOGD("exit---");
     aml_audio_free(buffer);
     return;
@@ -151,10 +153,6 @@ int32_t aml_vad_resume(struct aml_mixer_handle *mixer) {
         return -1;
     }
     g_pst_vad_wakeup->exit_run = true;
-    if (g_pst_vad_wakeup->pcm != NULL) {
-        pcm_close(g_pst_vad_wakeup->pcm);
-        g_pst_vad_wakeup->pcm = NULL;
-    }
     g_pst_vad_wakeup->p_thread->join();
     delete g_pst_vad_wakeup->p_thread;
     g_pst_vad_wakeup->p_thread = nullptr;
