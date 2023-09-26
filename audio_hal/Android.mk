@@ -254,12 +254,6 @@ endif
     LOCAL_SRC_FILES += \
         ../vendor_process/audio_aec.c \
         ../vendor_process/fifo_wrapper.cpp
-    #$(info "audio: ATV far field enabled, compile and link aec lib")
-    #LOCAL_CFLAGS += -DENABLE_AEC_HAL
-    #LOCAL_SRC_FILES += \
-    #    audio_aec_process.cpp
-    #LOCAL_SHARED_LIBRARIES += \
-    #     libgoogle_aec
 #endif
 
 # AML_ASYNC_WRITE_COMPRESS_ENABLE = true

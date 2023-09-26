@@ -77,15 +77,6 @@
 #include <log/log.h>
 #include "audio_aec.h"
 
-//#ifdef ENABLE_AEC_FUNC
-//#include "audio_aec_process.h"
-//#else
-#define aec_spk_mic_init(...) ((int)0)
-#define aec_spk_mic_reset(...) ((void)0)
-#define aec_spk_mic_process(...) ((int32_t)0)
-#define aec_spk_mic_release(...) ((void)0)
-//#endif
-
 #define MAX_TIMESTAMP_DIFF_USEC 200000
 
 #define MAX_READ_WAIT_TIME_MSEC 150
@@ -239,16 +230,8 @@ int init_aec(int sampling_rate __unused, int num_reference_channels,
                 int num_microphone_channels __unused, struct aec_t **aec_ptr) {
     ALOGV("%s enter", __func__);
     int ret = 0;
-    int aec_ret = aec_spk_mic_init(
-                    sampling_rate,
-                    num_reference_channels,
-                    num_microphone_channels);
-    if (aec_ret) {
-        ALOGE("AEC object failed to initialize!");
-        ret = -EINVAL;
-    }
     struct aec_t *aec = init_aec_interface();
-    if (!ret && aec) {
+    if (aec) {
         aec->num_reference_channels = num_reference_channels;
         /* Set defaults, will be overridden by settings in init_aec_(mic|reference_config) */
         /* Capture uses 2-ch, 32-bit frames */
@@ -273,7 +256,6 @@ void release_aec(struct aec_t *aec) {
         return;
     }
     release_aec_interface(aec);
-    aec_spk_mic_release();
     ALOGV("%s exit", __func__);
 }
 
@@ -546,7 +528,6 @@ int init_aec_mic_config(struct aec_t *aec, struct aml_stream_in *in) {
     }
 
     flush_aec_fifos(aec);
-    aec_spk_mic_reset();
     aec->mic_initialized = true;
 
 exit:

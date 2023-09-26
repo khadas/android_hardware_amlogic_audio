@@ -118,10 +118,6 @@
 
 #define HDMI_LATENCY_MS 60
 
-#ifdef ENABLE_AEC_HAL
-#include "audio_aec_process.h"
-#endif
-
 /*[SE-2018-10-29] add for HBG remote audio support { */
 #if defined(ENABLE_HBG_PATCH)
 #include "../hbg_bt_voice/hbg_blehid_mic.h"
@@ -2088,12 +2084,6 @@ static unsigned int select_port_by_device(struct aml_stream_in *in)
             inport = PORT_I2S;
     }
 
-#ifdef ENABLE_AEC_HAL
-    /* AEC using inner loopback port */
-    if (in_device & AUDIO_DEVICE_IN_BUILTIN_MIC)
-        inport = PORT_LOOPBACK;
-#endif
-
 #ifdef USB_KARAOKE
     if (in->source == AUDIO_SOURCE_KARAOKE_SPEAKER)
         inport = PORT_LOOPBACK;
@@ -2104,12 +2094,6 @@ static unsigned int select_port_by_device(struct aml_stream_in *in)
 
 /* TODO: add non 2+2 cases */
 static void update_alsa_config(struct aml_stream_in *in) {
-#ifdef ENABLE_AEC_HAL
-    if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
-        in->config.rate = in->requested_rate;
-        in->config.channels = 4;
-    }
-#endif
 #ifdef ENABLE_AEC_APP
     if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
         in->config.rate = in->requested_rate;
@@ -2598,108 +2582,7 @@ static ssize_t read_frames (struct aml_stream_in *in, void *buffer, ssize_t fram
     return frames_wr;
 }
 
-#define DEBUG_AEC_VERBOSE (0)
 #define DEBUG_AEC (0) // Remove after AEC is fine-tuned
-#define TIMESTAMP_LEN (8)
-
-static uint32_t mic_buf_print_count = 0;
-
-#ifdef ENABLE_AEC_HAL
-static void inread_proc_aec(struct audio_stream_in *stream,
-        void *buffer, size_t bytes)
-{
-    struct aml_stream_in *in = (struct aml_stream_in *)stream;
-    size_t in_frames = bytes / audio_stream_in_frame_size(stream);
-    int channel_count = audio_channel_count_from_in_mask(in->hal_channel_mask);
-    char *read_buf = in->tmp_buffer_8ch;
-    aec_timestamp a_timestamp;
-    int aec_frame_div = in_frames/512;
-    if (in_frames % 512) {
-        ALOGE("AEC should 512 frames align,now %d\n",in_frames);
-        return ;
-    }
-    ALOGV("%s,in %d\n",__func__,in_frames);
-    //split the mic data with the speaker data.
-    short *mic_data, *speaker_data;
-    short *read_buf_16 = (short *)read_buf;
-    short *aec_out_buf = NULL;
-    int cleaned_samples_per_channel = 0;
-    size_t bytes_per_sample =
-        audio_bytes_per_sample(stream->common.get_format(&stream->common));
-    int enable_dump = getprop_bool("vendor.media.audio_hal.aec.outdump");
-    if (enable_dump) {
-        aml_audio_dump_audio_bitstreams("/data/tmp/audio_mix.raw",
-                read_buf_16, in_frames*2*2*2);
-    }
-    //skip the 4 ch data buffer area
-    mic_data = (short *)(read_buf + in_frames*2*2*2);
-    speaker_data = (short *)(read_buf + in_frames*2*2*2 + in_frames*2*2);
-    size_t jj = 0;
-    if (channel_count == 2 || channel_count == 1) {
-        for (jj = 0;  jj < in_frames; jj ++) {
-            mic_data[jj*2 + 0] = read_buf_16[4*jj + 0];
-            mic_data[jj*2 + 1] = read_buf_16[4*jj + 1];
-            speaker_data[jj*2] = read_buf_16[4*jj + 2];
-            speaker_data[jj*2 + 1] = read_buf_16[4*jj + 3];
-        }
-    } else {
-        ALOGV("%s(), channel count inval: %d", __func__, channel_count);
-        return;
-    }
-    if (enable_dump) {
-            aml_audio_dump_audio_bitstreams("/data/tmp/audio_mic.raw",
-                mic_data, in_frames*2*2);
-            aml_audio_dump_audio_bitstreams("/data/tmp/audio_speaker.raw",
-                speaker_data, in_frames*2*2);
-    }
-    for (int i = 0; i < aec_frame_div; i++) {
-        cleaned_samples_per_channel = 512;
-        short *cur_mic_data = mic_data + i*512*channel_count;
-        short *cur_spk_data = speaker_data + i*512*channel_count;
-        a_timestamp = get_timestamp();
-        aec_set_mic_buf_info(512, a_timestamp.timeStamp, true);
-        aec_set_spk_buf_info(512, a_timestamp.timeStamp, true);
-        aec_out_buf = aec_spk_mic_process_int16(cur_spk_data,
-                cur_mic_data, &cleaned_samples_per_channel);
-        if (!aec_out_buf || cleaned_samples_per_channel == 0
-                || cleaned_samples_per_channel > (int)512) {
-            ALOGV("aec process fail %s,in %d clean sample %d,div %d,in frame %d,ch %d",
-                    __func__,512,cleaned_samples_per_channel,aec_frame_div,in_frames,channel_count);
-            adjust_channels(cur_mic_data, 2, (char *) buffer + channel_count*512*2*i, channel_count,
-                    bytes_per_sample, 512*2*2);
-        } else {
-            if (enable_dump) {
-                aml_audio_dump_audio_bitstreams("/data/tmp/audio_aec.raw",
-                    aec_out_buf, cleaned_samples_per_channel*2*2);
-            }
-            ALOGV("%p,clean sample %d, in frame %d",
-                aec_out_buf, cleaned_samples_per_channel, 512);
-            adjust_channels(aec_out_buf, 2, (char *)buffer + channel_count*512*2*i, channel_count,
-                    bytes_per_sample, 512*2*2);
-        }
-    }
-    //apply volume here
-    short *vol_buf = (short *)buffer;
-    unsigned int kk = 0;
-    int val32 = 0;
-    for (kk = 0; kk < bytes/2; kk++) {
-        val32 = vol_buf[kk] << 3;
-        vol_buf[kk] = CLIP16(val32);
-    }
-    if (enable_dump) {
-        aml_audio_dump_audio_bitstreams("/data/tmp/audio_final.raw",
-                vol_buf, bytes);
-    }
-}
-#else
-static void inread_proc_aec(struct audio_stream_in *stream,
-        void *buffer, size_t bytes)
-{
-    (void)stream;
-    (void)buffer;
-    (void)bytes;
-}
-#endif
 
 static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
 {
@@ -2809,20 +2692,6 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
     }
 #endif
 
-#ifdef ENABLE_AEC_HAL
-    if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
-        size_t read_size = 0;
-        cur_in_frames = in_frames;
-        cur_in_bytes = in_frames * 2 * 2;
-        // 2 ch 16 bit TODO: add more fmt
-        ret = aml_audio_check_and_realloc(&in->tmp_buffer_8ch, &in->tmp_buffer_8ch_size, 4 * cur_in_bytes);
-        NO_R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%d fail", 4 * cur_in_bytes);
-
-        // need read 4 ch out from the alsa driver then do aec.
-        read_size = cur_in_bytes * 2;
-        ret = aml_alsa_input_read(stream, in->tmp_buffer_8ch, read_size);
-    }
-#endif
     if (adev->dev2mix_patch) {
         float source_gain = aml_audio_get_s_gain_by_src(adev, adev->patch_src);
         ret = tv_in_read(stream, buffer, bytes);
@@ -2855,10 +2724,6 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                 goto exit;
             //DoDumpData(buffer, bytes, CC_DUMP_SRC_TYPE_INPUT);
         }
-    }
-
-    if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
-        inread_proc_aec(stream, buffer, bytes);
     }
 
     if (ret >= 0) {
@@ -5128,13 +4993,6 @@ int adev_open_input_stream(struct audio_hw_device *dev,
         }
     }
 
-#ifdef ENABLE_AEC_HAL
-    // Default 2 ch pdm + 2 ch lb
-    if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
-        aec_spk_mic_init(in->requested_rate, 2, 2);
-    }
-#endif
-
     /* If AEC is in the app, only configure based on ECHO_REFERENCE spec.
      * If AEC is in the HAL, configure using the given mic stream. */
 #ifdef ENABLE_AEC_APP
@@ -5208,16 +5066,6 @@ void adev_close_input_stream(struct audio_hw_device *dev,
 
     if (in->device & AUDIO_DEVICE_IN_WIRED_HEADSET)
         rc_close_input_stream(in);
-
-#ifdef ENABLE_AEC_HAL
-    if (in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) {
-        if (in->tmp_buffer_8ch) {
-            aml_audio_free(in->tmp_buffer_8ch);
-            in->tmp_buffer_8ch = NULL;
-        }
-        aec_spk_mic_release();
-    }
-#endif
 
     if (in->resampler) {
         release_resampler(in->resampler);

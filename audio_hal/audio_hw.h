@@ -1106,9 +1106,6 @@ struct aec_info {
 #define CAPTURE_PERIOD_START_THRESHOLD 4
 #define CAPTURE_CODEC_SAMPLING_RATE 16000
 
-#ifdef ENABLE_AEC_HAL
-#define NUM_AEC_REFERENCE_CHANNELS 1
-#endif
 #ifdef ENABLE_AEC_APP
 /* App AEC uses 2-channel reference */
 #define NUM_AEC_REFERENCE_CHANNELS 2
