@@ -85,11 +85,11 @@ status_t DeviceHalLocal::getMasterMute(bool *state) {
 }
 
 status_t DeviceHalLocal::setParameters(const String8& kvPairs) {
-    return mDev->set_parameters(mDev, kvPairs.string());
+    return mDev->set_parameters(mDev, kvPairs.c_str());
 }
 
 status_t DeviceHalLocal::getParameters(const String8& keys, String8 *values) {
-    char *halValues = mDev->get_parameters(mDev, keys.string());
+    char *halValues = mDev->get_parameters(mDev, keys.c_str());
     if (halValues != NULL) {
         values->setTo(halValues);
         free(halValues);

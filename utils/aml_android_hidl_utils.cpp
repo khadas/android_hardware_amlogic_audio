@@ -90,7 +90,6 @@ status_t setParameters(const String8& keyValuePairs) {
     CHECK_AUDIO_HAL_PROCESS(INVALID_OPERATION)
     err = hwDevice->setParameters(keyValuePairs);
     ALOGI("setParameters:%s, err=%d", keyValuePairs.string(), err);
-
     return err;
 }
 

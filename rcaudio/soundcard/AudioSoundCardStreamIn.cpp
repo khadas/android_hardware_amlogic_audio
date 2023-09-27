@@ -112,7 +112,7 @@ status_t AudioSoundCardStreamIn::dump(int fd)
         }
     }
 
-    ::write(fd, result.string(), result.size());
+    ::write(fd, result.c_str(), result.size());
 
     return NO_ERROR;
 }

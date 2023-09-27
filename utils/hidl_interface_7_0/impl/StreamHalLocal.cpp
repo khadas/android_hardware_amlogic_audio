@@ -62,11 +62,11 @@ status_t StreamHalLocal::getAudioProperties(audio_config_base_t *configBase) {
 }
 
 status_t StreamHalLocal::setParameters(const String8& kvPairs) {
-    return mStream->set_parameters(mStream, kvPairs.string());
+    return mStream->set_parameters(mStream, kvPairs.c_str());
 }
 
 status_t StreamHalLocal::getParameters(const String8& keys, String8 *values) {
-    char *halValues = mStream->get_parameters(mStream, keys.string());
+    char *halValues = mStream->get_parameters(mStream, keys.c_str());
     if (halValues != NULL) {
         values->setTo(halValues);
         free(halValues);

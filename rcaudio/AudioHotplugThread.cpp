@@ -219,10 +219,10 @@ bool AudioHotplugThread::getDeviceInfo(unsigned int pcmCard,
     String8 devicePath = String8::format("%s/pcmC%dD%d%c",
             kAlsaDeviceDir, pcmCard, pcmDevice, kDeviceTypeCapture);
 
-    ALOGD("AudioHotplugThread::getDeviceInfo opening %s", devicePath.string());
-    int alsaFD = open(devicePath.string(), O_RDONLY);
+    ALOGD("AudioHotplugThread::getDeviceInfo opening %s", devicePath.c_str());
+    int alsaFD = open(devicePath.c_str(), O_RDONLY);
     if (alsaFD == -1) {
-        ALOGE("AudioHotplugThread::getDeviceInfo open failed for %s", devicePath.string());
+        ALOGE("AudioHotplugThread::getDeviceInfo open failed for %s", devicePath.c_str());
         goto done;
     }
 
