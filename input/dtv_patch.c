@@ -415,7 +415,8 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
         case AUDIO_DTV_PATCH_CMD_SET_MEDIA_PRESENTATION_ID:
             demux_info->media_presentation_id = val;
             ALOGI("media_presentation_id %d",demux_info->media_presentation_id);
-            if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
+            if (eDolbyMS12Lib == adev->dolby_lib_type_last && (demux_info->main_fmt == ACODEC_FMT_AC4 \
+                || (int)path_id == dtv_audio_instances->demux_index_working)) {
                 pthread_mutex_lock(&ms12->lock);
                 set_ms12_ac4_presentation_group_index(ms12, demux_info->media_presentation_id);
                 pthread_mutex_unlock(&ms12->lock);
@@ -578,7 +579,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                     patch->dtv_has_video = demux_info->has_video;
                     patch->demux_handle = dtv_audio_instances->demux_handle[path_id];
                     patch->sync_type = dtv_audio_instances->dtvsync[path_id].sync_type;
-                    ALOGI("dtv_has_video %d",patch->dtv_has_video);
+                    ALOGI("dtv_has_video %d demux_info->media_presentation_id %d",patch->dtv_has_video,demux_info->media_presentation_id);
                     ALOGI("demux_index_working %d handle %p",dtv_audio_instances->demux_index_working, dtv_audio_instances->demux_handle[path_id]);
                 }
 
