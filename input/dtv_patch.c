@@ -3690,6 +3690,9 @@ void aml_audio_flush_dtv_output(struct aml_stream_out *aml_out) {
             dolby_ms12_flush_main_input_buffer();
         }
         patch->decoder_offset = 0;
+        patch->dtv_pcm_wrote =0;
+        aml_out->last_decout_frame = 0;
+        patch->dtvsync->cur_outapts = 0;
         aml_dev->ms12.dtv_decoder_offset_base = patch->decoder_offset;
     } else {
         if (aml_out->aml_dec) {
