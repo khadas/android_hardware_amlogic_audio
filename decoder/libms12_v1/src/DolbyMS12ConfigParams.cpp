@@ -1207,7 +1207,7 @@ int DolbyMS12ConfigParams::SetDAPDeviceSwitches(char **ConfigParams, int *row_in
             sprintf(ConfigParams[*row_index], ",%d", DeviceDAPGraphicEQ.eq_band_target[i]);
             tmpParam += String8::format("%s", ConfigParams[*row_index]);
         }
-        memcpy(ConfigParams[*row_index], tmpParam.string(), strlen(tmpParam.string()));
+        memcpy(ConfigParams[*row_index], tmpParam.c_str(), strlen(tmpParam.c_str()));
         (*row_index)++;
     }
 
@@ -1226,7 +1226,7 @@ int DolbyMS12ConfigParams::SetDAPDeviceSwitches(char **ConfigParams, int *row_in
             sprintf(ConfigParams[*row_index], ",%d", DeviceDAPOptimizer.opt_band_gains[i]);
             tmpParam += String8::format("%s", ConfigParams[*row_index]);
         }
-        memcpy(ConfigParams[*row_index], tmpParam.string(), strlen(tmpParam.string()));
+        memcpy(ConfigParams[*row_index], tmpParam.c_str(), strlen(tmpParam.c_str()));
         (*row_index)++;
     }
 
@@ -1266,7 +1266,7 @@ int DolbyMS12ConfigParams::SetDAPDeviceSwitches(char **ConfigParams, int *row_in
             sprintf(ConfigParams[*row_index], ",%d", DeviceDAPRegulator.reg_isolated_bands[i]);
             tmpParam += String8::format("%s", ConfigParams[*row_index]);
         }
-        memcpy(ConfigParams[*row_index], tmpParam.string(), strlen(tmpParam.string()));
+        memcpy(ConfigParams[*row_index], tmpParam.c_str(), strlen(tmpParam.c_str()));
         (*row_index)++;
     }
 
@@ -1321,7 +1321,7 @@ int DolbyMS12ConfigParams::SetDAPContentSwitches(char **ConfigParams, int *row_i
             sprintf(ConfigParams[*row_index], ",%d", ContentDAPIEQ.ieq_band_target[i]);
             tmpParam += String8::format("%s", ConfigParams[*row_index]);
         }
-        memcpy(ConfigParams[*row_index], tmpParam.string(), strlen(tmpParam.string()));
+        memcpy(ConfigParams[*row_index], tmpParam.c_str(), strlen(tmpParam.c_str()));
         (*row_index)++;
     }
 
