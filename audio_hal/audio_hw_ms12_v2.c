@@ -2689,7 +2689,7 @@ int ms12_passthrough_output(struct aml_stream_out *aml_out) {
     struct bypass_frame_info frame_info = { 0 };
     int  passthrough_delay_ms = 0;
     audio_format_t hal_internal_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
-    uint64_t ms12_dec_out_nframes = dolby_ms12_get_decoder_nframes_pcm_output(adev->ms12.dolby_ms12_ptr, hal_internal_format, MAIN_INPUT_STREAM);
+    uint64_t ms12_dec_out_nframes = dolby_ms12_get_continuous_nframes_pcm_output(adev->ms12.dolby_ms12_ptr, MAIN_INPUT_STREAM);
     struct bitstream_out_desc *bitstream_out = &ms12->bitstream_out[BITSTREAM_OUTPUT_A];
 
     if (adev->digital_audio_format == BYPASS && ms12_dec_out_nframes != 0 &&
@@ -2747,7 +2747,7 @@ static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_
 
     if (adev->continuous_audio_mode) {
         uint32_t sample_rate = ms12->main_input_rate ? ms12->main_input_rate : DDP_OUTPUT_SAMPLE_RATE;
-        uint64_t ms12_dec_out_nframes = dolby_ms12_get_decoder_nframes_pcm_output(adev->ms12.dolby_ms12_ptr, aml_out->hal_internal_format, MAIN_INPUT_STREAM);
+        uint64_t ms12_dec_out_nframes = dolby_ms12_get_continuous_nframes_pcm_output(adev->ms12.dolby_ms12_ptr, MAIN_INPUT_STREAM);
         ms12->main_output_ns = ms12_dec_out_nframes * NANO_SECOND_PER_SECOND / sample_rate;
         ALOGV("format = 0x%x ms12_dec_out_nframes=%" PRId64 "", aml_out->hal_internal_format, ms12_dec_out_nframes);
     }
