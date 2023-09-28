@@ -78,6 +78,7 @@ static struct
 #define AML_TIMER_CONSUME_DATA_DELAY (64)
 #define AML_HWSYNC_STREAM_TIMER_NOMS12_RENDER_DELAY (60)
 #define AML_HWSYNC_STREAM_TIMER_RENDER_DELAY (100)
+#define AML_HWSYNC_STREAM_TIMER_RENDER_DELAY2 (300)
 
 typedef void (*func_timer_callback_handler)(union sigval sigv);
 

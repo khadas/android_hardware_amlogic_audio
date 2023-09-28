@@ -180,6 +180,7 @@ typedef struct  audio_hwsync {
     bool wait_video_done;
     bool hwsync_need_resume;
     struct timespec last_hwsync_timestamp;
+    bool end_of_hwsync_frame;
 } audio_hwsync_t;
 static inline bool hwsync_header_valid(uint8_t *header)
 {

@@ -1654,6 +1654,9 @@ static int out_resume_new (struct audio_stream_out *stream)
                     ALOGI("%s resume raw data later", __func__);
                     aml_dev->ms12.need_ms12_resume = true;
                 }
+                if (aml_out->hwsync && aml_out->hw_sync_mode) {
+                    aml_out->hwsync->wait_video_done = false;
+                }
             } else {
                 ALOGI("%s : ms12 is not ready, resume it later", __func__);
                 aml_dev->ms12.need_ms12_resume = true;
@@ -5572,16 +5575,37 @@ void aml_stream_timer_callback_handler(union sigval sigv)
 
     if (adev && out && is_hwsync_lpcm) {
         adev->frame_write_sum_updated = false;
-
-        //cts tunnel underrun case failed, depond on pause/resume invoked from AudioFlinger.
-        //sometimes AudioFlinger always invoke the pause to Hal during 800ms for track retry count.
-        //so add this code to control pause/resume MediaSync and video in Hal.
-        if (!out->is_insert_zero_data)
-            out_pause_new((struct audio_stream_out *)out);
     }
     AM_LOGI("%s is_hwsync_lpcm:%d frame_write_sum_updated:%d", __func__, is_hwsync_lpcm, adev->frame_write_sum_updated);
     return ;
 }
+
+void aml_stream_timer_pause_callback(union sigval sigv)
+{
+    struct aml_audio_device *adev = aml_adev_get_handle();
+    struct aml_stream_out *out = NULL;
+    bool is_hwsync_lpcm = false;
+
+    AM_LOGD("func:%s sigv:%d ~~~~~~~~~~", __func__, sigv.sival_int);
+    for (int i = 0 ; i < STREAM_USECASE_MAX; i++) {
+        out = adev->active_outputs[i];
+        if (out && audio_is_linear_pcm(out->hal_internal_format)
+            && (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)) {
+            is_hwsync_lpcm = true;
+            break;
+        }
+    }
+
+    if (adev && out && is_hwsync_lpcm) {
+        //cts tunnel underrun case failed, depond on pause/resume invoked from AudioFlinger.
+        //sometimes AudioFlinger always invoke the pause to Hal during 800ms for track retry count.
+        //so add this code to control pause/resume MediaSync and video in Hal.
+        if (!out->is_insert_zero_data && !out->hwsync->end_of_hwsync_frame)
+            out_pause_new((struct audio_stream_out *)out);
+    }
+    return ;
+}
+
 
 ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buffer,
                                  size_t bytes)
@@ -5810,6 +5834,12 @@ hwsync_rewrite:
         hwsync_cost_bytes = aml_audio_hwsync_find_frame(aml_out->hwsync, (char *)buffer + bytes_cost, total_bytes - bytes_cost, &cur_pts, &outsize);
         if (cur_pts > ULLONG_MAX) {
             ALOGE("APTS exceed the max 64bit value");
+        }
+        /*in xts test, the last frame size and pts are both 0, so we assume it is end of stream*/
+        if (aml_out->hwsync->last_apts_from_header == 0 && aml_out->hwsync->hw_sync_body_cnt == 0) {
+            aml_out->hwsync->end_of_hwsync_frame = true;
+        } else {
+            aml_out->hwsync->end_of_hwsync_frame = false;
         }
         ALOGV ("after aml_audio_hwsync_find_frame bytes remain %zu,cost %zu,outsize %d,pts %"PRIx64"\n",
                total_bytes - bytes_cost - hwsync_cost_bytes, hwsync_cost_bytes, outsize, cur_pts);
@@ -6337,8 +6367,14 @@ hwsync_rewrite:
         if (remaining_time > 0) {
             audio_timer_stop(aml_out->timer_id);
         }
+        uint32_t remaining_time2 = audio_timer_remaining_time(aml_out->timer_id2);
+        if (remaining_time2 > 0) {
+            audio_timer_stop(aml_out->timer_id2);
+        }
+
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             audio_one_shot_timer_start(aml_out->timer_id, AML_HWSYNC_STREAM_TIMER_RENDER_DELAY);
+            audio_one_shot_timer_start(aml_out->timer_id2, AML_HWSYNC_STREAM_TIMER_RENDER_DELAY2);
         } else {//none ms12 pipe is shorter than ms12, so adjust the delay time to 60ms.
             audio_one_shot_timer_start(aml_out->timer_id, AML_HWSYNC_STREAM_TIMER_NOMS12_RENDER_DELAY);
         }
@@ -7201,6 +7237,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
             aml_out->timer_id = aml_audio_timer_create(sm_timer_callback_handler);
         } else {
             aml_out->timer_id = aml_audio_timer_create(aml_stream_timer_callback_handler);
+            aml_out->timer_id2 = aml_audio_timer_create(aml_stream_timer_pause_callback);
         }
         AM_LOGD("func:%s  timer_id:%d", __func__, aml_out->timer_id);
     }
@@ -7287,6 +7324,7 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
 
     if (aml_out->usecase == STREAM_PCM_HWSYNC) {
         int ret = aml_audio_timer_delete(aml_out->timer_id);
+        ret = aml_audio_timer_delete(aml_out->timer_id2);
         ALOGD("func:%s timer_id:%d  ret:%d",__func__, aml_out->timer_id, ret);
     }
 

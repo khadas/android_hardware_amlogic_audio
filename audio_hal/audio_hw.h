@@ -713,6 +713,7 @@ struct aml_stream_out {
     bool hwsync_header_stripped;
     uint32_t insert_zero_data_ms;
     uint32_t timer_id;
+    uint32_t timer_id2;     /*for pause function callback*/
     uint64_t hwsync_parsed_frames_sum;
 
     pthread_mutex_t apts_update_lock; /*SWPL-88828: Make sure audio timestamps and frame positions are updated synchronously.*/

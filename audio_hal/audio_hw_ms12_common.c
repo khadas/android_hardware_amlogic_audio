@@ -130,13 +130,12 @@ int dolby_ms12_main_pause(struct audio_stream_out *stream)
     ALOGI("%s  sleep 64ms finished", __func__);
 
     if (aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_PAUSED) {
-        /*if we pause pcr quickly, it will cause xts tunnel mode issue
-         */
-        if (!adev->is_netflix && audio_is_linear_pcm(aml_out->hal_internal_format)) {
-            aml_audio_sleep(64000);
+        ALOGI("%s end of frame =%d", __func__, aml_out->hwsync->end_of_hwsync_frame);
+        /*if we are end of frame now, we don't need to pause pcr*/
+        if (!aml_out->hwsync->end_of_hwsync_frame) {
+            aml_hwsync_wrap_set_pause(aml_out->hwsync);
+            aml_out->tsync_status = TSYNC_STATUS_PAUSED;
         }
-        aml_hwsync_wrap_set_pause(aml_out->hwsync);
-        aml_out->tsync_status = TSYNC_STATUS_PAUSED;
         if (aml_out->hwsync) {
             aml_out->hwsync->first_apts_flag = false;
         }
