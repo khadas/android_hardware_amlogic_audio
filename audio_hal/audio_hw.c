@@ -4476,7 +4476,7 @@ static void adev_get_hal_control_volume_en(struct aml_audio_device *adev, char *
             } else {
                 format = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_I2S2HDMI_FORMAT);
             }
-            hal_control_vol_en = (format == AML_STEREO_PCM) ? true : false;
+            hal_control_vol_en = (format == AML_STEREO_PCM || format == AML_MULTI_CH_LPCM) ? true : false;
         }
     }
     sprintf (temp_buf, "hal_param_hal_control_vol_en=%d", hal_control_vol_en);
