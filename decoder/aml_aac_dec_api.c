@@ -527,11 +527,11 @@ static int faad_decoder_process(aml_dec_t *aml_dec, unsigned char *buffer, int b
                        samples_data [ 2 * (samples_num - i -1) ] = samples;
                        samples_data [ 2 * (samples_num - i -1) + 1]= samples;
                     } else if (aac_dec->ad_placement == PLACEMENT_RIGHT) {
-                        samples_data [ 2 * (samples_num - i -1) ] = samples;
-                        samples_data [ 2 * (samples_num - i -1) + 1]= 0;
-                    } else if (aac_dec->ad_placement == PLACEMENT_LEFT) {
                         samples_data [ 2 * (samples_num - i -1) ] = 0;
                         samples_data [ 2 * (samples_num - i -1) + 1]= samples;
+                    } else if (aac_dec->ad_placement == PLACEMENT_LEFT) {
+                        samples_data [ 2 * (samples_num - i -1) ] = samples;
+                        samples_data [ 2 * (samples_num - i -1) + 1]= 0;
                     } else {
                         ALOGW("invalid placement %d ", aac_dec->ad_placement);
                     }
