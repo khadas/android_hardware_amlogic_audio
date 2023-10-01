@@ -847,13 +847,17 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
             }
             ret = mixer_read_inport(audio_mixer, in_port->ID, in_port->data, in_port->data_len_bytes);
             if (ret == (int)in_port->data_len_bytes) {
+                struct aml_stream_out *out = (struct aml_stream_out *)in_port->notify_cbk_data;
                 if (fade_out) {
-                    struct aml_stream_out *out = (struct aml_stream_out *)in_port->notify_cbk_data;
                     audio_hwsync_t *hwsync = (out != NULL) ? (out->hwsync) : NULL;
                     struct aml_audio_device *adev = (out != NULL) ? (out->dev) : NULL;
                     AM_LOGI("output port:%s fade out, pausing->pausing_1, tsync pause audio", mixerInputType2Str(type));
                     aml_hwsync_wrap_set_pause(hwsync);
-                    audio_fade_func(in_port->data, ret, 0);
+                    if (out && out->hal_format == AUDIO_FORMAT_PCM_32_BIT) {
+                        audio_fade_func_32bit(in_port->data, ret, 0, out->hal_ch);
+                    } else {
+                        audio_fade_func_16bit(in_port->data, ret, 0, out->hal_ch);
+                    }
                     set_inport_state(in_port, PAUSED);
                     /* Mute the last data to prevent gap. */
                     ring_buffer_clear(in_port->r_buf);
@@ -864,7 +868,11 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
                     }
                 } else if (fade_in) {
                     AM_LOGI("input port:%s fade in", mixerInputType2Str(type));
-                    audio_fade_func(in_port->data, ret, 1);
+                    if (out && out->hal_format == AUDIO_FORMAT_PCM_32_BIT) {
+                        audio_fade_func_32bit(in_port->data, ret, 1, out->hal_ch);
+                    } else {
+                        audio_fade_func_16bit(in_port->data, ret, 1, out->hal_ch);
+                    }
                     set_inport_state(in_port, ACTIVE);
                 }
                 update_inport_avail(in_port);

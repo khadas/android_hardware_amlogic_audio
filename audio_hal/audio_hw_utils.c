@@ -1065,18 +1065,44 @@ int aml_audio_get_src_tune_latency(enum patch_src_assortion patch_src) {
     return latency_ms;
 }
 
-void audio_fade_func(void *buf,int fade_size,int is_fadein) {
+void audio_fade_func_16bit(void *buf, int fade_size, int is_fadein, int channel_num) {
     float fade_vol = is_fadein ? 0.0 : 1.0;
     int i = 0;
-    float fade_step = is_fadein ? 1.0/(fade_size/4):-1.0/(fade_size/4);
+    int j = 0;
+    int frame_size = 2 * channel_num;
+    float fade_step = is_fadein ? 1.0/(fade_size/frame_size):-1.0/(fade_size/frame_size);
     int16_t *sample = (int16_t *)buf;
-    for (i = 0; i < fade_size/2; i += 2) {
-        sample[i] = sample[i]*fade_vol;
-        sample[i+1] = sample[i+1]*fade_vol;
+    if (channel_num <= 0) {
+        return;
+    }
+
+    for (i = 0; i < fade_size/2; i += channel_num) {
+        for (j = 0; j < channel_num; j++) {
+            sample[i + j] = sample[i+j]*fade_vol;
+        }
         fade_vol += fade_step;
     }
     ALOGI("do fade %s done,size %d",is_fadein?"in":"out",fade_size);
+}
 
+void audio_fade_func_32bit(void *buf, int fade_size, int is_fadein, int channel_num) {
+    float fade_vol = is_fadein ? 0.0 : 1.0;
+    int i = 0;
+    int j = 0;
+    int frame_size = 4 * channel_num;
+    float fade_step = is_fadein ? 1.0/(fade_size/frame_size):-1.0/(fade_size/frame_size);
+    int32_t *sample = (int32_t *)buf;
+    if (channel_num <= 0) {
+        return;
+    }
+
+    for (i = 0; i < fade_size/4; i += channel_num) {
+        for (j = 0; j < channel_num; j++) {
+            sample[i + j] = sample[i+j]*fade_vol;
+        }
+        fade_vol += fade_step;
+    }
+    ALOGI("do fade %s done,size %d",is_fadein?"in":"out",fade_size);
 }
 
 void ts_wait_time_us(struct timespec *ts, uint32_t time_us)

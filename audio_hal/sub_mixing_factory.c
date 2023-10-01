@@ -588,22 +588,29 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
     }
 
     clock_gettime(CLOCK_MONOTONIC, &tval);
+
     /*
-    android only support max stereo stream volume configuration,we have to reuse left volume as
-    C/LFE/Ls/Rs/Lrs/Rrs volume
+     * if out->aml_dec isn't NULL, volume will be processed by function
+     * (aml_audio_nonms12_render -> aml_audio_stream_volume_process)
     */
-    if (channels > 2) {
-        for (int ch = 2; ch < channels; ch ++) {
-            last_volume[ch] = last_volume[0];
-            volume[ch] = volume[0];
+    if (out->aml_dec == NULL) {
+        /*
+        android only support max stereo stream volume configuration,we have to reuse left volume as
+        C/LFE/Ls/Rs/Lrs/Rrs volume
+        */
+        if (channels > 2) {
+            for (int ch = 2; ch < channels; ch ++) {
+                last_volume[ch] = last_volume[0];
+                volume[ch] = volume[0];
+            }
         }
+        if (adev->debug_flag) {
+            AM_LOGI("last_volume=%f volume=%f channels=%d bytes=%zu", last_volume[0], volume[0], channels, bytes);
+        }
+        apply_volume_fade(last_volume, volume, (void *)buffer, sample_size, channels, bytes);
+        out->last_volume_l = out->volume_l;
+        out->last_volume_r = out->volume_r;
     }
-    if (adev->debug_flag) {
-        AM_LOGI("last_volume=%f volume=%f channels=%d bytes=%zu", last_volume[0], volume[0], channels, bytes);
-    }
-    apply_volume_fade(last_volume, volume, (void *)buffer, sample_size, channels, bytes);
-    out->last_volume_l = out->volume_l;
-    out->last_volume_r = out->volume_r;
 
     //begin_time = get_systime_ns();
     written = aml_out_write_to_mixer(stream, buffer, bytes);
