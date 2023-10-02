@@ -5517,6 +5517,7 @@ int get_dtv_parameters(struct audio_hw_device *dev, const char *keys) {
         int mediasync_id = -1;
         unsigned int path_id = 0;
         aml_dtv_audio_instances_t *dtv_audio_instances = (aml_dtv_audio_instances_t *)adev->aml_dtv_audio_instances;
+        path_id = dtv_audio_instances->last_path_id;
         if (dtv_audio_instances) {
             aml_demux_audiopara_t *demux_info = &dtv_audio_instances->demux_info[path_id];
             if (demux_info) {
