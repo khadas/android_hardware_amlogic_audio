@@ -8598,6 +8598,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     // set debug_flag here to see more debug log when debugging.
     adev->debug_flag = aml_audio_get_debug_flag();
     adev->count = 1;
+    aml_audio_board_config_init(&adev->board_config);
 
     ALOGD("%s adev->dolby_lib_type:%d  !is_TV(adev):%d", __func__, adev->dolby_lib_type, !is_TV(adev));
     /* create thread for communication between Audio Hal and MS12 */
@@ -8624,7 +8625,6 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     pthread_mutex_unlock(&adev_mutex);
 
     adev->fmt_start_mute = false;
-    aml_audio_board_config_init(&adev->board_config);
 
     adev->aaudio_low_latency = false;
     adev->aaudio_low_latency_updated = false;
