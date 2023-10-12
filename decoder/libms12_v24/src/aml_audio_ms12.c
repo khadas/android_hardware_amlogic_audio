@@ -249,7 +249,11 @@ int aml_ms12_main_decoder_open(struct dolby_ms12_desc *ms12_desc
     dolby_ms12_config_params_reset_config_params();
 
     if ((get_audio_associate_format() == AUDIO_FORMAT_AC3) || (get_audio_associate_format() == AUDIO_FORMAT_E_AC3) ||
-        (get_audio_associate_format() == AUDIO_FORMAT_MAT)) {
+        (get_audio_associate_format() == AUDIO_FORMAT_MAT)||
+        (get_audio_associate_format() == AUDIO_FORMAT_AAC)||
+        (get_audio_associate_format() == AUDIO_FORMAT_AAC_LATM)||
+        (get_audio_associate_format() == AUDIO_FORMAT_HE_AAC_V1) ||
+        (get_audio_associate_format() == AUDIO_FORMAT_HE_AAC_V2)) {
         dolby_ms12_config_params_set_associate_flag(true);
     }
 
