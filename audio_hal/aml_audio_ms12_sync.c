@@ -1595,10 +1595,6 @@ static int dtv_get_ms12_latency_offset(
     //ALOGD("%s  prot:%d, is_netflix:%d, input_format:0x%x, output_format:0x%x", __func__,
     //            port, is_netflix, input_format, output_format);
     input_latency_ms  = dtv_get_ms12_input_latency(input_format);
-    /*for dtv with aac, we only need tune ARC output case.*/
-    if (port != OUTPORT_HDMI_ARC && is_aac_format(input_format)) {
-        input_latency_ms = 0;
-    }
     output_latency_ms = dtv_get_ms12_output_latency(output_format);
     port_latency_ms   = dtv_get_ms12_port_latency(stream, port, output_format);
 

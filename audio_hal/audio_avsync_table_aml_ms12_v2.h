@@ -497,8 +497,8 @@
 #define  AVSYNC_MS12_DTV_PCM_LATENCY                    (0)
 #define  AVSYNC_MS12_DTV_DD_LATENCY                     (0)
 #define  AVSYNC_MS12_DTV_DDP_LATENCY                    (0)
-#define  AVSYNC_MS12_DTV_AC4_LATENCY                    (0)
-#define  AVSYNC_MS12_DTV_AAC_LATENCY                    (40)
+#define  AVSYNC_MS12_DTV_AC4_LATENCY                    (-10)
+#define  AVSYNC_MS12_DTV_AAC_LATENCY                    (50)
 #define  AVSYNC_MS12_DTV_MP2_LATENCY                    (0)
 
 #define  AVSYNC_MS12_DTV_PCM_LATENCY_PROPERTY         "vendor.media.audio.hal.ms12.dtv.pcm"
