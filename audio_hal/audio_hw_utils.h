@@ -32,6 +32,9 @@
 
 #define ENUM_TYPE_STR_MAX_LEN                           (100)
 
+#define DD_MUTE_FRAME_SIZE 1536
+#define DDP_MUTE_FRAME_SIZE 6144
+#define MAT_MUTE_FRAME_SIZE 15360
 
 #define ENUM_TYPE_TO_STR_DEFAULT_STR            "INVALID_ENUM"
 #define ENUM_TYPE_TO_STR_START(prefix)                      \

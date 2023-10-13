@@ -32,12 +32,37 @@
 #include "aml_alsa_mixer.h"
 #include "audio_hw_resource_mgr.h"
 
+#define  ONE_DD_FRAME_TIME     32
+#define  ONE_MAT_FRAME_TIME    20
+
 enum error_status {
     INPUT_ERROR = 1,
     OUTPUT_I2S_ERROR = 2,
     OUTPUT_SPDIF_ERROR = 3,
     VIDEO_ERROR = 4,
 };
+
+extern unsigned int muted_frame_dd[];
+extern unsigned int muted_frame_ddp[];
+extern unsigned int muted_frame_mat[];
+
+static inline int find_61937_sync_word(char *buffer, int size)
+{
+    int i = -1;
+    if (size < 8) {
+        return i;
+    }
+
+    for (i = 0; i < (size - 3); i++) {
+        if (buffer[i + 0] == 0x72 && buffer[i + 1] == 0xF8 && buffer[i + 2] == 0x1F && buffer[i + 3] == 0x4E) {
+            return i;
+        }
+        if (buffer[i + 0] == 0xF8 && buffer[i + 1] == 0x72 && buffer[i + 2] == 0x4E && buffer[i + 3] == 0x1F) {
+            return i;
+        }
+    }
+    return -1;
+}
 
 static int get_tvin_delay(struct aml_mixer_handle *mixer_handle)
 {
@@ -152,6 +177,203 @@ static int ringbuffer_seek(struct aml_audio_patch *patch, int tune_val)
         ALOGV("  --tuning audio ringbuffer %dms successfully!\n", tune_val);
     } else {
         ALOGV("  --tuning audio ringbuffer require %d vs actual seek %d\n", space, seek_space);
+        tune_val = calc_frame_to_latency(seek_space/frame_size, patch->aformat);
+    }
+
+    return tune_val;
+}
+
+static int ringbuffer_seek_for_raw_data(struct aml_audio_patch *patch, int tune_val)
+{
+    int space = 0, seek_space = 0, frame_size = 0, ret = 0, sync_word_offset = 0, time_value = 0;
+    int rbuf_avail = 0, new_rbuf_avail = 0;
+    void *temp_buf = NULL, *temp_buf1 = NULL, *buffer = NULL;
+    int frame_time = 0;
+    unsigned char *addr = NULL;
+
+    if (patch->aformat == AUDIO_FORMAT_AC3 || patch->aformat == AUDIO_FORMAT_E_AC3) {
+        frame_time = ONE_DD_FRAME_TIME;
+    } else if (patch->aformat == AUDIO_FORMAT_MAT || patch->aformat == AUDIO_FORMAT_DOLBY_TRUEHD) {
+        frame_time = ONE_MAT_FRAME_TIME;
+    }
+
+    time_value = tune_val / frame_time;
+
+    if ((tune_val < 0) && (tune_val != (time_value * frame_time))) {
+        time_value += -1;
+    }
+
+    tune_val = time_value * frame_time;
+    if (time_value == 0) {
+        ALOGD("No enough data to seek\n");
+        return tune_val;
+    }
+
+    frame_size = CHANNEL_CNT * audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT);
+    space = calc_latency_to_frame(tune_val, patch->aformat) * frame_size;
+
+    rbuf_avail = get_buffer_read_space(&patch->aml_ringbuffer);
+    temp_buf = aml_audio_calloc(1, rbuf_avail);
+    buffer = temp_buf;
+    ret = ring_buffer_read(&patch->aml_ringbuffer,
+                        (unsigned char*)buffer, rbuf_avail);
+
+    sync_word_offset = find_61937_sync_word((char *)buffer, rbuf_avail);
+    if (sync_word_offset >= 0)
+        addr = (unsigned char*)buffer + sync_word_offset;
+    else
+        addr = (unsigned char*)buffer;
+
+    ALOGV("Ring buffer Seek sync word %x %x %x %x %d %d %d %d",
+        addr[0],  addr[1], addr[2], addr[3], tune_val, rbuf_avail, sync_word_offset, space);
+
+    new_rbuf_avail = get_buffer_read_space(&patch->aml_ringbuffer);
+
+    if (rbuf_avail < new_rbuf_avail) {
+        ALOGV("Reallocate buffer");
+        temp_buf1 = aml_audio_calloc(1, new_rbuf_avail);
+        buffer = temp_buf1;
+        rbuf_avail = new_rbuf_avail;
+        ret = ring_buffer_read(&patch->aml_ringbuffer,
+                               (unsigned char*)buffer, new_rbuf_avail);
+    }
+
+    if (sync_word_offset >= 0) {
+        ring_buffer_reset(&patch->aml_ringbuffer);
+        if (sync_word_offset > 0) {
+            ret = ring_buffer_write(&patch->aml_ringbuffer,
+                                            (unsigned char*)buffer,
+                                            sync_word_offset, UNCOVER_WRITE);
+            if (ret != sync_word_offset) {
+                ALOGE("%s(), fill data fail! %d %d", __func__,sync_word_offset,ret);
+            }
+        }
+    } else {
+        if (tune_val > 0) {
+            if (temp_buf != NULL) {
+                aml_audio_free(temp_buf);
+            }
+
+            if (temp_buf1 != NULL) {
+                aml_audio_free(temp_buf1);
+            }
+
+            ALOGD("No iec sync word found sync_word_offset %d rbuf_avail %d\n", sync_word_offset, rbuf_avail);
+
+            return 0;
+        }
+        ring_buffer_reset(&patch->aml_ringbuffer);
+    }
+
+    if (tune_val > 0)
+    {
+        addr = (unsigned char*)buffer + sync_word_offset + space;
+        int data_size = rbuf_avail - sync_word_offset - space;
+        if (data_size > 0) {
+            ret = ring_buffer_write(&patch->aml_ringbuffer,
+                                                      addr,
+                                   data_size, UNCOVER_WRITE);
+            if (ret != data_size) {
+                ALOGE("%s(), fill data fail! %d", __func__,ret);
+            }
+            seek_space += space;
+        } else {
+            int value = calc_frame_to_latency((rbuf_avail - sync_word_offset) / frame_size, patch->aformat);
+
+            ALOGD("seek value %d %d %d", (rbuf_avail - sync_word_offset) / frame_size, value, value / frame_time);
+            value /= frame_time;
+
+            if (value >= 1) {
+                space = calc_latency_to_frame(value * frame_time, patch->aformat) * frame_size;
+                tune_val = value * frame_time;
+                addr = (unsigned char*)buffer + sync_word_offset + space;
+                data_size = rbuf_avail - sync_word_offset - space;
+                if (data_size > 0) {
+                    ret = ring_buffer_write(&patch->aml_ringbuffer, addr,
+                                           data_size, UNCOVER_WRITE);
+                    if (ret != data_size) {
+                        ALOGE("%s(), fill data fail! %d", __func__, ret);
+                    }
+                }
+                seek_space += space;
+            } else {
+                tune_val = value * frame_time;
+                addr = (unsigned char*)buffer + sync_word_offset;
+                data_size = rbuf_avail - sync_word_offset;
+
+                ret = ring_buffer_write(&patch->aml_ringbuffer, addr,
+                                       data_size, UNCOVER_WRITE);
+                if (ret != data_size) {
+                    ALOGE("%s(), fill data fail! %d", __func__,ret);
+                }
+
+                if (temp_buf != NULL) {
+                    aml_audio_free(temp_buf);
+                }
+
+                if (temp_buf1 != NULL) {
+                    aml_audio_free(temp_buf1);
+                }
+
+                ALOGD("No enough data to seek\n");
+
+                return tune_val;
+            }
+        }
+    } else {
+        int i, data_size = 0;
+        unsigned int *mute_data = NULL;
+
+        if (patch->aformat == AUDIO_FORMAT_AC3) {
+            mute_data = muted_frame_dd;
+            data_size = DD_MUTE_FRAME_SIZE * 4;
+        } else if (patch->aformat == AUDIO_FORMAT_E_AC3) {
+            mute_data = muted_frame_ddp;
+            data_size = DDP_MUTE_FRAME_SIZE * 4;
+        } else if (patch->aformat == AUDIO_FORMAT_MAT || patch->aformat == AUDIO_FORMAT_DOLBY_TRUEHD) {
+            mute_data = muted_frame_mat;
+            data_size = MAT_MUTE_FRAME_SIZE * 4;
+        }
+
+        time_value *= -1;
+        for (i = 0; i < time_value; i++) {
+             ret = ring_buffer_write(&patch->aml_ringbuffer,
+                                         (unsigned char*)mute_data,
+                                          data_size, UNCOVER_WRITE);
+             if (ret != data_size) {
+                 ALOGE("%s(), fill silence data fail! %d", __func__,ret);
+             }
+             seek_space += ret;
+        }
+        seek_space *= -1;
+
+        if (sync_word_offset >= 0) {
+            addr = (unsigned char*)buffer + sync_word_offset;
+            data_size = rbuf_avail - sync_word_offset;
+        } else {
+            addr = (unsigned char*)buffer;
+            data_size = rbuf_avail;
+        }
+        ret = ring_buffer_write(&patch->aml_ringbuffer,
+                                                  addr,
+                                data_size, UNCOVER_WRITE);
+        if (ret != data_size) {
+            ALOGE("%s(), fill data fail! %d", __func__,ret);
+        }
+    }
+
+    if (temp_buf != NULL) {
+        aml_audio_free(temp_buf);
+    }
+
+    if (temp_buf1 != NULL) {
+        aml_audio_free(temp_buf1);
+    }
+
+    if (seek_space == space) {
+        ALOGD("  --tuning raw data audio ringbuffer %dms successfully!\n", tune_val);
+    } else {
+        ALOGD("  --tuning raw data audio ringbuffer require %d vs actual seek %d space %d\n", tune_val, seek_space, space);
         tune_val = calc_frame_to_latency(seek_space/frame_size, patch->aformat);
     }
 
@@ -473,12 +695,32 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
 
         /* if min video latency is larger than audio latency, seek audio buffer to enlarge the audio delay */
         if (avDiff < 0) {
-            seek_duration_ret = ringbuffer_seek(patch, avDiff);
+            if (patch->aformat == AUDIO_FORMAT_AC3 || patch->aformat == AUDIO_FORMAT_E_AC3 ||
+                patch->aformat == AUDIO_FORMAT_MAT || patch->aformat == AUDIO_FORMAT_DOLBY_TRUEHD)
+            {
+                seek_duration_ret = ringbuffer_seek_for_raw_data(patch, avDiff);
+                if (seek_duration_ret == 0)
+                {
+                    tune_val = patch->min_video_latency;
+                }
+            }
+            else
+            {
+                seek_duration_ret = ringbuffer_seek(patch, avDiff);
+            }
         } else if (patch->audio_latency.ringbuffer_latency > AVSYNC_RINGBUFFER_MIN_LATENCY) {
-            /* if it need reduce audio latency, first do ringbuffer seek */
-            int valid_tune_space = patch->audio_latency.ringbuffer_latency - AVSYNC_RINGBUFFER_MIN_LATENCY;
-            seek_duration = (avDiff < valid_tune_space) ? avDiff : valid_tune_space;
-            seek_duration_ret = ringbuffer_seek(patch, seek_duration);
+            if (patch->aformat == AUDIO_FORMAT_AC3 || patch->aformat == AUDIO_FORMAT_E_AC3 ||
+                patch->aformat == AUDIO_FORMAT_MAT || patch->aformat == AUDIO_FORMAT_DOLBY_TRUEHD)
+            {
+                 seek_duration_ret = ringbuffer_seek_for_raw_data(patch, avDiff);
+            }
+            else
+            {
+                 /* if it need reduce audio latency, first do ringbuffer seek */
+                 int valid_tune_space = patch->audio_latency.ringbuffer_latency - AVSYNC_RINGBUFFER_MIN_LATENCY;
+                 seek_duration = (avDiff < valid_tune_space) ? avDiff : valid_tune_space;
+                 seek_duration_ret = ringbuffer_seek(patch, seek_duration);
+            }
         }
 
         tune_val -= seek_duration_ret;
