@@ -7282,11 +7282,12 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
-
+    bool b_active_stream = aml_out->total_write_size ? true : false;
     ALOGD("%s: enter usecase = %s", __func__, usecase2Str(aml_out->usecase));
 
     /* free stream ease resource  */
     aml_audio_ease_close(aml_out->audio_stream_ease);
+
 
     /* call legacy close to reuse codes */
     if (adev->active_outputs[aml_out->usecase] == aml_out) {
@@ -7331,7 +7332,7 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
     //destroy_aec_reference_config(adev->aec);
 
     // for netflix continuously output lpcm5.1
-    if (adev->useSubMix && eDolbyDcvLib == adev->dolby_lib_type && aml_out->total_write_size) {
+    if (adev->useSubMix && eDolbyDcvLib == adev->dolby_lib_type && b_active_stream) {
         bool output_multich_enable = true;
         if (is_bypass_submix_active(adev)) {
             output_multich_enable = false;
