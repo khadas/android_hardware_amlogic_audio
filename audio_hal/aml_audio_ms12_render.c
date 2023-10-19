@@ -336,12 +336,9 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
             if (adev->debug_flag) {
                 ALOGI("%s dolby pts %" PRIu64 " decoder_base =%" PRIu64 " decoder_offset =%" PRIu64 "", __func__, patch->cur_package->pts, decoder_base, decoder_offset);
             }
-            if (patch->cur_package->pts != ULLONG_MAX && patch->cur_package->pts != DTVSYNC_INVALID_PTS) {
+            if (patch->cur_package->pts != ULLONG_MAX && patch->cur_package->pts != DTVSYNC_INVALID_PTS && patch->cur_package->pts != DTVSYNC_INIT_PTS) {
                 //set_ms12_main_audio_pts(ms12, patch->cur_package->pts, decoder_offset);
                 aml_audio_hwsync_checkin_apts(aml_out->hwsync, decoder_offset, patch->cur_package->pts);
-            } else {
-                //set_ms12_main_audio_pts(ms12,  patch->dtvsync->out_end_apts, decoder_offset);
-                aml_audio_hwsync_checkin_apts(aml_out->hwsync, decoder_offset, patch->dtvsync->out_end_apts);
             }
             /* to init the pts information */
             if (patch->decoder_offset == 0) {

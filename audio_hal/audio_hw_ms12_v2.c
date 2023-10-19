@@ -3429,6 +3429,18 @@ Aml_MS12_SyncPolicy_t ms12_dtv_sync_callback(void *priv_data, unsigned long long
                     force_setting_delay_pts = aml_getprop_int(PROPERTY_LOCAL_PASSTHROUGH_LATENCY)  * MILLISECOND_2_PTS;
                 }
                 aml_dtvsync->cur_outapts = new_apts + ms12_tuning_delay_pts + force_setting_delay_pts;
+
+                if ((syncpolicy_status.eSyncPolicy == DTVSYNC_AUDIO_DROP_PCM) ||
+                    (syncpolicy_status.eSyncPolicy == DTVSYNC_AUDIO_INSERT)) {
+                    /*we still need to do drop or insert*/
+                    if (syncpolicy_status.s32TagFrame > syncpolicy_status.s32CurFrame) {
+                        aml_out->last_decout_frame = u64DecOutFrame;
+                        audio_sync_policy.eSyncPolicy = syncpolicy_status.eSyncPolicy;
+                        audio_sync_policy.s32TagFrame = syncpolicy_status.s32TagFrame;
+                        audio_sync_policy.s32CurFrame = syncpolicy_status.s32CurFrame;
+                        return audio_sync_policy;
+                    }
+                }
                 ms12_do_dtv_sync(stream_out);
 
                 if (async_policy->audiopolicy != DTVSYNC_AUDIO_NORMAL_OUTPUT)
@@ -3438,42 +3450,15 @@ Aml_MS12_SyncPolicy_t ms12_dtv_sync_callback(void *priv_data, unsigned long long
                 if (async_policy->audiopolicy == DTVSYNC_AUDIO_DROP_PCM) {
                     audio_sync_policy.eSyncPolicy = MS12_SYNC_AUDIO_DROP_PCM;
                     int drop_frames = async_policy->param1 / 1000 * 48;
-                    if (drop_frames >= 1536) {
-                        drop_frames = 1536;
-                    }
-                    if (syncpolicy_status.eSyncPolicy == DTVSYNC_AUDIO_DROP_PCM) {
-                        if (syncpolicy_status.s32TagFrame == syncpolicy_status.s32CurFrame) {
-                            audio_sync_policy.s32TagFrame = drop_frames;
-                            audio_sync_policy.s32CurFrame = 0;
-                        } else {
-                            audio_sync_policy.s32TagFrame = syncpolicy_status.s32TagFrame;
-                            audio_sync_policy.s32CurFrame = syncpolicy_status.s32CurFrame;
-                        }
-                    } else {
-                        audio_sync_policy.s32TagFrame = 256;
-                        audio_sync_policy.s32CurFrame = syncpolicy_status.s32CurFrame;
-                    }
-                    if (debug_enable)
-                        ALOGI("%s drop frames =%d tag frame =%d cur_frame=%d", __func__, drop_frames, audio_sync_policy.s32TagFrame, audio_sync_policy.s32CurFrame);
+                    audio_sync_policy.s32TagFrame = drop_frames;
+                    audio_sync_policy.s32CurFrame = 0;
+                    ALOGI("%s drop frames =%d tag frame =%d cur_frame=%d", __func__, drop_frames, audio_sync_policy.s32TagFrame, audio_sync_policy.s32CurFrame);
                 } else if (async_policy->audiopolicy == DTVSYNC_AUDIO_INSERT) {
                     int insert_frames = async_policy->param1 / 1000 * 48;
                     audio_sync_policy.eSyncPolicy = MS12_SYNC_AUDIO_INSERT;
-                    /*we are still insert*/
-                    if (syncpolicy_status.eSyncPolicy == DTVSYNC_AUDIO_INSERT) {
-                        if (syncpolicy_status.s32TagFrame == syncpolicy_status.s32CurFrame) {
-                            /*insert finish, begin new insert*/
-                            audio_sync_policy.s32TagFrame = insert_frames;
-                            audio_sync_policy.s32CurFrame = 0;
-                        } else {
-                            audio_sync_policy.s32TagFrame = syncpolicy_status.s32TagFrame;
-                            audio_sync_policy.s32CurFrame = syncpolicy_status.s32CurFrame;
-                        }
-                    } else {
-                        audio_sync_policy.s32TagFrame = insert_frames;
-                        audio_sync_policy.s32CurFrame = syncpolicy_status.s32CurFrame;
-                    }
-                    if (debug_enable)
-                        ALOGI("%s insert %d ms frame =%d tag frame =%d cur_frame=%d ", __func__, async_policy->param1/1000, insert_frames, audio_sync_policy.s32TagFrame, audio_sync_policy.s32CurFrame);
+                    audio_sync_policy.s32TagFrame = insert_frames;
+                    audio_sync_policy.s32CurFrame = 0;
+                    ALOGI("%s insert %d ms frame =%d tag frame =%d cur_frame=%d ", __func__, async_policy->param1/1000, insert_frames, audio_sync_policy.s32TagFrame, audio_sync_policy.s32CurFrame);
                 } else if (async_policy->audiopolicy == DTVSYNC_AUDIO_ADJUST_CLOCK) {
                     aml_dtvsync_ms12_adjust_clock(stream_out, async_policy->param1);
                     enable_dtv_underrun_mute(adev, false);
