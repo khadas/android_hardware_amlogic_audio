@@ -2024,7 +2024,7 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         *frames = *frames * out->hal_rate / output_sr;
 
         //this code is for CTS cases about tunnel mode stream.
-        if (out->usecase == STREAM_PCM_HWSYNC && !adev->frame_write_sum_updated) {
+        if (out->usecase == STREAM_PCM_HWSYNC && !out->frame_write_sum_updated) {
             *frames = out->hwsync_parsed_frames_sum;
         }
     }
@@ -2056,11 +2056,11 @@ static int out_get_presentation_position (const struct audio_stream_out *stream,
         struct timespec ts;
         clock_gettime(CLOCK_MONOTONIC, &ts);
         int time_gap_ms = calc_time_interval_us(&out->timestamp, &ts)/1000LL;
-        ALOGV("%s %d  time_gap_ms:%d,   adev->frame_write_sum_updated:%d", __func__, __LINE__,
-            time_gap_ms, adev->frame_write_sum_updated);
+        ALOGV("%s %d  time_gap_ms:%d,   out->frame_write_sum_updated:%d", __func__, __LINE__,
+            time_gap_ms, out->frame_write_sum_updated);
 
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
-            if (adev->frame_write_sum_updated && time_gap_ms < 200)
+            if (out->frame_write_sum_updated && time_gap_ms < 200)
                 *frames += video_delay_frames;//add this for xts avsync
         } else {
             //do nothing
@@ -3653,7 +3653,9 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     pthread_mutex_destroy(&out->lock);
 
     AM_LOGI("io %d: out:%p exit ------", out->io_handle, out);
+    pthread_mutex_lock(&adev->stream_release_lock);
     aml_audio_free(stream);
+    pthread_mutex_unlock(&adev->stream_release_lock);
     stream = NULL;
     out = NULL;
 }
@@ -5581,8 +5583,10 @@ void aml_stream_timer_callback_handler(union sigval sigv)
     struct aml_audio_device *adev = aml_adev_get_handle();
     struct aml_stream_out *out = NULL;
     bool is_hwsync_lpcm = false;
+    bool frame_write_sum_updated = true;
 
     AM_LOGD("sigv:%d ~~~~~~~~~~", sigv.sival_int);
+    pthread_mutex_lock(&adev->stream_release_lock);
     for (int i = 0 ; i < STREAM_USECASE_MAX; i++) {
         out = adev->active_outputs[i];
         if (out && audio_is_linear_pcm(out->hal_internal_format)
@@ -5592,10 +5596,12 @@ void aml_stream_timer_callback_handler(union sigval sigv)
         }
     }
 
-    if (adev && out && is_hwsync_lpcm) {
-        adev->frame_write_sum_updated = false;
+    if (out && is_hwsync_lpcm) {
+        out->frame_write_sum_updated = false;
+        frame_write_sum_updated = false;
     }
-    AM_LOGI("is_hwsync_lpcm:%d frame_write_sum_updated:%d", is_hwsync_lpcm, adev->frame_write_sum_updated);
+    AM_LOGI("is_hwsync_lpcm:%d frame_write_sum_updated:%d", is_hwsync_lpcm, frame_write_sum_updated);
+    pthread_mutex_unlock(&adev->stream_release_lock);
     return ;
 }
 
@@ -6397,7 +6403,7 @@ hwsync_rewrite:
         } else {//none ms12 pipe is shorter than ms12, so adjust the delay time to 60ms.
             audio_one_shot_timer_start(aml_out->timer_id, AML_HWSYNC_STREAM_TIMER_NOMS12_RENDER_DELAY);
         }
-        adev->frame_write_sum_updated = true;
+        aml_out->frame_write_sum_updated = true;
     }
 
 exit:
@@ -8444,7 +8450,6 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->in_device = AUDIO_DEVICE_IN_BUILTIN_MIC & ~AUDIO_DEVICE_BIT_IN;
     adev->hi_pcm_mode = false;
     adev->last_sink_capability = 0;
-    adev->frame_write_sum_updated = true;
 
     adev->eq_data.card = adev->card;
     if (eq_drc_init(&adev->eq_data) == 0) {
@@ -8554,6 +8559,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     }
     adev->continuous_audio_mode = adev->continuous_audio_mode_default;
     pthread_mutex_init(&adev->alsa_pcm_lock, NULL);
+    pthread_mutex_init(&adev->stream_release_lock, NULL);
 
     /* Set the earctx mode by the property, only need set false */
     earctx_mode = property_get_bool("persist.sys.vendor.earc_settings", true);

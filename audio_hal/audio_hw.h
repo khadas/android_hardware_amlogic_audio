@@ -487,7 +487,7 @@ struct aml_audio_device {
     /*used to restore the continuous_audio_mode after system resume(early suspend case)*/
     int continuous_audio_mode_backup;
     bool aml_truehd_passthrough_support;  /*whether dolby truehd passthrough can be supported*/
-    bool frame_write_sum_updated;
+    //bool frame_write_sum_updated;
 
     /* board specific json configs */
     struct audio_board_config board_config;
@@ -522,6 +522,7 @@ struct aml_audio_device {
     char *address; // for usb
     struct usb_out *usb;
     pthread_mutex_t usb_lock;
+    pthread_mutex_t stream_release_lock;
 };
 
 struct meta_data {

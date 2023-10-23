@@ -755,6 +755,17 @@ ssize_t hw_write (struct audio_stream_out *stream
 
     /*we should also to calculate the alsa latency*/
     {
+        // currently only pcm hwsync stream will use frame_write_sum_updated
+        bool frame_write_sum_updated = true;
+        struct aml_stream_out *pcm_hwsync_out = NULL;
+
+        pthread_mutex_lock(&adev->stream_release_lock);
+        pcm_hwsync_out = adev->active_outputs[STREAM_PCM_HWSYNC];
+        if (pcm_hwsync_out && pcm_hwsync_out->total_write_size) {
+            frame_write_sum_updated = pcm_hwsync_out->frame_write_sum_updated;
+        }
+        pthread_mutex_unlock(&adev->stream_release_lock);
+
         /* SWPL-88828
          * If out_get_presentation_position() and hw_write()
          * are called by different threads, frames_written_hw
@@ -765,12 +776,12 @@ ssize_t hw_write (struct audio_stream_out *stream
         aml_out->lasttimestamp.tv_sec = aml_out->timestamp.tv_sec;
         aml_out->lasttimestamp.tv_nsec = aml_out->timestamp.tv_nsec;
         if (total_frame >= latency_frames) {
-            if (!adev->frame_write_sum_updated || adev->ms12.main_input_insert_zero) {
+            if (frame_write_sum_updated || adev->ms12.main_input_insert_zero) {
                 aml_out->last_frames_position = total_frame;
             } else {
                 aml_out->last_frames_position = total_frame - latency_frames;
             }
-            ALOGV("%s  frame_write_sum_updated:%d, total_frame:%" PRIu64 ", latency_frames:%u", __func__, adev->frame_write_sum_updated, total_frame, latency_frames);
+            ALOGV("%s  frame_write_sum_updated:%d, total_frame:%" PRIu64 ", latency_frames:%u", __func__, frame_write_sum_updated, total_frame, latency_frames);
         } else {
             aml_out->last_frames_position = 0;
         }

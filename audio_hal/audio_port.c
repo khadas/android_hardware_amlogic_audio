@@ -1053,13 +1053,42 @@ int free_output_port(output_port *port)
     return 0;
 }
 
-static ssize_t multich_output_port_write(mc_output_port *mc_port, void *buffer, int bytes)
+static ssize_t multich_output_port_write(output_port *mc_port, void *buffer, int bytes)
 {
     R_CHECK_POINTER_LEGAL(-EINVAL, mc_port, "");
-    return aml_audio_spdifout_process(mc_port->spdifout_handle, buffer, bytes);
+    R_CHECK_POINTER_LEGAL(-EINVAL, mc_port->spdifout_handle, "");
+    struct timespec ts_start;
+    struct timespec ts_end;
+    int delay_ms = 0;
+    int duration_ms = 0;
+    ssize_t ret = 0;
+    int64_t system_time_diff_ms = 0;
+    int calculate_delay_ms = 0;
+
+    delay_ms = aml_audio_spdifout_get_delay(mc_port->spdifout_handle);
+    if (delay_ms < 0) {
+        delay_ms = 0;
+    }
+    clock_gettime(CLOCK_MONOTONIC, &ts_start);
+    ret = aml_audio_spdifout_process(mc_port->spdifout_handle, buffer, bytes);
+    clock_gettime(CLOCK_MONOTONIC, &ts_end);
+
+    system_time_diff_ms = calc_time_interval_us(&ts_start, &ts_end) / MSEC_PER_SEC;
+    duration_ms = bytes / mc_port->cfg.frame_size;
+    calculate_delay_ms = delay_ms + duration_ms - system_time_diff_ms;
+
+    // some error issue happen !
+    if (calculate_delay_ms <= 0 || calculate_delay_ms >= 200) {
+        mc_port->alsa_delay_ms = delay_ms;
+    } else {
+        mc_port->alsa_delay_ms = calculate_delay_ms;
+    }
+    mc_port->alsa_delay_ts = ts_end;
+
+    return ret;
 }
 
-static int multich_output_port_start(mc_output_port *mc_port)
+static int multich_output_port_start(output_port *mc_port)
 {
     spdif_config_t spdif_config = { 0 };
     int ret = 0;
@@ -1079,7 +1108,7 @@ static int multich_output_port_start(mc_output_port *mc_port)
     return ret;
 }
 
-static int multich_output_port_standby(mc_output_port *mc_port)
+static int multich_output_port_standby(output_port *mc_port)
 {
     int ret = 0;
     R_CHECK_POINTER_LEGAL(-EINVAL, mc_port, "");
@@ -1094,19 +1123,19 @@ static int multich_output_port_standby(mc_output_port *mc_port)
     return ret;
 }
 
-mc_output_port *new_mc_output_port(struct audioCfg *config, size_t buf_frames)
+output_port *new_mc_output_port(struct audioCfg *config, size_t buf_frames)
 {
     int buf_size = 0;
     char *buf_ptr = NULL;
-    mc_output_port *mc_port = NULL;
+    output_port *mc_port = NULL;
     R_CHECK_POINTER_LEGAL(NULL, config, "config");
 
     ALOGI("%s(), config channels %d, rate %d, bytes per frame %zu",
             __func__, config->channelCnt, config->sampleRate,
             audio_bytes_per_sample(config->format));
 
-    mc_port = aml_audio_calloc(1, sizeof(mc_output_port));
-    R_CHECK_POINTER_LEGAL(NULL, mc_port, "no memory, size:%zu", sizeof(mc_output_port));
+    mc_port = aml_audio_calloc(1, sizeof(output_port));
+    R_CHECK_POINTER_LEGAL(NULL, mc_port, "no memory, size:%zu", sizeof(output_port));
 
     buf_size = buf_frames * config->frame_size;
     buf_ptr = aml_audio_calloc(1, buf_size);
@@ -1136,14 +1165,10 @@ err_data:
 }
 
 
-int free_mc_output_port(mc_output_port **pp_mc_port)
+int free_mc_output_port(output_port *mc_port)
 {
-    mc_output_port *mc_port = NULL;
-
     AM_LOGI("enter");
-    R_CHECK_POINTER_LEGAL(-EINVAL, pp_mc_port, "");
-    R_CHECK_POINTER_LEGAL(-EINVAL, *pp_mc_port, "");
-    mc_port = *pp_mc_port;
+    R_CHECK_POINTER_LEGAL(-EINVAL, mc_port, "");
 
     if (mc_port->spdifout_handle) {
         aml_audio_spdifout_close(mc_port->spdifout_handle);
@@ -1152,7 +1177,6 @@ int free_mc_output_port(mc_output_port **pp_mc_port)
     aml_audio_free(mc_port->data_buf);
     mc_port->data_buf = NULL;
     aml_audio_free(mc_port);
-    *pp_mc_port = NULL;
 
     AM_LOGI("ok");
     return 0;

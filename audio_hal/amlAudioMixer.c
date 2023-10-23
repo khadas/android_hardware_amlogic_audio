@@ -86,12 +86,16 @@ struct amlAudioMixer {
     int submix_standby;
     //aml_audio_mixer_run_state_type_e run_state;
 
-    //multich pcm output port
-    uint64_t run_count; // use for reduce debug info
-    mc_output_port *mc_out_port;
+    //multich pcm output
     bool mc_out_enable;
-    pthread_mutex_t mc_out_lock;
+    port_state mc_out_status;
     bool aaudio_low_latency;
+    uint64_t run_count; // use for reduce debug info
+
+    // alsa delay info
+    struct timespec outport_delay_ts[MIXER_OUTPUT_PORT_NUM];
+    uint32_t outport_delay_ms[MIXER_OUTPUT_PORT_NUM];
+    pthread_mutex_t outport_delay_locks[MIXER_OUTPUT_PORT_NUM];
 };
 
 int mixer_set_state(struct amlAudioMixer *audio_mixer, aml_mixer_state state)
@@ -482,7 +486,9 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
     struct snd_pcm_status status;
     bool alsa_status = true;
     struct aml_stream_out *aml_out = NULL;
-    mc_output_port *mc_out_port = NULL;
+    output_port *mc_out_port = NULL;
+    struct timespec alsa_delay_ts = {0};
+    uint32_t alsa_delay_ms = 0;
 
     if (is_dtv_patch_exist(audio_mixer->adev)) {
         out_port->sound_track_mode = get_dtv_sound_mode(audio_mixer->adev);
@@ -570,15 +576,25 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
     pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
 
     // output multi-ch pcm
-    pthread_mutex_lock(&audio_mixer->mc_out_lock);
-    mc_out_port = audio_mixer->mc_out_port;
+    port_index = MIXER_OUTPUT_PORT_MULTI_PCM;
+    pthread_mutex_lock(&audio_mixer->outport_locks[port_index]);
+    mc_out_port = audio_mixer->out_ports[port_index];
     if (mc_out_port && mc_out_port->bytes_avail > 0) {
         mc_out_port->write(mc_out_port, mc_out_port->data_buf, mc_out_port->bytes_avail);
         mc_out_port->bytes_avail = 0;
         // multi-ch-pcm(its functionality like ddp51) has higher priority than stereo pcm.
         alsa_status = aml_audio_spdifout_get_status(mc_out_port->spdifout_handle);
+
+        alsa_delay_ms = mc_out_port->alsa_delay_ms;
+        alsa_delay_ts = mc_out_port->alsa_delay_ts;
     }
-    pthread_mutex_unlock(&audio_mixer->mc_out_lock);
+    pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
+
+    // update timestamp info
+    pthread_mutex_lock(&audio_mixer->outport_delay_locks[port_index]);
+    audio_mixer->outport_delay_ms[port_index] = alsa_delay_ms;
+    audio_mixer->outport_delay_ts[port_index] = alsa_delay_ts;
+    pthread_mutex_unlock(&audio_mixer->outport_delay_locks[port_index]);
 
     // update audio stream running status
     masks = audio_mixer->inportsMasks;
@@ -680,6 +696,28 @@ static int mixer_update_tstamp(struct amlAudioMixer *audio_mixer)
                 in_port->presentation_frames = 0;
             }
             clock_gettime(CLOCK_MONOTONIC, &in_port->timestamp);
+            continue;
+        }
+
+        if (audio_mixer->mc_out_enable && audio_mixer->mc_out_status != STOPPED) {
+            int64_t alsa_latency_frames = mixer_get_mc_outport_latency_frames(audio_mixer);
+            int64_t signed_frames = in_port->mix_consumed_frames - alsa_latency_frames;
+            if (signed_frames < 0) {
+                signed_frames = 0;
+            }
+            in_port->presentation_frames = in_port->initial_frames + signed_frames;
+            clock_gettime(CLOCK_MONOTONIC, &in_port->timestamp);
+
+            if (adev->debug_flag && (audio_mixer->run_count % 8 == 0)) {
+                AM_LOGI("type %d, present frames:%" PRId64 ", initial %" PRId64 ", consumed %" PRId64 ", sec:%ld, nanosec:%ld , alsa_latency_frames:%" PRId64 "",
+                    in_port->enInPortType,
+                    in_port->presentation_frames,
+                    in_port->initial_frames,
+                    in_port->mix_consumed_frames,
+                    in_port->timestamp.tv_sec,
+                    in_port->timestamp.tv_nsec,
+                    alsa_latency_frames);
+            }
             continue;
         }
 
@@ -1210,7 +1248,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
 static int mixer_add_mixing_data(struct amlAudioMixer *audio_mixer, void *input, input_port *in_port, output_port *out_port)
 {
     char *data_ptr = NULL;
-    mc_output_port *mc_out_port = NULL;
+    output_port *mc_out_port = NULL;
     aml_pcm_downmix_st *p_downmix = &audio_mixer->pcm_downmix;
     aml_pcm_mixing_st  *p_2ch_mixer = &audio_mixer->stereo_mixer;
     aml_pcm_mixing_st  *p_multich_mixer = &audio_mixer->multich_mixer;
@@ -1229,13 +1267,10 @@ static int mixer_add_mixing_data(struct amlAudioMixer *audio_mixer, void *input,
         do_mixing_2ch(p_2ch_mixer->mixed_buf, input, MIXER_FRAME_COUNT, in_port->cfg.format, out_port->cfg.format);
     }
 
-    // multich pcm output
-    pthread_mutex_lock(&audio_mixer->mc_out_lock);
-    mc_out_port = audio_mixer->mc_out_port;
-    if (audio_mixer->mc_out_enable && mc_out_port && mc_out_port->port_status != STOPPED) {
+    // multich pcm
+    if (audio_mixer->mc_out_enable && audio_mixer->mc_out_status != STOPPED) {
         do_mixing_multi_ch(p_multich_mixer, input, MIXER_FRAME_COUNT, &in_port->cfg);
     }
-    pthread_mutex_unlock(&audio_mixer->mc_out_lock);
 
     in_port->data_valid = 0;
     AM_LOGV("input port ID:%d  channels:%d", in_port->ID, out_port->cfg.channelCnt);
@@ -1244,18 +1279,22 @@ static int mixer_add_mixing_data(struct amlAudioMixer *audio_mixer, void *input,
 
 void mixer_enable_multich_output(struct amlAudioMixer *audio_mixer, bool enable)
 {
+    output_port *mc_out_port = NULL;
+    const MIXER_OUTPUT_PORT port_index = MIXER_OUTPUT_PORT_MULTI_PCM;
     if (audio_mixer->mc_out_enable == enable) {
         return;
     }
     AM_LOGI("mc_out_enable %d", enable);
 
-    pthread_mutex_lock(&audio_mixer->mc_out_lock);
+    pthread_mutex_lock(&audio_mixer->outport_locks[port_index]);
     audio_mixer->mc_out_enable = enable;
-    if (!enable && audio_mixer->mc_out_port) {
+    mc_out_port = audio_mixer->out_ports[port_index];
+    if (!enable && mc_out_port) {
         // close multich alsa handle, then npcm can use it.
-        free_mc_output_port(&audio_mixer->mc_out_port);
+        free_mc_output_port(mc_out_port);
+        audio_mixer->out_ports[port_index] = NULL;
     }
-    pthread_mutex_unlock(&audio_mixer->mc_out_lock);
+    pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
 }
 
 /*
@@ -1276,6 +1315,7 @@ static int mixer_config_multich_output(struct amlAudioMixer *audio_mixer, struct
     struct audioCfg *p_mixer_cfg = &audio_mixer->multich_mixer.cfg;
     struct audioCfg cfg;
     bool input_port_empty = true;
+    const MIXER_OUTPUT_PORT port_index = MIXER_OUTPUT_PORT_MULTI_PCM;
     struct aml_arc_hdmi_desc* hdmi_descs = get_arc_hdmi_cap(adev);
 
     sink_max_channels = hdmi_descs->pcm_fmt.max_channels;
@@ -1315,7 +1355,7 @@ static int mixer_config_multich_output(struct amlAudioMixer *audio_mixer, struct
         || !audio_mixer->mc_out_enable) {
         mc_output_ch = 2;
         mc_output_ch_mask = AUDIO_CHANNEL_OUT_STEREO;
-    } /*else if (adev->is_netflix && !adev->aaudio_low_latency) {
+    } else if (adev->is_netflix) {
         if (input_max_ch <= 6) {
             if (sink_max_channels >= 6) {
                 mc_output_ch = 6;
@@ -1329,7 +1369,7 @@ static int mixer_config_multich_output(struct amlAudioMixer *audio_mixer, struct
         } else {
             // do nothing
         }
-    }*/
+    }
     if (adev->debug_flag && (audio_mixer->run_count % 10 == 0)) {
         bool ad2p_connected = adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP;
         AM_LOGI("mc_out_enable %d, A2DP_connected %d, is_netflix %d, input_max_ch %d, mc_output_ch %d",
@@ -1345,8 +1385,8 @@ static int mixer_config_multich_output(struct amlAudioMixer *audio_mixer, struct
         init_multich_mixer_buffer(audio_mixer, &cfg, MIXER_FRAME_COUNT);
     }
 
-    pthread_mutex_lock(&audio_mixer->mc_out_lock);
-    mc_output_port *mc_out_port = audio_mixer->mc_out_port;
+    pthread_mutex_lock(&audio_mixer->outport_locks[port_index]);
+    output_port *mc_out_port = audio_mixer->out_ports[port_index];
     if (audio_mixer->mc_out_enable && mc_output_ch != 2) {
         if (mc_out_port == NULL || mc_out_port->cfg.channelCnt != mc_output_ch) {
             memcpy(&cfg, out_port_cfg, sizeof(cfg));
@@ -1356,15 +1396,16 @@ static int mixer_config_multich_output(struct amlAudioMixer *audio_mixer, struct
 
             AM_LOGI("mc output channel change to  %d", mc_output_ch);
             if (mc_out_port != NULL) {
-                free_mc_output_port(&audio_mixer->mc_out_port);
+                free_mc_output_port(mc_out_port);
+                audio_mixer->out_ports[port_index] = NULL;
             }
 
             mc_out_port = new_mc_output_port(&cfg, MIXER_FRAME_COUNT);
-            audio_mixer->mc_out_port = mc_out_port;
             if (mc_out_port == NULL) {
                 AM_LOGE("new_mc_output_port failed !");
                 return -1;
             }
+            audio_mixer->out_ports[port_index] = mc_out_port;
             mc_out_port->start(mc_out_port);
         } else {
             if (mc_out_port->port_status != ACTIVE) {
@@ -1377,7 +1418,12 @@ static int mixer_config_multich_output(struct amlAudioMixer *audio_mixer, struct
         }
         mc_out_port->port_status = STOPPED;
     }
-    pthread_mutex_unlock(&audio_mixer->mc_out_lock);
+    if (mc_out_port) {
+        audio_mixer->mc_out_status = mc_out_port->port_status;
+    } else {
+        audio_mixer->mc_out_status = STOPPED;
+    }
+    pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
 
     return ret;
 }
@@ -1397,7 +1443,7 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
     aml_pcm_mixing_st           *p_multich_mixer = &audio_mixer->multich_mixer;
     void                        *mixed_data_ptr = NULL;
     int                         mixed_data_size = 0;
-    mc_output_port              *mc_out_port = NULL;
+    output_port                 *mc_out_port = NULL;
     struct aml_arc_hdmi_desc * hdmi_descs = get_arc_hdmi_cap(adev);
 
     MIXER_OUTPUT_PORT port_index = mixer_get_cur_outport(audio_mixer, &out_port);
@@ -1463,8 +1509,8 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
         no_data_cnt = 0;
     }
 
-    pthread_mutex_lock(&audio_mixer->mc_out_lock);
-    mc_out_port = audio_mixer->mc_out_port;
+    pthread_mutex_lock(&audio_mixer->outport_locks[MIXER_OUTPUT_PORT_MULTI_PCM]);
+    mc_out_port = audio_mixer->out_ports[MIXER_OUTPUT_PORT_MULTI_PCM];
     mixed_data_ptr  = p_multich_mixer->mixed_buf;
     mixed_data_size = p_multich_mixer->mixed_buf_size;
     if (mixed_data_ptr && mc_out_port && mc_out_port->port_status != STOPPED) {
@@ -1475,7 +1521,7 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
         memcpy(mc_out_port->data_buf, mixed_data_ptr, mixed_data_size);
         mc_out_port->bytes_avail = mixed_data_size;
     }
-    pthread_mutex_unlock(&audio_mixer->mc_out_lock);
+    pthread_mutex_unlock(&audio_mixer->outport_locks[MIXER_OUTPUT_PORT_MULTI_PCM]);
 
     pthread_mutex_lock(&audio_mixer->outport_locks[port_index]);
     mixed_data_ptr  = p_2ch_mixer->mixed_buf;
@@ -1587,6 +1633,8 @@ static bool is_submix_disable(struct amlAudioMixer *audio_mixer) {
 static void mixer_config_low_latency_mode(struct amlAudioMixer *audio_mixer,
                     bool low_latency, struct audio_virtual_buf **ppstVirtualBuffer)
 {
+    output_port *mc_out_port = NULL;
+    const MIXER_OUTPUT_PORT port_index = MIXER_OUTPUT_PORT_MULTI_PCM;
     if (audio_mixer->aaudio_low_latency == low_latency) {
         return;
     }
@@ -1598,11 +1646,12 @@ static void mixer_config_low_latency_mode(struct amlAudioMixer *audio_mixer,
     mixer_outport_pcm_restart(audio_mixer);
 
     // Standby mc_out_port, latter it will restart by mixer_config_multich_output
-    pthread_mutex_lock(&audio_mixer->mc_out_lock);
-    if (audio_mixer->mc_out_enable && audio_mixer->mc_out_port) {
-        audio_mixer->mc_out_port->standby(audio_mixer->mc_out_port);
+    pthread_mutex_lock(&audio_mixer->outport_locks[port_index]);
+    mc_out_port = audio_mixer->out_ports[port_index];
+    if (audio_mixer->mc_out_enable && mc_out_port) {
+        mc_out_port->standby(mc_out_port);
     }
-    pthread_mutex_unlock(&audio_mixer->mc_out_lock);
+    pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
 
     if (ppstVirtualBuffer && *ppstVirtualBuffer) {
         audio_virtual_buf_close((void **)ppstVirtualBuffer);
@@ -1676,17 +1725,66 @@ uint32_t mixer_get_inport_latency_frames(struct amlAudioMixer *audio_mixer, uint
     return in_port->get_latency_frames(in_port);
 }
 
+/*
+ * 1. mc output port may be released at any time, use outport_locks to protect.
+ * 2. output stream(writer) or mixer thread(alsa writing) may call this function at the same time;
+ *    but alsa writing may block a while, cause output stream also block a while.
+ * So split it from output port function.
+*/
+int mixer_get_mc_outport_latency_frames(struct amlAudioMixer *audio_mixer)
+{
+    const MIXER_OUTPUT_PORT port_index = MIXER_OUTPUT_PORT_MULTI_PCM;
+    R_CHECK_POINTER_LEGAL(-EINVAL, audio_mixer, "");
+    struct aml_audio_device *adev = audio_mixer->adev;
+    R_CHECK_POINTER_LEGAL(-EINVAL, adev, "");
+
+    struct timespec ts_start;
+    struct timespec ts_end;
+    int delay_ms = 0;
+    int latency_frames = 0;
+    int64_t system_time_diff_ms = 0;
+
+    pthread_mutex_lock(&audio_mixer->outport_delay_locks[port_index]);
+    delay_ms = audio_mixer->outport_delay_ms[port_index];
+    ts_start = audio_mixer->outport_delay_ts[port_index];
+    pthread_mutex_unlock(&audio_mixer->outport_delay_locks[port_index]);
+
+    clock_gettime(CLOCK_MONOTONIC, &ts_end);
+    system_time_diff_ms = calc_time_interval_us(&ts_start, &ts_end) / MSEC_PER_SEC;
+
+    delay_ms -= system_time_diff_ms;
+    if (delay_ms < 0) {
+        delay_ms = 0;
+    }
+    latency_frames = delay_ms * audio_mixer->multich_mixer.cfg.sampleRate / 1000;
+
+    if (adev->debug_flag && (audio_mixer->run_count % 8 == 0)) {
+        ALOGI("%s delay_ms : %d, delay_ts sec = %ld, nanosec = %ld, curr_ts sec = %ld, nanosec = %ld\n", __func__,
+            audio_mixer->outport_delay_ms[port_index], ts_start.tv_sec, ts_start.tv_nsec, ts_end.tv_sec, ts_end.tv_nsec);
+        ALOGI("%s diff_ms %" PRId64 ", final delay_ms %d, latency_frames %d",
+            __func__, system_time_diff_ms, delay_ms, latency_frames);
+    }
+    return latency_frames;
+}
+
+
 uint32_t mixer_get_outport_latency_frames(struct amlAudioMixer *audio_mixer)
 {
     MIXER_OUTPUT_PORT port_index = audio_mixer->cur_output_port_type;
     output_port *out_port = NULL;
+    int latency_frames = 0;
     R_CHECK_PARAM_LEGAL(-1, port_index, MIXER_OUTPUT_PORT_STEREO_PCM, MIXER_OUTPUT_PORT_NUM - 1, "");
+
+    // currently stereo pcm output always exist, multi pcm is optional and has higher priority.
+    if (audio_mixer->mc_out_enable && audio_mixer->mc_out_status != STOPPED) {
+        return mixer_get_mc_outport_latency_frames(audio_mixer);
+    }
     out_port = audio_mixer->out_ports[port_index];
     if (out_port == NULL) {
         AM_LOGW("out_port is null");
         return 0;
     }
-    int latency_frames = outport_get_latency_frames(out_port);
+    latency_frames = outport_get_latency_frames(out_port);
     if (latency_frames <= 0) {
         latency_frames = out_port->alsa_buffer_frames/2;
     }
@@ -1777,6 +1875,9 @@ struct amlAudioMixer *newAmlAudioMixer(struct aml_audio_device *adev, struct aud
 
     for (int i = 0; i < MIXER_OUTPUT_PORT_NUM; i++) {
         pthread_mutex_init(&audio_mixer->outport_locks[i], NULL);
+        pthread_mutex_init(&audio_mixer->outport_delay_locks[i], NULL);
+        memset(&audio_mixer->outport_delay_ts[i], 0, sizeof(audio_mixer->outport_delay_ts[i]));
+        audio_mixer->outport_delay_ms[i] = 0;
     }
 
     ret = init_mixer_output_port(audio_mixer, MIXER_OUTPUT_PORT_STEREO_PCM, &cfg, MIXER_FRAME_COUNT);
@@ -1794,7 +1895,6 @@ struct amlAudioMixer *newAmlAudioMixer(struct aml_audio_device *adev, struct aud
     audio_mixer->aaudio_low_latency = false;
     pthread_mutex_init(&audio_mixer->lock, NULL);
     pthread_mutex_init(&audio_mixer->inport_lock, NULL);
-    pthread_mutex_init(&audio_mixer->mc_out_lock, NULL);
 
     return audio_mixer;
 
@@ -1807,21 +1907,27 @@ err_tmp:
 
 void freeAmlAudioMixer(struct amlAudioMixer *audio_mixer)
 {
+    MIXER_OUTPUT_PORT port_index = MIXER_OUTPUT_PORT_STEREO_PCM;
     R_CHECK_POINTER_LEGAL((void)0, audio_mixer, "");
     pthread_mutex_destroy(&audio_mixer->lock);
     pthread_mutex_destroy(&audio_mixer->inport_lock);
-    pthread_mutex_destroy(&audio_mixer->mc_out_lock);
     if (audio_mixer->cur_output_port_type == MIXER_OUTPUT_PORT_STEREO_PCM ||
         audio_mixer->cur_output_port_type == MIXER_OUTPUT_PORT_MULTI_PCM) {
         delete_mixer_output_port(audio_mixer, audio_mixer->cur_output_port_type);
     }
     for (int i = 0; i < MIXER_OUTPUT_PORT_NUM; i++) {
         pthread_mutex_destroy(&audio_mixer->outport_locks[i]);
+        pthread_mutex_destroy(&audio_mixer->outport_delay_locks[i]);
     }
     deinit_stereo_mixer_buffer(audio_mixer);
-    if (audio_mixer->mc_out_port) {
-        free_mc_output_port(&audio_mixer->mc_out_port);
+
+    port_index = MIXER_OUTPUT_PORT_MULTI_PCM;
+    pthread_mutex_lock(&audio_mixer->outport_locks[port_index]);
+    if (audio_mixer->out_ports[port_index]) {
+        free_mc_output_port(audio_mixer->out_ports[port_index]);
+        audio_mixer->out_ports[port_index] = NULL;
     }
+    pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
     deinit_multich_mixer_buffer(audio_mixer);
     aml_audio_free(audio_mixer);
 }

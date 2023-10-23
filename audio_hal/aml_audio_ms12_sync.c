@@ -1399,7 +1399,7 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
         int xts_latency_frames = get_ms12_tunnel_xts_latency();
         //ALOGI("%s %d  time_gap_ms:%d,  write_count:%d, xts_latency_frames:%d", __func__, __LINE__,
         //    time_gap_ms, out->write_count, xts_latency_frames);
-        if (!adev->frame_write_sum_updated || abs(time_gap_ms) > 200) {
+        if (!out->frame_write_sum_updated || abs(time_gap_ms) > 200) {
             *frames = out->hwsync_parsed_frames_sum;
         }
         if (abs(time_gap_ms) > 300 && out->hwsync_parsed_frames_sum_paused) {

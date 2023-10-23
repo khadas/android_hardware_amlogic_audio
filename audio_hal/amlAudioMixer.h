@@ -105,6 +105,7 @@ bool has_hwsync_stream_running(struct audio_stream_out *stream);
 int mixer_set_karaoke(struct amlAudioMixer *audio_mixer, struct kara_manager *kara);
 
 void mixer_enable_multich_output(struct amlAudioMixer *audio_mixer, bool enable);
+int mixer_get_mc_outport_latency_frames(struct amlAudioMixer *audio_mixer);
 
 
 __END_DECLS
