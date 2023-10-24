@@ -1748,7 +1748,7 @@ void subMixingDump(int s32Fd, const struct aml_audio_device *pstAmlDev)
         dprintf(s32Fd, "[AML_HAL] %s:%d device is NULL !\n", __func__, __LINE__);
         return;
     }
-    dprintf(s32Fd, "[AML_HAL]\n");
+    dprintf(s32Fd, "\n-------------[AML_HAL] subMix -----------------------------------\n");
     mixer_dump(s32Fd, pstAmlDev);
 }
 

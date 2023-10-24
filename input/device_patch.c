@@ -108,10 +108,10 @@ void aml_device_patch_dump(struct aml_audio_device* aml_dev, int fd)
 {
     struct aml_audio_patch *pstPatch = get_dev_patch(aml_dev);
     if (NULL == pstPatch) {
-        dprintf(fd, "-------------[AML_HAL] audio patch [not create]-----------\n");
+        dprintf(fd, "\n-------------[AML_HAL] audio device patch [not create]-----------\n");
         return;
     }
-    dprintf(fd, "-------------[AML_HAL] audio patch [%p]---------------\n", pstPatch);
+    dprintf(fd, "\n-------------[AML_HAL] audio device patch [%p]---------------\n", pstPatch);
     if (pstPatch->aml_ringbuffer.size != 0) {
         uint32_t u32FreeBuffer = get_buffer_write_space(&pstPatch->aml_ringbuffer);
         dprintf(fd, "[AML_HAL]      RingBuf   size: %10d Byte|  UnusedBuf:%10d Byte(%d%%)\n",

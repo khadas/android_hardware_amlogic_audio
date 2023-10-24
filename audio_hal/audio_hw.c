@@ -7871,7 +7871,7 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
     int i;
     aml_dev->debug_flag = aml_audio_get_debug_flag();
 
-    dprintf(fd, "\n----------------------------[AML_HAL] primary audio hal[dev:%p]----------------------------\n", aml_dev);
+    dprintf(fd, "\n-------------[AML_HAL] primary audio hal[dev:%p]------------------\n", aml_dev);
     while (retry > 0 && pthread_mutex_trylock(&aml_dev->lock) != 0) {
         usleep(kSleepTimeMS * 1000);
         retry--;
@@ -7898,38 +7898,35 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
     if (audio_ease && fabs(audio_ease->current_volume) <= 1e-6) {
         dprintf(fd, "[AML_HAL]      ease out muted. start:%f target:%f\n", audio_ease->start_volume, audio_ease->target_volume);
     }
-    dprintf(fd, "[AML_HAL]      dolby_lib: %d\n", aml_dev->dolby_lib_type);
-    dprintf(fd, "[AML_HAL]      build ms12 version: %d\n", aml_dev->support_ms12_version);
-    dprintf(fd, "\n[AML_HAL]      usecase_masks: %#x\n", aml_dev->usecase_masks);
-    dprintf(fd, "\nAML stream outs:\n");
 
-    for (i = 0; i < STREAM_USECASE_MAX ; i++) {
-        aml_out = aml_dev->active_outputs[i];
-        if (aml_out) {
-            dprintf(fd, "  out: %d, pointer: %p\n", i, aml_out);
-            aml_stream_out_dump(aml_out, fd);
-        }
-    }
-#ifdef AML_MALLOC_DEBUG
-    aml_audio_debug_malloc_showinfo(MEMINFO_SHOW_PRINT);
-#endif
+    aml_decoder_info_dump(aml_dev, fd);
+
+    aml_adev_stream_out_dump(aml_dev, fd);
+
     if (aml_dev->useSubMix) {
         subMixingDump(fd, aml_dev);
     }
 
-    adev_audio_patches_dump(aml_dev, fd);
+#ifdef AML_MALLOC_DEBUG
+    aml_audio_debug_malloc_showinfo(MEMINFO_SHOW_PRINT);
+#endif
 
-    a2dp_hal_dump(aml_dev, fd);
+    adev_audio_patches_dump(aml_dev, fd);
 
     dolby_ms12_info_dump(fd);
 
     aml_alsa_device_status_dump(aml_dev, fd);
+
+    aml_alsa_mixer_status_dump(aml_dev, fd);
+
+    a2dp_hal_dump(aml_dev, fd);
 
     if (profile_is_valid(&aml_dev->usb_audio.in_profile)) {
         dprintf(fd, "\n-----------[AML_HAL] USB input device Capability-----------\n");
         profile_dump(&aml_dev->usb_audio.in_profile, fd);
     }
 
+    dprintf(fd, "\n-------------[AML_HAL] primary audio hal End---------------------\n");
     return 0;
 }
 

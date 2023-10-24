@@ -21,6 +21,9 @@
 #include <tinyalsa/asoundlib.h>
 #include <cutils/properties.h>
 #include <audio_utils/channels.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "aml_alsa_mixer.h"
 #include "aml_audio_stream.h"
@@ -73,6 +76,17 @@ static audio_format_t ms12_max_support_output_format() {
 #endif
 }
 
+int get_file_size(char *name)
+{
+    struct stat statbuf;
+    int ret;
+
+    ret = stat(name, &statbuf);
+    if (ret != 0)
+        return -1;
+
+    return statbuf.st_size;
+}
 
 /*
  *@brief get sink capability
@@ -703,18 +717,35 @@ void aml_stream_out_info_print(struct aml_stream_out *aml_out, uint64_t *frames,
 }
 
 
-
 void aml_stream_out_dump(struct aml_stream_out *aml_out, int fd)
 {
     if (aml_out) {
-        dprintf(fd, "    usecase: %s\n", usecase2Str(aml_out->usecase));
-        dprintf(fd, "    out device: %#x\n", aml_out->out_device);
-        dprintf(fd, "    is tv source stream: %s\n", aml_out->is_tv_src_stream?"true":"false");
-        dprintf(fd, "    stream status:%d %s\n", aml_out->stream_status, stream_status_2_string[aml_out->stream_status]);
-        dprintf(fd, "    standby: %s\n", aml_out->standby?"true":"false");
+        dprintf(fd, "\t\t-usecase: %s\n", usecase2Str(aml_out->usecase));
+        dprintf(fd, "\t\t-out device: %#x\n", aml_out->out_device);
+        dprintf(fd, "\t\t-is tv source stream: %s\n", aml_out->is_tv_src_stream?"true":"false");
+        dprintf(fd, "\t\t-stream status:%d %s\n", aml_out->stream_status, stream_status_2_string[aml_out->stream_status]);
+        dprintf(fd, "\t\t-standby: %s\n", aml_out->standby?"true":"false");
         if (aml_out->is_normal_pcm) {
-            dprintf(fd, "    normal pcm: %s\n",
+            dprintf(fd, "\t\t-normal pcm: %s\n",
                 write_func_to_str(aml_out->write_func));
+        }
+
+        uint64_t frames;
+        struct timespec timestamp;
+        aml_out->stream.get_presentation_position((const struct audio_stream_out *)aml_out, &frames, &timestamp);
+        dprintf(fd, "\t\t-presentation_position:%" PRIu64 "    | sec:%ld  nsec:%ld\n", frames, timestamp.tv_sec, timestamp.tv_nsec);
+    }
+}
+
+void aml_adev_stream_out_dump(struct aml_audio_device *aml_dev, int fd) {
+    dprintf(fd, "\n-------------[AML_HAL] StreamOut --------------------------------\n");
+    dprintf(fd, "[AML_HAL]    usecase_masks: %#x\n", aml_dev->usecase_masks);
+    dprintf(fd, "[AML_HAL]    stream outs:\n");
+    for (int i = 0; i < STREAM_USECASE_MAX ; i++) {
+        struct aml_stream_out *aml_out = aml_dev->active_outputs[i];
+        if (aml_out) {
+            dprintf(fd, "\tout: %d, pointer: %p\n", i, aml_out);
+            aml_stream_out_dump(aml_out, fd);
         }
     }
 }
@@ -724,7 +755,7 @@ int aml_dev_dump_latency(struct aml_audio_device *aml_dev, int fd)
     struct aml_stream_in *in = aml_dev->active_input;
     struct aml_audio_patch *patch = get_dev_patch(aml_dev);
 
-    dprintf(fd, "-------------[AML_HAL] audio Latency--------------------------\n");
+    dprintf(fd, "\n-------------[AML_HAL] audio patch Latency-----------------------\n");
 
     if (patch) {
         aml_dev_sample_audio_path_latency(aml_dev, NULL);
@@ -748,7 +779,7 @@ int aml_dev_dump_latency(struct aml_audio_device *aml_dev, int fd)
 
 void aml_alsa_device_status_dump(struct aml_audio_device* aml_dev, int fd)
 {
-    dprintf(fd, "\n-------------[AML_HAL]  ALSA devices status ---------------\n");
+    dprintf(fd, "\n-------------[AML_HAL]  ALSA devices status ---------------------\n");
     bool stream_using = false;
     /* StreamOut using alsa devices list */
     for (int i = 0; i < ALSA_DEVICE_CNT; i++) {
@@ -801,6 +832,136 @@ void aml_alsa_device_status_dump(struct aml_audio_device* aml_dev, int fd)
        dprintf(fd, "  [AML_HAL] StreamIn using PCM list: None!\n");
     }
     pthread_mutex_unlock(&aml_dev->lock);
+}
+
+void aml_decoder_info_dump(struct aml_audio_device *adev, int fd)
+{
+    dprintf(fd, "\n-------------[AML_HAL] licence decoder --------------------------\n");
+    dprintf(fd, "[AML_HAL]    dolby_lib: %d\n", adev->dolby_lib_type);
+    dprintf(fd, "[AML_HAL]    build ms12 version: %d\n", adev->support_ms12_version);
+    dprintf(fd, "[AML_HAL]    MS12 library size:\n");
+    dprintf(fd, "             \t-V2 Encrypted: %d\n", get_file_size("/oem/lib/ms12/libdolbyms12.so"));
+    dprintf(fd, "             \t-V2 Decrypted: %d\n", get_file_size("/odm/lib/ms12/libdolbyms12.so"));
+    dprintf(fd, "             \t-V1 Encrypted: %d\n", get_file_size("/oem/lib/libdolbyms12.so"));
+    dprintf(fd, "             \t-V1 Decrypted: %d\n", get_file_size("/odm/lib/libdolbyms12.so"));
+    dprintf(fd, "[AML_HAL]    DDP library size:\n");
+    dprintf(fd, "             \t-lib32: %d\n", get_file_size("/odm/lib/libHwAudio_dcvdec.so"));
+    dprintf(fd, "             \t-lib64: %d\n", get_file_size("/odm/lib64/libHwAudio_dcvdec.so"));
+    dprintf(fd, "[AML_HAL]    DTS library size:\n");
+    dprintf(fd, "             \t-lib32: %d\n", get_file_size("/odm/lib/libHwAudio_dtshd.so"));
+    dprintf(fd, "             \t-lib64: %d\n", get_file_size("/odm/lib64/libHwAudio_dtshd.so"));
+}
+
+static void print_enum(struct mixer_ctl *ctl, int fd)
+{
+    unsigned int num_enums;
+    unsigned int i;
+    unsigned int value;
+    const char *string;
+
+    num_enums = mixer_ctl_get_num_enums(ctl);
+    value = mixer_ctl_get_value(ctl, 0);
+
+    for (i = 0; i < num_enums; i++) {
+        string = mixer_ctl_get_enum_string(ctl, i);
+        dprintf(fd, "%s%s, ", value == i ? "> " : "", string);
+    }
+}
+
+static void print_control_values(struct mixer_ctl *control, int fd)
+{
+    enum mixer_ctl_type type;
+    unsigned int num_values;
+    unsigned int i;
+    int min, max;
+    int ret;
+    char *buf = NULL;
+
+    type = mixer_ctl_get_type(control);
+    num_values = mixer_ctl_get_num_values(control);
+
+    if ((type == MIXER_CTL_TYPE_BYTE) && (num_values > 0)) {
+        buf = calloc(1, num_values);
+        if (buf == NULL) {
+            ALOGE("Failed to alloc mem for bytes %u", num_values);
+            return;
+        }
+
+        ret = mixer_ctl_get_array(control, buf, num_values);
+        if (ret < 0) {
+            ALOGE("Failed to mixer_ctl_get_array");
+            free(buf);
+            return;
+        }
+    }
+
+    for (i = 0; i < num_values; i++) {
+        switch (type)
+        {
+        case MIXER_CTL_TYPE_INT:
+            dprintf(fd,"%d", mixer_ctl_get_value(control, i));
+            break;
+        case MIXER_CTL_TYPE_BOOL:
+            dprintf(fd,"%s", mixer_ctl_get_value(control, i) ? "On" : "Off");
+            break;
+        case MIXER_CTL_TYPE_ENUM:
+            print_enum(control, fd);
+            break;
+        case MIXER_CTL_TYPE_BYTE:
+            dprintf(fd,"%02hhx", buf[i]);
+            break;
+        default:
+            dprintf(fd,"unknown");
+            break;
+        };
+        if ((i + 1) < num_values) {
+           dprintf(fd, ", ");
+        }
+    }
+
+    if (type == MIXER_CTL_TYPE_INT) {
+        min = mixer_ctl_get_range_min(control);
+        max = mixer_ctl_get_range_max(control);
+        dprintf(fd, " (range %d->%d)", min, max);
+    }
+
+    free(buf);
+}
+
+void aml_alsa_mixer_status_dump(struct aml_audio_device *adev, int fd)
+{
+    dprintf(fd, "\n-------------[AML_HAL] ALSA mixer status ------------------------\n");
+
+    struct mixer_ctl *ctl;
+    const char *name, *type;
+    unsigned int num_ctls, num_values;
+    unsigned int i;
+    struct aml_mixer_handle *aml_mixer = &adev->alsa_mixer;
+
+    if (!aml_mixer->pMixer) {
+        ALOGW("%s() Warning! mixer = NULL!, return!", __func__);
+        return;
+    }
+
+    num_ctls = mixer_get_num_ctls(aml_mixer->pMixer);
+
+    dprintf(fd,"Number of controls: %u\n", num_ctls);
+
+    dprintf(fd,"ctl\ttype\tnum\t%-40svalue\n", "name");
+
+    for (i = 0; i < num_ctls; i++) {
+        ctl = mixer_get_ctl(aml_mixer->pMixer, i);  //ask one mixer_ctrl
+
+        name = mixer_ctl_get_name(ctl);
+        type = mixer_ctl_get_type_string(ctl);
+        num_values = mixer_ctl_get_num_values(ctl);
+        dprintf(fd, "%u\t%s\t%u\t%-40s", i, type, num_values, name);
+
+        pthread_mutex_lock(&aml_mixer->lock);
+        print_control_values(ctl, fd);
+        pthread_mutex_unlock(&aml_mixer->lock);
+        dprintf(fd, "\n");
+    }
 }
 
 

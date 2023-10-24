@@ -403,10 +403,12 @@ bool is_dual_output_stream(struct audio_stream_out *stream);
 const char *audio_port_role_to_str(audio_port_role_t role);
 const char *audio_port_type_to_str(audio_port_type_t type);
 void aml_stream_out_info_print(struct aml_stream_out *aml_out, uint64_t *frames, struct timespec *timestamp);
-void aml_stream_out_dump(struct aml_stream_out *aml_out, int fd);
+void aml_adev_stream_out_dump(struct aml_audio_device *aml_dev, int fd);
 
 int aml_dev_dump_latency(struct aml_audio_device *aml_dev, int fd);
 void aml_alsa_device_status_dump(struct aml_audio_device* aml_dev, int fd);
+void aml_decoder_info_dump(struct aml_audio_device *adev, int fd);
+void aml_alsa_mixer_status_dump(struct aml_audio_device *adev, int fd);
 bool is_use_spdifb(struct aml_stream_out *out);
 bool is_dolby_ms12_support_compression_format(audio_format_t format);
 bool is_dolby_ddp_support_compression_format(audio_format_t format);
