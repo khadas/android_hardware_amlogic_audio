@@ -19,20 +19,4 @@
 
 extern aml_dec_func_t aml_mad_func;
 
-/*temp code, we will remove it later*/
-#if ANDROID_PLATFORM_SDK_VERSION < 31
-/*S/T already has such enum, R doesn't have it*/
-typedef enum {
-    AUDIO_FORMAT_MPEGH = 0x2C000000u,
-    AUDIO_FORMAT_MPEGH_SUB_BL_L3 = 0x13u,
-    AUDIO_FORMAT_MPEGH_SUB_BL_L4 = 0x14u,
-    AUDIO_FORMAT_MPEGH_SUB_LC_L3 = 0x23u,
-    AUDIO_FORMAT_MPEGH_SUB_LC_L4 = 0x24u,
-    AUDIO_FORMAT_MPEGH_BL_L3 = 0x2C000013u,
-    AUDIO_FORMAT_MPEGH_BL_L4 = 0x2C000014u,
-    AUDIO_FORMAT_MPEGH_LC_L3 = 0x2C000023u,
-    AUDIO_FORMAT_MPEGH_LC_L4 = 0x2C000024u,
-} audio_format_Ext_t;
-#endif
-
 #endif

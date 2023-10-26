@@ -819,8 +819,9 @@ ssize_t hw_write (struct audio_stream_out *stream
         adev->ms12.last_sys_audio_cost_pos = sys_total_cost;
     }
     if (adev->debug_flag) {
-        ALOGI("%s() stream(%p) pcm handle %p format input %#x output %#x 61937 frame %d",
-              __func__, stream, aml_out->pcm, aml_out->hal_internal_format, output_format, is_iec61937_format(stream));
+        AM_LOGI("io %d: out:%p pcm handle %p format input:%s output:%s 61937: %d",
+              aml_out->io_handle, stream, aml_out->pcm, audioFormat2Str(aml_out->hal_internal_format),
+              audioFormat2Str(output_format), is_iec61937_format(stream));
 
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             //ms12 internal buffer avail(main/associate/system)

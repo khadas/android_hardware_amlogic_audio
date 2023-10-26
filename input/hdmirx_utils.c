@@ -484,12 +484,12 @@ int update_edid_after_edited_audio_sad(struct audio_hw_device *dev, struct forma
         return 0;
     }
 
-    if (BYPASS == adev->digital_audio_format) {
+    if (AML_DIGITAL_AUDIO_MODE_BYPASS == adev->digital_audio_mode) {
         /* update the AVR's EDID */
         write_default_edid_to_hdmirx(dev, hdmi_desc->EDID_length);
         ALOGI("Bypass mode!, update AVR EDID.");
     }
-    else if (AUTO == adev->digital_audio_format) {
+    else if (AML_DIGITAL_AUDIO_MODE_AUTO == adev->digital_audio_mode) {
         if (!fmt_desc->is_support) {
             //if AVR doesn't support DDP, update EDID to default EDID
             write_default_edid_to_hdmirx(dev, hdmi_desc->EDID_length);

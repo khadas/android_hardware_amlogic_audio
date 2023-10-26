@@ -55,9 +55,6 @@
 #define ACODEC_FMT_WMAVOI 28
 #define ACODEC_FMT_AC4    29
 
-/*private audio format extension for "hal format" defined in "audio_format_t" enum*/
-#define AUDIO_FORMAT_DRA 0xE0000000u
-
 #define DDP_DECODER_CACHE 32 * 90 /* ddp decoder cache es data one frame 32ms */
 
 typedef enum {

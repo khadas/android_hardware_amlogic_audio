@@ -2120,7 +2120,7 @@ void *audio_dtv_patch_output_threadloop(void *data)
             ALOGV("AD %d %d %d", aml_dev->dolby_lib_type, demux_info->dual_decoder_support, demux_info->ad_pid);
             if (demux_info->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
                 if (aml_dev->dolby_lib_type == eDolbyMS12Lib) {
-                    if (aml_dev->disable_pcm_mixing == false || aml_dev->digital_audio_format == PCM ||
+                    if (aml_dev->disable_pcm_mixing == false || aml_dev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_PCM ||
                         aml_dev->sink_capability == AUDIO_FORMAT_PCM_16_BIT || aml_dev->sink_capability == AUDIO_FORMAT_PCM_32_BIT) {
                         ret = audio_dtv_patch_output_dolby_dual_decoder(patch, stream_out);
                     } else {
@@ -2321,7 +2321,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
                 int demux_id  = demux_info->demux_id;
                 ALOGI("patch->demux_handle %p patch->aformat %0x", patch->demux_handle, patch->aformat);
                 if (aml_dev->dolby_lib_type == eDolbyMS12Lib) {
-                    if (aml_dev->disable_pcm_mixing == true && aml_dev->digital_audio_format != PCM &&
+                    if (aml_dev->disable_pcm_mixing == true && aml_dev->digital_audio_mode != AML_DIGITAL_AUDIO_MODE_PCM &&
                         (aml_dev->sink_capability == AUDIO_FORMAT_AC3 || aml_dev->sink_capability == AUDIO_FORMAT_E_AC3)) {
                         associate_mix = 0;
                         dual_decoder = 0;
@@ -2384,7 +2384,7 @@ static void *audio_dtv_patch_process_threadloop(void *data)
             /*[SE][BUG][SWPL-17416] maybe sometimes sub ad fmt and sub ad pid not set before dtv patch start*/
             if (!is_dtv_ad_start(aml_dev) && VALID_PID(demux_info->ad_pid) && VALID_AD_FMT(demux_info->ad_fmt)) {
                 if (aml_dev->dolby_lib_type == eDolbyMS12Lib) {
-                    if (aml_dev->disable_pcm_mixing == false || aml_dev->digital_audio_format == PCM ||
+                    if (aml_dev->disable_pcm_mixing == false || aml_dev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_PCM ||
                         aml_dev->sink_capability == AUDIO_FORMAT_PCM_16_BIT || aml_dev->sink_capability == AUDIO_FORMAT_PCM_32_BIT) {
                         int ad_start_flag;
                         if (is_dtv_multi_demux(aml_dev)) {
@@ -2948,7 +2948,7 @@ static bool need_enable_dual_decoder(struct aml_audio_patch *patch)
                 }
             }
         } else if (aml_dev->dolby_lib_type == eDolbyMS12Lib) {
-            if (aml_dev->digital_audio_format == BYPASS) {
+            if (aml_dev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS) {
                 return false;
             }
         }
@@ -5352,7 +5352,7 @@ int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, con
 
                         dmx_info->main_pid = current_metadata_unit->stream_id & 0xFFFF;
                         dmx_info->demux_id = current_metadata_unit->stream_id >> 16;//demux id
-                        dmx_info->main_fmt = android_fmt_convert_to_dmx_fmt(encoding_fmt_to_native_fmt(current_metadata_unit->flags));
+                        dmx_info->main_fmt = android_fmt_convert_to_dmx_fmt(encodingFormat2AudioFormat(current_metadata_unit->flags));
                         ALOGI("changed to main_pid %d stream_id %d ",dmx_info->main_pid,current_metadata_unit->stream_id);
 
                         Init_Dmx_Main_Audio(demux_handle, dmx_info->main_fmt, dmx_info->main_pid);

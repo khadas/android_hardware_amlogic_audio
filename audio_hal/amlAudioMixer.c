@@ -1650,6 +1650,7 @@ static void *mixer_16b_threadloop(void *data)
             pthread_mutex_unlock(&audio_mixer->lock);
         }
         audio_mixer->run_count++;
+        adev->debug_flag = aml_audio_get_debug_flag();
     }
     if (pstVirtualBuffer != NULL) {
         audio_virtual_buf_close((void **)&pstVirtualBuffer);
@@ -1932,7 +1933,7 @@ void mixer_dump(int s32Fd, const struct aml_audio_device *pstAmlDev)
     if (pstOutPort) {
         dprintf(s32Fd, "[AML_HAL]  output port type: %s\n", mixerOutputType2Str(pstOutPort->enOutPortType));
         dprintf(s32Fd, "[AML_HAL]      Channel       : %10d     | Format            : %#10x\n", pstOutPort->cfg.channelCnt, pstOutPort->cfg.format);
-        dprintf(s32Fd, "[AML_HAL]      FrameCnt      : %zu     | data size         : %zu Byte\n",
+        dprintf(s32Fd, "[AML_HAL]      FrameCnt      : %10zu     | data size         : %zu Byte\n",
             pstOutPort->data_buf_frame_cnt, pstOutPort->data_buf_len);
         pthread_mutex_unlock(&pstAudioMixer->outport_locks[port_index]);
     } else {

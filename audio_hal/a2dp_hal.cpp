@@ -36,6 +36,7 @@ extern "C" {
 #include "aml_audio_timer.h"
 }
 
+
 using ::android::bluetooth::audio::BluetoothAudioPortOut;
 using ::android::bluetooth::audio::BluetoothAudioSession;
 using ::android::bluetooth::audio::BluetoothAudioSessionInstance;
@@ -74,18 +75,6 @@ struct aml_a2dp_hal {
     pthread_cond_t out_monitor_thread_cond;
 };
 static int a2dp_out_standby(struct aml_audio_device *adev);
-
-const char* a2dpStatus2String(BluetoothStreamState type)
-{
-    ENUM_TYPE_TO_STR_START("BluetoothStreamState::");
-    ENUM_TYPE_TO_STR(BluetoothStreamState::DISABLED)
-    ENUM_TYPE_TO_STR(BluetoothStreamState::STANDBY)
-    ENUM_TYPE_TO_STR(BluetoothStreamState::STARTING)
-    ENUM_TYPE_TO_STR(BluetoothStreamState::STARTED)
-    ENUM_TYPE_TO_STR(BluetoothStreamState::SUSPENDING)
-    ENUM_TYPE_TO_STR(BluetoothStreamState::UNKNOWN)
-    ENUM_TYPE_TO_STR_END
-}
 
 std::unordered_map<std::string, std::string> ParseAudioParams(const std::string& params) {
     std::vector<std::string> segments = android::base::Split(params, ";");
@@ -276,6 +265,7 @@ int a2dp_out_close(struct aml_audio_device *adev) {
 
 static int a2dp_out_resume_l(aml_audio_device *adev) {
     struct aml_a2dp_hal *hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
+    AM_LOGI("start resume. cur status:%s", a2dpStatus2String(hal->state));
     a2dp_wait_status(hal);
     if (hal->state == BluetoothStreamState::STARTED) {
         AM_LOGI("A2dp already resumed. status:%s", a2dpStatus2String(hal->state));
@@ -286,6 +276,9 @@ static int a2dp_out_resume_l(aml_audio_device *adev) {
             AM_LOGI("status: %s -> %s Resume in progress...", a2dpStatus2String(hal->state), a2dpStatus2String(cur_status));
             hal->state = cur_status;
             return 0;
+        } else {
+            AM_LOGW("Start fail. state:%s", a2dpStatus2String(hal->a2dphw.GetState()));
+            return -1;
         }
     }
     AM_LOGW("error state:%s", a2dpStatus2String(hal->state));
@@ -308,6 +301,7 @@ static int a2dp_out_resume(struct aml_audio_device *adev) {
 
 static int a2dp_out_standby_l(struct aml_audio_device *adev) {
     struct aml_a2dp_hal *hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
+    AM_LOGI("start standby. cur status:%s", a2dpStatus2String(hal->state));
     a2dp_wait_status(hal);
     if (hal->state == BluetoothStreamState::STANDBY) {
         AM_LOGI("A2dp already standby. status:%s", a2dpStatus2String(hal->state));
@@ -318,6 +312,9 @@ static int a2dp_out_standby_l(struct aml_audio_device *adev) {
             AM_LOGI("status: %s -> %s Standby in progress...", a2dpStatus2String(hal->state), a2dpStatus2String(cur_status));
             hal->state = cur_status;
             return 0;
+        } else {
+            AM_LOGW("Suspend fail. state:%s", a2dpStatus2String(hal->a2dphw.GetState()));
+            return -1;
         }
     }
     AM_LOGW("error state:%s", a2dpStatus2String(hal->state));
@@ -666,7 +663,7 @@ int a2dp_out_set_parameters(struct aml_audio_device *adev, const char *kvpairs) 
 int a2dp_hal_dump(struct aml_audio_device *adev, int fd) {
     struct aml_a2dp_hal *hal = (struct aml_a2dp_hal *)adev->a2dp_hal;
     if (hal) {
-        dprintf(fd, "-------------[AM_HAL][A2DP]-------------\n");
+        dprintf(fd, "------------ [AM_HAL][A2DP] -------------------------------------\n");
         dprintf(fd, "-[AML_HAL]      out_rate      : %10d     | out_ch    :%10d\n", hal->config.sample_rate, audio_channel_count_from_out_mask(hal->config.channel_mask));
         dprintf(fd, "-[AML_HAL]      out_format    : %#10x     | cur_state :%10s\n", hal->config.format, a2dpStatus2String(hal->a2dphw.GetState()));
         dprintf(fd, "-[AML_HAL]      a2dp_latency  : %" PRIu64" ms\n", hal->a2dp_latency / NSEC_PER_MSEC);

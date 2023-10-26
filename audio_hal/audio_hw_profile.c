@@ -845,7 +845,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
     }
     /*check the channel cap */
     else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
-        ALOGD("query hdmi channels..., format %#x\n", format);
+        AM_LOGD("query hdmi channels... format: %s(%#x)", audioFormat2Str(format), format);
         switch ((uint32_t)format) {
         case AUDIO_FORMAT_PCM_16_BIT:
         case AUDIO_FORMAT_PCM_32_BIT:
@@ -918,7 +918,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
             break;
         }
     } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
-        ALOGD("query hdmi sample_rate...format %#x\n", format);
+        AM_LOGD("query hdmi sample_rate... format: %s(%#x)", audioFormat2Str(format), format);
         switch (format) {
             case AUDIO_FORMAT_IEC61937:
                 size += sprintf(aud_cap, "sup_sampling_rates=%s",
@@ -1108,7 +1108,7 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
         }
         /*check the channel cap */
         else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
-            ALOGD("query hdmi channels..., format %#x\n", format);
+            AM_LOGD("query hdmi channels... format: %s(%#x)", audioFormat2Str(format), format);
             p_hdmi_descs->pcm_fmt.max_channels = 2;
             switch (format) {
             case AUDIO_FORMAT_PCM_16_BIT:
@@ -1166,7 +1166,7 @@ char*  get_hdmi_sink_cap(const char *keys,audio_format_t format,struct aml_arc_h
                 break;
             }
         } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
-            ALOGD("query hdmi sample_rate...\n");
+            AM_LOGD("query hdmi sample_rate... format: %s(%#x)", audioFormat2Str(format), format);
             /* take the 32/44.1/48 khz supported as default */
             size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
 
@@ -1313,7 +1313,7 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
         }
         /*check the channel cap */
         else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
-            ALOGD("query hdmi channels..., format %#x\n", format);
+            AM_LOGD("query hdmi channels... format: %s(%#x)", audioFormat2Str(format), format);
             p_hdmi_descs->pcm_fmt.max_channels = 2;
             switch (format) {
             case AUDIO_FORMAT_PCM_16_BIT:
@@ -1365,7 +1365,7 @@ char*  get_hdmi_sink_cap_dolbylib(const char *keys,audio_format_t format,struct 
                 break;
             }
         } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
-            ALOGD("query hdmi sample_rate...format %#x\n", format);
+            AM_LOGD("query hdmi sample_rate... format: %s(%#x)", audioFormat2Str(format), format);
             switch (format) {
                 case AUDIO_FORMAT_AC3:
                     size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
@@ -1512,7 +1512,7 @@ char*  get_hdmi_sink_cap_dolby_ms12(const char *keys,audio_format_t format,struc
         }
         /*check the channel cap */
         else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
-            ALOGD("query hdmi channels..., format %#x\n", format);
+            AM_LOGD("query hdmi channels... format: %s(%#x)", audioFormat2Str(format), format);
             if (format == AUDIO_FORMAT_DTS || format == AUDIO_FORMAT_DTS_HD) {
                 if (mystrstr(infobuf, "DTS-HD")) {
                     size += sprintf(aud_cap, "sup_channels=%s", DTSHD_SUPPORT_CHANNEL);
@@ -1541,7 +1541,7 @@ char*  get_hdmi_sink_cap_dolby_ms12(const char *keys,audio_format_t format,struc
                 }
             }
         } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
-            ALOGD("query hdmi sample_rate...format %#x\n", format);
+            AM_LOGD("query hdmi sample_rate... format: %s(%#x)", audioFormat2Str(format), format);
             switch (format) {
                 case AUDIO_FORMAT_AC3:
                     size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
@@ -1640,7 +1640,7 @@ char*  get_offload_cap(const char *keys,audio_format_t format)
     }
     /*check the channel cap */
     else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
-        ALOGD("query hdmi channels..., format %#x\n", format);
+        AM_LOGD("query hdmi channels... format: %s(%#x)", audioFormat2Str(format), format);
         switch (format) {
             case AUDIO_FORMAT_AC3:
                 size += sprintf(aud_cap, "sup_channels=%s", AC3_SUPPORT_CHANNEL);
@@ -1670,7 +1670,7 @@ char*  get_offload_cap(const char *keys,audio_format_t format)
                 size += sprintf(aud_cap, "sup_channels=%s", "AUDIO_CHANNEL_OUT_MONO|AUDIO_CHANNEL_OUT_STEREO");
         }
     } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
-        ALOGD("query hdmi sample_rate...format %#x\n", format);
+        AM_LOGD("query hdmi sample_rate... format: %s(%#x)", audioFormat2Str(format), format);
         switch (format) {
             case AUDIO_FORMAT_AC3:
                 size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
@@ -2020,12 +2020,23 @@ char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(con
 
     parms = str_parms_create_str (keys);
     ret = str_parms_get_int(parms, AUDIO_PARAMETER_STREAM_FORMAT, &val_int);
-
     format = (audio_format_t) val_int;
+    if (ret < 0) {
+        ALOGI("[out_get_parameters:%d] out:%p query audio format. ++++++++++ hal_format:%s", __LINE__,
+            stream, audioFormat2Str(out->hal_format));
+    } else {
+        if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES)) {
+            ALOGI("[out_get_parameters:%d] out:%p query sample rate. Format:%s(%#x) ++++++++++ hal_format:%s", __LINE__, stream,
+                audioFormat2Str(format), format, audioFormat2Str(out->hal_format));
+        } else if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS)) {
+            ALOGI("[out_get_parameters:%d] out:%p query channels. Format:%s(%#x) ++++++++++ hal_format:%s", __LINE__, stream,
+                audioFormat2Str(format), format, audioFormat2Str(out->hal_format));
+        }
+    }
     if (format == 0) {
         format = out->hal_format;
     }
-    ALOGI ("out_get_parameters %s,out %p format:%#x hal_format:%#x", keys, out, format, out->hal_format);
+
     if ((out->flags & AUDIO_OUTPUT_FLAG_PRIMARY) &&
         (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES) || strstr(keys, AUDIO_PARAMETER_STREAM_SUP_CHANNELS))) {
         ALOGV ("Amlogic - return hard coded channel_mask list or sample_rate for primary output stream.");
@@ -2091,7 +2102,7 @@ char *out_get_parameters_wrapper_about_sup_sampling_rates__channels__formats(con
         para = strdup ("");
     }
     str_parms_destroy(parms);
-    ALOGI ("%s\n", para);
+    ALOGI("[out_get_parameters:%d] %s", __LINE__, para);
     return para;
 }
 

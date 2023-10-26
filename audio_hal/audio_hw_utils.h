@@ -72,7 +72,7 @@
     }
 
 #define R_CHECK_PARAM_LEGAL(ret, param, min, max, fmt, ...)                                     \
-    if ((int)param < min || param > max) {                                                           \
+    if ((int)param < min || param > max) {                                                      \
         AM_LOGE("%s:%d is illegal, min:%d, max:%d " fmt, #param, param, min, max, ##__VA_ARGS__);\
         return ret;                                                                             \
     }
@@ -187,9 +187,15 @@ const char* mediasyncAudiopolicyType2Str(audio_policy type);
 const char* dtvAudioPatchCmd2Str(AUDIO_DTV_PATCH_CMD_TYPE type);
 #endif
 const char* hdmiFormat2Str(AML_HDMI_FORMAT_E type);
+const char* audioEncodingFormat2Str(AUDIO_ENCODING_FORMAT_E type);
 const char* audioPortRole2Str(audio_port_role_t type);
 const char* audioPortType2Str(audio_port_type_t type);
+const char* audioModeType2Str(audio_mode_t type);
 const char* audioDevType2Str(audio_devices_t type);
+const char* audioFormat2Str(audio_format_t type);
+const char* audioSourceType2Str(audio_source_t type);
+const char* digitalAudioModeType2Str(AML_DIGITAL_AUDIO_MODE_E type);
+
 bool aml_audio_check_sbr_product();
 void check_audio_level(const char *name, const void *buffer, size_t bytes);
 

@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef _A2DP_HW_H_
+#define _A2DP_HW_H_
 
 
 #include <android/hardware/bluetooth/audio/2.0/types.h>
@@ -29,6 +31,8 @@ enum class BluetoothStreamState : uint8_t {
   SUSPENDING,
   UNKNOWN,
 };
+
+const char* a2dpStatus2String(BluetoothStreamState type);
 
 namespace android {
 namespace bluetooth {
@@ -125,3 +129,4 @@ class BluetoothAudioPortOut {
 }  // namespace audio
 }  // namespace bluetooth
 }  // namespace android
+#endif

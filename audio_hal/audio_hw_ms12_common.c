@@ -509,9 +509,9 @@ int aml_audiohal_sch_state_2_ms12(struct dolby_ms12_desc *ms12, int sch_state)
  * when passthrough mode(BYPASS), audio_hw_dtv do not send the ad data;
  * when AUTO/PCM mode(PCM/AUTO), audio_hw_dtv send the main&ad data;
  */
-bool is_ad_data_available(int digital_audio_format)
+bool is_ad_data_available(int digital_audio_mode)
 {
-    if (digital_audio_format != BYPASS) {
+    if (digital_audio_mode != AML_DIGITAL_AUDIO_MODE_BYPASS) {
         return true;
     }
     else {

@@ -218,7 +218,7 @@ int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *la
         }
 
         /* if arc is connected and format setting is "Passthrough", bypass MS12 */
-        if (is_arc_connected(aml_dev) && aml_dev->digital_audio_format == BYPASS)
+        if (is_arc_connected(aml_dev) && aml_dev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS)
             ms12_ltcy = 0;
 
         patch->audio_latency.ms12_latency = ms12_ltcy;

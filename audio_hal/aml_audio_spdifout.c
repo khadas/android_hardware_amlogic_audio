@@ -611,7 +611,7 @@ int aml_audio_spdifout_process(void *phandle, void *buffer, size_t byte)
             output_buffer_bytes, spdifout_phandle->audio_format, b_mute, spdifout_phandle->b_mute);
     }
 
-    if (eDolbyDcvLib == aml_dev->dolby_lib_type || BYPASS == aml_dev->digital_audio_format) {
+    if (eDolbyDcvLib == aml_dev->dolby_lib_type || AML_DIGITAL_AUDIO_MODE_BYPASS == aml_dev->digital_audio_mode) {
         if (spdifout_phandle->b_mute || b_mute) {
             if (spdifout_phandle->audio_format == AUDIO_FORMAT_AC3) {
                 if (output_buffer_bytes == IEC_DD_FRAME_SIZE * 4) {

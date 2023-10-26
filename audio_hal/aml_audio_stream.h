@@ -57,34 +57,18 @@ enum {
 #define DATA_PCM                         (0)
 #define DATA_NON_PCM                     (1)
 
-/*temp code, we will remove it later*/
-#if ANDROID_PLATFORM_SDK_VERSION < 31
-/*S/T already has such enum, R doesn't have it*/
-typedef enum {
-    AUDIO_FORMAT_MPEGH = 0x2C000000u,
-    AUDIO_FORMAT_MPEGH_SUB_BL_L3 = 0x13u,
-    AUDIO_FORMAT_MPEGH_SUB_BL_L4 = 0x14u,
-    AUDIO_FORMAT_MPEGH_SUB_LC_L3 = 0x23u,
-    AUDIO_FORMAT_MPEGH_SUB_LC_L4 = 0x24u,
-    AUDIO_FORMAT_MPEGH_BL_L3 = 0x2C000013u,
-    AUDIO_FORMAT_MPEGH_BL_L4 = 0x2C000014u,
-    AUDIO_FORMAT_MPEGH_LC_L3 = 0x2C000023u,
-    AUDIO_FORMAT_MPEGH_LC_L4 = 0x2C000024u,
-} audio_format_Ext_t;
-#endif
-
-
 typedef uint32_t usecase_mask_t;
 
 /*
- *@brief get this value by adev_set_parameters(), command is "digital_audio_format"
+ *@brief get this value by adev_set_parameters(), command is "digital_audio_mode"
  */
-enum digital_format {
-    PCM = 0,
-    DD = 4,
-    AUTO = 5,
-    BYPASS = 6
-};
+typedef enum {
+    AML_DIGITAL_AUDIO_MODE_PCM                = 0,
+    AML_DIGITAL_AUDIO_MODE_DD                 = 4,
+    AML_DIGITAL_AUDIO_MODE_AUTO               = 5,
+    AML_DIGITAL_AUDIO_MODE_BYPASS             = 6,
+    AML_DIGITAL_AUDIO_MODE_MANUAL             = 7,
+} AML_DIGITAL_AUDIO_MODE_E;
 
 enum stream_write_func {
     OUT_WRITE_NEW = 0,
@@ -182,29 +166,102 @@ enum tunerhal_audio_streamtype    {
     TUNERHAL_AAC_HE_LATM
 };
 
-enum encoding_format {
-    ENCODING_INVALID      = 0,
-    ENCODING_DEFAULT      = 1,
-    ENCODING_PCM_16BIT    = 2,
-    ENCODING_PCM_8BIT     = 3,
-    ENCODING_PCM_FLOAT    = 4,
-    ENCODING_AC3          = 5,
-    ENCODING_E_AC3        = 6,
-    ENCODING_DTS          = 7,
-    ENCODING_DTS_HD       = 8,
-    ENCODING_MP3          = 9,
-    ENCODING_AAC_LC       = 10,
-    ENCODING_AAC_HE_V1    = 11,
-    ENCODING_AAC_HE_V2    = 12,
-    ENCODING_IEC61937     = 13,
-    ENCODING_DOLBY_TRUEHD = 14,
-    ENCODING_AAC_ELD      = 15,
-    ENCODING_AAC_XHE      = 16,
-    ENCODING_AC4          = 17,
-    ENCODING_E_AC3_JOC    = 18,
-    ENCODING_DOLBY_MAT    = 19,
-    ENCODING_OPUS         = 20
-};
+// keep these values in sync with AudioFormat.java
+typedef enum {
+    ENCODING_INVALID                      = 0,
+    ENCODING_DEFAULT                      = 1,
+    ENCODING_PCM_16BIT                    = 2,
+    ENCODING_PCM_8BIT                     = 3,
+    ENCODING_PCM_FLOAT                    = 4,
+    ENCODING_AC3                          = 5,
+    ENCODING_E_AC3                        = 6,
+    ENCODING_DTS                          = 7,
+    ENCODING_DTS_HD                       = 8,
+    ENCODING_MP3                          = 9,
+    ENCODING_AAC_LC                       = 10,
+    ENCODING_AAC_HE_V1                    = 11,
+    ENCODING_AAC_HE_V2                    = 12,
+    ENCODING_IEC61937                     = 13,
+    ENCODING_DOLBY_TRUEHD                 = 14,
+    ENCODING_AAC_ELD                      = 15,
+    ENCODING_AAC_XHE                      = 16,
+    ENCODING_AC4                          = 17,
+    ENCODING_E_AC3_JOC                    = 18,
+    ENCODING_DOLBY_MAT                    = 19,
+    ENCODING_OPUS                         = 20,
+    ENCODING_PCM_24BIT_PACKED             = 21,
+    ENCODING_PCM_32BIT                    = 22,
+    ENCODING_MPEGH_BL_L3                  = 23,
+    ENCODING_MPEGH_BL_L4                  = 24,
+    ENCODING_MPEGH_LC_L3                  = 25,
+    ENCODING_MPEGH_LC_L4                  = 26,
+    ENCODING_DTS_UHD                      = 27,
+    ENCODING_DRA                          = 28,
+} AUDIO_ENCODING_FORMAT_E;
+
+static inline audio_format_t encodingFormat2AudioFormat(AUDIO_ENCODING_FORMAT_E audioFormat)
+{
+    switch (audioFormat) {
+    case ENCODING_PCM_16BIT:
+        return AUDIO_FORMAT_PCM_16_BIT;
+    case ENCODING_PCM_8BIT:
+        return AUDIO_FORMAT_PCM_8_BIT;
+    case ENCODING_PCM_FLOAT:
+        return AUDIO_FORMAT_PCM_FLOAT;
+    case ENCODING_AC3:
+        return AUDIO_FORMAT_AC3;
+    case ENCODING_E_AC3:
+        return AUDIO_FORMAT_E_AC3;
+    case ENCODING_DTS:
+        return AUDIO_FORMAT_DTS;
+    case ENCODING_DTS_HD:
+        return AUDIO_FORMAT_DTS_HD;
+    case ENCODING_MP3:
+        return AUDIO_FORMAT_MP3;
+    case ENCODING_AAC_LC:
+        return AUDIO_FORMAT_AAC_LC;
+    case ENCODING_AAC_HE_V1:
+        return AUDIO_FORMAT_AAC_HE_V1;
+    case ENCODING_AAC_HE_V2:
+        return AUDIO_FORMAT_AAC_HE_V2;
+    case ENCODING_IEC61937:
+        return AUDIO_FORMAT_IEC61937;
+    case ENCODING_DOLBY_TRUEHD:
+        return AUDIO_FORMAT_DOLBY_TRUEHD;
+    case ENCODING_AAC_ELD:
+        return AUDIO_FORMAT_AAC_ELD;
+    case ENCODING_AAC_XHE:
+        return AUDIO_FORMAT_AAC_XHE;
+    case ENCODING_AC4:
+        return AUDIO_FORMAT_AC4;
+    case ENCODING_E_AC3_JOC:
+        return AUDIO_FORMAT_E_AC3_JOC;
+    case ENCODING_DEFAULT:
+        return AUDIO_FORMAT_DEFAULT;
+    case ENCODING_DOLBY_MAT:
+        return AUDIO_FORMAT_MAT;
+    case ENCODING_OPUS:
+        return AUDIO_FORMAT_OPUS;
+    case ENCODING_PCM_24BIT_PACKED:
+        return AUDIO_FORMAT_PCM_24_BIT_PACKED;
+    case ENCODING_PCM_32BIT:
+        return AUDIO_FORMAT_PCM_32_BIT;
+    case ENCODING_MPEGH_BL_L3:
+        return AUDIO_FORMAT_MPEGH_BL_L3;
+    case ENCODING_MPEGH_BL_L4:
+        return AUDIO_FORMAT_MPEGH_BL_L4;
+    case ENCODING_MPEGH_LC_L3:
+        return AUDIO_FORMAT_MPEGH_LC_L3;
+    case ENCODING_MPEGH_LC_L4:
+        return AUDIO_FORMAT_MPEGH_LC_L4;
+    case ENCODING_DTS_UHD:
+        return AUDIO_FORMAT_DTS_UHD;
+    case ENCODING_DRA:
+        return AUDIO_FORMAT_DRA;
+    default:
+        return AUDIO_FORMAT_INVALID;
+    }
+}
 
 enum {
     ATTEND_TYPE_NONE = 0,
@@ -403,8 +460,8 @@ bool is_dual_output_stream(struct audio_stream_out *stream);
 const char *audio_port_role_to_str(audio_port_role_t role);
 const char *audio_port_type_to_str(audio_port_type_t type);
 void aml_stream_out_info_print(struct aml_stream_out *aml_out, uint64_t *frames, struct timespec *timestamp);
+void aml_stream_out_dump(struct aml_stream_out *aml_out, int fd);
 void aml_adev_stream_out_dump(struct aml_audio_device *aml_dev, int fd);
-
 int aml_dev_dump_latency(struct aml_audio_device *aml_dev, int fd);
 void aml_alsa_device_status_dump(struct aml_audio_device* aml_dev, int fd);
 void aml_decoder_info_dump(struct aml_audio_device *adev, int fd);

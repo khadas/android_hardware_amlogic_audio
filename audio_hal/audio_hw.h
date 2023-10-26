@@ -301,9 +301,9 @@ struct aml_audio_device {
     bool pcm_paused;
     unsigned hdmi_arc_ad[HDMI_ARC_MAX_FORMAT];
     bool hi_pcm_mode;
-    /* audio configuration for dolby HDMI/SPDIF output */
-    int digital_audio_format;
-    int last_digital_audio_format;
+    /* audio configuration for dolby HDMI/SPDIF output. AML_AUDIO_DIGITAL_MODE_E*/
+    int digital_audio_mode;
+    int last_digital_audio_mode;
     int spdif_format;
     bool spdif_enable;
     int hdmi_is_pth_active;
@@ -313,7 +313,7 @@ struct aml_audio_device {
     void * a2dp_hal;
     pthread_mutex_t a2dp_lock;
     bool bt_avrcp_supported;
-    int digital_audio_format_updated;
+    int digital_audio_mode_updated;
     struct aml_native_postprocess native_postprocess;
 
     /* for port config info */
@@ -567,6 +567,7 @@ struct aml_stream_out {
     unsigned int rate_convert;
     audio_output_flags_t flags;
     audio_devices_t out_device;
+    audio_io_handle_t io_handle;
     struct pcm *pcm;
     struct resampler_itfe *resampler;
     char *buffer;
@@ -749,6 +750,7 @@ struct aml_stream_in {
     struct pcm_config config;
     struct pcm *pcm;
     unsigned int device;
+    audio_io_handle_t io_handle;
     audio_channel_mask_t hal_channel_mask;
     audio_format_t hal_format;
     struct resampler_itfe *resampler;
@@ -785,7 +787,6 @@ struct aml_stream_in {
     size_t tmp_buffer_8ch_size;
     unsigned int frames_read;
     uint64_t timestamp_nsec;
-    bool bt_sco_active;
     hdmiin_audio_packet_t audio_packet_type;
     hdmiin_audio_packet_t last_audio_packet_type;
     int data_type;

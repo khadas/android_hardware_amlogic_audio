@@ -240,7 +240,8 @@ static int aml_audio_ms12_process(struct audio_stream_out *stream, const void *w
      */
     if (!adev->continuous_audio_mode && !patch && !audio_is_linear_pcm(aml_out->hal_format)) {
         need_separate_frame = true;
-    } else if (patch && is_same_patch_src(adev, SRC_DTV) && (BYPASS == adev->digital_audio_format)) {
+    } else if (patch && is_same_patch_src(adev, SRC_DTV) &&
+            (AML_DIGITAL_AUDIO_MODE_BYPASS == adev->digital_audio_mode)) {
         need_separate_frame = true;
     }
     if (need_separate_frame) {

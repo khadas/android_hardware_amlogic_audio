@@ -2566,7 +2566,7 @@ static unsigned int dtv_calc_pcrpts_latency(struct aml_audio_patch *patch, unsig
 {
     struct audio_hw_device *adev = patch->dev;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) adev;
-    if (!is_arc_connected(aml_dev) || aml_dev->digital_audio_format == PCM) {
+    if (!is_arc_connected(aml_dev) || aml_dev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_PCM) {
         return pcrpts;
     } else {
         return pcrpts + DEFAULT_ARC_DELAY_MS * 90;

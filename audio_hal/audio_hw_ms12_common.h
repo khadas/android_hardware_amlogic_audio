@@ -92,7 +92,7 @@ int ms12_mesg_thread_destroy(struct dolby_ms12_desc *ms12);
 int aml_send_ms12_scheduler_state_2_ms12(void);
 void ms12_timer_callback_handler(union sigval sigv);
 
-bool is_ad_data_available(int digital_audio_format);
+bool is_ad_data_available(int digital_audio_mode);
 void set_continuous_audio_mode(struct aml_audio_device *adev, int enable, int is_suspend);
 
 /* @brief set ms12 full dap disable as full_dap_disable [0/1] */
