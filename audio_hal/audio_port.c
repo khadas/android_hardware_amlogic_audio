@@ -927,6 +927,7 @@ int output_get_default_config(struct audioCfg *cfg, bool is_tv)
     cfg->channelCnt = 2;
     cfg->format = AUDIO_FORMAT_PCM_16_BIT;
     cfg->sampleRate = 48000;
+    cfg->channelMask = AUDIO_CHANNEL_OUT_STEREO;
     cfg->frame_size = cfg->channelCnt * audio_bytes_per_sample(cfg->format);
     return 0;
 }

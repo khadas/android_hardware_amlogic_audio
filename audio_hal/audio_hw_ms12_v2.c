@@ -1426,6 +1426,7 @@ int dolby_ms12_main_process(
         /* dynamically set the drc parameters mode/cut/boost */
         dynamic_set_dolby_ms12_drc_parameters(ms12);
     }
+    /*coverity[double_unlock]*/
     pthread_mutex_unlock(&ms12->lock);
 
     pthread_mutex_lock(&ms12->main_lock);
@@ -4046,8 +4047,8 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream) {
 int dolby_ms12_encoder_reconfig(struct dolby_ms12_desc *ms12) {
     struct aml_audio_device *adev = NULL;
     int output_config = MS12_OUTPUT_MASK_STEREO;
-    bool current_mat_encoder_enable = ms12->output_config & MS12_OUTPUT_MASK_MAT;
-    bool current_ddp_encoder_enable = ms12->output_config & MS12_OUTPUT_MASK_DDP;
+    bool current_mat_encoder_enable = false;
+    bool current_ddp_encoder_enable = false;
     bool b_reset = 0;
     struct aml_arc_hdmi_desc* hdmi_descs = NULL;
 
@@ -4055,6 +4056,8 @@ int dolby_ms12_encoder_reconfig(struct dolby_ms12_desc *ms12) {
     if (!ms12) {
         return -EINVAL;
     }
+    current_mat_encoder_enable = ms12->output_config & MS12_OUTPUT_MASK_MAT;
+    current_ddp_encoder_enable = ms12->output_config & MS12_OUTPUT_MASK_DDP;
     adev = ms12_to_adev(ms12);
     hdmi_descs = get_arc_hdmi_cap(adev);
 

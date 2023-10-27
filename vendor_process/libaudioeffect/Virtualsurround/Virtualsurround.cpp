@@ -261,6 +261,7 @@ int Virtualsurround_setParameter(VirtualsurroundContext *pContext, void *pParam,
     Virtualsurrounddata *data=&pContext->gVirtualsurrounddata;
     Virtualsurroundcfg *tbcfg=&data->tbcfg;
     LVCS_Params_t *CS_Params = &CS_Instance.Params;
+    /*coverity[missing_lock]*/
     if (hCSInstance == LVM_NULL)
         return LVCS_NULLADDRESS;
     pthread_mutex_lock(&audio_vir_mutex);
@@ -364,6 +365,7 @@ int Virtualsurround_process(effect_handle_t self, audio_buffer_t *inBuffer, audi
             *out++ = *in++;
         }
     } else {
+        /*coverity[missing_lock]*/
         if (hCSInstance == LVM_NULL)
             return LVCS_NULLADDRESS;
         pthread_mutex_lock(&audio_vir_mutex);

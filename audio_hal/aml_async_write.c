@@ -278,6 +278,7 @@ static void handle_buffer_write(struct aml_async_writer *p_worker, struct buffer
             buf_item->file_error_count = 0;
             buf_item->file_error_ms = 0;
             ALOGI("%s : open file %s success, clear the stale data", __func__, buf_item->filename);
+            fclose(fp);
             return;
         }
     }

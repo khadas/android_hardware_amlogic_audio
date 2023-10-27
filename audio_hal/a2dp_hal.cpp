@@ -674,6 +674,7 @@ int a2dp_hal_dump(struct aml_audio_device *adev, int fd) {
         dprintf(fd, "------------ [AM_HAL][A2DP] -------------------------------------\n");
         dprintf(fd, "-[AML_HAL]      out_rate      : %10d     | out_ch    :%10d\n", hal->config.sample_rate, audio_channel_count_from_out_mask(hal->config.channel_mask));
         dprintf(fd, "-[AML_HAL]      out_format    : %#10x     | cur_state :%10s\n", hal->config.format, a2dpStatus2String(hal->a2dphw.GetState()));
+        /*coverity[missing_lock]*/
         dprintf(fd, "-[AML_HAL]      a2dp_latency  : %" PRIu64" ms\n", hal->a2dp_latency / NSEC_PER_MSEC);
         aml_audio_resample_t *resample = hal->resample;
         if (resample) {

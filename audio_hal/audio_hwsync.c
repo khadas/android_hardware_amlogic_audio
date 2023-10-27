@@ -795,6 +795,7 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, uint64_t offset, uint
     adev = p_hwsync->aout->dev;
     if (adev == NULL) {
         ALOGE("%s,adev == NULL", __func__);
+        return -1;
     } else {
         debug_enable = aml_audio_get_hwsync_flag();
     }

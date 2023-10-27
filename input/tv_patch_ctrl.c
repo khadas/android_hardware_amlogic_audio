@@ -116,9 +116,12 @@ bool is_HBR_stream(struct audio_stream_in *stream)
 
     if (aml_dev->in_device & AUDIO_DEVICE_IN_HDMI && get_dev_patch(aml_dev)) {
         struct aml_audio_patch *audio_patch = get_dev_patch(aml_dev);
+        if (!audio_patch) {
+            AM_LOGE("%s(),get_dev_patch is fail",__func__);
+            return ret;
+        }
         audio_type_parse_t *audio_type_status = (audio_type_parse_t *)audio_patch->audio_parse_para;
-
-        if (audio_patch && audio_type_status && audio_type_status->soft_parser != 1) {
+        if (audio_type_status && audio_type_status->soft_parser != 1) {
             if (in->last_audio_packet_type == AUDIO_PACKET_HBR) {
                 ret = true;
             }

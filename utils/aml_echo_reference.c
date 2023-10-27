@@ -269,9 +269,11 @@ static int echo_reference_write(struct echo_reference_itfe *echo_reference,
                 er->buf_size = er->frames_in + inFrames;
                 er->buffer = aml_audio_realloc(er->buffer, er->buf_size * er->rd_frame_size);
     }
-    memcpy((char *)er->buffer + er->frames_in * er->rd_frame_size,
-           srcBuf,
-           inFrames * er->rd_frame_size);
+    if (srcBuf) {
+        memcpy((char *)er->buffer + er->frames_in * er->rd_frame_size,
+               srcBuf,
+               inFrames * er->rd_frame_size);
+    }
     er->frames_in += inFrames;
 
     ALOGV("echo_reference_write() frames written:[%zu], frames total:[%zu] buffer size:[%zu]\n"

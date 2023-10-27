@@ -363,21 +363,23 @@ static int pcm_hw_mmap_status(struct pcm *pcm) {
         return 0;
 
     int page_size = sysconf(_SC_PAGE_SIZE);
-    if (page_size > 0)
+    if (page_size > 0) {
         pcm->mmap_status = mmap(NULL, page_size, PROT_READ, MAP_FILE | MAP_SHARED,
                             pcm->fd, SNDRV_PCM_MMAP_OFFSET_STATUS);
-    if (pcm->mmap_status == MAP_FAILED)
-        pcm->mmap_status = NULL;
-    if (!pcm->mmap_status)
-        goto mmap_error;
-    if (page_size > 0)
+        if (pcm->mmap_status == MAP_FAILED || !pcm->mmap_status) {
+            pcm->mmap_status = NULL;
+            goto mmap_error;
+        }
         pcm->mmap_control = mmap(NULL, page_size, PROT_READ | PROT_WRITE,
                              MAP_FILE | MAP_SHARED, pcm->fd, SNDRV_PCM_MMAP_OFFSET_CONTROL);
-    if (pcm->mmap_control == MAP_FAILED)
-        pcm->mmap_control = NULL;
-    if (!pcm->mmap_control) {
-        munmap(pcm->mmap_status, page_size);
-        pcm->mmap_status = NULL;
+        if (pcm->mmap_control == MAP_FAILED || !pcm->mmap_control) {
+            pcm->mmap_control = NULL;
+            munmap(pcm->mmap_status, page_size);
+            pcm->mmap_status = NULL;
+            goto mmap_error;
+        }
+    } else {
+        ALOGE("page_size <= 0,mmap error");
         goto mmap_error;
     }
     if (pcm->flags & PCM_MMAP)

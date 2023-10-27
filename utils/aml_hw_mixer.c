@@ -123,8 +123,8 @@ int aml_hw_mixer_write(struct aml_hw_mixer *mixer, const void *buffer, size_t by
         ALOGE("%s: write data no space,space %d,bytes %zu,rp %d,wp %d, reset all ptr",
             __func__, space, bytes, mixer->rp, mixer->wp);
         mixer->wp = 0;
-        /*coverity[missing_lock]*/
         mixer->rp = 0;
+        /*coverity[missing_unlock]*/
         return bytes;
     }
 

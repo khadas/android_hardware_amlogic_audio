@@ -167,14 +167,15 @@ int aml_audio_ease_close(aml_audio_ease_t * ease_handle) {
 
 int aml_audio_ease_config(aml_audio_ease_t * ease_handle, ease_setting_t *setting) {
 
-    pthread_mutex_lock(&ease_handle->ease_lock);
     if (ease_handle == NULL || setting == NULL) {
         if (ease_handle) {
+            /*coverity[missing_lock]*/
             ease_handle->do_easing = false;
-            pthread_mutex_unlock(&ease_handle->ease_lock);
         }
         return -1;
     }
+
+    pthread_mutex_lock(&ease_handle->ease_lock);
     ease_handle->target_volume = setting->target_volume;
     ease_handle->start_volume = setting->start_volume;
     if (ease_handle->start_volume < ease_handle->target_volume) {

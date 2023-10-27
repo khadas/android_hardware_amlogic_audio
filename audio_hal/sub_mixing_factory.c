@@ -285,7 +285,7 @@ static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
     }
 
     clock_gettime(CLOCK_MONOTONIC, &new_tval);
-    us_since_last_write = (uint64_t)((new_tval.tv_sec - out->timestamp.tv_sec) * 1000000 +
+    us_since_last_write = llabs((new_tval.tv_sec - out->timestamp.tv_sec) * 1000000 +
             (new_tval.tv_nsec - out->timestamp.tv_nsec) / 1000);
     //out->timestamp = new_tval;
 
@@ -632,7 +632,7 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
         AM_LOGV("++bytes %zu, out->port_index %d", bytes, out->inputPortID);
         //AM_LOGD(" %lld us, %lld", new_tval.tv_sec, tval.tv_sec);
 
-        us_since_last_write = (uint64_t)((new_tval.tv_sec - out->timestamp.tv_sec) * 1000000 +
+        us_since_last_write = llabs((new_tval.tv_sec - out->timestamp.tv_sec) * 1000000 +
                 (new_tval.tv_nsec - out->timestamp.tv_nsec) / 1000);
         //out->timestamp = new_tval;
 

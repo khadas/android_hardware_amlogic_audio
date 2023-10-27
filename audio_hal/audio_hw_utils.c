@@ -291,13 +291,14 @@ int get_sysfs_int(const char *path)
     int val = 0,ret = 0;
     int fd = open(path, O_RDONLY);
     if (fd >= 0) {
-        char bcmd[16];
-        ret = read(fd, bcmd, sizeof(bcmd));
+        char bcmd[17];
+        ret = read(fd, bcmd, sizeof(bcmd)-1);
         if (ret < 0) {
             ALOGE("get_sysfs_int read fail \n");
             close(fd);
             return -1;
         }
+        bcmd[16] = '\0';
         val = strtol(bcmd, NULL, 10);
         close(fd);
     } else {
@@ -2624,6 +2625,8 @@ uint32_t aml_audio_read_audio_data_by_file(const char *file, const char *prop,
 
     struct stat file_stat;
     ret = stat(file, &file_stat);
+    if (ret != 0)
+        fclose(file_fd);
     R_CHECK_RET(ret, "get file size fail. file:%s, err:%s", file, strerror(errno));
 
     if (*cur_pos > file_stat.st_size || *cur_pos < 0) {
@@ -2641,7 +2644,8 @@ uint32_t aml_audio_read_audio_data_by_file(const char *file, const char *prop,
     if (read_size != bytes) {
         ALOGI("file:%s, restart read file", file);
         *cur_pos = WAV_FREAME_HEADER_SIZE_BYTE;
-        fseek(file_fd, *cur_pos, SEEK_SET);
+        int fseek_ret = fseek(file_fd, *cur_pos, SEEK_SET);
+        NO_R_CHECK_RET(fseek_ret, "file:%s, fseek failed, ret:%#x, %s", file, ret, strerror(errno));
         read_size = fread((char *)buffer + read_size, 1, bytes - read_size, file_fd);
     }
     *cur_pos += read_size;

@@ -355,6 +355,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                             AUDIO_FORMAT_PCM_16_BIT, MM_FULL_POWER_SAMPLING_RATE);
                 }
 #endif
+                /*coverity[missing_lock]*/
                 if (!adev->volume_ease.ease->do_easing || dev != AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
                     apply_volume_16to32(volume, adev->out_16_buf, adev->out_32_buf, bytes);
                 } else {
@@ -777,6 +778,7 @@ ssize_t hw_write (struct audio_stream_out *stream
         aml_out->lasttimestamp.tv_nsec = aml_out->timestamp.tv_nsec;
         if (total_frame >= latency_frames) {
             if (frame_write_sum_updated || adev->ms12.main_input_insert_zero) {
+                /*coverity[use]*/
                 aml_out->last_frames_position = total_frame;
             } else {
                 aml_out->last_frames_position = total_frame - latency_frames;

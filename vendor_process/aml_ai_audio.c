@@ -482,7 +482,7 @@ int aml_ai_audio_module_configure(void *handle, uint32_t sample_rate, int channe
 int aml_ai_audio_module_reset(void *handle)
 {
     struct aml_ai_audio_module *aiModule = (struct aml_ai_audio_module *)handle;
-    if (aiModule->state != AI_AQ_STATE_INITIALIZED || aiModule->state != AI_AQ_STATE_ACTIVE) {
+    if (aiModule->state != AI_AQ_STATE_INITIALIZED && aiModule->state != AI_AQ_STATE_ACTIVE) {
         return -EINVAL;
     }
     //TODO
@@ -727,7 +727,7 @@ static int iva_class_deinit(struct ai_audio_libraries_context *aiLibContext)
 
 static int iva_libraries_close(struct ai_audio_libraries_context *aiLibContext)
 {
-    if (!aiLibContext->dl_handle) {
+    if (aiLibContext->dl_handle) {
         dlclose(aiLibContext->dl_handle);
         aiLibContext->dl_handle = NULL;
     }

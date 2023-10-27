@@ -680,12 +680,11 @@ int hal_scaletempo_process(struct scale_tempo* scaletempo, aml_scaletempo_info_t
     int n_samples_to_process = 0;
     int input_samples = 0;
     clock_gettime(CLOCK_MONOTONIC_RAW, &start_ts);
+    pthread_mutex_lock(&scaletempo->mutex);
 
     p_in_buffer = info->inputbuffer;
     p_out_buffer = info->outputbuffer;
     input_samples = info->input_samples;
-
-    pthread_mutex_lock(&scaletempo->mutex);
 
     if (fabs(scaletempo->scale - 1.0) < 1e-10) {
         n_samples_to_process = min(info->input_samples, info->output_samples);

@@ -102,6 +102,7 @@ void* createPreferredImpl(const std::string& package, const std::string& interfa
             return rawInterface;
         }
     }
+    /*coverity[dead_error_line]*/
     return nullptr;
 }
 

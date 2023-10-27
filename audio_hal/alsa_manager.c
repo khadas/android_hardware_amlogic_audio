@@ -828,7 +828,7 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
     while (read_bytes < bytes) {
         if (in->is_tv_src_stream &&
             is_dev_patch_valid(aml_dev) &&
-            is_dev_patch_exist(aml_dev) &&
+            is_dev_patch_exist(aml_dev) && audio_patch &&
             audio_patch->input_thread_exit) {
             memset((void*)buffer,0,bytes);
             return 0;

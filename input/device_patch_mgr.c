@@ -207,6 +207,7 @@ static int create_patch_internal(struct patch_manager *patch_mgr,
         ALOGD("%s: patch exists, first release it", __func__);
         ALOGD("%s: new input %#x, old input %#x", __func__, src_device, old_patch->input_src);
         if (type == PATCH_TYPE_TV) {
+            /*coverity[sleep]*/
             release_tv_patch(patch_mgr->adev);
             set_patch_running_mgr(patch_mgr, false);
         }
@@ -290,6 +291,7 @@ int release_patch_internal(struct patch_manager *patch_mgr, int type)
             !is_same_patch_source_mgr(patch_mgr, SRC_INVAL) &&
             is_patch_running_mgr(patch_mgr))
         {
+            /*coverity[sleep]*/
             ret = release_tv_patch(patch_mgr->adev);
         }
         break;

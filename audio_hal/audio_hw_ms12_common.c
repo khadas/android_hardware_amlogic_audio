@@ -130,16 +130,15 @@ int dolby_ms12_main_pause(struct audio_stream_out *stream)
     aml_audio_sleep(64000);
     ALOGI("%s  sleep 64ms finished", __func__);
 
-    if (aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_PAUSED) {
+    if (aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_PAUSED && aml_out->hwsync) {
         ALOGI("%s end of frame =%d", __func__, aml_out->hwsync->end_of_hwsync_frame);
         /*if we are end of frame now, we don't need to pause pcr*/
         if (!aml_out->hwsync->end_of_hwsync_frame) {
             aml_hwsync_wrap_set_pause(aml_out->hwsync);
             aml_out->tsync_status = TSYNC_STATUS_PAUSED;
         }
-        if (aml_out->hwsync) {
-            aml_out->hwsync->first_apts_flag = false;
-        }
+
+        aml_out->hwsync->first_apts_flag = false;
         ALOGD("%s tsync pause finished", __func__);
     }
     pthread_mutex_unlock(&ms12->main_lock);
@@ -160,6 +159,7 @@ int dolby_ms12_main_resume(struct audio_stream_out *stream)
     **so add ms12_resume_state to distinguish resume/flush/close resume message.
     **In addition, just only do tsync resume from resume interface message.
     */
+    /*coverity[missing_lock]*/
     if (aml_out->hw_sync_mode
         && (ms12->ms12_resume_state == MS12_RESUME_FROM_RESUME)) {
         aml_hwsync_wrap_set_resume(aml_out->hwsync);
@@ -291,6 +291,7 @@ Repop_Mesg:
             goto Error;
         }
         ALOGV("%s  ms12_out:%p, ==> ms12_main_stream_out:%p", __func__,adev->ms12_out,ms12->ms12_main_stream_out);
+        /*coverity[missing_lock]*/
         switch (mesg_p->mesg_type) {
             case MS12_MESG_TYPE_FLUSH:
                 if (ms12->ms12_main_stream_out != NULL)

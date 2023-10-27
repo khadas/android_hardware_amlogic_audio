@@ -907,10 +907,12 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
                     struct aml_audio_device *adev = (out != NULL) ? (out->dev) : NULL;
                     AM_LOGI("output port:%s fade out, pausing->pausing_1, tsync pause audio", mixerInputType2Str(type));
                     aml_hwsync_wrap_set_pause(hwsync);
-                    if (out && out->hal_format == AUDIO_FORMAT_PCM_32_BIT) {
-                        audio_fade_func_32bit(in_port->data, ret, 0, out->hal_ch);
-                    } else {
-                        audio_fade_func_16bit(in_port->data, ret, 0, out->hal_ch);
+                    if (out) {
+                        if (out->hal_format == AUDIO_FORMAT_PCM_32_BIT) {
+                            audio_fade_func_32bit(in_port->data, ret, 0, out->hal_ch);
+                        } else {
+                            audio_fade_func_16bit(in_port->data, ret, 0, out->hal_ch);
+                        }
                     }
                     set_inport_state(in_port, PAUSED);
                     /* Mute the last data to prevent gap. */
@@ -922,10 +924,12 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
                     }
                 } else if (fade_in) {
                     AM_LOGI("input port:%s fade in", mixerInputType2Str(type));
-                    if (out && out->hal_format == AUDIO_FORMAT_PCM_32_BIT) {
-                        audio_fade_func_32bit(in_port->data, ret, 1, out->hal_ch);
-                    } else {
-                        audio_fade_func_16bit(in_port->data, ret, 1, out->hal_ch);
+                    if (out) {
+                        if (out->hal_format == AUDIO_FORMAT_PCM_32_BIT) {
+                            audio_fade_func_32bit(in_port->data, ret, 1, out->hal_ch);
+                        } else {
+                            audio_fade_func_16bit(in_port->data, ret, 1, out->hal_ch);
+                        }
                     }
                     set_inport_state(in_port, ACTIVE);
                 }
@@ -1403,6 +1407,7 @@ static int mixer_config_multich_output(struct amlAudioMixer *audio_mixer, struct
             mc_out_port = new_mc_output_port(&cfg, MIXER_FRAME_COUNT);
             if (mc_out_port == NULL) {
                 AM_LOGE("new_mc_output_port failed !");
+                pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
                 return -1;
             }
             audio_mixer->out_ports[port_index] = mc_out_port;
@@ -1813,6 +1818,7 @@ int pcm_mixer_thread_run(struct amlAudioMixer *audio_mixer)
     }
     audio_mixer->mixing_enable = 1;
     switch (format) {
+    /*coverity[unterminated_case]*/
     case AUDIO_FORMAT_PCM_32_BIT:
         //ret = pthread_create(&audio_mixer->out_mixer_tid, NULL, mixer_32b_threadloop, audio_mixer);
         //break;

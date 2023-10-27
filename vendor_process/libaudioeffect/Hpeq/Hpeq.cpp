@@ -826,6 +826,7 @@ int HPEQLib_Create(const effect_uuid_t *uuid, int32_t sessionId __unused, int32_
             pContext->gHPEQdata.usr_cfg = (int *)calloc(pContext->gHPEQdata.band_num * pContext->gHPEQdata.mode_num, sizeof(int));
             if (!pContext->gHPEQdata.usr_cfg) {
                 ALOGE("%s: default alloc failed", __FUNCTION__);
+                /*coverity[leaked_storage]*/
                 return -EINVAL;
             }
         }

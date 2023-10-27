@@ -3542,14 +3542,15 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         char *tmp_buffer = aml_audio_malloc(VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
         if (!tmp_buffer) {
             ALOGE("tmp_buffer NULL %d",__LINE__);
+        } else {
+            for (int i = 0; i < VX_BUFFER_CLEAR_COUNT; i++) {
+                 memset(tmp_buffer, 0, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
+                 audio_post_process(&adev->native_postprocess, (int16_t *)tmp_buffer, VX_BUFFER_CLEAR_STEREO_FRAME_SIZE);
+                 audio_VX_post_process(&adev->native_postprocess, (int16_t *)tmp_buffer, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
+            }
+            aml_audio_free(tmp_buffer);
+            tmp_buffer = NULL;
         }
-        for (int i = 0; i < VX_BUFFER_CLEAR_COUNT; i++) {
-             memset(tmp_buffer, 0, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
-             audio_post_process(&adev->native_postprocess, (int16_t *)tmp_buffer, VX_BUFFER_CLEAR_STEREO_FRAME_SIZE);
-             audio_VX_post_process(&adev->native_postprocess, (int16_t *)tmp_buffer, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
-        }
-        aml_audio_free(tmp_buffer);
-        tmp_buffer = NULL;
     }
 
 #if ENABLE_DVB_PATCH
@@ -6651,6 +6652,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
             aml_audio_sleep(minum_sleep_time_us - cost_time_us);
         }
     }
+    /*coverity[missing_unlock]*/
     return bytes;
 
 }
@@ -7842,10 +7844,15 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
     dprintf(fd, "[AML_HAL]      ms12 main volume: %10f\n", aml_dev->ms12.main_volume);
     dprintf(fd, "[AML_HAL]      ms12 main mute  : %10d\n", aml_dev->ms12.is_muted);
     aml_audio_ease_t *audio_ease = aml_dev->audio_ease;
-    if (audio_ease && fabs(audio_ease->current_volume) <= 1e-6) {
-        dprintf(fd, "[AML_HAL]      ease out muted. start:%f target:%f\n", audio_ease->start_volume, audio_ease->target_volume);
-    }
-
+    if (!audio_ease) {
+         dprintf(fd, "[AML_HAL]      audio_ease is null \n");
+    } else {
+        pthread_mutex_lock(&audio_ease->ease_lock);
+        if (audio_ease && fabs(audio_ease->current_volume) <= 1e-6) {
+            dprintf(fd, "[AML_HAL]      ease out muted. start:%f target:%f\n", audio_ease->start_volume, audio_ease->target_volume);
+        }
+        pthread_mutex_unlock(&audio_ease->ease_lock);
+   }
     aml_decoder_info_dump(aml_dev, fd);
 
     aml_adev_stream_out_dump(aml_dev, fd);
@@ -7880,6 +7887,7 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
 pthread_mutex_t adev_mutex = PTHREAD_MUTEX_INITIALIZER;
 static void * g_adev = NULL;
 void *adev_get_handle(void) {
+    /*coverity[missing_lock]*/
     return (void *)g_adev;
 }
 
@@ -8388,6 +8396,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     }
 
     /* some external codec init time last longer, wait 1s before timeout */
+    /*coverity[sleep]*/
     if (init_audio_hw_resource_mgr(adev, &adev->alsa_mixer) < 0) {
         ALOGE("%s() line:%d error! audio route init failed", __func__, __LINE__);
         ret = -EINVAL;
