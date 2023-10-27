@@ -768,6 +768,11 @@ int out_get_presentation_position_port(
             ret = mixer_get_presentation_position(audio_mixer,
                 out->inputPortID, frames, timestamp);
             pthread_mutex_unlock(&out->apts_update_lock);
+            // convert the frames for resample in AudioHal
+            if (out->hal_rate != MM_FULL_POWER_SAMPLING_RATE) {
+                *frames = (*frames * out->hal_rate) / MM_FULL_POWER_SAMPLING_RATE;
+            }
+
         }
         if (adev->debug_flag)
             AM_LOGI("%s out->standby:%d pause_status:%d frame_write_sum_updated:%d, frames:%"PRIu64", frame_write_sum:%"PRIu64"", __func__,
@@ -797,10 +802,6 @@ int out_get_presentation_position_port(
             *frames += frame_latency ;
         }
 
-        // convert the frames for resample in AudioHal
-        if (out->hal_rate != MM_FULL_POWER_SAMPLING_RATE) {
-            *frames = (*frames * out->hal_rate) / MM_FULL_POWER_SAMPLING_RATE;
-        }
 
         if (adev->debug_flag) {
             AM_LOGI("tuning_latency_ms %d, frame_latency:%d", latency_ms, frame_latency);
