@@ -322,7 +322,7 @@ int set_output_device_avail(struct aml_audio_device *adev, audio_devices_t devic
     pthread_mutex_lock(&mgr->lock);
     update_avail_device_l(mgr, device, enable);
 
-    if (device == AUDIO_DEVICE_OUT_HDMI_ARC) {
+    if (device & AUDIO_DEVICE_OUT_HDMI_ARC) {
         mgr->bHDMIConnected = enable;
         mgr->bHDMIARCon = enable;
         mgr->bHDMIConnected_update = true;

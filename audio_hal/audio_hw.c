@@ -8251,7 +8251,7 @@ static int adev_set_device_connected_state_v7(struct audio_hw_device *dev,
 
         set_device_connect_state(aml_dev, parms, port->ext.device.type, connected);
         if (connected) {
-            if (port->ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC) {
+            if (port->ext.device.type & AUDIO_DEVICE_OUT_HDMI_ARC) {
                 if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
                     aml_dev->raw_to_pcm_flag = true;
                 } else {
@@ -8265,7 +8265,7 @@ static int adev_set_device_connected_state_v7(struct audio_hw_device *dev,
                 aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
             }
         }
-        if (port->ext.device.type == AUDIO_DEVICE_OUT_HDMI_ARC) {
+        if (port->ext.device.type & AUDIO_DEVICE_OUT_HDMI_ARC) {
             int earc_tx_type = aml_audio_earctx_get_type(aml_dev);
             AM_LOGI("current connect: %s", (earc_tx_type == ATTEND_TYPE_EARC) ? "earc" : "arc");
             if (earc_tx_type == ATTEND_TYPE_EARC && connected) {
