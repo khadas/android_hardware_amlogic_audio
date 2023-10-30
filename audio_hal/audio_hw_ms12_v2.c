@@ -3475,6 +3475,13 @@ Aml_MS12_SyncPolicy_t ms12_dtv_sync_callback(void *priv_data, unsigned long long
     }
     aml_out->last_decout_frame = u64DecOutFrame;
 
+    if ((audio_sync_policy.eSyncPolicy == DTVSYNC_AUDIO_DROP_PCM || audio_sync_policy.eSyncPolicy == DTVSYNC_AUDIO_INSERT)
+        && (audio_sync_policy.s32TagFrame < 0 || audio_sync_policy.s32CurFrame < 0 || audio_sync_policy.s32CurFrame > audio_sync_policy.s32TagFrame)) {
+        ALOGE("%s, get error policy, policy=%d, tag frame =%d, cur_frame=%d, reset sync policy.", __func__, audio_sync_policy.eSyncPolicy, audio_sync_policy.s32TagFrame, audio_sync_policy.s32CurFrame);
+        audio_sync_policy.eSyncPolicy = MS12_SYNC_AUDIO_NORMAL_OUTPUT;
+        audio_sync_policy.s32TagFrame = 0;
+        audio_sync_policy.s32CurFrame = 0;
+    }
     return audio_sync_policy;
 }
 
