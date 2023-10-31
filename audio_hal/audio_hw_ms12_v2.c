@@ -3149,6 +3149,7 @@ int mc_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_
     int mc_delay_ms = 0;
     int ch_mask = AUDIO_CHANNEL_OUT_STEREO;
     int data_ch = 2;
+    bool is_earc = (ATTEND_TYPE_EARC == aml_audio_earctx_get_type(adev));
 
     if (adev->debug_flag > 1) {
         ALOGI("+%s() size %zu,dual_output = %d, optical_format = 0x%x, sink_format = 0x%x out total=%d main in=%d",
@@ -3161,6 +3162,20 @@ int mc_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_
     ch_mask = acmod_convert_to_channel_mask(ms12_info->acmod, ms12_info->lfeon);
 
     bitstream_out = &ms12->bitstream_out[bitstream_id];
+
+    // mc_pcm_output conflict with dolby sdk certification(request stereo pcm output)
+    if (!adev->is_netflix && !is_earc) {
+        if (bitstream_out->spdifout_handle) {
+            ALOGI("%s close mc spdif handle =%p", __func__, bitstream_out->spdifout_handle);
+            aml_audio_spdifout_close(bitstream_out->spdifout_handle);
+            bitstream_out->spdifout_handle = NULL;
+        }
+        if (adev->debug_flag > 1) {
+            ALOGI("%s : isn't netflix, drop data\n", __FUNCTION__);
+        }
+        return 0;
+    }
+
     if ((adev->optical_format != AUDIO_FORMAT_PCM_16_BIT) || (adev->sink_max_channels < 6) || ms12->is_bypass_ms12
         || (ch_mask == AUDIO_CHANNEL_OUT_STEREO)) {
         if (bitstream_out->spdifout_handle) {
