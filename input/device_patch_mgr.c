@@ -212,7 +212,7 @@ static int create_patch_internal(struct patch_manager *patch_mgr,
         }
 #ifdef ENABLE_DVB_PATCH
         else if (type == PATCH_TYPE_DTV) {
-            release_dtv_patch(patch_mgr->adev);
+            //release_dtv_patch(patch_mgr->adev);
             set_patch_running_mgr(patch_mgr, false);
         }
 #endif
