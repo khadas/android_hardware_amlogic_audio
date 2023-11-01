@@ -3991,6 +3991,8 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream) {
     ms12->main_buffer_max_level = 0;
     ms12->last_frames_position = 0;
 
+    pthread_mutex_lock(&ms12->main_lock);
+
     if (!is_ms12_continuous_mode(adev)) {
         ms12->ms12_main_input_size = 0;
         ms12->master_pcm_frames = 0;
@@ -4018,6 +4020,8 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream) {
     if (ms12->ms12_bypass_handle) {
         aml_ms12_bypass_reset(ms12->ms12_bypass_handle);
     }
+
+    pthread_mutex_unlock(&ms12->main_lock);
     ALOGI("%s exit", __func__);
     return 0;
 }
