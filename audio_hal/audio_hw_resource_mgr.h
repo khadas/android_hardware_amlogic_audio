@@ -84,6 +84,12 @@ int set_output_device_avail(struct aml_audio_device *adev, audio_devices_t devic
 */
 int set_output_device_mute(struct aml_audio_device *adev, audio_devices_t device, bool enable, bool use_fade);
 
+/*
+* Function: get output device mute or un-mute state
+*/
+bool is_output_device_muted(struct aml_audio_device *adev,
+        audio_devices_t device, bool fade_mute);
+
 /* get platform type */
 bool is_TV(struct aml_audio_device *adev);
 bool is_BDS(struct aml_audio_device *adev);

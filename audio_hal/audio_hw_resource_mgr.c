@@ -55,6 +55,7 @@ typedef struct port_info_map {
     audio_devices_t device;
     float gain;
     bool mute;
+    bool fade_mute;
     //whether device connected or routed
     bool enable;
     //routed or connected count
@@ -623,6 +624,7 @@ int set_output_device_mute(struct aml_audio_device *adev, audio_devices_t device
                 audio_route_apply_path(mgr->ar, "speaker_fadein");
             }
             audio_route_update_mixer(mgr->ar);
+            port_info->fade_mute = enable;
         }
         port_info->mute = enable;
         break;
@@ -635,6 +637,32 @@ int set_output_device_mute(struct aml_audio_device *adev, audio_devices_t device
     pthread_mutex_unlock(&mgr->lock);
     AM_LOGI("device:0x%x mute:%d port_mute:%d using_fade:%d", device, enable, port_info->mute, use_fade);
     return ret;
+}
+
+bool is_output_device_muted(struct aml_audio_device *adev,
+        audio_devices_t device, bool fade_mute)
+{
+    audio_hw_resource_mgr *mgr = get_hw_resource_manger(adev);
+    struct port_info_map* port_info = NULL;
+    int outport = 0, extern_arc = 0, ret = 0;
+    bool muted = false;
+
+    ret = android_dev_convert_to_hal_dev(device, &outport);
+    if (ret < 0 || (device == AUDIO_DEVICE_NONE)) {
+        AM_LOGE("Warning! un-support device:%#x", device);
+        return false;
+    }
+
+    port_info = get_in_port_info_map(mgr, outport);
+    AM_LOGI("device:%#x port_mute:%d, fade_mute:%d",
+        device, port_info->mute, port_info->fade_mute);
+
+    if (fade_mute)
+        muted = port_info->fade_mute;
+    else
+        muted = port_info->mute;
+
+    return muted;
 }
 
 struct audio_hw_resource_mgr *get_hw_resource_manger(struct aml_audio_device *adev)

@@ -1448,6 +1448,10 @@ static ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
                 return -ENOMEM;
             }
         }
+
+        /* do fade in if former standby fadeout is done */
+        if (is_output_device_muted(adev, AUDIO_DEVICE_OUT_SPEAKER, true))
+            set_output_device_mute(adev, AUDIO_DEVICE_OUT_SPEAKER, false, true);
     }
 
     /**
