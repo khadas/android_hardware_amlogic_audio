@@ -3513,6 +3513,12 @@ void *audio_dtv_patch_input_threadloop(void *data)
 
                      /* mediasync check dmx package */
                      {
+                        if (Dtvsync->last_queue_apts == DTVSYNC_INIT_PTS) {
+                            ALOGI("[audiohal_kpi][%s,%d] get first audio es data , pts:%" PRIx64 ".\n",
+                                   __FUNCTION__, __LINE__, dtv_package->pts);
+                        }
+                        Dtvsync->last_queue_apts = dtv_package->pts;
+
                         if (dtv_package->pts_dts_flag != 0) {
                             audio_queue_info.apts = dtv_package->pts;
                             audio_queue_info.duration = Dtvsync->duration;
@@ -3824,6 +3830,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
         patch->dtvsync->out_start_apts = DTVSYNC_INIT_PTS;
         patch->dtvsync->out_end_apts = DTVSYNC_INIT_PTS;
         patch->dtvsync->last_package_pts = DTVSYNC_INIT_PTS;
+        patch->dtvsync->last_queue_apts = DTVSYNC_INIT_PTS;
     }
 
     while (!patch->output_thread_exit) {
