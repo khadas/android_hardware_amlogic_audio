@@ -48,6 +48,7 @@
 #include "aml_audio_timer.h"
 #include "aml_malloc_debug.h"
 #include "aml_audio_spdifout.h"
+#include "dtv_private_object.h"
 #include "audio_hw_resource_mgr.h"
 
 
@@ -483,7 +484,12 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
     struct aml_stream_out *aml_out = NULL;
     mc_output_port *mc_out_port = NULL;
 
-    out_port->sound_track_mode = audio_mixer->adev->sound_track_mode;
+    if (is_dtv_patch_exist(audio_mixer->adev)) {
+        out_port->sound_track_mode = get_dtv_sound_mode(audio_mixer->adev);
+    } else {
+        out_port->sound_track_mode = audio_mixer->adev->sound_track_mode;
+    }
+
     while (out_port->bytes_avail > 0) {
         // out_write_callbacks();
         aml_audio_switch_output_mode((int16_t *)out_port->data_buf,
