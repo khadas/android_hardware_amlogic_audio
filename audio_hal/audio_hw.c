@@ -5481,13 +5481,18 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
         if (continuous_mode(adev) && ms12->dolby_ms12_enable) {
             is_compatible = is_ms12_output_compatible(stream, adev->sink_format, adev->optical_format);
         }
-        if (is_compatible) {
-            reset_decoder = false;
-        }
+
         if (!is_bypass_dolbyms12(stream) && (reset_decoder == true)) {
             pthread_mutex_lock(&adev->lock);
             if (!ms12->dolby_ms12_enable) {
                 adev_ms12_prepare((struct audio_hw_device *)adev);
+            }
+            if (is_dev_patch_exist(adev) && (is_same_patch_src(adev, SRC_HDMIIN) || is_same_patch_src(adev, SRC_SPDIFIN))) {
+                if (ms12->main_input_fmt != AUDIO_FORMAT_INVALID &&
+                    ms12->main_input_fmt != aml_out->hal_internal_format) {
+                    /*main decoder changed, switch the dolby decoder*/
+                    dolby_ms12_main_close(stream);
+                }
             }
             adev->mix_init_flag = true;
             dolby_ms12_encoder_reconfig(&adev->ms12);
@@ -6334,7 +6339,6 @@ hwsync_rewrite:
         if (continuous_mode(adev) && adev->ms12_main1_dolby_dummy == true
             && !audio_is_linear_pcm(hal_internal_format)) {
             pthread_mutex_lock(&adev->lock);
-            dolby_ms12_set_main_dummy(0, false);
             adev->ms12_main1_dolby_dummy = false;
 
             pthread_mutex_unlock(&adev->lock);
@@ -8012,9 +8016,12 @@ int adev_ms12_prepare(struct audio_hw_device *dev) {
 void adev_ms12_cleanup(struct audio_hw_device *dev) {
     struct aml_audio_device *adev = (struct aml_audio_device *) dev;
     struct audio_stream_out *stream_out = (struct audio_stream_out *)adev->ms12_out;
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream_out;
     get_dolby_ms12_cleanup(&adev->ms12, true);
-    if (stream_out)
+    if (stream_out) {
+        aml_out->hwsync = NULL;
         adev_close_output_stream_new(dev, stream_out);
+    }
     adev->ms12_out = NULL;
 
     return;
@@ -8703,7 +8710,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
             ALOGE("%s, adev_ms12_prepare fail!\n", __func__);
             goto Err_MS12_MesgThreadCreate;
         }
-
+        adev->ms12.main_input_fmt = AUDIO_FORMAT_INVALID;
     }
 
     // init hw_mediasync

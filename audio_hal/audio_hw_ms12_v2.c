@@ -1423,7 +1423,7 @@ int dolby_ms12_main_process(
 
     if (ms12->dolby_ms12_enable && !aml_out->is_ms12_main_decoder) {
         dolby_ms12_main_open(stream);
-
+        dolby_ms12_set_main_dummy(0, false);
         /* dynamically set the drc parameters mode/cut/boost */
         dynamic_set_dolby_ms12_drc_parameters(ms12);
     }
@@ -3886,8 +3886,7 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
     }
 
     if (patch && patch->input_src == AUDIO_DEVICE_IN_HDMI) {
-        if (!adev->continuous_audio_mode &&
-            ((hal_internal_format == AUDIO_FORMAT_AC3) || (hal_internal_format == AUDIO_FORMAT_E_AC3))) {
+        if ((hal_internal_format == AUDIO_FORMAT_AC3) || (hal_internal_format == AUDIO_FORMAT_E_AC3)) {
             dolby_ms12_set_enforce_timeslice(true);
             ALOGI("hdmi in ddp/dd case, use enforce timeslice");
         }
@@ -3953,7 +3952,7 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
         ms12->ms12_main_stream_out = NULL;
         ms12->is_bypass_ms12 = false;
         ms12->main_input_insert_zero = 0;
-        adev->ms12.main_input_fmt = AUDIO_FORMAT_PCM_16_BIT;
+        adev->ms12.main_input_fmt = AUDIO_FORMAT_INVALID;
         adev->ms12.main_input_start_offset_ns = 0;
         adev->ms12.last_frames_position = 0;
 
@@ -4304,6 +4303,9 @@ uint64_t dolby_ms12_get_main_pcm_generated(struct audio_stream_out *stream) {
         audio_format = aml_out->hwsync->aout->hal_internal_format;
     else {
         audio_format = aml_out->hal_internal_format;
+    }
+    if (audio_format == AUDIO_FORMAT_INVALID) {
+        return 0;
     }
     audio_format = ms12_get_audio_hal_format(audio_format);
     pcm_frame_generated = dolby_ms12_get_continuous_nframes_pcm_output(ms12->dolby_ms12_ptr, MAIN_INPUT_STREAM);
