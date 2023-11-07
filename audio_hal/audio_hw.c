@@ -2208,8 +2208,8 @@ int start_input_stream(struct aml_stream_in *in)
     AM_LOGD("io %d: in:%p open alsa_card(%d %d) alsa_device(%d), in_device:%#x", in->io_handle,
           in, card, port, alsa_device, adev->in_device);
     AM_LOGD("device:%s(%#x) channels=%d period_size=%d rate=%d requested_rate=%d mode= %d",
-        audioDevType2Str(in->device | AUDIO_DEVICE_BIT_IN), in->device, in->config.channels, in->config.period_size,
-        in->config.rate, in->requested_rate, adev->mode);
+        audioDevType2Str(in->device | AUDIO_DEVICE_BIT_IN), (in->device | AUDIO_DEVICE_BIT_IN),
+        in->config.channels, in->config.period_size, in->config.rate, in->requested_rate, adev->mode);
 
     in->pcm = pcm_open(card, alsa_device, PCM_IN | PCM_MONOTONIC | PCM_NONEBLOCK, &in->config);
     if (!pcm_is_ready(in->pcm)) {
@@ -3777,6 +3777,8 @@ static int check_usb_card_device(struct str_parms *parms, int device)
     }
     const uint32_t USB_RETRY_TIMEOUT_MAX_CNT = 50;
     const uint32_t USB_RETRY_TIME_MS = 20;
+
+    device &= ~AUDIO_DEVICE_BIT_IN;
     /*usb audio hot plug need delay some time wait alsa file create */
     if ((device & AUDIO_DEVICE_OUT_ALL_USB) || (device & AUDIO_DEVICE_IN_ALL_USB)) {
         int card = 0, alsa_dev = 0, retry = 0;
@@ -4274,15 +4276,6 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
             AM_LOGI("rtl bt module, force use 8k sample rate.");
         } else {
             adev->bt_wbs = (strncmp(value, "on", 2) == 0);
-        }
-        /* 1. Re-pcm_open input is required when setting bt_wbs param, re-configure the sample rate based on the bt_wbs.
-         * 2. eg: first read IN_BLUETOOTH_SCO_HEADSET data, then set bt_wbs=true, and finally play OUT_BLUETOOTH_SCO.
-         *    pcm_open input PCM will use 8khz, pcm_open output PCM use 16khz. The sample rate of the input and output
-         *    of PCM arc inconsistent, resulting in a pcm_open output failure.
-         */
-        struct aml_stream_in * in = adev->active_input;
-        if (in && (in->device & AUDIO_DEVICE_IN_ALL_SCO)) {
-           in_standby((struct audio_stream *)in);
         }
         goto exit;
     }
@@ -4914,7 +4907,6 @@ int adev_open_input_stream(struct audio_hw_device *dev,
     }
 
     devices &= ~AUDIO_DEVICE_BIT_IN;
-
     if (devices & AUDIO_DEVICE_IN_ALL_USB) {
         usb_adev->adev_primary = (void*)adev;
         adev->in_device |= devices;
@@ -4990,8 +4982,12 @@ int adev_open_input_stream(struct audio_hw_device *dev,
 
     if (in->device & AUDIO_DEVICE_IN_ALL_SCO) {
         memcpy(&in->config, &pcm_config_bt, sizeof(pcm_config_bt));
-        if (adev->bt_wbs)
+        if (adev->bt_wbs) {
             in->config.rate = VX_WB_SAMPLING_RATE;
+        }
+        // returns are based on the sampling rate supported by the hardware.
+        config->sample_rate = in->config.rate;
+        in->requested_rate = in->config.rate;
     } else if (in->device & AUDIO_DEVICE_IN_WIRED_HEADSET) {
         //bluetooth rc voice
         // usecase for bluetooth rc audio hal
@@ -5003,8 +4999,9 @@ int adev_open_input_stream(struct audio_hw_device *dev,
         }
         config->sample_rate = in->config.rate;
         config->channel_mask = AUDIO_CHANNEL_IN_MONO;
-    } else
+    } else {
         memcpy(&in->config, &pcm_config_in, sizeof(pcm_config_in));
+    }
     in->config.channels = channel_count;
     in->source = source;
     if (source == AUDIO_SOURCE_ECHO_REFERENCE) {
@@ -5081,7 +5078,8 @@ int adev_open_input_stream(struct audio_hw_device *dev,
         ALOGI("%s(): aml TV source stream", __func__);
         in->is_tv_src_stream = true;
     }
-
+    AM_LOGI("result profile ch:%#x rate:%d format:%s(%#x)", config->channel_mask, config->sample_rate,
+        audioFormat2Str(config->format), config->format);
     AM_LOGI("io %d: in:%p exit ------", handle, in);
     return 0;
 err:
@@ -7699,8 +7697,6 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
                                 PATCH_TYPE_DTV);
                 }
 #endif
-            } else {
-                ALOGE("[%s:%d] create patch failed, all_out_devices:%#x.", __func__, __LINE__, aml_dev->cur_out_devices);
             }
             ret = 0;
         } else {
