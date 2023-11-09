@@ -3652,12 +3652,12 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         ALOGI("%s restore dolby lib =%d", __func__, adev->dolby_lib_type);
     }
     pthread_mutex_unlock(&out->lock);
-
     pthread_mutex_destroy(&out->lock);
 
+    AM_LOGI("io %d: out:%p exit ------", out->io_handle, out);
     aml_audio_free(stream);
     stream = NULL;
-    AM_LOGI("io %d: out:%p exit ------", out->io_handle, out);
+    out = NULL;
 }
 
 static int aml_audio_outport_enable(struct aml_audio_device *adev, audio_devices_t device, bool enable)
@@ -5154,8 +5154,10 @@ void adev_close_input_stream(struct audio_hw_device *dev,
         destroy_aec_mic_config(adev->aec);
     }
 #endif
-    aml_audio_free(stream);
     AM_LOGI("io %d: in:%p exit ------", in->io_handle, in);
+    aml_audio_free(stream);
+    stream = NULL;
+    in = NULL;
     return;
 }
 
