@@ -587,7 +587,8 @@ bool aml_decoder_output_compatible(struct audio_stream_out *stream, audio_format
         || (aml_out->aml_dec->format == AUDIO_FORMAT_E_AC3)) {
         aml_dcv_config_t* dcv_config = (aml_dcv_config_t *)(&aml_out->dec_config);
         if (((optical_format == AUDIO_FORMAT_PCM_16_BIT) && (dcv_config->digital_raw > AML_DEC_CONTROL_DECODING))
-            || ((optical_format == AUDIO_FORMAT_E_AC3) && (dcv_config->digital_raw != AML_DEC_CONTROL_RAW))) {
+            || ((optical_format == AUDIO_FORMAT_E_AC3) && (dcv_config->digital_raw != AML_DEC_CONTROL_RAW))
+            || (optical_format == AUDIO_FORMAT_AC3 && dcv_config->decoding_mode != DDP_DECODE_MODE_SINGLE)) {
                 is_compatible = false;
         }
     } else if ((aml_out->aml_dec->format == AUDIO_FORMAT_DTS)
