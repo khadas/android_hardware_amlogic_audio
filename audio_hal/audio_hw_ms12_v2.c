@@ -795,6 +795,7 @@ void set_ms12_main_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute, unsigne
     if ((strlen(parm)) > 0 && ms12)
         aml_ms12_update_runtime_params(ms12, parm);
     ms12->is_muted = b_mute;
+    ALOGD("%s b_mute %d, duration %d ", __FUNCTION__, ms12->is_muted, duration);
 }
 
 void set_dolby_ms12_drc_parameters(audio_format_t input_format, int output_config_mask)
@@ -3990,6 +3991,7 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
     }
 
     aml_ms12_main_decoder_close(ms12);
+    set_ms12_main_audio_mute(ms12, false, 0);
 
     return 0;
 }
