@@ -737,6 +737,7 @@ struct aml_stream_out {
     uint64_t decoded_frame;
     bool b_install_sync_callback;
     bool aaudio_low_latency;
+    bool digital_input_fmt_change;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

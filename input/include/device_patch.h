@@ -263,6 +263,7 @@ struct aml_audio_patch
     struct timespec start_ts;
     int mdelay;
     bool start_mute;
+    struct aml_stream_out *output_stream;
 };
 
 void create_tvin_buffer(struct aml_audio_patch *patch);

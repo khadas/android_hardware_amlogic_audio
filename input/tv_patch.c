@@ -51,7 +51,72 @@
 #include "audio_hw_resource_mgr.h"
 #include "component_noise_gate.h"
 #include "tv_private_object.h"
+#include "dolby_lib_api.h"
+#include "spdif_encoder_api.h"
 
+void audio_digital_input_format_check(struct aml_audio_patch *patch)
+{
+    struct aml_stream_out *aml_out = patch->output_stream;
+    struct aml_audio_device *adev = NULL;
+    audio_format_t cur_aformat;
+
+    if (!aml_out)
+        return;
+
+    adev = aml_out->dev;
+
+    if (aml_out->is_tv_src_stream && IS_DIGITAL_IN_HW(patch->input_src)) {
+        cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
+        if (cur_aformat != patch->aformat) {
+            ALOGI ("HDMI/SPDIF input format changed from %#x to %#x   hal_format changed from %#x to %#x\n", patch->aformat, cur_aformat, aml_out->hal_format, cur_aformat);
+            patch->aformat = cur_aformat;
+            //FIXME: if patch audio format change, the hal_format need to redefine.
+            //then the out_get_format() can get it.
+            if (cur_aformat != AUDIO_FORMAT_PCM_16_BIT && cur_aformat != AUDIO_FORMAT_PCM_32_BIT) {
+                aml_out->hal_format = AUDIO_FORMAT_IEC61937;
+                patch->IEC61937_format = true;
+            } else {
+                aml_out->hal_format = cur_aformat ;
+                patch->IEC61937_format = false;
+            }
+            aml_out->digital_input_fmt_change = true;
+            patch->mode_reconfig_flag = true;
+            aml_out->hal_internal_format = cur_aformat;
+            aml_out->hal_channel_mask = audio_parse_get_audio_channel_mask (patch->audio_parse_para);
+            ALOGI ("%s hal_channel_mask %#x, mode_reconfig_flag %d\n", __FUNCTION__, aml_out->hal_channel_mask, patch->mode_reconfig_flag);
+            if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS ||
+                aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
+                if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
+                    /* For DTS-HD case, needs enlarge buffer and start threshold to anti-xrun */
+                    aml_out->config.period_count = 12;
+                    aml_out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
+                    // The maximum dts-hd frame duration is 4096 frames, needs to be greater than this to avoid underruns at the start.
+                    aml_out->config.start_threshold = 4608; // 4096 + 512
+                } else {
+                    // reset to default
+                    aml_out->config.period_count = DEFAULT_PLAYBACK_PERIOD_CNT;
+                    aml_out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
+                    aml_out->config.start_threshold = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
+                }
+
+                if (audio_parse_get_audio_type_direct(patch->audio_parse_para) == DTSCD ) {
+                    aml_out->is_dtscd = true;
+                } else {
+                    aml_out->is_dtscd = false;
+                }
+            } else {
+                adev->dolby_lib_type = adev->dolby_lib_type_last;
+                // reset to default
+                aml_out->config.period_count = DEFAULT_PLAYBACK_PERIOD_CNT;
+                aml_out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
+                aml_out->config.start_threshold = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
+            }
+            /* reset audio patch ringbuffer */
+            ring_buffer_reset(&patch->aml_ringbuffer);
+            adev->spdif_encoder_init_flag = false;
+        }
+    }
+}
 
 /*==================================patch & threadloops=========================================*/
 // buffer/period ratio, bigger will add more latency
@@ -220,6 +285,7 @@ void *audio_patch_input_threadloop(void *data)
                     audio_raw_data_continuous_check(aml_dev, patch->audio_parse_para, patch->in_buf, read_bytes);
                 }
             }
+            audio_digital_input_format_check(patch);
         }
 
         /*noise gate is only used in Linein for 16bit audio data*/
@@ -302,6 +368,8 @@ void *audio_patch_output_threadloop(void *data)
         ALOGE("%s: patch is NULL", __func__);
         return (void *)0;
     }
+
+    patch->output_stream = NULL;
     dev = patch->dev;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) dev;
     ring_buffer_t *ringbuffer = & (patch->aml_ringbuffer);
@@ -354,8 +422,10 @@ void *audio_patch_output_threadloop(void *data)
     }
 
     out = (struct aml_stream_out *)stream_out;
+    out->digital_input_fmt_change = false;
     patch->out_buf_size = write_bytes = out->config.period_size * audio_stream_out_frame_size(&out->stream);
     patch->out_buf = aml_audio_calloc(1, patch->out_buf_size);
+    patch->output_stream = (struct aml_stream_out *)stream_out;
     if (!patch->out_buf) {
         adev_close_output_stream_new(patch->dev, &out->stream);
         return (void *)0;

@@ -6136,27 +6136,16 @@ hwsync_rewrite:
         }
     }
 
-    /* here to check if the audio input format changed. */
     audio_format_t cur_aformat;
     if (is_dev_patch_exist(adev) && aml_out->is_tv_src_stream && IS_DIGITAL_IN_HW(patch->input_src)) {
-        cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
-        if (cur_aformat != patch->aformat) {
-            ALOGI ("HDMI/SPDIF input format changed from %#x to %#x\n", patch->aformat, cur_aformat);
-            patch->aformat = cur_aformat;
-            //FIXME: if patch audio format change, the hal_format need to redefine.
-            //then the out_get_format() can get it.
-            ALOGI ("hal_format changed from %#x to %#x\n", aml_out->hal_format, cur_aformat);
-            if (cur_aformat != AUDIO_FORMAT_PCM_16_BIT && cur_aformat != AUDIO_FORMAT_PCM_32_BIT) {
-                aml_out->hal_format = AUDIO_FORMAT_IEC61937;
-                patch->IEC61937_format = true;
-            } else {
-                aml_out->hal_format = cur_aformat ;
-                patch->IEC61937_format = false;
-            }
-            patch->mode_reconfig_flag = true;
-            aml_out->hal_internal_format = cur_aformat;
-            aml_out->hal_channel_mask = audio_parse_get_audio_channel_mask (patch->audio_parse_para);
-            ALOGI ("%s hal_channel_mask %#x, mode_reconfig_flag %d\n", __FUNCTION__, aml_out->hal_channel_mask, patch->mode_reconfig_flag);
+        if (aml_out->digital_input_fmt_change) {
+            ALOGI("%s(), hdmi input format changed", __func__);
+            memset((void *)buffer, 0, bytes);
+            need_reconfig_output = true;
+            need_reset_decoder = true;
+            need_reconfig_samplerate = true;
+            aml_out->digital_input_fmt_change = false;
+
             if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS ||
                 aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
                 /*when switch from ms12 to dts, we should clean ms12 first*/
@@ -6164,37 +6153,8 @@ hwsync_rewrite:
                     adev_ms12_cleanup((struct audio_hw_device *)adev);
                 }
                 adev->dolby_lib_type = eDolbyDcvLib;
-                if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
-                    /* For DTS-HD case, needs enlarge buffer and start threshold to anti-xrun */
-                    aml_out->config.period_count = 12;
-                    aml_out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
-                    // The maximum dts-hd frame duration is 4096 frames, needs to be greater than this to avoid underruns at the start.
-                    aml_out->config.start_threshold = 4608; // 4096 + 512
-                } else {
-                    // reset to default
-                    aml_out->config.period_count = DEFAULT_PLAYBACK_PERIOD_CNT;
-                    aml_out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
-                    aml_out->config.start_threshold = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
-                }
-
-                if (audio_parse_get_audio_type_direct(patch->audio_parse_para) == DTSCD ) {
-                    aml_out->is_dtscd = true;
-                } else {
-                    aml_out->is_dtscd = false;
-                }
-            } else {
-                adev->dolby_lib_type = adev->dolby_lib_type_last;
-                // reset to default
-                aml_out->config.period_count = DEFAULT_PLAYBACK_PERIOD_CNT;
-                aml_out->config.period_size = DEFAULT_PLAYBACK_PERIOD_SIZE;
-                aml_out->config.start_threshold = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
             }
-            //we just do not support dts decoder,just mute as LPCM
-            need_reconfig_output = true;
-            need_reset_decoder = true;
-            /* reset audio patch ringbuffer */
-            ring_buffer_reset(&patch->aml_ringbuffer);
-            memset((void *)buffer, 0, bytes);
+
 #ifdef ADD_AUDIO_DELAY_INTERFACE
             // fixed switch between RAW and PCM noise, drop delay residual data
             aml_audio_delay_clear(AML_DELAY_OUTPORT_SPDIF);
@@ -6212,9 +6172,6 @@ hwsync_rewrite:
                 aml_out->spdifenc_handle = NULL;
                 aml_out->spdifenc_init = false;
             }
-
-            adev->spdif_encoder_init_flag = false;
-            need_reconfig_samplerate = true;
         } else {
             need_reconfig_samplerate = false;
         }
