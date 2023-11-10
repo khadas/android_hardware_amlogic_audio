@@ -327,6 +327,16 @@ extern "C" int dolby_ms12_register_ms12sync_callback(void *dolby_mS12_pointer, v
     }
 }
 
+extern "C" int dolby_ms12_register_ms12tempo_callback(void *dolby_mS12_pointer, void *callback, void *priv_data)
+{
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12RegisterTempoCallback(dolby_mS12_pointer, (android::ms12tempo_callback)callback, priv_data);
+    } else {
+        return -1;
+    }
+}
+
 
 extern "C" int dolby_ms12_update_runtime_params(void *dolbyMS12_pointer, int configNum, char **configParams)
 {

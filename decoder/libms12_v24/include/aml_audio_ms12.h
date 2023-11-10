@@ -205,6 +205,7 @@ struct dolby_ms12_desc {
     bool main_input_insert_zero;
     bool aaudio_low_latency;
     bool dap_only_enable;
+    float tempo_speed;
 };
 
 /*

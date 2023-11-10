@@ -174,6 +174,18 @@ typedef struct Aml_MS12_Delay_s {
     unsigned long long u64DelayTimeStamp;
 } Aml_MS12_Delay_t;
 
+typedef struct Aml_MS12_TempoInfo_s {
+    int s32SampleRate;
+    int s32Channel;
+    int s32InSampleSize;
+    char *pu8InBuffer;
+    unsigned int u32InBufferSize;
+    int s32OutSampleSize;
+    char *pu8OutBuffer;
+    unsigned int u32OutBufferSize;
+    float f32TempoSpeed;
+} Aml_MS12_TempoInfo_t;
+
 static int ms12_update_decoded_info_process(struct audio_stream_out *stream, void *input_buffer, size_t input_bytes);
 
 
@@ -895,8 +907,8 @@ void set_dolby_ms12_main_speed(struct dolby_ms12_desc *ms12, double speed) {
         ALOGE("%s invalid speed =%f", __func__, speed);
         return;
     }
-    if (ms12 && ms12->scaletempo) {
-        hal_scaletempo_update_rate(ms12->scaletempo, speed);
+    if (ms12) {
+        ms12->tempo_speed = speed;
     }
 }
 
@@ -1180,6 +1192,7 @@ int get_the_dolby_ms12_prepared(
     ms12->dtv_decoder_offset_base = dtv_decoder_offset_base;
     ALOGI("set ms12 sys pos =%" PRId64 "", ms12->sys_audio_base_pos);
     ms12->aaudio_low_latency = false;
+    ms12->tempo_speed        = 1.0f;
 
     ms12->iec61937_ddp_buf = aml_audio_calloc(1, MS12_DDP_FRAME_SIZE);
     if (ms12->iec61937_ddp_buf == NULL) {
@@ -3826,6 +3839,54 @@ int ms12_scaletempo(void *priv_data, void *info) {
     return 0;
 }
 
+int ms12_tempo_callback(void *priv_data, void *info) {
+    if (priv_data == NULL || info == NULL) {
+        return -1;
+    }
+
+    int ret = 0;
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)priv_data;
+    struct aml_audio_device *adev = aml_out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    Aml_MS12_TempoInfo_t *pstTempoInfo = (Aml_MS12_TempoInfo_t *)info;
+
+    if (fabs(ms12->tempo_speed - 1.0f) > 1e-6 && (pstTempoInfo->s32InSampleSize == 2 || pstTempoInfo->s32InSampleSize == 4)) {
+        ALOGV("%s InBufferSize=%d, InSampleSize=%u, tempo_speed=%f Channel=%d\n", __FUNCTION__, pstTempoInfo->u32InBufferSize, pstTempoInfo->s32InSampleSize, ms12->tempo_speed, pstTempoInfo->s32Channel);
+        if (pstTempoInfo->s32InSampleSize == 4) {
+            short *dst;
+            int *src;
+            int i = 0;
+            dst = (short *)pstTempoInfo->pu8InBuffer;
+            src = (int *)pstTempoInfo->pu8InBuffer;
+            for (i = 0; i < (pstTempoInfo->u32InBufferSize / pstTempoInfo->s32InSampleSize); i++) {
+                dst[i] = (short)(src[i] >> 16);
+            }
+            pstTempoInfo->u32InBufferSize /= 2;
+        }
+
+        ret = aml_audio_speed_process_wrapper(&aml_out->speed_handle, pstTempoInfo->pu8InBuffer,
+                                pstTempoInfo->u32InBufferSize, ms12->tempo_speed,
+                                pstTempoInfo->s32SampleRate, pstTempoInfo->s32Channel);
+        if (ret != 0) {
+            ALOGE("aml_audio_speed_process_wrapper failed");
+        } else {
+            pstTempoInfo->s32OutSampleSize = 2;
+            pstTempoInfo->pu8OutBuffer = aml_out->speed_handle->speed_buffer;
+            pstTempoInfo->u32OutBufferSize = aml_out->speed_handle->speed_size;
+            ALOGV("%s InBufferSize=%d, OutBufferSize=%d\n", __FUNCTION__, pstTempoInfo->u32InBufferSize,  pstTempoInfo->u32OutBufferSize);
+        }
+    } else {
+        if (aml_out->speed_handle) {
+            aml_audio_speed_close(aml_out->speed_handle);
+            aml_out->speed_handle = NULL;
+        }
+        pstTempoInfo->s32OutSampleSize = pstTempoInfo->s32InSampleSize;
+        pstTempoInfo->pu8OutBuffer = pstTempoInfo->pu8InBuffer;
+        pstTempoInfo->u32OutBufferSize = pstTempoInfo->u32InBufferSize;
+    }
+    pstTempoInfo->f32TempoSpeed = ms12->tempo_speed;
+    return ret;
+}
 
 static void *dolby_ms12_threadloop(void *data)
 {
@@ -4021,6 +4082,8 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
         }
     }
 
+    aml_ms12_main_decoder_open(ms12, hal_internal_format, aml_out->hal_channel_mask, sample_rate);
+
 #ifdef ENABLE_DVB_PATCH
     if (do_sync_flag) {
         dolby_ms12_register_ms12sync_callback(ms12->dolby_ms12_ptr, ms12_dtv_sync_callback, (void *)stream);
@@ -4037,20 +4100,15 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
         dolby_ms12_set_heaac_default_dialnorm_value(adev->loudness_level);
     }
 
-    aml_ms12_main_decoder_open(ms12, hal_internal_format, aml_out->hal_channel_mask, sample_rate);
-
 #ifdef ENABLE_DVB_PATCH
-    if (is_same_patch_src(adev, SRC_DTV) && patch) {
-        if (ms12->scaletempo == NULL) {
-            hal_scaletempo_init((struct scale_tempo **)&ms12->scaletempo);
-        }
-        dolby_ms12_register_scaletempo_callback(ms12_scaletempo, (void *)aml_out);
 
+    if (is_same_patch_src(adev, SRC_DTV) && patch) {
+        set_dolby_ms12_main_speed(&adev->ms12, 1.0f);
+        dolby_ms12_register_ms12tempo_callback(ms12->dolby_ms12_ptr, ms12_tempo_callback, (void *)stream);
         if (aml_out->output_speed != 1.0) {
             set_dolby_ms12_main_speed(&adev->ms12, (double)aml_out->output_speed);
             ALOGI("%s(), aml_out->output_speed %f", __FUNCTION__,aml_out->output_speed);
         }
-
     }
 #endif
     /* In Netflix test case, the volume should add into the list. */
@@ -4112,9 +4170,9 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
     }
 
     dolby_ms12_register_scaletempo_callback(NULL, NULL);
-    if (ms12->scaletempo) {
-        hal_scaletempo_release((struct scale_tempo *)ms12->scaletempo);
-        ms12->scaletempo = NULL;
+    if (aml_out->speed_handle) {
+        aml_audio_speed_close(aml_out->speed_handle);
+        aml_out->speed_handle = NULL;
     }
 
     /*if the main/ad is closed, we should reset it to pcm*/
@@ -4171,6 +4229,11 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream) {
     }
     if (ms12->ms12_bypass_handle) {
         aml_ms12_bypass_reset(ms12->ms12_bypass_handle);
+    }
+
+    if (aml_out->speed_handle) {
+        aml_audio_speed_close(aml_out->speed_handle);
+        aml_out->speed_handle = NULL;
     }
 
     pthread_mutex_unlock(&ms12->main_lock);

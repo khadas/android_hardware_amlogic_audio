@@ -72,6 +72,7 @@ namespace android
 typedef int (*output_callback)(void *buffer, void *priv, size_t size, void *);
 //typedef Aml_MS12_SyncPolicy_t (*Aml_MS12_SyncCallBack)(void *priv_data, unsigned long long u64DecOutFrame, Aml_MS12_Delay_t stDelay, Aml_MS12_SyncPolicy_t stSyncPolicyStatus);
 typedef int (*ms12sync_callback)(void *priv_data, unsigned long long , int, int);
+typedef int (*ms12tempo_callback)(void *priv_data, void *ptempoinfo);
 
 typedef int (*scaletempo_callback)(void *priv, void *info);
 
@@ -150,6 +151,7 @@ public:
 #endif
 
     virtual int DolbyMS12RegisterSyncCallback(void *DolbyMS12Pointer, ms12sync_callback callback, void *priv_data);
+    virtual int DolbyMS12RegisterTempoCallback(void *DolbyMS12Pointer, ms12tempo_callback callback, void *priv_data);
 
     virtual int     DolbyMS12UpdateRuntimeParams(
         void *DolbyMS12Pointer
