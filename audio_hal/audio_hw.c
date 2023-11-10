@@ -5280,10 +5280,7 @@ int do_output_standby_l(struct audio_stream *stream)
             //release_spdif_encoder_output_buffer(out);
         }
     }
-    if (out->is_normal_pcm) {
-        set_system_app_mixing_status(out, out->stream_status);
-        out->normal_pcm_mixing_config = false;
-    }
+
     out->pause_status = false;//clear pause status
 
     //remove these code from standby, they have been invoked in close_stream interface.
@@ -6526,14 +6523,6 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
         if (adev->is_netflix && (eDolbyMS12Lib == adev->dolby_lib_type) && !dolby_stream_active(adev)) {
             ALOGI("%s : without dolby_stream, netflix pcm drc use line mode", __func__);
             dynamic_set_dolby_ms12_drc_parameters(&adev->ms12);
-        }
-    }
-
-    if (aml_out->is_normal_pcm && !aml_out->normal_pcm_mixing_config) {
-        if (0 == set_system_app_mixing_status(aml_out, aml_out->stream_status)) {
-            aml_out->normal_pcm_mixing_config = true;
-        } else {
-            aml_out->normal_pcm_mixing_config = false;
         }
     }
 

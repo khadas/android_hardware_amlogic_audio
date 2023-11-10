@@ -1033,10 +1033,7 @@ int get_the_dolby_ms12_prepared(
 
     /************end**************/
     /*set the system app sound mixing enable*/
-    if (adev->continuous_audio_mode) {
-        adev->system_app_mixing_status = SYSTEM_APP_SOUND_MIXING_ON;
-    }
-    dolby_ms12_set_system_app_audio_mixing(adev->system_app_mixing_status);
+    dolby_ms12_set_system_app_audio_mixing(SYSTEM_APP_SOUND_MIXING_ON);
 
     /* set DAP init mode */
     set_dolby_ms12_dap_init_mode(adev);
