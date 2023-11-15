@@ -27,14 +27,31 @@
 #include <cutils/properties.h>
 
 extern "C" {
-#include "audio_hw_utils.h"
-#include "alsa_device_parser.h"
+#include <alsa_device_parser.h>
 }
 
 #include "aml_vad_wakeup.h"
+#include "aml_malloc_debug.h"
+
 
 using namespace std;
-#define VAD_DEVICE 3
+#define VAD_DEVICE          (3)
+
+#define AML_AUDIO_VAD_SOURCE_PROP           "persist.vendor.sys.vad.source"
+#define AML_AUDIO_VAD_DEVICE_PROP           "persist.vendor.sys.vad.device"
+#define AML_AUDIO_VAD_CHANNEL_PROP          "persist.vendor.sys.vad.channel"
+#define AML_AUDIO_VAD_RATE_PROP             "persist.vendor.sys.vad.rate"
+
+#define AM_LOGV(fmt, ...)  ALOGV("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define AM_LOGD(fmt, ...)  ALOGD("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define AM_LOGI(fmt, ...)  ALOGI("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define AM_LOGW(fmt, ...)  ALOGW("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define AM_LOGE(fmt, ...)  ALOGE("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
+#define R_CHECK_POINTER_LEGAL(ret, pointer, fmt, ...)                                           \
+    if (pointer == NULL) {                                                                      \
+        AM_LOGE("%s is null pointer " fmt, #pointer, ##__VA_ARGS__);                            \
+        return ret;                                                                             \
+    }
 
 typedef struct vad_wakeup_t {
     bool exit_run;
@@ -181,9 +198,9 @@ static void aml_vad_read_dump_data() {
     }
     AM_LOGD("available vad data size:%d", dump_data_size);
 
-    file = fopen("/data/vad_dump_data", "w");
+    file = fopen("/data/audio/vad_dump_data", "w");
     if (file == NULL) {
-        AM_LOGE("open /data/vad_dump_data fail. err:%s", strerror(errno));
+        AM_LOGE("open /data/audio/vad_dump_data fail. err:%s", strerror(errno));
         goto out;
     }
 
@@ -216,12 +233,16 @@ exit:
     AM_LOGI("dump vad data end");
 }
 
-void aml_vad_dump() {
+void aml_vad_dump(bool block) {
     if (g_is_dumping_data) {
         AM_LOGW("already dumping data.");
         return;
     }
     g_is_dumping_data = true;
     thread dump_thread(aml_vad_read_dump_data);
-    dump_thread.detach();
+    if (block) {
+        dump_thread.join();
+    } else {
+        dump_thread.detach();
+    }
 }

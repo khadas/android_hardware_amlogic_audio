@@ -73,6 +73,7 @@ cc_library_shared {
         "aml_effects_util.cpp",
         "aml_audio_report.c",
         "aml_audio_sysfs.c",
+        "aml_vad_wakeup.cpp",
         "cJSON/cJSON.c"
     ],
 
