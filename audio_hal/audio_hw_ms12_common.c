@@ -115,6 +115,7 @@ int dolby_ms12_main_pause(struct audio_stream_out *stream)
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     int ms12_runtime_update_ret = 0;
 
+    pthread_mutex_lock(&ms12->main_lock);
     dolby_ms12_set_pause_flag(true);
     //ms12_runtime_update_ret = aml_ms12_update_runtime_params(ms12);
     ms12_runtime_update_ret = set_dolby_ms12_runtime_pause(ms12, true);
@@ -141,6 +142,7 @@ int dolby_ms12_main_pause(struct audio_stream_out *stream)
         }
         ALOGD("%s tsync pause finished", __func__);
     }
+    pthread_mutex_unlock(&ms12->main_lock);
 
     return 0;
 }
