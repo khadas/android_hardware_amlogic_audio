@@ -266,13 +266,11 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 break;
             } else if (decoder_ret < 0) {
                 ALOGV("[%s:%d] aml_decoder_process error, ret:%d", __func__, __LINE__, decoder_ret);
-
             }
             if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
                 if (dec_pcm_data->data_len)
                 check_audio_level("dec pcm", dec_pcm_data->buf, dec_pcm_data->data_len);
             }
-
 
             left_bytes -= used_size;
             dec_used_size += used_size;
@@ -333,11 +331,16 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     memset(dec_pcm_data->buf, 0, dec_pcm_data->data_len);
                 }
 #endif
-
-                audio_format_t output_format = AUDIO_FORMAT_PCM_16_BIT;
+                //TODO: using decoder output buffer format as next processing format
+                //Now, it's wrong so add some handle here
+                audio_format_t output_format;
+                if (audio_is_linear_pcm(aml_out->hal_internal_format)) {
+                    output_format = aml_out->hal_internal_format;
+                } else {
+                    output_format = AUDIO_FORMAT_PCM_16_BIT;
+                }
                 void  *dec_data = (void *)dec_pcm_data->buf;
                 int pcm_len = dec_pcm_data->data_len;
-
 
                 if (patch) {
                     patch->sample_rate = dec_pcm_data->data_sr;
@@ -498,51 +501,79 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     if (adev->ms12.dap_only_enable)
                         aml_dap_close(&(adev->ms12));
                 }
+
                 if (adev->ms12.dap_only_enable) {
                     ;//do nothing here.
                 }
                 else {
                     /* For MS12 lib with DTS output, no submixer exists */
                     if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
-                        aml_hw_mixer_mixing(&adev->hw_mixer, dec_data, pcm_len, output_format);
-
-                    data_info.audio_format = output_format;
-                    data_info.channel_mask = audio_channel_out_mask_from_count(dec_pcm_data->data_ch);
-                    ret = aml_audio_pcm_output((struct audio_stream_out *)aml_out, dec_data, pcm_len, &data_info);
-                } else {
-                    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
-                        check_audio_level("after process", dec_data, pcm_len);
-                    }
-                    aml_out->hwsync_header_stripped = true;
-                    if (adev->dev2mix_patch) {
-                        if (patch && (patch->need_do_avsync == true) && (patch->input_signal_stable == false) &&
-                            ((adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) || (adev->out_device & AUDIO_DEVICE_OUT_ALL_USB)) &&
-                            ((adev->in_device & AUDIO_DEVICE_IN_HDMI) || (adev->in_device & AUDIO_DEVICE_IN_LINE))){
-                        } else {
-                            tv_in_write(stream, dec_data, pcm_len);
-                            memset((char *)dec_data, 0, pcm_len);
+                        struct aml_hw_mixer_buffer in_buf;
+                        in_buf.data = dec_data;
+                        in_buf.bytes = pcm_len;
+                        in_buf.format = output_format;
+                        struct aml_hw_mixer_buffer out_buf;
+                        out_buf.data = NULL;
+                        out_buf.bytes = 0;
+                        //using primary output format as hw mixer output format
+                        out_buf.format = get_primary_out_format(adev);
+                        aml_hw_mixer_mixing_by_format(&adev->hw_mixer, &in_buf, &out_buf);
+                        if (out_buf.bytes > 0) {
+                            data_info.audio_format = out_buf.format;
+                            data_info.channel_mask = audio_channel_out_mask_from_count(dec_pcm_data->data_ch);
+                            ret = aml_audio_pcm_output((struct audio_stream_out *)aml_out, out_buf.data, out_buf.bytes, &data_info);
                         }
-                    }
-#ifdef ENABLE_DVB_PATCH
+                    } else if (adev->useSubMix) {
+                        if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+                            check_audio_level("after process", dec_data, pcm_len);
+                        }
+                        aml_out->hwsync_header_stripped = true;
+                        if (adev->dev2mix_patch) {
+                            if (patch && (patch->need_do_avsync == true) && (patch->input_signal_stable == false) &&
+                                ((adev->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) || (adev->out_device & AUDIO_DEVICE_OUT_ALL_USB)) &&
+                                ((adev->in_device & AUDIO_DEVICE_IN_HDMI) || (adev->in_device & AUDIO_DEVICE_IN_LINE))){
+                            } else {
+                                tv_in_write(stream, dec_data, pcm_len);
+                                memset((char *)dec_data, 0, pcm_len);
+                            }
+                        }
+    #ifdef ENABLE_DVB_PATCH
 
-                    if (is_same_patch_src(adev, SRC_DTV)) {
-                        if (patch && !get_dev_patch(adev)->skip_amadec_flag) {
-                            call_dtv_avsync_callback(stream,pcm_len);
-                            if (get_dev_patch(adev)->need_drop_size > 0) {
-                                ret_size = drop_dtv_pcm(stream, dec_data, pcm_len);
-                                if (ret_size >= pcm_len)
-                                    return pcm_len;
-                                else
-                                    mixer_main_buffer_write_sm(stream, (unsigned char*)dec_data + ret_size, pcm_len - ret_size);
+                        if (is_same_patch_src(adev, SRC_DTV)) {
+                            if (patch && !get_dev_patch(adev)->skip_amadec_flag) {
+                                call_dtv_avsync_callback(stream,pcm_len);
+                                if (get_dev_patch(adev)->need_drop_size > 0) {
+                                    ret_size = drop_dtv_pcm(stream, dec_data, pcm_len);
+                                    if (ret_size >= pcm_len)
+                                        return pcm_len;
+                                    else
+                                        mixer_main_buffer_write_sm(stream, (unsigned char*)dec_data + ret_size, pcm_len - ret_size);
+                                } else
+                                    mixer_main_buffer_write_sm(stream, dec_data, pcm_len);
                             } else
                                 mixer_main_buffer_write_sm(stream, dec_data, pcm_len);
                         } else
+    #endif
+                            //here stream without right initial config "audioCfg", so set it
+                            aml_out->audioCfg.format = output_format;
+                            aml_out->audioCfg.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+                            aml_out->audioCfg.sample_rate = OUTPUT_ALSA_SAMPLERATE;
                             mixer_main_buffer_write_sm(stream, dec_data, pcm_len);
-                    } else
-#endif
-
-                            mixer_main_buffer_write_sm(stream, dec_data, pcm_len);
-                   }
+                    } else { /*no submix */
+                        //AM_LOGI("aml_hw_mixer -> hw_mix -> audio_output");
+                        struct aml_hw_mixer_buffer in_buf;
+                        in_buf.data = dec_data;
+                        in_buf.bytes = pcm_len;
+                        in_buf.format = output_format;
+                        struct aml_hw_mixer_buffer out_buf;
+                        out_buf.format = get_primary_out_format(adev);
+                        aml_hw_mixer_mixing_by_format(&adev->hw_mixer, &in_buf, &out_buf);
+                        if (out_buf.bytes > 0) {
+                            data_info.audio_format = out_buf.format;
+                            data_info.channel_mask = audio_channel_out_mask_from_count(dec_pcm_data->data_ch);
+                            ret = aml_audio_pcm_output((struct audio_stream_out *)aml_out, out_buf.data, out_buf.bytes, &data_info);
+                        }
+                    }
                 }
             }
 

@@ -267,6 +267,10 @@ struct aml_audio_patch
     struct aml_stream_out *output_stream;
     int32_t PServerDev;
     bool singleDmxNonTunnelMode;
+    /* source data format change */
+    bool format_change;
+    bool input_teardown_over;
+    bool output_teardown_over;
 };
 
 void create_tvin_buffer(struct aml_audio_patch *patch);

@@ -36,6 +36,7 @@
 #include <hardware/hardware.h>
 #include <system/audio.h>
 #include <audio_utils/channels.h>
+#include <audio_utils/primitives.h>
 
 #if ANDROID_PLATFORM_SDK_VERSION >= 25 //8.0
 #include <system/audio-base.h>
@@ -479,8 +480,7 @@ static int check_input_parameters(uint32_t sample_rate, audio_format_t format, i
         (devices & AUDIO_DEVICE_IN_TV_TUNER) ||
         (devices & AUDIO_DEVICE_IN_HDMI) ||
         (devices & AUDIO_DEVICE_IN_HDMI_ARC)) {
-        if (format == AUDIO_FORMAT_PCM_16_BIT &&
-            channel_count == 2 &&
+        if (channel_count == 2 &&
             sample_rate == 48000) {
             ALOGD("%s: audio patch input device %x", __FUNCTION__, devices);
             return 0;
@@ -4695,6 +4695,46 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
     return strdup("");
 }
 
+static int adev_init_later(struct aml_audio_device *adev, struct aml_stream_out *aml_out, audio_output_flags_t flags)
+{
+    audio_format_t primaryOutFormat = get_primary_out_format(adev);
+
+    if (!aml_out) {
+        AM_LOGE("fail, flags=0x%x aml_out=NULL !", flags);
+        return -1;
+    }
+
+    if (flags & AUDIO_OUTPUT_FLAG_PRIMARY) {
+        primaryOutFormat = aml_out->hal_format;
+        uint32_t primaryOutRate = aml_out->hal_rate;
+
+        if (primaryOutFormat != AUDIO_FORMAT_PCM_16_BIT && primaryOutFormat != AUDIO_FORMAT_PCM_32_BIT) {
+            primaryOutFormat = AUDIO_FORMAT_PCM_16_BIT;
+        }
+        set_primary_out_format(adev, primaryOutFormat);
+        primaryOutFormat = get_primary_out_format(adev);
+
+        if (adev->useSubMix && !adev->sm) {
+            initHalSubMixing(&adev->sm, MIXER_LPCM, adev, is_TV(adev));
+            subMixingSetSrcGain(adev, aml_audio_get_s_gain_by_src(adev, SRC_OTHER));
+#ifdef USB_KARAOKE
+            subMixingSetKaraoke(adev, &adev->usb_audio.karaoke);
+            pthread_mutex_init(&adev->usb_audio.karaoke.lock, NULL);
+            adev->usb_audio.karaoke.kara_mic_gain = 1.0;
+#endif
+        }
+
+        init_vendor_post_process(&adev->native_postprocess, primaryOutFormat);
+        if (is_vendor_support_libvx(&adev->native_postprocess)) {
+            dca_set_out_ch_internal(0);
+        }
+
+        AM_LOGI("AAAA primaryOutFormat:%s primaryOutRate:%d", audioFormat2Str(primaryOutFormat), primaryOutRate);
+    }
+
+    return 0;
+}
+
 static int adev_init_check (const struct audio_hw_device *dev __unused)
 {
     return 0;
@@ -5173,8 +5213,9 @@ int do_output_standby_l(struct audio_stream *stream)
         }
     }
 
-    if (eDolbyMS12Lib != adev->dolby_lib_type_last)
+    if (eDolbyMS12Lib != adev->dolby_lib_type_last && adev->useSubMix) {
         out_standby_subMixingPCM_l(stream);
+    }
 
     out->stream_status = STREAM_STANDBY;
     out->standby = 1;
@@ -6110,8 +6151,6 @@ hwsync_rewrite:
             need_reconfig_output = true;
             need_reset_decoder = true;
             need_reconfig_samplerate = true;
-            aml_out->digital_input_fmt_change = false;
-
             if (aml_out->hal_internal_format == AUDIO_FORMAT_DTS ||
                 aml_out->hal_internal_format == AUDIO_FORMAT_DTS_HD) {
                 /*when switch from ms12 to dts, we should clean ms12 first*/
@@ -6141,6 +6180,7 @@ hwsync_rewrite:
         } else {
             need_reconfig_samplerate = false;
         }
+        aml_out->digital_input_fmt_change = false;
     }
     /*dts cd process need to discuss here */
     else if (aml_out->hal_format == AUDIO_FORMAT_IEC61937 && !aml_out->iec_check) {
@@ -6349,8 +6389,6 @@ exit:
             return total_bytes;
     }
 
-
-
     if (adev->debug_flag) {
         ALOGI("%s return %d!\n", __FUNCTION__, return_bytes);
     }
@@ -6502,9 +6540,23 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
                 aml_audio_data_handle(stream, buffer, bytes);
             }
 
+            const void *source = buffer;
+            int source_bytes = bytes;
+            //TODO: temporary solution for MS12 not support PCM32 input
+            if (aml_out->hal_internal_format == AUDIO_FORMAT_PCM_32_BIT) {
+                int buffer_need_size = bytes >> 1;
+                ret = aml_audio_check_and_realloc((void **)&adev->temp_out_16_buf, &adev->temp_out_16_buf_size, buffer_need_size);
+                R_CHECK_RET(ret, "alloc out_32_buf size:%d fail", buffer_need_size);
+                memcpy_to_i16_from_i32((void*)adev->temp_out_16_buf, buffer, bytes / sizeof(int32_t));
+                source = adev->temp_out_16_buf;
+                source_bytes = bytes >> 1;
+                bytes_remaining = source_bytes;
+            }
+            //END
+
             while (bytes_remaining && adev->ms12.dolby_ms12_enable && retry < 20) {
                 size_t used_size = 0;
-                ret = dolby_ms12_system_process(stream, (char *)buffer + bytes_written, bytes_remaining, &used_size);
+                ret = dolby_ms12_system_process(stream, (char *)source + bytes_written, bytes_remaining, &used_size);
                 if (!ret) {
                     bytes_remaining -= used_size;
                     bytes_written += used_size;
@@ -6517,6 +6569,12 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
                 }
             }
             if (bytes_remaining) {
+                //TODO: temporary solution for MS12 not support PCM32 input
+                if (aml_out->hal_internal_format == AUDIO_FORMAT_PCM_32_BIT) {
+                    bytes_remaining *= 2;
+                    ms12->sys_audio_skip += bytes_remaining / frame_size;
+                } else
+                //END
                 ms12->sys_audio_skip += bytes_remaining / frame_size;
                 ALOGI("bytes_remaining =%zu total skip =%" PRId64 "", bytes_remaining, ms12->sys_audio_skip);
             }
@@ -6533,10 +6591,21 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
             } else {
                 sleep_time_us = (uint64_t)bytes_written * 1000000 / frame_size / out_get_sample_rate(&stream->common);
             }
-            ALOGV("aml_audio_sleep  sleep_time_us %" PRId64 " ",sleep_time_us);
+            AM_LOGV("aml_audio_sleep  sleep_time_us %" PRId64 " ",sleep_time_us);
             aml_audio_sleep(sleep_time_us);
-        } else {
+        } else if (adev->useSubMix) {
             bytes_written = mixer_aux_buffer_write_sm(stream, buffer, bytes);
+        } else {
+            size_t content_bytes = aml_hw_mixer_get_content_l(&adev->hw_mixer);
+            size_t space_bytes = adev->hw_mixer.buf_size - content_bytes;
+            bytes_written = aml_hw_mixer_write(&adev->hw_mixer, buffer, bytes);
+            if (content_bytes < adev->hw_mixer.buf_size / 2) {
+                sleep_time_us = (uint64_t)bytes_written * 1000000 / frame_size / out_get_sample_rate(&stream->common) / 2;
+            } else {
+                sleep_time_us = (uint64_t)bytes_written * 1000000 / frame_size / out_get_sample_rate(&stream->common);
+            }
+            AM_LOGI("Aux_stream -> hw_mixer sleep_time_us %" PRId64 " ",sleep_time_us);
+            aml_audio_sleep(sleep_time_us);
         }
 
         if (getprop_bool("vendor.media.audiohal.mixer")) {
@@ -6560,6 +6629,11 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
            */
         alsa_latency_frame = adev->ms12.latency_frame;
         int system_latency = 0;
+        //TODO: temporary solution for MS12 not support PCM32 input
+        if (aml_out->hal_internal_format == AUDIO_FORMAT_PCM_32_BIT) {
+            system_latency = dolby_ms12_get_system_buffer_avail(NULL) * 2 / frame_size;
+        } else
+        //END
         system_latency = dolby_ms12_get_system_buffer_avail(NULL) / frame_size;
 
         if (adev->compensate_video_enable) {
@@ -7147,6 +7221,9 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
     aml_out->out_cfg = *config;
     aml_out->card = adev->card;
     aml_out->hwsync_parsed_frames_sum = 0;
+
+    adev_init_later(adev, aml_out, flags);
+
     if (adev->useSubMix) {
         // In V1.1, android out lpcm stream and hwsync pcm stream goes to aml mixer,
         // tv source keeps the original way.
@@ -8644,21 +8721,15 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     } else {
         adev->useSubMix = true;
     }
-    ALOGI("%s(), MS12 is not compatible with SUBMIXER currently, set useSubMix %s",
-        __func__, adev->useSubMix ? "TRUE": "FALSE");
 
     if (adev->useSubMix) {
-        initHalSubMixing(&adev->sm, MIXER_LPCM, adev, is_TV(adev));
         aml_audio_hwsync_open();
         adev->raw_to_pcm_flag = false;
         profile_init(&adev->usb_audio.in_profile, PCM_IN);
-        subMixingSetSrcGain(adev, aml_audio_get_s_gain_by_src(adev, SRC_OTHER));
-#ifdef USB_KARAOKE
-        subMixingSetKaraoke(adev, &adev->usb_audio.karaoke);
-        pthread_mutex_init(&adev->usb_audio.karaoke.lock, NULL);
-        adev->usb_audio.karaoke.kara_mic_gain = 1.0;
-#endif
     }
+
+    ALOGI("%s(), MS12 is not compatible with SUBMIXER currently, set useSubMix %s",
+        __func__, adev->useSubMix ? "TRUE": "FALSE");
 
     if (aml_audio_ease_init(&adev->audio_ease) < 0) {
         ALOGE("aml_audio_ease_init failed\n");
@@ -8716,11 +8787,6 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->aaudio_low_latency = false;
     adev->aaudio_low_latency_updated = false;
     adev->aaudio_low_latency_count = 0;
-
-    init_vendor_post_process(&adev->native_postprocess);
-    if (is_vendor_support_libvx(&adev->native_postprocess)) {
-        dca_set_out_ch_internal(0);
-    }
 
     create_async_write_thread();
     adev->mmap_audio_manager = mmap_audio_new_manager(eDolbyMS12Lib == adev->dolby_lib_type);

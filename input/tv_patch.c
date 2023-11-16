@@ -67,6 +67,9 @@ void audio_digital_input_format_check(struct aml_audio_patch *patch)
 
     if (aml_out->is_tv_src_stream && IS_DIGITAL_IN_HW(patch->input_src)) {
         cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
+        if (audio_is_linear_pcm(cur_aformat)) {
+            cur_aformat = get_primary_out_format(adev);
+        }
         if (cur_aformat != patch->aformat) {
             ALOGI ("HDMI/SPDIF input format changed from %#x to %#x   hal_format changed from %#x to %#x\n", patch->aformat, cur_aformat, aml_out->hal_format, cur_aformat);
             patch->aformat = cur_aformat;
@@ -114,12 +117,75 @@ void audio_digital_input_format_check(struct aml_audio_patch *patch)
             /* reset audio patch ringbuffer */
             ring_buffer_reset(&patch->aml_ringbuffer);
             adev->spdif_encoder_init_flag = false;
+
+            //set format change flag
+            patch->format_change = true;
+            patch->input_teardown_over = false;
+            patch->output_teardown_over = false;
+            AM_LOGI("+++set format change flag:%d", patch->format_change);
         }
     }
 }
 
 /*==================================patch & threadloops=========================================*/
 // buffer/period ratio, bigger will add more latency
+int teardown_input_format_change(struct aml_audio_patch *patch, struct audio_stream_in *old_stream, struct audio_stream_in **new_stream)
+{
+    struct audio_config stream_config;
+    struct aml_stream_in *old_aml_in = (struct aml_stream_in *)old_stream;
+    struct audio_stream_in *stream_in = NULL;
+    struct aml_stream_in *new_aml_in = NULL;
+    struct aml_audio_device *aml_dev = (struct aml_audio_device *)patch->dev;
+    int read_bytes = 0;
+    int ret = 0;
+
+    if (!old_stream) {
+        AM_LOGW("old_stream_in is NULL, return!");
+        return -1;
+    }
+    //TODO: temporary solution for MS12 not support PCM32 input
+    if (aml_dev->dolby_lib_type == eDolbyMS12Lib  || aml_dev->dolby_lib_type_last == eDolbyMS12Lib) {
+        *new_stream = old_stream;
+        AM_LOGW("do nothing for ms12 case");
+        return 0;
+    }
+    //END
+    if (!audio_is_linear_pcm(patch->aformat) && old_aml_in->hal_format == AUDIO_FORMAT_PCM_16_BIT) {
+        *new_stream = old_stream;
+        AM_LOGW("StreamIn already foramt:AUDIO_FORMAT_PCM_16_BIT for RAW patch->foramt:%x", patch->aformat);
+        return 0;
+    }
+
+    if (audio_is_linear_pcm(patch->aformat)) {
+        stream_config.sample_rate = patch->in_sample_rate;
+        stream_config.channel_mask = patch->in_chanmask;
+        stream_config.format = patch->aformat;
+        AM_LOGI("old_format:%x new_format:%x for PCM", old_aml_in->hal_format, stream_config.format);
+    } else {
+        stream_config.sample_rate = patch->in_sample_rate;
+        stream_config.channel_mask = patch->in_chanmask;
+        stream_config.format = AUDIO_FORMAT_PCM_16_BIT;
+        AM_LOGI("old_format:%x new_format:%x for RAW", old_aml_in->hal_format, stream_config.format);
+    }
+
+    do_input_standby(old_aml_in);
+    adev_close_input_stream(patch->dev, old_stream);
+
+    adev_open_input_stream(patch->dev, 0, patch->input_src, &stream_config, &stream_in, 0, "AML_TV_SOURCE", 0);
+    if (ret < 0) {
+        AM_LOGE("%s: open input steam failed ret = %d", __func__, ret);
+        return -1;
+    }
+
+    new_aml_in = (struct aml_stream_in *)stream_in;
+    patch->in_buf_size = read_bytes = new_aml_in->config.period_size * audio_stream_in_frame_size(&new_aml_in->stream);
+    ret = aml_audio_check_and_realloc((void **)&patch->in_buf, &patch->in_buf_size, read_bytes);
+    R_CHECK_RET(ret, "alloc patch->in_buf size:%d fail", read_bytes);
+
+    *new_stream = stream_in;
+    return 0;
+}
+
 void *audio_patch_input_threadloop(void *data)
 {
     struct aml_audio_patch *patch = (struct aml_audio_patch *)data;
@@ -187,6 +253,17 @@ void *audio_patch_input_threadloop(void *data)
         /* Todo: read bytes should reconfig with period size */
         int period_mul = 1;//convert_audio_format_2_period_mul(patch->aformat);
         int read_threshold = 0;
+
+        if (patch->format_change && !patch->input_teardown_over) {
+            struct audio_stream_in *new_stream = NULL;
+            ret = teardown_input_format_change(patch, (struct audio_stream_in *)in, &new_stream);
+            if (ret == 0) {
+                in = (struct aml_stream_in *)new_stream;
+                patch->input_teardown_over = true;
+            }
+            AM_LOGE("---input handle format change over, ret:%d", ret);
+        }
+
         aml_check_pic_mode(patch);
         if (!is_game_mode(aml_dev))
             read_bytes = DEFAULT_CAPTURE_PERIOD_SIZE * audio_stream_in_frame_size(&in->stream) * period_mul;
@@ -290,6 +367,11 @@ void *audio_patch_input_threadloop(void *data)
             audio_digital_input_format_check(patch);
         }
 
+        if (patch->format_change && !patch->input_teardown_over) {
+            AM_LOGI("+++ detect input format change, continue!");
+            continue;
+        }
+
         /*noise gate is only used in Linein for 16bit audio data*/
         if (get_active_inport(aml_dev) == INPORT_LINEIN && is_ng_enable(aml_dev)) {
             int ng_status = noise_gate_process(aml_dev, patch->in_buf, bytes_avail >> 1);
@@ -345,7 +427,13 @@ void *audio_patch_input_threadloop(void *data)
             }
             usleep(3000);
         }
+
+        //reset input teardown flag
+        if (!patch->format_change) {
+            patch->input_teardown_over = false;
+        }
     }
+
     adev_close_input_stream(patch->dev, &in->stream);
     if (patch->in_buf) {
         aml_audio_free(patch->in_buf);
@@ -354,6 +442,67 @@ void *audio_patch_input_threadloop(void *data)
     ALOGD("%s: exit", __func__);
 
     return (void *)0;
+}
+
+
+int teardown_output_format_change(struct aml_audio_patch *patch, struct audio_stream_out *old_stream, struct audio_stream_out **new_stream)
+{
+    struct audio_config stream_config = AUDIO_CONFIG_INITIALIZER;
+    struct audio_stream_out *stream_out = NULL;
+    struct aml_stream_out *old_aml_out = (struct aml_stream_out *)old_stream;
+    struct aml_stream_out *new_aml_out = NULL;
+    struct aml_audio_device *aml_dev = (struct aml_audio_device *)patch->dev;
+    int ret = 0;
+
+    if (!old_stream) {
+        AM_LOGW("Warning, old_stream_in is NULL, return!");
+        return -1;
+    }
+    //TODO: temporary solution for MS12 not support PCM32 input
+    if (aml_dev->dolby_lib_type == eDolbyMS12Lib  || aml_dev->dolby_lib_type_last == eDolbyMS12Lib) {
+        *new_stream = old_stream;
+        AM_LOGW("do nothing for ms12 case");
+        return 0;
+    }
+    //END
+    if (!audio_is_linear_pcm(patch->aformat) && old_aml_out->hal_format == AUDIO_FORMAT_PCM_16_BIT) {
+        *new_stream = old_stream;
+        AM_LOGW("StreamOut already foramt:AUDIO_FORMAT_PCM_16_BIT for RAW patch->foramt:%x", patch->aformat);
+        return 0;
+    }
+
+    if (audio_is_linear_pcm(patch->aformat)) {
+        stream_config.sample_rate = patch->out_sample_rate;
+        stream_config.channel_mask = patch->out_chanmask;
+        stream_config.format = patch->aformat;
+        AM_LOGI("old_format:%x new_format:%x for PCM", old_aml_out->hal_format, stream_config.format);
+    } else {
+        audio_format_t new_aformat = patch->aformat;
+        stream_config.sample_rate = patch->out_sample_rate;
+        stream_config.channel_mask = patch->out_chanmask;
+        stream_config.format = new_aformat;
+        stream_config.channel_mask = audio_parse_get_audio_channel_mask (patch->audio_parse_para);
+        AM_LOGI("old_format:%x new_format:%x for RAW", old_aml_out->hal_format, stream_config.format);
+    }
+
+    do_output_standby_l((struct audio_stream *)old_aml_out);
+    adev_close_output_stream_new(patch->dev, &old_aml_out->stream);
+
+    ret = adev_open_output_stream_new(patch->dev,
+                                      0,
+                                      patch->output_src,
+                                      AUDIO_OUTPUT_FLAG_DIRECT,
+                                      &stream_config,
+                                      &stream_out,
+                                      "AML_TV_SOURCE");
+    if (ret != 0) {
+        AM_LOGE("%s: open input steam failed ret = %d", __func__, ret);
+        return -1;
+    }
+
+    new_aml_out = (struct aml_stream_out *)stream_out;
+    *new_stream = stream_out;
+    return  0;
 }
 
 void *audio_patch_output_threadloop(void *data)
@@ -440,6 +589,22 @@ void *audio_patch_output_threadloop(void *data)
     while (!patch->output_thread_exit) {
         int period_mul;
 
+        if (patch->format_change && !patch->output_teardown_over) {
+            struct audio_stream_out *new_stream_out = NULL;
+            ret = teardown_output_format_change(patch, stream_out, &new_stream_out);
+            if (ret == 0) {
+                out = (struct aml_stream_out *)new_stream_out;
+                patch->output_stream = (struct aml_stream_out *)new_stream_out;
+                patch->output_teardown_over = true;
+            }
+            AM_LOGI("---output handle format change done, ret:%d", ret);
+        }
+        if (patch->format_change && !patch->input_teardown_over) {
+            usleep(200);
+            AM_LOGI("Sleep a little to wait input handle format change over!");
+            continue;
+        }
+
         if (patch->aformat == AUDIO_FORMAT_E_AC3)
             period_mul = EAC3_MULTIPLIER;
         else if (IS_DIGITAL_IN_HW(patch->input_src) && audio_parse_get_audio_packet_type(patch->audio_parse_para) == AUDIO_PACKET_HBR)
@@ -512,6 +677,20 @@ void *audio_patch_output_threadloop(void *data)
                     stream_config.sample_rate);
             }
         }
+
+        //may be, output_threadloop firstly detect format change
+        //then directly clear it without teardown process
+        //here, we should confirm it
+        if (patch->format_change) {
+            pthread_mutex_lock(&patch->mutex);
+            if (patch->input_teardown_over && patch->output_teardown_over) {
+                patch->format_change = false;
+                AM_LOGI("---clear format change flag!");
+            }
+            pthread_mutex_unlock(&patch->mutex);
+        } else {
+            patch->output_teardown_over = false;
+        }
     }
     do_output_standby_l((struct audio_stream *)out);
     adev_close_output_stream_new(patch->dev, &out->stream);
@@ -532,18 +711,21 @@ int create_tv_patch(struct aml_audio_device *aml_dev,
     pthread_attr_t attr;
     struct sched_param param;
     int ret = 0;
+    audio_format_t primaryOutFormat = get_primary_out_format(aml_dev);
 
-    ALOGD("%s: enter", __func__);
+    ALOGD("%s: enter primaryOutFormat:0x%x", __func__, primaryOutFormat);
 
     patch = aml_audio_calloc(1, sizeof(*patch));
     if (!patch) {
         return -ENOMEM;
     }
 
+    //using audio policy config to judge PCM16 or PCM32
+
     patch->dev = (struct audio_hw_device *)aml_dev;
     patch->input_src = input;
     patch->is_dtv_src = false;
-    patch->aformat = AUDIO_FORMAT_PCM_16_BIT;
+    patch->aformat = primaryOutFormat;
     set_dev_patch(aml_dev, patch);
     aml_dev->foreground_stream_type = FG_STREAM_TYPE_PATCH;
     pthread_mutex_init(&patch->mutex, NULL);
@@ -554,8 +736,8 @@ int create_tv_patch(struct aml_audio_device *aml_dev,
     patch->output_src = aml_dev->cur_out_devices;
     patch->out_sample_rate = 48000;
     patch->out_chanmask = AUDIO_CHANNEL_OUT_STEREO;
-    patch->in_format = AUDIO_FORMAT_PCM_16_BIT;
-    patch->out_format = AUDIO_FORMAT_PCM_16_BIT;
+    patch->in_format = primaryOutFormat;
+    patch->out_format = primaryOutFormat;
 
     /* when audio patch start, signal is unstable or
      * patch signal is unstable, it need do avsync

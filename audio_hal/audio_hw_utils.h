@@ -158,7 +158,7 @@ int aml_audio_get_dolby_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost);
 int aml_audio_get_dolby_dap_drc_mode(int *drc_mode, int *drc_cut, int *drc_boost);
 void aml_audio_set_cpu23_affinity();
 void * aml_audio_get_muteframe(audio_format_t output_format, int * frame_size, int bAtmos);
-void aml_audio_switch_output_mode(int16_t *buf, size_t bytes, AM_AOUT_OutputMode_t mode);
+void aml_audio_switch_output_mode(void *in, size_t bytes, audio_format_t format, AM_AOUT_OutputMode_t mode);
 bool aml_audio_data_detect(int16_t *buf, size_t bytes, int detect_value);
 int aml_audio_data_handle(struct audio_stream_out *stream, const void* buffer, size_t bytes);
 int aml_audio_compensate_video_delay( int enable);

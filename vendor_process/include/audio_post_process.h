@@ -92,6 +92,13 @@ struct aml_native_postprocess {
     //if any effect is do process() should hold dev->effects_lock
     pthread_mutex_t lock;
     struct aml_post_effect_ctrl effect_ctrl;
+
+    /* native effect chain input data format from audio hal */
+    audio_format_t src_format;
+    audio_format_t proc_format;
+    void *temp_proc_buffer;
+    size_t temp_proc_capacity;
+    size_t temp_proc_bytes;
 };
 
 /*
@@ -106,7 +113,7 @@ struct aml_native_postprocess {
  *    output data frames
  *
  */
-size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t in_frames);
+size_t audio_post_process(struct aml_native_postprocess *native_postprocess, void *in_buffer, size_t in_frames);
 int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t bytes);
 int aml_add_audio_effect(struct aml_native_postprocess *native_postprocess, effect_handle_t effect, audio_port_handle_t port_handle __unused);
 int aml_remove_audio_effect(struct aml_native_postprocess *native_postprocess, effect_handle_t effect, audio_port_handle_t port_handle __unused);
@@ -119,7 +126,11 @@ int get_aml_dts_effect_param(struct aml_native_postprocess *native_postprocess, 
 //native_postprocess context init & release
 bool is_vendor_support_libvx(struct aml_native_postprocess *native_postprocess);
 
-int init_vendor_post_process(struct aml_native_postprocess *native_postprocess);
-
+/*
+ *@brief audio_post_process
+ * source_format:
+ *      input effect chain data format, support PCM16, PCM32
+ */
+int init_vendor_post_process(struct aml_native_postprocess *native_postprocess, audio_format_t source_format);
 void destroy_vendor_post_process(struct aml_native_postprocess *native_postprocess);
 #endif

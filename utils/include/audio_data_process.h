@@ -39,6 +39,7 @@ typedef struct _aml_pcm_mixing_st {
     struct audioCfg cfg;
     void *mixed_buf;
     size_t mixed_buf_size;
+    int mixed_out_bytes;
     int mixed_buf_is_static;
     int mixed_frame_size;
     int mixed_frames;

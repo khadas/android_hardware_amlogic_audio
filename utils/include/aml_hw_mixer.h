@@ -30,7 +30,16 @@ struct aml_hw_mixer {
     unsigned int rp;
     unsigned int buf_size;
     unsigned char need_cache_flag;//flag to check if need cache some data before write to mix
+    void *proc_buf;
+    size_t proc_buf_size;
     pthread_mutex_t lock;
+};
+
+struct aml_hw_mixer_buffer {
+    void *data;
+    size_t bytes;
+    size_t frames;
+    audio_format_t format;
 };
 
 int aml_hw_mixer_init(struct aml_hw_mixer *mixer);
@@ -41,6 +50,7 @@ int aml_hw_mixer_get_content_l(struct aml_hw_mixer *mixer);
 //need called by device mutex locked
 int aml_hw_mixer_write(struct aml_hw_mixer *mixer, const void *buffer, size_t bytes);
 int aml_hw_mixer_mixing(struct aml_hw_mixer *mixer, void *buffer, int bytes, audio_format_t format);
+int aml_hw_mixer_mixing_by_format(struct aml_hw_mixer *mixer, const struct aml_hw_mixer_buffer *in_buf, struct aml_hw_mixer_buffer *out_buf);
 //need called by device mutex locked
 int aml_hw_mixer_read(struct aml_hw_mixer *mixer, void *r_buf, uint size);
 void aml_hw_mixer_reset(struct aml_hw_mixer *mixer);

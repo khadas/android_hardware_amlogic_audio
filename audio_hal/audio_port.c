@@ -757,12 +757,13 @@ static int output_port_start(output_port *port)
 
 static int output_port_standby(output_port *port)
 {
+    AM_LOGI("pcm_handle:%p",  port->pcm_handle);
     struct pcm *pcm = port->pcm_handle;
     if (pcm) {
-        ALOGI("%s()", __func__);
         pthread_mutex_lock(&port->lock);
         pcm_close(pcm);
         pcm = NULL;
+        port->pcm_handle = NULL;
         port->port_status = STOPPED;
         pthread_mutex_unlock(&port->lock);
     }
@@ -792,46 +793,32 @@ int outport_set_dummy(output_port *port, bool en)
     return 0;
 }
 
-static ssize_t output_port_write(output_port *port, void *buffer, int bytes)
-{
-    if (!buffer || (bytes == 0)) {
-        ALOGW("%s() warning, Invalid buffer:%p bytes:%d",__func__, buffer, bytes);
-        return bytes;
-    }
-    void *sink_buffer = buffer;
-    int sink_bytes = bytes;
-
-    process_outport_msg(port);
-
-    if (port->process) {
-        port->process(port, buffer, bytes);
-        sink_buffer = port->processed_buf;
-        sink_bytes = port->processed_bytes;
-    }
-
-    output_port_write_alsa(port, sink_buffer, sink_bytes);
-    return bytes;
-}
 
 #define STEREO_16BIT_TO_8CH_32BIT   8
+#define STEREO_16BIT_TO_8CH_16BIT   4
+#define STEREO_32BIT_TO_8CH_32BIT   4
 #define STEREO_16BIT_TO_2CH_32BIT   2
+
 
 static ssize_t output_port_post_process(output_port *port, void *buffer, int bytes)
 {
-    int32_t *buf_proc = port->processed_buf;
-    int16_t *vol_buf = port->vol_buf;
-    int16_t *buf16 = buffer;
-    int32_t *buf32 = (int32_t *)vol_buf;
-    int frames = bytes / FRAMESIZE_16BIT_STEREO;
+    struct audioCfg *src_cfg = &port->src_cfg;
+    struct audioCfg *target_cfg = &port->cfg;
+    int samples = bytes / audio_bytes_per_sample(src_cfg->format);
+    int frames = samples / src_cfg->channelCnt;
+    int dest_sample_size = audio_bytes_per_sample(target_cfg->format);
+    const int out_channels = 8;
+    void *out_buffer = port->processed_buf;
     float vol = 1.0;
     int i = 0;
     struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
 
     if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
-        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/port_befor_postprocess.raw", buf16, bytes);
+        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/port_befor_postprocess.raw", buffer, bytes);
     }
 
     for (int dev = AML_AUDIO_OUT_DEV_TYPE_SPEAKER; dev < AML_AUDIO_OUT_DEV_TYPE_BUTT; dev++) {
+        void *vol_buf = port->vol_buf;
         vol = port->src_gain;
         memcpy(vol_buf, buffer, bytes);
 
@@ -846,8 +833,10 @@ static ssize_t output_port_post_process(output_port *port, void *buffer, int byt
                     config_volume_easing(adev->volume_ease.ease, vol_now, vol);
                     adev->volume_ease.config_easing = false;
                 }
-                if (port->postprocess)
+
+                if (port->postprocess) {
                     audio_post_process(port->postprocess, vol_buf, frames);
+                }
             } else if (dev == AML_AUDIO_OUT_DEV_TYPE_SPDIF) {
                 vol *= port->eq_data->p_gain.spdif_arc;
             } else if (dev == AML_AUDIO_OUT_DEV_TYPE_OTHER) {
@@ -863,25 +852,41 @@ static ssize_t output_port_post_process(output_port *port, void *buffer, int byt
         }
 #endif
         if (!adev->volume_ease.ease->do_easing || dev != AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
-            apply_volume_16to32(vol, vol_buf, buf32, bytes);
+            apply_volume_2ch_by_format(vol, vol_buf, samples, src_cfg->format, target_cfg->format);
         } else {
             /*do ease process when adjust vol,vol apply is handled by ease process,when ease process finished,
             vol apply need handled by apply volume function,vol is float type,use fabs to compare*/
-            apply_volume_16to32(1.0, vol_buf, buf32, bytes);
-            aml_audio_ease_process(adev->volume_ease.ease, buf32, bytes * 2);
+            apply_volume_2ch_by_format(vol, vol_buf, samples, src_cfg->format, target_cfg->format);
+            aml_audio_ease_process(adev->volume_ease.ease, vol_buf, samples * dest_sample_size);
         }
 
-        for (i = 0; i < frames; i++) {
-            buf_proc[8 * i + 2 * dev] = buf32[i * 2];
-            buf_proc[8 * i + 2 * dev + 1] = buf32[i * 2 + 1];
+        if (target_cfg->format == AUDIO_FORMAT_PCM_32_BIT) {
+            int32_t *buf_proc = (int32_t *)out_buffer;
+            int32_t *buf32 = (int32_t *)vol_buf;
+            for (i = 0; i < frames; i++) {
+                buf_proc[8 * i + 2 * dev] = buf32[i * 2];
+                buf_proc[8 * i + 2 * dev + 1] = buf32[i * 2 + 1];
+            }
+        } else if (target_cfg->format == AUDIO_FORMAT_PCM_16_BIT) {
+            int32_t *buf_proc = (int32_t *)out_buffer;
+            int16_t *buf16 = (int16_t *)vol_buf;
+            for (i = 0; i < frames; i++) {
+                buf_proc[8 * i + 2 * dev] = (int32_t)buf16[i * 2] << 16;
+                buf_proc[8 * i + 2 * dev + 1] = (int32_t)buf16[i * 2 + 1] << 16;
+            }
         }
     }
 
-    port->processed_bytes = bytes * STEREO_16BIT_TO_8CH_32BIT;
+    //TV fix config:PCM32/8ch/48000
+    //expand 2ch to 8ch, so out bytes apply 4 by format
+    port->processed_bytes = samples * audio_bytes_per_sample(AUDIO_FORMAT_PCM_32_BIT) * 4;
     if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
-        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/port_processed.raw",
-            port->processed_buf, port->processed_bytes);
+        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/port_processed.raw", port->processed_buf, port->processed_bytes);
     }
+#if 0
+    AM_LOGI("src_format:%d src_frame_size:%d dest_format:%d dest_frame_size:%d in_bytes:%d",
+        src_cfg->format, src_cfg->frame_size, target_cfg->format, target_cfg->frame_size, bytes);
+#endif
     return 0;
 }
 
@@ -1022,6 +1027,27 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
     return bytes;
 }
 
+static ssize_t output_port_write(output_port *port, void *buffer, int bytes)
+{
+    if (!buffer || (bytes == 0)) {
+        ALOGW("%s() warning, Invalid buffer:%p bytes:%d",__func__, buffer, bytes);
+        return bytes;
+    }
+    void *sink_buffer = buffer;
+    int sink_bytes = bytes;
+
+    process_outport_msg(port);
+
+    if (port->process) {
+        port->process(port, buffer, bytes);
+        sink_buffer = port->processed_buf;
+        sink_bytes = port->processed_bytes;
+    }
+
+    output_port_write_alsa(port, sink_buffer, sink_bytes);
+    return bytes;
+}
+
 int outport_get_latency_frames(output_port *port)
 {
     R_CHECK_POINTER_LEGAL(-EINVAL, port, "");
@@ -1078,10 +1104,25 @@ int output_get_default_config(struct audioCfg *cfg, bool is_tv)
     cfg->is_tv = is_tv;
     cfg->is_automotive = false;
     cfg->channelCnt = 2;
-    cfg->format = AUDIO_FORMAT_PCM_16_BIT;
+    if (is_tv) {
+        cfg->format = AUDIO_FORMAT_PCM_32_BIT;
+    } else {
+        cfg->format = AUDIO_FORMAT_PCM_16_BIT;
+    }
     cfg->sampleRate = 48000;
     cfg->channelMask = AUDIO_CHANNEL_OUT_STEREO;
     cfg->frame_size = cfg->channelCnt * audio_bytes_per_sample(cfg->format);
+    AM_LOGD("is_tv:%d format:%x channels:%d frame_size:%d", is_tv, cfg->format, cfg->channelCnt, cfg->frame_size);
+    return 0;
+}
+
+int output_change_config_format(struct audioCfg *cfg, audio_format_t format)
+{
+    //if not TV product output_port format follow mixing_out format
+    if ((cfg->format != format) && !cfg->is_tv) {
+        cfg->format = format;
+        cfg->frame_size = cfg->channelCnt * audio_bytes_per_sample(cfg->format);
+    }
     return 0;
 }
 
@@ -1119,12 +1160,13 @@ int output_get_alsa_config(output_port *out_port, struct pcm_config *alsa_config
 
 output_port *new_output_port(
         MIXER_OUTPUT_PORT port_index,
-        struct audioCfg *config,
+        struct audioCfg *src_config, /*from audio mixer*/
+        struct audioCfg *config, /* target config */
         size_t buf_frames)
 {
     output_port *port = NULL;
     char *data = NULL;
-    int rbuf_size = buf_frames * config->frame_size;
+    int rbuf_size = buf_frames * 32;
     int alsa_port = PORT_I2S;
 
     // MIXER_OUTPUT_PORT_MULTI_PCM should use audio_mixer->mc_out_port
@@ -1132,7 +1174,7 @@ output_port *new_output_port(
         AM_LOGE("port_index:%d invalid", port_index);
         return NULL;
     }
-    ALOGI("%s(), config channels %d, rate %d, bytes per frame %zu",
+    ALOGI("%s(), config channels %d, rate %d, bytes per sample %zu",
             __func__, config->channelCnt, config->sampleRate,
             audio_bytes_per_sample(config->format));
     port = aml_audio_calloc(1, sizeof(output_port));
@@ -1145,8 +1187,11 @@ output_port *new_output_port(
     }
 
     config->device = alsa_device_update_pcm_index(alsa_port, PLAYBACK);
+
+    memcpy(&port->src_cfg, src_config, sizeof(struct audioCfg));
     memcpy(&port->cfg, config, sizeof(struct audioCfg));
-    AM_LOGI("port:%s, frame_size:%d, format:%#x, sampleRate:%d, channels:%d", mixerOutputType2Str(port_index),
+
+    AM_LOGI("--port:%s, frame_size:%d, format:%#x, sampleRate:%d, channels:%d", mixerOutputType2Str(port_index),
         config->frame_size, config->format, config->sampleRate, config->channelCnt);
     port->enOutPortType = port_index;
     port->data_buf_frame_cnt = buf_frames;

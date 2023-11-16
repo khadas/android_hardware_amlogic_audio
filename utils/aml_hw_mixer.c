@@ -22,6 +22,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <cutils/log.h>
+#include <audio_utils/format.h>
 
 #include "aml_hw_mixer.h"
 #include "aml_malloc_debug.h"
@@ -44,7 +45,8 @@ int aml_hw_mixer_init(struct aml_hw_mixer *mixer)
         goto exit;
     }
     mixer->need_cache_flag = 1;
-
+    mixer->proc_buf = NULL;
+    mixer->proc_buf_size = 0;
 exit:
     pthread_mutex_unlock(&mixer->lock);
     ALOGI("%s done\n",__func__);
@@ -60,6 +62,11 @@ void aml_hw_mixer_deinit(struct aml_hw_mixer *mixer)
     mixer->rp = 0;
     mixer->buf_size = 0;
     mixer->need_cache_flag = 0;
+    if (mixer->proc_buf) {
+        aml_audio_free(mixer->proc_buf);
+        mixer->proc_buf = NULL;
+        mixer->proc_buf_size = 0;
+    }
     pthread_mutex_unlock(&mixer->lock);
 }
 
@@ -160,6 +167,43 @@ static inline int CLIPINT(int64_t r)
     else if (r < -2147483648)
         r = -2147483648;
     return r;
+}
+
+int aml_hw_mixer_mixing_by_format(struct aml_hw_mixer *mixer, const struct aml_hw_mixer_buffer *in_buf, struct aml_hw_mixer_buffer *out_buf)
+{
+    int ret = 0;
+    void *out_data;
+    size_t out_bytes;
+
+    if (!in_buf->data || !in_buf->bytes) {
+        out_buf->data = in_buf->data;
+        out_buf->bytes = in_buf->bytes;
+        ALOGW("Warning, Invalid input buffer!, return!");
+        return 0;
+    }
+
+    if (out_buf->format != in_buf->format) {
+        const int out_sample_size = audio_bytes_per_sample(out_buf->format);
+        const int in_sample_size = audio_bytes_per_sample(in_buf->format);
+        int multi = (out_sample_size > in_sample_size ? (out_sample_size + 1 / in_sample_size) : 1);
+        int buffer_need_size = in_buf->bytes *multi;
+
+        ret = aml_audio_check_and_realloc((void **)&mixer->proc_buf, &mixer->proc_buf_size, buffer_need_size);
+
+        memcpy_by_audio_format(mixer->proc_buf, out_buf->format, in_buf->data, in_buf->format, in_buf->bytes / in_sample_size);
+        out_data = mixer->proc_buf;
+        out_bytes = out_sample_size * in_buf->bytes / in_sample_size;
+    } else {
+        out_data = in_buf->data;
+        out_bytes = in_buf->bytes;
+    }
+
+    ret = aml_hw_mixer_mixing(mixer, out_data, out_bytes, out_buf->format);
+    out_buf->data = out_data;
+    out_buf->bytes = out_bytes;
+
+    //ALOGI("in_bytes:%d in_format:%x out_bytes:%d out_format:%d", in_buf->bytes, in_buf->format, out_buf->bytes, out_buf->format);
+    return ret;
 }
 
 int aml_hw_mixer_mixing(struct aml_hw_mixer *mixer, void *buffer, int bytes, audio_format_t format)

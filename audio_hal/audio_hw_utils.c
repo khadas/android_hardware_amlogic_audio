@@ -1564,35 +1564,70 @@ void * aml_audio_get_muteframe(audio_format_t output_format, int * frame_size, i
     }
 }
 
-void aml_audio_switch_output_mode(int16_t *buf, size_t bytes, AM_AOUT_OutputMode_t mode)
+void aml_audio_switch_output_mode(void *in, size_t bytes, audio_format_t format, AM_AOUT_OutputMode_t mode)
 {
-    int16_t tmp,tmp2;
-    for (unsigned int i= 0; i < bytes / 2; i = i + 2) {
-        switch (mode) {
-            case AM_AOUT_OUTPUT_DUAL_LEFT:
-                buf[i + 1] = buf[i];
-                break;
-            case AM_AOUT_OUTPUT_DUAL_RIGHT:
-                buf[i] = buf[i + 1];
-                break;
-            case AM_AOUT_OUTPUT_SWAP:
-                tmp = buf[i];
-                buf[i] = buf[i + 1];
-                buf[i + 1] = tmp;
-                break;
-            case AM_AOUT_OUTPUT_LRMIX:
-                tmp = (buf[i] / 2)  + (buf[i + 1] / 2);
-                buf[i] = tmp;
-                buf[i + 1] = tmp;
-                break;
-            case AM_AOUT_OUTPUT_JOINT_STEREO:
-                tmp = clamp16(buf[i]  + buf[i + 1]);
-                tmp2 = clamp16(buf[i] - buf[i + 1]);
-                buf[i] = tmp;
-                buf[i + 1] = tmp2;
-            default :
-                break;
+    if (format == AUDIO_FORMAT_PCM_16_BIT) {
+        int16_t tmp,tmp2;
+        int16_t *buf = (int16_t *)in;
+        for (unsigned int i= 0; i < bytes / 2; i = i + 2) {
+            switch (mode) {
+                case AM_AOUT_OUTPUT_DUAL_LEFT:
+                    buf[i + 1] = buf[i];
+                    break;
+                case AM_AOUT_OUTPUT_DUAL_RIGHT:
+                    buf[i] = buf[i + 1];
+                    break;
+                case AM_AOUT_OUTPUT_SWAP:
+                    tmp = buf[i];
+                    buf[i] = buf[i + 1];
+                    buf[i + 1] = tmp;
+                    break;
+                case AM_AOUT_OUTPUT_LRMIX:
+                    tmp = (buf[i] / 2)  + (buf[i + 1] / 2);
+                    buf[i] = tmp;
+                    buf[i + 1] = tmp;
+                    break;
+                case AM_AOUT_OUTPUT_JOINT_STEREO:
+                    tmp = clamp16(buf[i]  + buf[i + 1]);
+                    tmp2 = clamp16(buf[i] - buf[i + 1]);
+                    buf[i] = tmp;
+                    buf[i + 1] = tmp2;
+                default :
+                    break;
+            }
         }
+    } else if (format == AUDIO_FORMAT_PCM_32_BIT) {
+        int32_t tmp,tmp2;
+        int32_t *buf = (int32_t *)in;
+        for (unsigned int i= 0; i < bytes / 2; i = i + 2) {
+            switch (mode) {
+                case AM_AOUT_OUTPUT_DUAL_LEFT:
+                    buf[i + 1] = buf[i];
+                    break;
+                case AM_AOUT_OUTPUT_DUAL_RIGHT:
+                    buf[i] = buf[i + 1];
+                    break;
+                case AM_AOUT_OUTPUT_SWAP:
+                    tmp = buf[i];
+                    buf[i] = buf[i + 1];
+                    buf[i + 1] = tmp;
+                    break;
+                case AM_AOUT_OUTPUT_LRMIX:
+                    tmp = (buf[i] / 2)  + (buf[i + 1] / 2);
+                    buf[i] = tmp;
+                    buf[i + 1] = tmp;
+                    break;
+                case AM_AOUT_OUTPUT_JOINT_STEREO:
+                    tmp = clamp32(buf[i]  + buf[i + 1]);
+                    tmp2 = clamp32(buf[i] - buf[i + 1]);
+                    buf[i] = tmp;
+                    buf[i + 1] = tmp2;
+                default :
+                    break;
+            }
+        }
+    } else {
+        ALOGW("Warning! Unsupport format:0x%x mode:%d", format, mode);
     }
 }
 

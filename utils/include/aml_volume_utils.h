@@ -18,6 +18,7 @@
 #define __AML_VOLUME_UTILS_H__
 
 #include <math.h>
+#include <system/audio.h>
 
 // Absolute min volume in dB (can be represented in single precision normal float value)
 #define VOLUME_MIN_DB (-100)
@@ -46,6 +47,6 @@ void apply_volume_16to32(float volume, int16_t *in_buf, int32_t *out_buf, int by
 void apply_volume_fade(float *last_volume, float *volume, void *buf, int sample_size, int channels, int bytes);
 void apply_tone_16bit2ch(unsigned char* buf, int datalen);
 int volume2Ms12DapPostgain(float inVol);
-
+void apply_volume_2ch_by_format(float volume, void *buffer, int samples, audio_format_t in_format, audio_format_t out_format);
 #endif
 

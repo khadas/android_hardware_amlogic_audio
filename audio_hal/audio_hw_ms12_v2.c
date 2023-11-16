@@ -1914,7 +1914,9 @@ int dolby_ms12_system_process(
                 ms12->dolby_ms12_ptr
                 , buffer
                 , bytes
-                , aml_out->hal_format
+//TODO: temporary solution for MS12 not support PCM32 input
+                , AUDIO_FORMAT_PCM_16_BIT
+//END, aml_out->hal_format
                 , aml_out->hal_ch
                 , mixer_default_samplerate);
         if (dolby_ms12_input_bytes > 0) {

@@ -418,6 +418,16 @@ static ssize_t a2dp_in_data_process(aml_a2dp_hal *hal, audio_config_base_t *conf
             tmp_buffer[2 * i]       = (tmp_buffer_8ch[8 *  i] >> 16);
             tmp_buffer[2 * i + 1]   = (tmp_buffer_8ch[8 * i + 1] >> 16);
         }
+    }
+    else if (config->channel_mask == AUDIO_CHANNEL_OUT_STEREO && config->format == AUDIO_FORMAT_PCM_32_BIT) {
+        int sample_size = audio_bytes_per_sample(config->format);
+        frames = bytes / sample_size / 2/*channels*/;
+        realloc_ret = aml_audio_check_and_realloc((void **)&hal->buff_conv_format, &hal->buff_size_conv_format, bytes);
+        if (realloc_ret != 0) {
+            AM_LOGE("aml_audio_check_and_realloc fail");
+            return -1;
+        }
+        memcpy_to_i16_from_i32((int16_t*)hal->buff_conv_format, (int32_t*)buffer, bytes / sample_size);
     } else if (config->channel_mask == AUDIO_CHANNEL_OUT_STEREO && config->format == AUDIO_FORMAT_PCM_16_BIT) {
         frames = bytes / AUDIO_HAL_FIXED_FRAME_SIZE;
         realloc_ret = aml_audio_check_and_realloc((void **)&hal->buff_conv_format, &hal->buff_size_conv_format, bytes);

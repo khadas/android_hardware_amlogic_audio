@@ -158,54 +158,71 @@ exit:
 ssize_t write_to_sco(struct aml_audio_device *adev, audio_config_base_t *config,
     const void *buffer, size_t bytes)
 {
-    size_t in_frames = 0;
     struct aml_bt_output *bt = &adev->bt_output;
-    size_t frame_size = audio_channel_count_from_out_mask(config->channel_mask) * audio_bytes_per_sample(config->format);
-    if (frame_size > 0)
-        in_frames = bytes / frame_size;
-    int16_t *in_buffer = (int16_t *)buffer;
     int16_t *out_buffer = (int16_t *)bt->bt_out_buffer;
     size_t out_frames = 0;
-    unsigned int i = 0;
     int ret = 0;
+    size_t src_frames = 0;
+    size_t src_frame_size = audio_channel_count_from_out_mask(config->channel_mask) * audio_bytes_per_sample(config->format);
+    size_t proc_frames;
+    size_t proc_frame_size;
+
+    if (src_frame_size > 0) {
+        src_frames = bytes / src_frame_size;
+    }
 
     if (adev->debug_flag) {
-        ALOGI("[%s:%d] bytes:%zu, out_device:%#x", __func__, __LINE__, bytes, adev->out_device);
+        ALOGI("[%s:%d] bytes:%zu, in_format:0x%x out_device:%#x", __func__, __LINE__, bytes, config->format, adev->out_device);
     }
 
     if (!bt->active) {
-        ret = open_btSCO_device(adev, in_frames);
+        ret = open_btSCO_device(adev, src_frames);
         if (ret) {
             ALOGD("%s: open bt sco pcm fail", __func__);
             return bytes;
         }
     }
 
-    out_frames = in_frames * bt->cfg.rate / MM_FULL_POWER_SAMPLING_RATE + 1;
-
-    /* Discard right channel */
-    for (i = 0; i < in_frames; i++) {
-        in_buffer[i] = in_buffer[i * 2];
+    if (config->format == AUDIO_FORMAT_PCM_32_BIT) { //bit convert & Discard right channel
+        int16_t *out = (int16_t *)buffer;
+        int32_t *in = (int32_t *)buffer;
+        for (int i = 0; i < src_frames; i++) {
+            int32_t value = in[i * 2];
+            out[i] = (int16_t)(value >> 16);
+        }
+        proc_frame_size = audio_channel_count_from_out_mask(config->channel_mask) * audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT);
+        proc_frames = src_frames / 2;
+    } else if (config->format == AUDIO_FORMAT_PCM_16_BIT) { //Discard right channel
+        int16_t *in = (int16_t *)buffer;
+        int16_t *out = (int16_t *)buffer;
+        for (int i = 0; i < src_frames; i++) {
+            out[i] = in[i * 2];
+        }
+        proc_frame_size = src_frame_size;
+        proc_frames = src_frames / 2;
+    } else {
+        proc_frame_size = src_frame_size;
+        proc_frames = src_frames / 2;
+        ALOGW("warning, unsupport format:0x%x", config->format);
     }
 
-    /* The frame size is now half */
-    frame_size /= 2;
+    out_frames = proc_frames * bt->cfg.rate / MM_FULL_POWER_SAMPLING_RATE + 1;
 
     //prepare input buffer
     if (bt->resampler) {
-        size_t frames_needed = bt->resampler_in_frames + in_frames;
+        size_t frames_needed = bt->resampler_in_frames + proc_frames;
         if (bt->resampler_buffer_size_in_frames < frames_needed) {
             bt->resampler_buffer_size_in_frames = frames_needed;
             bt->resampler_buffer = (int16_t *)aml_audio_realloc(bt->resampler_buffer,
-                    bt->resampler_buffer_size_in_frames * frame_size);
+                    bt->resampler_buffer_size_in_frames * proc_frame_size);
             if (!bt->resampler_buffer) {
                 ALOGE("%s: aml_audio_realloc resampler_buffer fail", __func__);
                 return -1;
             }
         }
         memcpy(bt->resampler_buffer + bt->resampler_in_frames,
-                buffer, in_frames * frame_size);
-        bt->resampler_in_frames += in_frames;
+                buffer, proc_frames * proc_frame_size);
+        bt->resampler_in_frames += proc_frames;
 
         size_t res_in_frames = bt->resampler_in_frames;
         bt->resampler->resample_from_input(bt->resampler,
@@ -216,16 +233,16 @@ ssize_t write_to_sco(struct aml_audio_device *adev, audio_config_base_t *config,
         if (bt->resampler_in_frames) {
             memmove(bt->resampler_buffer,
                 bt->resampler_buffer + bt->resampler_in_frames,
-                bt->resampler_in_frames * frame_size);
+                bt->resampler_in_frames * proc_frame_size);
         }
     }
     pthread_mutex_lock(&bt->lock);
     if (bt->pcm_bt) {
-        ret = pcm_write(bt->pcm_bt, bt->bt_out_buffer, out_frames * frame_size);
+        ret = pcm_write(bt->pcm_bt, bt->bt_out_buffer, out_frames * proc_frame_size);
         if (ret < 0) {
             ALOGE("%s pcm_write failed",__func__);
         }
-        dump_output_data(bt, bt->bt_out_buffer, out_frames * frame_size);
+        dump_output_data(bt, bt->bt_out_buffer, out_frames * proc_frame_size);
     }
     pthread_mutex_unlock(&bt->lock);
     return bytes;

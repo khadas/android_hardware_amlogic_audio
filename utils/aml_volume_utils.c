@@ -290,4 +290,39 @@ void apply_volume_pan(unsigned char panByte, void *buf, int sample_size, int byt
     return;
 }
 
-
+void apply_volume_2ch_by_format(float volume, void *buffer, int samples, audio_format_t in_format, audio_format_t out_format)
+{
+    if (out_format == AUDIO_FORMAT_PCM_32_BIT) {
+        if (in_format == AUDIO_FORMAT_PCM_16_BIT) {
+            int16_t *input16 = (int16_t *)buffer;
+            int32_t *output32 = (int32_t *)buffer;
+            for (int i = samples - 1; i >= 0; i--) {
+                int32_t samp = ((int32_t)input16[i]) << 16;
+                output32[i] = clamp32((int64_t)(samp * (double)(volume)));
+            }
+        } else if (in_format == AUDIO_FORMAT_PCM_32_BIT) {
+            int32_t *input32 = (int32_t*)buffer;
+            for (int i = 0; i < samples; i++) {
+                int64_t samp = (int64_t)(input32[i]);
+                input32[i] = clamp32((int64_t)(volume * samp));
+            }
+        }
+    } else if (out_format == AUDIO_FORMAT_PCM_16_BIT) {
+        if (in_format == AUDIO_FORMAT_PCM_16_BIT) {
+            int16_t *input16 = (int16_t*)buffer;
+            for (int i = 0; i < samples; i++) {
+                int32_t samp = (int32_t)(input16[i]);
+                input16[i] = clamp16((int32_t)(volume * samp));
+            }
+        } else if (in_format == AUDIO_FORMAT_PCM_32_BIT) {
+            int32_t *input32 = (int32_t *)buffer;
+            int16_t *output16 = (int16_t *)buffer;
+            for (int i = samples - 1; i >= 0; i--) {
+                int32_t samp = ((int32_t)input32[i]);
+                output16[i] = clamp16((int32_t)(volume * samp));
+            }
+        }
+    } else {
+        ALOGE("do_mixing_2ch invalid in_format:%#x out_format:%#x invalid", in_format, out_format);
+    }
+}

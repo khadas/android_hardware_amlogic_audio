@@ -430,7 +430,9 @@ void get_sink_format(struct audio_stream_out *stream)
     /*set default value for sink_audio_format/optical_audio_format*/
     audio_format_t sink_audio_format = AUDIO_FORMAT_PCM_16_BIT;
     audio_format_t optical_audio_format = AUDIO_FORMAT_PCM_16_BIT;
-
+    //TODO: temporary solution for MS12 not support PCM32 input
+    //sink_audio_format using primaryOutputFormat
+    //END
     audio_format_t sink_capability = get_sink_capability(adev);
     audio_format_t sink_dts_capability = get_sink_dts_capability(adev);
     audio_format_t sink_mpegh_capability = get_sink_mpegh_capability(adev);

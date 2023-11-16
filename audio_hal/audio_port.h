@@ -145,6 +145,7 @@ typedef enum {
 
 typedef struct OUTPUT_PORT {
     MIXER_OUTPUT_PORT enOutPortType;
+    struct audioCfg src_cfg;
     struct audioCfg cfg;
     // data buf to hold tmp out data
     char *data_buf;
@@ -237,10 +238,12 @@ size_t get_inport_consumed_size(input_port *port);
 int inport_buffer_level(input_port *port);
 int output_get_default_bus_config(struct audioCfg *cfg);
 int output_get_default_config(struct audioCfg *cfg, bool is_tv);
+int output_change_config_format(struct audioCfg *cfg, audio_format_t format);
 int output_get_alsa_config(output_port *out_port, struct pcm_config *alsa_config);
 
 output_port *new_output_port(
         MIXER_OUTPUT_PORT port_index,
+        struct audioCfg *src_config,
         struct audioCfg *config,
         size_t buf_frames);
 

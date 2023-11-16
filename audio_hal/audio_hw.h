@@ -377,6 +377,10 @@ struct aml_audio_device {
     /*used for dts decoder*/
     struct dca_dts_dec dts_hd;
     bool bDVEnable;
+    //TODO: temporary solution for MS12 not support PCM32 input
+    int16_t *temp_out_16_buf;
+    size_t temp_out_16_buf_size;
+    //END
     int16_t *out_16_buf;
     size_t out_16_buf_size;
     int32_t *out_32_buf;
@@ -535,6 +539,9 @@ struct aml_audio_device {
     /*A consistent loudness level must be maintained at the PCM output, for the Dolby or other audio formats. */
     /*It is desirable that the bitstream output(over S/PDIF, HDMI, or eARC) should be played back at a consistent level.*/
     int loudness_level;//Specify the loudness level of decoding output
+
+    /* primary streamout config format, juged by policy */
+    audio_format_t primary_out_format;
 };
 
 struct meta_data {
@@ -919,6 +926,27 @@ static inline bool is_bypass_submix_active(struct aml_audio_device *adev)
     }
     return false;
 }
+
+static inline void set_primary_out_format(struct aml_audio_device *adev, audio_format_t format)
+{
+    //TODO: temporary solution for MS12 not support PCM32 input
+    if (adev->dolby_lib_type == 2 /*eDolbyMS12Lib*/  || adev->dolby_lib_type_last == 2/*eDolbyMS12Lib*/) {
+        adev->primary_out_format = AUDIO_FORMAT_PCM_16_BIT;
+    } else
+    //TODO: End
+    adev->primary_out_format = format;
+}
+
+static inline audio_format_t get_primary_out_format(struct aml_audio_device *adev)
+{
+    //TODO: temporary solution for MS12 not support PCM32 input
+    if (adev->dolby_lib_type == 2 /*eDolbyMS12Lib*/  || adev->dolby_lib_type_last == 2/*eDolbyMS12Lib*/) {
+        return AUDIO_FORMAT_PCM_16_BIT;
+    }
+    //TODO: End
+    return adev->primary_out_format;
+}
+
 
 /*
  *@brief get_output_format get the output format always return the "sink_format" of adev

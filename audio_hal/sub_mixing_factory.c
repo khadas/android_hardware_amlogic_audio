@@ -62,16 +62,33 @@ static int initSubMixingOutput(
 {
     R_CHECK_POINTER_LEGAL(-EINVAL, sm, "");
     if (sm->type == MIXER_LPCM) {
-        struct audioCfg cfg;
+        struct audioCfg mixer_cfg;
+        struct audioCfg outport_cfg;
         int mixer_type = SUB_MIXER_NORMAL;
 #ifdef ENABLE_AUTOMOTIVE_AUDIO_FUNCTION
         mixer_type = SUB_MIXER_CH_MUX;
-        output_get_default_bus_config(&cfg);
+        output_get_default_bus_config(&outport_cfg);
+        memcpy(&mixer_cfg, &outport_cfg, sizeof(struct audioCfg));
 #else
         mixer_type = SUB_MIXER_NORMAL;
-        output_get_default_config(&cfg, is_TV(adev));
+        output_get_default_config(&outport_cfg, is_TV(adev));
+        mixer_get_default_config(&mixer_cfg, is_TV(adev));
 #endif
-        struct amlAudioMixer *amixer = newAmlAudioMixer(adev, cfg, mixer_type);
+        audio_format_t primaryOutFormat = get_primary_out_format(adev);
+        switch (primaryOutFormat)
+        {
+        case AUDIO_FORMAT_PCM_16_BIT:
+        case AUDIO_FORMAT_PCM_32_BIT:
+            output_change_config_format(&outport_cfg, primaryOutFormat);
+            mixer_change_config_format(&mixer_cfg, primaryOutFormat);
+            break;
+        default:
+            ALOGW("%s() Invalid primaryOutFormat:0x%x using default mixerOutFormat:0x%x",__func__,
+                primaryOutFormat, mixer_cfg.format);
+            break;
+        }
+
+        struct amlAudioMixer *amixer = newAmlAudioMixer(adev, mixer_cfg, outport_cfg, mixer_type);
         R_CHECK_POINTER_LEGAL(-ENOMEM, amixer, "newAmlAudioMixer failed");
         sm->mixerData = amixer;
         /* TV product has EQ DRC and sink gain */
@@ -605,7 +622,7 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
     //uint64_t begin_time, end_time;
     ssize_t written = 0;
     size_t remain = 0;
-    int frame_size = 4; // currently, npcm decoder will output 2ch 16bit pcm
+    int frame_size = audio_bytes_per_sample(out->audioCfg.format) * audio_channel_count_from_out_mask(out->audioCfg.channel_mask);
     int64_t throttle_timeus = 0;//aml_audio_get_throttle_timeus(bytes);
     int channels = 2;
     int sample_size = 2;

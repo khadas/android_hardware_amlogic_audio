@@ -13,6 +13,7 @@
 
 #include <dlfcn.h>
 #include <cutils/log.h>
+#include <audio_utils/format.h>
 
 #include "audio_post_process.h"
 #include "Virtualx.h"
@@ -25,11 +26,15 @@
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #endif
 
+//post-processing effects implemented by AML only support PCM32
+#define EFFECT_PROCESSING_FORMAT (AUDIO_FORMAT_PCM_32_BIT)
+
 /* path of virtualx effect license library */
 #define VIRTUALX_LICENSE_LIB_PATH "/vendor/lib/soundfx/libvx.so"
 #define DEBUG_ENABLE_DUMP_EFFECT_INFO 1
 
 bool Check_VX_lib(void);
+static int do_effect_process(struct aml_native_postprocess *native_postprocess, const effect_handle_t effect, void *in_buffer, size_t in_frames);
 
 static struct effect_insert_seq_desc Effect_Insert_Seq_List[] = {
     {
@@ -147,13 +152,14 @@ void update_effect_info_list(struct aml_native_postprocess *native_postprocess)
     for (int i = 0; i < num_postprocessors; i++) {
         struct aml_post_effect_info *tempEffect;
         tempEffect =  &native_postprocess->postprocessors[i];
+        if (!tempEffect->idesc) {
+            insert_index = tempEffect->index;
+            continue;
+        }
+
         if (tempEffect->idesc && tempEffect->idesc->seq < 0) {
             insert_index = tempEffect->index;
             break;
-        }
-
-        if (!tempEffect->idesc) {
-            insert_index = tempEffect->index;
         }
 
         if (tempEffect->idesc && newEffectInfo->idesc->seq < tempEffect->idesc->seq) {
@@ -295,14 +301,22 @@ exit:
     return status;
 }
 
-/* Note: return value must be: in_frames */
-size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t in_frames)
+/*
+Data path:
+  case 1: src_format != proc_format
+    in_buffer [src_format] -> {pre_process_stereo() [proc_format] } -> itfe.process() [proc_format] -> {post_process_stereo [src_format]}
+  case 2: src_format == proc_format
+    in_buffer [src_format] -> itfe.process() [proc_format]
+Note: return value must be: in_frames
+*/
+size_t audio_post_process(struct aml_native_postprocess *native_postprocess, void *in_buffer, size_t in_frames)
 {
     int ret = 0, j = 0;
     audio_buffer_t in_buf;
     audio_buffer_t out_buf;
     int frames = in_frames;
     bool ai_process_done = false;
+
 
     pthread_mutex_lock(&native_postprocess->lock);
     if (native_postprocess->num_postprocessors == 0) {
@@ -327,6 +341,7 @@ size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int
 
     for (j = 0; j < native_postprocess->num_postprocessors; j++) {
         effect_handle_t effect = native_postprocess->postprocessors[j].itfe;
+        const struct aml_post_effect_info *effectInfo = &native_postprocess->postprocessors[j];
         if (effect && (*effect) && (*effect)->process && in_buffer) {
             if ((native_postprocess->libvx_exist && native_postprocess->effect_in_ch == 6 && j == 0) ||
                   (((native_postprocess->effect_ctrl.effect_mode == EFFECT_MODE_AUTO) && !(native_postprocess->effect_ctrl.is_dts)) && j == 0)) {
@@ -335,15 +350,12 @@ size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int
             } else {
                 /* do 2 channel processing */
                 in_buf.frameCount =  out_buf.frameCount = frames;
-                in_buf.s16 = out_buf.s16 = in_buffer;
-
-                if (native_postprocess->ai_handle && !ai_process_done) {
-                    ret = aml_ai_audio_process(native_postprocess->ai_handle, &in_buf, &out_buf);
-                    ai_process_done = true;
-                }
-
-                if ((*effect)->process) {
+                in_buf.raw = out_buf.raw = in_buffer;
+                if (effectInfo->idesc == NULL) {
+                    /* Effect designed by customer without pre/post process */
                     ret = (*effect)->process(effect, &in_buf, &out_buf);
+                } else {
+                    ret = do_effect_process(native_postprocess, effect, in_buffer, in_frames);
                 }
             }
             frames = out_buf.frameCount;
@@ -376,6 +388,94 @@ int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int
             ALOGE("postprocess failed\n");
         } else {
             ret = bytes/3;
+        }
+    }
+
+    return ret;
+}
+
+/*
+Function: bit convert to ::proc_format before enter effect_process
+Description:
+    effect chain fixed support 32bit process, if input data is not 32 bit do bit convert
+Data Path:
+    in_buffer -> pre_process -> pre_out (temp_proc_buffer)
+*/
+static int pre_process_stereo(struct aml_native_postprocess *post_handle, void *in, size_t in_frames, void **out, size_t *out_frames)
+{
+    audio_format_t in_format = post_handle->src_format;
+    audio_format_t out_format = post_handle->proc_format;
+    if (in_format != out_format) {
+        size_t request_buffer_size = in_frames * 2 /*channels*/ * audio_bytes_per_sample(out_format);
+        if (request_buffer_size > post_handle->temp_proc_capacity) {
+            void *addr = aml_audio_realloc(post_handle->temp_proc_buffer, request_buffer_size);
+            post_handle->temp_proc_buffer = addr;
+            post_handle->temp_proc_capacity = request_buffer_size;
+            ALOGE_IF(addr == NULL, "%s() line:%d Fatal error, No memory!", __func__, __LINE__);
+        }
+        memcpy_by_audio_format(post_handle->temp_proc_buffer, out_format, in, in_format, in_frames * 2 /*channels*/);
+        *out = post_handle->temp_proc_buffer;
+        *out_frames = in_frames;
+    } else {
+        *out = in;
+        *out_frames = in_frames;
+    }
+    return 0;
+}
+
+/*
+Function: bit convert to ::src_format after effect_process
+Data Path:
+   in -> post_process -> post_out (out)
+*/
+static int post_process_stereo(struct aml_native_postprocess *post_handle, void *in, size_t in_frames, void *out, size_t *out_frames)
+{
+    //no pre_process
+    if (in == out) {
+        *out_frames = in_frames;
+        return 0;
+    }
+
+    audio_format_t in_format = post_handle->proc_format;
+    audio_format_t out_format = post_handle->src_format;
+    if (in_format != out_format) {
+        size_t samples = in_frames * 2 /*channels*/;
+        memcpy_by_audio_format(out, out_format, in, in_format, samples);
+    }
+    *out_frames = in_frames;
+    return 0;
+}
+
+static int do_effect_process(struct aml_native_postprocess *native_postprocess, const effect_handle_t effect, void *in_buffer, size_t in_frames)
+{
+    audio_buffer_t in_buf;
+    audio_buffer_t out_buf;
+    int ret = 0;
+
+    if (native_postprocess->src_format == native_postprocess->proc_format) {
+        in_buf.frameCount = out_buf.frameCount = in_frames;
+        in_buf.s32 = out_buf.s32 = (int32_t*)in_buffer;
+        //do effect process
+        ret = (*effect)->process(effect, &in_buf, &out_buf);
+    }
+    else
+    {
+        void *pre_out_buffer = NULL;
+        size_t pre_out_frames = 0;
+        pre_process_stereo(native_postprocess, in_buffer, in_frames, &pre_out_buffer, &pre_out_frames);
+
+        //do effect process
+        if (pre_out_frames != 0) {
+            in_buf.frameCount = out_buf.frameCount = pre_out_frames;
+            in_buf.s32 = out_buf.s32 = (int32_t*)pre_out_buffer;
+            ret = (*effect)->process(effect, &in_buf, &out_buf);
+
+            void *post_out_buf = in_buffer;
+            size_t post_out_frames = in_frames;
+            post_process_stereo(native_postprocess, out_buf.raw, out_buf.frameCount, post_out_buf, &post_out_frames);
+            if (post_out_frames != in_frames) {
+                ALOGW("%s() Warning! post_out_frames:%zu != in_frames:%zu", __func__, post_out_frames, in_frames);
+            }
         }
     }
 
@@ -759,7 +859,7 @@ bool is_vendor_support_libvx(struct aml_native_postprocess *native_postprocess)
     return native_postprocess->libvx_exist;
 }
 
-int init_vendor_post_process(struct aml_native_postprocess *native_postprocess)
+int init_vendor_post_process(struct aml_native_postprocess *native_postprocess, audio_format_t src_format)
 {
     if (!native_postprocess) {
         ALOGW("%s() Warning, native_postprocess = NULL!", __func__);
@@ -769,6 +869,10 @@ int init_vendor_post_process(struct aml_native_postprocess *native_postprocess)
     memset(native_postprocess, 0, sizeof(struct aml_native_postprocess));
     pthread_mutex_init(&native_postprocess->lock, NULL);
     native_postprocess->libvx_exist = Check_VX_lib();
+    native_postprocess->src_format = src_format;
+    native_postprocess->proc_format = EFFECT_PROCESSING_FORMAT;
+
+    ALOGI("%s() source_format:0x%x proc_format:0x%x", __func__, native_postprocess->src_format, native_postprocess->proc_format);
     return 0;
 }
 
@@ -777,6 +881,11 @@ void destroy_vendor_post_process(struct aml_native_postprocess *native_postproce
     if (!native_postprocess) {
         ALOGW("%s() Warning, native_postprocess = NULL!", __func__);
         return;
+    }
+
+    if (native_postprocess->temp_proc_buffer != NULL) {
+        aml_audio_free(native_postprocess->temp_proc_buffer);
+        native_postprocess->temp_proc_buffer = NULL;
     }
 
     pthread_mutex_destroy(&native_postprocess->lock);
