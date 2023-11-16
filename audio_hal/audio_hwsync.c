@@ -827,6 +827,7 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, uint64_t offset, uint
             if (pts_tab[i].offset == align) {
                 *p_apts = pts_tab[i].pts;
                 nearest_offset = pts_tab[i].offset;
+                pts_tab[i].valid = 0;
                 ret = 0;
                 if (debug_enable) {
                     ALOGI("%s first flag %d,pts checkout done,offset %" PRIx64 ",align %" PRIx64 ",pts 0x%" PRIx64 "",
@@ -842,7 +843,6 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, uint64_t offset, uint
                     nearest_offset = pts_tab[i].offset;
                 }
                 pts_tab[i].valid = 0;
-
             }
         }
     }
@@ -850,8 +850,6 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, uint64_t offset, uint
         if (nearest_pts) {
             ret = 0;
             *p_apts = nearest_pts;
-            /*keep it as valid, it may be used for next lookup*/
-            pts_tab[match_index].valid = 1;
             if (debug_enable)
                 ALOGI("find nearest pts 0x%" PRIx64 " offset %" PRIx64 " align %" PRIx64 "", *p_apts, nearest_offset, align);
         } else {

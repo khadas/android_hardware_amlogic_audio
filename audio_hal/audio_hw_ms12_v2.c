@@ -3442,7 +3442,7 @@ Aml_MS12_SyncPolicy_t ms12_dtv_sync_callback(void *priv_data, unsigned long long
                 if (is_HDMI_connected(adev)) {
                     force_setting_delay_pts = aml_getprop_int(PROPERTY_LOCAL_PASSTHROUGH_LATENCY)  * MILLISECOND_2_PTS;
                 }
-                aml_dtvsync->cur_outapts = new_apts + ms12_tuning_delay_pts + force_setting_delay_pts;
+                aml_dtvsync->cur_outapts = new_apts;
 
                 if ((syncpolicy_status.eSyncPolicy == DTVSYNC_AUDIO_DROP_PCM) ||
                     (syncpolicy_status.eSyncPolicy == DTVSYNC_AUDIO_INSERT)) {
@@ -3455,7 +3455,10 @@ Aml_MS12_SyncPolicy_t ms12_dtv_sync_callback(void *priv_data, unsigned long long
                         return audio_sync_policy;
                     }
                 }
+
+                aml_dtvsync->cur_outapts = new_apts + ms12_tuning_delay_pts + force_setting_delay_pts;
                 ms12_do_dtv_sync(stream_out);
+                aml_dtvsync->cur_outapts = new_apts;
 
                 if (async_policy->audiopolicy != DTVSYNC_AUDIO_NORMAL_OUTPUT)
                     ALOGI("cur policy:%d, prm1:%d, prm2:%d\n", async_policy->audiopolicy,
