@@ -158,7 +158,7 @@ struct aml_audio_patch
     unsigned char dtv_NchOriginal;
     unsigned char dtv_lfepresent;
     unsigned int dtv_first_apts;
-    unsigned int dtv_pcm_wrote;
+    uint64_t  dtv_pcm_wrote;
     unsigned int dtv_pcm_readed;
     unsigned int dtv_decoder_ready;
     unsigned int input_thread_created;
