@@ -531,11 +531,14 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
                     float volume = aml_audio_get_s_gain_by_src(adev, get_dev_patch_src(adev));
 
                     volume *= adev->sink_gain[OUTPORT_A2DP];
-                    apply_volume(volume, out_port->data_buf, sizeof(uint16_t),
+                    ret = aml_audio_check_and_realloc((void **)&adev->out_16_buf, &adev->out_16_buf_size, out_port->bytes_avail);
+                    R_CHECK_RET((int)ret, "alloc out_16_buf size:%zu fail", out_port->bytes_avail);
+                    memcpy(adev->out_16_buf, out_port->data_buf, out_port->bytes_avail);
+                    apply_volume(volume, adev->out_16_buf, sizeof(uint16_t),
                         out_port->bytes_avail);
                 }
                 alsa_status = a2dp_out_get_status(adev);
-                a2dp_out_write(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
+                a2dp_out_write(adev, &in_data_config, adev->out_16_buf, out_port->bytes_avail);
             }
             if (!is_TV(adev) && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
                 // For STB, do not send data to spdif/hdmitx when bt is connected and mute hdmitx cannot be controlled.
