@@ -145,7 +145,7 @@ include $(BUILD_PREBUILT)
     LOCAL_SHARED_LIBRARIES := \
         liblog libcutils libamltinyalsa \
         libaudioutils libdl libaudioroute libutils \
-        libdroidaudiospdif libamaudioutils libamlaudiorc \
+        libdroidaudiospdif libamaudioutils \
         libnano \
         libion \
         libamladecs \
@@ -199,20 +199,10 @@ else
     LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_EXTENSION_VERSION=1
 endif
 
-#/*[SEI-2018-12-18] add for HBG remote audio support { */
-ifeq ($(BOARD_ENABLE_HBG), true)
-    LOCAL_SHARED_LIBRARIES += libhbg
-endif
-#/*[SEI-2018-12-18] add for HBG remote audio support } */
-
     LOCAL_MODULE_TAGS := optional
     LOCAL_CFLAGS += -Werror
 ifneq ($(TARGET_BUILD_VARIANT),user)
     LOCAL_CFLAGS += -DDEBUG_VOLUME_CONTROL
-endif
-
-ifeq ($(BOARD_ENABLE_HBG), true)
-LOCAL_CFLAGS += -DENABLE_HBG_PATCH
 endif
 
 ifeq ($(strip $(TARGET_WITH_TV_AUDIO_MODE)),true)

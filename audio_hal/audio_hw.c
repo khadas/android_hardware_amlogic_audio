@@ -74,8 +74,6 @@
 #include "aml_audio_spdifout.h"
 #include "aml_audio_output.h"
 #include "aml_mmap_audio.h"
-// for invoke bluetooth rc hal
-#include "audio_hal_thunks.h"
 #include "earc_utils.h"
 
 #include <dolby_ms12_status.h>
@@ -4988,17 +4986,6 @@ int adev_open_input_stream(struct audio_hw_device *dev,
         // returns are based on the sampling rate supported by the hardware.
         config->sample_rate = in->config.rate;
         in->requested_rate = in->config.rate;
-    } else if (in->device & AUDIO_DEVICE_IN_WIRED_HEADSET) {
-        //bluetooth rc voice
-        // usecase for bluetooth rc audio hal
-        ALOGI("%s: use RC audio HAL", __func__);
-        ret = rc_open_input_stream(&in, config);
-        if (ret != 0) {
-            ALOGE("  rc_open_input_stream fail, goto err!!!");
-            goto err;
-        }
-        config->sample_rate = in->config.rate;
-        config->channel_mask = AUDIO_CHANNEL_IN_MONO;
     } else {
         memcpy(&in->config, &pcm_config_in, sizeof(pcm_config_in));
     }
@@ -5119,9 +5106,6 @@ void adev_close_input_stream(struct audio_hw_device *dev,
 #endif
 
     in_standby(&stream->common);
-
-    if (in->device & AUDIO_DEVICE_IN_WIRED_HEADSET)
-        rc_close_input_stream(in);
 
     if (in->resampler) {
         release_resampler(in->resampler);
