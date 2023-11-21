@@ -253,10 +253,12 @@ void *audio_patch_input_threadloop(void *data)
             } else {
                 if (is_tv_mute(aml_dev) && (audio_is_linear_pcm(patch->aformat)) && is_game_mode(aml_dev)) {
                     ring_buffer_reset(ringbuffer);
-                    ret = pcm_ioctl(aml_dev->pcm_handle[I2S_DEVICE], SNDRV_PCM_IOCTL_RESET, 0);
-                    if (ret < 0) {
-                        ALOGE("cannot reset pcm!");
+                    if (aml_dev->pcm_handle[I2S_DEVICE]) {
+                        ret = pcm_ioctl(aml_dev->pcm_handle[I2S_DEVICE], SNDRV_PCM_IOCTL_RESET, 0);
+                        if (ret < 0) {
+                            ALOGE("cannot reset pcm!");
                         }
+                    }
                     enable_tv_mute(aml_dev, false);
                 }
 
