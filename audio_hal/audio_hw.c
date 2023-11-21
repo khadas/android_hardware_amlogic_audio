@@ -7483,7 +7483,11 @@ static struct audio_patch_set *register_audio_patch(struct audio_hw_device *dev,
             }
             out_devices |= sink;
         }
-        aml_audio_output_routing(aml_dev, out_devices);
+
+        //No need to do routing when start dummy_output -> earpiece
+        if (sinks[0].ext.device.type != AUDIO_DEVICE_OUT_EARPIECE) {
+            aml_audio_output_routing(aml_dev, out_devices);
+        }
     }
     return patch_set_new;
 }
