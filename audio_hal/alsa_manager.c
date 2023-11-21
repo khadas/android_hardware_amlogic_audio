@@ -806,7 +806,7 @@ void aml_close_continuous_audio_device(struct audio_hw_device *dev) {
     return ;
 }
 
-#define WAIT_COUNT_MAX 30
+#define WAIT_COUNT_MAX 5  /* max 50ms timeout for PCM stream */
 size_t aml_alsa_input_read(struct audio_stream_in *stream,
                         void *buffer,
                         size_t bytes) {
