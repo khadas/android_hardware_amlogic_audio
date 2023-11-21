@@ -23,7 +23,7 @@
 #include "aml_dec_api.h"
 #include "audio_data_process.h"
 #include "aml_malloc_debug.h"
-
+#include "aml_dump_debug.h"
 
 #define FAAD_LIB_PATH "/vendor/lib/libfaad.so"
 #define FAAD_LIB_64BIT_PATH "/vendor/lib64/libfaad.so"
@@ -337,14 +337,9 @@ static int faad_decoder_release(aml_dec_t * aml_dec)
 }
 static void dump_faad_data(void *buffer, int size, char *file_name)
 {
-   if (property_get_bool("vendor.audio.faad.outdump",false)) {
-        FILE *fp1 = fopen(file_name, "a+");
-        if (fp1) {
-            int flen = fwrite((char *)buffer, 1, size, fp1);
-            ALOGI("%s buffer %p size %d flen %d\n", __FUNCTION__, buffer, size,flen);
-            fclose(fp1);
-        }
-    }
+    if (get_debug_value(AML_DUMP_AUDIOHAL_DECODER)) {
+        aml_dump_audio_bitstreams(file_name, buffer, size);
+     }
 }
 
 
@@ -427,7 +422,7 @@ static int faad_decoder_process(aml_dec_t *aml_dec, unsigned char *buffer, int b
       }
     }
     if (dec_pcm_data->data_len) {
-        dump_faad_data(dec_pcm_data->buf, dec_pcm_data->data_len, "/data/faad_main.pcm");
+        dump_faad_data(dec_pcm_data->buf, dec_pcm_data->data_len, "/data/vendor/audiohal/faad_main.pcm");
     }
     aac_dec->total_raw_size += used_size_return;
     aac_dec->total_pcm_size += dec_pcm_data->data_len;
@@ -481,7 +476,7 @@ static int faad_decoder_process(aml_dec_t *aml_dec, unsigned char *buffer, int b
             ALOGV("ad decode_len %d in %d pcm_len %d used_size %d", decode_len,  aac_dec->ad_remain_size, pcm_len, used_size);
             if (decode_len > 0) {
                 used_size += decode_len;
-                dump_faad_data(ad_dec_pcm_data->buf + ad_dec_pcm_data->data_len, pcm_len, "/data/faad_ad.pcm");
+                dump_faad_data(ad_dec_pcm_data->buf + ad_dec_pcm_data->data_len, pcm_len, "/data/vendor/audiohal/faad_ad.pcm");
                 ad_dec_pcm_data->data_len += pcm_len;
                 if (ad_dec_pcm_data->data_len > ad_dec_pcm_data->buf_size) {
                     ALOGV("ad decode len %d  > ad_dec_pcm_data->buf_size %d ", ad_dec_pcm_data->data_len, ad_dec_pcm_data->buf_size);
@@ -616,7 +611,7 @@ static int faad_decoder_process(aml_dec_t *aml_dec, unsigned char *buffer, int b
     if (dec_pcm_data->data_len != ad_dec_pcm_data->data_len ) {
         ALOGV("dec_pcm_data->data_len %d ad_dec_pcm_data->data_len %d",dec_pcm_data->data_len ,ad_dec_pcm_data->data_len);
     }
-    dump_faad_data(dec_pcm_data->buf, dec_pcm_data->data_len, "/data/faad_output.pcm");
+    dump_faad_data(dec_pcm_data->buf, dec_pcm_data->data_len, "/data/vendor/audiohal/faad_output.pcm");
     ALOGV("decode len %d buffer len %d used_size_return %d", dec_pcm_data->data_len, dec_pcm_data->buf_size,used_size_return);
     return used_size_return;
 }

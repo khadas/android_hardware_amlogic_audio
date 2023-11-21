@@ -20,6 +20,7 @@
 #define CC_DUMP_SRC_TYPE_INPUT         (0)
 #define CC_DUMP_SRC_TYPE_OUTPUT        (1)
 #define CC_DUMP_SRC_TYPE_INPUT_PARSE   (2)
+#define ENUM_TYPE_STR_MAX_LEN          (128)
 
 typedef enum AML_DUMP_DEBUG_INFO {
     /*debug enum items*/
@@ -30,16 +31,28 @@ typedef enum AML_DUMP_DEBUG_INFO {
     AML_DEBUG_AUDIOHAL_SYNCPTS,
     AML_DEBUG_AUDIOHAL_MATENC,
     AML_DEBUG_AUDIOHAL_TRACE,
-    AML_DEBUG_AUDIOINFO_REPORT,
+    AML_DEBUG_AUDIOHAL_DECODED_INFO,
     AML_DEBUG_AUDIOHAL_AUT,
     AML_DEBUG_AUDIOHAL_EDID,
 
     /*dump enum items*/
+    AML_DUMP_AUDIOHAL_IN,
+    AML_DUMP_AUDIOHAL_OUT,
     AML_DUMP_AUDIOHAL_MS12,
-    AML_DUMP_AUDIOHAL_ALSA,
+    AML_DUMP_AUDIOHAL_SPDIF,
+    AML_DUMP_AUDIOHAL_SUBMIXING,
     AML_DUMP_AUDIOHAL_TV,
-    AML_DUMP_AUDIO_STREAM,
-    AML_DUMP_AUDIOHAL_ASYNC_WRITE,
+    AML_DUMP_AUDIOHAL_DTV,
+    AML_DUMP_AUDIOHAL_MMAP,
+    AML_DUMP_AUDIOHAL_HFP,
+    AML_DUMP_AUDIOHAL_SCO,
+    AML_DUMP_AUDIOHAL_A2DP,
+    AML_DUMP_AUDIOHAL_USB,
+    AML_DUMP_AUDIOHAL_DECODER,
+    AML_DUMP_AUDIOHAL_RESAMPLE,
+    AML_DUMP_AUDIOHAL_SPEED,
+    AML_DUMP_AUDIOHAL_EFFECT,
+    AML_DUMP_AUDIOHAL_ASYNC,
 
     AML_DEBUG_DUMP_MAX,
 } AML_DUMP_DEBUG_INFO_T;
@@ -75,25 +88,38 @@ void DoDumpData(const void *data_buf, int size, int aud_src_type);
 #define DUMP_AUDIO_INFO_DECODE              (0x1000)  //use to enable the audio_report_info prop
 
 /*define debug enum string*/
-#define AML_DEBUG_AUDIOHAL_DEBUG_PROPERTY           "vendor.media.audio.hal.debug"
+#define AML_DEBUG_AUDIOHAL_DEBUG_PROPERTY           "vendor.media.audiohal.debug"
 #define AML_DEBUG_AUDIOHAL_LEVEL_DETECT_PROPERTY    "vendor.media.audiohal.level"
 #define AML_DEBUG_AUDIOHAL_HW_SYNC_PROPERTY         "vendor.media.audiohal.hwsync"
-#define AML_DEBUG_AUDIOHAL_ALSA_PROPERTY            "vendor.media.audio.hal.alsa"
-#define AML_DEBUG_AUDIOHAL_SYNCPTS_PROPERTY         "vendor.media.audio.hal.syncpts"
+#define AML_DEBUG_AUDIOHAL_ALSA_PROPERTY            "vendor.media.audiohal.alsa"
+#define AML_DEBUG_AUDIOHAL_SYNCPTS_PROPERTY         "vendor.media.audiohal.syncpts"
 #define AML_DEBUG_AUDIOHAL_MATENC_PROPERTY          "vendor.media.audiohal.matenc.debug"
 #define AML_DEBUG_AUDIOHAL_TRACE_PROPERTY           "vendor.media.audiohal.trace.debug"
-#define AML_DEBUG_AUDIOINFO_REPORT_PROPERTY         "vendor.media.audio.info.report.debug"
+#define AML_DEBUG_AUDIOINFO_REPORT_PROPERTY         "vendor.media.audiohal.decoded.info.debug"
 #define AML_DEBUG_AUDIOHAL_AUT_PROPERTY             "vendor.media.audiohal.aut"
 #define AML_DEBUG_AUDIOHAL_EDID_PROPERTY            "vendor.media.audiohal.edid"
 /*define dump enum string*/
-#define AML_DUMP_AUDIOHAL_MS12_PROPERTY             "vendor.media.audiohal.ms12dump"
-#define AML_DUMP_AUDIOHAL_ALSA_PROPERTY             "vendor.media.audiohal.alsadump"
-#define AML_DUMP_AUDIOHAL_TV_PROPERTY               "vendor.media.audiohal.tvdump"
-#define AML_DUMP_AUDIO_STREAM_PROPERTY              "vendor.media.audio.stream.dump"
-#define AML_DUMP_AUDIOHAL_ASYNC_WRITE_PROPERTY      "vendor.media.audiohal.async.write"
+#define AML_DUMP_AUDIOHAL_IN_PROPERTY               "vendor.media.audiohal.in.dump"
+#define AML_DUMP_AUDIOHAL_OUT_PROPERTY              "vendor.media.audiohal.out.dump"
+#define AML_DUMP_AUDIOHAL_MS12_PROPERTY             "vendor.media.audiohal.ms12.dump"
+#define AML_DUMP_AUDIOHAL_SPDIF_PROPERTY            "vendor.media.audiohal.spdif.dump"
+#define AML_DUMP_AUDIOHAL_SUBMIXING_PROPERTY        "vendor.media.audiohal.submixing.dump"
+#define AML_DUMP_AUDIOHAL_TV_PROPERTY               "vendor.media.audiohal.tv.dump"
+#define AML_DUMP_AUDIOHAL_DTV_PROPERTY              "vendor.media.audiohal.dtv.dump"
+#define AML_DUMP_AUDIOHAL_MMAP_PROPERTY             "vendor.media.audiohal.mmap.dump"
+#define AML_DUMP_AUDIOHAL_HFP_PROPERTY              "vendor.media.audiohal.hfp.dump"
+#define AML_DUMP_AUDIOHAL_SCO_PROPERTY              "vendor.media.audiohal.sco.dump"
+#define AML_DUMP_AUDIOHAL_A2DP_PROPERTY             "vendor.media.audiohal.a2dp.dump"
+#define AML_DUMP_AUDIOHAL_USB_PROPERTY              "vendor.media.audiohal.usb.dump"
+#define AML_DUMP_AUDIOHAL_DECODER_PROPERTY          "vendor.media.audiohal.decoder.dump"
+#define AML_DUMP_AUDIOHAL_RESAMPLE_PROPERTY         "vendor.media.audiohal.resample.dump"
+#define AML_DUMP_AUDIOHAL_SPEED_PROPERTY            "vendor.media.audiohal.speed.dump"
+#define AML_DUMP_AUDIOHAL_EFFECT_PROPERTY           "vendor.media.audiohal.effect.dump"
+#define AML_DUMP_AUDIOHAL_ASYNC_PROPERTY            "vendor.media.audiohal.async.dump"
 
 void aml_audio_debug_open(void);
 void aml_audio_debug_close(void);
+int aml_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes);
 
 static inline int  get_debug_value(AML_DUMP_DEBUG_INFO_T info_id) {
     return aml_debug_items[info_id].value;

@@ -18,6 +18,7 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH) \
     vendor/amlogic/frameworks/av/libaudioeffect/Utility \
     hardware/amlogic/audio/utils/ini/include \
+    hardware/amlogic/audio/utils/include \
     hardware/libhardware/include/hardware \
     hardware/libhardware/include \
     system/media/audio/include

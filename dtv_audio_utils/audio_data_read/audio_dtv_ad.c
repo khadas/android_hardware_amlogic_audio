@@ -32,6 +32,7 @@
 #include "aml_ringbuffer.h"
 #include "audio_dtv_ad.h"
 #include "pes.h"
+#include "aml_dump_debug.h"
 
 #define AD_DEMUX_ID 0
 #define CACHE_TIME 0
@@ -96,7 +97,7 @@ static dtv_assoc_audio *get_assoc_audio(void)
     return &assoc_bst;
 }
 
-#define MS12_INPUT_AD_FILE "/data/audio_out/ms12_input_ad.ac3"
+#define MS12_INPUT_AD_FILE "/data/vendor/audiohal/ms12_input_ad.ac3"
 
 #define IS_AUDIO_STREAM_ID(id)  ((id)==0xBD || ((id) >= 0xC0 && (id) <= 0xDF))
 
@@ -174,13 +175,9 @@ void handle_ad_pes_header(unsigned char *buf,int in_bytes , int64_t *outpts, uns
 
 static void dump_ad_input_data(void *buffer, int size, char *file_name)
 {
-    if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-        FILE *fp1 = fopen(file_name, "a+");
-        if (fp1) {
-            int flen = fwrite((char *)buffer, 1, size, fp1);
-            ALOGV("%s buffer %p size %d flen %d\n", __FUNCTION__, buffer, size, flen);
-            fclose(fp1);
-        }
+    //TBD  enum name?
+    if (get_debug_value(AML_DUMP_AUDIOHAL_DTV)) {
+        aml_dump_audio_bitstreams(file_name, buffer, size);
     }
 }
 

@@ -2672,54 +2672,6 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
                                 &info, false /*input */);
         in->timestamp_nsec = audio_utils_ns_from_timespec(&info.timestamp);
         return bytes;
-
-#if 0
-        struct aec_info info;
-        info.bytes = bytes;
-        const uint64_t time_increment_nsec = (uint64_t)bytes * NANOS_PER_SECOND /
-                                             audio_stream_in_frame_size(stream) /
-                                             in_get_sample_rate(&stream->common);
-        if (!aec_get_spk_running(adev->aec)) {
-            if (in->timestamp_nsec == 0) {
-                struct timespec now;
-                clock_gettime(CLOCK_MONOTONIC, &now);
-                const int64_t timestamp_nsec = audio_utils_ns_from_timespec(&now);
-                in->timestamp_nsec = timestamp_nsec;
-            } else {
-                in->timestamp_nsec += time_increment_nsec;
-            }
-            memset(buffer, 0, bytes);
-            const uint64_t time_increment_usec = time_increment_nsec / 1000;
-            usleep(time_increment_usec);
-        } else {
-            int ref_ret = get_reference_samples(adev->aec, buffer, &info);
-            if ((ref_ret) || (info.timestamp_usec == 0)) {
-                memset(buffer, 0, bytes);
-                in->timestamp_nsec += time_increment_nsec;
-            } else {
-                in->timestamp_nsec = 1000 * info.timestamp_usec;
-            }
-        }
-        in->frames_read += in_frames;
-
-#if DEBUG_AEC
-        FILE* fp_ref = fopen("/data/local/traces/aec_ref.pcm", "a+");
-        if (fp_ref) {
-            fwrite((char*)buffer, 1, bytes, fp_ref);
-            fclose(fp_ref);
-        } else {
-            ALOGE("AEC debug: Could not open file aec_ref.pcm!");
-        }
-        FILE* fp_ref_ts = fopen("/data/local/traces/aec_ref_timestamps.txt", "a+");
-        if (fp_ref_ts) {
-            fprintf(fp_ref_ts, "%" PRIu64 "\n", in->timestamp_nsec);
-            fclose(fp_ref_ts);
-        } else {
-            ALOGE("AEC debug: Could not open file aec_ref_timestamps.txt!");
-        }
-#endif
-        return info.bytes;
-#endif
     }
 #endif
 
@@ -2751,7 +2703,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
         ret = tv_in_read(stream, buffer, bytes);
         bytes = ret;
         if (getprop_bool("vendor.media.audiohal.indump")) {
-            aml_audio_dump_audio_bitstreams("/data/audio/tv_in_read.raw",
+            aml_dump_audio_bitstreams("/data/audio/tv_in_read.raw",
                 buffer, bytes);
         }
 
@@ -2805,14 +2757,9 @@ exit:
     pthread_mutex_unlock(&in->lock);
 
 #if DEBUG_AEC && defined(ENABLE_AEC_APP)
-    FILE* fp_in = fopen("/data/local/traces/aec_in.pcm", "a+");
-    if (fp_in) {
-        fwrite((char*)buffer, 1, bytes, fp_in);
-        fclose(fp_in);
-    } else {
-        ALOGE("AEC debug: Could not open file aec_in.pcm!");
-    }
-    FILE* fp_mic_ts = fopen("/data/local/traces/aec_in_timestamps.txt", "a+");
+    aml_dump_audio_bitstreams("/data/vendor/audiohal/aec_in.pcm", buffer, bytes);
+
+    FILE* fp_mic_ts = fopen("/data/vendor/audiohal/aec_in_timestamps.txt", "a+");
     if (fp_mic_ts) {
         fprintf(fp_mic_ts, "%" PRIu64 "\n", in->timestamp_nsec);
         fclose(fp_mic_ts);
@@ -2820,8 +2767,8 @@ exit:
         ALOGE("AEC debug: Could not open file aec_in_timestamps.txt!");
     }
 #endif
-    if (ret >= 0 && getprop_bool("vendor.media.audiohal.indump")) {
-        aml_audio_dump_audio_bitstreams("/data/audio/alsa_read.raw",
+    if (ret >= 0 && get_debug_value(AML_DUMP_AUDIOHAL_IN)) {
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/alsa_read.raw",
             buffer, bytes);
     }
 
@@ -6662,8 +6609,8 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
             aml_audio_sleep(sleep_time_us);
         }
 
-        if (getprop_bool("vendor.media.audiohal.mixer")) {
-            aml_audio_dump_audio_bitstreams("/data/audio/mixerAux.raw", buffer, bytes);
+        if (get_debug_value(AML_DUMP_AUDIOHAL_IN)) {
+            aml_dump_audio_bitstreams("/data/vendor/audiohal/mixerAux.raw", buffer, bytes);
         }
     }
     aml_out->input_bytes_size += bytes;
@@ -7057,7 +7004,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
             aml_out->standby = false;
         }
         if (getprop_bool("vendor.media.audiohal.cbs.dump")) {
-            aml_audio_dump_audio_bitstreams("/data/cbs_data.raw", buffer, ret);
+            aml_dump_audio_bitstreams("/data/audio/cbs_data.raw", buffer, ret);
         }
         return ret;
     }
@@ -7207,9 +7154,9 @@ ssize_t out_write_new(struct audio_stream_out *stream,
             aml_out->write_count, ret, stream, aml_out->total_write_size, aml_out->hwsync_parsed_frames_sum);
     }
 
-    if (get_debug_value(AML_DUMP_AUDIO_STREAM)) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_IN)) {
         if (buffer && (bytes > 0)) {
-            aml_audio_dump_audio_bitstreams(aml_out->stream_dump_file, buffer, bytes);
+            aml_dump_audio_bitstreams(aml_out->stream_dump_file, buffer, bytes);
         }
     }
     return ret;

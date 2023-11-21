@@ -36,8 +36,7 @@
 
 #include "audio_hw.h"
 #include "aml_dtshd_dec_api.h"
-
-
+#include "aml_dump_debug.h"
 
 #define DOLBY_DTSHD_LIB_PATH     "/odm/lib/libHwAudio_dtshd.so"
 #define DOLBY_DTSHD_LIB64_PATH     "/odm/lib64/libHwAudio_dtshd.so"
@@ -579,6 +578,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
 {
     struct dca_dts_dec *dts_dec = NULL;
     aml_dec_t  *aml_dec = NULL;
+    struct aml_audio_device *adev = NULL;
 
     ALOGI("%s enter", __func__);
     dts_dec = aml_audio_calloc(1, sizeof(struct dca_dts_dec));
@@ -589,6 +589,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
 
     aml_dec = &dts_dec->aml_dec;
     aml_dca_config_t *dca_config = &dec_config->dca_config;
+    adev = (struct aml_audio_device *)(dca_config->dev);
 
     dec_data_info_t *dec_pcm_data = &aml_dec->dec_pcm_data;
     dec_data_info_t *dec_raw_data = &aml_dec->dec_raw_data;
@@ -635,7 +636,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         goto error;
     }
 
-    if (property_get_bool(AML_DCA_PROP_DUMP_INPUT_RAW, 0)) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_DECODER) || property_get_bool(AML_DCA_PROP_DUMP_INPUT_RAW, 0)) {
         char name[64] = {0};
         snprintf(name, 64, "%sdts_input_raw.dts", AML_DCA_DUMP_FILE_DIR);
         dts_debug.fp_input_raw = fopen(name, "a+");
@@ -644,7 +645,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         }
     }
 
-    if (property_get_bool(AML_DCA_PROP_DUMP_OUTPUT_RAW, 0)) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_DECODER) || property_get_bool(AML_DCA_PROP_DUMP_OUTPUT_RAW, 0)) {
         char name[64] = {0};
         snprintf(name, 64, "%sdts_output_raw.dts", AML_DCA_DUMP_FILE_DIR);
         dts_debug.fp_output_raw = fopen(name, "a+");
@@ -653,7 +654,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         }
     }
 
-    if (property_get_bool(AML_DCA_PROP_DUMP_OUTPUT_PCM, 0)) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_DECODER) || property_get_bool(AML_DCA_PROP_DUMP_OUTPUT_PCM, 0)) {
         char name[64] = {0};
         snprintf(name, 64, "%sdts_%d_%dch.pcm", AML_DCA_DUMP_FILE_DIR, 48000, 2);
         dts_debug.fp_pcm = fopen(name, "a+");
@@ -662,7 +663,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         }
     }
 
-    if (property_get_bool(AML_DCA_PROP_DEBUG_FLAG, 0)) {
+    if (adev->debug_flag || property_get_bool(AML_DCA_PROP_DEBUG_FLAG, 0)) {
         ALOGD("true");
         dts_debug.debug_flag = true;
     } else {

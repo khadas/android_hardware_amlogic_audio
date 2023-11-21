@@ -50,9 +50,19 @@
 #define DIRECT_BUFF_CNT             (8)
 #define MMAP_BUFF_CNT               (8) /* Sometimes the time interval between BT stack writes is 40ms. */
 
+#define DUMP_INPUT_PORT_READ        0x0100
+#define DUMP_INPUT_PORT_WRITE       0x0200
+#define DUMP_OUTPUT_PORT_WRITE      0x0400
+#define DUMP_OUTPUT_PORT_PROCESS    0x0800
+
 //function declaration
 static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes);
 
+static int get_port_dump_enable(int dump_type) {
+    int value = 0;
+    value = get_debug_value(AML_DUMP_AUDIOHAL_SUBMIXING);
+    return (value & dump_type);
+}
 
 static ssize_t input_port_write(input_port *port, const void *buffer, int bytes)
 {
@@ -60,11 +70,11 @@ static ssize_t input_port_write(input_port *port, const void *buffer, int bytes)
     int written = 0;
 
     written = ring_buffer_write(port->r_buf, data, bytes, UNCOVER_WRITE);
-    if (getprop_bool("vendor.media.audiohal.inport")) {
+    if (get_port_dump_enable(DUMP_INPUT_PORT_WRITE)) {
         if (port->enInPortType == AML_MIXER_INPUT_PORT_PCM_SYSTEM)
-            aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/inportSys.raw", buffer, written);
+            aml_dump_audio_bitstreams("/data/vendor/audiohal/inportSys.raw", buffer, written);
         else if (port->enInPortType == AML_MIXER_INPUT_PORT_PCM_DIRECT)
-            aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/inportDirect.raw", buffer, written);
+            aml_dump_audio_bitstreams("/data/vendor/audiohal/inportDirect.raw", buffer, written);
     }
 
     AM_LOGV("written %d", written);
@@ -793,7 +803,6 @@ int outport_set_dummy(output_port *port, bool en)
     return 0;
 }
 
-
 #define STEREO_16BIT_TO_8CH_32BIT   8
 #define STEREO_16BIT_TO_8CH_16BIT   4
 #define STEREO_32BIT_TO_8CH_32BIT   4
@@ -813,8 +822,8 @@ static ssize_t output_port_post_process(output_port *port, void *buffer, int byt
     int i = 0;
     struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
 
-    if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
-        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/port_befor_postprocess.raw", buffer, bytes);
+    if (get_debug_value(AML_DUMP_AUDIOHAL_TV) || get_port_dump_enable(DUMP_OUTPUT_PORT_PROCESS)) {
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/port_befor_postprocess.raw", buffer, bytes);
     }
 
     for (int dev = AML_AUDIO_OUT_DEV_TYPE_SPEAKER; dev < AML_AUDIO_OUT_DEV_TYPE_BUTT; dev++) {
@@ -880,8 +889,8 @@ static ssize_t output_port_post_process(output_port *port, void *buffer, int byt
     //TV fix config:PCM32/8ch/48000
     //expand 2ch to 8ch, so out bytes apply 4 by format
     port->processed_bytes = samples * audio_bytes_per_sample(AUDIO_FORMAT_PCM_32_BIT) * 4;
-    if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
-        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/port_processed.raw", port->processed_buf, port->processed_bytes);
+    if (get_debug_value(AML_DUMP_AUDIOHAL_TV) || get_port_dump_enable(DUMP_OUTPUT_PORT_PROCESS)) {
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/port_processed.raw", port->processed_buf, port->processed_bytes);
     }
 #if 0
     AM_LOGI("src_format:%d src_frame_size:%d dest_format:%d dest_frame_size:%d in_bytes:%d",
@@ -896,16 +905,16 @@ static ssize_t output_port_stereo_post_process(output_port *port, void *buffer, 
     int frames = bytes / FRAMESIZE_16BIT_STEREO;
     port->processed_buf = buffer;
 
-    if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
-        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/port_befor_postprocess.raw", buf16, bytes);
+    if (get_debug_value(AML_DUMP_AUDIOHAL_TV) || get_port_dump_enable(DUMP_OUTPUT_PORT_PROCESS)) {
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/port_befor_postprocess.raw", buf16, bytes);
     }
 
     if (port->postprocess)
         audio_post_process(port->postprocess, buffer, frames);
 
     port->processed_bytes = bytes;
-    if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
-        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/port_processed.raw",
+    if (get_debug_value(AML_DUMP_AUDIOHAL_TV) || get_port_dump_enable(DUMP_OUTPUT_PORT_PROCESS)) {
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/port_processed.raw",
             port->processed_buf, port->processed_bytes);
     }
     return 0;
@@ -1015,8 +1024,8 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
             }
 
         }
-        if (written > 0 && getprop_bool("vendor.media.audiohal.inport")) {
-            aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audioOutPort.raw", buffer, written);
+        if (written > 0 && get_port_dump_enable(DUMP_OUTPUT_PORT_WRITE)) {
+            aml_dump_audio_bitstreams("/data/vendor/audiohal/audioOutPort.raw", buffer, written);
         }
         if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
             check_audio_level("alsa_out", buffer, written);

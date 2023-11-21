@@ -23,6 +23,7 @@
 #include "aml_dec_api.h"
 #include "audio_data_process.h"
 #include "aml_malloc_debug.h"
+#include "aml_dump_debug.h"
 
 #if ANDROID_PLATFORM_SDK_VERSION > 29
 #define DRA_LIB_PATH "/odm/lib/libdra.so"
@@ -293,13 +294,8 @@ static int dra_decoder_release(aml_dec_t * aml_dec)
 }
 static void dump_dra_data(void *buffer, int size, char *file_name)
 {
-    if (property_get_bool("vendor.audio.dra.outdump", false)) {
-        FILE *fp1 = fopen(file_name, "a+");
-        if (fp1) {
-            int flen = fwrite((char *)buffer, 1, size, fp1);
-            ALOGI("%s buffer %p size %d flen %d\n", __FUNCTION__, buffer, size, flen);
-            fclose(fp1);
-        }
+    if (get_debug_value(AML_DUMP_AUDIOHAL_DECODER) || property_get_bool("vendor.audio.dra.outdump", false)) {
+        aml_dump_audio_bitstreams(file_name, buffer, size);
     }
 }
 

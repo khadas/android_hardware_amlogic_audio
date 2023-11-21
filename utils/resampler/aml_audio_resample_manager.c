@@ -225,28 +225,10 @@ int aml_audio_resample_process(aml_audio_resample_t * aml_audio_resample, void *
     aml_audio_resample->total_out += aml_audio_resample->last_copy_size;
     //ALOGE("total rate=%f\n",(float)aml_audio_resample->total_out/(float)aml_audio_resample->total_in);
 
-#if 0
-        if (getprop_bool("media.audiohal.resample")) {
-            FILE *dump_fp = NULL;
-            dump_fp = fopen("/data/audio_hal/resamplein.pcm", "a+");
-            if (dump_fp != NULL) {
-                fwrite(in_data, size, 1, dump_fp);
-                fclose(dump_fp);
-            } else {
-                ALOGW("[Error] Can't write to /data/audio_hal/resamplein.pcm");
-            }
-
-            dump_fp = fopen("/data/audio_hal/resampleout.pcm", "a+");
-            if (dump_fp != NULL) {
-                fwrite(aml_audio_resample->resample_buffer, aml_audio_resample->resample_size, 1, dump_fp);
-                fclose(dump_fp);
-            } else {
-                ALOGW("[Error] Can't write to /data/audio_hal/resampleout.pcm");
-            }
-
-
-        }
-#endif
+    if (get_debug_value(AML_DUMP_AUDIOHAL_RESAMPLE)) {
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/resamplein.pcm", in_data, size);
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/resampleout.pcm", aml_audio_resample->resample_buffer, aml_audio_resample->resample_size);
+    }
 
     return 0;
 }

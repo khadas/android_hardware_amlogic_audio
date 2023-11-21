@@ -44,13 +44,14 @@ extern "C" {
 
 #include "libAmlHpeq.h"
 #include "../Utility/AudioFade.h"
+#include "aml_dump_debug.h"
+//#define HPEQ_DEBUG
 
 #define MODEL_SUM_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/model/model_sum.ini"
 #define AUDIO_EFFECT_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
 #define HPEQ_5_BAND 5
 #define HPEQ_7_BAND 7
 #define HPEQ_9_BAND 9
-
 
 // effect_handle_t interface implementation for HPEQ effect
 extern const struct effect_interface_s HPEQInterface;
@@ -647,30 +648,16 @@ int HPEQ_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer_t 
             }
 
 #ifdef HPEQ_DEBUG
-            if (getprop_bool("vendor.media.audiofade.dump")) {
-                FILE *dump_fp = NULL;
-                dump_fp = fopen("/data/audio_hal/audio_in.pcm", "a+");
-                if (dump_fp != NULL) {
-                    fwrite(in, nFrames * 2 * 4, 1, dump_fp);
-                    fclose(dump_fp);
-                } else {
-                    ALOGW("[Error] Can't write to /data/dump_in.pcm");
-                }
+            if (get_debug_value(AML_DUMP_AUDIOHAL_EFFECT)) {
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/hped_audio_in.pcm", in, nFrames * 2 * 4);
             }
 #endif
 
             HPEQ_process_api(in, out, inBuffer->frameCount, data->band_num);
 
 #ifdef HPEQ_DEBUG
-            if (getprop_bool("vendor.media.audiofade.dump")) {
-                FILE *dump_fp = NULL;
-                dump_fp = fopen("/data/audio_hal/audio_out.pcm", "a+");
-                if (dump_fp != NULL) {
-                    fwrite(out, nFrames * 2 * 4, 1, dump_fp);
-                    fclose(dump_fp);
-                } else {
-                    ALOGW("[Error] Can't write to /data/dump_in.pcm");
-                }
+            if (get_debug_value(AML_DUMP_AUDIOHAL_EFFECT)) {
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/hpeq_audio_out.pcm", out, nFrames * 2 * 4);
             }
 #endif
 

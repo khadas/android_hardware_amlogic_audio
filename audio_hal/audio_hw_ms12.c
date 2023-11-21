@@ -322,7 +322,7 @@ static void ms12_spdif_encoder(void * in_buf, int in_size, audio_format_t output
  */
 static void dump_ms12_output_data(void *buffer, int size, char *file_name)
 {
-    aml_audio_dump_audio_bitstreams(file_name, buffer, size);
+    aml_dump_audio_bitstreams(file_name, buffer, size);
 }
 
 int dolby_ms12_register_callback(struct aml_stream_out *aml_out)

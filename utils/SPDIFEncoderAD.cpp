@@ -28,9 +28,8 @@
 
 extern "C"
 {
-//#include "audio_hw_utils.h"
+#include "aml_dump_debug.h"
 }
-
 
 namespace android
 {
@@ -65,19 +64,10 @@ public:
             outBufCurrentPos += actual_write_size;
             mTotalBytes += actual_write_size;
             ALOGV("%s() actual_write_size %zu outBufCurrentPos %zu\n", __FUNCTION__, actual_write_size, outBufCurrentPos);
-#if 1
-            if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-                FILE *fp1 = fopen("/data/audio_out/enc_output.spdif", "a+");
-                if (fp1) {
-                    int flen = fwrite((char *)iec61937_buffer, 1, actual_write_size, fp1);
-                    ALOGV("%s iec61937_buffer %p write_size %d\n", __FUNCTION__, iec61937_buffer, flen);
-                    fclose(fp1);
-                } else {
-                    //ALOGD("could not open file:/data/hdmi_audio_out.pcm");
-                }
-            }
-#endif
 
+            if (get_debug_value(AML_DUMP_AUDIOHAL_SPDIF)) {
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/enc_output.spdif", iec61937_buffer, actual_write_size);
+            }
         }
         return actual_write_size;
     }
@@ -143,15 +133,9 @@ extern "C" int spdif_encoder_ad_write(void *phandle, const void *buffer, size_t 
         return -1;
     }
 
-#if 1
-    if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-        FILE *fp1 = fopen("/data/audio_out/enc_input.spdif", "a+");
-        if (fp1) {
-            fwrite((char *)buffer, 1, numBytes, fp1);
-            fclose(fp1);
-        }
+    if (get_debug_value(AML_DUMP_AUDIOHAL_SPDIF)) {
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/enc_input.spdif", buffer, numBytes);
     }
-#endif
     return spdif_encoder_ad->write(buffer, numBytes);
 }
 extern "C" uint64_t spdif_encoder_ad_get_total(void *phandle)

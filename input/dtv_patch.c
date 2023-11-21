@@ -1285,8 +1285,8 @@ static int dtv_patch_pcm_write(unsigned char *pcm_data, int size,
     //     process_pts_sync(0, patch, 0);
     // }
 
-    if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-        aml_audio_dump_audio_bitstreams("/data/audio/audio_dtv.pcm",
+    if (get_debug_value(AML_DUMP_AUDIOHAL_DTV)) {
+        aml_dump_audio_bitstreams("/data/audio/audio_dtv.pcm",
             write_buf, write_size);
     }
     patch->dtv_pcm_wrote += return_size;
@@ -2687,8 +2687,8 @@ int audio_dtv_patch_output_single_decoder(struct aml_audio_patch *patch,
         aml_out->ad_substream_supported = is_ad_substream_supported((unsigned char *)cur_package->data, cur_package->size);
     }
     ALOGV("p_package->data %p size %d", cur_package->data, cur_package->size);
-    if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-        aml_audio_dump_audio_bitstreams("/data/audio/audio_main_single.es", cur_package->data, cur_package->size);
+    if (get_debug_value(AML_DUMP_AUDIOHAL_DTV)) {
+        aml_dump_audio_bitstreams("/data/audio/audio_main_single.es", cur_package->data, cur_package->size);
     }
 
     if (aml_dev->dolby_lib_type == eDolbyMS12Lib &&
@@ -2732,8 +2732,8 @@ int audio_dtv_patch_output_single_decoder(struct aml_audio_patch *patch,
                 ALOGD("main_frame_size %d p_package->size %d used_size %d", main_frame_size, cur_package->size, used_size);
             }
 
-            if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-                aml_audio_dump_audio_bitstreams("/data/audio/audio_main.es", main_frame_buffer, main_frame_size);
+            if (get_debug_value(AML_DUMP_AUDIOHAL_DTV)) {
+                aml_dump_audio_bitstreams("/data/audio/audio_main.es", main_frame_buffer, main_frame_size);
             }
             ret = out_write_new(stream_out, main_frame_buffer, main_frame_size);
         }
@@ -2976,9 +2976,9 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
                 ALOGI("p_package->size %d main_frame_size %d ad p_package->size %d ad_frame_size %d dual_len %d",
                     p_package->size, main_frame_size, p_package->ad_size, ad_frame_size, dual_len);
             }
-            if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-                aml_audio_dump_audio_bitstreams("/data/audio/audio_main.es", main_frame_buffer, main_frame_size);
-                aml_audio_dump_audio_bitstreams("/data/audio/audio_ad.es", ad_frame_buffer, ad_frame_size);
+            if (get_debug_value(AML_DUMP_AUDIOHAL_DTV)) {
+                aml_dump_audio_bitstreams("/data/audio/audio_main.es", main_frame_buffer, main_frame_size);
+                aml_dump_audio_bitstreams("/data/audio/audio_ad.es", ad_frame_buffer, ad_frame_size);
             }
             ret = out_write_new(stream_out, mixbuffer, dual_len);
 

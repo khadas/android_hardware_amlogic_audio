@@ -433,7 +433,6 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                             aml_dec->out_frames /(dec_pcm_data->data_sr / 1000));
                     }
 
-                    //aml_audio_dump_audio_bitstreams("/data/mixing_data.raw", dec_data, dec_pcm_data->data_len);
                     /* audio data/apts, we send the APTS at first*/
                     if (ms12 && aml_dec) {
                         /*Fixme, how to get the right apts(long long unsigned int) and bytes_offset*/

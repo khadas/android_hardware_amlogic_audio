@@ -346,7 +346,7 @@ static void ms12_spdif_encoder(void * in_buf, int in_size, audio_format_t output
  */
 static void dump_ms12_output_data(void *buffer, int size, char *file_name)
 {
-    aml_audio_dump_audio_bitstreams(file_name, buffer, size);
+    aml_dump_audio_bitstreams(file_name, buffer, size);
 }
 
 static int get_ms12_output_config(audio_format_t format)
@@ -1538,9 +1538,9 @@ int dolby_ms12_main_process(
             /* fixme: heaac dual decoder consumed bytes */
             dual_decoder_used_bytes = input_bytes;
 
-            /*aml_audio_dump_audio_bitstreams("/data/audio/ms12_in_audio_main.es",
+            /*aml_dump_audio_bitstreams("/data/audio/ms12_in_audio_main.es",
             main_frame_buffer, main_frame_size);
-            aml_audio_dump_audio_bitstreams("/data/audio/ms12_in_audio_ad.es",
+            aml_dump_audio_bitstreams("/data/audio/ms12_in_audio_ad.es",
             associate_frame_buffer, associate_frame_size);*/
             if (adev->debug_flag >= 2) {
                 ALOGI("%s line %d input_bytes %zu syncword %zu + 4bytes + main len %d + 4bytes + ad len %d", __func__, __LINE__, input_bytes, 2 * sizeof(uint32_t), main_frame_size, associate_frame_size);

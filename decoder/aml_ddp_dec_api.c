@@ -37,6 +37,7 @@
 #include "aml_ddp_dec_api.h"
 #include "aml_ac3_parser.h"
 #include "aml_audio_report.h"
+#include "aml_dump_debug.h"
 
 enum {
     EXITING_STATUS = -1001,
@@ -140,13 +141,8 @@ static int gDDPDecoderCount = 0;
 
 static void dump_ddp_data(void *buffer, int size, char *dump_name, char *file_name)
 {
-   if (property_get_bool(dump_name, false)) {
-        FILE *fp1 = fopen(file_name, "a+");
-        if (fp1) {
-            int flen = fwrite((char *)buffer, 1, size, fp1);
-            ALOGI("%s buffer %p size %d flen %d\n", __FUNCTION__, buffer, size,flen);
-            fclose(fp1);
-        }
+   if (get_debug_value(AML_DUMP_AUDIOHAL_DECODER) || property_get_bool(dump_name, false)) {
+        aml_dump_audio_bitstreams(file_name, buffer, size);
     }
 }
 
@@ -936,7 +932,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
 
     /* dump decoded pcm data */
     dump_ddp_data(dec_pcm_data->buf, ddp_dec->outlen_pcm,
-                  "vendor.audio.ddp.outputdump", "/data/audio/dolby_pcm.pcm");
+                  "vendor.audio.ddp.outputdump", "/data/vendor/audiohal/dolby_pcm.pcm");
 
     if (ddp_dec->decoding_mode != DDP_DECODE_MODE_AD_DUAL) {
         total_used_size += used_size;

@@ -36,6 +36,10 @@
 #include <aml_resample_wrap.h>
 #include <utils/Log.h>
 #include "aml_malloc_debug.h"
+extern "C"
+{
+#include "aml_dump_debug.h"
+}
 
 namespace android
 {
@@ -179,17 +183,9 @@ extern "C" int android_resample_read(android_resample_handle_t *handle, void *bu
         resampled_size = resampled_frame * frame_size;
     }
 
-#if 0
-            {
-                FILE *fp1 = fopen("/data/audio_hal/resampleout_ori.pcm", "a+");
-                if (fp1) {
-                    fwrite((char *)buf, 1, resampled_size, fp1);
-                    fclose(fp1);
-                } else {
-                    ALOGD("could not open files! error:%d", errno);
-                }
-            }
-#endif
+    if (get_debug_value(AML_DUMP_AUDIOHAL_RESAMPLE)) {
+        aml_dump_audio_bitstreams("/data/audio_hal/resampleout_ori.pcm", buf, resampled_size);
+    }
 
     return resampled_size;
 }

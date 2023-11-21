@@ -37,7 +37,6 @@
 #define AM_LOGE(fmt, ...)  ALOGE("[%s:%d] " fmt, __func__, __LINE__, ## __VA_ARGS__)
 #endif
 
-int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes);
 int getprop_bool(const char *path);
 int aml_get_debug_value(void);
 

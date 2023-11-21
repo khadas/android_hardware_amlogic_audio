@@ -892,7 +892,7 @@ static void* audio_type_parse_threadloop(void *data)
             }
 
             if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
-                aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/tv_parser.raw", audio_type_status->parse_buffer + 3, read_bytes);
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/tv_parser.raw", audio_type_status->parse_buffer + 3, read_bytes);
             }
 
             if (chip_with_pcpd_monitor)

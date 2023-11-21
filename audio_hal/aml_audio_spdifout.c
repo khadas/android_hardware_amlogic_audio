@@ -668,7 +668,7 @@ int aml_audio_spdifout_process(void *phandle, void *buffer, size_t byte)
         /* Fixme: The SPDIFEncoder encodes TrueHD to IEC61937 format. */
 #if 0
         if (spdifout_phandle->audio_format == AUDIO_FORMAT_DOLBY_TRUEHD) {
-            aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/truehd.spf", output_buffer, output_buffer_bytes);
+            aml_dump_audio_bitstreams("/data/vendor/audiohal/truehd.spf", output_buffer, output_buffer_bytes);
         }
 #endif
         /*for earc multi channel pcm, we need do convert

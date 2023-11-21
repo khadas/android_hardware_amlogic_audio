@@ -36,7 +36,7 @@
 
 #include "audio_hw.h"
 #include "aml_dtsx_dec_api.h"
-
+#include "aml_dump_debug.h"
 
 #define DTSX_LIB_PATH_A     "/odm/lib/libHwAudio_dtsx.so"
 #define DTSX_LIB64_PATH_A     "/odm/lib64/libHwAudio_dtsx.so"
@@ -1032,6 +1032,7 @@ int dtsx_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
     dtsx_dec_t *dtsx_dec = NULL;
     aml_dec_t  *aml_dec = NULL;
     int cmd_count = 0;
+    struct aml_audio_device *adev = NULL;
 
     ALOGI("%s enter", __func__);
     dtsx_dec = aml_audio_calloc(1, sizeof(dtsx_dec_t));
@@ -1042,6 +1043,8 @@ int dtsx_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
 
     aml_dec = &dtsx_dec->aml_dec;
     aml_dtsx_config_t *dtsx_config = &dec_config->dtsx_config;
+    aml_dec->dev = dtsx_config->dev;
+    adev = (struct aml_audio_device *)(dtsx_config->dev);
 
     dec_data_info_t *dec_pcm_data = &aml_dec->dec_pcm_data;
     dec_data_info_t *dec_raw_data = &aml_dec->dec_raw_data;
@@ -1110,7 +1113,7 @@ int dtsx_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         goto DTSX_INIT_FAIL;
     }
 
-    if (property_get_bool(AML_DTSX_PROP_DUMP_INPUT_RAW, 0)) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_DECODER) || property_get_bool(AML_DTSX_PROP_DUMP_INPUT_RAW, 0)) {
         char name[64] = {0};
         snprintf(name, 64, "%sdtsx_input_raw.dts", AML_DTSX_DUMP_FILE_DIR);
         _dtsx_debug.fp_input_raw = fopen(name, "ab+");
@@ -1126,7 +1129,7 @@ int dtsx_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         }
     }
 
-    if (property_get_bool(AML_DTSX_PROP_DUMP_DECODE_PCM, 0)) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_DECODER) || property_get_bool(AML_DTSX_PROP_DUMP_DECODE_PCM, 0)) {
         char name[64] = {0};
         snprintf(name, 64, "%sdtsx_decode_pcm.pcm", AML_DTSX_DUMP_FILE_DIR);
         _dtsx_debug.fp_decode_pcm = fopen(name, "a+");
@@ -1135,7 +1138,7 @@ int dtsx_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         }
     }
 
-    if (property_get_bool(AML_DTSX_PROP_DUMP_OUTPUT_RAW, 0)) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_DECODER) || property_get_bool(AML_DTSX_PROP_DUMP_OUTPUT_RAW, 0)) {
         char name[64] = {0};
         snprintf(name, 64, "%sdtsx_output_raw.dts", AML_DTSX_DUMP_FILE_DIR);
         _dtsx_debug.fp_output_raw = fopen(name, "ab+");
@@ -1144,7 +1147,7 @@ int dtsx_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         }
     }
 
-    if (property_get_bool(AML_DTSX_PROP_DUMP_OUTPUT_PCM, 0)) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_DECODER) || property_get_bool(AML_DTSX_PROP_DUMP_OUTPUT_PCM, 0)) {
         char name[64] = {0};
         snprintf(name, 64, "%sdtsx_spkr_out.pcm", AML_DTSX_DUMP_FILE_DIR);
         _dtsx_debug.fp_spk_pcm = fopen(name, "ab+");
@@ -1159,7 +1162,7 @@ int dtsx_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         }
     }
 
-    if (property_get_bool(AML_DTSX_PROP_DEBUG_FLAG, 0)) {
+    if (adev->debug_flag || property_get_bool(AML_DTSX_PROP_DEBUG_FLAG, 0)) {
         ALOGD("enable dtsx debug log");
         _dtsx_debug.debug_flag = true;
     } else {
@@ -1167,8 +1170,6 @@ int dtsx_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         _dtsx_debug.debug_flag = false;
     }
     *ppaml_dec = aml_dec;
-    aml_dec->dev = dtsx_config->dev;
-    struct aml_audio_device * adev = (struct aml_audio_device *)(aml_dec->dev);
     memcpy(&adev->dts_x, dtsx_dec, sizeof(dtsx_dec_t));
 
     ALOGI("%s success", __func__);

@@ -62,6 +62,16 @@ enum {
     INPORT_FEED_SILENCE_DONE, //underrun will happen quickly, we feed some silence data to avoid noise
 };
 
+#define DUMP_AUDIOMIXER_INPORT_READ     0x0010
+#define DUMP_AUDIOMIXER_INDUMP          0x0020
+#define DUMP_AUDIOMIXER_OUTDUMP         0x0040
+
+static int get_audiomixer_dump_enable(int dump_type) {
+    int value = 0;
+    value = get_debug_value(AML_DUMP_AUDIOHAL_SUBMIXING);
+    return (value & dump_type);
+}
+
 int mixer_set_state(struct amlAudioMixer *audio_mixer, aml_mixer_state state)
 {
     audio_mixer->state = state;
@@ -1032,9 +1042,9 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
                     set_inport_state(in_port, ACTIVE);
                 }
                 update_inport_avail(in_port);
-                if (getprop_bool("vendor.media.audiohal.inport") &&
+                if (get_audiomixer_dump_enable(DUMP_AUDIOMIXER_INPORT_READ) &&
                         (in_port->enInPortType == AML_MIXER_INPUT_PORT_PCM_DIRECT)) {
-                        aml_audio_dump_audio_bitstreams("/data/audio/inportDirectFade.raw",
+                        aml_dump_audio_bitstreams("/data/vendor/audiohal/inportDirectFade.raw",
                                 in_port->data, in_port->data_len_bytes);
                 }
             } else {
@@ -1178,9 +1188,9 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
         mixing_len_bytes = in_port_drct->data_len_bytes;
         //TODO: check if the two stream's frames are equal
         if (DEBUG_DUMP) {
-            aml_audio_dump_audio_bitstreams("/data/audio/audiodrct.raw",
+            aml_dump_audio_bitstreams("/data/vendor/audiohal/audiodrct.raw",
                     in_port_drct->data, in_port_drct->data_len_bytes);
-            aml_audio_dump_audio_bitstreams("/data/audio/audiosyst.raw",
+            aml_dump_audio_bitstreams("/data/vendor/audiohal/audiosyst.raw",
                     in_port_sys->data, in_port_sys->data_len_bytes);
         }
         if (in_port_drct->is_hwsync && in_port_drct->bytes_to_insert < mixing_len_bytes) {
@@ -1195,13 +1205,13 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
             //memcpy(data_mixed, data_sys, mixing_len_bytes);
             //memcpy(p_mixer->mixed_buf, data_sys, mixing_len_bytes);
             if (DEBUG_DUMP) {
-                aml_audio_dump_audio_bitstreams("/data/audio/systbeforemix.raw",
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/systbeforemix.raw",
                         data_sys, in_port_sys->data_len_bytes);
             }
             frames_written = do_mixing_2ch(p_2ch_mixer->mixed_buf, data_sys,
                 frames, in_port_sys->cfg.format, out_port->cfg.format);
             if (DEBUG_DUMP) {
-                aml_audio_dump_audio_bitstreams("/data/audio/sysAftermix.raw",
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/sysAftermix.raw",
                         p_2ch_mixer->mixed_buf, frames * FRAMESIZE_32BIT_STEREO);
             }
             if (is_TV(adev)) {
@@ -1213,7 +1223,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
                     frames, 2, 8);
 
             if (DEBUG_DUMP) {
-                aml_audio_dump_audio_bitstreams("/data/audio/dataInsertMixed.raw",
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/dataInsertMixed.raw",
                         data_mixed, frames * out_port->cfg.frame_size);
             }
             in_port_drct->bytes_to_insert -= mixing_len_bytes;
@@ -1224,12 +1234,12 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
             frames_written = do_mixing_2ch(p_2ch_mixer->mixed_buf, data_drct,
                 frames, in_port_drct->cfg.format, out_port->cfg.format);
             if (DEBUG_DUMP)
-                aml_audio_dump_audio_bitstreams("/data/audio/tmpMixed0.raw",
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/tmpMixed0.raw",
                     p_2ch_mixer->mixed_buf, frames * p_2ch_mixer->mixed_frame_size);
             frames_written = do_mixing_2ch(p_2ch_mixer->mixed_buf, data_sys,
                 frames, in_port_sys->cfg.format, out_port->cfg.format);
             if (DEBUG_DUMP)
-                aml_audio_dump_audio_bitstreams("/data/audio/tmpMixed1.raw",
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/tmpMixed1.raw",
                     p_2ch_mixer->mixed_buf, frames * p_2ch_mixer->mixed_frame_size);
             if (is_TV(adev)) {
                 apply_volume(gain_speaker, p_2ch_mixer->mixed_buf,
@@ -1244,7 +1254,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
             set_outport_data_avail(out_port, frames * out_port->cfg.frame_size);
         }
         if (DEBUG_DUMP) {
-            aml_audio_dump_audio_bitstreams("/data/audio/data_mixed.raw",
+            aml_dump_audio_bitstreams("/data/vendor/audiohal/data_mixed.raw",
                 out_port->data_buf, frames * out_port->cfg.frame_size);
         }
     }
@@ -1255,7 +1265,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
         mixing_len_bytes = in_port_sys->data_len_bytes;
         data_sys = (int16_t *)in_port_sys->data;
         if (DEBUG_DUMP) {
-            aml_audio_dump_audio_bitstreams("/data/audio/audiosyst.raw",
+            aml_dump_audio_bitstreams("/data/vendor/audiohal/audiosyst.raw",
                     in_port_sys->data, mixing_len_bytes);
         }
         // processing data and make conversion according to cfg
@@ -1263,7 +1273,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
         frames_written = do_mixing_2ch(p_2ch_mixer->mixed_buf, data_sys,
                 frames, in_port_sys->cfg.format, out_port->cfg.format);
         if (DEBUG_DUMP) {
-            aml_audio_dump_audio_bitstreams("/data/audio/sysTmp.raw",
+            aml_dump_audio_bitstreams("/data/vendor/audiohal/sysTmp.raw",
                     p_2ch_mixer->mixed_buf, frames * FRAMESIZE_32BIT_STEREO);
         }
         if (is_TV(adev)) {
@@ -1271,14 +1281,14 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
                 sizeof(uint32_t), frames * FRAMESIZE_32BIT_STEREO);
         }
         if (DEBUG_DUMP) {
-            aml_audio_dump_audio_bitstreams("/data/audio/sysvol.raw",
+            aml_dump_audio_bitstreams("/data/vendor/audiohal/sysvol.raw",
                     p_2ch_mixer->mixed_buf, frames * FRAMESIZE_32BIT_STEREO);
         }
 
         extend_channel_2_8(data_mixed, p_2ch_mixer->mixed_buf, frames, 2, 8);
 
         if (DEBUG_DUMP) {
-            aml_audio_dump_audio_bitstreams("/data/audio/extendsys.raw",
+            aml_dump_audio_bitstreams("/data/vendor/audiohal/extendsys.raw",
                     data_mixed, frames * out_port->cfg.frame_size);
         }
         in_port_sys->data_valid = 0;
@@ -1298,7 +1308,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
         }
 
         if (DEBUG_DUMP) {
-            aml_audio_dump_audio_bitstreams("/data/audio/audiodrct.raw",
+            aml_dump_audio_bitstreams("/data/vendor/audiohal/audiodrct.raw",
                     in_port_drct->data, mixing_len_bytes);
         }
         // insert 0 data to delay audio
@@ -1321,7 +1331,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
             frames_written = do_mixing_2ch(p_2ch_mixer->mixed_buf, data_drct,
                 frames, in_port_drct->cfg.format, out_port->cfg.format);
             if (DEBUG_DUMP) {
-                aml_audio_dump_audio_bitstreams("/data/audio/dirctTmp.raw",
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/dirctTmp.raw",
                         p_2ch_mixer->mixed_buf, frames * FRAMESIZE_32BIT_STEREO);
             }
             if (is_TV(adev)) {
@@ -1333,7 +1343,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
                     frames, 2, 8);
 
             if (DEBUG_DUMP) {
-                aml_audio_dump_audio_bitstreams("/data/audio/exDrct.raw",
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/exDrct.raw",
                         data_mixed, frames * out_port->cfg.frame_size);
             }
             in_port_drct->data_valid = 0;
@@ -1342,7 +1352,7 @@ static int mixer_do_mixing_32bit(struct amlAudioMixer *audio_mixer)
     }
 
     if (0) {
-        aml_audio_dump_audio_bitstreams("/data/audio/data_mixed.raw",
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/data_mixed.raw",
                 out_port->data_buf, mixing_len_bytes);
     }
     return 0;
@@ -1614,10 +1624,10 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
             continue;
         }
         is_data_valid = true;
-        if (getprop_bool("vendor.media.audiohal.indump")) {
+        if (get_audiomixer_dump_enable(DUMP_AUDIOMIXER_INDUMP)) {
             char acFilePathStr[ENUM_TYPE_STR_MAX_LEN];
-            sprintf(acFilePathStr, "/data/audio/%s_%d", mixerInputType2Str(in_port->enInPortType), in_port->ID);
-            aml_audio_dump_audio_bitstreams(acFilePathStr, in_port->data, in_port->data_len_bytes);
+            sprintf(acFilePathStr, "/data/vendor/audiohal/%s_%d.pcm", mixerInputType2Str(in_port->enInPortType), in_port->ID);
+            aml_dump_audio_bitstreams(acFilePathStr, in_port->data, in_port->data_len_bytes);
         }
         if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
             check_audio_level(mixerInputType2Str(in_port->enInPortType), in_port->data, in_port->data_len_bytes);
@@ -1704,9 +1714,9 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
         AM_LOGE("No available running mixer, mixer_data_size = 0!");
     }
 
-    if (getprop_bool("vendor.media.audiohal.outdump")) {
-        sprintf(acFilePathStr, "/data/audio/audio_mixed_%dch", need_output_ch);
-        aml_audio_dump_audio_bitstreams(acFilePathStr, out_port->data_buf, mixed_data_size);
+    if (get_audiomixer_dump_enable(DUMP_AUDIOMIXER_OUTDUMP)) {
+        sprintf(acFilePathStr, "/data/vendor/audiohal/audio_mixed_%dch.pcm", need_output_ch);
+        aml_dump_audio_bitstreams(acFilePathStr, out_port->data_buf, mixed_data_size);
     }
     if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
         check_audio_level("audio_mixed", out_port->data_buf, mixed_data_size);

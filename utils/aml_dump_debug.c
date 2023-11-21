@@ -32,6 +32,7 @@
 #include <aml_dump_debug.h>
 #include <aml_android_utils.h>
 #include "aml_malloc_debug.h"
+#include "aml_async_write.h"
 
 static int gDumpDataFd = -1;
 
@@ -110,16 +111,28 @@ dump_debug_item_t aml_debug_items[AML_DEBUG_DUMP_MAX] = {
     {AML_DEBUG_AUDIOHAL_SYNCPTS,        AML_DEBUG_AUDIOHAL_SYNCPTS_PROPERTY,               0},    //AML_DEBUG_AUDIOHAL_SYNCPTS
     {AML_DEBUG_AUDIOHAL_MATENC,         AML_DEBUG_AUDIOHAL_MATENC_PROPERTY,                0},    //AML_DEBUG_AUDIOHAL_MATENC
     {AML_DEBUG_AUDIOHAL_TRACE,          AML_DEBUG_AUDIOHAL_TRACE_PROPERTY,                 0},    //AML_DEBUG_AUDIOHAL_TRACE
-    {AML_DEBUG_AUDIOINFO_REPORT,        AML_DEBUG_AUDIOINFO_REPORT_PROPERTY,               0},    //AML_DEBUG_AUDIOINFO_REPORT
+    {AML_DEBUG_AUDIOHAL_DECODED_INFO,   AML_DEBUG_AUDIOINFO_REPORT_PROPERTY,               0},    //AML_DEBUG_AUDIOHAL_DECODED_INFO
     {AML_DEBUG_AUDIOHAL_AUT,            AML_DEBUG_AUDIOHAL_AUT_PROPERTY,                   0},    //AML_DEBUG_AUDIOHAL_AUT
     {AML_DEBUG_AUDIOHAL_EDID,           AML_DEBUG_AUDIOHAL_EDID_PROPERTY,                  0},    //AML_DEBUG_AUDIOHAL_EDID
 
     /*define dump items*/
+    {AML_DUMP_AUDIOHAL_IN,              AML_DUMP_AUDIOHAL_IN_PROPERTY,                     0},    //AML_DUMP_AUDIOHAL_IN
+    {AML_DUMP_AUDIOHAL_OUT,             AML_DUMP_AUDIOHAL_OUT_PROPERTY,                    0},    //AML_DUMP_AUDIOHAL_OUT
     {AML_DUMP_AUDIOHAL_MS12,            AML_DUMP_AUDIOHAL_MS12_PROPERTY,                   0},    //AML_DUMP_AUDIOHAL_MS12
-    {AML_DUMP_AUDIOHAL_ALSA,            AML_DUMP_AUDIOHAL_ALSA_PROPERTY,                   0},    //AML_DUMP_AUDIOHAL_ALSA
+    {AML_DUMP_AUDIOHAL_SPDIF,           AML_DUMP_AUDIOHAL_SPDIF_PROPERTY,                  0},    //AML_DUMP_AUDIOHAL_SPDIF
+    {AML_DUMP_AUDIOHAL_SUBMIXING,       AML_DUMP_AUDIOHAL_SUBMIXING_PROPERTY,              0},    //AML_DUMP_AUDIOHAL_SUBMIXING
     {AML_DUMP_AUDIOHAL_TV,              AML_DUMP_AUDIOHAL_TV_PROPERTY,                     0},    //AML_DUMP_AUDIOHAL_TV_PATH
-    {AML_DUMP_AUDIO_STREAM,             AML_DUMP_AUDIO_STREAM_PROPERTY,                    0},    //AML_DEBUG_AUDIOINFO_REPORT
-    {AML_DUMP_AUDIOHAL_ASYNC_WRITE,     AML_DUMP_AUDIOHAL_ASYNC_WRITE_PROPERTY,            1},    //AML_DUMP_AUDIOHAL_ASYNC_WRITE
+    {AML_DUMP_AUDIOHAL_DTV,             AML_DUMP_AUDIOHAL_DTV_PROPERTY,                    0},    //AML_DUMP_AUDIOHAL_DTV
+    {AML_DUMP_AUDIOHAL_MMAP,            AML_DUMP_AUDIOHAL_MMAP_PROPERTY,                   0},    //AML_DUMP_AUDIOHAL_MMAP
+    {AML_DUMP_AUDIOHAL_HFP,             AML_DUMP_AUDIOHAL_HFP_PROPERTY,                    0},    //AML_DUMP_AUDIOHAL_HFP
+    {AML_DUMP_AUDIOHAL_SCO,             AML_DUMP_AUDIOHAL_SCO_PROPERTY,                    0},    //AML_DUMP_AUDIOHAL_SCO
+    {AML_DUMP_AUDIOHAL_A2DP,            AML_DUMP_AUDIOHAL_A2DP_PROPERTY,                   0},    //AML_DUMP_AUDIOHAL_A2DP
+    {AML_DUMP_AUDIOHAL_USB,             AML_DUMP_AUDIOHAL_USB_PROPERTY,                    0},    //AML_DUMP_AUDIOHAL_USB
+    {AML_DUMP_AUDIOHAL_DECODER,         AML_DUMP_AUDIOHAL_DECODER_PROPERTY,                0},    //AML_DUMP_AUDIOHAL_DECODER
+    {AML_DUMP_AUDIOHAL_RESAMPLE,        AML_DUMP_AUDIOHAL_RESAMPLE_PROPERTY,               0},    //AML_DUMP_AUDIOHAL_RESAMPLE
+    {AML_DUMP_AUDIOHAL_SPEED,           AML_DUMP_AUDIOHAL_SPEED_PROPERTY,                  0},    //AML_DUMP_AUDIOHAL_SPEED
+    {AML_DUMP_AUDIOHAL_EFFECT,          AML_DUMP_AUDIOHAL_EFFECT_PROPERTY,                 0},    //AML_DUMP_AUDIOHAL_EFFECT
+    {AML_DUMP_AUDIOHAL_ASYNC,           AML_DUMP_AUDIOHAL_ASYNC_PROPERTY,                  1},    //AML_DUMP_AUDIOHAL_ASYNC
 };
 
 static void aml_debug_update(void)
@@ -183,4 +196,40 @@ void aml_audio_debug_close(void)
     }
     ALOGI("%s exit", __FUNCTION__);
     return;
+}
+
+int aml_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes)
+{
+    char *token = NULL, *savePtr = NULL;
+    char FilePathStr[ENUM_TYPE_STR_MAX_LEN] = {0}, suffixName[ENUM_TYPE_STR_MAX_LEN] = {'\0'};
+
+    if (!path) {
+        ALOGW("%s %d, path is null, please check it.", __func__, __LINE__);
+        return -1;
+    } else {//handle path string, add pid and tid to FilePath name.
+        strncpy(FilePathStr, path, ENUM_TYPE_STR_MAX_LEN);
+        token = strtok_r(FilePathStr, ".", &savePtr);
+        if (token && savePtr) {
+            strncpy(suffixName, savePtr, ENUM_TYPE_STR_MAX_LEN);
+            snprintf(FilePathStr, ENUM_TYPE_STR_MAX_LEN, "%s_pid-%d_tid-%d.%s", token, getpid(), gettid(), suffixName);
+        } else {
+            snprintf(FilePathStr, ENUM_TYPE_STR_MAX_LEN, "%s_pid-%d_tid-%d", path, getpid(), gettid());
+        }
+        ALOGV("%s line %d, path:%s, FilePathStr:%s, token:%s, savePtr:%s, suffixName:%s\n", __func__, __LINE__, path, FilePathStr, token, savePtr, suffixName);
+    }
+
+    if (get_debug_value(AML_DUMP_AUDIOHAL_ASYNC)) {
+        aml_async_dump_data(buf, bytes, FilePathStr);
+    } else {
+        FILE *fp = fopen(FilePathStr, "a+");
+        if (fp) {
+            int flen = fwrite((char *)buf, 1, bytes, fp);
+            fclose(fp);
+            return 0;
+        }
+        AM_LOGE("fail to open path=%s, errno=%d/%s",  path, errno, strerror(errno));
+        return -1;
+    }
+
+    return 0;
 }

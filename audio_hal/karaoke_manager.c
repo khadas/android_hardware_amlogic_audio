@@ -63,8 +63,8 @@ static ssize_t voice_in_read(struct voice_in *in, void *buffer, size_t bytes)
     ret = proxy_read(&in->proxy, read_buff, num_read_buff_bytes);
     if (ret == 0) {
         //ALOGV("%s(), num_read_buff_bytes %d", __func__, num_read_buff_bytes);
-        if (in->debug) {
-            aml_audio_dump_audio_bitstreams("/data/tmp/karaoke_usb.raw", read_buff, num_read_buff_bytes);
+        if (get_debug_value(AML_DUMP_AUDIOHAL_USB) || in->debug) {
+            aml_dump_audio_bitstreams("/data/audio/karaoke_usb.raw", read_buff, num_read_buff_bytes);
         }
 
         if (num_device_channels != num_req_channels) {
@@ -254,8 +254,8 @@ static int kara_mix_micphone(struct kara_manager *kara, void *buf, size_t bytes)
             b.delay_ns = 0;
             kara->echo_reference->write(kara->echo_reference, &b);
 
-            if (in->debug) {
-                aml_audio_dump_audio_bitstreams("/data/tmp/kara.raw", kara->buf, bytes);
+            if (get_debug_value(AML_DUMP_AUDIOHAL_USB) || in->debug) {
+                aml_dump_audio_bitstreams("/data/audio/kara.raw", kara->buf, bytes);
             }
         }
     }

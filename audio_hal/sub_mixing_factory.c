@@ -29,6 +29,7 @@
 #include "audio_hw_resource_mgr.h"
 
 //#define DEBUG_TIME
+#define DUMP_SUB_MIXING_HWSYNC       0x0001
 
 #define WRITE_COUNT_LATENCY_THRESHOLD  (6)
 #define SUBMIX_USECASE_MASK            (0xffffff7e)  /* PCM_NORMAL(0) and PCM_MMAP(7) have been cleared*/
@@ -40,6 +41,12 @@ static ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
 static int out_pause_subMixingPCM(struct audio_stream_out *stream);
 static int out_resume_subMixingPCM(struct audio_stream_out *stream);
 static int out_flush_subMixingPCM(struct audio_stream_out *stream);
+
+static int get_submixing_dump_enable(int dump_type) {
+    int value = 0;
+    value = get_debug_value(AML_DUMP_AUDIOHAL_SUBMIXING);
+    return (value & dump_type);
+}
 
 struct pcm *getSubMixingPCMdev(struct subMixing *sm)
 {
@@ -366,8 +373,8 @@ static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
     //else
     //    out->last_frames_position = out->frame_write_sum;
     AM_LOGV("++written = %zd", written);
-    if (getprop_bool("vendor.media.audiohal.hwsync")) {
-        aml_audio_dump_audio_bitstreams("/data/audio/consumeout.raw", buffer, written);
+    if (get_submixing_dump_enable(DUMP_SUB_MIXING_HWSYNC)) {
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/consumeout.raw", buffer, written);
     }
     if (0) {
         AM_LOGD("last_frames_position(%" PRId64 ") latency_frames(%" PRId64 ")",
@@ -495,8 +502,8 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
     AM_LOGV("bytes %zu, out->last_frames_position %" PRId64 " frame_sum %" PRId64 " ",
             bytes, out->last_frames_position, out->frame_write_sum);
 
-    if (getprop_bool("vendor.media.audiohal.hwsync") && written_total > 0) {
-        aml_audio_dump_audio_bitstreams("/data/audio/audiomain.raw", buffer, written_total);
+    if (get_submixing_dump_enable(DUMP_SUB_MIXING_HWSYNC) && written_total > 0) {
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/audiomain.raw", buffer, written_total);
     }
 
     if (written_total > 0) {

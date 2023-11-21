@@ -295,7 +295,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
             // write pcm data
             if (dec_pcm_data->data_len > 0) {
-                // aml_audio_dump_audio_bitstreams("/data/dec_data.raw", dec_pcm_data->buf, dec_pcm_data->data_len);
+                // aml_dump_audio_bitstreams("/data/vendor/audiohal/dec_data.raw", dec_pcm_data->buf, dec_pcm_data->data_len);
                 aml_dec->out_frame_pts = aml_dec->in_frame_pts + (90 * aml_dec->out_frames /(dec_pcm_data->data_sr / 1000));
                 if (dec_pcm_data->data_ch != 0)
                     aml_dec->out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
@@ -474,7 +474,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     }
 
                     if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
-                        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/tv_non12_before_mixer.raw",
+                        aml_dump_audio_bitstreams("/data/vendor/audiohal/tv_non12_before_mixer.raw",
                             dec_data, pcm_len);
                     }
                 }

@@ -355,7 +355,7 @@ void *audio_patch_input_threadloop(void *data)
                 aml_audio_trace_int("input_read_thread", 0);
 
                 if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
-                    aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/tv_read.raw", patch->in_buf, read_bytes);
+                    aml_dump_audio_bitstreams("/data/vendor/audiohal/tv_read.raw", patch->in_buf, read_bytes);
                 }
 
                 if (IS_DIGITAL_IN_HW(patch->input_src) && !check_digital_in_stream_signal(&in->stream)) {

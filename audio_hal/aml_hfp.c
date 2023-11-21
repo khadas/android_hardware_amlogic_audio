@@ -337,14 +337,14 @@ static void* aml_hfp_ul_thread(void* data) {
              AM_LOGD("pcm_read fail need:%d, ret:%d", size, ret);
           }
         unsigned sample_size_in_bytes = pcm_format_to_bits(ul_task->config.format) >> 3;
-        if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-            aml_audio_dump_audio_bitstreams("/data/audio/before_aec_16k_6ch_16bit.pcm", buffer, size);
+        if (get_debug_value(AML_DUMP_AUDIOHAL_HFP)) {
+            aml_dump_audio_bitstreams("/data/audio/before_aec_16k_6ch_16bit.pcm", buffer, size);
         }
         ret = aec_process(ul_task->aec_handle, buffer, buffer_aec);
         if (ret == 0)
             adjust_channels(buffer, ul_task->config.channels, buffer_aec, ul_task->mic_channels, sample_size_in_bytes, size);
-        if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-            aml_audio_dump_audio_bitstreams("/data/audio/after_aec_16k_4ch_16bit.pcm", buffer_aec, size_aec);
+        if (get_debug_value(AML_DUMP_AUDIOHAL_HFP)) {
+            aml_dump_audio_bitstreams("/data/audio/after_aec_16k_4ch_16bit.pcm", buffer_aec, size_aec);
         }
         adjust_channels(buffer_aec, ul_task->mic_channels, buffer_out, pcm_config_hfp.channels, sample_size_in_bytes, size_aec);
         void *dec_data = (void *)buffer_out;
@@ -354,8 +354,8 @@ static void* aml_hfp_ul_thread(void* data) {
 	  if (ul_task->data_len > 0) {
               ret = pcm_write(ul_task->pcm_hfp_sco_rx, (void *)dec_data, (unsigned int)ul_task->data_len);
 
-             if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-                 aml_audio_dump_audio_bitstreams(AML_PARAM_AUDIO_HAL_SCO_RX_RD_SYSTEM, dec_data, ul_task->data_len);
+             if (get_debug_value(AML_DUMP_AUDIOHAL_HFP)) {
+                 aml_dump_audio_bitstreams(AML_PARAM_AUDIO_HAL_SCO_RX_RD_SYSTEM, dec_data, ul_task->data_len);
              }
              if (ret < 0) {
                  ALOGE("%s write failed,pcm handle %p %s",
@@ -419,14 +419,14 @@ static void* aml_hfp_dl_thread(void* data) {
             AM_LOGD("pcm_read fail need:%d, ret:%d", size, ret);
         }
 
-        if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-            aml_audio_dump_audio_bitstreams(AML_PARAM_AUDIO_HAL_SCO_TX_RD_SYSTEM, buffer, size);
+        if (get_debug_value(AML_DUMP_AUDIOHAL_HFP)) {
+            aml_dump_audio_bitstreams(AML_PARAM_AUDIO_HAL_SCO_TX_RD_SYSTEM, buffer, size);
         }
         //2 one T stereo
         upmix_to_stereo_i16_from_mono_i16(dec_data_1_t_2,buffer,size / sizeof(int16_t));
 
-        if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-            aml_audio_dump_audio_bitstreams(AML_PARAM_AUDIO_HAL_SCO_TX_RD_STEREO_SYSTEM, dec_data_1_t_2, dec_data_1_t_2_buf_size);
+        if (get_debug_value(AML_DUMP_AUDIOHAL_HFP)) {
+            aml_dump_audio_bitstreams(AML_PARAM_AUDIO_HAL_SCO_TX_RD_STEREO_SYSTEM, dec_data_1_t_2, dec_data_1_t_2_buf_size);
         }
 
         void  *dec_data = (void *)dec_data_1_t_2;
@@ -443,8 +443,8 @@ static void* aml_hfp_dl_thread(void* data) {
                     dec_data = dl_task->resample_handle->resample_buffer;
                     dl_task->data_len = dl_task->resample_handle->resample_size;//for real_src_size
 
-                    if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-                        aml_audio_dump_audio_bitstreams(AML_PARAM_AUDIO_HAL_SCO_TX_RD_SRC_SYSTEM, dec_data, dl_task->data_len);
+                    if (get_debug_value(AML_DUMP_AUDIOHAL_HFP)) {
+                        aml_dump_audio_bitstreams(AML_PARAM_AUDIO_HAL_SCO_TX_RD_SRC_SYSTEM, dec_data, dl_task->data_len);
                     }
                     //4 16b T 32b
                     int16_t *input16 = (int16_t *)dec_data;
@@ -453,8 +453,8 @@ static void* aml_hfp_dl_thread(void* data) {
                     for (int i = 0; i < dl_task->data_len / sizeof(int16_t); i++) {
                          hfp_out_32_buf[i] = ((int32_t)input16[i]) << 16;
                     }
-                    if (aml_getprop_bool("vendor.media.audiohal.outdump") && hfp_out_32_buf) {
-                        aml_audio_dump_audio_bitstreams(AML_PARAM_AUDIO_HAL_SCO_TX_RD_SRC_16_T_32_SYSTEM, hfp_out_32_buf, hfp_out_32_buf_size);
+                    if (get_debug_value(AML_DUMP_AUDIOHAL_HFP) && hfp_out_32_buf) {
+                        aml_dump_audio_bitstreams(AML_PARAM_AUDIO_HAL_SCO_TX_RD_SRC_16_T_32_SYSTEM, hfp_out_32_buf, hfp_out_32_buf_size);
                     }
                     //5 2ch T 8ch
                     hfp_tmp_buffer_8ch = aml_audio_realloc(hfp_tmp_buffer_8ch, hfp_out_32_buf_size * 4);
@@ -473,8 +473,8 @@ static void* aml_hfp_dl_thread(void* data) {
                              hfp_tmp_buffer_8ch[8 * n + 7] = hfp_tmp_buffer[2 * n + 1];
                          }
                          apply_volume(hfpmod.hfp_volume, hfp_tmp_buffer_8ch, sizeof(uint32_t), hfp_tmp_buffer_8ch_size);
-                         if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-                             aml_audio_dump_audio_bitstreams(AML_PARAM_AUDIO_HAL_SCO_TX_RD_SRC_16_T_32_8_CH_ALL_SYSTEM, hfp_tmp_buffer_8ch, hfp_tmp_buffer_8ch_size);
+                         if (get_debug_value(AML_DUMP_AUDIOHAL_HFP)) {
+                             aml_dump_audio_bitstreams(AML_PARAM_AUDIO_HAL_SCO_TX_RD_SRC_16_T_32_8_CH_ALL_SYSTEM, hfp_tmp_buffer_8ch, hfp_tmp_buffer_8ch_size);
                          }
                     }
                      if (hfpmod.is_hfp_running) {

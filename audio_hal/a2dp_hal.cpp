@@ -122,12 +122,12 @@ static bool a2dp_wait_status(const char *caller, struct aml_a2dp_hal *hal) {
 }
 
 static void dump_a2dp_output_data(aml_a2dp_hal *hal, const void *buffer, size_t size) {
-    if (getprop_bool("vendor.media.audiohal.a2dpdump")) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_A2DP)) {
         char acFilePathStr[ENUM_TYPE_STR_MAX_LEN];
         size_t out_per_sample_byte = audio_bytes_per_sample(hal->config.format);
         size_t out_channel_byte = audio_channel_count_from_out_mask(hal->config.channel_mask);
         sprintf(acFilePathStr, "/data/audio/a2dp_%0.1fK_%zuC_%zuB.pcm", hal->config.sample_rate/1000.0, out_channel_byte, out_per_sample_byte);
-        aml_audio_dump_audio_bitstreams(acFilePathStr, buffer, size);
+        aml_dump_audio_bitstreams(acFilePathStr, buffer, size);
     }
 }
 
