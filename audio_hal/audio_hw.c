@@ -4080,7 +4080,8 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 
     ret = str_parms_get_str (parms, "set_ARC_format", value, sizeof (value) );
     if (ret >= 0) {
-        set_arc_format(dev, value, AUDIO_HAL_CHAR_MAX_LEN);
+        // remove this interface, only use "set_ARC_hdmi"
+        // set_arc_format(dev, value, AUDIO_HAL_CHAR_MAX_LEN);
         goto exit;
     }
 

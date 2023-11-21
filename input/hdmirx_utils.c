@@ -337,6 +337,57 @@ static int update_dolby_MAT_decoding_cap_for_dolby_MAT_and_dolby_TRUEHD_sad(
     return ret;
 }
 
+static void send_arc_format_info(struct audio_hw_device *dev, uint8_t *descriptor, int length)
+{
+    struct aml_audio_device *adev = (struct aml_audio_device *) dev;
+    struct aml_arc_hdmi_desc *hdmi_desc = get_arc_hdmi_cap(adev);
+    int i;
+
+    for (int i = 0; i + 2 < length; i += 3) {
+        int sad_buffer[5] = {0};
+        char temp_sad_str[128] = {0};
+        // find a descriptor for each SUPPORT_CODECS
+        // CEA-861-D Table 34, 35, 36
+        sad_buffer[0] = (descriptor[i] & 0x78) >> 3;
+        sad_buffer[1] = 1; // supported
+        sad_buffer[2] = descriptor[i] & 0x7; // Max Channels - 1
+        sad_buffer[3] = descriptor[i + 1] & 0x7F; // Support Sample Rate
+        sad_buffer[4] = descriptor[i + 2] & 0xFF; // Max bit rate / 8kHz
+
+        snprintf(temp_sad_str, 128, "[%d, %d, %d, %d, %d]", sad_buffer[0],
+           sad_buffer[1], sad_buffer[2], sad_buffer[3], sad_buffer[4]);
+        AM_LOGD("set arc format: %s", temp_sad_str);
+        set_arc_format(dev, temp_sad_str, AUDIO_HAL_CHAR_MAX_LEN);
+    }
+
+    if (hdmi_desc->mat_fmt.atmos_supported)
+        update_edid_after_edited_audio_sad(dev, &hdmi_desc->mat_fmt);
+    else if (hdmi_desc->ddp_fmt.atmos_supported)
+        update_edid_after_edited_audio_sad(dev, &hdmi_desc->ddp_fmt);
+    else
+        update_edid_after_edited_audio_sad(dev, &hdmi_desc->dd_fmt);
+
+    update_sink_format_after_hotplug(adev);
+}
+
+static void clear_arc_format_info(struct audio_hw_device *dev)
+{
+    struct aml_audio_device *adev = (struct aml_audio_device *) dev;
+    int i;
+
+    for (int i = 0; i < sizeof(sad_str_default)/sizeof(sad_str_default[0]); i++) {
+        int sad_buffer[5] = {0};
+        char temp_sad_str[128] = {0};
+        memcpy(sad_buffer, sad_str_default[i], 5);
+        snprintf(temp_sad_str, 128, "[%d, %d, %d, %d, %d]", sad_buffer[0],
+                sad_buffer[1], sad_buffer[2], sad_buffer[3], sad_buffer[4]);
+        AM_LOGD("set arc format: %s", temp_sad_str);
+        set_arc_format(dev, temp_sad_str, AUDIO_HAL_CHAR_MAX_LEN);
+    }
+
+    update_sink_format_after_hotplug(adev);
+}
+
 bool is_same_edid_str(const char *str_a, const char *str_b)
 {
     return (strcmp(str_a, str_b) == 0 ? true : false);
@@ -428,6 +479,7 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
     ptr[1] = (unsigned int)hdmi_desc->EDID_length;
 
     if (hdmi_desc->EDID_length == 0) {
+        clear_arc_format_info(dev);
         ALOGI("ARC is disconnect!, Reset to default EDID.");
         set_arc_hdmi_updated(adev, false);
         write_default_edid_to_hdmirx(dev, hdmi_desc->EDID_length);
@@ -462,6 +514,8 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
                 hdmi_desc->target_EDID_array[TLV_HEADER_SIZE + 3*i + 2]);
             }
         }
+
+        send_arc_format_info(dev, (uint8_t *)hdmi_desc->target_EDID_array + TLV_HEADER_SIZE, hdmi_desc->EDID_length);
     }
 
     return 0;
@@ -645,38 +699,14 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
                 fmt_desc->atmos_supported = false;
                 /* AC3 Bytes 3 means the "Maximum bit rate divided by 8000 (8 kHz)" */
                 fmt_desc->max_bit_rate = val * 80;
-
-                /* when arc is connected update AVR SAD to hdmi edid */
-                update_edid_after_edited_audio_sad(dev, fmt_desc);
-                update_sink_format_after_hotplug(adev);
             } else if (format == AML_HDMI_FORMAT_DDP) {
                 /* byte 3, bit 0 is atmos bit*/
                 fmt_desc->atmos_supported = (val & 0x1) > 0 ? true : false;
-
-                /* when arc is connected update AVR SAD to hdmi edid */
-                update_edid_after_edited_audio_sad(dev, fmt_desc);
-                /*
-                 * if the ARC capability format is changed, it should not support HBR(MAT/DTS-HD)
-                 * for the sequence is LPCM -> DD -> DTS -> DDP -> DTSHD,
-                 * which is defined in "private void setAudioFormat()" at file:DroidLogicEarcService.java
-                 * so, here we choose the DDP part to update the sink format.
-                 */
-                update_sink_format_after_hotplug(adev);
             } else if (format == AML_HDMI_FORMAT_MAT && fmt_desc->is_support == true) {
                 /* byte 3, bit 0 is profile bit, if profile 1 MAT, don't output MAT PCM*/
                 fmt_desc->atmos_supported = (val & 0x1) > 0 ? true : false;
                 if (fmt_desc->atmos_supported == false)
                     fmt_desc->is_support = false;
-
-                /* when arc is connected update AVR SAD to hdmi edid */
-                update_edid_after_edited_audio_sad(dev, fmt_desc);
-                /*
-                 * if the ARC capability format is changed, it should not support HBR(MAT/DTS-HD)
-                 * for the sequence is LPCM -> DD -> DTS -> DDP -> DTSHD,
-                 * which is defined in "private void setAudioFormat()" at file:DroidLogicEarcService.java
-                 * so, here we choose the DDP part to update the sink format.
-                 */
-                update_sink_format_after_hotplug(adev);
             } else {
                 //TODO, how to update the DTS/DTSHD/... SAD.
                 ALOGW("[%s:%d] this SAD fmt is %s, mark it as TODO.\n",
@@ -806,33 +836,10 @@ void read_hdmi_arc_info(struct audio_hw_device *dev,
             AM_LOGD("set pcm only arc format: %s", temp_sad_str);
             set_arc_format(dev, temp_sad_str, AUDIO_HAL_CHAR_MAX_LEN);
         } else {
-            for (int i = 0; i + 2 < length; i += 3) {
-                int sad_buffer[5] = {0};
-                char temp_sad_str[128] = {0};
-                // find a descriptor for each SUPPORT_CODECS
-                // CEA-861-D Table 34, 35, 36
-                sad_buffer[0] = (descriptor[i] & 0x78) >> 3;
-                sad_buffer[1] = 1; // supported
-                sad_buffer[2] = descriptor[i] & 0x7; // Max Channels - 1
-                sad_buffer[3] = descriptor[i + 1] & 0x7F; // Support Sample Rate
-                sad_buffer[4] = descriptor[i + 2] & 0xFF; // Max bit rate / 8kHz
-
-                snprintf(temp_sad_str, 128, "[%d, %d, %d, %d, %d]", sad_buffer[0],
-                   sad_buffer[1], sad_buffer[2], sad_buffer[3], sad_buffer[4]);
-                AM_LOGD("set arc format: %s", temp_sad_str);
-                set_arc_format(dev, temp_sad_str, AUDIO_HAL_CHAR_MAX_LEN);
-            }
+            send_arc_format_info(dev, descriptor, length);
         }
     } else {// clear all sads
-        for (int i = 0; i < sizeof(sad_str_default)/sizeof(sad_str_default[0]); i++) {
-            int sad_buffer[5] = {0};
-            char temp_sad_str[128] = {0};
-            memcpy(sad_buffer, sad_str_default[i], 5);
-            snprintf(temp_sad_str, 128, "[%d, %d, %d, %d, %d]", sad_buffer[0],
-                    sad_buffer[1], sad_buffer[2], sad_buffer[3], sad_buffer[4]);
-            AM_LOGD("set arc format: %s", temp_sad_str);
-            set_arc_format(dev, temp_sad_str, AUDIO_HAL_CHAR_MAX_LEN);
-        }
+        clear_arc_format_info(dev);
     }
 }
 
