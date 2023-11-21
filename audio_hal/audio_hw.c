@@ -3538,7 +3538,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 
     /* After playback for previous dts stream, there is remain data in VirtualX library. It needs to clear data buffer of VirtualX by using
        zero data to replace these remain data. Otherwise it will play this remain data first when start playback next time*/
-    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0 && out->write_count > 0) {
+    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0 && out->write_count > 0 && is_dts_format(out->hal_internal_format)) {
         char *tmp_buffer = aml_audio_malloc(VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
         if (!tmp_buffer) {
             ALOGE("tmp_buffer NULL %d",__LINE__);
