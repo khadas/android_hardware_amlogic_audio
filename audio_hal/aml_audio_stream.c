@@ -1210,7 +1210,6 @@ void update_audio_format(struct aml_audio_device *adev, audio_format_t format)
      */
 }
 
-
 int update_sink_format_after_hotplug(struct aml_audio_device *adev)
 {
     struct audio_stream_out *stream = NULL;

@@ -79,9 +79,9 @@ void audio_timer_start(unsigned32 timer_id, unsigned64 delay_time, bool type)
         i_timer_spec.it_interval.tv_nsec = 0;
     }
 
-    if (timer_settime(aml_timer[timer_id].timer, 0, &(i_timer_spec), NULL) == -1) {
+    if (timer_id < AML_TIMER_ID_NUM && timer_settime(aml_timer[timer_id].timer, 0, &(i_timer_spec), NULL) == -1) {
 
-        ALOGE("func:%s  set timer fail. errno:%d(%s)", __func__, errno, strerror(errno));
+        ALOGE("func:%s  timer_id:%u set timer fail. errno:%d(%s)", __func__, timer_id, errno, strerror(errno));
     } else {
         ALOGV("func:%s  set timer success.", __func__);
     }

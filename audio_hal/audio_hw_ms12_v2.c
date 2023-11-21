@@ -939,6 +939,7 @@ int get_the_dolby_ms12_prepared(
     uint64_t dtv_decoder_offset_base = 0;
     unsigned int sink_max_channels = 2;
     int ret = 0, associate_audio_mixing_enable = 0 , media_presentation_id = -1,mixing_level = 0,ad_vol = 100;
+    int ms12_init_count = 0;
     bool output_5_1_ddp = getprop_bool(MS12_OUTPUT_5_1_DDP);
     ms12->tv_tuning_flag = getprop_bool(MS12_TV_TUNING);
 
@@ -1029,7 +1030,12 @@ int get_the_dolby_ms12_prepared(
     ALOGI("%s adev->ms12_out =  %p", __func__, adev->ms12_out);
 
     ms12->ms12_timer_id = aml_audio_timer_create(ms12_timer_callback_handler);
-    ALOGI("func:%s  timer_id:%d", __func__, ms12->ms12_timer_id);
+    if (ms12->ms12_timer_id < 0) {
+        ALOGE("func:%s  timer_id:%d error and exit", __func__, ms12->ms12_timer_id);
+        goto Err_Timer_Create;
+    } else {
+        ALOGI("func:%s  timer_id:%d", __func__, ms12->ms12_timer_id);
+    }
 
     /************end**************/
     /*set the system app sound mixing enable*/
@@ -1102,7 +1108,20 @@ int get_the_dolby_ms12_prepared(
     ALOGI("%s : continuous_mode %d, continuous_enable_mixer_max_size %d, ms12->enable_mixer_max_size %d", __func__, \
             continuous_mode(adev), adev->continuous_enable_mixer_max_size, ms12->enable_mixer_max_size);
 
-    aml_ms12_config(ms12, input_format, input_channel_mask, input_sample_rate, output_config, get_ms12_path());
+    do {
+        aml_ms12_config(ms12, input_format, input_channel_mask, input_sample_rate, output_config, get_ms12_path());
+        if (ms12->dolby_ms12_enable) {
+            break;
+        } else {
+            ms12_init_count++;
+        }
+        usleep(1000);
+        ALOGI("%s ms12_init_count:%d", __func__, ms12_init_count);
+    } while(ms12_init_count < 5);//give the 5 times to config ms12.
+    if (ms12_init_count >= 5 || !ms12->dolby_ms12_enable) {
+        goto Err_Ms12_Config;
+    }
+
     ms12->dolby_ms12_init_flags = true;
     if (ms12->dolby_ms12_enable) {
         //register Dolby MS12 callback
@@ -1163,7 +1182,7 @@ int get_the_dolby_ms12_prepared(
 
     ms12->iec61937_ddp_buf = aml_audio_calloc(1, MS12_DDP_FRAME_SIZE);
     if (ms12->iec61937_ddp_buf == NULL) {
-        goto Err;
+        goto Err_Iec61937_Calloc;
     }
 
     /*ms12 related resources are prepared, we can start ms12 thread*/
@@ -1172,7 +1191,7 @@ int get_the_dolby_ms12_prepared(
         ret = pthread_create(&(ms12->dolby_ms12_threadID), NULL, &dolby_ms12_threadloop, out);
         if (ret != 0) {
             ALOGE("%s, Create dolby_ms12_thread fail!\n", __FUNCTION__);
-            goto Err_dolby_ms12_thread;
+            goto Err_DolbyMs12_Thread;
         }
         ALOGI("%s() thread is build, get dolby_ms12_threadID %ld\n", __FUNCTION__, ms12->dolby_ms12_threadID);
     }
@@ -1186,7 +1205,7 @@ int get_the_dolby_ms12_prepared(
     ret = ring_buffer_init(&ms12->spdif_ring_buffer, ms12->dolby_ms12_out_max_size);
     if (ret != 0) {
         ALOGW("[%s:%d] init is error", __func__, __LINE__);
-        goto Err_dolby_ms12_thread;
+        goto Err_RingBuf_Init;
     }
     adev->doing_reinit_ms12 = false;
     ms12->debug_synced_frame_pts_flag = get_debug_value(AML_DEBUG_AUDIOHAL_SYNCPTS);
@@ -1270,8 +1289,9 @@ int get_the_dolby_ms12_prepared(
     ALOGI("-%s()\n\n", __FUNCTION__);
 
     return ret;
-
-Err_dolby_ms12_thread:
+Err_RingBuf_Init:
+    ring_buffer_release(&ms12->spdif_ring_buffer);
+Err_DolbyMs12_Thread:
     if (continuous_mode(adev)) {
         if (ms12->dolby_ms12_enable) {
             ALOGE("%s() %d exit dolby_ms12_thread\n", __FUNCTION__, __LINE__);
@@ -1279,12 +1299,15 @@ Err_dolby_ms12_thread:
             ms12->dolby_ms12_threadID = 0;
         }
     }
-    aml_audio_free(out);
-Err:
+Err_Iec61937_Calloc:
     if (ms12->iec61937_ddp_buf) {
         aml_audio_free(ms12->iec61937_ddp_buf);
         ms12->iec61937_ddp_buf = NULL;
     }
+Err_Ms12_Config:
+    aml_ms12_cleanup(ms12);
+Err_Timer_Create:
+    aml_audio_timer_delete(ms12->ms12_timer_id);
     pthread_mutex_unlock(&ms12->lock);
     return ret;
 }
