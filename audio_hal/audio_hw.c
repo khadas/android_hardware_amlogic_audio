@@ -5664,7 +5664,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
     uint64_t apts64 = 0;
 
     audio_hwsync_t *hw_sync = aml_out->hwsync;
-    bool digital_input_src = (patch && \
+    bool digital_input_src = (aml_out->is_tv_src_stream && patch && \
            (patch->input_src == AUDIO_DEVICE_IN_HDMI
            || patch->input_src == AUDIO_DEVICE_IN_SPDIF
            || patch->input_src == AUDIO_DEVICE_IN_TV_TUNER));
@@ -5807,7 +5807,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
         } else {
             need_reset_decoder = true;
         }
-        if (patch && patch->is_dtv_src)
+        if (aml_out->is_tv_src_stream && patch && patch->is_dtv_src)
             patch->need_reconfig_mediasync = need_reconfig_output;
         adev->digital_audio_mode_updated = 0;
 
@@ -6244,7 +6244,7 @@ hwsync_rewrite:
          * sometimes dolby_ms12_enable is true(system stream config ms12), here should reconfig
          * ms12 when switching to HDMI stream source.(Jira:TV-46722)
          */
-        if (need_reconfig_output && adev->ms12.dolby_ms12_enable && patch && patch->input_src == AUDIO_DEVICE_IN_HDMI) {
+        if (need_reconfig_output && adev->ms12.dolby_ms12_enable && aml_out->is_tv_src_stream && patch && patch->input_src == AUDIO_DEVICE_IN_HDMI) {
             need_reset_decoder = true;
             ALOGI ("%s() %d, HDMI input source, need reset decoder:%d", __func__, __LINE__, need_reset_decoder);
         }
@@ -6296,7 +6296,7 @@ hwsync_rewrite:
         }
     }
     aml_out->input_bytes_size += write_bytes;
-    if (patch && (adev->dtslib_bypass_enable || adev->dcvlib_bypass_enable)) {
+    if (aml_out->is_tv_src_stream && patch && (adev->dtslib_bypass_enable || adev->dcvlib_bypass_enable)) {
         int cur_samplerate = audio_parse_get_audio_samplerate(patch->audio_parse_para);
         if (cur_samplerate != patch->input_sample_rate || need_reconfig_samplerate) {
             ALOGI ("HDMI/SPDIF input samplerate from %d to %d, or need_reconfig_samplerate\n",
