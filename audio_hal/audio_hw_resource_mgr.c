@@ -602,7 +602,10 @@ int set_output_device_mute(struct aml_audio_device *adev, audio_devices_t device
         if (extern_arc) {
             aml_mixer_ctrl_set_int(mgr->mixer_ctrl, AML_MIXER_ID_SPDIF_MUTE, enable);
         } else {
-            aml_mixer_ctrl_set_int(mgr->mixer_ctrl, AML_MIXER_ID_ARC_EARC_SPDIFOUT_REG_MUTE, enable);
+            if (is_earc_descrpt())
+                aml_mixer_ctrl_set_int(mgr->mixer_ctrl, AML_MIXER_ID_ARC_EARC_SPDIFOUT_REG_MUTE, enable);
+            else
+                aml_mixer_ctrl_set_int(mgr->mixer_ctrl, AML_MIXER_ID_HDMI_ARC_AUDIO_ENABLE, !enable);
         }
         port_info->mute = enable;
         break;
