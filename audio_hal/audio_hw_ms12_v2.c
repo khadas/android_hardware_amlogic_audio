@@ -1445,7 +1445,6 @@ int dolby_ms12_main_process(
 
     if (ms12->dolby_ms12_enable && !aml_out->is_ms12_main_decoder) {
         dolby_ms12_main_open(stream);
-        dolby_ms12_set_main_dummy(0, false);
         /* dynamically set the drc parameters mode/cut/boost */
         dynamic_set_dolby_ms12_drc_parameters(ms12);
     }
@@ -1705,15 +1704,8 @@ MAIN_INPUT:
             /*input main frame*/
             int main_format = ms12->input_config_format;
             int main_channel_num = aml_out->hal_ch;
-            int main_sample_rate = ms12->config_sample_rate;
-            if ((dolby_ms12_get_dolby_main1_file_is_dummy() == true) && \
-                (dolby_ms12_get_ott_sound_input_enable() == true) && \
-                (adev->continuous_audio_mode == 1)) {
-                //hwsync pcm, 16bits-stereo
-                main_format = AUDIO_FORMAT_PCM_16_BIT;
-                main_channel_num = aml_out->hal_ch;
-                main_sample_rate = 48000;
-            }
+            int main_sample_rate = 48000;
+
             /*we check whether there is enough space*/
             if ((adev->continuous_audio_mode == 1)
                 && (is_dolby_ms12_support_compression_format(ms12_hal_format) || (ms12_hal_format == AUDIO_FORMAT_IEC61937)))

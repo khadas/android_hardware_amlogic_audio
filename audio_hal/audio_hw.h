@@ -417,8 +417,6 @@ struct aml_audio_device {
     bool is_has_video;
     struct aml_stream_out *ms12_out;
     int spdif_fmt_hw;
-    bool ms12_ott_enable;
-    bool ms12_main1_dolby_dummy;
     int system_app_mixing_status;
     int audio_type;
     struct aml_mixer_handle alsa_mixer;

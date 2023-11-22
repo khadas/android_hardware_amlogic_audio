@@ -853,8 +853,6 @@ int aml_audio_hwsync_lookup_apts(audio_hwsync_t *p_hwsync, uint64_t offset, uint
             *p_apts = nearest_pts;
             if (debug_enable)
                 ALOGI("find nearest pts 0x%" PRIx64 " offset %" PRIx64 " align %" PRIx64 "", *p_apts, nearest_offset, align);
-        } else {
-            ALOGE("%s,apts lookup failed,align %" PRIx64 ",offset %" PRIx64 "", __func__, align, offset);
         }
     }
     if ((ret == 0) && audio_is_linear_pcm(hal_internal_format)) {

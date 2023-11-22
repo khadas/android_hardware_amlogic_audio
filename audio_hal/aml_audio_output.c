@@ -575,8 +575,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                     char *raw_buf = NULL;
                     char *temp_buf = NULL;
                     /*atmos lock or input is ddp atmos*/
-                    if (adev->atoms_lock_flag ||
-                        (adev->ms12.is_dolby_atmos && adev->ms12_main1_dolby_dummy == false)) {
+                    if (adev->atoms_lock_flag || adev->ms12.is_dolby_atmos) {
                         bAtmos = 1;
                     }
                     raw_buf = aml_audio_get_muteframe(output_format, &raw_size, bAtmos);

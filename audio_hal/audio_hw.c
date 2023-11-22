@@ -3433,21 +3433,6 @@ static void close_ms12_output_main_stream(struct audio_stream_out *stream) {
         /*after ms12 lock, dolby_ms12_enable may be cleared with clean up function*/
         if (adev->ms12.dolby_ms12_enable) {
             audio_format_t hal_internal_format = ms12_get_audio_hal_format(out->hal_internal_format);
-            if (adev->ms12_main1_dolby_dummy == false
-            && !audio_is_linear_pcm(hal_internal_format)) {
-                dolby_ms12_set_main_dummy(0, true);
-                adev->ms12_main1_dolby_dummy = true;
-                ALOGI("%s set main dd+ dummy", __func__);
-            } else if (adev->ms12_ott_enable == true
-               && audio_is_linear_pcm(hal_internal_format)
-               && (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC || out->flags & AUDIO_OUTPUT_FLAG_DIRECT)) {
-
-                dolby_ms12_set_main_dummy(1, true);
-                adev->ms12_ott_enable = false;
-                ALOGI("%s set ott dummy", __func__);
-            }
-
-
             adev->ms12.need_ms12_resume = false;
             adev->ms12.need_resync = 0;
             adev->ms12_out->hw_sync_mode = false;
@@ -5657,8 +5642,8 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
            || patch->input_src == AUDIO_DEVICE_IN_SPDIF
            || patch->input_src == AUDIO_DEVICE_IN_TV_TUNER));
     if (adev->debug_flag) {
-        AM_LOGI("io %d: out:%p bytes:%zu format:%s(%#x) ms12_ott:%d hw_sync:%d", aml_out->io_handle, aml_out, bytes,
-            audioFormat2Str(aml_out->hal_internal_format), aml_out->hal_internal_format, adev->ms12_ott_enable, aml_out->hw_sync_mode);
+        AM_LOGI("io %d: out:%p bytes:%zu format:%s(%#x) hw_sync:%d", aml_out->io_handle, aml_out, bytes,
+            audioFormat2Str(aml_out->hal_internal_format), aml_out->hal_internal_format, aml_out->hw_sync_mode);
         AM_LOGI("continuous:%d hal_format:%s(%#x), out_usecase:%s, dev_usecase_masks:%#x", adev->continuous_audio_mode,
             audioFormat2Str(aml_out->hal_format), aml_out->hal_format, usecase2Str(aml_out->usecase), adev->usecase_masks);
     }
@@ -6252,12 +6237,7 @@ hwsync_rewrite:
         /*
         //continuous mode,available aml_dolby format coming,need set main aml_dolby dummy to false
         */
-        if (continuous_mode(adev) && adev->ms12_main1_dolby_dummy == true
-            && !audio_is_linear_pcm(hal_internal_format)) {
-            pthread_mutex_lock(&adev->lock);
-            adev->ms12_main1_dolby_dummy = false;
-
-            pthread_mutex_unlock(&adev->lock);
+        if (!aml_out->is_ms12_main_decoder) {
             pthread_mutex_lock(&adev->trans_lock);
             ms12_out->hal_internal_format = hal_internal_format;
             ms12_out->hw_sync_mode = aml_out->hw_sync_mode;
@@ -6265,22 +6245,6 @@ hwsync_rewrite:
             ms12_out->hal_ch = aml_out->hal_ch;
             ms12_out->hal_rate = aml_out->hal_rate;
             pthread_mutex_unlock(&adev->trans_lock);
-            ALOGI("%s set dolby main1 dummy false", __func__);
-        } else if (continuous_mode(adev) && adev->ms12_ott_enable == false
-                   && audio_is_linear_pcm(hal_internal_format)) {
-            pthread_mutex_lock(&adev->lock);
-            dolby_ms12_set_main_dummy(1, false);
-            adev->ms12_ott_enable = true;
-
-            pthread_mutex_unlock(&adev->lock);
-            pthread_mutex_lock(&adev->trans_lock);
-            ms12_out->hal_internal_format = hal_internal_format;
-            ms12_out->hw_sync_mode = aml_out->hw_sync_mode;
-            ms12_out->hwsync = aml_out->hwsync;
-            ms12_out->hal_ch = aml_out->hal_ch;
-            ms12_out->hal_rate = aml_out->hal_rate;
-            pthread_mutex_unlock(&adev->trans_lock);
-            ALOGI("%s set dolby ott enable", __func__);
         }
     }
     aml_out->input_bytes_size += write_bytes;
@@ -7947,20 +7911,9 @@ int adev_ms12_prepare(struct audio_hw_device *dev) {
 
     get_sink_format(&aml_out->stream);
 
-    adev->ms12_main1_dolby_dummy = main1_dummy;
-    adev->ms12_ott_enable = ott_input;
-
-    dolby_ms12_set_ott_sound_input_enable(true);
-    dolby_ms12_set_dolby_main1_as_dummy_file(true);
-
     adev->continuous_audio_mode = true;
     adev->ms12.is_continuous_paused = false;
     ret = get_the_dolby_ms12_prepared(aml_out, aformat, AUDIO_CHANNEL_OUT_STEREO, 48000);
-
-    if (continuous_mode(adev) && adev->ms12.dolby_ms12_enable) {
-        dolby_ms12_set_main_dummy(0, main1_dummy);
-        dolby_ms12_set_main_dummy(1, !ott_input);
-    }
 
     /*the stream will be used in ms12, don't close it*/
     //adev_close_output_stream_new(dev, stream_out);
@@ -8528,8 +8481,6 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         adev->sink_gain[i] = 1.0;
     }
     adev->sink_gain[OUTPORT_HEADPHONE] = 0;
-    adev->ms12_main1_dolby_dummy = true;
-    adev->ms12_ott_enable = false;
     adev->continuous_audio_mode_default = 0;
     adev->dual_spdif_support = property_get_bool("ro.vendor.platform.is.dualspdif", false);
     adev->ms12_force_ddp_out = property_get_bool("ro.vendor.platform.is.forceddp", false);

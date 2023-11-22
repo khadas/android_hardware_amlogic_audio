@@ -929,7 +929,7 @@ int aml_audio_get_ms12_tunnel_latency(struct audio_stream_out *stream)
                                                       platform_type,
                                                       is_earc) * 48;
 
-    if ((adev->ms12.is_dolby_atmos && adev->ms12_main1_dolby_dummy == false) || adev->atoms_lock_flag) {
+    if (adev->ms12.is_dolby_atmos || adev->atoms_lock_flag) {
         /*
          * In DV AV sync, the ATMOS(DDP_JOC) item, it will add atmos_tuning_delay into the latency_frames.
          * If other case choose an diff value, here separate by is_netflix.
@@ -1364,7 +1364,7 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
                                                                adev->is_netflix,
                                                                platform_type,
                                                                is_earc) * 48;
-            if ((adev->ms12.is_dolby_atmos && adev->ms12_main1_dolby_dummy == false) || adev->atoms_lock_flag) {
+            if (adev->ms12.is_dolby_atmos || adev->atoms_lock_flag) {
                 frame_latency += get_ms12_atmos_latency_offset(false, adev->is_netflix) * 48;
             }
         }
@@ -1372,8 +1372,8 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
 
     ALOGV("[%s]cur_devices %#x out->hal_internal_format %x adev->ms12.sink_format %x adev->continuous_audio_mode %d \n",
             __func__,adev->cur_out_devices, out->hal_internal_format, adev->ms12.sink_format, adev->continuous_audio_mode);
-    ALOGV("[%s]adev->ms12.is_bypass_ms12 %d adev->ms12.is_dolby_atmos %d adev->ms12_main1_dolby_dummy %d adev->atmos_lock_flag %d\n",
-            __func__,adev->ms12.is_bypass_ms12, adev->ms12.is_dolby_atmos, adev->ms12_main1_dolby_dummy, adev->atoms_lock_flag);
+    ALOGV("[%s]adev->ms12.is_bypass_ms12 %d adev->ms12.is_dolby_atmos %d adev->atmos_lock_flag %d\n",
+            __func__,adev->ms12.is_bypass_ms12, adev->ms12.is_dolby_atmos, adev->atoms_lock_flag);
     ALOGV("[%s]  *frames:%"PRIu64"  frame_latency %d\n",__func__, *frames, frame_latency);
 
     if (frame_latency < 0) {
