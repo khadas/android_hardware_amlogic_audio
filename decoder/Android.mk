@@ -30,16 +30,11 @@ LOCAL_C_INCLUDES := \
    system/core/include \
    hardware/libhardware/include \
    $(LOCAL_PATH)/include \
-   $(LOCAL_PATH)/../aml_resampler/include \
-   $(LOCAL_PATH)/../aml_speed/include \
+   $(LOCAL_PATH)/../utils/resampler/include \
+   $(LOCAL_PATH)/../utils/speed/include \
    $(LOCAL_PATH)/../audio_hal \
-   $(LOCAL_PATH)/../aml_parser/include \
+   $(LOCAL_PATH)/../utils/parser/include \
    $(LOCAL_PATH)/../utils/cJSON \
-   $(LOCAL_PATH)/../../aml_resampler/include \
-   $(LOCAL_PATH)/../../aml_speed/include \
-   $(LOCAL_PATH)/../../audio_hal \
-   $(LOCAL_PATH)/../../aml_parser/include \
-   $(LOCAL_PATH)/../../utils/cJSON
 
 
 #add dolby ms12support

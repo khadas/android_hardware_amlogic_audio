@@ -1,0 +1,57 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_amlogic_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_amlogic_license"],
+}
+
+cc_library_shared {
+
+    name: "libamlparser",
+
+    proprietary: true,
+    srcs: [
+        "aml_audio_ac3parser.c",
+        "aml_audio_ac4parser.c",
+        "aml_audio_bitsparser.c",
+        "aml_audio_matparser.c",
+        "ac3_parser_utils.c",
+        "aml_ac3_parser.c",
+        "aml_audio_heaacparser.c",
+    ],
+
+    export_include_dirs: ["include"],
+
+    header_libs: [
+        "libaudio_system_headers",
+        "libamaudioutils_headers",
+        "libaudioutils_headers",
+    ],
+
+    arch: {
+        x86: {
+            enabled: false,
+        },
+        x86_64: {
+            enabled: false,
+        },
+    },
+
+    shared_libs: [
+        "libcutils",
+        "liblog",
+        "libutils",
+        "libamaudioutils",
+        "libtinyalsa",
+        "libaudioutils",
+    ],
+
+    cflags: [
+        "-Werror",
+        "-Wno-unused-label",
+        "-Wno-unused-parameter",
+    ],
+
+}

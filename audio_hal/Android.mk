@@ -106,7 +106,6 @@ include $(BUILD_PREBUILT)
         aml_async_write.c
 
     LOCAL_C_INCLUDES += \
-        hardware/amlogic/audio/aml_speed/include \
         system/media/audio_utils/include \
         system/media/audio_effects/include \
         system/media/audio_route/include \
@@ -125,15 +124,14 @@ include $(BUILD_PREBUILT)
         $(LOCAL_PATH)/../aml_aq_hw/ini \
         $(LOCAL_PATH)/../utils/cJSON \
         hardware/amlogic/audio/aml_adecs/include \
-        hardware/amlogic/audio/aml_resampler/include \
-        hardware/amlogic/audio/aml_parser/include \
-        hardware/amlogic/audio/aml_speed/include \
+        hardware/amlogic/audio/utils/speed/include \
+        hardware/amlogic/audio/utils/resampler/include \
+        hardware/amlogic/audio/utils/parser/include \
         hardware/amlogic/audio/vendor_process/libaudioeffect/VirtualX \
         hardware/amlogic/audio/vendor_process/libaudioeffect/aiaq/include \
         hardware/amlogic/audio/vendor_process/include \
         hardware/amlogic/audio/input/include \
         hardware/amlogic/audio/decoder/include \
-
 
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../aml_aq_hw/lib_aml_ng.a
     LOCAL_LDFLAGS_arm += $(LOCAL_PATH)/../aml_aq_hw/Amlogic_EQ_Param_Generator.a

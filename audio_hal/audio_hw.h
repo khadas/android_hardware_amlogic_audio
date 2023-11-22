@@ -49,7 +49,6 @@
 #include "audio_port.h"
 #include "aml_audio_ease.h"
 #include "aml_malloc_debug.h"
-#include "aml_audio_speed_manager.h"
 
 #ifdef ADD_AUDIO_DELAY_INTERFACE
 #include "aml_audio_delay.h"
@@ -57,6 +56,7 @@
 
 #include "aml_audio_resample_manager.h"
 #include "aml_audio_resampler.h"
+#include "aml_audio_speed_manager.h"
 #include "../decoder/include/aml_dec_api.h"
 #include "../decoder/include/aml_dts_dec_api.h"
 #include "audio_usb_hal.h"
@@ -64,6 +64,7 @@
 #include "aml_config_data.h"
 #include "audio_hw_resource_def.h"
 #include "../input/include/device_patch_mgr.h"
+
 
 /* number of frames per period */
 /*

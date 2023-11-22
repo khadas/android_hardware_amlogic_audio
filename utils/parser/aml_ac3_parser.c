@@ -259,7 +259,7 @@ int scan_dolby_main_frame(void *input_buffer
     ALOGV("-%s() main frame addr %p size %d\n", __FUNCTION__, *main_frame_buffer, *main_frame_size);
     return ret;
 }
-//patch for ms12 pasing ,data not sync at buffer boundary
+//patch for ms12,data not sync at buffer boundary
 int scan_dolby_main_frame_ext(void *input_buffer
                               , size_t bytes
                               , int *used_size
