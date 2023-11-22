@@ -2748,6 +2748,8 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
         float in_port_gain = get_active_inport_gain(adev);
         android_dev_convert_to_hal_dev(in->device | AUDIO_DEVICE_BIT_IN, (int *)&inport);
         apply_volume(source_gain * in_port_gain, buffer, sizeof(uint16_t), bytes);
+        in->frames_read += in_frames;
+        in->timestamp_nsec = aml_audio_get_systime_ns();
         goto exit;
     } else {
 
@@ -2822,10 +2824,14 @@ static int in_get_capture_position (const struct audio_stream_in* stream, int64_
         return -EINVAL;
     }
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
+    struct aml_audio_device *adev = in->dev;
 
     *frames = in->frames_read;
     *time = in->timestamp_nsec;
-
+    if (adev->debug_flag) {
+        AM_LOGD("io %d: in:%p, frames:%"PRIu64" time:%" PRIu64 " ms", in->io_handle, in,
+            *frames, in->timestamp_nsec / NSEC_PER_MSEC);
+    }
     return 0;
 }
 

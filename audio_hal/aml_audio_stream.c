@@ -1332,7 +1332,8 @@ uint32_t tv_in_read(struct audio_stream_in *stream, void* buffer, size_t bytes)
         nodata_count++;
         if (nodata_count >= 20) {
             AM_LOGW("read data timeout 100ms, need:%zu, read_bytes:%d", bytes, read_bytes);
-            return read_bytes;
+            memset(buffer, 0, bytes);
+            return bytes;
         }
         usleep(5000);
     }
