@@ -18,7 +18,7 @@
  *
  */
 
-#define LOG_TAG "HPEQ_Effect"
+#define LOG_TAG "audio_hw_process_effect_hpeq"
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>

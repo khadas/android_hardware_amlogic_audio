@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "libms12"
+#define LOG_TAG "audio_hw_decoder_ms12v2"
 //#define LOG_NDEBUG 0
 //#define LOG_NALOGV 0
 

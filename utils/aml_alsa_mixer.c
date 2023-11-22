@@ -21,6 +21,11 @@
  ** author: shen pengru
  **
  */
+
+#undef  LOG_TAG
+#define LOG_TAG "audio_hw_utils_alsamixer"
+//#define LOG_NDEBUG 0
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -31,9 +36,6 @@
 #include <tinyalsa/asoundlib.h>
 #include <aml_alsa_mixer.h>
 #include "alsa_device_parser.h"
-
-#undef  LOG_TAG
-#define LOG_TAG "audio_alsa_mixer"
 
 static struct aml_mixer_list gAmlMixerList[] = {
     /* for i2s out status */

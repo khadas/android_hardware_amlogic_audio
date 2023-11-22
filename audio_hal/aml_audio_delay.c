@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "aml_channel_delay"
+#define LOG_TAG "audio_hw_hal_delay"
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>

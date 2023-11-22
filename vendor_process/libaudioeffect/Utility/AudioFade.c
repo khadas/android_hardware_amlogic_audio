@@ -9,7 +9,7 @@
 
 
 
-#define LOG_TAG "audio_fade"
+#define LOG_TAG "audio_hw_process_effect_fade"
 
 #include <cutils/log.h>
 #include "AudioFade.h"

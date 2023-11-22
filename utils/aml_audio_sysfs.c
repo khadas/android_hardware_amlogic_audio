@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "audio_hw_utils_sysfs"
+//#define LOG_NDEBUG 0
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

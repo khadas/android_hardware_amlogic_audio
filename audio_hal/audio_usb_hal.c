@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "usb_audio_hw_primary"
+#define LOG_TAG "audio_hw_hal_usb"
 //#define LOG_NDEBUG 0
 
 #include <errno.h>

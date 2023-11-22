@@ -18,7 +18,7 @@
  *
  */
 
-#define LOG_TAG "Virtualx_Effect"
+#define LOG_TAG "audio_hw_process_effect_virtualx"
 //#define LOG_NDEBUG 0
 
 #include <fcntl.h>

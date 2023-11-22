@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "aml_audio_mixer"
+#define LOG_TAG "audio_hw_utils_audiomixer"
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>

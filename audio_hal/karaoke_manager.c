@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_hw_primary"
+#define LOG_TAG "audio_hw_hal_kara"
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>

@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  */
-#define LOG_TAG "uio_audio_read"
+#define LOG_TAG "audio_hw_dtvutils_uio"
 
 #include <stdio.h>
 #include <string.h>  // strcmp

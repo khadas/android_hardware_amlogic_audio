@@ -28,6 +28,9 @@
 
 /* Playback data to a PCM device recorded from a capture PCM device. */
 
+#define LOG_TAG "audio_hw_utils_tinyalsa"
+// #define LOG_NDEBUG 0
+
 #include <tinyalsa/asoundlib.h>
 #include <errno.h>
 #include <math.h>

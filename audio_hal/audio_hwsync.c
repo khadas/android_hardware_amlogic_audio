@@ -16,7 +16,7 @@
 
 
 
-#define LOG_TAG "audio_hwsync"
+#define LOG_TAG "audio_hw_hal_hwsync"
 //#define LOG_NDEBUG 0
 #include <errno.h>
 #include <pthread.h>

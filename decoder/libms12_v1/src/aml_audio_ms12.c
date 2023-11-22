@@ -9,7 +9,7 @@
  */
 
 
-#define LOG_TAG "libms12"
+#define LOG_TAG "audio_hw_decoder_ms12v21"
 // #define LOG_NDEBUG 0
 
 

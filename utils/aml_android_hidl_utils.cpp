@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_hal_hidl"
+#define LOG_TAG "audio_hw_utils_droidutils"
 //#define LOG_NDEBUG 0
 
 #include <media/audiohal/DeviceHalInterface.h>

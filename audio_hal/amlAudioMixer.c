@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "amlAudioMixer"
+#define LOG_TAG "audio_hw_hal_submixing"
 //#define LOG_NDEBUG 0
 #define DEBUG_DUMP 0
 

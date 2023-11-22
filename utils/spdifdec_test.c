@@ -1,6 +1,3 @@
-#define LOG_TAG "audio_spdif_test"
-//#define LOG_NDEBUG 0
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "aml_mmap_audio"
+#define LOG_TAG "audio_hw_hal_mmap"
 #define __USE_GNU
 //#define LOG_NDEBUG 0
 

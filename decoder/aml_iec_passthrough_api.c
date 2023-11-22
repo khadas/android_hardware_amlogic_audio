@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "aml_audio_iec_passthrough"
+#define LOG_TAG "audio_hw_decoder_iecpassthrough"
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>

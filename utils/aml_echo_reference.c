@@ -14,8 +14,8 @@
 ** limitations under the License.
 */
 
+#define LOG_TAG "audio_hw_utils_echoref"
 //#define LOG_NDEBUG 0
-#define LOG_TAG "aml_echo_reference"
 
 #include <errno.h>
 #include <inttypes.h>

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_hw_primary"
+#define LOG_TAG "audio_hw_hal_dev2mix"
 //#define LOG_NDEBUG 0
 
 

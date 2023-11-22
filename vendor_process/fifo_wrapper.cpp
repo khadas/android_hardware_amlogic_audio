@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_utils_fifo_wrapper"
+#define LOG_TAG "audio_hw_process_effect_fifowrapper"
 // #define LOG_NDEBUG 0
 
 #include <stdint.h>

@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "sonic_speed_wrapper"
+#define LOG_TAG "audio_hw_utils_resampler"
+// #define LOG_NDEBUG 0
 
 #include <stdio.h>
 #include <cutils/log.h>

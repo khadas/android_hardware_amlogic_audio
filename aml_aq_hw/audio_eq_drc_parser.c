@@ -28,7 +28,7 @@
 #include "aml_malloc_debug.h"
 
 #undef  LOG_TAG
-#define LOG_TAG "audio_hw_primary"
+#define LOG_TAG "audio_hw_aq_eqdrc"
 
 #define ITEM_DEBUG
 

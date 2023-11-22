@@ -17,6 +17,9 @@
 //
 // Timer functions.
 //
+#define LOG_TAG "audio_hw_dtvutils_timers"
+// #define LOG_NDEBUG 0
+
 #include <Timers.h>
 
 #include <limits.h>

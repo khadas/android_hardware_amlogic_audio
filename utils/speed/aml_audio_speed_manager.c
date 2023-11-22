@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "aml_audio_speed"
+#define LOG_TAG "audio_hw_utils_speed"
+// #define LOG_NDEBUG 0
 
 #include <cutils/log.h>
 #include <string.h>

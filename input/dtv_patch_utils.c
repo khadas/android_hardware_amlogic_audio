@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#define LOG_TAG "audio_dtv_utils"
+#define LOG_TAG "audio_hw_input_dtv"
 //#define LOG_NDEBUG 0
 
 #include <cutils/atomic.h>

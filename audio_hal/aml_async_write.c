@@ -15,7 +15,7 @@
 */
 
 
-#define LOG_TAG "aml_async_write"
+#define LOG_TAG "audio_hw_hal_asyncwrite"
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>

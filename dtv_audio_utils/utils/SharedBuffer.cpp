@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "sharedbuffer"
+#define LOG_TAG "audio_hw_dtvutils_sharedbuffer"
+// #define LOG_NDEBUG 0
 
 #include "SharedBuffer.h"
 

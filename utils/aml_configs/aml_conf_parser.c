@@ -22,9 +22,9 @@
  ** author: aml&shen pengru
  **
  */
-#define LOG_TAG "aml_parser"
 
-#define LOG_NDEBUG 0
+#define LOG_TAG "audio_hw_utils_conf"
+//#define LOG_NDEBUG 0
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_virtual_buf"
+#define LOG_TAG "audio_hw_hal_virtualbuf"
 //#define LOG_TAG "audio_hw_primary"
 
 

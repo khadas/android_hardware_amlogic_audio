@@ -22,6 +22,8 @@
 */
 /*--------------------------------------------------------------------------*/
 /*---------------------------- Includes ------------------------------------*/
+#define LOG_TAG  "audio_hw_aq_iniparser"
+
 #include <ctype.h>
 #include <stdarg.h>
 #include "iniparser.h"

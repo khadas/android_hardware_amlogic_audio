@@ -1,5 +1,5 @@
 
-#define LOG_TAG "sub_mixing_factory"
+#define LOG_TAG "audio_hw_hal_submixing"
 //#define LOG_NDEBUG 0
 #define __USE_GNU
 

@@ -8,7 +8,7 @@ Description:
 */
 
 
-#define LOG_TAG "audio_hw_avsync"
+#define LOG_TAG "audio_hw_hal_submixing"
 //#define LOG_NDEBUG 0
 
 #include <stdbool.h>

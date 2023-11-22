@@ -14,7 +14,8 @@
 * limitations under the License.
 */
 
-#define LOG_TAG "aml_ai_aq"
+#define LOG_TAG "audio_hw_process_effect_aiaq"
+//#define LOG_NDEBUG 0
 
 #include <stdlib.h>
 #include <stdio.h>

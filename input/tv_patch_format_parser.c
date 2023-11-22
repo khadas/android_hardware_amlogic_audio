@@ -9,7 +9,7 @@
  *
  */
 
-#define LOG_TAG "audio_hw_tv_patch_format_parser"
+#define LOG_TAG "audio_hw_input_tv"
 //#define LOG_NDEBUG 0
 
 #include <pthread.h>

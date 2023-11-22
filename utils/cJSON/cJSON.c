@@ -24,6 +24,10 @@
 /* JSON parser in C. */
 
 /* disable warnings about old C89 functions in MSVC */
+
+#define LOG_TAG "audio_hw_utils_cjson"
+//#define LOG_NDEBUG 0
+
 #if !defined(_CRT_SECURE_NO_DEPRECATE) && defined(_MSC_VER)
 #define _CRT_SECURE_NO_DEPRECATE
 #endif

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "TSPMessage"
-//#define LOG_NDEBUG 0
+#define LOG_TAG "audio_hw_dtvutils_tspmessage"
+// #define LOG_NDEBUG 0
 //#define DUMP_STATS
 
 #include <ctype.h>

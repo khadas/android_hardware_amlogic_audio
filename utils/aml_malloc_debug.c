@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "aml_audio_malloc"
+#define LOG_TAG "audio_hw_utils_malloc"
+//#define LOG_NDEBUG 0
 
 #include <errno.h>
 #include <stdint.h>

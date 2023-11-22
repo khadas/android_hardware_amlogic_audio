@@ -3,9 +3,9 @@
 //
 // A looper implementation based on epoll().
 //
-#define LOG_TAG "Looper"
+#define LOG_TAG "audio_hw_dtvutils_looper"
+// #define LOG_NDEBUG 0
 
-//#define LOG_NDEBUG 0
 
 // Debugs poll and wake interactions.
 #define DEBUG_POLL_AND_WAKE 0

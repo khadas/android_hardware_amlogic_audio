@@ -17,7 +17,7 @@
  *      This file implements a special EQ  from Amlogic.
  *
  */
-#define LOG_TAG "Virtualsurround_Effect"
+#define LOG_TAG "audio_hw_process_effect_virtualsurround"
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>

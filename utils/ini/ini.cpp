@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "audio_hw_utils_ini"
+//#define LOG_NDEBUG 0
+
 #define _CRT_SECURE_NO_WARNINGS
 //#pragma warning (disable: 4127)
 

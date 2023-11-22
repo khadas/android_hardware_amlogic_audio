@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#define LOG_TAG "config_parse"
-
+#define LOG_TAG "audio_hw_hal_cfgparser"
 
 #include <cJSON.h>
 #include <stdio.h>

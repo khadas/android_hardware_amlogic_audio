@@ -8,6 +8,10 @@
  *
  */
 
+#undef  LOG_TAG
+#define LOG_TAG "audio_hw_utils_dumpdebug"
+//#define LOG_NDEBUG 0
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -28,9 +32,6 @@
 #include <aml_dump_debug.h>
 #include <aml_android_utils.h>
 #include "aml_malloc_debug.h"
-
-#undef  LOG_TAG
-#define LOG_TAG "aml_dump_debug"
 
 static int gDumpDataFd = -1;
 

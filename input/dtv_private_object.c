@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 
-#define LOG_TAG "audio_hw_dtv"
+#define LOG_TAG "audio_hw_input_dtv"
 
 #include <stdio.h>
 #include <errno.h>

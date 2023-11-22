@@ -21,6 +21,11 @@
  ** author: shen pengru
  **
  */
+
+#undef  LOG_TAG
+#define LOG_TAG "audio_hw_utils_droidutils"
+//#define LOG_NDEBUG 0
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -33,9 +38,6 @@
 #include <cutils/str_parms.h>
 #include <cutils/properties.h>
 #include <aml_android_utils.h>
-
-#undef  LOG_TAG
-#define LOG_TAG "audio_android_utils"
 
 /*
  * Android Property

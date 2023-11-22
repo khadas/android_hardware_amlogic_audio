@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_hw_primary"
+#define LOG_TAG "audio_hw_utils_parsermat"
 // #define LOG_NDEBUG 0
 
 #include <errno.h>

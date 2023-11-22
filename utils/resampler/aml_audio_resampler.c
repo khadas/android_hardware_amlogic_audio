@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "audio_hw_utils_resampler"
+// #define LOG_NDEBUG 0
+
 #include <math.h>
 #include <cutils/log.h>
 #include <aml_audio_resampler.h>
-
-#undef  LOG_TAG
-#define LOG_TAG "aml_audio_resampler"
 
 //Clip from 16.16 fixed-point to 0.15 fixed-point.
 inline static short clip(int x) {

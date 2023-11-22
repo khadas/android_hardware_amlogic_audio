@@ -17,7 +17,7 @@
  *     to get/set eARC RX/TX latency and Capability Data Structure.
  *
  */
-#define LOG_TAG "earc_utils"
+#define LOG_TAG "audio_hw_hal_earc"
 //#define LOG_NDEBUG 0
 
 

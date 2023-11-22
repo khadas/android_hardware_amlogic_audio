@@ -15,7 +15,7 @@
  */
 
 
-#define LOG_TAG "audio_hw_hdmirx_utils"
+#define LOG_TAG "audio_hw_input_tvutils"
 //#define LOG_NDEBUG 0
 
 /*

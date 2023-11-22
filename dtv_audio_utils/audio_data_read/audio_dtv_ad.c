@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_dtv_ad"
+#define LOG_TAG "audio_hw_dtvutils_ad"
 
 #include <stdio.h>
 #include <stdlib.h>

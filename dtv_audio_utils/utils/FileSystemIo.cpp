@@ -1,3 +1,6 @@
+#define LOG_TAG "audio_hw_dtvutils_filesystemio"
+// #define LOG_NDEBUG 0
+
 #include "FileSystemIo.h"
 
 #ifdef ANDROID

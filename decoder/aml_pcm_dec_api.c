@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "aml_audio_pcm_dec"
+#define LOG_TAG "audio_hw_decoder_pcm"
 
 #include <cutils/log.h>
 #include "aml_dec_api.h"

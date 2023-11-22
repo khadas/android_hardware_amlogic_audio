@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "sp"
+#define LOG_TAG "audio_hw_dtvutils_sp"
+// #define LOG_NDEBUG 0
 
 #include "tsp_platform.h"
 

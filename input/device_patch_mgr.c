@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_hw_patch_manager"
+#define LOG_TAG "audio_hw_input_dtv"
 
 #include <sys/types.h>
 #include <sys/errno.h>

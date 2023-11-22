@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#define LOG_TAG "audio_ac3_parser"
+
+#define LOG_TAG "audio_hw_utils_parserac3"
+// #define LOG_NDEBUG 0
+
 
 #include <pthread.h>
 #include <stdio.h>

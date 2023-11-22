@@ -15,7 +15,7 @@
  */
 
 
-#define LOG_TAG "aml_audio_port"
+#define LOG_TAG "audio_hw_hal_port"
 
 #include <errno.h>
 #include <stdlib.h>

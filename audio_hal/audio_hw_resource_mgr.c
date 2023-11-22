@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 
-#define LOG_TAG "audio_hw_resource_mgr"
+#define LOG_TAG "audio_hw_hal_resourcemgr"
 
 #include <stdio.h>
 #include <sys/types.h>

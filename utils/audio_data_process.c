@@ -8,8 +8,8 @@ Description:
 */
 
 
-#define LOG_TAG "audio_data_process"
-#define LOG_NDEBUG 0
+#define LOG_TAG "audio_hw_utils_dataprocess"
+//#define LOG_NDEBUG 0
 
 #include <errno.h>
 #include <cutils/log.h>

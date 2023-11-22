@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
-#define LOG_TAG "TSPLooper"
+#define LOG_TAG "audio_hw_dtvutils_tsplooper"
+// #define LOG_NDEBUG 0
 
 #include "tsp_platform.h"
 

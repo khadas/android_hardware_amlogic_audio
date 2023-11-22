@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-
-
+#define LOG_TAG "audio_hw_utils_spidfenc"
 //#define LOG_NDEBUG 0
-#define LOG_TAG "SPDIFEncoderAD"
+
 #include <stdint.h>
 #include <utils/Log.h>
 #include <system/audio.h>

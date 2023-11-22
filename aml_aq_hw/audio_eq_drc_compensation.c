@@ -33,7 +33,7 @@
 #include "aml_ai_audio.h"
 
 #undef  LOG_TAG
-#define LOG_TAG  "audio_hw_primary"
+#define LOG_TAG  "audio_hw_aq_eqdrc"
 
 #if ANDROID_PLATFORM_SDK_VERSION < 29
 #define MODEL_SUM_DEFAULT_PATH "/odm/etc/tvconfig/model/model_sum.ini"

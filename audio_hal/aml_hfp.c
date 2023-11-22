@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_hw_hfp"
+#define LOG_TAG "audio_hw_hal_hfp"
 /*#define LOG_NDEBUG 0*/
 #define LOG_NDDEBUG 0
 

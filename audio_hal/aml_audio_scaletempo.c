@@ -29,7 +29,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define LOG_TAG "aml_audio_scaletmpo"
+#define LOG_TAG "audio_hw_hal_scaletmpo"
 #include <cutils/log.h>
 #include <time.h>
 

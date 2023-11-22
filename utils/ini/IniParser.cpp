@@ -17,8 +17,8 @@
 /*
  */
 
-#define LOG_TAG "IniParser"
-#define LOG_NDEBUG 0
+#define LOG_TAG "audio_hw_utils_ini"
+//#define LOG_NDEBUG 0
 
 #include <stdio.h>
 #include <stdlib.h>

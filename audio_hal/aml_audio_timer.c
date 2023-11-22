@@ -19,7 +19,7 @@
  */
 /*****************************************************************************/
 
-#define LOG_TAG "audio_hw_timer"
+#define LOG_TAG "audio_hw_hal_timer"
 
 #include <stdlib.h>
 #include <sys/time.h>

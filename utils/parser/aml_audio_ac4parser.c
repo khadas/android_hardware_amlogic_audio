@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#define LOG_TAG "audio_ac4_parser"
+
+#define LOG_TAG "audio_hw_utils_parserac4"
+// #define LOG_NDEBUG 0
+
 #include <stdlib.h>
 #include <string.h>
 #include <cutils/log.h>

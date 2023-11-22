@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "DPBase"
+#define LOG_TAG "audio_hw_process_effect_dpe"
 #define LOG_NDEBUG 0
 
 #include <log/log.h>

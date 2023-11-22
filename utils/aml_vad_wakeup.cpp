@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "aml_vad_wakeup"
+#define LOG_TAG "audio_hw_utils_vadwakeup"
+//#define LOG_NDEBUG 0
 
 #include <tinyalsa/asoundlib.h>
 #include <stdlib.h>

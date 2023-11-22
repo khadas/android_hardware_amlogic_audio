@@ -8,7 +8,8 @@
  *
  */
 
-#define LOG_TAG "buffer_provider"
+#define LOG_TAG "audio_hw_utils_bufprovider"
+//#define LOG_NDEBUG 0
 
 #ifdef __cplusplus
 extern "C" {

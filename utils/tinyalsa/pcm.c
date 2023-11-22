@@ -26,7 +26,9 @@
 ** DAMAGE.
 */
 
-#define LOG_TAG "audio_hw_primary"
+#define LOG_TAG "audio_hw_utils_tinyalsa"
+// #define LOG_NDEBUG 0
+
 #include <cutils/log.h>
 
 #include <stdio.h>

@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "Vector"
+#define LOG_TAG "audio_hw_dtvutils_vectorimpl"
+// #define LOG_NDEBUG 0
 
 #include <VectorImpl.h>
 

@@ -18,7 +18,7 @@
 #include <math.h>
 #include <string.h>
 
-#define LOG_TAG "audio_kara"
+#define LOG_TAG "audio_hw_hal_kara"
 #include <cutils/log.h>
 // android for memcpy_by_audio_format
 #include <audio_utils/format.h>

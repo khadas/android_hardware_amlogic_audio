@@ -17,7 +17,7 @@
  * this file is created for starting play avsync
  */
 
-#define LOG_TAG "aml_audio_hal_avsync"
+#define LOG_TAG "audio_hw_input_dtv"
 
 #include <cutils/atomic.h>
 #include <cutils/log.h>

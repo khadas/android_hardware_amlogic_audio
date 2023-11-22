@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
-#define LOG_TAG "TSPLooperRoster"
+#define LOG_TAG "audio_hw_dtvutils_tsplooperroster"
+// #define LOG_NDEBUG 0
+
 #include <String8.h>
 
 #include "TSPLooperRoster.h"

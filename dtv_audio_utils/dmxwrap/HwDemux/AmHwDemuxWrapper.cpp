@@ -8,7 +8,7 @@
  */
 
 //#define LOG_NDEBUG 0
-#define LOG_TAG "AmHwDemuxWrapper"
+#define LOG_TAG "audio_hw_dtvutils_dmx"
 //#include "tsp_platform.h"
 #include <stdio.h>
 #include <string.h>

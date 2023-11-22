@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_output"
+#define LOG_TAG "audio_hw_hal_output"
 //#define LOG_NDEBUG 0
 
 #include <inttypes.h>

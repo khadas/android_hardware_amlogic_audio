@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "aml_dec_api"
+#define LOG_TAG "audio_hw_decoder_api"
 
 #include <unistd.h>
 #include <math.h>

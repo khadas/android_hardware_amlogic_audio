@@ -21,9 +21,9 @@
  ** author: shen pengru
  **
  */
-#define LOG_TAG "aml_halcfg_parser"
 
-#define LOG_NDEBUG 0
+#define LOG_TAG "audio_hw_utils_halproductcfg"
+//#define LOG_NDEBUG 0
 
 #include <stdio.h>
 #include <stdlib.h>

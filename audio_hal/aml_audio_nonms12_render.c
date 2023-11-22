@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "aml_audio_nonms12_render"
+#define LOG_TAG "audio_hw_hal_render"
 //#define LOG_NDEBUG 0
 
 #include <unistd.h>

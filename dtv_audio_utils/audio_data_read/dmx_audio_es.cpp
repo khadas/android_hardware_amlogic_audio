@@ -1,5 +1,5 @@
 //#define LOG_NDEBUG 0
-#define LOG_TAG "dmx_audio_es"
+#define LOG_TAG "audio_hw_dtvutils_es"
 #include <RefBase.h>
 #include <cutils/trace.h>
 #include <cutils/properties.h>

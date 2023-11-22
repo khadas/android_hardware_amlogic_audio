@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#define LOG_TAG "audio_ms12_bypass"
+#define LOG_TAG "audio_hw_hal_bypass"
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>

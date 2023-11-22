@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "aml_audio_ease"
+#define LOG_TAG "audio_hw_hal_ease"
 
 #include <errno.h>
 #include <stdint.h>

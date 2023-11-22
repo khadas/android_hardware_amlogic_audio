@@ -16,7 +16,7 @@
 
 
 
-#define LOG_TAG "audio_hw_profile"
+#define LOG_TAG "audio_hw_hal_profile"
 #include <errno.h>
 #include <pthread.h>
 #include <stdint.h>

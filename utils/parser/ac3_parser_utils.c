@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "libamaudioutils"
-// #define LOG_NDEBUG 0
+#define LOG_TAG "audio_hw_utils_parserutils"
+//#define LOG_NDEBUG 0
 
 #include <errno.h>
 #include <stdint.h>

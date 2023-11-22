@@ -1,5 +1,5 @@
 //#define LOG_NDEBUG 0
-#define LOG_TAG "AM_DMX_Device"
+#define LOG_TAG "audio_hw_dtvutils_dmx"
 #include <utils/Log.h>
 #include <cutils/properties.h>
 

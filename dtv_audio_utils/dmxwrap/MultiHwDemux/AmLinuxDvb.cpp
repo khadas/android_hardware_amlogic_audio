@@ -3,7 +3,7 @@
 //#include "am_mem.h"
 //#include <am_misc.h>
 //#define LOG_NDEBUG 0
-#define LOG_TAG "AmLinuxDvb"
+#define LOG_TAG "audio_hw_dtvutils_dvb"
 
 #include <utils/Log.h>
 #include <cutils/properties.h>

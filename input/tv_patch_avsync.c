@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_hw_tv_avsync"
+#define LOG_TAG "audio_hw_input_tv"
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>

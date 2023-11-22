@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "AmlAudioOutPort_Test"
 #include <AmlAudioOutPort.h>
 #include <utils/Log.h>
 #include <unistd.h>

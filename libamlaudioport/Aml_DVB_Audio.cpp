@@ -1,4 +1,6 @@
-#define LOG_TAG "Aml_DVB_Audio"
+#define LOG_TAG "audio_hw_audioport_dvb"
+//#define LOG_NDEBUG 0
+
 #include <utils/Log.h>
 #include <unistd.h>
 #include <cutils/str_parms.h>

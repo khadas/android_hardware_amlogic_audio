@@ -1,3 +1,6 @@
+#define LOG_TAG "audio_hw_dtvutils_tsplinux"
+// #define LOG_NDEBUG 0
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>

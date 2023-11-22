@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#undef  LOG_TAG
+#define LOG_TAG "audio_hw_utils_report"
+//#define LOG_NDEBUG 0
 
 #include <stdio.h>
 #include <string.h>
@@ -26,8 +28,6 @@
 #include "aml_audio_report.h"
 #include "aml_audio_sysfs.h"
 
-#undef  LOG_TAG
-#define LOG_TAG "audio_hw_primary"
 #define VAL_LEN 64
 
 int get_audio_info_enable(int dump_type) {

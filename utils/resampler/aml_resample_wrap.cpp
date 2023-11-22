@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "audio_hw_utils_resampler"
+// #define LOG_NDEBUG 0
+
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,9 +36,6 @@
 #include <aml_resample_wrap.h>
 #include <utils/Log.h>
 #include "aml_malloc_debug.h"
-#undef LOG_TAG
-#define LOG_TAG "audio_resample_wrap"
-
 
 namespace android
 {

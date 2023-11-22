@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_hw_mixer"
+#define LOG_TAG "audio_hw_utils_hwmixer"
+//#define LOG_NDEBUG 0
 
 #include <stdlib.h>
 #include <errno.h>

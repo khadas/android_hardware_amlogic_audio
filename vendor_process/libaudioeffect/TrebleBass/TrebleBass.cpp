@@ -18,7 +18,7 @@
  *
  */
 
-#define LOG_TAG "TrebleBass_Effect"
+#define LOG_TAG "audio_hw_process_effect_treblebass"
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>

@@ -16,7 +16,7 @@
 
 
 
-#define LOG_TAG "audio_hw_utils"
+#define LOG_TAG "audio_hw_hal_utils"
 //#define LOG_NDEBUG 0
 #define __USE_GNU
 

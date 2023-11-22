@@ -8,7 +8,8 @@
  *
  */
 
-#define LOG_TAG "aml_volume_utils"
+#define LOG_TAG "audio_hw_utils_volutils"
+//#define LOG_NDEBUG 0
 
 #include <stdlib.h>
 #include <stdint.h>

@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "unicode"
+#ifndef LOG_TAG
+#define LOG_TAG "audio_hw_dtvutils_unicode"
+// #define LOG_NDEBUG 0
+#endif
 
 #include "Unicode.h"
 #include "tsp_platform.h"

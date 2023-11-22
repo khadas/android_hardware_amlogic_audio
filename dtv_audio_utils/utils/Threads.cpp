@@ -7,8 +7,8 @@
  * Description:
  */
 
-#define LOG_NDEBUG 0
-#define LOG_TAG "libutils.threads"
+#define LOG_TAG "audio_hw_dtvutils_threads"
+// #define LOG_NDEBUG 0
 
 #include <assert.h>
 #include <Thread.h>

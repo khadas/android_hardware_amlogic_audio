@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "aml_effects_utils"
+#define LOG_TAG "audio_hw_utils_effutils"
+//#define LOG_NDEBUG 0
+
 #include "aml_effects_util.h"
 #include "common/all-versions/default/EffectMap.h"
 

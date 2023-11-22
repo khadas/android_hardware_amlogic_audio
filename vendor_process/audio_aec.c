@@ -63,7 +63,7 @@
  */
 // clang-format on
 
-#define LOG_TAG "audio_hw_aec"
+#define LOG_TAG "audio_hw_process_effect_aec"
 //#define LOG_NDEBUG 0
 
 #include <audio_utils/primitives.h>

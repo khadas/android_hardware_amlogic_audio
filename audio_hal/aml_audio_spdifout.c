@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_spdif_out"
+#define LOG_TAG "audio_hw_hal_spdifout"
 //#define LOG_NDEBUG 0
 
 #include <stdlib.h>

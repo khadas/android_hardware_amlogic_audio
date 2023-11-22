@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_policy_default"
+#define LOG_TAG "audio_hw_hal_audiopolicy"
 
 #include <errno.h>
 #include <stdint.h>

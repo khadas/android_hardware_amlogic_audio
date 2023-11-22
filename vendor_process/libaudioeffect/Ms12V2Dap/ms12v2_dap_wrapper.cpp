@@ -18,7 +18,7 @@
  *
  */
 
-#define LOG_TAG "MS12V2DAP_Effect"
+#define LOG_TAG "audio_hw_process_effect_ms12v2dap"
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>

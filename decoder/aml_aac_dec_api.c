@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "aml_audio_faad_dec"
+#define LOG_TAG "audio_hw_decoder_dcv"
 //#define LOG_NDEBUG 0
 
 #include <dlfcn.h>

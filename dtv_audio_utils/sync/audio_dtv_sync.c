@@ -16,7 +16,7 @@
 
 
 
-#define LOG_TAG "audio_dtv_sync"
+#define LOG_TAG "audio_hw_dtvutils_sync"
 #define LOG_NDEBUG 0
 #include <errno.h>
 #include <pthread.h>
