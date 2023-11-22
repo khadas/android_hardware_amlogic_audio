@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <pthread.h>
 #include <hardware/audio_effect.h>
 #include <cutils/properties.h>
 #include <stdio.h>
@@ -81,6 +82,8 @@ typedef struct Balancedata_s {
     Balancecfg  usr_cfg;
     int32_t     enable;
     int32_t     index;
+    float       RampVolumeL;
+    float       RampVolumeR;
 } Balancedata;
 
 typedef struct BalanceContext_s{
@@ -88,6 +91,7 @@ typedef struct BalanceContext_s{
     effect_config_t                 config;
     balance_state_e                 state;
     Balancedata                     gBalancedata;
+    pthread_mutex_t                 lock;
 } BalanceContext;
 
 #define LSR (1)
@@ -265,6 +269,9 @@ int Balance_init(BalanceContext *pContext)
     pContext->config.outputCfg.mask = EFFECT_CONFIG_ALL;
 
     data->index = (num>>LSR);
+    data->RampVolumeL = 1.0;
+    data->RampVolumeR = 1.0;
+    pthread_mutex_init(&pContext->lock, NULL);
 
     ALOGD("%s: successful", __FUNCTION__);
 
@@ -357,6 +364,7 @@ int Balance_setParameter(BalanceContext *pContext, void *pParam, void *pValue)
     int32_t value;
     Balancedata *data = &pContext->gBalancedata;
 
+    pthread_mutex_lock(&pContext->lock);
     switch (param) {
     case BALANCE_PARAM_LEVEL:
         value = (*(int32_t *)pValue >> LSR);
@@ -377,6 +385,7 @@ int Balance_setParameter(BalanceContext *pContext, void *pParam, void *pValue)
         ALOGE("%s: unknown param %08x", __FUNCTION__, param);
         return -EINVAL;
     }
+    pthread_mutex_unlock(&pContext->lock);
 
     return 0;
 }
@@ -413,20 +422,40 @@ int Balance_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer
     Balancedata *data = &pContext->gBalancedata;
     int32_t val = data->index;
 
-    for (size_t i = 0; i < inBuffer->frameCount; i++) {
-        if (!data->enable) {
+    pthread_mutex_lock(&pContext->lock);
+    if (!data->enable) {
+        for (size_t i = 0; i < inBuffer->frameCount; i++) {
             *out++ = *in++;
-            *out++ = *in++;
-        } else if (val < (data->usr_cfg.num >> LSR)) {
-            *out++ = *in++;
-            /*Input right process*/
-            *out++ = clamp16((int32_t)(*in++ * data->usr_cfg.level[val]));
-        } else {
-            /*Input left process*/
-            *out++ = clamp16((int32_t)(*in++ * data->usr_cfg.level[val]));
             *out++ = *in++;
         }
+    } else if (val < (data->usr_cfg.num >> LSR)) {
+        for (int i = 0; i < inBuffer->frameCount; i++) {
+            *out++ = *in++;
+            if (data->RampVolumeR != data->usr_cfg.level[val]) {
+                const float Deltas =
+                    (data->usr_cfg.level[val] - data->RampVolumeR) / inBuffer->frameCount;
+                *out++ = clamp16((int32_t)(*in++ * (data->RampVolumeR + Deltas * i)));
+            } else {
+                *out++ = clamp16((int32_t)(*in++ * data->usr_cfg.level[val]));
+            }
+        }
+        data->RampVolumeL = 1.0;
+        data->RampVolumeR = data->usr_cfg.level[val];
+    } else {
+        for (int i = 0; i < inBuffer->frameCount; i++) {
+            if (data->RampVolumeL != data->usr_cfg.level[val]) {
+                const float Deltas =
+                    (data->usr_cfg.level[val] - data->RampVolumeL) / inBuffer->frameCount;
+                *out++ = clamp16((int32_t)(*in++ * (data->RampVolumeL + Deltas * i)));
+            } else {
+                *out++ = clamp16((int32_t)(*in++ * data->usr_cfg.level[val]));
+            }
+            *out++ = *in++;
+        }
+        data->RampVolumeL = data->usr_cfg.level[val];
+        data->RampVolumeR = 1.0;
     }
+    pthread_mutex_unlock(&pContext->lock);
 
     return 0;
 }
