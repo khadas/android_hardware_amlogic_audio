@@ -158,6 +158,28 @@ int dolby_ms12_app_process(
     , size_t *used_size);
 
 /*
+ *@brief dolby ms12 multi app process
+ *
+ * input parameters
+ *     ms12: ms12 handle
+ *     buffer: data buffer address
+ *     bytes: data size
+ *     pstAudioConfig : audio config
+ *     bConfigUpdate : audio config updated
+ * output parameters
+ *     used_size: buffer used size
+ */
+
+int dolby_ms12_multi_app_process(
+    struct dolby_ms12_desc *ms12
+    , const void *buffer
+    , size_t bytes
+    , size_t *use_size
+    , const struct audioCfg *pstAudioConfig
+    , bool bConfigUpdate);
+
+
+/*
  *@brief get dolby ms12 cleanup
  * input parameters
  *     set_non_continuous: disable ms12 continuous mode

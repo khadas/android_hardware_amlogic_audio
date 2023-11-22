@@ -1998,6 +1998,61 @@ int dolby_ms12_app_process(
 }
 
 
+int dolby_ms12_multi_app_process(
+    struct dolby_ms12_desc *ms12
+    , const void *buffer
+    , size_t bytes
+    , size_t *use_size
+    , const struct audioCfg *pstAudioConfig
+    , bool bConfigUpdate)
+{
+    int mixer_default_samplerate = 48000;
+    int dolby_ms12_input_bytes = 0;
+    int ms12_output_size = 0;
+    int ret = 0;
+    if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
+        check_audio_level("ms12_app", buffer, bytes);
+    }
+    if (pstAudioConfig->sampleRate != mixer_default_samplerate) {
+        AM_LOGE("not support sampleRate %d", pstAudioConfig->sampleRate);
+        return -1;
+    }
+
+    pthread_mutex_lock(&ms12->lock);
+    if (bConfigUpdate) {
+        set_ms12_app_pcm_acmod_lfe(ms12, pstAudioConfig->channelMask);
+        dolby_ms12_app_flush();
+    }
+
+    if (ms12->dolby_ms12_enable) {
+        /*set the dolby ms12 debug level*/
+        dolby_ms12_enable_debug();
+
+        dolby_ms12_input_bytes =
+            dolby_ms12_input_app(
+                ms12->dolby_ms12_ptr
+                , buffer
+                , bytes
+                , pstAudioConfig->format
+                , pstAudioConfig->channelCnt
+                , mixer_default_samplerate);
+        if (dolby_ms12_input_bytes > 0) {
+            *use_size = dolby_ms12_input_bytes;
+            ret = 0;
+        } else {
+            *use_size = 0;
+            ret = -1;
+        }
+    }
+    if (get_ms12_dump_enable(DUMP_MS12_INPUT_APP)) {
+        dump_ms12_output_data((void*)buffer, *use_size, MS12_INPUT_SYS_APP_FILE);
+    }
+    pthread_mutex_unlock(&ms12->lock);
+
+    return ret;
+}
+
+
 /*
  *@brief get dolby ms12 cleanup
  */
@@ -2749,12 +2804,14 @@ static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     audio_data_info_t data_info = { 0 };
+    bool netflix_llp_mode = (adev->is_netflix && adev->aaudio_low_latency);
 
     int ret = 0;
     int i;
 
     /*we update the optical format in pcm, because it is always output*/
-    if (ms12->optical_format != adev->optical_format || ms12->b_encoder_reset) {
+    /*In netflix llp aaudio, always output pcm. Close spdifout will affect stereo pcm output*/
+    if (ms12->optical_format != adev->optical_format || (ms12->b_encoder_reset && !netflix_llp_mode)) {
         ALOGI("ms12 optical format change from 0x%x to  0x%x\n",adev->ms12.optical_format,adev->optical_format);
         ms12->optical_format= adev->optical_format;
         ms12_close_all_spdifout(ms12);
@@ -3173,6 +3230,7 @@ int mc_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_
     int ch_mask = AUDIO_CHANNEL_OUT_STEREO;
     int data_ch = 2;
     bool is_earc = (ATTEND_TYPE_EARC == aml_audio_earctx_get_type(adev));
+    bool netflix_llp_mode = (adev->is_netflix && adev->aaudio_low_latency);
 
     if (adev->debug_flag > 1) {
         ALOGI("+%s() size %zu,dual_output = %d, optical_format = 0x%x, sink_format = 0x%x out total=%d main in=%d",
@@ -3200,7 +3258,8 @@ int mc_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_info_
     }
 
     if ((adev->optical_format != AUDIO_FORMAT_PCM_16_BIT) || (adev->sink_max_channels < 6) || ms12->is_bypass_ms12
-        || (ch_mask == AUDIO_CHANNEL_OUT_STEREO)) {
+        || (ch_mask == AUDIO_CHANNEL_OUT_STEREO && !netflix_llp_mode)) {
+        // when enter netflix llp aaudio mode, always output mc pcm
         if (bitstream_out->spdifout_handle) {
             ALOGI("%s close mc spdif handle =%p", __func__, bitstream_out->spdifout_handle);
             aml_audio_spdifout_close(bitstream_out->spdifout_handle);
@@ -4096,6 +4155,9 @@ int dolby_ms12_encoder_reconfig(struct dolby_ms12_desc *ms12) {
         if (current_mat_encoder_enable) {
             b_reset = 1;
         }
+    }
+    if (hdmi_descs->pcm_fmt.max_channels >= 6) {
+        output_config |= MS12_OUTPUT_MASK_MC;
     }
 
     bool is_atmos_supported = is_platform_supported_ddp_atmos(hdmi_descs->ddp_fmt.atmos_supported, adev->out_device, is_TV(adev));

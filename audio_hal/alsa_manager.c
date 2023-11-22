@@ -629,6 +629,8 @@ write:
     if (adev->raw_to_pcm_flag) {
         pcm_stop(aml_out->pcm);
         adev->raw_to_pcm_flag = false;
+        aml_out->alsa_running_status = false;
+        aml_out->alsa_status_changed = true;
         ALOGI("raw to lpcm switch %s\n",__func__);
     }
 

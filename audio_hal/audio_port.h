@@ -58,9 +58,10 @@ typedef enum AML_MIXER_INPUT_PORT_TYPE{
     AML_MIXER_INPUT_PORT_PCM_SYSTEM     = 0,
     AML_MIXER_INPUT_PORT_PCM_DIRECT     = 1,
     AML_MIXER_INPUT_PORT_PCM_MMAP       = 2,
-    //AML_MIXER_INPUT_PORT_BITSTREAM_RAW  = 3,
+    AML_MIXER_INPUT_PORT_MULTI_AAUDIO   = 3,
+    //AML_MIXER_INPUT_PORT_BITSTREAM_RAW  = 4,
 
-    AML_MIXER_INPUT_PORT_BUTT           = 3,
+    AML_MIXER_INPUT_PORT_BUTT           = 4,
 } aml_mixer_input_port_type_e;
 
 struct fade_out {
@@ -179,6 +180,7 @@ typedef struct OUTPUT_PORT {
     struct kara_manager *kara;
     uint32_t alsa_buffer_frames;
     void *spdifout_handle;
+    void *audio_mixer;
 
     struct timespec alsa_delay_ts;
     uint32_t alsa_delay_ms;
@@ -195,7 +197,8 @@ input_port *new_input_port(
         struct audio_config *config,
         audio_output_flags_t flags,
         float volume,
-        bool direct_on);
+        bool direct_on,
+        bool is_multi_aaudio);
 int set_inport_padding_size(input_port *port, size_t bytes);
 int reset_input_port(input_port *port);
 int resize_input_port_buffer(input_port *port, uint buf_size);

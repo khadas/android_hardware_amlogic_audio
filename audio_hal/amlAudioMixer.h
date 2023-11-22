@@ -106,6 +106,7 @@ int mixer_set_karaoke(struct amlAudioMixer *audio_mixer, struct kara_manager *ka
 
 void mixer_enable_multich_output(struct amlAudioMixer *audio_mixer, bool enable);
 int mixer_get_mc_outport_latency_frames(struct amlAudioMixer *audio_mixer);
+int mixer_reset_virtual_buf(void *audio_mixer, bool reset);
 
 
 __END_DECLS

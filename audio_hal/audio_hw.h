@@ -514,6 +514,7 @@ struct aml_audio_device {
     bool aaudio_low_latency;
     bool aaudio_low_latency_updated;
     int  aaudio_low_latency_count;
+    void *mmap_audio_manager;
     /* Modularized shared resource management */
     struct patch_manager *patch_manager;
     struct audio_hw_resource_mgr *hw_resource_mgr;
@@ -739,6 +740,8 @@ struct aml_stream_out {
     bool b_install_sync_callback;
     bool aaudio_low_latency;
     bool digital_input_fmt_change;
+    void *mmap_audio_manager;
+    int mmap_audio_client_id;
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

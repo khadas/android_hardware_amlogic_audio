@@ -220,7 +220,7 @@ void channel_layout_swap_center_lfe(void * data, int size, int channels) {
 }
 
 
-int init_aml_pcm_mixer(aml_pcm_mixing_st *p_mixer, struct audioCfg *p_mixer_cfg, int mixed_frames)
+int init_aml_pcm_mixer(aml_pcm_mixing_st *p_mixer, const struct audioCfg *p_mixer_cfg, int mixed_frames)
 {
     int i = 0;
 

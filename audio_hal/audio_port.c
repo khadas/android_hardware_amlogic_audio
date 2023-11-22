@@ -38,6 +38,8 @@
 #include "aml_audio_spdifout.h"
 #include "tv_patch_ctrl.h"
 #include "aml_hfp.h"
+#include "aml_mmap_audio.h"
+#include "amlAudioMixer.h"
 
 #ifdef ENABLE_AEC_APP
 #include "audio_aec.h"
@@ -315,6 +317,92 @@ int set_inport_padding_size(input_port *port, size_t bytes)
     return 0;
 }
 
+static ssize_t multi_aaudio_input_port_read(input_port *port, void *buffer, int bytes)
+{
+    int ret = 0;
+    void *bufptr = NULL;
+    size_t buflen = 0;
+    size_t copy_bytes = 0;
+    int process_bytes = 0;
+    void *mmap_audio_manager = NULL;
+    struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
+
+    R_CHECK_POINTER_LEGAL(-EINVAL, port, "");
+    R_CHECK_POINTER_LEGAL(-EINVAL, buffer, "");
+    R_CHECK_POINTER_LEGAL(-EINVAL, adev, "");
+    mmap_audio_manager = adev->mmap_audio_manager;
+    if (!mmap_audio_has_active_client(mmap_audio_manager)) {
+        AM_LOGV("aaudio is inactive");
+        return 0;
+    } else {
+        port->port_status = ACTIVE;
+    }
+
+    mmap_audio_process_data(mmap_audio_manager, port->data_buf_frame_cnt);
+    bufptr = port->data;
+    buflen = port->data_len_bytes;
+
+    process_bytes = mmap_audio_merge_data(mmap_audio_manager, &port->cfg, bufptr, buflen);
+    if (process_bytes > 0) {
+        port->consumed_bytes += process_bytes;
+        copy_bytes = process_bytes;
+        if (copy_bytes > bytes) {
+            copy_bytes = bytes;
+        }
+        memcpy(buffer, bufptr, copy_bytes);
+    }
+    return copy_bytes;
+}
+
+
+int multi_aaudio_get_inport_avail_size(input_port *port)
+{
+    int ret = 0;
+    size_t req_buf_bytes = 0;
+    struct audioCfg new_cfg = {0};
+    void *bufptr = NULL;
+    size_t buflen = 0;
+    int write_size_frame = 0;
+    int buffer_burst_num = 0;
+    void *mmap_audio_manager = NULL;
+    struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
+
+    R_CHECK_POINTER_LEGAL(-EINVAL, port, "");
+    R_CHECK_POINTER_LEGAL(-EINVAL, adev, "");
+    mmap_audio_manager = adev->mmap_audio_manager;
+    if (!mmap_audio_has_active_client(mmap_audio_manager)) {
+        return 0;
+    }
+
+    mmap_audio_get_burst_info(mmap_audio_manager, &write_size_frame, &buffer_burst_num);
+    if (write_size_frame != port->data_buf_frame_cnt) {
+        AM_LOGE("write_frame don't match inport(%d %zu)", write_size_frame, port->data_buf_frame_cnt);
+        return 0;
+    }
+
+    if (mmap_audio_prepare_merge(mmap_audio_manager, &new_cfg, adev->is_netflix) != 0) {
+        AM_LOGE("mmap_audio_prepare_merge fail");
+        return 0;
+    }
+    if (memcmp(&port->cfg, &new_cfg, sizeof(new_cfg))) {
+        AM_LOGI("channelMask update 0x%x -> 0x%x", port->cfg.channelMask, new_cfg.channelMask);
+        memcpy(&port->cfg, &new_cfg, sizeof(new_cfg));
+    }
+
+    req_buf_bytes = write_size_frame * port->cfg.frame_size;
+    ret = aml_audio_check_and_realloc((void **)&port->data, &port->data_len_bytes, req_buf_bytes);
+    if ((ret != 0) || (port->data == NULL)) {
+        AM_LOGE("allocate aaudio_buf(%zu bytes) failed", req_buf_bytes);
+        return 0;
+    }
+
+    return port->data_len_bytes;
+}
+
+uint32_t multi_aaudio_inport_get_latency_frames(input_port *port) {
+    return port->data_buf_frame_cnt;
+}
+
 input_port *new_input_port(
         //aml_mixer_input_port_type_e port_index,
         //audio_format_t format//,
@@ -322,7 +410,8 @@ input_port *new_input_port(
         struct audio_config *config,
         audio_output_flags_t flags,
         float volume,
-        bool direct_on)
+        bool direct_on,
+        bool is_multi_aaudio)
 {
     input_port *port = NULL;
     struct ring_buffer *ringbuf = NULL;
@@ -348,6 +437,11 @@ input_port *new_input_port(
     if (!data) {
         AM_LOGE("no memory");
         goto err_data;
+    }
+
+    if (is_multi_aaudio) {
+        enPortType = AML_MIXER_INPUT_PORT_MULTI_AAUDIO;
+        goto multi_aaudio_init;
     }
 
     ringbuf = aml_audio_calloc(1, sizeof(struct ring_buffer));
@@ -388,6 +482,7 @@ input_port *new_input_port(
         port->inport_start_threshold = input_port_rbuf_size * 3 / 4;
     }
 
+multi_aaudio_init:
     port->enInPortType = enPortType;
     //port->format = config->format;
     port->r_buf = ringbuf;
@@ -396,11 +491,19 @@ input_port *new_input_port(
     port->data_buf_frame_cnt = buf_frames;
     port->data_len_bytes = thunk_size;
     port->buffer_len_ns = (input_port_rbuf_size / port->cfg.frame_size) * 1000000000LL / port->cfg.sampleRate;
-    port->first_read = true;
-    port->read = input_port_read;
-    port->write = input_port_write;
-    port->rbuf_avail = get_inport_avail_size;
-    port->get_latency_frames = inport_get_latency_frames;
+    if (is_multi_aaudio) {
+        port->first_read = false;
+        port->read = multi_aaudio_input_port_read;
+        port->write = NULL;
+        port->rbuf_avail = multi_aaudio_get_inport_avail_size;
+        port->get_latency_frames = multi_aaudio_inport_get_latency_frames;
+    } else {
+        port->first_read = true;
+        port->read = input_port_read;
+        port->write = input_port_write;
+        port->rbuf_avail = get_inport_avail_size;
+        port->get_latency_frames = inport_get_latency_frames;
+    }
     port->port_status = STOPPED;
     port->is_hwsync = false;
     port->consumed_bytes = 0;
@@ -427,8 +530,10 @@ int free_input_port(input_port *port)
 {
     R_CHECK_POINTER_LEGAL(-EINVAL, port, "");
     remove_all_inport_messages(port);
-    ring_buffer_release(port->r_buf);
-    aml_audio_free(port->r_buf);
+    if (port->r_buf) {
+        ring_buffer_release(port->r_buf);
+        aml_audio_free(port->r_buf);
+    }
     aml_audio_free(port->data);
     aml_audio_free(port);
 
@@ -817,6 +922,7 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
         pcm_stop(port->pcm_handle);
         AM_LOGI("restart pcm device for same src");
         port->pcm_restart = false;
+        mixer_reset_virtual_buf(port->audio_mixer, true);
     }
 
     do {

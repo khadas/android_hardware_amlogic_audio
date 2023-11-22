@@ -31,6 +31,7 @@ typedef struct AML_MMAP_THREAD_PARAM {
 
 typedef struct AML_MMAP_AUDIO_PARAM {
     unsigned char               *pu8MmapAddr;
+    unsigned char               *pu8CurReadAddr;
     ion_user_handle_t           hIonHandle;
     int                         s32IonFd;
     int                         s32IonShareFd;
@@ -38,7 +39,6 @@ typedef struct AML_MMAP_AUDIO_PARAM {
     unsigned int                u32FrameSize;
     unsigned int                u32BufferSize;
     int64_t                     time_nanoseconds;
-    aml_mmap_thread_param_st    stThreadParam;
     /*This variable is used for mark mmap stream position function invoked by first time.
     **It was fixed for VTS case(GetMmapPositionOfNonMmapedStream).
     */
@@ -49,5 +49,22 @@ typedef struct AML_MMAP_AUDIO_PARAM {
 
 int outMmapInit(struct aml_stream_out *out);
 int outMmapDeInit(struct aml_stream_out *out);
+
+
+void* mmap_audio_new_manager(bool is_ms12);
+void mmap_audio_free_manager(void *pstMananger);
+int mmap_audio_register_client(void *pstMananger, struct aml_stream_out *aml_out);
+void mmap_audio_unregister_client(void *pstMananger, int client_id);
+int mmap_audio_start_client(void *pstMananger, int client_id);
+int mmap_audio_stop_client(void *pstMananger, int client_id);
+int mmap_audio_stop_client_complete(void *pstMananger, int client_id);
+int mmap_audio_process_data(void *pstMananger, int frames);
+int mmap_audio_prepare_merge(void *pstMananger, struct audioCfg *pstMergeCfg, bool is_netflix);
+int mmap_audio_merge_data(void *pstMananger, const struct audioCfg *pstMergeCfg, uint8_t *pu8DataBuf, uint32_t u32DataBytes);
+int mmap_audio_get_burst_info(void *pstMananger, int32_t *ps32WriteSizeFrame, int32_t *ps32BufferBurstNum);
+
+
+bool mmap_audio_has_active_client(void *pstMananger);
+int mmap_audio_max_client_num();
 
 #endif

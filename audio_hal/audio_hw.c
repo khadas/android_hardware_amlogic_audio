@@ -7980,6 +7980,9 @@ static int adev_close(hw_device_t *device)
     close_mixer_handle(&adev->alsa_mixer);
     /** done **/
 
+    mmap_audio_free_manager(adev->mmap_audio_manager);
+    adev->mmap_audio_manager = NULL;
+
 #ifdef ADD_AUDIO_DELAY_INTERFACE
     if (is_TV(adev)) {
         aml_audio_delay_deinit();
@@ -8607,6 +8610,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     }
 
     create_async_write_thread();
+    adev->mmap_audio_manager = mmap_audio_new_manager(eDolbyMS12Lib == adev->dolby_lib_type);
 
 #ifdef ENABLE_AML_ACR
     if (aml_open_ai_audio_module(&adev->native_postprocess, &adev->alsa_mixer) < 0) {

@@ -457,11 +457,8 @@ void get_sink_format(struct audio_stream_out *stream)
         adev->sink_capability = AUDIO_FORMAT_PCM_16_BIT;
         adev->optical_format = AUDIO_FORMAT_PCM_16_BIT;
 
-        if (aml_out->hal_ch > 2 && max_channels >= aml_out->hal_ch) {
-            adev->sink_max_channels = max_channels;
-        } else {
-            adev->sink_max_channels = 2;
-        }
+        // For multi aaudio stream : always output mc pcm if sink device support.
+        adev->sink_max_channels = max_channels;
         return;
     }
 

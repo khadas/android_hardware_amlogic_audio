@@ -74,7 +74,7 @@ int extend_channel_5_8(void *data_out, void *data_in,
 
 void channel_layout_swap_center_lfe(void * data, int size, int channels);
 
-int init_aml_pcm_mixer(aml_pcm_mixing_st *p_mixer, struct audioCfg *p_mixer_cfg, int mixed_frames);
+int init_aml_pcm_mixer(aml_pcm_mixing_st *p_mixer, const struct audioCfg *p_mixer_cfg, int mixed_frames);
 void deinit_aml_pcm_mixer(aml_pcm_mixing_st *p_mixer);
 void set_pcm_mixing_base(aml_pcm_mixing_st *p_mixer, struct audioCfg *p_data_cfg, void *p_in_data, size_t data_bytes);
 int do_mixing_multi_ch(aml_pcm_mixing_st *p_mixer, void *data_in, size_t in_frames, struct audioCfg *p_in_cfg);
