@@ -2188,48 +2188,48 @@ void dtv_adjust_i2s_output_clock(struct aml_audio_patch* patch, int direct, int 
     struct audio_hw_device *adev = patch->dev;
     struct aml_audio_device * aml_dev = (struct aml_audio_device*)adev;
     struct aml_mixer_handle * handle = &(aml_dev->alsa_mixer);
-    int output_clock = 0;
+    int output_clock = 0, compare_factor = 2;
     unsigned int i2s_current_clock = 0;
+
     i2s_current_clock = aml_mixer_ctrl_get_int(handle, AML_MIXER_ID_CHANGE_I2S_PLL);
     if (i2s_current_clock > DEFAULT_I2S_OUTPUT_CLOCK * 4 ||
         i2s_current_clock == 0 || step <= 0 || step > DEFAULT_DTV_OUTPUT_CLOCK) {
         return;
     }
-    if (get_tsync_pcr_debug())
-        ALOGI("current:%d, default:%d\n", i2s_current_clock, patch->dtv_default_i2s_clock);
+    if (aml_audio_get_debug_flag()) {
+        ALOGI("%s, direct %d, step %d, current_clock:%d, default_clock %d\n", __func__,
+            direct, step, i2s_current_clock, patch->dtv_default_i2s_clock);
+    }
+
     if (direct == DIRECT_SPEED) {
-        if (i2s_current_clock >= patch->dtv_default_i2s_clock) {
-            if (i2s_current_clock - patch->dtv_default_i2s_clock >=
-                (patch->dtv_default_i2s_clock * DEFAULT_DTV_ADJUST_CLOCK_THRESHOLD / 100)) {
-                ALOGI("already > i2s_step_clk 1M,no need speed adjust\n");
-                return;
-            }
+        if (compare_clock(i2s_current_clock, patch->dtv_default_i2s_clock, compare_factor)) {
             output_clock = DEFAULT_DTV_OUTPUT_CLOCK + step;
             aml_mixer_ctrl_set_int(handle, AML_MIXER_ID_CHANGE_I2S_PLL, output_clock);
-        } else {
+        } else if (i2s_current_clock < patch->dtv_default_i2s_clock) {
             int value = patch->dtv_default_i2s_clock - i2s_current_clock;
             output_clock = DEFAULT_DTV_OUTPUT_CLOCK + value;
             aml_mixer_ctrl_set_int(handle, AML_MIXER_ID_CHANGE_I2S_PLL, output_clock);
-        }
-    } else if (direct == DIRECT_SLOW) {
-        if (i2s_current_clock <= patch->dtv_default_i2s_clock) {
-            if (patch->dtv_default_i2s_clock - i2s_current_clock >
-                (patch->dtv_default_i2s_clock * DEFAULT_DTV_ADJUST_CLOCK_THRESHOLD / 100)) {
-                ALOGI("already < 1M no need adjust slow, return\n");
-                return;
-            }
-            output_clock = DEFAULT_DTV_OUTPUT_CLOCK - step;
+            output_clock = DEFAULT_DTV_OUTPUT_CLOCK + step;
             aml_mixer_ctrl_set_int(handle, AML_MIXER_ID_CHANGE_I2S_PLL, output_clock);
         } else {
+            return;
+        }
+    } else if (direct == DIRECT_SLOW) {
+        if (compare_clock(i2s_current_clock, patch->dtv_default_i2s_clock, compare_factor)) {
+            output_clock = DEFAULT_DTV_OUTPUT_CLOCK - step;
+            aml_mixer_ctrl_set_int(handle, AML_MIXER_ID_CHANGE_I2S_PLL, output_clock);
+        } else if (i2s_current_clock > patch->dtv_default_i2s_clock) {
             int value = i2s_current_clock - patch->dtv_default_i2s_clock;
             output_clock = DEFAULT_DTV_OUTPUT_CLOCK - value;
             aml_mixer_ctrl_set_int(handle, AML_MIXER_ID_CHANGE_I2S_PLL, output_clock);
             output_clock = DEFAULT_DTV_OUTPUT_CLOCK - step;
             aml_mixer_ctrl_set_int(handle, AML_MIXER_ID_CHANGE_I2S_PLL, output_clock);
+        } else {
+            return;
         }
     } else {
-        if (compare_clock(i2s_current_clock, patch->dtv_default_i2s_clock, 1)) {
-            return ;
+        if (compare_clock(i2s_current_clock, patch->dtv_default_i2s_clock, compare_factor)) {
+            return;
         }
         if (i2s_current_clock > patch->dtv_default_i2s_clock) {
             int value = i2s_current_clock - patch->dtv_default_i2s_clock;
@@ -2286,9 +2286,11 @@ void dtv_adjust_earc_output_clock(struct aml_audio_patch* patch, int direct, int
          compare_factor = 5 * 4 * 4;
          step *= 16;
     }
-    if (aml_audio_get_debug_flag())
-        ALOGI("dtv_adjust_earc_output_clock direct %d step %d spdif_current_clock %u",direct, step, earc_current_clock);
-    if (earc_current_clock > DEFAULT_EARC_OUTPUT_CLOCK * 4 * 4 ||
+    if (aml_audio_get_debug_flag()) {
+        ALOGI("%s direct %d step %d current_clock %u, default_clock %u", __func__,
+            direct, step, earc_current_clock, patch->dtv_default_arc_clock);
+    }
+    if (earc_current_clock > DEFAULT_EARC_OUTPUT_CLOCK * 4 * 4 * 4 ||
         earc_current_clock == 0 || step <= 0 || step > DEFAULT_DTV_OUTPUT_CLOCK) {
         return;
     }
