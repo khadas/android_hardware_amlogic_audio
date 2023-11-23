@@ -5064,8 +5064,10 @@ int out_flush_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
     int path_id = aml_out->demux_id;
     aml_demux_audiopara_t *dmx_info = &dtv_audio_instances->demux_info[path_id];
     aml_dtvsync_t *dtvsync = &dtv_audio_instances->dtvsync[path_id];
+    void *demux_handle = dtv_audio_instances->demux_handle[path_id];
     int costtime_ms = 0;
     struct timespec curtime;
+
     clock_gettime(CLOCK_MONOTONIC, &curtime);
     costtime_ms = calc_time_interval_us(&aml_out->cbs_cmd_timestamp, &curtime) / 1000;
     clock_gettime(CLOCK_MONOTONIC, &aml_out->cbs_cmd_timestamp);
@@ -5073,6 +5075,20 @@ int out_flush_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
     /*make dtv flush via cmds*/
     ALOGD("%s[%d]:the audio_patching is %d. decoder state: %d", __func__, __LINE__, is_dev_patch_running(adev), get_dev_patch(adev)->dtv_decoder_state);
     if (dtv_tuner_framework(stream)) {
+        if (dmx_info->dual_decoder_support) {
+            Stop_Dmx_AD_Audio(demux_handle);
+            Start_Dmx_AD_Audio(demux_handle);
+        }
+        Stop_Dmx_Main_Audio(demux_handle);
+        Start_Dmx_Main_Audio(demux_handle);
+        Flush_Dmx_Audio(demux_handle);
+
+        cmd = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_STOP);
+        ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, cmd);
+        if (dtvsync && dtvsync->mediasync_new) {
+            aml_dtvsync_reset(dtvsync);
+        }
+        aml_out->standby= 1;
         if (aml_out->stream_status != STREAM_PAUSED || costtime_ms > 200) {
             return ret;
         }
