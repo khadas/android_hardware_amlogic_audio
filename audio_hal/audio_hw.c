@@ -2144,7 +2144,10 @@ int start_input_stream(struct aml_stream_in *in)
     if (ret < 0)
         return -EINVAL;
 
-    adev->active_input = in;
+    if (!(in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) && !(in->device & AUDIO_DEVICE_IN_ECHO_REFERENCE)) {
+       adev->active_input = in;
+    }
+
     if (adev->mode != AUDIO_MODE_IN_CALL) {
         adev->in_device &= ~AUDIO_DEVICE_IN_ALL;
         adev->in_device |= in->device;
@@ -2174,7 +2177,9 @@ int start_input_stream(struct aml_stream_in *in)
     if (!pcm_is_ready(in->pcm)) {
         ALOGE("%s: cannot open pcm_in driver: %s", __func__, pcm_get_error(in->pcm));
         pcm_close (in->pcm);
-        adev->active_input = NULL;
+        if (!(in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) && !(in->device & AUDIO_DEVICE_IN_ECHO_REFERENCE)) {
+           adev->active_input = NULL;
+        }
         return -ENOMEM;
     }
 
@@ -2182,7 +2187,9 @@ int start_input_stream(struct aml_stream_in *in)
         ret = add_in_stream_resampler(in);
         if (ret < 0) {
             pcm_close (in->pcm);
-            adev->active_input = NULL;
+            if (!(in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) && !(in->device & AUDIO_DEVICE_IN_ECHO_REFERENCE)) {
+               adev->active_input = NULL;
+            }
             return -EINVAL;
         }
     }
@@ -2264,7 +2271,10 @@ int do_input_standby(struct aml_stream_in *in)
         pcm_close (in->pcm);
         in->pcm = NULL;
 
-        adev->active_input = NULL;
+        if (!(in->device & AUDIO_DEVICE_IN_BUILTIN_MIC) && !(in->device & AUDIO_DEVICE_IN_ECHO_REFERENCE)) {
+           adev->active_input = NULL;
+        }
+
         if (adev->mode != AUDIO_MODE_IN_CALL) {
             adev->in_device &= ~AUDIO_DEVICE_IN_ALL;
             //select_input_device(adev);
@@ -3096,7 +3106,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     }
 
     if (address && !strncmp(address, "AML_", 4)) {
-        ALOGI("%s(): aml TV source stream", __func__);
+        ALOGI("%s(): aml TV output stream(%p)", __func__, out);
         out->is_tv_src_stream = true;
     } else {
         adev->foreground_stream_type = FG_STREAM_TYPE_AUDIOFLINGER;
@@ -5004,7 +5014,7 @@ int adev_open_input_stream(struct audio_hw_device *dev,
     }
 #endif
     if (address && !strncmp(address, "AML_", 4)) {
-        ALOGI("%s(): aml TV source stream", __func__);
+        ALOGI("%s(): aml TV input stream(%p) ", __func__, in);
         in->is_tv_src_stream = true;
     }
     AM_LOGI("result profile ch:%#x rate:%d format:%s(%#x)", config->channel_mask, config->sample_rate,
@@ -7477,6 +7487,10 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
     patch_set = register_audio_patch(dev, num_sources, sources, num_sinks, sinks, handle);
     R_CHECK_POINTER_LEGAL(-ENOMEM, patch_set, "create patch fail");
 
+    if (src_config->ext.device.type == AUDIO_DEVICE_IN_BUILTIN_MIC || src_config->ext.device.type == AUDIO_DEVICE_IN_ECHO_REFERENCE) {
+       return 0;
+    }
+
     AM_LOGI("Patch %d: %s->%s, num_src:%d num_sink:%d patch_src:%s", *handle, audioPortType2Str(src_config->type),
         audioPortType2Str(sink_config->type), num_sources, num_sinks, patchSrc2Str(get_dev_patch_src(aml_dev)));
     if (sink_config->type == AUDIO_PORT_TYPE_DEVICE) /* sink config categorization -1 */
@@ -7669,6 +7683,10 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
     }
     R_CHECK_POINTER_LEGAL(-EINVAL, patch_set, "Can't get patch id:%d in list", handle);
     R_CHECK_POINTER_LEGAL(-EINVAL, patch, "Can't get patch id:%d in list", handle);
+
+    if (!patch_set || !patch) {
+        return 0;
+    }
 
     /* aml_dev patch is not the release patch */
     if (get_dev_patch(aml_dev) && get_dev_patch(aml_dev)->input_src != patch->sources[0].ext.device.type) {
