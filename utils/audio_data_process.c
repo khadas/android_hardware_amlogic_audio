@@ -43,6 +43,9 @@ Description:
 extern void memcpy_by_audio_format(void *dst, audio_format_t dst_format,
           const void *src, audio_format_t src_format, size_t count);
 
+static inline float clamp_float(float value) {
+    return fmin(fmax(value, -1.f), 1.f);
+}
 
 static int ch2_ch8_n_b16_b32(void *data_mixed, void *data_sys, size_t frames)
 {
@@ -706,5 +709,69 @@ int do_downmix_to_2ch(aml_pcm_downmix_st *p_downmix, void *data_in, size_t in_fr
         ret = processSwitch_32bit(p_downmix, data_in, p_downmix->output_buf, in_frames);
     }
     return ret;
+}
+
+/*----------------------------------------------------------------------------
+ * Downmix_foldFrom7Point1()
+ *----------------------------------------------------------------------------
+ * Purpose:
+ * downmix a 7.1 signal to stereo
+ *
+ * Inputs:
+ *  pSrc       7.1 audio samples to downmix
+ *  numFrames  the number of 7.1 frames to downmix
+ *  accumulate whether to mix (when true) the result of the downmix with the contents of pDst,
+ *               or overwrite pDst (when false)
+ *
+ * Outputs:
+ *  pDst       downmixed stereo audio samples
+ *
+ *----------------------------------------------------------------------------
+ */
+void Downmix_foldFrom7Point1(float *pSrc, float *pDst, size_t numFrames, bool accumulate) {
+    float lt, rt, centerPlusLfeContrib; // samples in Q19.12 format
+    // sample at index 0 is FL
+    // sample at index 1 is FR
+    // sample at index 2 is FC
+    // sample at index 3 is LFE
+    // sample at index 4 is RL
+    // sample at index 5 is RR
+    // sample at index 6 is SL
+    // sample at index 7 is SR
+    // code is mostly duplicated between the two values of accumulate to avoid repeating the test
+    // for every sample
+    if (accumulate) {
+        while (numFrames) {
+            // centerPlusLfeContrib = FC(-3dB) + LFE(-3dB)
+            centerPlusLfeContrib = (pSrc[2] * MINUS_3_DB_IN_FLOAT)
+                    + (pSrc[3] * MINUS_3_DB_IN_FLOAT);
+            // FL + centerPlusLfeContrib + SL + RL
+            lt = pSrc[0] + centerPlusLfeContrib + pSrc[6] + pSrc[4];
+            // FR + centerPlusLfeContrib + SR + RR
+            rt = pSrc[1] + centerPlusLfeContrib + pSrc[7] + pSrc[5];
+            //accumulate in destination
+            pDst[0] = clamp_float(pDst[0] + (lt / 2.0f));
+            pDst[1] = clamp_float(pDst[1] + (rt / 2.0f));
+            pSrc += 8;
+            pDst += 2;
+            numFrames--;
+        }
+    } else { // same code as above but without adding and clamping pDst[i] to itself
+        while (numFrames) {
+            // centerPlusLfeContrib = FC(-3dB) + LFE(-3dB)
+            centerPlusLfeContrib = (pSrc[2] * MINUS_3_DB_IN_FLOAT)
+                    + (pSrc[3] * MINUS_3_DB_IN_FLOAT);
+            // FL + centerPlusLfeContrib + SL + RL
+            lt = pSrc[0] + centerPlusLfeContrib + pSrc[6] + pSrc[4];
+            // FR + centerPlusLfeContrib + SR + RR
+            rt = pSrc[1] + centerPlusLfeContrib + pSrc[7] + pSrc[5];
+            // store in destination
+            pDst[0] = clamp_float(lt / 2.0f); // differs from when accumulate is true above
+            pDst[1] = clamp_float(rt / 2.0f); // differs from when accumulate is true above
+            pSrc += 8;
+            pDst += 2;
+            numFrames--;
+        }
+    }
 }
 

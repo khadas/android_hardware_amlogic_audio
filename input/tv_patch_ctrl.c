@@ -17,6 +17,7 @@
 #define LOG_TAG "audio_hw_input_tv"
 //#define LOG_NDEBUG 0
 
+#include <math.h>
 #include <errno.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -33,6 +34,7 @@
 #include <hardware/audio.h>
 #include <aml_data_utils.h>
 #include <audio_utils/channels.h>
+#include <audio_utils/format.h>
 #if ANDROID_PLATFORM_SDK_VERSION >= 25 // 8.0
 #include <system/audio-base.h>
 #endif
@@ -50,8 +52,11 @@
 #include "audio_hw_resource_mgr.h"
 #include "device_patch_mgr.h"
 #include "component_picture_mode.h"
+#include "audio_data_process.h"
 
 #define INVALID_TYPE                -1
+#define MINUS_3_DB_IN_FLOAT M_SQRT1_2 // -3dB = 0.70710678
+#define HDMIIN_MULTICH_DOWNMIX
 
 /*==================================input commands=========================================*/
 static inline int find_61937_sync_word(char *buffer, int size)
@@ -88,7 +93,7 @@ int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, s
 
     size_t read_bytes = in->config.channels * bytes / channel_count;
     if (!in->input_tmp_buffer || in->input_tmp_buffer_size < read_bytes) {
-        in->input_tmp_buffer = aml_audio_realloc(in->input_tmp_buffer, read_bytes);
+        in->input_tmp_buffer = aml_audio_realloc(in->input_tmp_buffer, read_bytes * 2);
         if (!in->input_tmp_buffer) {
             AM_LOGE("aml_audio_realloc is fail");
             return ret;
@@ -97,13 +102,35 @@ int input_stream_channels_adjust(struct audio_stream_in *stream, void* buffer, s
     }
 
     ret = aml_alsa_input_read(stream, in->input_tmp_buffer, read_bytes);
-    if (in->config.format == PCM_FORMAT_S16_LE)
+    if (in->config.format == PCM_FORMAT_S16_LE) {
+#ifdef HDMIIN_MULTICH_DOWNMIX
+        int samples = read_bytes / 2;
+        int output_samples = bytes / 2;
+        memcpy_by_audio_format(in->input_tmp_buffer, AUDIO_FORMAT_PCM_FLOAT,
+            in->input_tmp_buffer, AUDIO_FORMAT_PCM_16_BIT, samples);
+        Downmix_foldFrom7Point1((float *)in->input_tmp_buffer,
+            (float *)in->input_tmp_buffer, samples >> 3, false);
+        memcpy_by_audio_format(buffer, AUDIO_FORMAT_PCM_16_BIT,
+            in->input_tmp_buffer, AUDIO_FORMAT_PCM_FLOAT, output_samples);
+#else
         adjust_channels(in->input_tmp_buffer, in->config.channels,
             buffer, channel_count, 2, read_bytes);
-    else if (in->config.format == PCM_FORMAT_S32_LE)
+#endif
+    } else if (in->config.format == PCM_FORMAT_S32_LE) {
+#ifdef HDMIIN_MULTICH_DOWNMIX
+        int samples = read_bytes / 4;
+        int output_samples = bytes / 4;
+        memcpy_by_audio_format(in->input_tmp_buffer, AUDIO_FORMAT_PCM_FLOAT,
+            in->input_tmp_buffer, AUDIO_FORMAT_PCM_32_BIT, samples);
+        Downmix_foldFrom7Point1((float *)in->input_tmp_buffer,
+            (float *)in->input_tmp_buffer, samples >> 3, false);
+        memcpy_by_audio_format(buffer, AUDIO_FORMAT_PCM_32_BIT,
+            in->input_tmp_buffer, AUDIO_FORMAT_PCM_FLOAT, output_samples);
+#else
         adjust_channels(in->input_tmp_buffer, in->config.channels,
             buffer, channel_count, 4, read_bytes);
-
+#endif
+    }
    return ret;
 }
 
@@ -426,7 +453,10 @@ int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
     hdmiin_audio_packet_t cur_audio_packet = get_hdmiin_audio_packet(&aml_dev->alsa_mixer);
     int current_channel = get_hdmiin_channel(&aml_dev->alsa_mixer);
 
-    is_channel_changed = ((current_channel > 0) && last_channel_count != current_channel);
+    /* only audio type is normal pcm audio, change the input channel */
+    if (cur_audio_packet == AUDIO_PACKET_AUDS) {
+        is_channel_changed = ((current_channel > 0) && last_channel_count != current_channel);
+    }
     is_audio_packet_changed = (((cur_audio_packet == AUDIO_PACKET_AUDS) || (cur_audio_packet == AUDIO_PACKET_HBR)) &&
                                (last_audio_packet != cur_audio_packet));
     //reconfig input stream and buffer when HBR and AUDS audio switching or channel num changed
@@ -549,11 +579,9 @@ int get_hdmiin_channel(struct aml_mixer_handle *mixer_handle)
     channel_index = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_HDMI_IN_CHANNELS);
     if (channel_index == 0) {
         return 0;
-    }
-    else if (channel_index != 7) {
+    } else if (channel_index == 1) {
         return 2;
-    }
-    else {
+    } else {
         return 8;
     }
 }

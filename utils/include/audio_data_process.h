@@ -82,5 +82,6 @@ int do_mixing_multi_ch(aml_pcm_mixing_st *p_mixer, void *data_in, size_t in_fram
 void init_aml_pcm_downmix(aml_pcm_downmix_st *p_downmix);
 void deinit_aml_pcm_downmix(aml_pcm_downmix_st *p_downmix);
 int do_downmix_to_2ch(aml_pcm_downmix_st *p_downmix, void *data_in, size_t in_frames, struct audioCfg *p_in_cfg);
+void Downmix_foldFrom7Point1(float *pSrc, float *pDst, size_t numFrames, bool accumulate);
 
 #endif
