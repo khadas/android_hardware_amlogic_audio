@@ -533,13 +533,13 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
                 }
                 in_data_config.sample_rate = out_port->cfg.sampleRate;
                 in_data_config.format = out_port->cfg.format;
+
+                ret = aml_audio_check_and_realloc((void **)&adev->out_16_buf, &adev->out_16_buf_size, out_port->bytes_avail);
+                R_CHECK_RET((int)ret, "alloc out_16_buf size:%zu fail", out_port->bytes_avail);
+                memcpy(adev->out_16_buf, out_port->data_buf, out_port->bytes_avail);
                 if (is_TV(adev)) {
                     float volume = aml_audio_get_s_gain_by_src(adev, get_dev_patch_src(adev));
-
                     volume *= adev->sink_gain[OUTPORT_A2DP];
-                    ret = aml_audio_check_and_realloc((void **)&adev->out_16_buf, &adev->out_16_buf_size, out_port->bytes_avail);
-                    R_CHECK_RET((int)ret, "alloc out_16_buf size:%zu fail", out_port->bytes_avail);
-                    memcpy(adev->out_16_buf, out_port->data_buf, out_port->bytes_avail);
                     apply_volume(volume, adev->out_16_buf, sizeof(uint16_t),
                         out_port->bytes_avail);
                 }
