@@ -365,7 +365,20 @@ static bool a2dp_state_process(struct aml_audio_device *adev, audio_config_base_
             if (adev->debug_flag) {
                 AM_LOGD("write too fast, need sleep:%" PRId64 " ms", data_delta_time_us / USEC_PER_MSEC);
             }
-            usleep(data_delta_time_us);
+            //After every sleeping 2ms, monitor the state of BT_stack
+            while (data_delta_time_us > 0) {
+                if (data_delta_time_us < 2000) {
+                    usleep(data_delta_time_us);
+                } else {
+                    usleep(2000);
+                }
+                hal->state = hal->a2dphw.GetState();
+                if (hal->state == BluetoothStreamState::STARTED) {
+                    AM_LOGI("a2dp state changed: %s -> %s",  a2dpStatus2String(cur_state), a2dpStatus2String(hal->state));
+                    return true;
+                }
+                data_delta_time_us -= 2000;
+            }
         }
         AM_LOGI("a2dp state is %s",  a2dpStatus2String(cur_state));
     } else if (cur_state == BluetoothStreamState::STARTED) {
