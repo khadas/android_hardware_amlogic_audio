@@ -66,7 +66,7 @@ static int select_digital_device(struct spdifout_handle *phandle) {
      *
      */
 
-    if (!is_TV(aml_dev) || is_BDS(aml_dev)) {
+    if (!is_TV(aml_dev)) {
         struct audio_board_config *bd_config = &aml_dev->board_config;
         if (aml_dev->dual_spdif_support) {
             if (phandle->audio_format == AUDIO_FORMAT_AC3 ||

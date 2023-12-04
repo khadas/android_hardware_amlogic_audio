@@ -835,6 +835,10 @@ static void* audio_type_parse_threadloop(void *data)
                     usleep((read_bytes - read_back) * 1000 / 4 / 48 / 2);
                 }
             }
+            if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
+                aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/tv_parser.raw",
+                    audio_type_status->parse_buffer, read_bytes);
+            }
 
             if (ret >= 0) {
                 audio_type_status->cur_audio_type = audio_type_parse(audio_type_status->parse_buffer,

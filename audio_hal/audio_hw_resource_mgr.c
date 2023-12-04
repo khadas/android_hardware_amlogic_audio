@@ -709,6 +709,9 @@ void confirm_platform_type(audio_hw_resource_mgr *mgr)
 #if defined(TV_AUDIO_OUTPUT)
     mgr->platform_types.is_TV = true;
     /* by default, BDS will share the same audio feature as TV */
+    /*Currently BDS has same logic control and audio pipeline with TV, not use this is_BDS variable.
+    **BDS = TV + HDMI tx, HDMI tx only be used to transmit pcm data that same with tdm speaker.
+    */
     mgr->platform_types.is_BDS = /*check_chip_name("t7", 2, &adev->alsa_mixer) ? true : */false;
     /*Now SoundBar type is depending on TV audio as only tv support multi-channel LPCM output*/
     mgr->platform_types.is_SBR = aml_audio_check_sbr_product();

@@ -43,7 +43,6 @@
 
 #include "audio_hal_debug.h"
 #include "audio_usb_hal.h"
-//#include "audio_hw.h"
 #include "sub_mixing_factory.h"
 #include "aml_malloc_debug.h"
 
@@ -823,7 +822,9 @@ ssize_t usb_out_write(struct usb_out *out, const void *buffer, size_t bytes)
 {
     int ret;
     size_t fr = bytes_to_frames(&out->hal_config, bytes);
-    AM_LOGI("out=%p buffer=%p bytes=%zu fr=%zu", out, buffer, bytes, fr);
+    if (aml_get_debug_value()) {
+        AM_LOGI("out=%p buffer=%p bytes=%zu fr=%zu", out, buffer, bytes, fr);
+    }
     if (getprop_bool("vendor.media.audiohal.usb")) {
         aml_audio_dump_audio_bitstreams("/data/audio/usb.raw", buffer, bytes);
     }

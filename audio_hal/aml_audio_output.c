@@ -382,6 +382,9 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                 out_data_info->audio_format = AUDIO_FORMAT_PCM_16_BIT;
                 out_data_info->channel_mask = AUDIO_CHANNEL_OUT_STEREO;
             }
+            if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
+                aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audio_volumed_processed.pcm", *output_buffer, *output_buffer_bytes);
+            }
         } else {
             if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_exist(adev)) {
                 aml_audio_switch_output_mode((int16_t *)buffer, bytes, get_dev_patch(adev)->mode);

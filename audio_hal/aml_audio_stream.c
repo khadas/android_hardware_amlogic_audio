@@ -105,7 +105,7 @@ static audio_format_t get_sink_capability (struct aml_audio_device *adev)
     //TV + STB case (BDS)
     //TODO HDMITX+ARC mixed connected case
     //need check active port ???
-    if (!is_TV(adev) || is_BDS(adev))
+    if (!is_TV(adev))
     {
         char *cap = NULL;
         /*we should get the real audio cap, so we need it report the correct truehd info*/
@@ -494,7 +494,7 @@ void get_sink_format(struct audio_stream_out *stream)
     // condition 1: ARC port, single output.
     // condition 2: for STB case with dolby-ms12 libs
     // condition 3: T7 BDS with HDMITX case
-    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0 || !is_TV(adev) || is_BDS(adev)) {
+    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0 || !is_TV(adev)) {
         struct audio_board_config *bd_config = &adev->board_config;
         ALOGI("%s() HDMI ARC or mbox + dvb case", __FUNCTION__);
         switch (adev->digital_audio_mode) {

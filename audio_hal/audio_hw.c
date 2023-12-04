@@ -122,12 +122,6 @@
 
 #define HDMI_LATENCY_MS 60
 
-/*[SE-2018-10-29] add for HBG remote audio support { */
-#if defined(ENABLE_HBG_PATCH)
-#include "../hbg_bt_voice/hbg_blehid_mic.h"
-#endif
-/*[SEI-2018-10-29] add for HBG remote audio support } */
-
 #include "sub_mixing_factory.h"
 #include "amlAudioMixer.h"
 #include "a2dp_hal.h"
@@ -4446,7 +4440,7 @@ static void adev_get_hal_control_volume_en(struct aml_audio_device *adev, char *
 {
     bool hal_control_vol_en = true;
     /* For STB product.*/
-    if ((!is_TV(adev) || is_BDS(adev)) && (adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI) != 0) {
+    if ((!is_TV(adev)) && (adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI) != 0) {
         /*  Audio_hal has no ability to control volume at the following scence:
          *    1. non-ms12, output non-pcm, cec closed.
          *    2. ms12, output non-pcm, cec closed, passthrough.
@@ -4901,31 +4895,6 @@ int adev_open_input_stream(struct audio_hw_device *dev,
     else
         config->channel_mask = AUDIO_CHANNEL_IN_STEREO;
 
-
-#if defined(ENABLE_HBG_PATCH)
-//[SEI-Tiger-2019/02/28] Optimize HBG RCU{
-    if (is_hbg_hidraw() && (config->channel_mask != BUILT_IN_MIC)) {
-//[SEI-Tiger-2019/02/28] Optimize HBG RCU}
-        in->stream.common.get_sample_rate = in_hbg_get_sample_rate;
-        in->stream.common.set_sample_rate = in_hbg_set_sample_rate;
-        in->stream.common.get_buffer_size = in_hbg_get_buffer_size;
-        in->stream.common.get_channels = in_hbg_get_channels;
-        in->stream.common.get_format = in_hbg_get_format;
-        in->stream.common.set_format = in_hbg_set_format;
-        in->stream.common.standby = in_hbg_standby;
-        in->stream.common.dump = in_hbg_dump;
-        in->stream.common.set_parameters = in_hbg_set_parameters;
-        in->stream.common.get_parameters = in_hbg_get_parameters;
-        in->stream.common.add_audio_effect = in_hbg_add_audio_effect;
-        in->stream.common.remove_audio_effect = in_hbg_remove_audio_effect;
-        in->stream.set_gain = in_hbg_set_gain;
-        in->stream.read = in_hbg_read;
-        in->stream.get_input_frames_lost = in_hbg_get_input_frames_lost;
-        in->stream.get_capture_position =  in_hbg_get_hbg_capture_position;
-        in->hbg_channel = regist_callBack_stream();
-        in->stream.get_active_microphones = in_get_active_microphones;
-    } else
-#endif
     {
         in->stream.common.get_sample_rate = in_get_sample_rate;
         in->stream.common.set_sample_rate = in_set_sample_rate;
@@ -5102,11 +5071,6 @@ void adev_close_input_stream(struct audio_hw_device *dev,
     if (in->ref_buf) {
         aml_audio_free(in->ref_buf);
     }
-/*[SEI-2018-10-29] add for HBG remote audio support { */
-#if defined(ENABLE_HBG_PATCH)
-    unregist_callBack_stream(in->hbg_channel);
-#endif
-/*[SEI-2018-10-29] add for HBG remote audio support } */
 
 #ifdef ENABLE_AEC_APP
     if (in->device & AUDIO_DEVICE_IN_ECHO_REFERENCE) {
@@ -6989,7 +6953,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
      */
     if (!aml_out->is_sink_format_prepared) {
         get_sink_format(&aml_out->stream);
-        if (!is_TV(adev) || is_BDS(adev)) {
+        if (!is_TV(adev)) {
             if (is_use_spdifb(aml_out)) {
                 aml_audio_select_src_to_hdmi(AML_SPDIF_B_TO_HDMITX);
                 aml_out->restore_hdmitx_selection = true;
@@ -7875,6 +7839,12 @@ void *adev_get_handle(void) {
     return (void *)g_adev;
 }
 
+int aml_get_debug_value(void)
+{
+    struct aml_audio_device *adev = adev_get_handle();
+    return adev ? adev->debug_flag : 0;
+}
+
 int adev_ms12_prepare(struct audio_hw_device *dev) {
     struct aml_audio_device *adev = (struct aml_audio_device *) dev;
     struct audio_config stream_config;
@@ -7974,11 +7944,6 @@ static int adev_close(hw_device_t *device)
         release_dolby_dev();
         ALOGD("%s, wait_count:%d, ms12 resource should be released finish\n", __func__, wait_count);
     }
-
-/*[SEI-2018-10-29] add for HBG remote audio support { */
-#if defined(ENABLE_HBG_PATCH)
-    stopReceiveAudioData();
-#endif
 
 #ifdef ENABLE_AML_ACR
     aml_close_ai_audio_module(&adev->native_postprocess);
@@ -8547,11 +8512,6 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
 #endif
     ALOGI("%s() adev->dolby_lib_type = %d", __FUNCTION__, adev->dolby_lib_type);
     adev->audio_type = LPCM;
-
-/*[SEI-2018-10-29] add for HBG remote audio support { */
-#if defined(ENABLE_HBG_PATCH)
-    startReceiveAudioData();
-#endif
 
 #ifdef ADD_AUDIO_DELAY_INTERFACE
     ret = aml_audio_delay_init();

@@ -1118,35 +1118,7 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
             __func__, __LINE__, bytes);
         return -1;
     }
-#if 0
-    //ALOGD("handle=%p pcm=%p\n",alsa_handle,alsa_handle->pcm);
-    /*add for work around ddp dd output ,ddp underrun issue */
-    dd_pcm = alsa_handle->pcm;
-    ddp_pcm = adev->pcm_handle[adev->ms12.device];
-    if (is_sc2_chip() && eDolbyMS12Lib == adev->dolby_lib_type && dd_pcm && ddp_pcm && (alsa_handle->format != AUDIO_FORMAT_MAT)) {
-        snd_pcm_sframes_t delay_ddp = 0,delay_dd = 0;
 
-        ret = pcm_ioctl(dd_pcm, SNDRV_PCM_IOCTL_DELAY, &delay_dd);
-        if (ret < 0) {
-             delay_dd = alsa_handle->config.start_threshold;
-        }
-        ret = pcm_ioctl(ddp_pcm, SNDRV_PCM_IOCTL_DELAY, &delay_ddp);
-        if (ret < 0) {
-             delay_ddp = adev->ms12_config.start_threshold;
-        }
-
-        if (delay_dd + write_frames >= alsa_handle->config.start_threshold * 2)
-            overflow_flag = 1;
-        /* dd write blocked and ddp delay at a low level ,so skip dd data to avoid ddp underrun*/
-        if (overflow_flag && delay_ddp <= 2 * 6144)
-            underrun_flag = 1;
-
-        if ( underrun_flag ) {
-           ALOGI("skip dd data for delay_dd frame =%ld  delay_ddp frame %ld\n",delay_dd, delay_ddp);
-           return 0;
-        }
-    }
-#endif
     /*SWPL-91704
      * There is underrun when play dolby truehd stream,
      * because the input and output is not match in mat dec, we need
@@ -1211,7 +1183,6 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
 
     alsa_handle->write_cnt++;
     alsa_handle->write_frames += pcm_bytes_to_frames(alsa_handle->pcm, bytes);
-
     if (debug_enable || (alsa_handle->write_cnt % 1000) == 0) {
         snd_pcm_sframes_t frames = 0;
         ret = pcm_ioctl(alsa_handle->pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
@@ -1256,7 +1227,6 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
     if (get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
         check_audio_level(audio_type, buffer, bytes);
     }
-
     ret = pcm_write(alsa_handle->pcm, buffer, bytes);
     if (ret < 0) {
         const char *err_str = pcm_get_error(alsa_handle->pcm);

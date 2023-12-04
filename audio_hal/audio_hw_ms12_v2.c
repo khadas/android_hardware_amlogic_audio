@@ -1660,7 +1660,7 @@ int dolby_ms12_main_process(
             }
         } else {
               ms12_update_decoded_info_process(stream, input_buffer, input_bytes);
-          }
+        }
 
         /* Passthrough Mode, only get the MAIN data as the single input */
         if ((ms12->dual_decoder_support == true) &&
@@ -2288,7 +2288,6 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
             //case 1: the aml_out->hal_internal_format is AUDIO_FORMAT_AC3 and the actual format is AUDIO_FORMAT_E_AC3,
             //case 2: the aml_out->hal_internal_format is AUDIO_FORMAT_E_AC3 and the actual format is AUDIO_FORMAT_AC3,
             //so we need to judge the format whether or not there are accurate depending on the ac3_info.nIsEc3.
-
             if (ac3_info.nIsEc3 == 1 && aml_out->hal_internal_format == AUDIO_FORMAT_AC3  && (ms12->dual_decoder_support == false)) {
                 ALOGV("output_format=0x%x hal_format=0x%#x internal=0x%x nIsEc3 = %d",output_format, aml_out->hal_format, aml_out->hal_internal_format,ac3_info.nIsEc3);
                 aml_out->hal_internal_format = AUDIO_FORMAT_E_AC3;
@@ -2333,10 +2332,12 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
                 ALOGI("%s spdif format changed from 0x%x to 0x%x", __FUNCTION__, bitstream_out->audio_format, output_format);
                 bitstream_out->spdifout_handle = NULL;
             }
+
             if ((bitstream_out_b->spdifout_handle != NULL ) &&
                 ((bitstream_out_b->audio_format != output_format) ||
-                (output_format != AUDIO_FORMAT_IEC61937 && bitstream_out_b->sample_rate !=  aml_out->hal_rate))) {
+                (output_format != AUDIO_FORMAT_IEC61937 && bitstream_out_b->sample_rate != aml_out->hal_rate))) {
                 aml_audio_spdifout_close(bitstream_out_b->spdifout_handle);
+                ALOGI("%s spdif_b format changed from 0x%x to 0x%x", __FUNCTION__, bitstream_out->audio_format, output_format);
                 bitstream_out_b->spdifout_handle = NULL;
             }
 
@@ -2776,7 +2777,14 @@ static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_
     ret = aml_audio_pcm_output((struct audio_stream_out *)aml_out, buffer, size, &data_info);
 
     /*we put passthrough ms12 data here*/
-    ms12_passthrough_output(aml_out);
+    /*there have two interfaces for AC3/EAC3 passthrough.
+    **one is ms12_passthrough_output for Local Player stream;
+    **the other one is ac3_and_eac3_bypass_process for TV/DTV patch stream.
+    **So add this patch logic to distinguish use.
+    */
+    if (!is_dev_patch_exist(adev)) {
+        ms12_passthrough_output(aml_out);
+    }
     return ret;
 
 }
@@ -3961,6 +3969,7 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
 
     aml_out->is_ms12_main_decoder = false;
 
+#if 0 //this code is for old version ms12
     /** for low probability timing case, open1-->***-->open2->close1->****-->close2
     *** like above case, the ms12_main_stream_out is set null when close1 output_stream,
     *** it lead to ms12 flush/pause/resume message can't send to ms12 thread in open2 output_stream.
@@ -3985,7 +3994,7 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
     } else {
         ALOGD("%s  aml_out is not equal with ms12_main_stream_out, ms12 resource not release.", __func__);
     }
-
+#endif
     if (aml_out->virtual_buf_handle) {
         audio_virtual_buf_close(&aml_out->virtual_buf_handle);
     }
@@ -4008,6 +4017,7 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
 
     aml_ms12_main_decoder_close(ms12);
     set_ms12_main_audio_mute(ms12, false, 0);
+    adev->ms12.main_input_fmt = AUDIO_FORMAT_INVALID;
 
     return 0;
 }

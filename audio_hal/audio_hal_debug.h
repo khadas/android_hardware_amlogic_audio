@@ -39,6 +39,7 @@
 
 int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes);
 int getprop_bool(const char *path);
+int aml_get_debug_value(void);
 
 // utility function about pcm config
 #define PCM_CONFIG_STR_LEN          128
