@@ -794,6 +794,8 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
         /*check dolby truehd*/
         audio_cap_item = get_edid_support_audio_format(AUDIO_FORMAT_MAT);
         if (audio_cap_item) {
+            /*dep_value is only 2 bit*/
+            audio_cap_item->dep_value = audio_cap_item->dep_value & 0x3;
             /*
              * when cat /sys/class/amhdmitx/amhdmitx0/aud_cap,
              * eg: "AML_MAT, 8 ch, 44.1/48/88.2/96/176.4/192 kHz, DepValue 0x1"
