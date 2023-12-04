@@ -24,6 +24,18 @@ extern "C" {
 #include <aml_ringbuffer.h>
 #include "aml_malloc_debug.h"
 
+#ifndef AM_LOGE
+#define AM_LOGE(fmt, ...)  ALOGE("[%s:%d] " fmt, __func__,__LINE__, ##__VA_ARGS__)
+#endif
+
+#ifndef R_CHECK_POINTER_LEGAL
+#define R_CHECK_POINTER_LEGAL(ret, pointer, fmt, ...)                                           \
+    if (pointer == NULL) {                                                                      \
+        AM_LOGE("%s is null pointer " fmt, #pointer, ##__VA_ARGS__);                            \
+        return ret;                                                                             \
+    }
+#endif
+
 /*************************************************
 Function: get_write_space
 Description: get the space can be written
@@ -162,6 +174,8 @@ size_t ring_buffer_write(struct ring_buffer *rbuffer, unsigned char* data, size_
     struct ring_buffer *buf = rbuffer;
     size_t write_space, written_bytes;
 
+    R_CHECK_POINTER_LEGAL(0, rbuffer, "rbuffer")
+    R_CHECK_POINTER_LEGAL(0, data, "data")
     pthread_mutex_lock(&buf->lock);
 
     if (buf->start_addr == NULL || buf->rd == NULL || buf->wr == NULL || buf->size == 0) {
@@ -205,6 +219,8 @@ size_t ring_buffer_read(struct ring_buffer *rbuffer, unsigned char* buffer, size
     struct ring_buffer *buf = rbuffer;
     size_t readable_space, read_bytes;
 
+    R_CHECK_POINTER_LEGAL(0, rbuffer, "rbuffer")
+    R_CHECK_POINTER_LEGAL(0, buffer, "buffer")
     pthread_mutex_lock(&buf->lock);
 
     if (buf->start_addr == NULL || buf->rd == NULL || buf->wr == NULL
@@ -246,6 +262,7 @@ int ring_buffer_seek(struct ring_buffer *rbuffer, int bytes)
     struct ring_buffer *buf = rbuffer;
     int seek_bytes = 0;
 
+    R_CHECK_POINTER_LEGAL(0, rbuffer, "rbuffer")
     pthread_mutex_lock(&buf->lock);
 
     if (buf->start_addr == NULL || buf->rd == NULL || buf->wr == NULL
@@ -286,6 +303,7 @@ int ring_buffer_init(struct ring_buffer *rbuffer, int buffer_size)
 {
     struct ring_buffer *buf = rbuffer;
 
+    R_CHECK_POINTER_LEGAL(-1, rbuffer, "rbuffer")
     pthread_mutex_lock(&buf->lock);
 
     buf->size = buffer_size;
@@ -316,6 +334,7 @@ int ring_buffer_release(struct ring_buffer *rbuffer)
 {
     struct ring_buffer *buf = rbuffer;
 
+    R_CHECK_POINTER_LEGAL(-1, rbuffer, "rbuffer")
     pthread_mutex_lock(&buf->lock);
 
     if (buf->start_addr != NULL) {
@@ -343,6 +362,7 @@ Return: 0 for success, otherwise fail
 int ring_buffer_reset(struct ring_buffer *rbuffer)
 {
     struct ring_buffer *buf = rbuffer;
+    R_CHECK_POINTER_LEGAL(-1, rbuffer, "rbuffer")
 
     pthread_mutex_lock(&buf->lock);
     memset(buf->start_addr, 0, buf->size);
@@ -367,6 +387,7 @@ Return: 0 for success, otherwise fail
 int ring_buffer_clear(struct ring_buffer *rbuffer)
 {
     struct ring_buffer *buf = rbuffer;
+    R_CHECK_POINTER_LEGAL(-1, rbuffer, "rbuffer")
 
     pthread_mutex_lock(&buf->lock);
     memset(buf->start_addr, 0, buf->size);
@@ -385,6 +406,8 @@ Return: 0 for success, otherwise fail
 *************************************************/
 int ring_buffer_reset_size(struct ring_buffer *rbuffer, int buffer_size)
 {
+    R_CHECK_POINTER_LEGAL(-1, rbuffer, "rbuffer")
+
     if (buffer_size > rbuffer->size) {
         ALOGW("resized buffer size exceed largest buffer size, max %d, cur %d\n", \
               rbuffer->size, buffer_size);
@@ -418,6 +441,7 @@ Return: data space for success, otherwise < 0
 int get_buffer_read_space(struct ring_buffer *rbuffer)
 {
     size_t read_space = 0;
+    R_CHECK_POINTER_LEGAL(-1, rbuffer, "rbuffer")
 
     pthread_mutex_lock(&rbuffer->lock);
     if (rbuffer->start_addr == NULL || rbuffer->wr == NULL || rbuffer->rd == NULL
@@ -443,6 +467,7 @@ Return: data space for success, otherwise < 0
 int get_buffer_write_space(struct ring_buffer *rbuffer)
 {
     size_t write_space = 0;
+    R_CHECK_POINTER_LEGAL(-1, rbuffer, "rbuffer")
 
     pthread_mutex_lock(&rbuffer->lock);
     if (rbuffer->start_addr == NULL || rbuffer->wr == NULL || rbuffer->wr == NULL
@@ -467,6 +492,10 @@ Return: NULL
 *************************************************/
 void ring_buffer_dump(struct ring_buffer *rbuffer)
 {
+    if (rbuffer == NULL) {
+        AM_LOGE("rbuffer is NULL");
+        return;
+    }
     ALOGI("-buffer_size:%d", rbuffer->size);
     ALOGI("-buffer_avail:%d, buffer_space:%d", get_buffer_read_space(rbuffer), get_buffer_write_space(rbuffer));
 }
@@ -483,6 +512,7 @@ Return: 0 for success, otherwise fail
 int ring_buffer_alloc(struct ring_buffer *rbuffer, int buffer_size)
 {
     struct ring_buffer *buf = rbuffer;
+    R_CHECK_POINTER_LEGAL(-1, rbuffer, "rbuffer")
 
     pthread_mutex_lock(&buf->lock);
 
@@ -518,6 +548,7 @@ int ring_buffer_realloc(struct ring_buffer *rbuffer, int new_buffer_size)
     struct ring_buffer new_ringbuf;
     unsigned char *new_start_addr = NULL;
     size_t readable_space, read_bytes;
+    R_CHECK_POINTER_LEGAL(-1, rbuffer, "rbuffer")
 
     pthread_mutex_lock(&buf->lock);
     if ((buf->size == new_buffer_size) || (new_buffer_size <= 0)) {

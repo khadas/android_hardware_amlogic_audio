@@ -2093,8 +2093,10 @@ void mixer_dump(int s32Fd, const struct aml_audio_device *pstAmlDev)
                 pstInputPort->cfg.channelCnt, pstInputPort->cfg.format);
             dprintf(s32Fd, "[AML_HAL]      FrameCnt      : %zu     | data size         : %zu Byte\n",
                 pstInputPort->data_buf_frame_cnt, pstInputPort->data_len_bytes);
-            dprintf(s32Fd, "[AML_HAL]      rbuf size     : %10d Byte| Avail size        : %10d Byte\n",
-                pstInputPort->r_buf->size, get_buffer_read_space(pstInputPort->r_buf));
+            if (pstInputPort->r_buf) {
+                dprintf(s32Fd, "[AML_HAL]      rbuf size     : %10d Byte| Avail size        : %10d Byte\n",
+                    pstInputPort->r_buf->size, get_buffer_read_space(pstInputPort->r_buf));
+            }
             dprintf(s32Fd, "[AML_HAL]      is_hwsync     : %10d     | start_threshold   : %10d Byte\n",
                 pstInputPort->is_hwsync, pstInputPort->inport_start_threshold);
         }
