@@ -705,7 +705,6 @@ bool is_STB(struct aml_audio_device *adev)
 
 void confirm_platform_type(audio_hw_resource_mgr *mgr)
 {
-    /*[SEI-2018-10-29] add for HBG remote audio support } */
 #if defined(TV_AUDIO_OUTPUT)
     mgr->platform_types.is_TV = true;
     /* by default, BDS will share the same audio feature as TV */

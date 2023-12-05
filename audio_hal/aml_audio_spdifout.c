@@ -476,15 +476,18 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
             phandle->spdif_mute = true;
         }
 
-        /*open output alsa*/
-        ret = aml_alsa_output_open_new(&alsa_handle, &stream_config, &device_config);
         if (phandle->spdif_port == PORT_SPDIF) {
             /*we have different output for hdmi and spdif, we choose tdm b to hdmi*/
             ALOGI("optical =0x%x sink =0x%x", aml_dev->optical_format, aml_dev->sink_format);
             if (aml_dev->optical_format != aml_dev->sink_format && aml_dev->sink_format == AUDIO_FORMAT_PCM_16_BIT) {
                 if (bd_config->spdif_independent) {
                     aml_audio_select_src_to_hdmi(bd_config->hdmitx_src);
-                    phandle->restore_hdmitx_selection = 1;
+                    if (is_STB(aml_dev)) {
+                        phandle->restore_hdmitx_selection = true;
+                    } else {
+                        //BDS no need spdif data in HDMItx.
+                        phandle->restore_hdmitx_selection = false;
+                    }
                 }
                 if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
                     aml_dev->raw_to_pcm_flag = true;
@@ -493,6 +496,8 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
                 }
             }
         }
+        /*open output alsa*/
+        ret = aml_alsa_output_open_new(&alsa_handle, &stream_config, &device_config);
 
         if (ret != 0) {
             goto error;
@@ -500,11 +505,9 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
 
         aml_dev->alsa_handle[device_id] = alsa_handle;
         ALOGI("dev alsa handle device id=%d handle=%p", device_id, alsa_handle);
-
     }
 
     phandle->device_id = device_id;
-
     *pphandle = (void *)phandle;
 
     ALOGI("%s success ret=%d format =0x%x", __func__, ret, audio_format);
