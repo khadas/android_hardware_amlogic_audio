@@ -6871,6 +6871,8 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     size_t frame_size = audio_stream_out_frame_size(stream);
     size_t in_frames = bytes / frame_size;
     struct aml_audio_device *adev = aml_out->dev;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    bool is_dolby_truehd = (aml_out->hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD);
 
     R_CHECK_POINTER_LEGAL(-1, aml_out,);
     R_CHECK_POINTER_LEGAL(-1, adev,);
@@ -6965,6 +6967,9 @@ ssize_t out_write_new(struct audio_stream_out *stream,
      */
     if (!aml_out->is_sink_format_prepared) {
         get_sink_format(&aml_out->stream);
+        if (is_dolby_truehd && (eDolbyMS12Lib == adev->dolby_lib_type)) {
+            ms12->is_bypass_ms12 = is_ms12_passthrough(stream);
+        }
         if (!is_TV(adev)) {
             if (is_use_spdifb(aml_out)) {
                 aml_audio_select_src_to_hdmi(AML_SPDIF_B_TO_HDMITX);

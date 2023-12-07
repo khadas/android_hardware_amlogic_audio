@@ -108,6 +108,7 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
     unsigned long long all_zero_len = 0;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     audio_format_t output_format = get_output_format (stream);
+    bool is_dolby_truehd = (aml_out->hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD);
 
     if (adev->debug_flag) {
         ALOGD("%s:%d hal_format:%#x, output_format:0x%x, sink_format:0x%x do_easing %d",
@@ -144,7 +145,7 @@ int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *
 
     } else {
         /*not continuous mode, we use sink gain control the volume*/
-        if (is_dev_patch_exist(adev)) {
+        if (is_dev_patch_exist(adev) || is_dolby_truehd) {
             /* non-TV device, here the dtv set the dolby ms12's volume*/
             dtv_set_ms12_volume_on_non_TV_device(aml_out);
 
