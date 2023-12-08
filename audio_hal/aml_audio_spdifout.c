@@ -66,6 +66,7 @@ static int select_digital_device(struct spdifout_handle *phandle) {
      *
      */
 
+    ALOGI("%s  dual_spdif_support:%d", __func__, aml_dev->dual_spdif_support);
     if (!is_TV(aml_dev)) {
         struct audio_board_config *bd_config = &aml_dev->board_config;
         if (aml_dev->dual_spdif_support) {
@@ -96,6 +97,7 @@ static int select_digital_device(struct spdifout_handle *phandle) {
     } else {
         if (aml_dev->dual_spdif_support) {
             int device_index = alsa_device_update_pcm_index(PORT_EARC, PLAYBACK);
+            ALOGI("%s  device_index:%d, audio_format:0x%x, in_data_ch:%d optical_format:0x%x", __func__, device_index, phandle->audio_format, phandle->in_data_ch, aml_dev->optical_format);
             /*we have arc/earc port*/
             if (device_index != -1) {
                 /*TV spdif_a support arc/spdif, spdif_b only support spdif
@@ -152,9 +154,10 @@ static int select_digital_device(struct spdifout_handle *phandle) {
                     device_id = EARC_DEVICE;
                 }
             }
+            ALOGI("%s  device_id:%d, device_index:%d", __func__, device_id, device_index);
         }
     }
-
+    ALOGI("%s return device_id:%d", __func__, device_id);
     return device_id;
 }
 
@@ -427,7 +430,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
         device_config.device_port = alsa_device_get_port_index(device_id);
         phandle->spdif_port       = device_config.device_port;
         phandle->sample_rate      = spdif_config->rate;
-        //ALOGI("%s   device_id:%d  device_config.device_port:%d", __func__, device_id, device_config.device_port);
+        ALOGI("%s   device_id:%d  device_config.device_port:%d", __func__, device_id, device_config.device_port);
 
         aml_spdif_format = halformat_convert_to_spdif(audio_format, stream_config.config.channel_mask);
         aml_arc_format   = halformat_convert_to_arcformat(audio_format, stream_config.config.channel_mask);
@@ -514,13 +517,13 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
         }
 
         aml_dev->alsa_handle[device_id] = alsa_handle;
-        ALOGI("dev alsa handle device id=%d handle=%p", device_id, alsa_handle);
+        ALOGI("dev alsa handle device id=%d alsa_handle=%p", device_id, alsa_handle);
     }
 
     phandle->device_id = device_id;
     *pphandle = (void *)phandle;
 
-    ALOGI("%s success ret=%d format =0x%x", __func__, ret, audio_format);
+    ALOGI("%s success ret=%d spdifout_handle:%p format =0x%x", __func__, ret, phandle, audio_format);
     return ret;
 
 error:
@@ -538,8 +541,6 @@ error:
     }
     *pphandle = NULL;
     return -1;
-
-
 }
 
 int aml_audio_spdifout_process(void *phandle, void *buffer, size_t byte)

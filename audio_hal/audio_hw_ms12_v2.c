@@ -4077,6 +4077,7 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
     aml_ms12_main_decoder_close(ms12);
     set_ms12_main_audio_mute(ms12, false, 0);
     adev->ms12.main_input_fmt = AUDIO_FORMAT_INVALID;
+    ms12->ms12_main_stream_out = NULL;
 
     return 0;
 }

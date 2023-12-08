@@ -203,7 +203,7 @@ int audio_virtual_buf_process(void *phandle, uint64_t frame_ns)
         } else {
             sleep_ns = delay_ns - buf_ns;
         }
-        // ALOGD("%s buffered ns =%lld buf_size_ns=%lld gap=%lld read=%lld write=%lld sleep=%lld",
+        // ALOGD("%s buffered ns =%"PRIu64" buf_size_ns=%"PRIu64" gap=%"PRIu64" read=%"PRIu64" write=%"PRIu64" sleep=%"PRIu64"",
         //  virtual_handle->buf_name,delay_ns, buf_ns, process_gap, read_ns, write_ns, sleep_ns);
 
     } else {

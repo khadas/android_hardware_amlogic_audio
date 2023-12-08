@@ -1296,7 +1296,7 @@ int aml_alsa_output_data_handle(void *handle, void *output_buffer, size_t size, 
             status.state == PCM_STATE_XRUN) {
             /*for sony tv, we need mute first 1 frames to avoid "ca" noise*/
             alsa_handle->pcm2_mute_cnt = get_spdifout_mute_count();
-            ALOGI("spdif b mute the data cnt =%d",alsa_handle->pcm2_mute_cnt);
+            ALOGI("alsa_handle:%p, spdif mute the data cnt =%d", alsa_handle, alsa_handle->pcm2_mute_cnt);
         }
         if (alsa_handle->pcm2_mute_cnt) {
             alsa_handle->pcm2_mute_cnt--;
