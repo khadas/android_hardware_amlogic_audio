@@ -2143,10 +2143,16 @@ int nego_sample_rate(int input_rate, audio_format_t fmt, audio_devices_t devices
     int rate;
     const int *a;
     size_t n; // sample rate list
+
     if (devices == AUDIO_DEVICE_OUT_HDMI) {
         audio_profile_cap_t *audio_cap_item = get_edid_support_audio_format(fmt);
-        a = audio_cap_item->samplerate;
-        n = AUDIO_PROFILE_SAMPLERATE_NUM;
+        if (audio_cap_item) {
+            a = audio_cap_item->samplerate;
+            n = AUDIO_PROFILE_SAMPLERATE_NUM;
+        } else {
+            a = default_rates;
+            n = sizeof(default_rates) / sizeof(default_rates[0]);
+        }
     } else if (devices == AUDIO_DEVICE_OUT_SPDIF) {
         a = spdif_rates;
         n = sizeof(spdif_rates) / sizeof(spdif_rates[0]);
