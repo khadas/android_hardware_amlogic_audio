@@ -478,6 +478,7 @@ static int outMmapCreateBuffer(const struct audio_stream_out *stream,
     int write_size_frame = 0;
     int buffer_burst_num = 0;
     R_CHECK_POINTER_LEGAL(-ENOSYS, pstParam, "");
+    R_CHECK_POINTER_LEGAL(-ENOSYS, out->dev, "");
     R_CHECK_PARAM_LEGAL(-EINVAL, min_size_frames, -1, INT_MAX - 1, "");
 
     mmap_audio_get_burst_info(out->mmap_audio_manager, &write_size_frame, &buffer_burst_num);
@@ -488,6 +489,10 @@ static int outMmapCreateBuffer(const struct audio_stream_out *stream,
     info->burst_size_frames  = write_size_frame;
     info->flags |= AUDIO_MMAP_APPLICATION_SHAREABLE;
 
+    if (mmap_audio_register_client(out->dev->mmap_audio_manager, out) < 0) {
+        AM_LOGE("mmap_audio_register_client fail !");
+        return -1;
+    }
     AM_LOGI("mmap_fd:%d, mmap address:%p", info->shared_memory_fd, pstParam->pu8MmapAddr);
     return 0;
 }
@@ -510,7 +515,7 @@ static int outMmapGetPosition(const struct audio_stream_out *stream,
             Here should be changed to 0, the cts can pass.
           2)GetMmapPositionOfNonMmapedStream of vts, it should return -ENOSYS that this case can pass.
         */
-        if (status == MMAP_INIT && pstParam->is_first_fetch_position) {
+        if ((status == MMAP_INIT && pstParam->is_first_fetch_position) || status == MMAP_INVALID) {
             pstParam->is_first_fetch_position = false;
             AM_LOGI("  is first_fetch_position and return -ENOSYS");
             return -ENOSYS;
@@ -644,11 +649,8 @@ int outMmapInit(struct aml_stream_out *out)
         ret = ion_buffer_allocate_new(pstParam);
     }
     pstParam->is_first_fetch_position = true;
+    out->mmap_audio_client_id = -1;
 
-    if (mmap_audio_register_client(adev->mmap_audio_manager, out) < 0) {
-        AM_LOGE("mmap_audio_register_client fail !");
-        return -1;
-    }
     return ret;
 }
 

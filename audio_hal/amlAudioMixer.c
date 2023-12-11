@@ -1965,16 +1965,12 @@ void freeAmlAudioMixer(struct amlAudioMixer *audio_mixer)
 {
     MIXER_OUTPUT_PORT port_index = MIXER_OUTPUT_PORT_STEREO_PCM;
     R_CHECK_POINTER_LEGAL((void)0, audio_mixer, "");
-    pthread_mutex_destroy(&audio_mixer->lock);
-    pthread_mutex_destroy(&audio_mixer->inport_lock);
+
     if (audio_mixer->cur_output_port_type == MIXER_OUTPUT_PORT_STEREO_PCM ||
         audio_mixer->cur_output_port_type == MIXER_OUTPUT_PORT_MULTI_PCM) {
         delete_mixer_output_port(audio_mixer, audio_mixer->cur_output_port_type);
     }
-    for (int i = 0; i < MIXER_OUTPUT_PORT_NUM; i++) {
-        pthread_mutex_destroy(&audio_mixer->outport_locks[i]);
-        pthread_mutex_destroy(&audio_mixer->outport_delay_locks[i]);
-    }
+
     deinit_stereo_mixer_buffer(audio_mixer);
 
     port_index = MIXER_OUTPUT_PORT_MULTI_PCM;
@@ -1985,11 +1981,18 @@ void freeAmlAudioMixer(struct amlAudioMixer *audio_mixer)
     }
     pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
     deinit_multich_mixer_buffer(audio_mixer);
+
     if (audio_mixer->multi_aaudio_port_index >= 0) {
         delete_mixer_input_port(audio_mixer, audio_mixer->multi_aaudio_port_index);
         audio_mixer->multi_aaudio_port_index = -1;
     }
 
+    for (int i = 0; i < MIXER_OUTPUT_PORT_NUM; i++) {
+        pthread_mutex_destroy(&audio_mixer->outport_locks[i]);
+        pthread_mutex_destroy(&audio_mixer->outport_delay_locks[i]);
+    }
+    pthread_mutex_destroy(&audio_mixer->lock);
+    pthread_mutex_destroy(&audio_mixer->inport_lock);
     aml_audio_free(audio_mixer);
 }
 
