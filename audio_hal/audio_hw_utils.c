@@ -38,6 +38,7 @@
 #include <hardware/audio.h>
 #include <sound/asound.h>
 #include <tinyalsa/asoundlib.h>
+#include <dlfcn.h>
 
 #define ATRACE_TAG ATRACE_TAG_AUDIO
 #include <cutils/trace.h>
@@ -3297,3 +3298,114 @@ const char *show_format(audio_format_t fmt)
         return "unknown audio_format";
     }
 }
+
+
+/********************************************
+ * System debug level control APIs
+*********************************************/
+unsigned int gSys_log_level = 1;
+
+typedef int (*DResman_init)(const char *appname, int type);
+typedef int (*DResman_close)(int handle);
+typedef int (*DResman_add_handler_and_resreports)(int fd, void (* handler)(void *), void (* resreport)(void *), void *opaque);
+typedef int (*DResman_add_debug_callback)(int fd, void (*debug)(void *, const char *,int), void *opaque);
+typedef const char *(*DResman_get_debug_info)(int fd);
+
+typedef struct sys_resource_manager_handler {
+    void *resMgrLibHandle;
+    DResman_init   Resman_init;
+    DResman_close  Resman_close;
+    DResman_add_handler_and_resreports Resman_add_handler_and_resreports;
+    DResman_add_debug_callback  Resman_add_debug_callback;
+    DResman_get_debug_info Resman_get_debug_info;
+} ResManagerHandler;
+
+enum RESMAN_APP {
+    RESMAN_APP_SYSTEM_RESERVED = 100,
+    RESMAN_APP_DIAGNOSTICS = 101,
+};
+
+static void on_dump_audio_hal_callback(void *instance __unused)
+{
+    //struct aml_audio_device *adev = (struct aml_audio_device *)instance;
+    ALOGI("%s() ResMan callback", __func__);
+}
+
+static void set_sys_log_level(struct aml_audio_device *adev __unused, int level)
+{
+    gSys_log_level = level;
+}
+
+static void on_sys_log_level(void *instance, const char *debug, int len)
+{
+    int level = 5;
+    struct aml_audio_device *adev = (struct aml_audio_device *)instance;
+    ALOGI("%s() debug is %s len is %d",__func__, debug, len);
+    set_sys_log_level(adev, level);
+}
+
+int adev_open_sys_resource_mgr(struct aml_audio_device *adev)
+{
+    ResManagerHandler *sysMgr;
+    sysMgr = aml_audio_calloc(1, sizeof(ResManagerHandler));
+    if (sysMgr == NULL) {
+        ALOGE("malloc ResManagerHandler failed\n");
+        return -ENOMEM;
+    }
+
+    sysMgr->resMgrLibHandle = dlopen("libmediahal_resman.so", RTLD_NOW);
+    if (sysMgr->resMgrLibHandle == NULL) {
+        aml_audio_free(sysMgr);
+        ALOGE("dlopen libmediahal_resman.so failed\n");
+        return -ENOSYS;
+    }
+
+    adev->sys_res_mgr = sysMgr;
+
+    sysMgr->Resman_init = (DResman_init) dlsym(sysMgr->resMgrLibHandle, "resman_init");;
+    sysMgr->Resman_close = (DResman_close) dlsym(sysMgr->resMgrLibHandle, "resman_close");
+    sysMgr->Resman_add_handler_and_resreports =
+            (DResman_add_handler_and_resreports)dlsym(sysMgr->resMgrLibHandle, "resman_add_handler_and_resreports");
+    sysMgr->Resman_add_debug_callback =
+            (DResman_add_debug_callback) dlsym(sysMgr->resMgrLibHandle, "resman_add_debug_callback");
+    sysMgr->Resman_get_debug_info = (DResman_get_debug_info) dlsym(sysMgr->resMgrLibHandle, "resman_get_debug_info");
+    if (!sysMgr->Resman_init || !sysMgr->Resman_close || !sysMgr->Resman_add_handler_and_resreports) {
+        ALOGE("dlsym error:%s", dlerror());
+        dlclose(sysMgr->resMgrLibHandle);
+        sysMgr->resMgrLibHandle = NULL;
+        aml_audio_free(sysMgr);
+        sysMgr = NULL;
+        return -ENOSYS;
+    }
+
+    //call Resman to register audio callback handler
+    if (sysMgr && sysMgr->resMgrLibHandle) {
+        int fd = sysMgr->Resman_init("DumpState", RESMAN_APP_DIAGNOSTICS);
+        int ret = sysMgr->Resman_add_handler_and_resreports(fd,
+                                                            on_dump_audio_hal_callback,
+                                                            on_dump_audio_hal_callback,
+                                                            (void *)adev);
+        if (ret == 0) {
+            if (sysMgr->Resman_add_debug_callback) {
+                sysMgr->Resman_add_debug_callback(fd, on_sys_log_level, (void *)adev);
+            }
+            ALOGI("%s() OK!", __func__);
+        }
+    }
+
+    return 0;
+}
+
+int adev_close_sys_resource_mgr(struct aml_audio_device *adev)
+{
+    if (adev->sys_res_mgr) {
+        if (adev->sys_res_mgr->resMgrLibHandle) {
+            dlclose(adev->sys_res_mgr->resMgrLibHandle);
+            adev->sys_res_mgr->resMgrLibHandle = NULL;
+        }
+        free(adev->sys_res_mgr);
+        adev->sys_res_mgr = NULL;
+    }
+    return 0;
+}
+

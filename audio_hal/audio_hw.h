@@ -271,6 +271,7 @@ struct aml_bt_output {
 };
 
 struct audio_hw_resource_mgr;
+struct sys_resource_manager_handler;
 
 #define HDMI_ARC_MAX_FORMAT  20
 struct aml_audio_device {
@@ -519,6 +520,7 @@ struct aml_audio_device {
     struct patch_manager *patch_manager;
     struct audio_hw_resource_mgr *hw_resource_mgr;
     struct hdmi_capability_manager *hdmi_cap_mgr;
+    struct sys_resource_manager_handler *sys_res_mgr;
 
     char *address; // for usb
     struct usb_out *usb;

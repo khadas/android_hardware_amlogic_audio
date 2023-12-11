@@ -29,6 +29,9 @@
 
 #include "aml_android_utils.h"
 #include "aml_dump_debug.h"
+
+extern unsigned int gSys_log_level;
+
 /* Maximum string length in audio hal. */
 #define AUDIO_HAL_CHAR_MAX_LEN     (256)
 
@@ -322,4 +325,7 @@ const char *show_alsa_device(alsa_device_t d);
 const char *show_alsa_port(int p);
 
 const char *show_format(audio_format_t fmt);
+
+int adev_open_sys_resource_mgr(struct aml_audio_device *adev);
+int adev_close_sys_resource_mgr(struct aml_audio_device *adev);
 #endif
