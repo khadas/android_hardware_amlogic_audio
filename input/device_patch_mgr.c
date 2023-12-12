@@ -278,6 +278,7 @@ exit:
 int release_patch_internal(struct patch_manager *patch_mgr, int type)
 {
     int ret = 0;
+    struct aml_audio_patch *patch = get_dev_patch(patch_mgr->adev);
 
     ALOGI("%s() type:%s patch_src:%s ",__func__,
         patch_type_to_str(type), patchSrc2Str(patch_mgr->patch_src));
@@ -291,6 +292,7 @@ int release_patch_internal(struct patch_manager *patch_mgr, int type)
             !is_same_patch_source_mgr(patch_mgr, SRC_INVAL) &&
             is_patch_running_mgr(patch_mgr))
         {
+            do_input_device_routing(patch_mgr->adev, patch->input_src, false);
             /*coverity[sleep]*/
             ret = release_tv_patch(patch_mgr->adev);
         }
@@ -299,6 +301,7 @@ int release_patch_internal(struct patch_manager *patch_mgr, int type)
         if (is_dtv_patch_exist_mgr(patch_mgr))
         {
 #ifdef ENABLE_DVB_PATCH
+            do_input_device_routing(patch_mgr->adev, patch->input_src, false);
             release_dtv_patch(patch_mgr->adev);
 #endif
         }

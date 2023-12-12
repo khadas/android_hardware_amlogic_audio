@@ -430,7 +430,7 @@ int do_input_device_routing(struct aml_audio_device *adev, audio_devices_t in_de
 
     pthread_mutex_lock(&mgr->lock);
 
-    bool is_routed = in_device & mgr->in_routed_devices;
+    bool is_routed = ~AUDIO_DEVICE_BIT_IN & in_device & mgr->in_routed_devices;
     if (enable && is_routed) {
         AM_LOGD("Warning! [%s] already routed device:0x%x, do nothing!",(enable? "ADD" : "RM"), in_device);
         goto routing_done;
