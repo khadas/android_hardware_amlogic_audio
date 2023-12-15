@@ -151,7 +151,8 @@ include $(BUILD_PREBUILT)
         libamlresampler \
         libamlparser \
         libamlspeed \
-        libalsautils
+        libalsautils \
+        libdmabufheap
 
     LOCAL_SHARED_LIBRARIES += \
         android.hardware.bluetooth.audio@2.0 \

@@ -19,6 +19,10 @@
 
 #include <ion/ion.h>
 
+#if ANDROID_PLATFORM_SDK_VERSION >= 31
+#include <BufferAllocator/BufferAllocatorWrapper.h>
+#endif
+
 typedef struct AML_MMAP_THREAD_PARAM {
     pthread_t               threadId;
     bool                    bExitThread;
@@ -32,9 +36,16 @@ typedef struct AML_MMAP_THREAD_PARAM {
 typedef struct AML_MMAP_AUDIO_PARAM {
     unsigned char               *pu8MmapAddr;
     unsigned char               *pu8CurReadAddr;
+
+    // ION Buffer information
     ion_user_handle_t           hIonHandle;
     int                         s32IonFd;
     int                         s32IonShareFd;
+
+    // DMA Buffer information
+    BufferAllocator*            pstBufferAllocator;
+    int                         s32DmaFd;
+
     unsigned int                u32FramePosition;
     unsigned int                u32FrameSize;
     unsigned int                u32BufferSize;
