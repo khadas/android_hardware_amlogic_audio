@@ -7593,10 +7593,10 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
                     patch_set = NULL;
                 }
             } else if ((inport == INPORT_TUNER) && (patch_source == SRC_DTV)){///zzz
+                aml_dev->dev2mix_patch = true;
 #ifdef ENABLE_DVB_PATCH
                 if (/*is_TV(aml_dev)*/1) {
                     ALOGI("%s, !!! now create the dtv patch now\n ", __func__);
-                    aml_dev->dev2mix_patch = true;
                     ret = patch_mgr_create_patch(aml_dev,
                                 patch_source,
                                 src_config->ext.device.type,
