@@ -484,8 +484,22 @@ void* AM_DMX_Device::dmx_data_thread(void *arg)
                                           sec_len = header_es->len - read_len;
                                       }
                                       if (read_len < header_es->len) {
-                                        ALOGV("ret %d dvb_read audio len  %d frame len %d",ret, read_len ,header_es->len);
-                                        usleep (5000);
+                                          ALOGV("ret %d dvb_read audio len  %d frame len %d, to_be_stopped=%d,id=%d,filter=%p",
+                                          ret, read_len ,header_es->len, filter->to_be_stopped, id, filter);
+                                          /*iptv case, maybe writedata stop earliy, lead dvb read data not enough, and dvb read all time
+                                          * when call stop ,because lock, can not stopfilter success, lead audio system block, would happen
+                                          * 5 seconds timeout crash */
+                                          if (ret == AM_DMX_ERR_NO_DATA) {
+#ifndef DMX_WAIT_CB
+                                              pthread_mutex_unlock(&dev->lock);
+#endif
+                                              usleep (10000);
+#ifndef DMX_WAIT_CB
+                                              pthread_mutex_lock(&dev->lock);
+#endif
+                                          } else {
+                                              usleep (5000);
+                                          }
                                       }
                                 } while (dev->enable_thread && !filter->to_be_stopped && read_len < header_es->len);
                                 sec_len = sizeof(struct dmx_non_sec_es_header) + header_es->len;
