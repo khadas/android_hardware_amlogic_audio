@@ -2063,7 +2063,9 @@ static int Virtualx_init(vxContext *pContext)
     }
 
     /* Default Surround mode on */
-    set_surround_mode(pContext, 1);
+    if (pContext->gVXLibHandler) {
+        set_surround_mode(pContext, 1);
+    }
     pContext->left_bytes = 0;
     pContext->left_process_bytes = 0;
     ALOGD("%s: successful", __FUNCTION__);
