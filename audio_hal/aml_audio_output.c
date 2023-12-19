@@ -387,7 +387,9 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             }
         } else {
             if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_exist(adev)) {
-                aml_audio_switch_output_mode((int16_t *)buffer, bytes, get_dev_patch(adev)->mode);
+                if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format))  {
+                    aml_audio_switch_output_mode((int16_t *)buffer, bytes, get_dev_patch(adev)->mode);
+                }
             } else if (!is_dev_patch_exist(adev)) {
                 aml_audio_switch_output_mode((int16_t *)buffer, bytes, adev->sound_track_mode);
             }
