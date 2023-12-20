@@ -946,7 +946,9 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
                             strcat(aud_cap, temp);
                         }
                     }
-                    strcat(aud_cap, "|352800"); // for DSD
+                    if (adev->out_device & AUDIO_DEVICE_OUT_USB_DEVICE) {
+                        strcat(aud_cap, "|352800"); // for DSD
+                    }
                     ALOGI("%s format =0x%x support rate =%s", __func__, format , aud_cap);
                 } else {
                     size += sprintf(aud_cap, "sup_sampling_rates=%s", "32000|44100|48000");
