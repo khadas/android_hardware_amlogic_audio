@@ -245,6 +245,8 @@ struct aml_audio_patch
     int adec_handle;
     void *ac3_parser_handle;
     void *ad_ac3_parser_handle;
+    void *ad_remain_buf;
+    int  ad_remain_size;
     void *heaac_parser_handle;
     void *ad_heaac_parser_handle;
     struct heaac_parser_info main_heaac_info;
