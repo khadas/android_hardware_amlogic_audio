@@ -63,8 +63,15 @@ static int initSubMixingOutput(
     R_CHECK_POINTER_LEGAL(-EINVAL, sm, "");
     if (sm->type == MIXER_LPCM) {
         struct audioCfg cfg;
+        int mixer_type = SUB_MIXER_NORMAL;
+#ifdef ENABLE_AUTOMOTIVE_AUDIO_FUNCTION
+        mixer_type = SUB_MIXER_CH_MUX;
+        output_get_default_bus_config(&cfg);
+#else
+        mixer_type = SUB_MIXER_NORMAL;
         output_get_default_config(&cfg, is_TV(adev));
-        struct amlAudioMixer *amixer = newAmlAudioMixer(adev, cfg);
+#endif
+        struct amlAudioMixer *amixer = newAmlAudioMixer(adev, cfg, mixer_type);
         R_CHECK_POINTER_LEGAL(-ENOMEM, amixer, "newAmlAudioMixer failed");
         sm->mixerData = amixer;
         /* TV product has EQ DRC and sink gain */

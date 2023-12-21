@@ -20,10 +20,13 @@
 
 #include <system/audio.h>
 
+#define MAX_MAIN_CHANNEL_COUNT 8
+
 struct audioCfg {
     int card;
     int device;
     int is_tv;
+    int is_automotive;
     uint32_t sampleRate;
     uint32_t channelCnt;
     audio_channel_mask_t channelMask;
@@ -36,7 +39,7 @@ typedef struct _aml_pcm_mixing_st {
     struct audioCfg cfg;
     void *mixed_buf;
     size_t mixed_buf_size;
-	int mixed_buf_is_static;
+    int mixed_buf_is_static;
     int mixed_frame_size;
     int mixed_frames;
 
@@ -45,6 +48,8 @@ typedef struct _aml_pcm_mixing_st {
     size_t channel_buf_size;
     void *format_buf;
     size_t format_buf_size;
+    // for channel mux mixer
+    uint32_t main_channel_table[MAX_MAIN_CHANNEL_COUNT];
 } aml_pcm_mixing_st;
 
 
@@ -64,6 +69,16 @@ typedef struct _aml_pcm_downmix_st {
 
 int processing_and_convert(void *data_mixed,
         void *data_sys, size_t frames, struct audioCfg inCfg, struct audioCfg mixerCfg);
+int do_mixing_by_ch_mux(void *data_mixed,
+                        uint32_t *out_ch_tab,
+                        uint32_t out_mux_channels,
+                        audio_format_t out_format,
+                        void *data_in,
+                        uint32_t *in_ch_tab,
+                        uint32_t in_mux_channels,
+                        uint32_t in_channels,
+                        audio_format_t in_format,
+                        size_t frames);
 int do_mixing_2ch(void *data_mixed,
         void *data_in, size_t frames,
         audio_format_t in_format, audio_format_t out_format);

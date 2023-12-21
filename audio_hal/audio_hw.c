@@ -149,6 +149,10 @@
 #include "dtv_private_object.h"
 #include "hdmirx_utils.h"
 
+#ifdef ENABLE_AUTOMOTIVE_AUDIO_FUNCTION
+#include "../automotive/bus_stream_out.h"
+#endif
+
 #define CARD_AMLOGIC_BOARD 0
 
 
@@ -3645,6 +3649,9 @@ static int aml_audio_outport_enable(struct aml_audio_device *adev, audio_devices
     case AUDIO_DEVICE_OUT_SPEAKER:
         do_output_device_routing(adev, AUDIO_DEVICE_OUT_SPEAKER, enable);
         break;
+    case AUDIO_DEVICE_OUT_BUS:
+        do_output_device_routing(adev, AUDIO_DEVICE_OUT_BUS, enable);
+        break;
     case AUDIO_DEVICE_OUT_HDMI:
         set_output_device_avail(adev, AUDIO_DEVICE_OUT_HDMI, enable);
         do_output_device_routing(adev, AUDIO_DEVICE_OUT_HDMI, enable);
@@ -7071,6 +7078,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     return ret;
 }
 
+
 int adev_open_output_stream_new(struct audio_hw_device *dev,
                                 audio_io_handle_t handle,
                                 audio_devices_t devices,
@@ -7107,6 +7115,23 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
         }
         return ret;
     }
+
+#ifdef ENABLE_AUTOMOTIVE_AUDIO_FUNCTION
+    if (((devices & AUDIO_DEVICE_OUT_BUS) != 0) && !(flags & AUDIO_OUTPUT_FLAG_DIRECT)) {
+        AM_LOGD("new bus_output_stream");
+        ret = adev_open_bus_output_stream(dev,
+                                    handle,
+                                    devices,
+                                    flags,
+                                    config,
+                                    stream_out,
+                                    address);
+        if (ret < 0) {
+            AM_LOGE("fail, return!");
+        }
+        return ret;
+    }
+#endif
 
     ret = adev_open_output_stream(dev,
                                     handle,

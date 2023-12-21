@@ -2059,6 +2059,9 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
     case AUDIO_DEVICE_OUT_SPEAKER:
         *hal_dev_port = OUTPORT_SPEAKER;
         break;
+    case AUDIO_DEVICE_OUT_BUS:
+        *hal_dev_port = OUTPORT_BUS;
+        break;
     case AUDIO_DEVICE_OUT_WIRED_HEADPHONE:
         *hal_dev_port = OUTPORT_HEADPHONE;
         break;
@@ -2332,6 +2335,7 @@ const char* outputPort2Str(enum OUT_PORT type)
 {
     ENUM_TYPE_TO_STR_START("OUTPORT_");
     ENUM_TYPE_TO_STR(OUTPORT_SPEAKER)
+    ENUM_TYPE_TO_STR(OUTPORT_BUS)
     ENUM_TYPE_TO_STR(OUTPORT_HDMI_ARC)
     ENUM_TYPE_TO_STR(OUTPORT_HDMI)
     ENUM_TYPE_TO_STR(OUTPORT_SPDIF)
@@ -2358,6 +2362,7 @@ const char* inputPort2Str(enum IN_PORT type)
     ENUM_TYPE_TO_STR(INPORT_REMOTE_SUBMIXIN)
     ENUM_TYPE_TO_STR(INPORT_WIRED_HEADSETIN)
     ENUM_TYPE_TO_STR(INPORT_BUILTIN_MIC)
+    ENUM_TYPE_TO_STR(INPORT_BUS)
     ENUM_TYPE_TO_STR(INPORT_BT_SCO_HEADSET_MIC)
     ENUM_TYPE_TO_STR(INPORT_ECHO_REFERENCE)
     ENUM_TYPE_TO_STR(INPORT_ARCIN)

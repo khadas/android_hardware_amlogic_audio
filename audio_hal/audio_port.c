@@ -50,6 +50,10 @@
 #define DIRECT_BUFF_CNT             (8)
 #define MMAP_BUFF_CNT               (8) /* Sometimes the time interval between BT stack writes is 40ms. */
 
+//function declaration
+static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes);
+
+
 static ssize_t input_port_write(input_port *port, const void *buffer, int bytes)
 {
     unsigned char *data = (unsigned char *)buffer;
@@ -279,7 +283,7 @@ int remove_all_outport_messages(output_port *port)
     return 0;
 }
 
-static int setPortConfig(struct audioCfg *cfg, struct audio_config *config)
+int setPortConfig(struct audioCfg *cfg, struct audio_config *config)
 {
     R_CHECK_POINTER_LEGAL(-EINVAL, cfg, "");
     R_CHECK_POINTER_LEGAL(-EINVAL, config, "");
@@ -408,11 +412,18 @@ uint32_t multi_aaudio_inport_get_latency_frames(input_port *port) {
     return port->data_buf_frame_cnt;
 }
 
+static void mix_cfg_to_config(struct audio_config *config, const struct audioCfg* cfg)
+{
+    config->sample_rate = cfg->sampleRate;
+    config->channel_mask = cfg->channelMask;
+    config->format = cfg->format;
+}
+
 input_port *new_input_port(
         //aml_mixer_input_port_type_e port_index,
         //audio_format_t format//,
         size_t buf_frames,
-        struct audio_config *config,
+        struct audioCfg *audCfg,
         audio_output_flags_t flags,
         float volume,
         bool direct_on,
@@ -435,7 +446,7 @@ input_port *new_input_port(
     }
     R_CHECK_POINTER_LEGAL(NULL, port, "no memory, size:%zu", sizeof(input_port));
 
-    setPortConfig(&port->cfg, config);
+    memcpy(&port->cfg, audCfg, sizeof(struct audioCfg));
     thunk_size = buf_frames * port->cfg.frame_size;
     AM_LOGD("buf_frames:%zu,frame_size:%d ==> thunk_size:%d", buf_frames, port->cfg.frame_size, thunk_size);
     data = aml_audio_calloc(1, thunk_size);
@@ -455,7 +466,9 @@ input_port *new_input_port(
         goto err_rbuf;
     }
 
-    enPortType = get_input_port_type(config, flags);
+    struct audio_config aConfig;
+    mix_cfg_to_config(&aConfig, audCfg);
+    enPortType = get_input_port_type(&aConfig, flags);
     // system buffer larger than direct to cache more for mixing?
     if (enPortType == AML_MIXER_INPUT_PORT_PCM_SYSTEM) {
         if (adev->is_netflix) {
@@ -639,6 +652,40 @@ size_t get_inport_consumed_size(input_port *port)
     return port->consumed_bytes;
 }
 
+static void process_outport_msg(output_port *out_port)
+{
+    port_message *msg = get_outport_message(out_port);
+    if (msg) {
+        AM_LOGI("msg: %s", port_msg_to_str(msg->msg_what));
+        switch (msg->msg_what) {
+        case MSG_SINK_GAIN: {
+            memcpy(&out_port->sink_gain, msg->info, msg->info_length);
+            ALOGD("%s(), sink_gain = %p", __func__, out_port->sink_gain);
+            break;
+        }
+        case MSG_EQ_DATA: {
+            memcpy(&out_port->eq_data, msg->info, msg->info_length);
+            ALOGD("%s(), eq data = %p", __func__, out_port->eq_data);
+            break;
+        }
+        case MSG_SRC_GAIN: {
+            memcpy(&out_port->src_gain, msg->info, msg->info_length);
+            ALOGD("%s(), src gain = %f", __func__, out_port->src_gain);
+            break;
+        }
+        case MSG_EFFECT: {
+            memcpy(&out_port->postprocess, msg->info, msg->info_length);
+            ALOGD("%s() MSG_EFFECT postprocess->%p", __func__, out_port->postprocess);
+            break;
+        }
+        default:
+            AM_LOGE("msg:%d not support", msg->msg_what);
+        }
+
+        remove_outport_message(out_port, msg);
+    }
+}
+
 static int output_port_start(output_port *port)
 {
     if (port->pcm_handle) {
@@ -747,51 +794,23 @@ int outport_set_dummy(output_port *port, bool en)
 
 static ssize_t output_port_write(output_port *port, void *buffer, int bytes)
 {
-    int bytes_to_write = bytes;
-    (void *)port;
-    do {
-        int written = 0;
-        AM_LOGV("");
-        aml_audio_dump_audio_bitstreams("/data/audio/audioOutPort.raw", buffer, bytes);
-        //usleep(bytes*1000/4/48);
-        written = bytes;
-        bytes_to_write -= written;
-    } while (bytes_to_write > 0);
-    return bytes;
-}
-
-static void process_outport_msg(output_port *out_port)
-{
-    port_message *msg = get_outport_message(out_port);
-    if (msg) {
-        AM_LOGI("msg: %s", port_msg_to_str(msg->msg_what));
-        switch (msg->msg_what) {
-        case MSG_SINK_GAIN: {
-            memcpy(&out_port->sink_gain, msg->info, msg->info_length);
-            ALOGD("%s(), sink_gain = %p", __func__, out_port->sink_gain);
-            break;
-        }
-        case MSG_EQ_DATA: {
-            memcpy(&out_port->eq_data, msg->info, msg->info_length);
-            ALOGD("%s(), eq data = %p", __func__, out_port->eq_data);
-            break;
-        }
-        case MSG_SRC_GAIN: {
-            memcpy(&out_port->src_gain, msg->info, msg->info_length);
-            ALOGD("%s(), src gain = %f", __func__, out_port->src_gain);
-            break;
-        }
-        case MSG_EFFECT: {
-            memcpy(&out_port->postprocess, msg->info, msg->info_length);
-            ALOGD("%s() MSG_EFFECT postprocess->%p", __func__, out_port->postprocess);
-            break;
-        }
-        default:
-            AM_LOGE("msg:%d not support", msg->msg_what);
-        }
-
-        remove_outport_message(out_port, msg);
+    if (!buffer || (bytes == 0)) {
+        ALOGW("%s() warning, Invalid buffer:%p bytes:%d",__func__, buffer, bytes);
+        return bytes;
     }
+    void *sink_buffer = buffer;
+    int sink_bytes = bytes;
+
+    process_outport_msg(port);
+
+    if (port->process) {
+        port->process(port, buffer, bytes);
+        sink_buffer = port->processed_buf;
+        sink_bytes = port->processed_bytes;
+    }
+
+    output_port_write_alsa(port, sink_buffer, sink_bytes);
+    return bytes;
 }
 
 #define STEREO_16BIT_TO_8CH_32BIT   8
@@ -808,7 +827,6 @@ static ssize_t output_port_post_process(output_port *port, void *buffer, int byt
     int i = 0;
     struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
 
-    process_outport_msg(port);
     if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
         aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/port_befor_postprocess.raw", buf16, bytes);
     }
@@ -873,7 +891,6 @@ static ssize_t output_port_stereo_post_process(output_port *port, void *buffer, 
     int frames = bytes / FRAMESIZE_16BIT_STEREO;
     port->processed_buf = buffer;
 
-    process_outport_msg(port);
     if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
         aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/port_befor_postprocess.raw", buf16, bytes);
     }
@@ -1059,6 +1076,7 @@ int output_get_default_config(struct audioCfg *cfg, bool is_tv)
     cfg->card = card;
     cfg->device = device;
     cfg->is_tv = is_tv;
+    cfg->is_automotive = false;
     cfg->channelCnt = 2;
     cfg->format = AUDIO_FORMAT_PCM_16_BIT;
     cfg->sampleRate = 48000;
@@ -1066,6 +1084,25 @@ int output_get_default_config(struct audioCfg *cfg, bool is_tv)
     cfg->frame_size = cfg->channelCnt * audio_bytes_per_sample(cfg->format);
     return 0;
 }
+
+int output_get_default_bus_config(struct audioCfg *cfg)
+{
+    int card = alsa_device_get_card_index();
+    int device = alsa_device_update_pcm_index(PORT_I2S, PLAYBACK);
+
+    R_CHECK_POINTER_LEGAL(-1, cfg, "");
+    cfg->card = card;
+    cfg->device = device;
+    cfg->is_tv = false;
+    cfg->is_automotive = true;
+    cfg->channelCnt = 8;
+    cfg->format = AUDIO_FORMAT_PCM_16_BIT;
+    cfg->sampleRate = 48000;
+    cfg->channelMask = AUDIO_CHANNEL_OUT_7POINT1;
+    cfg->frame_size = cfg->channelCnt * audio_bytes_per_sample(cfg->format);
+    return 0;
+}
+
 
 int output_get_alsa_config(output_port *out_port, struct pcm_config *alsa_config)
 {
@@ -1117,7 +1154,7 @@ output_port *new_output_port(
     port->data_buf = data;
     port->start = output_port_start;
     port->standby = output_port_standby;
-    port->write = output_port_write_alsa;
+    port->write = output_port_write;
     port->port_status = STOPPED;
     list_init(&port->msg_list);
 
@@ -1145,6 +1182,9 @@ output_port *new_output_port(
         port->vol_buf = vol_buf;
 
         ALOGI("%s(), rbuf bytes %d", __func__, rbuf_size * STEREO_16BIT_TO_2CH_32BIT);
+    } else if (config->is_automotive) {
+        port->process = NULL;
+        port->postprocess = NULL;
     } else {
         AM_LOGI("init Box postprocess handler");
         port->process = output_port_stereo_post_process;

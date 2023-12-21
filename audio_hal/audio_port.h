@@ -28,6 +28,7 @@
 
 /* Max number of pcm mixing ports */
 #define NR_INPORTS    (8)
+#define MAX_IN_PORT_CHANNEL_COUNT (8)
 
 typedef enum {
     IDLE,
@@ -129,6 +130,9 @@ typedef struct INPUT_PORT {
     bool pts_valid;
     bool        first_read;
     int         inport_start_threshold;
+    /* channel mux mixer need these configs*/
+    uint32_t mux_channel_table[MAX_IN_PORT_CHANNEL_COUNT];
+    uint32_t mux_channels;
 } input_port;
 
 typedef enum {
@@ -193,9 +197,12 @@ bool is_direct_flags(audio_output_flags_t flags);
 aml_mixer_input_port_type_e get_input_port_type(struct audio_config *config,
         audio_output_flags_t flags);
 
+int setPortConfig(struct audioCfg *cfg, struct audio_config *config);
+int set_input_port_main_channel_mask(input_port *in_port, uint32_t channel_mask);
+
 input_port *new_input_port(
         size_t buf_size,
-        struct audio_config *config,
+        struct audioCfg *audCfg,
         audio_output_flags_t flags,
         float volume,
         bool direct_on,
@@ -228,6 +235,7 @@ void set_inport_volume(input_port *port, float vol);
 float get_inport_volume(input_port *port);
 size_t get_inport_consumed_size(input_port *port);
 int inport_buffer_level(input_port *port);
+int output_get_default_bus_config(struct audioCfg *cfg);
 int output_get_default_config(struct audioCfg *cfg, bool is_tv);
 int output_get_alsa_config(output_port *out_port, struct pcm_config *alsa_config);
 

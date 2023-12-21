@@ -49,9 +49,10 @@ enum OUT_PORT {
     OUTPORT_USB_HEADSET         = 10,
     OUTPORT_FM                  = 11,
     OUTPORT_ANLG_DOCK_HEADSET   = 12,
+    OUTPORT_BUS                 = 13,
     /*if the audio_hal_primary unsupport the output devices, we need to route to OUTPUT_NULL*/
-    OUTPORT_NULL                = 13,
-    OUTPORT_MAX                 = 14,
+    OUTPORT_NULL                = 14,
+    OUTPORT_MAX                 = 15,
 };
 
 enum IN_PORT {
@@ -67,9 +68,10 @@ enum IN_PORT {
     INPORT_ARCIN                = 9,
     INPORT_USB                  = 10,
     INPORT_LOOPBACK             = 11,
+    INPORT_BUS                  = 12,
     /*if the audio_hal_primary unsupport the input devices, we need to route to INPORT_NULL*/
-    INPORT_NULL                 = 12,
-    INPORT_MAX                  = 13
+    INPORT_NULL                 = 13,
+    INPORT_MAX                  = 14
 };
 
 /* sync with tinymix before TXL */

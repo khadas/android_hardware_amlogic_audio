@@ -195,6 +195,22 @@ ifneq ($(BOARD_DISABLE_DVB_AUDIO), true)
                 libdvbaudioutils
 endif
 
+### Automotive audio hal impl ###
+ifeq ($(PRODUCT_TYPE), car)
+        LOCAL_CFLAGS += -DENABLE_AUTOMOTIVE_AUDIO_FUNCTION
+        $(info "--------- automotive audio function is enabled --------")
+
+        LOCAL_SRC_FILES += ../automotive/bus_stream_out.c \
+                           ../automotive/bus_mix_playback_handler.c \
+                           ../automotive/playback_handler_base.c \
+                           ../automotive/bus_submix_core.c \
+
+        LOCAL_C_INCLUDES += \
+                hardware/amlogic/audio/automotive \
+
+endif
+### end ###
+
 LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 ifdef PLATFORM_SDK_EXTENSION_VERSION
     LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_EXTENSION_VERSION=$(PLATFORM_SDK_EXTENSION_VERSION)

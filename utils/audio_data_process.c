@@ -83,6 +83,102 @@ static inline int CLIPINT(int64_t r)
     return r;
 }
 
+int do_mixing_by_ch_mux(void *data_mixed,
+                        uint32_t *out_ch_tab,
+                        uint32_t out_mux_channels,
+                        audio_format_t out_format,
+                        void *data_in,
+                        uint32_t *in_ch_tab,
+                        uint32_t in_mux_channels,
+                        uint32_t in_channels,
+                        audio_format_t in_format,
+                        size_t frames)
+{
+    uint32_t out_ch_count = out_mux_channels;
+    int out_frames = 0;
+    int i, j = 0;
+
+    switch (out_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
+        if (in_format == AUDIO_FORMAT_PCM_16_BIT) {
+            int16_t *in = data_in;
+            int32_t *out = data_mixed;
+            while (out_frames < frames) {
+                for (j = 0; j < out_ch_count; j++) {
+                    for (i = 0; i < in_mux_channels; i++) {
+                        if (in_ch_tab[i] == out_ch_tab[j]) {
+                            int64_t tmp = tmp = (int64_t)out[j] + (int64_t)(in[i] << 16);
+                            out[j] = CLIPINT(tmp);
+                        }
+                    }
+                }
+                out += out_ch_count;
+                in += in_channels;
+                out_frames++;
+            }
+        } else if (in_format == AUDIO_FORMAT_PCM_32_BIT) {
+            int32_t *in = data_in;
+            int32_t *out = data_mixed;
+            while (out_frames < frames) {
+                for (j = 0; j < out_ch_count; j++) {
+                    for (i = 0; i < in_mux_channels; i++) {
+                        if (in_ch_tab[i] == out_ch_tab[j]) {
+                            int64_t tmp = (int64_t)out[j] + (int64_t)in[i];
+                            out[j] = CLIPINT(tmp);
+                        }
+                    }
+                }
+                out += out_ch_count;
+                in += in_channels;
+                out_frames++;
+            }
+        }
+        break;
+     case AUDIO_FORMAT_PCM_16_BIT:
+        if (in_format == AUDIO_FORMAT_PCM_16_BIT) {
+            int16_t *in = data_in;
+            int16_t *out = data_mixed;
+            int ch_sel = 0;
+            while (out_frames < frames) {
+                for (j = 0; j < out_ch_count; j++) {
+                    for (i = 0; i < in_mux_channels; i++) {
+                        if (in_ch_tab[i] == out_ch_tab[j]) {
+                            ch_sel = i % in_channels;
+                            int32_t tmp = (int32_t)out[j] + (int32_t)in[i];
+                            out[j] = CLIPSHORT(tmp);
+                        }
+                    }
+                }
+                out += out_ch_count;
+                in += in_channels;
+                out_frames++;
+            }
+        } else if (in_format == AUDIO_FORMAT_PCM_32_BIT) {
+            int32_t *in = data_in;
+            int16_t *out = data_mixed;
+            while (out_frames < frames) {
+                for (j = 0; j < out_ch_count; j++) {
+                    for (i = 0; i < in_mux_channels; i++) {
+                        if (in_ch_tab[i] == out_ch_tab[j]) {
+                            int32_t tmp = (int32_t)out[j] + (int32_t)(in[i] >> 16);
+                            out[j] = CLIPSHORT(tmp);
+                        }
+                    }
+                }
+                out += out_ch_count;
+                in += in_channels;
+                out_frames++;
+            }
+        }
+        break;
+    default:
+        ALOGE("do_mixing_by_ch_mux() Invalid in_format:%#x out_format:%#x", in_format, out_format);
+        break;
+    }
+
+    return out_frames;
+}
+
 //should be same channelCnt 2
 int do_mixing_2ch(void *data_mixed,
         void *data_in, size_t frames,
@@ -221,7 +317,6 @@ void channel_layout_swap_center_lfe(void * data, int size, int channels) {
         in_buf[channels * i + 3] = temp;
     }
 }
-
 
 int init_aml_pcm_mixer(aml_pcm_mixing_st *p_mixer, const struct audioCfg *p_mixer_cfg, int mixed_frames)
 {

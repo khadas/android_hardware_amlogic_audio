@@ -65,6 +65,7 @@
 #include "audio_hw_resource_def.h"
 #include "../input/include/device_patch_mgr.h"
 #include "aml_audio_stream_base.h"
+#include "../automotive/bus_submix_core.h"
 
 
 /* number of frames per period */
@@ -422,6 +423,7 @@ struct aml_audio_device {
     int system_app_mixing_status;
     int audio_type;
     struct aml_mixer_handle alsa_mixer;
+    struct bus_submix_core *bus_mixer_core;
     struct subMixing *sm;
     struct aml_audio_mixer *audio_mixer;
     bool useSubMix;

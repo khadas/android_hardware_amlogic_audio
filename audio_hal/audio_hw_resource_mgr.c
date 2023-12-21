@@ -535,6 +535,7 @@ int do_output_device_routing(struct aml_audio_device *adev, audio_devices_t out_
             audio_route_apply_path(mgr->ar, "headphone_off");
         }
         break;
+    case AUDIO_DEVICE_OUT_BUS:
     case AUDIO_DEVICE_OUT_SPEAKER:
     case AUDIO_DEVICE_OUT_EARPIECE:
         if (enable) {
