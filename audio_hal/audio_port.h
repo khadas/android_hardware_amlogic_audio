@@ -188,6 +188,7 @@ typedef struct OUTPUT_PORT {
 
 bool is_inport_valid(aml_mixer_input_port_type_e index);
 bool is_outport_valid(MIXER_OUTPUT_PORT index);
+bool is_direct_flags(audio_output_flags_t flags);
 
 aml_mixer_input_port_type_e get_input_port_type(struct audio_config *config,
         audio_output_flags_t flags);

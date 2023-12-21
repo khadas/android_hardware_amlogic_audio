@@ -806,6 +806,7 @@ static ssize_t output_port_post_process(output_port *port, void *buffer, int byt
     int frames = bytes / FRAMESIZE_16BIT_STEREO;
     float vol = 1.0;
     int i = 0;
+    struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
 
     process_outport_msg(port);
     if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
@@ -821,6 +822,12 @@ static ssize_t output_port_post_process(output_port *port, void *buffer, int byt
                 vol *= port->eq_data->p_gain.headphone * port->sink_gain[OUTPORT_HEADPHONE];
             } else if (dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
                 vol *= port->eq_data->p_gain.speaker * port->sink_gain[OUTPORT_SPEAKER];
+                if (adev->volume_ease.config_easing) {
+                    /* start audio volume easing */
+                    float vol_now = aml_audio_ease_get_current_volume(adev->volume_ease.ease);
+                    config_volume_easing(adev->volume_ease.ease, vol_now, vol);
+                    adev->volume_ease.config_easing = false;
+                }
                 if (port->postprocess)
                     audio_post_process(port->postprocess, vol_buf, frames);
             } else if (dev == AML_AUDIO_OUT_DEV_TYPE_SPDIF) {
@@ -831,7 +838,21 @@ static ssize_t output_port_post_process(output_port *port, void *buffer, int byt
             }
         }
 
-        apply_volume_16to32(vol, vol_buf, buf32, bytes);
+#ifdef ADD_AUDIO_DELAY_INTERFACE
+        if (dev != AML_AUDIO_OUT_DEV_TYPE_OTHER && !adev->is_netflix) {
+            aml_audio_delay_process(out_dev_convert_to_delay_type(dev), vol_buf, bytes,
+                 AUDIO_FORMAT_PCM_16_BIT, MM_FULL_POWER_SAMPLING_RATE);
+        }
+#endif
+        if (!adev->volume_ease.ease->do_easing || dev != AML_AUDIO_OUT_DEV_TYPE_SPEAKER) {
+            apply_volume_16to32(vol, vol_buf, buf32, bytes);
+        } else {
+            /*do ease process when adjust vol,vol apply is handled by ease process,when ease process finished,
+            vol apply need handled by apply volume function,vol is float type,use fabs to compare*/
+            apply_volume_16to32(1.0, vol_buf, buf32, bytes);
+            aml_audio_ease_process(adev->volume_ease.ease, buf32, bytes * 2);
+        }
+
         for (i = 0; i < frames; i++) {
             buf_proc[8 * i + 2 * dev] = buf32[i * 2];
             buf_proc[8 * i + 2 * dev + 1] = buf32[i * 2 + 1];

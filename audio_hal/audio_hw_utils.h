@@ -265,6 +265,7 @@ void aml_alsa_pcm_info_dump(struct pcm* pcm, int fd);
 void aml_enter_aaudio_low_latency(struct aml_audio_device *adev);
 void aml_leave_aaudio_low_latency(struct aml_audio_device *adev);
 bool is_aaudio_low_latency_mode();
+bool netflix_request_dd_output(void);
 
 #define AUDIO_CONFIG_STR_LEN        64
 static inline char *show_audio_config(audio_config_base_t *p, char *s, size_t n) {

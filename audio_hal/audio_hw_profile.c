@@ -723,6 +723,16 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
         ALOGD("query hdmi format...\n");
         size += sprintf(aud_cap, "sup_formats=%s", "AUDIO_FORMAT_PCM_16_BIT|AUDIO_FORMAT_IEC61937");
 
+        // workaround for Netlifx: switch audio output device UI from ARC to other device.
+        // Netflix always use the HDMI Arc profile for all device to play video.
+        int force_use_device = property_get_int32(PROP_AUDIO_OUTPUT_FORCEUSE, AUDIO_POLICY_FORCE_NONE);
+        ALOGD("[%s:%d] force_use_device:%d", __func__, __LINE__,force_use_device);
+        if (force_use_device != AUDIO_POLICY_FORCE_NONE &&
+            force_use_device != AUDIO_POLICY_FORCE_HDMI_ARC &&
+            force_use_device != AUDIO_POLICY_FORCE_HDMI_OUT) {
+            AM_LOGI("force_device:%d, no need to get capability level, fot Netflix", force_use_device);
+            return aud_cap;
+        }
         p_hdmi_descs->ddp_fmt.atmos_supported = 0;//default set ddp-joc atmos_supported as false
         p_hdmi_descs->ddp_fmt.is_support = 0;
         p_hdmi_descs->dd_fmt.max_channels = 0;

@@ -110,7 +110,10 @@ static ssize_t aml_out_write_to_mixer(struct audio_stream_out *stream, const voi
     uint32_t latency_frames = 0;
     struct timespec ts;
 
-    if (adev->is_netflix && (STREAM_PCM_NORMAL == out->usecase || STREAM_PCM_HWSYNC == out->usecase)) {
+    if (adev->is_netflix && (STREAM_PCM_NORMAL == out->usecase
+        || STREAM_PCM_HWSYNC == out->usecase
+        || (STREAM_RAW_HWSYNC == out->usecase && adev->dolby_decode_enable)
+        || (STREAM_RAW_DIRECT == out->usecase && adev->dolby_decode_enable))) {
         aml_audio_data_handle(stream, buffer, bytes);
     }
 
@@ -1549,6 +1552,20 @@ int out_standby_subMixingPCM_l(struct audio_stream *stream)
     aec_set_spk_running(adev->aec, false);
 #endif
     if (aml_out->inputPortID != -1) {
+
+        // Fix: pause and delete input port timing too closer, then fade out data cannot be played.
+        if (aml_out->total_write_size > 0 && is_direct_flags(aml_out->flags)) {
+            uint64_t standby_time = aml_audio_get_systime() / 1000; //us --> ms
+            if (aml_out->pause_time && standby_time > aml_out->pause_time) {
+                int delay_ms = 0;
+                uint64_t elapsed_ms = standby_time - aml_out->pause_time;
+                if (elapsed_ms < adev->stream_pause_delay) {
+                    delay_ms = adev->stream_pause_delay - elapsed_ms;
+                    aml_audio_sleep(delay_ms * 1000);
+                    AM_LOGI("sleep %d ms finished", delay_ms);
+                }
+            }
+        }
         delete_mixer_input_port(audio_mixer, aml_out->inputPortID);
         aml_out->inputPortID = -1;
     }
@@ -1599,6 +1616,20 @@ int out_standby_subMixingPCM(struct audio_stream *stream)
     aec_set_spk_running(adev->aec, false);
 #endif
     if (aml_out->inputPortID != -1) {
+
+        //  Fix: pause and delete input port timing too closer, then fade out data cannot be played.
+        if (aml_out->total_write_size > 0 && is_direct_flags(aml_out->flags)) {
+            uint64_t standby_time = aml_audio_get_systime() / 1000; //us --> ms
+            if (aml_out->pause_time && standby_time > aml_out->pause_time) {
+                int delay_ms = 0;
+                uint64_t elapsed_ms = standby_time - aml_out->pause_time;
+                if (elapsed_ms < adev->stream_pause_delay) {
+                    delay_ms = adev->stream_pause_delay - elapsed_ms;
+                    aml_audio_sleep(delay_ms * 1000);
+                    AM_LOGI("sleep %d ms finished", delay_ms);
+                }
+            }
+        }
         delete_mixer_input_port(audio_mixer, aml_out->inputPortID);
         aml_out->inputPortID = -1;
     }
@@ -1628,9 +1659,9 @@ static int out_pause_subMixingPCM(struct audio_stream_out *stream)
 
     aml_audio_trace_int("out_pause_subMixingPCM", 1);
     aml_out->write_count = 0;
+    aml_out->pause_time = aml_audio_get_systime() / 1000; //us --> ms
     if (aml_audio_trace_debug_level() > 0)
     {
-        aml_out->pause_time = aml_audio_get_systime() / 1000; //us --> ms
         if (aml_out->pause_time > aml_out->write_time && (aml_out->pause_time - aml_out->write_time < 5*1000)) { //continually write time less than 5s, audio gap
             AM_LOGD("AudioGap pause_time:%" PRIu64 ",  diff_time(pause - write):%" PRIu64 " ms",
                    aml_out->pause_time, aml_out->pause_time - aml_out->write_time);

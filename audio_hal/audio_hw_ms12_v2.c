@@ -1050,7 +1050,7 @@ int get_the_dolby_ms12_prepared(
     set_dolby_ms12_downmix_mode(adev);
 
     ms12->dual_bitstream_support = adev->dual_spdif_support;
-    if (adev->sink_capability == AUDIO_FORMAT_MAT) {
+    if (adev->sink_capability == AUDIO_FORMAT_MAT && !netflix_request_dd_output()) {
         // MS12_OUTPUT_MASK_MC : NTS LLP-AUDIO-OUTPUT-LATENCY-STB-6CH
         output_config = MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_MAT | MS12_OUTPUT_MASK_MC;
     } else {
@@ -4228,12 +4228,13 @@ bool is_support_ms12_reset(struct audio_stream_out *stream) {
     struct aml_arc_hdmi_desc * hdmi_descs = get_arc_hdmi_cap(adev);
     bool is_atmos_supported = is_platform_supported_ddp_atmos(hdmi_descs->ddp_fmt.atmos_supported, adev->cur_out_devices, is_TV(adev));
     bool need_reset_ms12_out = !is_ms12_out_ddp_5_1_suitable(is_atmos_supported);
+    bool is_pcm_mode = (adev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_PCM);
     /* we meet 3 conditions:
      * 1. edid atmos support not match with currently ms12 output
      * 2. it is the main stream
      * 3. it has write some data
      */
-    if (is_dolby_ms12_main_stream(stream) && need_reset_ms12_out) {
+    if (is_dolby_ms12_main_stream(stream) && need_reset_ms12_out && !is_pcm_mode) {
         return true;
     }
 
@@ -4518,7 +4519,7 @@ bool is_ms12_output_compatible(struct audio_stream_out *stream, audio_format_t n
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
-    if ((aml_out->hal_internal_format != AUDIO_FORMAT_AC4 && adev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS) ||
+    if ((aml_out->hal_internal_format != AUDIO_FORMAT_AC4 && adev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS  && !netflix_request_dd_output()) ||
         adev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_PCM) {
         /*for bypass case and pcm case, it is always compatible*/
         return true;

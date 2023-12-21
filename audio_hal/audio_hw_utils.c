@@ -60,6 +60,7 @@
 #include "audio_hw_resource_mgr.h"
 #include "device_patch.h"
 #include "aml_audio_spdifout.h"
+#include "dolby_lib_api.h"
 
 
 #ifdef LOG_NDEBUG_FUNCTION
@@ -1603,14 +1604,16 @@ bool aml_audio_data_detect(int16_t *buf, size_t bytes, int detect_value)
     return ret;
 }
 
-static int mixer_aux_start_ease_in(struct aml_stream_out *aml_out) {
+static int mixer_aux_start_ease_in(struct aml_stream_out *aml_out, aml_data_format_t *p_data_format) {
     /*start ease in the audio*/
     ease_setting_t ease_setting;
-    aml_out->audio_stream_ease->data_format.format = aml_out->hal_format;
-    aml_out->audio_stream_ease->data_format.ch = aml_out->hal_ch;
-    aml_out->audio_stream_ease->data_format.sr = aml_out->hal_rate;
+    memcpy(&aml_out->audio_stream_ease->data_format, p_data_format, sizeof(aml_data_format_t));
     aml_out->audio_stream_ease->ease_type = EaseLinear;
-    ease_setting.duration = 40;
+    if (audio_is_linear_pcm(aml_out->hal_format)) {
+        ease_setting.duration = 32;
+    } else {
+        ease_setting.duration = 24;
+    }
     ease_setting.start_volume = 0.0;
     ease_setting.target_volume = 1.0;
     aml_audio_ease_config(aml_out->audio_stream_ease, &ease_setting);
@@ -1618,6 +1621,14 @@ static int mixer_aux_start_ease_in(struct aml_stream_out *aml_out) {
     ALOGV("%s ", __func__);
     return 0;
 }
+
+void aml_memcpy_to_i16_from_i32(int16_t *dst, const int32_t *src, size_t count)
+{
+    for (; count > 0; --count) {
+        *dst++ = *src++ >> 16;
+    }
+}
+
 
 /*****************************************************************************
 *   Function Name:  aml_audio_data_handle
@@ -1644,41 +1655,87 @@ int aml_audio_data_handle(struct audio_stream_out *stream, const void* buffer, s
     int unit_size = 0;
     int detected_size = 0;
     size_t remaining_size = bytes;
+    int detect_data_unit = 0;
+    aml_data_format_t data_format;
+    unsigned int hal_rate = out->hal_rate;
+    unsigned int hal_ch = out->hal_ch;
+    unsigned int hal_frame_size = out->hal_frame_size;
+    audio_format_t hal_format = out->hal_format;
     audio_data_handle_state_t data_handle_state = out->audio_data_handle_state;
 
-    ALOGV("%s out_stream usecase:%d-->%s, hal_format:%#x hal_ch:%u --> hal_frame_size:%u, hal_rate:%u, DETECT_AUDIO_DATA_UNIT:%u, bytes:%zu", __func__,
-          out->usecase, usecase2Str(out->usecase), out->hal_format, out->hal_ch, out->hal_frame_size, out->hal_rate, DETECT_AUDIO_DATA_UNIT, bytes);
+    int16_t *pcm16_buf = NULL;
+    size_t pcm16_buf_size = 0;
+    int8_t *curr_detect_ptr = NULL;
+
+    if (!audio_is_linear_pcm(out->hal_format)) {
+        if (out->aml_dec == NULL) {
+            AM_LOGE("not support audio format 0x%x (without decode)", out->hal_format);
+            return -1;
+        } else {
+            dec_data_info_t *p_dec_info = &out->aml_dec->dec_pcm_data;
+            if (p_dec_info == NULL) {
+                AM_LOGE("p_dec_info is NULL");
+                return -1;
+            }
+            hal_rate = p_dec_info->data_sr;
+            hal_ch = p_dec_info->data_ch;
+            hal_format = p_dec_info->data_format;
+            hal_frame_size = audio_bytes_per_frame(hal_ch, hal_format);
+        }
+    }
+
+    if (hal_format != AUDIO_FORMAT_PCM_16_BIT && hal_format != AUDIO_FORMAT_PCM_32_BIT) {
+        AM_LOGE("not support pcm format 0x%x", hal_format);
+        return -1;
+    }
     if ((data_handle_state == AUDIO_DATA_HANDLE_NONE) || (data_handle_state == AUDIO_DATA_HANDLE_MAX)) {
         AM_LOGE("invalid audio_data_handle_state %d", data_handle_state);
         return -1;
     }
+    detect_data_unit = (DETECT_AUDIO_TIME_UNIT * hal_frame_size * hal_rate / 1000);
+
+    AM_LOGV("out_stream usecase:%d-->%s, hal_format:%#x hal_ch:%u --> hal_frame_size:%u, hal_rate:%u, DETECT_AUDIO_DATA_UNIT:%u, bytes:%zu",
+          out->usecase, usecase2Str(out->usecase), hal_format, hal_ch, hal_frame_size, hal_rate, detect_data_unit, bytes);
 
     while (out->audio_data_handle_state < AUDIO_DATA_HANDLE_FINISHED && remaining_size) {
-        ALOGD("%s remaining_size:%zu,  out->audio_data_handle_status:%u", __func__, remaining_size, out->audio_data_handle_state);
+        AM_LOGD("remaining_size:%zu,  out->audio_data_handle_status:%u", remaining_size, out->audio_data_handle_state);
         switch (out->audio_data_handle_state) {
             case AUDIO_DATA_HANDLE_START:
                 FALLTHROUGH_INTENDED; /* [[fallthrough]] */
             case AUDIO_DATA_HANDLE_DETECT:
                 out->audio_data_handle_state = AUDIO_DATA_HANDLE_DETECT;
                 while (remaining_size > 0) {
-                    if (remaining_size > DETECT_AUDIO_DATA_UNIT) {
-                        unit_size = DETECT_AUDIO_DATA_UNIT;
+                    if (remaining_size > detect_data_unit) {
+                        unit_size = detect_data_unit;
                     } else {
                         unit_size = remaining_size;
                     }
+                    curr_detect_ptr = ((int8_t *)buffer + detected_size);
 
-                    ret = aml_audio_data_detect((int16_t *)((int8_t *)buffer + detected_size), unit_size , AML_DETECT_VALUE);
+                    if (hal_format == AUDIO_FORMAT_PCM_32_BIT) {
+                        int req_buf_size = unit_size/2;
+                        ret = aml_audio_check_and_realloc((void **)&pcm16_buf, &pcm16_buf_size, req_buf_size);
+                        if ((ret != 0) || (pcm16_buf == NULL)) {
+                            AM_LOGE("allocate format_buf(%d bytes) failed", req_buf_size);
+                            break;
+                        }
+                        aml_memcpy_to_i16_from_i32(pcm16_buf, (int32_t *)curr_detect_ptr, unit_size/4);
+                        ret = aml_audio_data_detect(pcm16_buf, req_buf_size , AML_DETECT_VALUE);
+                    } else {
+                        ret = aml_audio_data_detect((int16_t *)curr_detect_ptr, unit_size , AML_DETECT_VALUE);
+                    }
+                    /*
+                     * when ease_setting.duration = 0, aml_audio_ease_process will not do easing.
+                     * memset detected data, to let fade in waveform completely
+                    */
+                    memset((int8_t *)buffer + detected_size, 0, unit_size);
+                    remaining_size -= unit_size;
+                    detected_size += unit_size;
                     if (false == ret) {
                         out->audio_data_handle_state = AUDIO_DATA_HANDLE_DETECTED;
                         ALOGD("%s  detected the nonzero data, remaining_size:%zu  detected_size:%u", __func__, remaining_size, detected_size);
                         break;
-                    } else {
-                        // when ease_setting.duration = 0, aml_audio_ease_process will not do easing.
-                        memset((int8_t *)buffer + detected_size, 0, unit_size);
                     }
-
-                    remaining_size -= unit_size;
-                    detected_size += unit_size;
                 }
                 break;
             // detect finished, then do fade in.
@@ -1686,13 +1743,17 @@ int aml_audio_data_handle(struct audio_stream_out *stream, const void* buffer, s
                 out->audio_data_handle_state = AUDIO_DATA_HANDLE_EASE_CONFIG;
                 break;
             case AUDIO_DATA_HANDLE_EASE_CONFIG:
-                mixer_aux_start_ease_in(out);
+                memset(&data_format, 0, sizeof(data_format));
+                data_format.ch = hal_ch;
+                data_format.sr = hal_rate;
+                data_format.format = hal_format;
+                mixer_aux_start_ease_in(out, &data_format);
                 out->easing_time = 0;
                 out->audio_data_handle_state = AUDIO_DATA_HANDLE_EASING;
                 break;
             case AUDIO_DATA_HANDLE_EASING:
                 aml_audio_ease_process(out->audio_stream_ease, (void *)((uint8_t *)buffer + detected_size), remaining_size);
-                out->easing_time += remaining_size/(out->hal_frame_size * out->hal_rate / 1000);
+                out->easing_time += remaining_size/(hal_frame_size * hal_rate / 1000);
                 ALOGD("%s  easing_time:%u, audio_stream_ease->ease_time:%u", __func__, out->easing_time, out->audio_stream_ease->ease_time);
                 remaining_size = 0;
                 if (out->easing_time >=  out->audio_stream_ease->ease_time) {
@@ -1706,6 +1767,10 @@ int aml_audio_data_handle(struct audio_stream_out *stream, const void* buffer, s
             default :
                 break;
         };
+    }
+    if (pcm16_buf != NULL) {
+        aml_audio_free(pcm16_buf);
+        pcm16_buf_size = 0;
     }
 
     return 0;
@@ -3407,5 +3472,24 @@ int adev_close_sys_resource_mgr(struct aml_audio_device *adev)
         adev->sys_res_mgr = NULL;
     }
     return 0;
+}
+
+bool netflix_request_dd_output()
+{
+    bool ret = false;
+    struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
+
+    if ((eDolbyMS12Lib == adev->dolby_lib_type) && adev->dual_spdif_support && adev->is_netflix) {
+        if (adev->optical_format == AUDIO_FORMAT_E_AC3) {
+            if (adev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS) {
+                // Request ms12 output dd bitstream for SPDIF.
+                ret = true;
+            }
+        }
+    }
+
+    ALOGI("%s : ret %d, dolby_lib %d, dual_spdif %d, netflix %d, optical_format 0x%x, digital_audio_mode %d", __func__, ret,
+        adev->dolby_lib_type, adev->dual_spdif_support, adev->is_netflix, adev->optical_format, adev->digital_audio_mode);
+    return ret;
 }
 

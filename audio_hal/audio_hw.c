@@ -867,6 +867,15 @@ static int out_flush (struct audio_stream_out *stream)
             send_mixer_inport_message(audio_mixer, out->inputPortID, MSG_FLUSH);
         }
     }
+    if (out->aml_dec && out->total_write_size) {
+        aml_decoder_flush(out->aml_dec);
+        if (adev->is_netflix && adev->dolby_decode_enable && !audio_is_linear_pcm(out->hal_format)) {
+            // NTS PLAY-101-TC20
+            // release decoder : to discard decoder internal buffer
+            aml_decoder_release(out->aml_dec);
+            out->aml_dec = NULL;
+        }
+    }
 
 exit:
     pthread_mutex_unlock (&adev->lock);
@@ -1391,9 +1400,9 @@ static int out_pause (struct audio_stream_out *stream)
     AM_LOGI("io %d: out:%p", out->io_handle, stream);
 
     aml_audio_trace_int("out_pause", 1);
+    out->pause_time = aml_audio_get_systime() / 1000; //us --> ms
     if (aml_audio_trace_debug_level() > 0)
     {
-        out->pause_time = aml_audio_get_systime() / 1000; //us --> ms
         if (out->pause_time > out->write_time && (out->pause_time - out->write_time < 5*1000)) { //continually write time less than 5s, audio gap
             ALOGD("%s: out_stream(%p) AudioGap pause_time:%" PRIu64 ",  diff_time(pause - write):%" PRIu64 " ms", __func__,
                    stream, out->pause_time, out->pause_time - out->write_time);
@@ -3306,6 +3315,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->last_periodic_print_time_in_ms = 0;
     out->hwsync_header_stripped = false;
     out->is_closing = false;
+    out->pause_time = 0;
 
     clock_gettime(CLOCK_MONOTONIC, &out->last_info_timestamp);
     clock_gettime(CLOCK_MONOTONIC, &out->last_avsync_timestamp);
@@ -3607,6 +3617,10 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     }
     pthread_mutex_unlock(&out->lock);
     pthread_mutex_destroy(&out->lock);
+
+    if (is_output_device_muted(adev, AUDIO_DEVICE_OUT_SPEAKER, true)) {
+        set_output_device_mute(adev, AUDIO_DEVICE_OUT_SPEAKER, false, true);
+    }
 
     AM_LOGI("io %d: out:%p exit ------", out->io_handle, out);
     pthread_mutex_lock(&adev->stream_release_lock);
@@ -4594,6 +4608,11 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         ALOGI("ms12_enable :%d", ms12_enable);
         sprintf(temp_buf, "dolby_ms12_enable=%d", ms12_enable);
         return  strdup(temp_buf);
+    } else if (strstr(keys, "dolby_decode_enable")) {
+        int dolby_decode_enable = (adev->dolby_decode_enable > 0);
+        AM_LOGI("dolby_decode_enable :%d", dolby_decode_enable);
+        sprintf(temp_buf, "dolby_decode_enable=%d", dolby_decode_enable);
+        return  strdup(temp_buf);
     } else if (strstr (keys, "stream_dra_channel") ) {
        if (is_dev_patch_exist(adev) && is_same_patch_src(adev, SRC_DTV)) {
           if (get_dev_patch(adev)->dtv_NchOriginal > 8 || get_dev_patch(adev)->dtv_NchOriginal < 1) {
@@ -5393,6 +5412,9 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
         ALOGI("continuous_mode(adev) %d ms12->dolby_ms12_enable %d",continuous_mode(adev), ms12->dolby_ms12_enable);
         if (continuous_mode(adev) && ms12->dolby_ms12_enable) {
             is_compatible = is_ms12_output_compatible(stream, adev->sink_format, adev->optical_format);
+        }
+        if (!is_compatible && netflix_request_dd_output()) {
+            reset_decoder = true;
         }
 
         if (!is_bypass_dolbyms12(stream) && (reset_decoder == true)) {
@@ -6785,6 +6807,17 @@ int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby)
     */
     if (ms12->ms12_scheduler_state != MS12_SCHEDULER_RUNNING && aml_dev->usecase_masks >= 1) {
         aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
+        if (eDolbyMS12Lib == aml_dev->dolby_lib_type &&
+            aml_out->usecase == STREAM_PCM_NORMAL &&
+            aml_dev->dac_softmute_delay > 0) {
+            int softmute_delay = aml_dev->dac_softmute_delay;
+            /*
+             * relationship with https://jira.amlogic.com/browse/SWPL-112419
+             * when ms12 starting output, delay a while to reduce softmute's effect on speaker.
+            */
+            AM_LOGI("ms12 start output, delay %d ms to reduce softmute's effect", softmute_delay);
+            aml_audio_sleep(softmute_delay * 1000);
+        }
     }
 
     /* choose the out_write functions by usecase masks */
@@ -8149,6 +8182,23 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
             int dap_postgain = volume2Ms12DapPostgain(aml_dev->sink_gain[OUTPORT_SPEAKER]);
             set_ms12_dap_postgain(&aml_dev->ms12, dap_postgain);
         }
+    } else if (outport == OUTPORT_HEADPHONE && aml_dev->last_sink_gain != aml_dev->sink_gain[OUTPORT_HEADPHONE]) {
+        ALOGD("hp start easing: vol last %f, vol new %f", aml_dev->last_sink_gain, aml_dev->sink_gain[OUTPORT_HEADPHONE]);
+        aml_dev->volume_ease.config_easing = true;
+        aml_dev->last_sink_gain = aml_dev->sink_gain[OUTPORT_HEADPHONE];
+
+        if ((eDolbyMS12Lib == aml_dev->dolby_lib_type)) {
+            /*
+             * The postgain value has an impact on the Volume Modeler and the Audio Regulator:
+             * Volume Modeler: Uses the postgain value to select the appropriate frequency response curve
+             * to maintain a consistent perceived timbre at different listening levels.
+             * SP45: Postgain
+             * Sets the amount of gain that is to be applied to the signal after exiting MS12.
+             * Settings From -130 to +30 dB, in 0.0625 dB steps
+             */
+            int dap_postgain = volume2Ms12DapPostgain(aml_dev->sink_gain[OUTPORT_HEADPHONE]);
+            set_ms12_dap_postgain(&aml_dev->ms12, dap_postgain);
+        }
     }
     return 0;
 }
@@ -8477,6 +8527,8 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->control_hdmitx_mute = property_get_bool(PROP_AUDIO_OUTPUT_HDMITX_CONTROL_MUTE, false);
     adev->spdif_coexist_other = property_get_bool(PROP_AUDIO_OUTPUT_SPDIF_COEXIST, true);
     adev->continuous_enable_mixer_max_size = property_get_bool("ro.vendor.media.audio.continuous.enable_mixer_max_size", true);
+    adev->stream_pause_delay = property_get_int32("ro.vendor.media.audio.stream.pause.delay", 24);
+    adev->dac_softmute_delay = property_get_int32("ro.vendor.media.audio.softmute.delay", 0);
 
     /*for ms12 case, we set default continuous mode*/
     if (eDolbyMS12Lib == adev->dolby_lib_type) {

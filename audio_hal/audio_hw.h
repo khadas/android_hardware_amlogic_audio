@@ -118,6 +118,7 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 
 #define PROP_AUDIO_OUTPUT_SPDIF_COEXIST                 "persist.vendor.media.audio.spdif.coexist"
 #define PROP_AUDIO_OUTPUT_HDMITX_CONTROL_MUTE           "ro.vendor.media.audio.hdmitx.control.mute"
+#define PROP_AUDIO_OUTPUT_FORCEUSE                      "persist.vendor.media.audio.forceuse"
 
 #define SYS_NODE_EARC           "/sys/class/extcon/earcrx/state"
 
@@ -511,6 +512,8 @@ struct aml_audio_device {
     int fmt_mdelay;
     float a2dp_vol;
     int dac_value;
+    int stream_pause_delay;
+    int dac_softmute_delay;
 
     bool aaudio_low_latency;
     bool aaudio_low_latency_updated;
