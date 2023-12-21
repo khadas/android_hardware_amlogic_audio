@@ -383,6 +383,7 @@ int Balance_setParameter(BalanceContext *pContext, void *pParam, void *pValue)
         break;
     default:
         ALOGE("%s: unknown param %08x", __FUNCTION__, param);
+        pthread_mutex_unlock(&pContext->lock);
         return -EINVAL;
     }
     pthread_mutex_unlock(&pContext->lock);

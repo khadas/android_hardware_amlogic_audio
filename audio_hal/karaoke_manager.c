@@ -330,9 +330,8 @@ struct echo_reference_itfe *get_echo_reference(struct kara_manager *kara,
         uint32_t sampling_rate)
 {
     struct echo_reference_itfe *echo = NULL;
-    pthread_mutex_lock(&kara->lock);
+    /*coverity[missing_lock]*/
     put_echo_reference(kara, kara->echo_reference);
-    pthread_mutex_unlock(&kara->lock);
     if (kara->karaoke_start) {
         uint32_t wr_channel_count = 2;//proxy_get_channel_count(&kara->in.proxy);
         uint32_t wr_sampling_rate = 48000;//proxy_get_sample_rate(&kara->in.proxy);

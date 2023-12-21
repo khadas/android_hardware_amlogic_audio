@@ -244,15 +244,13 @@ static void compress_deinit(struct buffer_item *buf_item)
 
 
 static void handle_buffer_write(struct aml_async_writer *p_worker, struct buffer_item *buf_item, uint64_t system_ms)
-{
+{   if ((p_worker == NULL) || (buf_item == NULL)) {
+        return;
+    }
     struct ring_buffer *rbuffer = &buf_item->ring_buffer;
     int bufsize = TEMP_BUFFER_SIZE;
     int handle_bytes = 0;
     int write_bytes = 0;
-
-    if ((p_worker == NULL) || (buf_item == NULL)) {
-        return;
-    }
 
     int avail_bytes = get_buffer_read_space(rbuffer);
     if (avail_bytes <= 0) {
@@ -288,6 +286,7 @@ static void handle_buffer_write(struct aml_async_writer *p_worker, struct buffer
         uint8_t *ptr = (uint8_t *)aml_audio_calloc(1, bufsize);
         if (ptr == NULL) {
             ALOGE("%s : can not malloc %d bytes ! (%s)", __func__, bufsize, strerror(errno));
+            fclose(fp);
             return;
         }
         p_worker->temp_bufptr = ptr;

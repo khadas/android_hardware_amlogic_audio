@@ -1029,12 +1029,15 @@ int get_the_dolby_ms12_prepared(
     adev->ms12_out->standby = false;
     ALOGI("%s adev->ms12_out =  %p", __func__, adev->ms12_out);
 
-    ms12->ms12_timer_id = aml_audio_timer_create(ms12_timer_callback_handler);
-    if (ms12->ms12_timer_id < 0) {
-        ALOGE("func:%s  timer_id:%d error and exit", __func__, ms12->ms12_timer_id);
-        goto Err_Timer_Create;
-    } else {
-        ALOGI("func:%s  timer_id:%d", __func__, ms12->ms12_timer_id);
+    {
+        int ret = aml_audio_timer_create(ms12_timer_callback_handler);
+        if (ret < 0) {
+            ALOGE("func:%s  timer_id:%d error and exit", __func__, ms12->ms12_timer_id);
+            goto Err_Timer_Create;
+        } else {
+            ms12->ms12_timer_id = ret;
+            ALOGI("func:%s  timer_id:%d", __func__, ms12->ms12_timer_id);
+        }
     }
 
     /************end**************/
@@ -1115,6 +1118,7 @@ int get_the_dolby_ms12_prepared(
         } else {
             ms12_init_count++;
         }
+        /*coverity[sleep]*/
         usleep(1000);
         ALOGI("%s ms12_init_count:%d", __func__, ms12_init_count);
     } while(ms12_init_count < 5);//give the 5 times to config ms12.
@@ -1196,7 +1200,7 @@ int get_the_dolby_ms12_prepared(
         ALOGI("%s() thread is build, get dolby_ms12_threadID %ld\n", __FUNCTION__, ms12->dolby_ms12_threadID);
     }
 
-
+    /*coverity[missing_lock]*/
     aml_ac3_parser_open(&ms12->ac3_parser_handle);
     aml_ac3_parser_open(&ms12->info_ac3_parser_handle);
     aml_spdif_decoder_open(&ms12->spdif_dec_handle);

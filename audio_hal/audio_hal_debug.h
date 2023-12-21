@@ -75,12 +75,13 @@ static void *chk_alloc(void *p, size_t *origin_sz, size_t sz)
     if (*origin_sz != sz) {
         if (p) {
             aml_audio_free(p);
+            p = NULL;
         }
         void *new_p = NULL;
         if (sz != 0) {
             new_p = aml_audio_malloc(sz);
         }
-        AM_LOGI("p=%p/%zu => %p/%zu", p, *origin_sz, new_p, sz);
+        AM_LOGI("p=%p/%zu => %p/%zu", (void *)p, *origin_sz, new_p, sz);
         *origin_sz = sz;
         return new_p;
     }

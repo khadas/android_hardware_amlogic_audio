@@ -1056,6 +1056,9 @@ static void mmap_audio_set_buffer_ready(void *pstMananger, int client_id, bool b
 
 static int mmap_audio_process_client_data(aml_mmap_audio_client_st *pstMmapClient, int frames)
 {
+    if (pstMmapClient == NULL || frames <= 0) {
+        return -1;
+    }
     int                       ret = 0;
     struct aml_stream_out    *out = pstMmapClient->stStream;
     aml_mmap_audio_param_st  *pstParam = (aml_mmap_audio_param_st *)out->pstMmapAudioParam;
@@ -1065,9 +1068,6 @@ static int mmap_audio_process_client_data(aml_mmap_audio_client_st *pstMmapClien
     unsigned char            *pu8TempBufferAddr = NULL;
     struct timespec          timestamp;
 
-    if (pstMmapClient == NULL || frames <= 0) {
-        return -1;
-    }
     if (!mmap_audio_client_is_active(pstMmapClient)) {
         pstMmapClient->u32BytesAvail = 0;
         pstMmapClient->u32FramesAvail = 0;

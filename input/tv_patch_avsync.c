@@ -196,8 +196,8 @@ static int ringbuffer_seek_for_raw_data(struct aml_audio_patch *patch, int tune_
     } else if (patch->aformat == AUDIO_FORMAT_MAT || patch->aformat == AUDIO_FORMAT_DOLBY_TRUEHD) {
         frame_time = ONE_MAT_FRAME_TIME;
     }
-
-    time_value = tune_val / frame_time;
+    if (frame_time)
+        time_value = tune_val / frame_time;
 
     if ((tune_val < 0) && (tune_val != (time_value * frame_time))) {
         time_value += -1;
@@ -213,7 +213,17 @@ static int ringbuffer_seek_for_raw_data(struct aml_audio_patch *patch, int tune_
     space = calc_latency_to_frame(tune_val, patch->aformat) * frame_size;
 
     rbuf_avail = get_buffer_read_space(&patch->aml_ringbuffer);
-    temp_buf = aml_audio_calloc(1, rbuf_avail);
+    if (rbuf_avail >= 0) {
+        temp_buf = aml_audio_calloc(1, rbuf_avail);
+        if (!temp_buf) {
+            ALOGE("aml_audio_calloc fail!\n");
+            return tune_val;
+        }
+    } else {
+        ALOGE("get_buffer_read_space fail!\n");
+        return tune_val;
+    }
+
     buffer = temp_buf;
     ret = ring_buffer_read(&patch->aml_ringbuffer,
                         (unsigned char*)buffer, rbuf_avail);

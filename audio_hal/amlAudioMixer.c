@@ -623,7 +623,6 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
         mc_out_port->bytes_avail = 0;
         // multi-ch-pcm(its functionality like ddp51) has higher priority than stereo pcm.
         alsa_status = aml_audio_spdifout_get_status(mc_out_port->spdifout_handle);
-
         alsa_delay_ms = mc_out_port->alsa_delay_ms;
         alsa_delay_ts = mc_out_port->alsa_delay_ts;
     }
@@ -631,7 +630,9 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
 
     // update timestamp info
     pthread_mutex_lock(&audio_mixer->outport_delay_locks[port_index]);
+    /*coverity[use]*/
     audio_mixer->outport_delay_ms[port_index] = alsa_delay_ms;
+    /*coverity[use]*/
     audio_mixer->outport_delay_ts[port_index] = alsa_delay_ts;
     pthread_mutex_unlock(&audio_mixer->outport_delay_locks[port_index]);
 

@@ -893,6 +893,9 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
     if (port->pcm_handle == NULL)
         output_port_start(port);
 
+    if (!port->pcm_handle)
+        return bytes;
+
     if (pcm_is_ready(port->pcm_handle)) {
         struct snd_pcm_status status;
 

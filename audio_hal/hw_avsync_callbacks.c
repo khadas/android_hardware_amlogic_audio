@@ -136,7 +136,13 @@ int on_meta_data_cbk(void *cookie,
         }
         return -EINVAL;
     }
-    if (out->dev && out->dev->is_netflix) {
+    if (!out->dev) {
+          ALOGE("out->dev is NULL pointer");
+          ret = -EINVAL;
+          return ret;
+    }
+
+    if (out->dev->is_netflix) {
         if (!out->alsa_running_status && out->write_count < 20) {
             ALOGW("%s(), stream %p alsa is not running ...", __func__, out);
             return -EINVAL;

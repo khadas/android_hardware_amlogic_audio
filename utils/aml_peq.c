@@ -214,9 +214,6 @@ void* aml_peq_init(unsigned int peq_band, unsigned int channel_num, unsigned int
     }
 
     return (void*)peq_handle;
-Error:
-    aml_audio_free(peq_handle);
-    return NULL;
 }
 
 int aml_peq_processing(void *handle, int32_t *buffer, int bytes) {
@@ -227,13 +224,14 @@ int aml_peq_processing(void *handle, int32_t *buffer, int bytes) {
     if (!handle) {
         return -1;
     }
+    pthread_mutex_lock(&peq_handle->lock);
     if (!peq_handle->enable) {
+        pthread_mutex_unlock(&peq_handle->lock);
         return 0;
     }
 
     channel = peq_handle->channel_num;
     sample_count = bytes / (channel * sizeof(int32_t));
-    pthread_mutex_lock(&peq_handle->lock);
     for (int i = 0; i < sample_count; i++) {
         for (int j = 0; j < channel; j++) {
             *input = peq_processing(peq_handle, *input, j);

@@ -243,7 +243,13 @@ static int pcm_mic_pop_with_cfg(struct pcm_mic_t *m, void **data, size_t frames,
         }
         INFO("m=%p buf=%p sz=%zu", m, m->buf, m->sz);
     }
-    pcm_read(m->pcm, m->buf, m->sz);
+    int ret = pcm_read(m->pcm, m->buf, m->sz);
+    if (ret < 0) {
+        ALOGD("%s:%d, pcm_read fail, ret:%#x, error info:%s",
+            __func__, __LINE__, ret, strerror(errno));
+        memset((void*)m->buf,0,m->sz);
+        return ret;
+    }
     *data = m->buf;
     *cfg = m->pcm_cfg; // copy struct pcm_config
     DEBUG("m=%p return data=%p fr=%zu sz=%zu cfg=%s",

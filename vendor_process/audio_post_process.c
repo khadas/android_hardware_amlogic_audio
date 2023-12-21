@@ -147,7 +147,7 @@ void update_effect_info_list(struct aml_native_postprocess *native_postprocess)
     for (int i = 0; i < num_postprocessors; i++) {
         struct aml_post_effect_info *tempEffect;
         tempEffect =  &native_postprocess->postprocessors[i];
-        if (tempEffect->idesc->seq < 0) {
+        if (tempEffect->idesc && tempEffect->idesc->seq < 0) {
             insert_index = tempEffect->index;
             break;
         }
@@ -156,7 +156,7 @@ void update_effect_info_list(struct aml_native_postprocess *native_postprocess)
             insert_index = tempEffect->index;
         }
 
-        if (newEffectInfo->idesc->seq < tempEffect->idesc->seq) {
+        if (tempEffect->idesc && newEffectInfo->idesc->seq < tempEffect->idesc->seq) {
             insert_index = tempEffect->index;
             break;
         }

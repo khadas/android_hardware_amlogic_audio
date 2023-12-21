@@ -702,6 +702,7 @@ static int32_t stop_hfp(struct aml_audio_device *adev)
         pthread_join(g_ul_task_hfp->thread_id, NULL);
         g_ul_task_hfp->thread_id = 0;
         g_ul_task_hfp->thread_created = 0;
+        aec_destroy(g_ul_task_hfp->aec_handle);
     }
     ALOGI("%s: release ul thread", __func__);
 
@@ -724,15 +725,7 @@ static int32_t stop_hfp(struct aml_audio_device *adev)
     hfpmod.is_hfp_running = false;
     adev->enable_hfp = false;
 
-    g_ul_task_hfp->exit_run = 1;
-    pthread_join(g_ul_task_hfp->thread_id, NULL);
-    g_ul_task_hfp->thread_id = 0;
-    g_dl_task_hfp->exit_run = 1;
-    pthread_join(g_dl_task_hfp->thread_id, NULL);
-    g_dl_task_hfp->thread_id = 0;
-    aec_destroy(g_ul_task_hfp->aec_handle);
     ALOGD("%s: exit: status(%d)", __func__, ret);
-
     return ret;
 }
 
