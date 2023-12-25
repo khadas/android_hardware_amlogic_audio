@@ -981,7 +981,8 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
             }
         } else {
             struct aml_audio_device     *adev = audio_mixer->adev;
-            if (adev->debug_flag) {
+            // MULTI_AAUDIO always has data when it active
+            if (adev->debug_flag && type != AML_MIXER_INPUT_PORT_MULTI_AAUDIO) {
                 AM_LOGD("port:%d ring buffer data is not enough", in_port->ID);
             }
         }
@@ -1370,6 +1371,11 @@ static int mixer_config_multich_output(struct amlAudioMixer *audio_mixer, struct
         if (in_port == NULL) {
             continue;
         }
+        if (in_port->enInPortType == AML_MIXER_INPUT_PORT_MULTI_AAUDIO && in_port->port_status == PAUSED) {
+            // mutlti aaudio port always exist, no need to check when it pause
+            continue;
+        }
+
         input_port_empty = false;
         in_channelCnt = in_port->cfg.channelCnt;
         if (in_channelCnt > input_max_ch) {

@@ -333,6 +333,7 @@ static ssize_t multi_aaudio_input_port_read(input_port *port, void *buffer, int 
     mmap_audio_manager = adev->mmap_audio_manager;
     if (!mmap_audio_has_active_client(mmap_audio_manager)) {
         AM_LOGV("aaudio is inactive");
+        port->port_status = PAUSED;
         return 0;
     } else {
         port->port_status = ACTIVE;
@@ -371,7 +372,11 @@ int multi_aaudio_get_inport_avail_size(input_port *port)
     R_CHECK_POINTER_LEGAL(-EINVAL, adev, "");
     mmap_audio_manager = adev->mmap_audio_manager;
     if (!mmap_audio_has_active_client(mmap_audio_manager)) {
+        AM_LOGV("aaudio is inactive");
+        port->port_status = PAUSED;
         return 0;
+    } else {
+        port->port_status = ACTIVE;
     }
 
     mmap_audio_get_burst_info(mmap_audio_manager, &write_size_frame, &buffer_burst_num);
