@@ -854,7 +854,7 @@ static void set_dolby_ms12_dap_init_mode(struct aml_audio_device *adev)
     if (adev->is_ms12_tuning_dat) {
         dap_init_mode = get_ms12_dap_init_mode(is_TV(adev));
     }
-    else {
+    if (adev->dolby_ms12_dap_init_mode) {
         dap_init_mode = adev->dolby_ms12_dap_init_mode;
     }
     ALOGD("dap_init_mode = %d", dap_init_mode);
