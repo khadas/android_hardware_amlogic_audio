@@ -18,7 +18,7 @@
  *
  */
 
-#define LOG_TAG "audio_hw_process_effect_treblebass"
+#define LOG_TAG "TrebleBass_Effect"
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>
@@ -166,7 +166,7 @@ int TrebleBass_load_ini_file(TREBLEBASSContext *pContext)
 
     result = 0;
 error:
-    ALOGD("%s: %s", __FUNCTION__, result == 0 ? "successful" : "failed");
+    ALOGD("%s: %s", __FUNCTION__, result == 0 ? "sucessful" : "failed");
     delete pIniParser;
     pIniParser = NULL;
     return result;
@@ -179,7 +179,7 @@ int TrebleBass_init(TREBLEBASSContext *pContext)
 
     pContext->config.inputCfg.accessMode = EFFECT_BUFFER_ACCESS_READ;
     pContext->config.inputCfg.channels = AUDIO_CHANNEL_OUT_STEREO;
-    pContext->config.inputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
+    pContext->config.inputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     pContext->config.inputCfg.samplingRate = 48000;
     pContext->config.inputCfg.bufferProvider.getBuffer = NULL;
     pContext->config.inputCfg.bufferProvider.releaseBuffer = NULL;
@@ -187,13 +187,13 @@ int TrebleBass_init(TREBLEBASSContext *pContext)
     pContext->config.inputCfg.mask = EFFECT_CONFIG_ALL;
     pContext->config.outputCfg.accessMode = EFFECT_BUFFER_ACCESS_ACCUMULATE;
     pContext->config.outputCfg.channels = AUDIO_CHANNEL_OUT_STEREO;
-    pContext->config.outputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
+    pContext->config.outputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     pContext->config.outputCfg.samplingRate = 48000;
     pContext->config.outputCfg.bufferProvider.getBuffer = NULL;
     pContext->config.outputCfg.bufferProvider.releaseBuffer = NULL;
     pContext->config.outputCfg.bufferProvider.cookie = NULL;
     pContext->config.outputCfg.mask = EFFECT_CONFIG_ALL;
-    ALOGD("%s: successful", __FUNCTION__);
+    ALOGD("%s: sucessful", __FUNCTION__);
 
     return 0;
 }
@@ -213,9 +213,9 @@ int TrebleBass_configure(TREBLEBASSContext *pContext, effect_config_t *pConfig)
     if (pConfig->outputCfg.accessMode != EFFECT_BUFFER_ACCESS_WRITE &&
             pConfig->outputCfg.accessMode != EFFECT_BUFFER_ACCESS_ACCUMULATE)
         return -EINVAL;
-    if (pConfig->inputCfg.format != AUDIO_FORMAT_PCM_16_BIT) {
+    if (pConfig->inputCfg.format != AUDIO_FORMAT_PCM_32_BIT) {
         ALOGW("%s: format in = 0x%x format out = 0x%x", __FUNCTION__, pConfig->inputCfg.format, pConfig->outputCfg.format);
-        pConfig->inputCfg.format = pConfig->outputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
+        pConfig->inputCfg.format = pConfig->outputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     }
 
     memcpy(&pContext->config, pConfig, sizeof(effect_config_t));
@@ -332,13 +332,15 @@ int TrebleBass_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buf
         return -EINVAL;
     }
 
-    int16_t *in  = (int16_t *)inBuffer->raw;
-    int16_t *out = (int16_t *)outBuffer->raw;
+    int32_t *in  = (int32_t *)inBuffer->raw;
+    int32_t *out = (int32_t *)outBuffer->raw;
     TreBassdata *data = &pContext->gTreBassdata;
     if (!data->enable) {
-        for (size_t i = 0; i < inBuffer->frameCount; i++) {
-            *out++ = *in++;
-            *out++ = *in++;
+        if (out != in) {
+            for (size_t i = 0; i < inBuffer->frameCount; i++) {
+                *out++ = *in++;
+                *out++ = *in++;
+            }
         }
     } else {
         audio_Treble_Bass_process(in, in, inBuffer->frameCount);

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_hw_process_effect_dpe"
+#define LOG_TAG "DPE"
 #define LOG_NDEBUG 0
 
 #include <assert.h>
@@ -93,11 +93,11 @@ struct DynamicsProcessingContext {
     float mPreferredFrameDuration;
 
     float *in_float;
-    int16_t left_bytes;
-    int16_t left_process_bytes;
-    /*dpe process one block 256 frames,framessize (2 bytes*2ch )*/
-    int16_t left_pBuffer[256 * 4];
-    int16_t left_process_pBuffer[256 * 4];
+    int32_t left_bytes;
+    int32_t left_process_bytes;
+    /*dpe process one block 256 frames,framessize (sizeof(int32_t) * 2ch )*/
+    int32_t left_pBuffer[256 * 2 * sizeof(int32_t)];
+    int32_t left_process_pBuffer[256 * 2 * sizeof(int32_t)];
 };
 
 // The value offset of an effect parameter is computed by rounding up
@@ -174,9 +174,9 @@ int DP_setConfig(DynamicsProcessingContext *pContext, effect_config_t *pConfig)
     if (pConfig->outputCfg.accessMode != EFFECT_BUFFER_ACCESS_WRITE &&
             pConfig->outputCfg.accessMode != EFFECT_BUFFER_ACCESS_ACCUMULATE)
         return -EINVAL;
-    if (pConfig->inputCfg.format != AUDIO_FORMAT_PCM_16_BIT) {
+    if (pConfig->inputCfg.format != AUDIO_FORMAT_PCM_32_BIT) {
         ALOGW("%s: format in = 0x%x format out = 0x%x", __FUNCTION__, pConfig->inputCfg.format, pConfig->outputCfg.format);
-        pConfig->inputCfg.format = pConfig->outputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
+        pConfig->inputCfg.format = pConfig->outputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     }
     memcpy(&pContext->mConfig, pConfig, sizeof(effect_config_t));
 
@@ -224,7 +224,7 @@ int DP_init(DynamicsProcessingContext *pContext)
 
     pContext->mConfig.inputCfg.accessMode = EFFECT_BUFFER_ACCESS_READ;
     pContext->mConfig.inputCfg.channels = AUDIO_CHANNEL_OUT_STEREO;
-    pContext->mConfig.inputCfg.format = AUDIO_FORMAT_PCM_FLOAT;
+    pContext->mConfig.inputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     pContext->mConfig.inputCfg.samplingRate = 48000;
     pContext->mConfig.inputCfg.bufferProvider.getBuffer = NULL;
     pContext->mConfig.inputCfg.bufferProvider.releaseBuffer = NULL;
@@ -232,7 +232,7 @@ int DP_init(DynamicsProcessingContext *pContext)
     pContext->mConfig.inputCfg.mask = EFFECT_CONFIG_ALL;
     pContext->mConfig.outputCfg.accessMode = EFFECT_BUFFER_ACCESS_ACCUMULATE;
     pContext->mConfig.outputCfg.channels = AUDIO_CHANNEL_OUT_STEREO;
-    pContext->mConfig.outputCfg.format = AUDIO_FORMAT_PCM_FLOAT;
+    pContext->mConfig.outputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     pContext->mConfig.outputCfg.samplingRate = 48000;
     pContext->mConfig.outputCfg.bufferProvider.getBuffer = NULL;
     pContext->mConfig.outputCfg.bufferProvider.releaseBuffer = NULL;
@@ -454,6 +454,45 @@ void memcpy_to_float_from_i16(float *dst, const int16_t *src, size_t count)
     }
 }
 
+static inline int32_t clamp32_from_float(float f)
+{
+    static const float scale = (float)(1UL << 31);
+    static const float limpos = 1.;
+    static const float limneg = -1.;
+
+    if (f <= limneg) {
+        return -0x80000000; /* or 0x80000000 */
+    } else if (f >= limpos) {
+        return 0x7fffffff;
+    }
+    f *= scale;
+    /* integer conversion is through truncation (though int to float is not).
+     * ensure that we round to nearest, ties away from 0.
+     */
+    return f > 0 ? f + 0.5 : f - 0.5;
+}
+
+float float_from_i32(int32_t ival)
+{
+    static const float scale = 1. / (float)(1UL << 31);
+
+    return ival * scale;
+}
+
+void memcpy_to_i32_from_float(int32_t *dst, const float *src, size_t count)
+{
+    for (; count > 0; --count) {
+        *dst++ = clamp32_from_float(*src++);
+    }
+}
+
+void memcpy_to_float_from_i32(float *dst, const int32_t *src, size_t count)
+{
+    for (; count > 0; --count) {
+        *dst++ = float_from_i32(*src++);
+    }
+}
+
 int aml_audio_check_and_realloc(void** pointer, size_t* cur_size, size_t need_size)
 {
     if (pointer == NULL || cur_size == NULL) {
@@ -505,8 +544,8 @@ int DP_process(effect_handle_t self, audio_buffer_t *inBuffer,
     }
     */
 
-    int16_t  *in   = (int16_t *)inBuffer->raw;
-    int16_t  *out  = (int16_t *)outBuffer->raw;
+    int32_t  *in   = (int32_t *)inBuffer->raw;
+    int32_t  *out  = (int32_t *)outBuffer->raw;
     int32_t  byte_counter;
     int dpe_frameCount = inBuffer->frameCount;
 
@@ -527,23 +566,23 @@ int DP_process(effect_handle_t self, audio_buffer_t *inBuffer,
     //if dynamics exist...
     if (pContext->mPDynamics != NULL && pContext->mCurrentVariant == 0) {
 
-        byte_counter = inBuffer->frameCount * sizeof(int16_t) * 2;
+        byte_counter = inBuffer->frameCount * sizeof(int32_t) * 2;
         if (pContext->left_bytes > 0) {
             memmove((int8_t *)inBuffer->raw + pContext->left_bytes, inBuffer->raw ,byte_counter);
             memcpy((int8_t *)inBuffer->raw, pContext->left_pBuffer ,pContext->left_bytes);
-            inBuffer->frameCount += pContext->left_bytes / (sizeof(int16_t) * channelCount);
-            byte_counter =  inBuffer->frameCount * sizeof(int16_t) * channelCount;
+            inBuffer->frameCount += pContext->left_bytes / (sizeof(int32_t) * channelCount);
+            byte_counter =  inBuffer->frameCount * sizeof(int32_t) * channelCount;
         }
         int32_t blockSize = DPE_FRAME_SIZE;
         int32_t blockCount = inBuffer->frameCount / blockSize;
-        pContext->left_bytes = byte_counter - sizeof(int16_t) * channelCount *  blockCount * blockSize;
+        pContext->left_bytes = byte_counter - sizeof(int32_t) * channelCount *  blockCount * blockSize;
         if (pContext->left_bytes > 0) {
             memcpy(pContext->left_pBuffer, (int8_t *)inBuffer->raw + (byte_counter - pContext->left_bytes), pContext->left_bytes);
         }
         outBuffer->frameCount = DPE_FRAME_SIZE *  blockCount;
 
         for (int i = 0; i < blockCount; i++) {
-            memcpy_to_float_from_i16(pContext->in_float, in + i * DPE_FRAME_SIZE * channelCount,
+            memcpy_to_float_from_i32(pContext->in_float, in + i * DPE_FRAME_SIZE * channelCount,
                 DPE_FRAME_SIZE * channelCount);
 
             pContext->mPDynamics->processSamples(pContext->in_float, pContext->in_float,
@@ -556,26 +595,26 @@ int DP_process(effect_handle_t self, audio_buffer_t *inBuffer,
                 }
             }
 
-            memcpy_to_i16_from_float(out + i * DPE_FRAME_SIZE * channelCount, pContext->in_float,
+            memcpy_to_i32_from_float(out + i * DPE_FRAME_SIZE * channelCount, pContext->in_float,
                 DPE_FRAME_SIZE * channelCount);
         }
 
         if (outBuffer->frameCount < dpe_frameCount && pContext->left_process_bytes <= 0) {
-             int tmp_byte = dpe_frameCount * sizeof(int16_t) * 2 - outBuffer->frameCount * sizeof(int16_t) * 2;
-             memmove((int8_t *)out + tmp_byte, out ,outBuffer->frameCount * sizeof(int16_t) * 2);
+             int tmp_byte = dpe_frameCount * sizeof(int32_t) * 2 - outBuffer->frameCount * sizeof(int32_t) * 2;
+             memmove((int8_t *)out + tmp_byte, out ,outBuffer->frameCount * sizeof(int32_t) * 2);
              memset((int8_t *)out, 0 , tmp_byte);
         }
 
         if (pContext->left_process_bytes > 0) {
-            memmove((int8_t *)out + pContext->left_process_bytes, out, inBuffer->frameCount * sizeof(int16_t) * 2);
+            memmove((int8_t *)out + pContext->left_process_bytes, out, inBuffer->frameCount * sizeof(int32_t) * 2);
             memcpy((int8_t *)out, pContext->left_process_pBuffer ,pContext->left_process_bytes);
-            outBuffer->frameCount += pContext->left_process_bytes / (sizeof(int16_t) * channelCount);
+            outBuffer->frameCount += pContext->left_process_bytes / (sizeof(int32_t) * channelCount);
         }
 
-        pContext->left_process_bytes = outBuffer->frameCount * sizeof(int16_t) * 2 - dpe_frameCount * sizeof(int16_t) * 2;
+        pContext->left_process_bytes = outBuffer->frameCount * sizeof(int32_t) * 2 - dpe_frameCount * sizeof(int32_t) * 2;
 
         if (pContext->left_process_bytes > 0) {
-            memcpy(pContext->left_process_pBuffer, (int8_t *)out + (dpe_frameCount * sizeof(int16_t) * 2), pContext->left_process_bytes);
+            memcpy(pContext->left_process_pBuffer, (int8_t *)out + (dpe_frameCount * sizeof(int32_t) * 2), pContext->left_process_bytes);
         }
 
         outBuffer->frameCount = dpe_frameCount;

@@ -19,7 +19,7 @@
 extern int HPEQ_init_api(void *data, int eq_band);
 extern int HPEQ_release_api(void);
 extern int HPEQ_reset_api(int bandSum);
-extern int HPEQ_process_api(short *in, short *out, int framecount, int eq_band);
+extern int HPEQ_process_api(int32_t *in, int32_t *out, int framecount, int eq_band);
 extern int HPEQ_setBand_api(int band, int index, int eq_band);
 extern int HPEQ_getBand_api(int *band, int index);
 #endif

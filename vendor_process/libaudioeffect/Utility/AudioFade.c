@@ -9,11 +9,12 @@
 
 
 
-#define LOG_TAG "audio_hw_process_effect_fade"
+#define LOG_TAG "audio_fade"
 
 #include <cutils/log.h>
 #include "AudioFade.h"
 #include <stdio.h>
+#include <inttypes.h>
 
 #define TABLE_LENGTH 128
 
@@ -23,6 +24,7 @@
 //typedef unsigned long uint32_t;
 typedef short int16_t;
 typedef unsigned short uint16_t;
+
 
 int mFadeTable_16bit[fadeMax][TABLE_LENGTH] = {
     {/**liner, it will be dynamic generated*/
@@ -170,7 +172,7 @@ int mFadeTable_16bit[fadeMax][TABLE_LENGTH] = {
     }
 };
 
-int fadeNext(fadeMethod fade_method, int t, int b, int c, int d)
+int64_t fadeNext(fadeMethod fade_method, int t, int64_t b, int64_t c, int d)
 {
     int e;
 
@@ -203,7 +205,7 @@ int fadeNext(fadeMethod fade_method, int t, int b, int c, int d)
 
         uint32_t y2 = (x2 * (y3 - y1) >> 16) + y1;
 
-        int ret = (((uint64_t)c * y2) >> 16) + b;
+        int64_t ret = (((int64_t)c * y2) >> 16) + b;
         return ret;
     }
 }
@@ -211,25 +213,27 @@ int fadeNext(fadeMethod fade_method, int t, int b, int c, int d)
 int AudioFadeBuf(AudioFade_t *pAudFade, void *rawBuf, unsigned int nSamples)
 {
     //int** outbuf;
-    int16_t * pOut16bit;
-    int32_t tmp32;
+    int32_t * pOut32bit;
+    int64_t temp64;
     unsigned int nchannels;
     unsigned int i, j;
-    int delta = 0;
+    int64_t delta = 0;
 
-    // currently fix to 16bits
-    pOut16bit = (int16_t *)rawBuf;
+    // currently fix to 32bits
+    pOut32bit = (int32_t *)rawBuf;
     nchannels = pAudFade->channels;
 
     pAudFade->mfadeFramesTotal = ((long long)pAudFade->mfadeTimeTotal * pAudFade->samplingRate) / 1000;
 
     delta = pAudFade->mTargetVolume - pAudFade->mStartVolume;
-    ALOGI("%s,mfadeFramesTotal=%d delta=%d,samplingRate = %d,channels = %d,format = %d\n", __FUNCTION__,
+    ALOGI("%s, mfadeFramesTotal=%d mfadeFramesUsed=%u delta=%"PRIu64" samplingRate = %d, channels = %d,format = %d state:%d\n", __FUNCTION__,
           pAudFade->mfadeFramesTotal,
+          pAudFade->mfadeFramesUsed,
           delta,
           pAudFade->samplingRate,
           pAudFade->channels,
-          pAudFade->format);
+          pAudFade->format,
+          pAudFade->mFadeState);
 
     for (i = 0; i < nSamples; i++) {
         if (pAudFade->mfadeFramesTotal == 0) {
@@ -240,27 +244,28 @@ int AudioFadeBuf(AudioFade_t *pAudFade, void *rawBuf, unsigned int nSamples)
                                                 pAudFade->mStartVolume, delta, pAudFade->mfadeFramesTotal - 1);
             pAudFade->mfadeFramesUsed++;
         }
+
         for (j = 0; j < nchannels; j++) {
-            tmp32 = pOut16bit[i * nchannels + j] * pAudFade->mCurrentVolume;
-            pOut16bit[i * nchannels + j] = tmp32 >> 16;
+            temp64 = pOut32bit[i * nchannels + j] * pAudFade->mCurrentVolume;
+            pOut32bit[i * nchannels + j] = temp64 >> 32;
         }
     }
-    // ALOGI("mCurrentVolume=%d\n",pAudFade->mCurrentVolume);
+    //ALOGI("mCurrentVolume=%lld\n",pAudFade->mCurrentVolume);
     return AUD_FADE_OK;
 }
 
 int AudioFadeBufferdelay(AudioFade_t *pAudFade, void *rawBuf, unsigned int nSamples, int starsample)
 {
     //int** outbuf;
-    int16_t * pOut16bit;
-    int32_t tmp32;
+    int32_t * pOut32bit;
+    int64_t temp64;
     unsigned int nchannels;
     unsigned int i = starsample;
     unsigned int j;
     int delta = 0;
 
     // currently fix to 16bits
-    pOut16bit = (int16_t *)rawBuf;
+    pOut32bit = (int32_t *)rawBuf;
     nchannels = pAudFade->channels;
 
     pAudFade->mfadeFramesTotal = ((long long)pAudFade->mfadeTimeTotal * pAudFade->samplingRate) / 1000;
@@ -275,7 +280,7 @@ int AudioFadeBufferdelay(AudioFade_t *pAudFade, void *rawBuf, unsigned int nSamp
 
     for (unsigned int m = 0; m < i; m++) {
         for (j = 0; j < nchannels; j++) {
-            pOut16bit[m * nchannels + j] = 0;
+            pOut32bit[m * nchannels + j] = 0;
         }
     }
 
@@ -289,8 +294,8 @@ int AudioFadeBufferdelay(AudioFade_t *pAudFade, void *rawBuf, unsigned int nSamp
             pAudFade->mfadeFramesUsed++;
         }
         for (j = 0; j < nchannels; j++) {
-            tmp32 = (pOut16bit[i * nchannels + j]) * pAudFade->mCurrentVolume;
-            pOut16bit[i * nchannels + j] = tmp32 >> 16;
+            temp64 = (pOut32bit[i * nchannels + j]) * pAudFade->mCurrentVolume;
+            pOut32bit[i * nchannels + j] =(int32_t)(temp64 >> 32);
         }
     }
     // ALOGI("mCurrentVolume=%d\n",pAudFade->mCurrentVolume);
@@ -299,17 +304,17 @@ int AudioFadeBufferdelay(AudioFade_t *pAudFade, void *rawBuf, unsigned int nSamp
 
 void mutePCMBuf(AudioFade_t *pAudFade, void *rawBuf, unsigned int nSamples)
 {
-    int16_t * pOut16bit;
+    int32_t * pOut32bit;
     unsigned int i, j;
     unsigned int nchannels;
 
     // currently fix to 16bits
-    pOut16bit = (int16_t *)rawBuf;
+    pOut32bit = (int32_t *)rawBuf;
     nchannels = pAudFade->channels;
 
     for (i = 0; i < nSamples; i++) {
         for (j = 0; j < nchannels; j++) {
-            pOut16bit[i * nchannels + j] = 0;
+            pOut32bit[i * nchannels + j] = 0;
         }
     }
 }

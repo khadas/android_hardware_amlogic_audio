@@ -18,7 +18,7 @@
  *
  */
 
-#define LOG_TAG "audio_hw_process_effect_hpeq"
+#define LOG_TAG "HPEQ_Effect"
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>
@@ -35,6 +35,7 @@
 #include <cutils/properties.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <inttypes.h>
 
 #include "IniParser.h"
 #include "Hpeq.h"
@@ -274,7 +275,7 @@ int HPEQ_load_ini_file(HPEQContext *pContext)
 
     result = 0;
 error:
-    ALOGD("%s: %s", __FUNCTION__, result == 0 ? "successful" : "failed");
+    ALOGD("%s: %s", __FUNCTION__, result == 0 ? "sucessful" : "failed");
     delete pIniParser;
     pIniParser = NULL;
     return result;
@@ -287,7 +288,7 @@ int HPEQ_init(HPEQContext *pContext)
 
     pContext->config.inputCfg.accessMode = EFFECT_BUFFER_ACCESS_READ;
     pContext->config.inputCfg.channels = AUDIO_CHANNEL_OUT_STEREO;
-    pContext->config.inputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
+    pContext->config.inputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     pContext->config.inputCfg.samplingRate = 48000;
     pContext->config.inputCfg.bufferProvider.getBuffer = NULL;
     pContext->config.inputCfg.bufferProvider.releaseBuffer = NULL;
@@ -295,7 +296,7 @@ int HPEQ_init(HPEQContext *pContext)
     pContext->config.inputCfg.mask = EFFECT_CONFIG_ALL;
     pContext->config.outputCfg.accessMode = EFFECT_BUFFER_ACCESS_ACCUMULATE;
     pContext->config.outputCfg.channels = AUDIO_CHANNEL_OUT_STEREO;
-    pContext->config.outputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
+    pContext->config.outputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     pContext->config.outputCfg.samplingRate = 48000;
     pContext->config.outputCfg.bufferProvider.getBuffer = NULL;
     pContext->config.outputCfg.bufferProvider.releaseBuffer = NULL;
@@ -309,7 +310,7 @@ int HPEQ_init(HPEQContext *pContext)
 
     HPEQ_init_api((void *)data, HPEQ_5_BAND);
 
-    ALOGD("%s: successful", __FUNCTION__);
+    ALOGD("%s: sucessful", __FUNCTION__);
 
     return 0;
 }
@@ -335,9 +336,9 @@ int HPEQ_configure(HPEQContext *pContext, effect_config_t *pConfig)
     if (pConfig->outputCfg.accessMode != EFFECT_BUFFER_ACCESS_WRITE &&
             pConfig->outputCfg.accessMode != EFFECT_BUFFER_ACCESS_ACCUMULATE)
         return -EINVAL;
-    if (pConfig->inputCfg.format != AUDIO_FORMAT_PCM_16_BIT) {
+    if (pConfig->inputCfg.format != AUDIO_FORMAT_PCM_32_BIT) {
         ALOGW("%s: format in = 0x%x format out = 0x%x", __FUNCTION__, pConfig->inputCfg.format, pConfig->outputCfg.format);
-        pConfig->inputCfg.format = pConfig->outputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
+        pConfig->inputCfg.format = pConfig->outputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     }
 
     memcpy(&pContext->config, pConfig, sizeof(effect_config_t));
@@ -565,8 +566,8 @@ int HPEQ_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer_t 
         return -EINVAL;
     }
 
-    int16_t *in  = (int16_t *)inBuffer->raw;
-    int16_t *out = (int16_t *)outBuffer->raw;
+    int32_t *in  = (int32_t *)inBuffer->raw;
+    int32_t *out = (int32_t *)outBuffer->raw;
     HPEQdata *data = &pContext->gHPEQdata;
     if (!data->enable) {
         for (size_t i = 0; i < inBuffer->frameCount; i++) {
@@ -578,30 +579,30 @@ int HPEQ_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer_t 
             int i;
             AudioFade_t *pAudFade = (AudioFade_t *) & (pContext->gAudFade);
             unsigned int modeValue;
-            unsigned int nSamples = (unsigned int)inBuffer->frameCount;
+            unsigned int nFrames = (unsigned int)inBuffer->frameCount;
 
             if (pAudFade->mFadeState != AUD_FADE_IDLE) {
-                ALOGI("%s: mFadeState -> %d, mCurrentVolume = %d,nSamples = %d", __FUNCTION__, pAudFade->mFadeState, pAudFade->mCurrentVolume, nSamples);
+                ALOGI("%s: mFadeState -> %d, nSamples = %u", __FUNCTION__, pAudFade->mFadeState, nFrames);
             }
 
             // do audio transition
             switch (pAudFade->mFadeState) {
             case AUD_FADE_OUT_START: {
                 pAudFade->mTargetVolume = 0;
-                pAudFade->mStartVolume = 1 << 16;
-                pAudFade->mCurrentVolume = 1 << 16;
+                pAudFade->mStartVolume = (long long) 1 << 32;
+                pAudFade->mCurrentVolume = (long long) 1 << 32;
                 pAudFade->mfadeTimeUsed = 0;
                 pAudFade->mfadeFramesUsed = 0;
                 pAudFade->mfadeTimeTotal = DEFAULT_FADE_OUT_MS;
                 pAudFade->muteCounts = 1;
-                AudioFadeBuf(pAudFade, in, nSamples);
+                AudioFadeBuf(pAudFade, in, nFrames);
                 pAudFade->mFadeState = AUD_FADE_OUT;
             }
             break;
             case AUD_FADE_OUT: {
                 // do fade out process
                 if (pAudFade->mCurrentVolume != 0) {
-                    AudioFadeBuf(pAudFade, in, nSamples);
+                    AudioFadeBuf(pAudFade, in, nFrames);
                 } else {
                     pAudFade->mFadeState = AUD_FADE_MUTE;
                     // do actually setting
@@ -610,7 +611,7 @@ int HPEQ_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer_t 
                         ALOGD("%s: Set band[%d] -> %d", __FUNCTION__, i + 1, data->usr_cfg[modeValue * data->band_num + i]);
                         HPEQ_setBand_api(data->usr_cfg[modeValue * data->band_num + i], i + 1, data->band_num);
                     }
-                    mutePCMBuf(pAudFade, in, nSamples);
+                    mutePCMBuf(pAudFade, in, nFrames);
                 }
             }
             break;
@@ -618,22 +619,22 @@ int HPEQ_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer_t 
                 if (pAudFade->muteCounts <= 0) {
                     pAudFade->mFadeState = AUD_FADE_IN;
                     // slowly increase audio volume
-                    pAudFade->mTargetVolume = 1 << 16;
+                    pAudFade->mTargetVolume = (long long) 1 << 32;
                     pAudFade->mStartVolume = 0;
                     pAudFade->mCurrentVolume = 0;
                     pAudFade->mfadeTimeUsed = 0;
                     pAudFade->mfadeFramesUsed = 0;
                     pAudFade->mfadeTimeTotal = DEFAULT_FADE_IN_MS;
-                    mutePCMBuf(pAudFade, in, nSamples);
+                    mutePCMBuf(pAudFade, in, nFrames);
                 } else {
-                    mutePCMBuf(pAudFade, in, nSamples);
+                    mutePCMBuf(pAudFade, in, nFrames);
                     pAudFade->muteCounts--;
                 }
             }
             break;
             case AUD_FADE_IN: {
-                AudioFadeBuf(pAudFade, in, nSamples);
-                if (pAudFade->mCurrentVolume == 1 << 16) {
+                AudioFadeBuf(pAudFade, in, nFrames);
+                if (pAudFade->mCurrentVolume == (long long)1 << 32) {
                     pAudFade->mFadeState = AUD_FADE_IDLE;
                 }
             }
@@ -646,11 +647,11 @@ int HPEQ_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer_t 
             }
 
 #ifdef HPEQ_DEBUG
-            if (getprop_bool("media.audiofade.dump")) {
+            if (getprop_bool("vendor.media.audiofade.dump")) {
                 FILE *dump_fp = NULL;
                 dump_fp = fopen("/data/audio_hal/audio_in.pcm", "a+");
                 if (dump_fp != NULL) {
-                    fwrite(in, nSamples * 2 * 2, 1, dump_fp);
+                    fwrite(in, nFrames * 2 * 4, 1, dump_fp);
                     fclose(dump_fp);
                 } else {
                     ALOGW("[Error] Can't write to /data/dump_in.pcm");
@@ -661,11 +662,11 @@ int HPEQ_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer_t 
             HPEQ_process_api(in, out, inBuffer->frameCount, data->band_num);
 
 #ifdef HPEQ_DEBUG
-            if (getprop_bool("media.audiofade.dump")) {
+            if (getprop_bool("vendor.media.audiofade.dump")) {
                 FILE *dump_fp = NULL;
                 dump_fp = fopen("/data/audio_hal/audio_out.pcm", "a+");
                 if (dump_fp != NULL) {
-                    fwrite(out, nSamples * 2 * 2, 1, dump_fp);
+                    fwrite(out, nFrames * 2 * 4, 1, dump_fp);
                     fclose(dump_fp);
                 } else {
                     ALOGW("[Error] Can't write to /data/dump_in.pcm");
@@ -826,7 +827,6 @@ int HPEQLib_Create(const effect_uuid_t *uuid, int32_t sessionId __unused, int32_
             pContext->gHPEQdata.usr_cfg = (int *)calloc(pContext->gHPEQdata.band_num * pContext->gHPEQdata.mode_num, sizeof(int));
             if (!pContext->gHPEQdata.usr_cfg) {
                 ALOGE("%s: default alloc failed", __FUNCTION__);
-                /*coverity[leaked_storage]*/
                 return -EINVAL;
             }
         }

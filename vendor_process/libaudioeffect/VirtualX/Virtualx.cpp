@@ -505,11 +505,11 @@ typedef struct vxContext_s {
     int32_t                         *ppMappedInCh[VIRTUALX_MAX_IN_CHANNELS];
     int32_t                         *ppMappedOutCh[VIRTUALX_MAX_IN_CHANNELS];
     int32_t                         ch_num;
-    int16_t                         left_bytes;
-    /*vx process one block 256 frames,framessize (2 bytes*6ch )*/
-    int16_t                         left_pBuffer[256 * 4 * 3];
-    int16_t                         left_process_bytes;
-    int16_t                         left_process_pBuffer[256 * 4];
+    int32_t                         left_bytes;
+    /*vx process one block 256 frames,framessize (sizeof(int32_t) * 6ch )*/
+    int32_t                         left_pBuffer[256 * 2 * sizeof(int32_t) * 3];
+    int32_t                         left_process_bytes;
+    int32_t                         left_process_pBuffer[256 * 2 * sizeof(int32_t)];
     bool                            vx_effect_enable;
 } vxContext;
 
@@ -1956,7 +1956,7 @@ static int Virtualx_init(vxContext *pContext)
 
     pContext->config.inputCfg.accessMode = EFFECT_BUFFER_ACCESS_READ;
     pContext->config.inputCfg.channels = AUDIO_CHANNEL_OUT_STEREO;
-    pContext->config.inputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
+    pContext->config.inputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     pContext->config.inputCfg.samplingRate = 48000;
     pContext->config.inputCfg.bufferProvider.getBuffer = NULL;
     pContext->config.inputCfg.bufferProvider.releaseBuffer = NULL;
@@ -1964,7 +1964,7 @@ static int Virtualx_init(vxContext *pContext)
     pContext->config.inputCfg.mask = EFFECT_CONFIG_ALL;
     pContext->config.outputCfg.accessMode = EFFECT_BUFFER_ACCESS_ACCUMULATE;
     pContext->config.outputCfg.channels = AUDIO_CHANNEL_OUT_STEREO;
-    pContext->config.outputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
+    pContext->config.outputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     pContext->config.outputCfg.samplingRate = 48000;
     pContext->config.outputCfg.bufferProvider.getBuffer = NULL;
     pContext->config.outputCfg.bufferProvider.releaseBuffer = NULL;
@@ -2103,10 +2103,10 @@ static int Virtualx_configure(vxContext *pContext, effect_config_t *pConfig)
                 pConfig->outputCfg.accessMode != EFFECT_BUFFER_ACCESS_ACCUMULATE)
         return -EINVAL;
 
-    if (pConfig->inputCfg.format != AUDIO_FORMAT_PCM_16_BIT) {
+    if (pConfig->inputCfg.format != AUDIO_FORMAT_PCM_32_BIT) {
         //ALOGW("%s: format in = 0x%x format out = 0x%x", __FUNCTION__,
         //    pConfig->inputCfg.format, pConfig->outputCfg.format);
-        pConfig->inputCfg.format = pConfig->outputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
+        pConfig->inputCfg.format = pConfig->outputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     }
     memcpy(&pContext->config, pConfig, sizeof(effect_config_t));
 
@@ -3746,8 +3746,8 @@ static int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audi
         inBuffer->frameCount == 0)
         return -EINVAL;
 
-    int16_t  *in   = (int16_t *)inBuffer->raw;
-    int16_t  *out  = (int16_t *)outBuffer->raw;
+    int32_t  *in   = (int32_t *)inBuffer->raw;
+    int32_t  *out  = (int32_t *)outBuffer->raw;
 
     int vx_frameCount = inBuffer->frameCount;
 
@@ -3780,12 +3780,12 @@ static int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audi
         if (pContext->left_bytes > 0) {
             memmove((int8_t *)inBuffer->raw + pContext->left_bytes, inBuffer->raw ,byte_counter);
             memcpy((int8_t *)inBuffer->raw, pContext->left_pBuffer ,pContext->left_bytes);
-            inBuffer->frameCount += pContext->left_bytes / (sizeof(int16_t) *pContext->ch_num);
-            byte_counter =  inBuffer->frameCount * sizeof(int16_t) * pContext->ch_num;
+            inBuffer->frameCount += pContext->left_bytes / (sizeof(int32_t) *pContext->ch_num);
+            byte_counter =  inBuffer->frameCount * sizeof(int32_t) * pContext->ch_num;
         }
         int32_t blockSize = VIRTUALX_FRAME_SIZE;
         int32_t blockCount = inBuffer->frameCount / blockSize;
-        pContext->left_bytes = byte_counter - sizeof(int16_t) * pContext->ch_num *  blockCount * blockSize;
+        pContext->left_bytes = byte_counter - sizeof(int32_t) * pContext->ch_num *  blockCount * blockSize;
         if (pContext->left_bytes > 0) {
             memcpy(pContext->left_pBuffer, (int8_t *)inBuffer->raw + (byte_counter - pContext->left_bytes), pContext->left_bytes);
         }
@@ -3794,14 +3794,14 @@ static int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audi
         for (int i = 0; i < blockCount; i++) {
             for (int sampleCount = 0; sampleCount < VIRTUALX_FRAME_SIZE; sampleCount++) {
                 if (pContext->ch_num == 2 /*for 2ch process*/) {
-                    pContext->ppMappedInCh[0][sampleCount] = (int32_t(*in++)) << 16; // L & R
-                    pContext->ppMappedInCh[1][sampleCount] = (int32_t(*in++)) << 16;
+                    pContext->ppMappedInCh[0][sampleCount] = *in++ << 16; // L & R
+                    pContext->ppMappedInCh[1][sampleCount] = *in++ << 16;
                     for (int i = 2; i < 12; i++) {
                         pContext->ppMappedInCh[i][sampleCount] = 0;
                     }
                 } else if (pContext->ch_num == 6 /*for 5.1 ch process*/) {
                     for (int i = 0; i < 6; i++) {
-                        pContext->ppMappedInCh[i][sampleCount] = (int32_t(*in++)) << 16;
+                        pContext->ppMappedInCh[i][sampleCount] = *in++;
                     }
                     for (int i = 6; i < 12; i++) {
                         pContext->ppMappedInCh[i][sampleCount] = 0;
@@ -3813,11 +3813,11 @@ static int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audi
             (*pContext->gVirtualxapi.VX_process)(pContext->ppMappedOutCh, pContext->ppMappedOutCh);
             (*pContext->gVirtualxapi.MBHL_process)(pContext->ppMappedOutCh, pContext->ppMappedOutCh);
 #ifdef DEBUG_VX
-            int16_t *output = out;
+            int32_t *output = out;
 #endif
             for (int sampleCount = 0; sampleCount < VIRTUALX_FRAME_SIZE; sampleCount++) {
-                *out++  = (int16_t)(pContext->ppMappedOutCh[0][sampleCount] >> 16);
-                *out++  = (int16_t)(pContext->ppMappedOutCh[1][sampleCount] >> 16);
+                *out++  = pContext->ppMappedOutCh[0][sampleCount];
+                *out++  = pContext->ppMappedOutCh[1][sampleCount];
             }
 #ifdef DEBUG_VX
             if (VX_prop) {
@@ -3830,23 +3830,23 @@ static int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audi
 #endif
         }
 
-        out = (int16_t *)outBuffer->raw;
+        out = (int32_t *)outBuffer->raw;
         if (outBuffer->frameCount < vx_frameCount && pContext->left_process_bytes <= 0) {
-             int tmp_byte = vx_frameCount * sizeof(int16_t) * 2 - outBuffer->frameCount * sizeof(int16_t) * 2;
-             memmove((int8_t *)out + tmp_byte, out ,outBuffer->frameCount * sizeof(int16_t) * 2);
+             int tmp_byte = vx_frameCount * sizeof(int32_t) * 2 - outBuffer->frameCount * sizeof(int32_t) * 2;
+             memmove((int8_t *)out + tmp_byte, out ,outBuffer->frameCount * sizeof(int32_t) * 2);
              memset((int8_t *)out, 0 , tmp_byte);
         }
 
         if (pContext->left_process_bytes > 0) {
-            memmove((int8_t *)out + pContext->left_process_bytes, out, inBuffer->frameCount * sizeof(int16_t) * 2);
+            memmove((int8_t *)out + pContext->left_process_bytes, out, inBuffer->frameCount * sizeof(int32_t) * 2);
             memcpy((int8_t *)out, pContext->left_process_pBuffer ,pContext->left_process_bytes);
-            outBuffer->frameCount += pContext->left_process_bytes / (sizeof(int16_t) * 2);
+            outBuffer->frameCount += pContext->left_process_bytes / (sizeof(int32_t) * 2);
         }
 
-        pContext->left_process_bytes = outBuffer->frameCount * sizeof(int16_t) * 2 - vx_frameCount * sizeof(int16_t) * 2;
+        pContext->left_process_bytes = outBuffer->frameCount * sizeof(int32_t) * 2 - vx_frameCount * sizeof(int32_t) * 2;
 
         if (pContext->left_process_bytes > 0) {
-            memcpy(pContext->left_process_pBuffer, (int8_t *)out + (vx_frameCount * sizeof(int16_t) * 2), pContext->left_process_bytes);
+            memcpy(pContext->left_process_pBuffer, (int8_t *)out + (vx_frameCount * sizeof(int32_t) * 2), pContext->left_process_bytes);
         }
 
         outBuffer->frameCount = vx_frameCount;

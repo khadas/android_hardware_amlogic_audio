@@ -23,7 +23,7 @@
 extern "C"  {
 #endif
 
-int audio_Treble_Bass_process(int16_t *input, int16_t *output, int frame_length);
+int audio_Treble_Bass_process(int32_t *input, int32_t *output, int frame_length);
 void audio_Treble_Bass_init(float bass_gain, float treble_gain);
 
 #ifdef __cplusplus

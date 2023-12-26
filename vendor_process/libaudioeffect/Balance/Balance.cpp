@@ -18,7 +18,7 @@
  *
  */
 
-#define LOG_TAG "audio_hw_process_effect_balance"
+#define LOG_TAG "Balance_Effect"
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>
@@ -122,6 +122,13 @@ int16_t clamp16(int32_t sample)
 {
     if ((sample >> 15) ^ (sample >> 31))
         sample = 0x7FFF ^ (sample >> 31);
+    return sample;
+}
+
+static inline int32_t clamp32(int64_t sample)
+{
+    if ((sample>>31) ^ (sample>>63))
+        sample = 0x7fffffff ^ (sample>>63);
     return sample;
 }
 
@@ -240,7 +247,7 @@ int Balance_load_ini_file(BalanceContext *pContext)
 
     result = 0;
 error:
-    ALOGD("%s: %s", __FUNCTION__, result == 0 ? "successful" : "failed");
+    ALOGD("%s: %s", __FUNCTION__, result == 0 ? "sucessful" : "failed");
     delete pIniParser;
     pIniParser = NULL;
     return result;
@@ -253,7 +260,7 @@ int Balance_init(BalanceContext *pContext)
 
     pContext->config.inputCfg.accessMode = EFFECT_BUFFER_ACCESS_READ;
     pContext->config.inputCfg.channels = AUDIO_CHANNEL_OUT_STEREO;
-    pContext->config.inputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
+    pContext->config.inputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     pContext->config.inputCfg.samplingRate = 48000;
     pContext->config.inputCfg.bufferProvider.getBuffer = NULL;
     pContext->config.inputCfg.bufferProvider.releaseBuffer = NULL;
@@ -261,7 +268,7 @@ int Balance_init(BalanceContext *pContext)
     pContext->config.inputCfg.mask = EFFECT_CONFIG_ALL;
     pContext->config.outputCfg.accessMode = EFFECT_BUFFER_ACCESS_ACCUMULATE;
     pContext->config.outputCfg.channels = AUDIO_CHANNEL_OUT_STEREO;
-    pContext->config.outputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
+    pContext->config.outputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     pContext->config.outputCfg.samplingRate = 48000;
     pContext->config.outputCfg.bufferProvider.getBuffer = NULL;
     pContext->config.outputCfg.bufferProvider.releaseBuffer = NULL;
@@ -273,7 +280,7 @@ int Balance_init(BalanceContext *pContext)
     data->RampVolumeR = 1.0;
     pthread_mutex_init(&pContext->lock, NULL);
 
-    ALOGD("%s: successful", __FUNCTION__);
+    ALOGD("%s: sucessful", __FUNCTION__);
 
     return 0;
 }
@@ -298,9 +305,9 @@ int Balance_configure(BalanceContext *pContext, effect_config_t *pConfig)
     if (pConfig->outputCfg.accessMode != EFFECT_BUFFER_ACCESS_WRITE &&
             pConfig->outputCfg.accessMode != EFFECT_BUFFER_ACCESS_ACCUMULATE)
         return -EINVAL;
-    if (pConfig->inputCfg.format != AUDIO_FORMAT_PCM_16_BIT) {
+    if (pConfig->inputCfg.format != AUDIO_FORMAT_PCM_32_BIT) {
         ALOGW("%s: format in = 0x%x format out = 0x%x", __FUNCTION__, pConfig->inputCfg.format, pConfig->outputCfg.format);
-        pConfig->inputCfg.format = pConfig->outputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
+        pConfig->inputCfg.format = pConfig->outputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     }
 
     memcpy(&pContext->config, pConfig, sizeof(effect_config_t));
@@ -418,8 +425,8 @@ int Balance_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer
         inBuffer->frameCount == 0)
         return -EINVAL;
 
-    int16_t *in  = (int16_t *)inBuffer->raw;
-    int16_t *out = (int16_t *)outBuffer->raw;
+    int32_t *in  = (int32_t *)inBuffer->raw;
+    int32_t *out = (int32_t *)outBuffer->raw;
     Balancedata *data = &pContext->gBalancedata;
     int32_t val = data->index;
 
@@ -435,9 +442,9 @@ int Balance_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer
             if (data->RampVolumeR != data->usr_cfg.level[val]) {
                 const float Deltas =
                     (data->usr_cfg.level[val] - data->RampVolumeR) / inBuffer->frameCount;
-                *out++ = clamp16((int32_t)(*in++ * (data->RampVolumeR + Deltas * i)));
+                *out++ = clamp32((int64_t)(*in++ * (data->RampVolumeR + Deltas * i)));
             } else {
-                *out++ = clamp16((int32_t)(*in++ * data->usr_cfg.level[val]));
+                *out++ = clamp32((int64_t)(*in++ * data->usr_cfg.level[val]));
             }
         }
         data->RampVolumeL = 1.0;
@@ -447,9 +454,9 @@ int Balance_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer
             if (data->RampVolumeL != data->usr_cfg.level[val]) {
                 const float Deltas =
                     (data->usr_cfg.level[val] - data->RampVolumeL) / inBuffer->frameCount;
-                *out++ = clamp16((int32_t)(*in++ * (data->RampVolumeL + Deltas * i)));
+                *out++ = clamp32((int64_t)(*in++ * (data->RampVolumeL + Deltas * i)));
             } else {
-                *out++ = clamp16((int32_t)(*in++ * data->usr_cfg.level[val]));
+                *out++ = clamp32((int64_t)(*in++ * data->usr_cfg.level[val]));
             }
             *out++ = *in++;
         }

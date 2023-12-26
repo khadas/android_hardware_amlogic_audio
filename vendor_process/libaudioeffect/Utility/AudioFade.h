@@ -60,9 +60,9 @@ typedef struct {
     unsigned int mfadeTimeTotal;
     unsigned int mfadeFramesUsed;
     unsigned int mfadeFramesTotal;
-    int mStartVolume;
-    int mCurrentVolume;
-    int mTargetVolume;
+    int64_t mStartVolume;
+    int64_t mCurrentVolume;
+    int64_t mTargetVolume;
     int muteCounts;
     unsigned int    samplingRate;   // sampling rate
     unsigned int    channels;       // number of channels
