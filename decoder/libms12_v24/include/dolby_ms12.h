@@ -125,6 +125,12 @@ int dolby_ms12_input_app(void *dolby_mS12_pointer
                             , int audio_stream_out_channel_num
                             , int audio_stream_out_sample_rate);
 
+int dolby_ms12_dap_process(void *dolby_mS12_pointer
+                          , const void *input_main_buffer
+                          , size_t audio_stream_out_buffer_size
+                          , int audio_stream_out_format
+                          , int audio_stream_out_channel_num
+                          , int audio_stream_out_sample_rate);
 
 #ifdef REPLACE_OUTPUT_BUFFER_WITH_CALLBACK
 

@@ -265,6 +265,27 @@ extern "C" int dolby_ms12_input_app(void *dolbyMS12_pointer
     }
 }
 
+extern "C" int dolby_ms12_dap_process(
+    void *dolbyMS12_pointer
+    , const void *audio_stream_out_buffer //ms12 input buffer
+    , size_t audio_stream_out_buffer_size //ms12 input buffer size
+    , int audio_stream_out_format
+    , int audio_stream_out_channel_num
+    , int audio_stream_out_sample_rate
+)
+{
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance)
+        return dolby_ms12_instance->DolbyMS12DapProcess(dolbyMS12_pointer
+                , audio_stream_out_buffer //ms12 input buffer
+                , audio_stream_out_buffer_size //ms12 input buffer size
+                , audio_stream_out_format
+                , audio_stream_out_channel_num
+                , audio_stream_out_sample_rate);
+    else {
+        return -1;
+    }
+}
 
 
 #ifdef REPLACE_OUTPUT_BUFFER_WITH_CALLBACK

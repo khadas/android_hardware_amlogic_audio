@@ -544,6 +544,12 @@ public:
         ALOGI("%s() mHdmiOutputType %d\n", __FUNCTION__, mHdmiOutputType);
     }
 
+    virtual void setDapOnly(int DapOnly)
+    {
+        mDapOnly = DapOnly;
+        ALOGI("%s() mDapOnly %d\n", __FUNCTION__, mDapOnly);
+    }
+
     virtual void setInputCMDMask(const char *input_cmd);
 
     virtual int getInputCMDMask(void)
@@ -758,6 +764,7 @@ private:
     */
     int mHdmiOutputType;
 
+    int mDapOnly;
 }; //class DolbyMS12ConfigParams
 
 

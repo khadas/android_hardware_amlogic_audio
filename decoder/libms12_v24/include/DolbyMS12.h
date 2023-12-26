@@ -126,6 +126,14 @@ public:
         , int audio_stream_out_channel_num
         , int audio_stream_out_sample_rate
     );
+    virtual int     DolbyMS12DapProcess(
+        void *dolbyMS12_pointer
+        , const void *audio_stream_out_buffer //ms12 input buffer
+        , size_t audio_stream_out_buffer_size //ms12 input buffer size
+        , int audio_stream_out_format
+        , int audio_stream_out_channel_num
+        , int audio_stream_out_sample_rate
+    );
 
 #ifdef REPLACE_OUTPUT_BUFFER_WITH_CALLBACK
 

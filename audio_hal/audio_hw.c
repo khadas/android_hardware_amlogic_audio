@@ -1159,7 +1159,7 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
         ret = a2dp_out_set_parameters(stream, kvpairs);
         goto exit;
     }*/
-    if (eDolbyMS12Lib == adev->dolby_lib_type) {
+    if (eDolbyMS12Lib == adev->dolby_lib_type || adev->ms12.dap_only_enable) {
         ret = str_parms_get_str(parms, "ms12_runtime", value, sizeof(value));
         if (ret >= 0) {
             char *parm = strstr(kvpairs, "=");
@@ -4297,7 +4297,7 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         goto exit;
     }
 
-    if (eDolbyMS12Lib == adev->dolby_lib_type) {
+    if (eDolbyMS12Lib == adev->dolby_lib_type || adev->ms12.dap_only_enable) {
         ret = str_parms_get_str(parms, "ms12_runtime", value, sizeof(value));
         if (ret >= 0) {
             char *parm = strstr(kvpairs, "=");
@@ -7904,10 +7904,16 @@ int adev_ms12_prepare(struct audio_hw_device *dev) {
     audio_format_t aformat = AUDIO_FORMAT_E_AC3;
 
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
+
+    if (ms12->dap_only_enable) {
+        aml_dap_close(ms12);
+    }
+
     if (adev->ms12_out) {
         ALOGD("%s: ms12 stream exist", __func__);
         return 0;
     }
+
     ALOGD("%s: enter", __func__);
     stream_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
     stream_config.sample_rate = 48000;

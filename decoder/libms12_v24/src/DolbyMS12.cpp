@@ -54,6 +54,7 @@ int (*FuncDolbyMs12EncoderClose)(void *);
 int (*FuncDolbyMS12InputAssociate)(void *, const void *, size_t, int, int, int);
 int (*FuncDolbyMS12InputSystem)(void *, const void *, size_t, int, int, int);
 int (*FuncDolbyMS12InputApp)(void *, const void *, size_t, int, int, int);
+int (*FuncDolbyMS12DapProcess)(void *, const void *, size_t, int, int, int);
 
 #ifdef REPLACE_OUTPUT_BUFFER_WITH_CALLBACK
 int (*FuncDolbyMS12RegisterOutputCallback)(output_callback , void *);
@@ -199,6 +200,12 @@ int DolbyMS12::GetLibHandle(char *dolby_ms12_path)
     if (!FuncDolbyMS12InputApp) {
         ALOGE("%s, dlsym ms12_input_app fail\n", __FUNCTION__);
         goto ERROR;
+    }
+
+    FuncDolbyMS12DapProcess = (int (*)(void *, const void *, size_t, int, int, int)) dlsym(mDolbyMS12LibHandle, "ms12_dap_process");
+    if (!FuncDolbyMS12DapProcess) {
+        ALOGE("%s, dlsym ms12_dap_process fail\n", __FUNCTION__);
+        //goto ERROR;
     }
 
     FuncDolbyMS12FlushAppInputBuffer = (void (*)(void))  dlsym(mDolbyMS12LibHandle, "ms12_flush_app_input_buffer");
@@ -739,6 +746,32 @@ int DolbyMS12::DolbyMS12InputApp(
     return ret;
 }
 
+int DolbyMS12::DolbyMS12DapProcess(
+    void *DolbyMS12Pointer
+    , const void *audio_stream_out_buffer //ms12 input buffer
+    , size_t audio_stream_out_buffer_size //ms12 input buffer size
+    , int audio_stream_out_format
+    , int audio_stream_out_channel_num
+    , int audio_stream_out_sample_rate
+)
+{
+    ALOGV("+%s()", __FUNCTION__);
+    int ret = 0;
+
+    if (!FuncDolbyMS12DapProcess) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return -1;
+    }
+
+    ret = (*FuncDolbyMS12DapProcess)(DolbyMS12Pointer
+                                      , audio_stream_out_buffer //ms12 input buffer
+                                      , audio_stream_out_buffer_size //ms12 input buffer size
+                                      , audio_stream_out_format
+                                      , audio_stream_out_channel_num
+                                      , audio_stream_out_sample_rate);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
 
 #ifdef REPLACE_OUTPUT_BUFFER_WITH_CALLBACK
 int DolbyMS12::DolbyMS12RegisterOutputCallback(output_callback callback, void *priv_data)

@@ -204,6 +204,7 @@ struct dolby_ms12_desc {
     pthread_mutex_t main_apts_update_lock;
     bool main_input_insert_zero;
     bool aaudio_low_latency;
+    bool dap_only_enable;
 };
 
 /*

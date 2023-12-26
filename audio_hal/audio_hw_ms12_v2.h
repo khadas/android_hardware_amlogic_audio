@@ -411,4 +411,18 @@ int dolby_ms12_main_resume_prepare(struct audio_stream_out *stream);
 
 void set_ms12_set_compressor_profile(struct dolby_ms12_desc *ms12, int profile);
 
+int aml_dap_open(
+    struct aml_stream_out *aml_out
+    , audio_format_t input_format
+    , audio_channel_mask_t input_channel_mask
+    , int input_sample_rate);
+
+int aml_dap_close(struct dolby_ms12_desc *ms12);
+
+int aml_dap_process(
+    struct audio_stream_out *stream
+    , const void *buffer
+    , size_t bytes
+    , size_t *use_size);
+
 #endif //end of _AUDIO_HW_MS12_H_

@@ -1049,6 +1049,18 @@ extern "C" int dolby_ms12_get_lfe_config(audio_channel_mask_t channel_mask)
     return -1;
 }
 
+extern "C" void dolby_ms12_set_dap_only(int dap_only)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12ConfigParams *config_param = getInstance();
+    if (config_param) {
+        config_param->setDapOnly(dap_only);
+    }
+    else {
+        ALOGW("Found the config_param handle illegal\n");
+    }
+}
+
 
 /*****************************************************************************************************************/
 /*END*/

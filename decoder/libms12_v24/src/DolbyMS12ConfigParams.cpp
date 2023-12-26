@@ -171,6 +171,7 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mTVTuningFlag(false)
     , mFullDAPDisable(false)
     , mHdmiOutputType(0)
+    , mDapOnly(0)
 {
     ALOGD("+%s() mAudioOutFlags %d mAudioStreamOutFormat %#x mHasAssociateInput %d mHasSystemInput %d AppInput %d\n",
           __FUNCTION__, mAudioOutFlags, mAudioStreamOutFormat, mHasAssociateInput, mHasSystemInput, mHasAppInput);
@@ -877,6 +878,13 @@ int DolbyMS12ConfigParams::SetFunctionalSwitches(char **ConfigParams, int *row_i
         sprintf(ConfigParams[*row_index], "%s", "-sys_syss_mixgain");
         (*row_index)++;
         sprintf(ConfigParams[*row_index], "%d,%d,%d", mSysSyssMixGain.target, mSysSyssMixGain.duration, mSysSyssMixGain.shape);//choose mid-val
+        (*row_index)++;
+    }
+
+    if (mDapOnly == 1) {
+        sprintf(ConfigParams[*row_index], "%s", "-dap_only");
+        (*row_index)++;
+        sprintf(ConfigParams[*row_index], "%d", mDapOnly);
         (*row_index)++;
     }
 
