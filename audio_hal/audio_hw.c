@@ -3333,8 +3333,14 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     }*/
 
     if (flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) {
+        const char *llp_prop = "vendor.media.llp";
+        bool request_llp_mode = false;
+
         outMmapInit(out);
-        if (config->offload_info.usage == AUDIO_USAGE_GAME) {
+        request_llp_mode = getprop_bool(llp_prop);
+        AM_LOGI("%s %d", llp_prop, request_llp_mode);
+
+        if (config->offload_info.usage == AUDIO_USAGE_GAME || request_llp_mode) {
             aml_enter_aaudio_low_latency(adev);
             get_sink_format((struct audio_stream_out *)out);
             out->aaudio_low_latency = true;
