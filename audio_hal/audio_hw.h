@@ -740,6 +740,7 @@ struct aml_stream_out {
     bool b_install_sync_callback;
     bool aaudio_low_latency;
     bool digital_input_fmt_change;
+    bool is_closing;
     void *mmap_audio_manager;
     int mmap_audio_client_id;
 };

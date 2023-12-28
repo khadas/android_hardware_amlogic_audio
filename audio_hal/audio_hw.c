@@ -1574,30 +1574,14 @@ static int out_pause_new (struct audio_stream_out *stream)
         goto exit;
     }
     if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
-        if (aml_dev->continuous_audio_mode == 1) {
-            pthread_mutex_lock(&ms12->lock);
-            if ((aml_dev->ms12.dolby_ms12_enable == true) &&
-                ((aml_dev->ms12.is_continuous_paused == false) || (aml_out->pause_status == false))) {
-                audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_PAUSE);
-            } else {
-                ALOGI("%s do nothing\n", __func__);
-            }
-            pthread_mutex_unlock(&ms12->lock);
+        pthread_mutex_lock(&ms12->lock);
+        if ((aml_dev->ms12.dolby_ms12_enable == true) &&
+            ((aml_dev->ms12.is_continuous_paused == false) || (aml_out->pause_status == false))) {
+            dolby_ms12_main_pause(stream);
         } else {
-            if (aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_PAUSED) {
-                pthread_mutex_lock(&ms12->lock);
-                audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_PAUSE);
-                pthread_mutex_unlock(&ms12->lock);
-            }
-            /*if it raw data we don't do standby otherwise it may cause audioflinger
-            underrun after resume please refer to issue SWPL-13091*/
-            if (audio_is_linear_pcm(aml_out->hal_internal_format)) {
-                ret = do_output_standby_l(&stream->common);
-                if (ret < 0) {
-                    goto exit;
-                }
-            }
+            ALOGI("%s do nothing\n", __func__);
         }
+        pthread_mutex_unlock(&ms12->lock);
     } else {
 
         ret = do_output_standby_l(&stream->common);
@@ -1656,13 +1640,13 @@ static int out_resume_new (struct audio_stream_out *stream)
         goto exit;
     }
     if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
-        if ((aml_dev->continuous_audio_mode == 1) && (aml_dev->ms12.is_continuous_paused || aml_out->pause_status)) {
+        if (aml_dev->ms12.is_continuous_paused || aml_out->pause_status) {
             if (aml_dev->ms12.dolby_ms12_enable == true) {
                 if (audio_is_linear_pcm(aml_out->hal_internal_format)) {
                     /*pcm data case, directly send resume message*/
                     pthread_mutex_lock(&ms12->lock);
                     ms12->ms12_resume_state = MS12_RESUME_FROM_RESUME;
-                    audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_RESUME);
+                    dolby_ms12_main_resume(stream);
                     pthread_mutex_unlock(&ms12->lock);
                 } else {
                     /*About resume, we should separate the control message and data stream.
@@ -1683,7 +1667,7 @@ static int out_resume_new (struct audio_stream_out *stream)
             }
         } else {
             pthread_mutex_lock(&ms12->lock);
-            audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_RESUME);
+            dolby_ms12_main_resume(stream);
             pthread_mutex_unlock(&ms12->lock);
        }
     }
@@ -1732,7 +1716,7 @@ static int out_flush_new (struct audio_stream_out *stream)
         if (continuous_mode(adev) && (out->flags & AUDIO_OUTPUT_FLAG_DIRECT)) {
             pthread_mutex_lock(&ms12->lock);
             if (adev->ms12.dolby_ms12_enable)
-                audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_FLUSH);
+                dolby_ms12_main_flush(stream);
 
             out->continuous_audio_offset = 0;
             /*SWPL-39814, when using exo do seek, sometimes audio track will be reused, then the
@@ -1741,7 +1725,7 @@ static int out_flush_new (struct audio_stream_out *stream)
              */
             if ((out->pause_status || adev->ms12.is_continuous_paused) && adev->ms12.dolby_ms12_enable) {
                 ms12->ms12_resume_state = MS12_RESUME_FROM_FLUSH;
-                audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_RESUME);
+                dolby_ms12_main_resume(stream);
             }
             pthread_mutex_unlock(&ms12->lock);
         }
@@ -3321,6 +3305,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->hwsync_parsed_frames_sum_paused = 0;
     out->last_periodic_print_time_in_ms = 0;
     out->hwsync_header_stripped = false;
+    out->is_closing = false;
 
     clock_gettime(CLOCK_MONOTONIC, &out->last_info_timestamp);
     clock_gettime(CLOCK_MONOTONIC, &out->last_avsync_timestamp);
@@ -3438,10 +3423,10 @@ static void close_ms12_output_main_stream(struct audio_stream_out *stream) {
             adev->ms12.need_ms12_resume = false;
             adev->ms12.need_resync = 0;
             adev->ms12_out->hw_sync_mode = false;
-            audiohal_send_msg_2_ms12(&adev->ms12, MS12_MESG_TYPE_FLUSH);
+            dolby_ms12_main_flush(stream);
             /*coverity[missing_lock]*/
             adev->ms12.ms12_resume_state = MS12_RESUME_FROM_CLOSE;
-            audiohal_send_msg_2_ms12(&adev->ms12, MS12_MESG_TYPE_RESUME);
+            dolby_ms12_main_resume(stream);
         }
         /*coverity[double_unlock]*/
         pthread_mutex_unlock(&adev->ms12.lock);
@@ -5540,7 +5525,7 @@ void aml_stream_timer_callback_handler(union sigval sigv)
     pthread_mutex_lock(&adev->stream_release_lock);
     for (int i = 0 ; i < STREAM_USECASE_MAX; i++) {
         out = adev->active_outputs[i];
-        if (out && audio_is_linear_pcm(out->hal_internal_format)
+        if (out && !out->is_closing &&  audio_is_linear_pcm(out->hal_internal_format)
             && (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)) {
             is_hwsync_lpcm = true;
             break;
@@ -5563,9 +5548,10 @@ void aml_stream_timer_pause_callback(union sigval sigv)
     bool is_hwsync_lpcm = false;
 
     AM_LOGD("sigv:%d ~~~~~~~~~~", sigv.sival_int);
+    pthread_mutex_lock(&adev->stream_release_lock);
     for (int i = 0 ; i < STREAM_USECASE_MAX; i++) {
         out = adev->active_outputs[i];
-        if (out && audio_is_linear_pcm(out->hal_internal_format)
+        if (out && !out->is_closing && audio_is_linear_pcm(out->hal_internal_format)
             && (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)) {
             is_hwsync_lpcm = true;
             break;
@@ -5579,6 +5565,7 @@ void aml_stream_timer_pause_callback(union sigval sigv)
         if (!out->is_insert_zero_data && !out->hwsync->end_of_hwsync_frame)
             out_pause_new((struct audio_stream_out *)out);
     }
+    pthread_mutex_unlock(&adev->stream_release_lock);
     return ;
 }
 
@@ -6071,13 +6058,13 @@ hwsync_rewrite:
                 ALOGI("%s resume the ms12 and hwsync", __func__);
                 pthread_mutex_lock(&ms12->lock);
                 ms12->ms12_resume_state = MS12_RESUME_FROM_RESUME;
-                audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_RESUME);
+                dolby_ms12_main_resume(stream);
                 pthread_mutex_unlock(&ms12->lock);
                 adev->ms12.need_resync = 1;
                 adev->ms12.need_ms12_resume = false;
             } else if (aml_out->tsync_status == TSYNC_STATUS_STOP && aml_out->hw_sync_mode) {
                 pthread_mutex_lock(&ms12->lock);
-                audiohal_send_msg_2_ms12(ms12, MS12_MESG_TYPE_RESUME);
+                dolby_ms12_main_resume(stream);
                 aml_hwsync_wrap_set_resume(aml_out->hwsync);
                 aml_out->tsync_status = TSYNC_STATUS_RUNNING;
                 adev->ms12.need_resync = 1;
@@ -6267,6 +6254,13 @@ hwsync_rewrite:
         AM_LOGD("hal_format:%#x, output_format:0x%x, sink_format:0x%x",
             aml_out->hal_format, output_format, adev->sink_format);
     }
+
+    if (write_bytes > 0 && aml_out->usecase == STREAM_PCM_HWSYNC) {
+        //start the timer to monitor frame_write_sum_updated
+        audio_timer_stop(aml_out->timer_id);
+        audio_timer_stop(aml_out->timer_id2);
+    }
+
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         ret = aml_audio_ms12_render(stream, write_buf, write_bytes);
     } else {
@@ -6274,16 +6268,6 @@ hwsync_rewrite:
     }
 
     if (write_bytes > 0 && aml_out->usecase == STREAM_PCM_HWSYNC) {
-        //start the timer to monitor frame_write_sum_updated
-        uint32_t remaining_time = audio_timer_remaining_time(aml_out->timer_id);
-        if (remaining_time > 0) {
-            audio_timer_stop(aml_out->timer_id);
-        }
-        uint32_t remaining_time2 = audio_timer_remaining_time(aml_out->timer_id2);
-        if (remaining_time2 > 0) {
-            audio_timer_stop(aml_out->timer_id2);
-        }
-
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             audio_one_shot_timer_start(aml_out->timer_id, AML_HWSYNC_STREAM_TIMER_RENDER_DELAY);
             audio_one_shot_timer_start(aml_out->timer_id2, AML_HWSYNC_STREAM_TIMER_RENDER_DELAY2);
@@ -7248,6 +7232,7 @@ void adev_close_output_stream_new(struct audio_hw_device *dev,
     }
 
     ALOGD("%s: enter usecase = %s", __func__, usecase2Str(aml_out->usecase));
+    aml_out->is_closing = true;
 
     /* free stream ease resource  */
     aml_audio_ease_close(aml_out->audio_stream_ease);

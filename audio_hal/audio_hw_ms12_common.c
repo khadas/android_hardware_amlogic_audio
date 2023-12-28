@@ -127,8 +127,8 @@ int dolby_ms12_main_pause(struct audio_stream_out *stream)
     //2.one loop for schedule_run cost about 32ms(contains the hardware costing),
     //3.if [pause, flush] too short, means it need more time to do audio easing
     //so, the delay time for 32ms(pause is completed after audio easing is done) is enough.
-    aml_audio_sleep(64000);
-    ALOGI("%s  sleep 64ms finished", __func__);
+    aml_audio_sleep(32000);
+    ALOGI("%s  sleep 32ms finished", __func__);
 
     if (aml_out->hw_sync_mode && aml_out->tsync_status != TSYNC_STATUS_PAUSED && aml_out->hwsync) {
         ALOGI("%s end of frame =%d", __func__, aml_out->hwsync->end_of_hwsync_frame);
