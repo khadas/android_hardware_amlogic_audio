@@ -26,6 +26,7 @@
 
 
 #define FAAD_LIB_PATH "/vendor/lib/libfaad.so"
+#define FAAD_LIB_64BIT_PATH "/vendor/lib64/libfaad.so"
 
 #define AAC_MAX_LENGTH (1024 * 256)
 #define AAC_REMAIN_BUFFER_SIZE (4096 * 10)
@@ -120,6 +121,10 @@ static  int load_faad_decoder_lib(struct aac_dec_t *aac_dec)
     faad_decoder_operations_t *faad_op = &aac_dec->faad_op;
     faad_decoder_operations_t *ad_faad_op = &aac_dec->ad_faad_op;
     aac_dec->pdecoder = dlopen(FAAD_LIB_PATH, RTLD_NOW);
+
+    if (!aac_dec->pdecoder) {
+        aac_dec->pdecoder = dlopen(FAAD_LIB_64BIT_PATH, RTLD_NOW);
+    }
     if (!aac_dec->pdecoder) {
         ALOGE("%s, failed to open (libfaad.so), %s\n", __FUNCTION__, dlerror());
         return -1;

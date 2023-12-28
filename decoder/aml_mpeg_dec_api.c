@@ -26,6 +26,7 @@
 
 
 #define MAD_LIB_PATH "/vendor/lib/libmad.so"
+#define MAD_LIB_64BIT_PATH "/vendor/lib64/libmad.so"
 
 #define MAD_MAX_LENGTH (1024 * 64)
 #define MAD_REMAIN_BUFFER_SIZE (4096 * 10)
@@ -116,6 +117,10 @@ static  int load_mad_decoder_lib(struct mad_dec_t *mad_dec)
     mad_decoder_operations_t *mad_op = &mad_dec->mad_op;
     mad_decoder_operations_t *ad_mad_op = &mad_dec->ad_mad_op;
     mad_dec->pdecoder = dlopen(MAD_LIB_PATH, RTLD_NOW);
+    if (!mad_dec->pdecoder)  {
+         mad_dec->pdecoder = dlopen(MAD_LIB_64BIT_PATH, RTLD_NOW);
+    }
+
     if (!mad_dec->pdecoder) {
         ALOGE("%s, failed to open (libfaad.so), %s\n", __FUNCTION__, dlerror());
         return -1;
