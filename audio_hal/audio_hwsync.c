@@ -624,7 +624,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, uint64_t apts, int 
 
             if (!adev->is_netflix &&
                 abs(pcr_pts_gap) > (APTS_DISCONTINUE_THRESHOLD_MIN_70MS) &&
-                abs(pcr_pts_gap) < APTS_DISCONTINUE_THRESHOLD_MIN_5S &&
+                abs(pcr_pts_gap) < APTS_DISCONTINUE_THRESHOLD_MIN_3S &&
                 apts64 > pcr &&
                 pcr != 0) {
                 int insert_size = 0;

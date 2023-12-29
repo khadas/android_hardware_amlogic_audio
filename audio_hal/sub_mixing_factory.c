@@ -210,8 +210,37 @@ void sm_timer_callback_handler(union sigval sigv)
     if (out && is_hwsync_lpcm) {
         out->frame_write_sum_updated = false;
     }
+
     return ;
 }
+
+void am_timer_pause_callback(union sigval sigv)
+{
+    struct aml_audio_device *adev = aml_adev_get_handle();
+    struct aml_stream_out *out = NULL;
+    bool is_hwsync_lpcm = false;
+
+    AM_LOGD("sigv:%d ~~~~~~~~~~", sigv.sival_int);
+    for (int i = 0 ; i < STREAM_USECASE_MAX; i++) {
+        out = adev->active_outputs[i];
+        if (out && audio_is_linear_pcm(out->hal_internal_format)
+            && (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC)) {
+            is_hwsync_lpcm = true;
+            break;
+        }
+    }
+
+    if (adev && out && is_hwsync_lpcm) {
+        //cts tunnel underrun case failed, depond on pause/resume invoked from AudioFlinger.
+        //sometimes AudioFlinger always invoke the pause to Hal during 800ms for track retry count.
+        //so add this code to control pause/resume MediaSync and video in Hal.
+        if (!out->is_insert_zero_data)
+            out_pause_subMixingPCM((struct audio_stream_out *)out);
+    }
+    return ;
+}
+
+
 
 static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
 {
@@ -332,7 +361,12 @@ exit:
         if (remaining_time > 0) {
             audio_timer_stop(out->timer_id);
         }
+        remaining_time = audio_timer_remaining_time(out->timer_id2);
+        if (remaining_time > 0) {
+            audio_timer_stop(out->timer_id2);
+        }
         audio_one_shot_timer_start(out->timer_id, AML_TIMER_CONSUME_DATA_DELAY);
+        audio_one_shot_timer_start(out->timer_id2, AML_HWSYNC_STREAM_TIMER_RENDER_DELAY2);
         out->frame_write_sum_updated = true;
     }
     if (out->debug_stream) {

@@ -5922,7 +5922,7 @@ hwsync_rewrite:
                         if (!adev->is_netflix &&
                             aml_out->usecase == STREAM_PCM_HWSYNC &&
                             abs(pcr_pts_gap) > (APTS_DISCONTINUE_THRESHOLD_MIN_70MS) &&
-                            abs(pcr_pts_gap) < APTS_DISCONTINUE_THRESHOLD_MIN_5S &&
+                            abs(pcr_pts_gap) < APTS_DISCONTINUE_THRESHOLD_MIN_3S &&
                             apts64 > pcr &&
                             pcr != 0) {
                             // this code is for CTS cases about pcm tunnel mode stream.
@@ -7151,6 +7151,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
     if (aml_out->usecase == STREAM_PCM_HWSYNC) {
         if (adev->useSubMix) {
             aml_out->timer_id = aml_audio_timer_create(sm_timer_callback_handler);
+            aml_out->timer_id2 = aml_audio_timer_create(am_timer_pause_callback);
         } else {
             aml_out->timer_id = aml_audio_timer_create(aml_stream_timer_callback_handler);
             aml_out->timer_id2 = aml_audio_timer_create(aml_stream_timer_pause_callback);
