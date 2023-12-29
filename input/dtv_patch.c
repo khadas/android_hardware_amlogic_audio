@@ -3900,13 +3900,14 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
             }
         }
 
-        if (last_out_speed != aml_out->output_speed) {
+        if (last_out_speed != aml_out->output_speed && eDolbyMS12Lib != aml_dev->dolby_lib_type) {
             ALOGI("[%s-%d] speed change from %f to %f get_sink_format again", __func__, __LINE__,
                 last_out_speed, aml_out->output_speed);
             get_sink_format(stream_out);
         }
         last_out_speed = aml_audio_get_output_speed(aml_out);
         aml_out->output_speed = last_out_speed;
+
         pthread_mutex_unlock(&patch->mutex);
         pthread_mutex_lock(&(patch->dtv_output_mutex));
 

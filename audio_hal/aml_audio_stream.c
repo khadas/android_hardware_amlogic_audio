@@ -397,8 +397,9 @@ static audio_format_t reconfig_optical_audio_format(struct aml_stream_out *aml_o
         audio_format_t org_optical_format)
 {
     audio_format_t ret_format = org_optical_format;
+    struct aml_audio_device *aml_dev = aml_out->dev;
 
-    if (aml_out == NULL)
+    if (aml_out == NULL || eDolbyMS12Lib == aml_dev->dolby_lib_type)
         return org_optical_format;
 
     if (aml_out->output_speed != 1.0f && aml_out->output_speed != 0.0f) {
