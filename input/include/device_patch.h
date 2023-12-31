@@ -263,6 +263,7 @@ struct aml_audio_patch
     struct timespec start_ts;
     int mdelay;
     bool start_mute;
+    bool is_dvi_signal;
     struct aml_stream_out *output_stream;
 };
 

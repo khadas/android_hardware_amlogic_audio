@@ -686,8 +686,9 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
                 ALOGE("%s,There is no audio patch using HDMI as input", __func__);
                 goto exit;
             }
-            if (pAudPatchTmp->sources[0].ext.device.type != AUDIO_DEVICE_IN_HDMI) {
-                ALOGE("%s, pAudPatchTmp->sources[0].ext.device.type != AUDIO_DEVICE_IN_HDMI", __func__);
+
+            if (get_dev_patch(adev) && get_dev_patch(adev)->input_src != AUDIO_DEVICE_IN_HDMI) {
+                ALOGE("%s, input src != AUDIO_DEVICE_IN_HDMI", __func__);
                 goto exit;
             }
 
@@ -707,18 +708,19 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
                                     PATCH_TYPE_TV);
                 }
             }
-
+            struct aml_audio_patch *patch = get_dev_patch(adev);
+            if (patch) {
+                patch->is_dvi_signal = true;
+            }
             set_dev_patch_src(adev, SRC_LINEIN);
-            pAudPatchTmp->sources[0].ext.device.type = AUDIO_DEVICE_IN_LINE;
             set_audio_source_routing(adev, LINEIN);
         } else if (strncmp(value, "hdmi", 4) == 0 && is_dev_patch_exist(adev)) {
-
             get_audio_patch_by_src_dev(dev, AUDIO_DEVICE_IN_LINE, &pAudPatchTmp);
             if (pAudPatchTmp == NULL) {
                 ALOGE("%s,There is no audio patch using LINEIN as input", __func__);
                 goto exit;
             }
-            if (pAudPatchTmp->sources[0].ext.device.type != AUDIO_DEVICE_IN_LINE) {
+            if (get_dev_patch(adev) && get_dev_patch(adev)->input_src != AUDIO_DEVICE_IN_LINE) {
                 ALOGE("%s, pAudPatchTmp->sources[0].ext.device.type != AUDIO_DEVICE_IN_HDMI", __func__);
                 goto exit;
             }
@@ -739,8 +741,11 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
                 }
             }
 
+            struct aml_audio_patch *patch = get_dev_patch(adev);
+            if (patch) {
+                patch->is_dvi_signal = false;
+            }
             set_dev_patch_src(adev, SRC_HDMIIN);
-            pAudPatchTmp->sources[0].ext.device.type = AUDIO_DEVICE_IN_HDMI;
             set_audio_source_routing(adev, HDMIIN);
         }
         goto exit;

@@ -7685,20 +7685,22 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
     R_CHECK_POINTER_LEGAL(-EINVAL, patch_set, "Can't get patch id:%d in list", handle);
     R_CHECK_POINTER_LEGAL(-EINVAL, patch, "Can't get patch id:%d in list", handle);
 
-    if (!patch_set || !patch) {
-        return 0;
-    }
-
-    /* aml_dev patch is not the release patch */
-    if (get_dev_patch(aml_dev) && get_dev_patch(aml_dev)->input_src != patch->sources[0].ext.device.type) {
-        goto exit_unregister;
-    }
-
     AM_LOGI("Patch %d: %s->%s patch_src:%s", handle, audioPortType2Str(patch->sources[0].type),
         audioPortType2Str(patch->sinks[0].type), patchSrc2Str(get_dev_patch_src(aml_dev)));
-
     //1.Release device to device patch
     if (patch->sources[0].type == AUDIO_PORT_TYPE_DEVICE) {
+        /* aml_dev patch is not the release patch */
+        audio_devices_t release_src_dev = patch->sources[0].ext.device.type;
+        struct aml_audio_patch *aml_patch = get_dev_patch(aml_dev);
+        if (aml_patch && release_src_dev == AUDIO_DEVICE_IN_HDMI) {
+            if (aml_patch->is_dvi_signal) {
+                release_src_dev = AUDIO_DEVICE_IN_LINE;
+            }
+            if (aml_patch->input_src != release_src_dev) {
+                AM_LOGW("src device:%s audio patch not found", audioDevType2Str(release_src_dev));
+                goto exit_unregister;
+            }
+        }
         if (patch->sinks[0].type == AUDIO_PORT_TYPE_DEVICE) {
             AM_LOGI("Patch %d: dev[%s(id:%d)] -> dev_0[%s(id:%d)]", handle, audioDevType2Str(patch->sources[0].ext.device.type),
                 patch->sources[0].id, audioDevType2Str(patch->sinks[0].ext.device.type), patch->sinks[0].id);
