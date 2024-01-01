@@ -557,7 +557,7 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
                 break;
            }
         } else {
-            if (is_include_a2dp_out_port(adev->cur_out_devices)) {
+            if (is_include_a2dp_out_port(adev->cur_out_devices) || is_include_usb_out_port(adev->cur_out_devices)) {
                 if (out_port->cfg.channelCnt == 1) {
                     in_data_config.channel_mask = AUDIO_CHANNEL_OUT_MONO;
                 } else if (out_port->cfg.channelCnt == 2) {
@@ -573,19 +573,22 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
                 ret = aml_audio_check_and_realloc((void **)&adev->out_16_buf, &adev->out_16_buf_size, out_port->bytes_avail);
                 R_CHECK_RET((int)ret, "alloc out_16_buf size:%zu fail", out_port->bytes_avail);
                 memcpy(adev->out_16_buf, out_port->data_buf, out_port->bytes_avail);
+                float volume = aml_audio_get_s_gain_by_src(adev, get_dev_patch_src(adev));
                 if (is_TV(adev)) {
-                    float volume = aml_audio_get_s_gain_by_src(adev, get_dev_patch_src(adev));
-                    volume *= adev->sink_gain[OUTPORT_A2DP];
-                    apply_volume(volume, adev->out_16_buf, sizeof(uint16_t),
-                        out_port->bytes_avail);
+                    float sink_gain = adev->sink_gain[is_include_a2dp_out_port(adev->cur_out_devices) ? OUTPORT_A2DP : OUTPORT_USB_HEADSET];
+                    volume *= sink_gain;
                 }
-                alsa_status = a2dp_out_get_status(adev);
-                a2dp_out_write(adev, &in_data_config, adev->out_16_buf, out_port->bytes_avail);
+                apply_volume(volume, adev->out_16_buf, sizeof(uint16_t), out_port->bytes_avail);
+                if (is_include_a2dp_out_port(adev->cur_out_devices)) {
+                    a2dp_out_write(adev, &in_data_config, adev->out_16_buf, out_port->bytes_avail);
+                } else {
+                    usb_check_write(adev, adev->out_16_buf, out_port->bytes_avail, &in_data_config);
+                }
             }
-            if (!is_TV(adev) && !adev->control_hdmitx_mute && is_include_a2dp_out_port(adev->cur_out_devices)) {
-                // For STB, do not send data to spdif/hdmitx when bt is connected and mute hdmitx cannot be controlled.
-            } else if (is_include_usb_out_port(adev->cur_out_devices)) {
-                usb_check_write(adev, out_port->data_buf, out_port->bytes_avail, &in_data_config);
+            if (!is_TV(adev) && !adev->control_hdmitx_mute &&
+                (is_include_a2dp_out_port(adev->cur_out_devices) ||
+                is_include_usb_out_port(adev->cur_out_devices))) {
+                // For STB, do not send data to spdif/hdmitx when bt/usb is connected and mute hdmitx cannot be controlled.
             } else {
                 if (audio_mixer->submix_standby) {
                     pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
