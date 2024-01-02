@@ -36,12 +36,12 @@ func audio_hidl_Defaults(ctx android.LoadHookContext) {
         SDKVERSION := "-DANDROID_PLATFORM_SDK_VERSION=" + PlatformVndkVersion
         p.Cflags  = append(p.Cflags,SDKVERSION)
         if IntPlatformVndkVersion == 30 {
-            //fmt.Println("Add lib&inclue dir for HIDL 6.0")
+            //fmt.Println("Add lib&include dir for HIDL 6.0")
             p.Shared_libs =  append(p.Shared_libs, "libamlaudiohal.6.0")
             p.Include_dirs =  append(p.Include_dirs, "frameworks/av/include")
             p.Include_dirs =  append(p.Include_dirs, "frameworks/av/media/libaudiohal/include")
         } else {
-            //fmt.Println("Add lib&inclue dir for HIDL 7.0")
+            //fmt.Println("Add lib&include dir for HIDL 7.0")
             p.Shared_libs =  append(p.Shared_libs, "libamlaudiohal.7.0")
             p.Header_libs =  append(p.Header_libs, "av-headers")
             p.Include_dirs =  append(p.Include_dirs, "hardware/amlogic/audio/utils/hidl_interface_7_0/include")
