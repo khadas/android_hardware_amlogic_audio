@@ -302,6 +302,7 @@ void aml_audio_select_src_to_hdmi(enum AML_SRC_TO_HDMITX src_select)
         ALOGE("%s invalid hdmi src =%d", __func__, src_select);
         return;
     }
+    AM_LOGI("src =%d", src_select);
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_AUDIO_SRC_TO_HDMI,  src_select);
 
     return;
