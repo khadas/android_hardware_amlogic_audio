@@ -88,6 +88,11 @@ enum {
     TSYNC_MODE_PCRMASTER,
 };
 
+typedef struct ps_alloc_para {
+    uint32_t mMaxCount;
+    uint32_t mLookupThreshold;
+    uint32_t kDoubleCheckThreshold;
+} ptsserver_alloc_para;
 int create_dtv_patch(struct audio_hw_device *dev, audio_devices_t input, audio_devices_t output __unused);
 int release_dtv_patch(struct aml_audio_device *dev);
 int release_dtv_patch_l(struct aml_audio_device *dev);

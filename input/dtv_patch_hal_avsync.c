@@ -262,6 +262,23 @@ static int decoder_get_tsync_mode(void)
     return tsync_mode;
 }
 
+int32_t PtsServ_ioctl(int32_t PServerDevId,
+                             int32_t PServerCmd,
+                             uint64_t param) {
+    int32_t ret = -1;
+    if (PServerDevId <= 0) {
+        ALOGE("PtsServ_ioctl PServerDevId:%d\n", PServerDevId);
+        return ret;
+    }
+
+    ret = ioctl(PServerDevId, PServerCmd, param);
+    if (ret < 0) {
+        ALOGE("PtsServ_ioctl cmd [%d] faided,ret:%d error:%d(%s)\n",
+                PServerCmd, ret, errno,strerror(errno));
+    }
+    return ret;
+}
+
 unsigned long decoder_apts_lookup(unsigned int offset)
 {
     unsigned int pts = 0;

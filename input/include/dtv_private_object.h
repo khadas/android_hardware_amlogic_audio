@@ -59,7 +59,11 @@ struct dtv_private_object {
     // mute flag after insert policy
     bool insert_mute_flag;
 };
-
+typedef struct checkoutptsoffset {
+    uint64_t offset;
+    uint64_t pts_90k;
+    uint64_t pts_64;
+} checkout_pts_offset;
 struct aml_audio_device;
 struct aml_dtv_audio_instances;
 

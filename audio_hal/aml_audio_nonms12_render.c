@@ -39,11 +39,14 @@
 #include "aml_audio_output.h"
 #include "dolby_lib_api.h"
 #include "dtv_private_object.h"
+#include <cutils/properties.h>
+#include <fcntl.h>
 #include "audio_hw_resource_mgr.h"
 #include "dtv_patch_hal_avsync.h"
 
 
 extern unsigned long decoder_apts_lookup(unsigned int offset);
+extern int32_t PtsServ_ioctl(int32_t PServerDevId, int32_t PServerCmd, uint64_t param);
 static void aml_audio_stream_volume_process(struct audio_stream_out *stream, void *buf, int sample_size, int channels, int bytes) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *aml_dev = aml_out->dev;
@@ -205,6 +208,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
     bool dts_pcm_direct_output = false;
     int decoder_remain_size = 0;
     int ret_size;
+    checkout_pts_offset checkout_pts;
 #ifdef ENABLE_DVB_PATCH
     dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
     bool dtv_stream_flag = patch && is_same_patch_src(adev, SRC_DTV) && aml_out->is_tv_src_stream;
@@ -226,7 +230,11 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 #ifdef ENABLE_DVB_PATCH
         if (dtv_stream_flag  && patch->decoder_offset == 0) {
             if (patch->cur_package) {
-                aml_dec->first_in_frame_pts = patch->cur_package->pts;
+                if (!is_dtv_multi_demux(adev) && patch->singleDmxNonTunnelMode) {
+                    aml_dec->in_frame_pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
+                }
+                else
+                    aml_dec->first_in_frame_pts = patch->cur_package->pts;
             } else {
                 ALOGW("patch->cur_package NULL ");
             }
@@ -237,11 +245,37 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
         if (do_sync_flag) {
             if(patch->skip_amadec_flag) {
                 if (patch->cur_package) {
-                     aml_dec->in_frame_pts = patch->cur_package->pts;
-                     if (patch->cur_package->pts == DTVSYNC_INVALID_PTS) {
-                        aml_dec->in_frame_pts = aml_dec->out_frame_pts;
-                     }
-                } else {
+                    if (!is_dtv_multi_demux(adev) && patch->singleDmxNonTunnelMode) {
+                        checkout_pts.offset = patch->decoder_offset;
+                        ALOGV("offset:%" PRId64 "\n", checkout_pts.offset);
+                        if (patch->PServerDev != -1) {
+                            PtsServ_ioctl(patch->PServerDev, PTSSERVER_IOC_CHECKOUT_APTS, (unsigned long)&checkout_pts);
+                        }
+                        // aml_dec->in_frame_pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
+                        aml_dec->in_frame_pts = checkout_pts.pts_90k;
+                        if (aml_dec->in_frame_pts != -1) {
+                            patch->last_valid_pts = aml_dec->in_frame_pts;
+                        }
+                        if (aml_dec->in_frame_pts == -1) {
+                            if (aml_dec->out_frame_pts) {
+                                aml_dec->in_frame_pts = aml_dec->out_frame_pts;
+                            } else {
+                                aml_dec->in_frame_pts = patch->last_valid_pts;
+                            }
+                        }
+                        ALOGV("in_frame_pts:%" PRId64 " PtsServ_checkout_pts64:%" PRId64 " aml_dec->out_frame_pts  %" PRId64 "\n",aml_dec->in_frame_pts, checkout_pts.pts_64,aml_dec->out_frame_pts);
+                    }
+                    else {
+                        if (patch->cur_package->pts != DTVSYNC_INVALID_PTS) {
+                            if (patch->cur_package->pts != 0) {
+                                aml_dec->in_frame_pts = patch->cur_package->pts;
+                                aml_dec->out_frames = 0;
+                            }
+                         } else {
+                            aml_dec->in_frame_pts = aml_dec->out_frame_pts;
+                         }
+                    }
+                 } else {
                     ALOGW("cur_package null !!!");
                 }
             } else {
@@ -301,14 +335,14 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
             // write pcm data
             if (dec_pcm_data->data_len > 0) {
                 // aml_audio_dump_audio_bitstreams("/data/dec_data.raw", dec_pcm_data->buf, dec_pcm_data->data_len);
-                aml_dec->out_frame_pts = aml_dec->in_frame_pts + (90 * out_frames /(dec_pcm_data->data_sr / 1000));
+                aml_dec->out_frame_pts = aml_dec->in_frame_pts + (90 * aml_dec->out_frames /(dec_pcm_data->data_sr / 1000));
                 if (dec_pcm_data->data_ch != 0)
-                    out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
+                    aml_dec->out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
                 if (get_debug_value(AML_DEBUG_AUDIOHAL_AUT)) {
                     ALOGI("pes_pts: %" PRIx64 ", frame_pts: %" PRIx64 ", pcm[len:%d, dur:%dms, total_dur:%dms].",\
                         aml_dec->in_frame_pts, aml_dec->out_frame_pts, dec_pcm_data->data_len,\
                         dec_pcm_data->data_len * 1000 /( 2 * dec_pcm_data->data_ch * dec_pcm_data->data_sr),\
-                        out_frames /(dec_pcm_data->data_sr / 1000));
+                        aml_dec->out_frames /(dec_pcm_data->data_sr / 1000));
                 }
                 if (is_dolby_ddp_support_compression_format(aml_out->hal_internal_format)) {
                     decoder_remain_cache = (decoder_remain_size > raw_in_data->data_len / 2) ? DDP_DECODER_CACHE : 0;
@@ -571,8 +605,24 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 #ifdef ENABLE_DVB_PATCH
     if (dtv_stream_flag) {
          aml_demux_audiopara_t *demux_info = (aml_demux_audiopara_t *)patch->demux_info;
-         if (demux_info && demux_info->dual_decoder_support == 0)
-             patch->decoder_offset +=return_bytes;
+         if (!demux_info->dual_decoder_support) {
+             /*we have separated the input data, then we need use input size to calculate pts*/
+             if (is_aac_format(patch->aformat)) {
+                patch->decoder_offset += bytes;
+             } else {
+                patch->decoder_offset += patch->cur_package->size;
+             }
+         } else {
+             if (patch->aformat == AUDIO_FORMAT_HE_AAC_V1 ||
+                 patch->aformat == AUDIO_FORMAT_AAC_LATM ||
+                 patch->aformat == AUDIO_FORMAT_AAC ||
+                 patch->aformat == AUDIO_FORMAT_MP3 ||
+                 patch->aformat == AUDIO_FORMAT_MP2) {
+                 patch->decoder_offset += patch->cur_package->size;
+             } else {
+                 patch->decoder_offset += patch->cur_package->split_frame_size;
+             }
+        }
      }
 #endif
     return return_bytes;

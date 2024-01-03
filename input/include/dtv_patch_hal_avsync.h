@@ -62,6 +62,13 @@ struct aml_audio_patch;
 #define VIDEO_RECEIVE_FRAME_CNT_2  "/sys/module/aml_media/parameters/receive_frame_count"
 /* end decoder/tsync fs node */
 
+#define PTSSERVER_DEVICE "/dev/ptsserver"
+#define PTSSERVER_IOC_MAGIC 'P'
+#define PTSSERVER_IOC_CHECKOUT_APTS   _IOW(PTSSERVER_IOC_MAGIC, 0x12, int)
+#define PTSSERVER_IOC_INSTANCE_STATIC_BINDER   _IOW(PTSSERVER_IOC_MAGIC, 0x13, int)
+#define PTSSERVER_IOC_GET_LIST_SIZE   _IOW(PTSSERVER_IOC_MAGIC, 0x14, int)
+#define PTSSERVER_IOC_INSTANCE_SET_ID   _IOW(PTSSERVER_IOC_MAGIC, 0x15, int)
+
 /* property */
 #define PROPERTY_LOCAL_PASSTHROUGH_LATENCY  "vendor.media.dtv.passthrough.latencyms"
 #define PROPERTY_PRESET_AC3_PASSTHROUGH_LATENCY  "vendor.media.dtv.passthrough.ac3prelatencyms"

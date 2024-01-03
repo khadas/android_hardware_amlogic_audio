@@ -40,7 +40,8 @@
 #include "tv_private_object.h"
 #include "dtv_private_object.h"
 #include "audio_hw_resource_mgr.h"
-
+#include <cutils/properties.h>
+#include <fcntl.h>
 #define MS12_MAIN_WRITE_LOOP_THRESHOLD                  (2000)
 #define AUDIO_IEC61937_FRAME_SIZE 4
 #define MS12_TRUNK_SIZE                                 (1024)
@@ -48,6 +49,7 @@
 
 #ifdef ENABLE_DVB_PATCH
 extern unsigned long decoder_apts_lookup(unsigned int offset);
+extern int32_t PtsServ_ioctl(int32_t PServerDevId, int32_t PServerCmd, uint64_t param);
 
 /*now th latency api is just used for DTV doing avsync by using mediasync */
 int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
@@ -297,6 +299,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     int force_setting_delayms = 0;
     bool bypass_aml_dec = false;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    checkout_pts_offset checkout_pts;
 #ifdef ENABLE_DVB_PATCH
     bool dtv_stream_flag = patch && is_same_patch_src(adev, SRC_DTV) && aml_out->is_tv_src_stream;
     bool do_sync_flag = dtv_stream_flag && patch && patch->skip_amadec_flag && patch->dtvsync->sync_type == DTVSYNC_MEDIASYNC;
@@ -374,15 +377,39 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
         if (do_sync_flag && aml_dec) {
             if(patch->skip_amadec_flag) {
                 if (patch->cur_package) {
-                    if (patch->cur_package->pts != DTVSYNC_INVALID_PTS) {
-                        aml_dec->in_frame_pts = patch->cur_package->pts;
+                    if (!is_dtv_multi_demux(adev) && patch->singleDmxNonTunnelMode) {
+                        checkout_pts.offset = patch->decoder_offset;
+                        ALOGV("offset:%" PRId64 "\n", checkout_pts.offset);
+                        if (patch->PServerDev != -1) {
+                            PtsServ_ioctl(patch->PServerDev, PTSSERVER_IOC_CHECKOUT_APTS, (unsigned long)&checkout_pts);
+                        }
+                        // aml_dec->in_frame_pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
+                        aml_dec->in_frame_pts = checkout_pts.pts_90k;
+                        if (aml_dec->in_frame_pts != -1) {
+                            patch->last_valid_pts = aml_dec->in_frame_pts;
+                        }
+                        if (aml_dec->in_frame_pts == -1) {
+                            if (aml_dec->out_frame_pts) {
+                                aml_dec->in_frame_pts = aml_dec->out_frame_pts;
+                            } else {
+                                aml_dec->in_frame_pts = patch->last_valid_pts;
+                            }
+                        }
+                        ALOGV("in_frame_pts:%" PRId64 " PtsServ_checkout_pts64:%" PRId64 "\n",aml_dec->in_frame_pts, checkout_pts.pts_64);
                     } else {
-                        aml_dec->in_frame_pts = aml_dec->out_frame_pts;
-                    }
-                }
-                if (aml_dec->in_frame_pts == 0) {
-                     aml_dec->in_frame_pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
-                }
+                        if (patch->cur_package->pts != DTVSYNC_INVALID_PTS) {
+                            if (patch->cur_package->pts != 0) {
+                                aml_dec->in_frame_pts = patch->cur_package->pts;
+                                aml_dec->out_frames = 0;
+                            }
+                        } else {
+                            aml_dec->in_frame_pts = aml_dec->out_frame_pts;
+                          }
+                        }
+                    } else
+                        ALOGW("cur_package null !!!");
+            } else {
+                aml_dec->in_frame_pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
             }
         }
 #endif
@@ -432,13 +459,13 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
 #ifdef ENABLE_DVB_PATCH
                     if (dtv_stream_flag)
                         patch->dtv_pcm_wrote += dec_pcm_data->data_len;
-                    aml_dec->out_frame_pts = aml_dec->in_frame_pts + (90 * out_frames /(dec_pcm_data->data_sr / 1000));
-                    out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
+                    aml_dec->out_frame_pts = aml_dec->in_frame_pts + (90 * aml_dec->out_frames /(dec_pcm_data->data_sr / 1000));
+                    aml_dec->out_frames += dec_pcm_data->data_len /( 2 * dec_pcm_data->data_ch);
                     if (get_debug_value(AML_DEBUG_AUDIOHAL_AUT)) {
                         ALOGI("pes_pts: %" PRIx64 ", frame_pts: %" PRIx64 ", pcm[len:%d, pcm_dur:%dms, total_dur:%dms].",\
                             aml_dec->in_frame_pts, aml_dec->out_frame_pts, dec_pcm_data->data_len,\
                             dec_pcm_data->data_len * 1000 /( 2 * dec_pcm_data->data_ch * dec_pcm_data->data_sr),\
-                            out_frames /(dec_pcm_data->data_sr / 1000));
+                            aml_dec->out_frames /(dec_pcm_data->data_sr / 1000));
                     }
 
                     //aml_audio_dump_audio_bitstreams("/data/mixing_data.raw", dec_data, dec_pcm_data->data_len);

@@ -134,6 +134,7 @@ typedef struct aml_dec {
 
     int64_t in_frame_pts;
     int64_t out_frame_pts;
+    int out_frames;
     int status;
     int frame_cnt;
     int fragment_left_size;
