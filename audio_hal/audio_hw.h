@@ -529,6 +529,7 @@ struct aml_audio_device {
     struct usb_out *usb;
     pthread_mutex_t usb_lock;
     pthread_mutex_t stream_release_lock;
+    struct aml_post_effect_ctrl effect_ctrl;
 };
 
 struct meta_data {

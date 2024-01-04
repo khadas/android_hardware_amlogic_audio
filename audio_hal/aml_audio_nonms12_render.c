@@ -43,6 +43,7 @@
 #include <fcntl.h>
 #include "audio_hw_resource_mgr.h"
 #include "dtv_patch_hal_avsync.h"
+#include "audio_hw_ms12.h"
 
 
 extern unsigned long decoder_apts_lookup(unsigned int offset);
@@ -382,11 +383,15 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 /*process the stream volume before mix*/
                 aml_audio_stream_volume_process(stream, dec_data, sizeof(int16_t), dec_pcm_data->data_ch, pcm_len);
 
-                if (dec_pcm_data->data_ch == 6) {
-                    ret = audio_VX_post_process(VX_postprocess, (int16_t *)dec_data, pcm_len);
-                    if (ret > 0) {
-                        pcm_len = ret; /* VX will downmix 6ch to 2ch, pcm size will be changed */
-                        dec_pcm_data->data_ch /= 3;
+                if ((adev->effect_ctrl.effect_mode == EFFECT_MODE_DAP) || (adev->effect_ctrl.effect_mode == EFFECT_MODE_OFF)) {
+                   //Do nothing
+                } else {
+                    if (dec_pcm_data->data_ch == 6) {
+                        ret = audio_VX_post_process(VX_postprocess, (int16_t *)dec_data, pcm_len);
+                        if (ret > 0) {
+                            pcm_len = ret; /* VX will downmix 6ch to 2ch, pcm size will be changed */
+                            dec_pcm_data->data_ch /= 3;
+                        }
                     }
                 }
 #ifdef ENABLE_DVB_PATCH
@@ -471,9 +476,35 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     }
                 }
 
-                /* For MS12 lib with DTS output, no submixer exists */
-                if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
-                    aml_hw_mixer_mixing(&adev->hw_mixer, dec_data, pcm_len, output_format);
+                if (adev->effect_ctrl.effect_mode == EFFECT_MODE_DAP) {
+                    if (dec_pcm_data->data_ch == 2) {
+                        /* amlogic simple dap(stereo pcm input) init and process */
+                        int pp_ret = 0;
+                        if (!adev->ms12.dap_only_enable) {
+                            pp_ret = aml_dap_open(aml_out, AUDIO_FORMAT_PCM_16_BIT, AUDIO_CHANNEL_OUT_STEREO, OUTPUT_ALSA_SAMPLERATE);
+                            if (pp_ret) {
+                                ALOGE("%s line %d pp_ret error %d lxs debug!\n", __func__, __LINE__, pp_ret);
+                            }
+                        }
+                        else {
+                            size_t n_dap_used_bytes = 0;
+                            pp_ret = aml_dap_process(stream, (char*)dec_data, pcm_len, &n_dap_used_bytes);
+                            if (pp_ret) {
+                                ALOGI("%s line %d pp_ret %d lxs debug!\n", __func__, __LINE__, pp_ret);
+                            }
+                        }
+                    }
+                } else {
+                    if (adev->ms12.dap_only_enable)
+                        aml_dap_close(&(adev->ms12));
+                }
+                if (adev->ms12.dap_only_enable) {
+                    ;//do nothing here.
+                }
+                else {
+                    /* For MS12 lib with DTS output, no submixer exists */
+                    if (eDolbyMS12Lib == adev->dolby_lib_type_last) {
+                        aml_hw_mixer_mixing(&adev->hw_mixer, dec_data, pcm_len, output_format);
 
                     data_info.audio_format = output_format;
                     data_info.channel_mask = audio_channel_out_mask_from_count(dec_pcm_data->data_ch);
@@ -510,7 +541,8 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     } else
 #endif
 
-                        mixer_main_buffer_write_sm(stream, dec_data, pcm_len);
+                            mixer_main_buffer_write_sm(stream, dec_data, pcm_len);
+                   }
                 }
             }
 
@@ -685,7 +717,7 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dca_
     }
 
     if ((adev->cur_out_devices == OUTPORT_HEADPHONE) || (adev->cur_out_devices == OUTPORT_A2DP) ||
-         (adev->cur_out_devices == OUTPORT_HDMI_ARC)) {
+         (adev->cur_out_devices == OUTPORT_HDMI_ARC) || (adev->effect_ctrl.effect_mode == EFFECT_MODE_DAP)) {
         if (adev->native_postprocess.libvx_exist)
             dca_set_out_ch_internal(2);
     } else {

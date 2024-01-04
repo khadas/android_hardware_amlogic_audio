@@ -806,6 +806,54 @@ int set_AQ_parameters(struct audio_hw_device *dev, struct str_parms *parms)
         }
     }
 
+    ret = str_parms_get_str(parms, "Effect_enable", value, sizeof(value));
+    if (ret >= 0) {
+        if (strncmp(value, "DAP_ON", 6) == 0) {
+            char *str = "ms12_runtime=-full_dap_disable 0";
+            char *parm = strstr(str, "=");
+            pthread_mutex_lock(&adev->lock);
+            if (parm)
+                aml_ms12_update_runtime_params(&(adev->ms12), parm+1);
+            pthread_mutex_unlock(&adev->lock);
+            adev->effect_ctrl.dap_enable = 1;
+            adev->ms12.dap_bypass_enable = 0;
+            adev->is_ui_force_dap_disable = false;
+        } else if (strncmp(value, "DAP_OFF", 7) == 0) {
+            char *str = "ms12_runtime=-full_dap_disable 1";
+            char *parm = strstr(str, "=");
+            pthread_mutex_lock(&adev->lock);
+            if (parm)
+                aml_ms12_update_runtime_params(&(adev->ms12), parm+1);
+            pthread_mutex_unlock(&adev->lock);
+            adev->effect_ctrl.dap_enable = 0;
+            adev->ms12.dap_bypass_enable = 1;
+            adev->is_ui_force_dap_disable = true;
+        } else if (strncmp(value, "VX_ON", 5) == 0) {
+            adev->effect_ctrl.vx_enable = 1;
+            if (adev->native_postprocess.libvx_exist)
+                dca_set_out_ch_internal(0);
+        } else if (strncmp(value, "VX_OFF", 6) == 0) {
+            adev->effect_ctrl.vx_enable = 0;
+            if (adev->native_postprocess.libvx_exist)
+                dca_set_out_ch_internal(2);
+        }
+
+        if (adev->effect_ctrl.dap_enable && adev->effect_ctrl.vx_enable)
+            adev->effect_ctrl.effect_mode = EFFECT_MODE_AUTO;
+        else if (adev->effect_ctrl.dap_enable && !adev->effect_ctrl.vx_enable)
+            adev->effect_ctrl.effect_mode = EFFECT_MODE_DAP;
+        else if (!adev->effect_ctrl.dap_enable && adev->effect_ctrl.vx_enable)
+            adev->effect_ctrl.effect_mode = EFFECT_MODE_VX;
+        else if (!adev->effect_ctrl.dap_enable && !adev->effect_ctrl.vx_enable)
+            adev->effect_ctrl.effect_mode = EFFECT_MODE_OFF;
+
+        adev->native_postprocess.effect_ctrl.effect_mode = adev->effect_ctrl.effect_mode;
+
+        ALOGD("set dolby DAP enable %d DTS VX enable %d effect_mode %d", adev->effect_ctrl.dap_enable,
+               adev->effect_ctrl.vx_enable, adev->effect_ctrl.effect_mode);
+        goto exit;
+    }
+
 exit:
     return ret;
 }

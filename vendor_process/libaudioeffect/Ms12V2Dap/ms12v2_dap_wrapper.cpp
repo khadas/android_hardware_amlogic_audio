@@ -302,6 +302,7 @@ typedef enum {
     DAP_PARAM_SURROUND_DECODER_ENABLE,
     DAP_PARAM_DAP_DRC,
     DAP_PARAM_DAP_LEVELER,
+    DAP_EFFECT_ENABLE,
 } DAPV2params;
 
 const char *DapV2EnableStr[] = {"Disable", "Enable"};
@@ -311,6 +312,7 @@ typedef struct DAPV2Context_s {
     effect_config_t                  config;
     DAPV2_state_e                    state;
     Ms12data                         gMs12data;
+    bool                             dap_effect_enable;
 } DAPV2Context;
 
 static int DAPV2_get_ac4_de_amount(int de_enable, int de_amount) {
@@ -1036,6 +1038,14 @@ int DAPV2_setParameter(DAPV2Context *pContext, void *pParam, void *pValue) {
         setParameters(String8(tempbuf));
         ALOGD("set volume leveler mode is %d and strength is %d",data->VolumeLevelerMode, data->VolumeLevelerStrength);
         break;
+    case DAP_EFFECT_ENABLE:
+        pContext->dap_effect_enable = *(bool *)pValue;
+        if (pContext->dap_effect_enable)
+            setParameters(String8("Effect_enable=DAP_ON"));
+        else
+            setParameters(String8("Effect_enable=DAP_OFF"));
+        ALOGD("%s: DAP effect enable: %d", __FUNCTION__, pContext->dap_effect_enable);
+        break;
     default:
         ALOGE("%s: unknown param %08x", __FUNCTION__, param);
         return -EINVAL;
@@ -1133,7 +1143,7 @@ int DAPV2_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
         if (pContext->state != DAPV2_STATE_ACTIVE) {
             return -ENOSYS;
         }
-        pContext->state = DAPV2_STATE_INITIALIZED;;
+        pContext->state = DAPV2_STATE_INITIALIZED;
         *(int *)pReplyData = 0;
         break;
     case EFFECT_CMD_GET_PARAM:
@@ -1237,11 +1247,10 @@ int DAPV2Lib_Create(const effect_uuid_t *uuid, int32_t sessionId __unused, int32
     *pHandle = (effect_handle_t)pContext;
 
     pContext->state = DAPV2_STATE_INITIALIZED;
-    ALOGD("%s: %p", __FUNCTION__, pContext);
+    pContext->dap_effect_enable = true;
+    setParameters(String8("Effect_enable=DAP_ON"));
 
-    char tempbuf[BUFFER_MAX_LENGTH] = {0};
-    sprintf(tempbuf, "dap_ui_status=%d", ENABLE_DAPV2);
-    setParameters(String8(tempbuf));
+    ALOGD("%s: %p", __FUNCTION__, pContext);
 
     return 0;
 }
@@ -1260,12 +1269,10 @@ int DAPV2Lib_Release(effect_handle_t handle)
     }
     DAPV2_release(pContext);
     pContext->state = DAPV2_STATE_UNINITIALIZED;
+    pContext->dap_effect_enable = false;
+    setParameters(String8("Effect_enable=DAP_OFF"));
 
     delete pContext;
-
-    char tempbuf[BUFFER_MAX_LENGTH] = {0};
-    sprintf(tempbuf, "dap_ui_status=%d", DISABLE_DAPV2);
-    setParameters(String8(tempbuf));
 
     return 0;
 }

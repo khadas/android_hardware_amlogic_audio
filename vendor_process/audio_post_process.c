@@ -328,7 +328,8 @@ size_t audio_post_process(struct aml_native_postprocess *native_postprocess, int
     for (j = 0; j < native_postprocess->num_postprocessors; j++) {
         effect_handle_t effect = native_postprocess->postprocessors[j].itfe;
         if (effect && (*effect) && (*effect)->process && in_buffer) {
-            if (native_postprocess->libvx_exist && native_postprocess->effect_in_ch == 6 && j == 0) {
+            if ((native_postprocess->libvx_exist && native_postprocess->effect_in_ch == 6 && j == 0) ||
+                  (((native_postprocess->effect_ctrl.effect_mode == EFFECT_MODE_AUTO) && !(native_postprocess->effect_ctrl.is_dts)) && j == 0)) {
                 /* skip multi channel processing for dts streaming in VX */
                 continue;
             } else {

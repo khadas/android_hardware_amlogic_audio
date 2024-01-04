@@ -3611,6 +3611,12 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         pthread_mutex_lock(&adev->ms12.lock);
         adev->dolby_lib_type = adev->dolby_lib_type_last;
         pthread_mutex_unlock(&adev->ms12.lock);
+        if (adev->effect_ctrl.effect_mode == EFFECT_MODE_DAP &&
+            (out->hal_internal_format == AUDIO_FORMAT_DTS || out->hal_internal_format == AUDIO_FORMAT_DTS_HD)) {
+            if (adev->ms12.dolby_ms12_enable) {
+                aml_dap_close(&adev->ms12);
+            }
+        }
         ALOGI("%s restore dolby lib =%d", __func__, adev->dolby_lib_type);
     }
     pthread_mutex_unlock(&out->lock);
@@ -4307,13 +4313,6 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
             pthread_mutex_unlock(&adev->lock);
             goto exit;
         }
-    }
-
-    ret = str_parms_get_int(parms, "dap_ui_status", &val);
-    if (ret >= 0) {
-        adev->is_ui_force_dap_disable = !val;
-        ALOGI("is_ui_force_dap_disable = %d\n", val);
-        goto exit;
     }
 
     ret = str_parms_get_str(parms, "bypass_dap", value, sizeof(value));
@@ -8672,6 +8671,10 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->address = NULL;
     adev->usb = NULL;
     pthread_mutex_init(&adev->usb_lock, NULL);
+    adev->effect_ctrl.dap_enable = 0;
+    adev->effect_ctrl.vx_enable = 0;
+    adev->effect_ctrl.effect_mode = EFFECT_MODE_OFF;
+    adev->native_postprocess.effect_ctrl.effect_mode = EFFECT_MODE_OFF;
     pthread_mutex_unlock(&adev_mutex);
 
     adev->fmt_start_mute = false;

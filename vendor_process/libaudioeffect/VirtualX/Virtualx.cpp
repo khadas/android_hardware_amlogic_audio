@@ -510,6 +510,7 @@ typedef struct vxContext_s {
     int16_t                         left_pBuffer[256 * 4 * 3];
     int16_t                         left_process_bytes;
     int16_t                         left_process_pBuffer[256 * 4];
+    bool                            vx_effect_enable;
 } vxContext;
 
 const char *VXStatusstr[] = {"Disable", "Enable"};
@@ -3304,6 +3305,16 @@ static int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue
     case AUDIO_ALL_PARAM_DUMP:
         dump(pContext);
         break;
+    case VIRTUALX_EFFECT_ENABLE:
+        pContext->vx_effect_enable = *(bool *)pValue;
+        if (pContext->vx_effect_enable) {
+            setParameters(String8("Effect_enable=VX_ON"));
+        } else {
+            setParameters(String8("Effect_enable=VX_OFF"));
+            pContext->ch_num = 2;
+        }
+        ALOGD("%s: Virtual effect enable: %d", __FUNCTION__, pContext->vx_effect_enable);
+        break;
     default:
         ALOGE("%s: unknown param %08x", __FUNCTION__, param);
         return -EINVAL;
@@ -3760,7 +3771,7 @@ static int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audi
     }
 #endif
 
-    if (!data->enable || !pContext->gVXLibHandler) {
+    if (!data->enable || !pContext->gVXLibHandler || !pContext->vx_effect_enable) {
         for (size_t i = 0; i < inBuffer->frameCount; i++) {
             *out++ = *in++;
             *out++ = *in++;
@@ -4227,6 +4238,8 @@ int VirtualxLib_Create(const effect_uuid_t *uuid, int32_t sessionId __unused, in
     *pHandle = (effect_handle_t)pContext;
 
     pContext->state = VIRTUALX_STATE_INITIALIZED;
+    pContext->vx_effect_enable = true;
+    setParameters(String8("Effect_enable=VX_ON"));
 
     ALOGD("%s: %p", __FUNCTION__, pContext);
     return 0;
@@ -4245,6 +4258,8 @@ int VirtualxLib_Release(effect_handle_t handle)
     Virtualx_release(pContext);
     unload_Virtualx_lib(pContext);
     pContext->state = VIRTUALX_STATE_UNINITIALIZED;
+    pContext->vx_effect_enable = false;
+    setParameters(String8("Effect_enable=VX_OFF"));
     delete pContext;
     ALOGD("VirtualxLib_Release");
     return 0;

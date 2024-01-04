@@ -51,6 +51,20 @@ struct effect_insert_seq_desc {
     const char *name;
 };
 
+enum audio_effect_mode {
+    EFFECT_MODE_OFF = 1,
+    EFFECT_MODE_DAP,
+    EFFECT_MODE_VX,
+    EFFECT_MODE_AUTO,
+};
+
+struct aml_post_effect_ctrl {
+    int dap_enable;
+    int vx_enable;
+    enum audio_effect_mode effect_mode;
+    bool is_dts;
+};
+
 struct aml_post_effect_info {
     effect_handle_t itfe;
     //port_handle for device effect
@@ -77,6 +91,7 @@ struct aml_native_postprocess {
     void *ai_handle;
     //if any effect is do process() should hold dev->effects_lock
     pthread_mutex_t lock;
+    struct aml_post_effect_ctrl effect_ctrl;
 };
 
 /*

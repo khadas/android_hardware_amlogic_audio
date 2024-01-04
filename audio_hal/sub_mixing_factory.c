@@ -1167,6 +1167,8 @@ ssize_t mixer_main_buffer_write_sm (struct audio_stream_out *stream, const void 
     struct aml_stream_out       *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device     *adev = aml_out->dev;
     ssize_t                     write_bytes = 0;
+    bool is_dts = is_dts_format(aml_out->hal_internal_format);
+    adev->native_postprocess.effect_ctrl.is_dts = is_dts;
 
     if (buffer == NULL || bytes == 0) {
         AM_LOGW("stream:%p, buffer is null, or bytes:%zu invalid", stream, bytes);

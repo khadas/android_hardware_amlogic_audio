@@ -157,6 +157,8 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
     int ch = audio_channel_count_from_out_mask(in_data_info->channel_mask);
     int bytes_per_sample = audio_bytes_per_sample(in_data_info->audio_format);
     audio_format_t output_format = in_data_info->audio_format;
+    bool is_dts = is_dts_format(aml_out->hal_internal_format);
+    adev->native_postprocess.effect_ctrl.is_dts = is_dts;
 
     size_t i, j;
     int ret;
