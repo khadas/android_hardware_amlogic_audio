@@ -393,7 +393,9 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 }
 
                 int input_sr = dec_pcm_data->data_sr;
-                int output_sr = nego_sample_rate(input_sr, dec_pcm_data->data_format,
+                int output_sr = OUTPUT_ALSA_SAMPLERATE;
+                if (!is_dts_format(aml_out->hal_internal_format))
+                    output_sr = nego_sample_rate(input_sr, dec_pcm_data->data_format,
                                                  adev->cur_out_devices);
                 if (input_sr != output_sr) {
                     audio_resample_config_t cfg = {

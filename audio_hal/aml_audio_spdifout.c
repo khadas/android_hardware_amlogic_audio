@@ -503,7 +503,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
                         phandle->restore_hdmitx_selection = false;
                     }
                 }
-                if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
+                if ((eDolbyMS12Lib == aml_dev->dolby_lib_type) || (eDolbyMS12Lib == aml_dev->dolby_lib_type_last && is_dts_format(audio_format))) {
                     aml_dev->raw_to_pcm_flag = true;
                 } else {
                     subMixingOutputRestart(aml_dev);
