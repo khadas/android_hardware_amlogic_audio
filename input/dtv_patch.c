@@ -5515,6 +5515,8 @@ int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, con
         if (hw_sync->hw_sync_metadata_unit_type == AUDIO_ENCAPSULATION_METADATA_TYPE_FRAMEWORK_TUNER) {
             hw_avsync_metadata_unit_info_t *current_metadata_unit = &hw_sync->current_metadata_unit;
             if (current_metadata_unit->broadcast_type == AUDIO_BROADCAST_MAIN) {
+                /*when switch to main track, audio hal receive AUDIO_BROADCAST_MAIN event,
+                AUDIO_BROADCAST_MAIN means main dtv audiopath info changed, need reset main dtv audio path*/
                 if ((current_metadata_unit->stream_id & 0xFFFF) != dmx_info->main_pid) {
                     if ((current_metadata_unit->stream_id & 0xFFFF) != dmx_info->main_pid) {
                         cmd = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_STOP);
@@ -5524,6 +5526,8 @@ int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, con
                         if (dmx_info->dual_decoder_support) {
                             Stop_Dmx_AD_Audio(demux_handle);
                             Destroy_Dmx_AD_Audio(demux_handle);
+                            /*need  clean dmx ad info when main dtv audiopath reset*/
+                            dmx_info->ad_pid = -1;
                         }
 
                         dmx_info->main_pid = current_metadata_unit->stream_id & 0xFFFF;
@@ -5541,6 +5545,8 @@ int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, con
                     }
                 }
             } else if (current_metadata_unit->broadcast_type == AUDIO_BROADCAST_AUDIO_DESCRIPTION) {
+                /*when switch to ad track, audio hal receive AUDIO_BROADCAST_AUDIO_DESCRIPTION event,
+                AUDIO_BROADCAST_AUDIO_DESCRIPTION means   dtv ad info changed, need enable ad function*/
                 int ad_debug_enable = property_get_int32("vendor.media.audio.ad.enable", -1);
                 if (current_metadata_unit->stream_id != 0 && ad_debug_enable == -1) {
                     if ((current_metadata_unit->stream_id & 0xff) != dmx_info->ad_pid) {
