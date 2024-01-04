@@ -373,11 +373,11 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
         case AUDIO_DTV_PATCH_CMD_SET_HAS_VIDEO:
             demux_info->has_video = val;
             ALOGI("has_video %d",demux_info->has_video);
-            if (patch->dtv_has_video != val) {
+            if (patch && patch->dtv_has_video != val) {
                 patch->dtv_has_video = val;
                 ALOGI("dtv_has_video %d",patch->dtv_has_video);
             }
-            if (dtvsync->mediasync_new != NULL) {
+            if (patch && dtvsync->mediasync_new != NULL) {
                 mediasync_wrap_setParameter(dtvsync->mediasync_new, MEDIASYNC_KEY_HASVIDEO, &patch->dtv_has_video);
             }
             break;

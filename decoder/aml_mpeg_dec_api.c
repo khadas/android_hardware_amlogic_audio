@@ -413,11 +413,13 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
             if ((aml_dec->ad_size + mad_dec->ad_remain_size) > MAD_REMAIN_BUFFER_SIZE) {
                  ALOGE("mad_dec->ad_remain_size %d > %d  ,overflow", mad_dec->ad_remain_size , MAD_REMAIN_BUFFER_SIZE );
                  mad_dec->ad_remain_size = 0;
+                 aml_dec->ad_size = 0;
                  memset(mad_dec->ad_remain_data , 0 , MAD_REMAIN_BUFFER_SIZE);
+            } else {
+                memcpy(mad_dec->ad_remain_data + mad_dec->ad_remain_size, aml_dec->ad_data, aml_dec->ad_size);
+                mad_dec->ad_remain_size += aml_dec->ad_size;
+                aml_dec->ad_size = 0;
             }
-            memcpy(mad_dec->ad_remain_data + mad_dec->ad_remain_size, aml_dec->ad_data, aml_dec->ad_size);
-            mad_dec->ad_remain_size += aml_dec->ad_size;
-            aml_dec->ad_size = 0;
         }
 
         if (ad_in_size && mad_dec->ad_need_cache_frames && dec_pcm_data->data_len) {
