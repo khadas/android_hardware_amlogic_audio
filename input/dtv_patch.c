@@ -5517,8 +5517,9 @@ int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, con
             if (current_metadata_unit->broadcast_type == AUDIO_BROADCAST_MAIN) {
                 /*when switch to main track, audio hal receive AUDIO_BROADCAST_MAIN event,
                 AUDIO_BROADCAST_MAIN means main dtv audiopath info changed, need reset main dtv audio path*/
-                if ((current_metadata_unit->stream_id & 0xFFFF) != dmx_info->main_pid) {
-                    if ((current_metadata_unit->stream_id & 0xFFFF) != dmx_info->main_pid) {
+                int main_fmt = android_fmt_convert_to_dmx_fmt(encodingFormat2AudioFormat(current_metadata_unit->flags));
+                int main_pid = current_metadata_unit->stream_id & 0xFFFF;
+                if (main_pid != dmx_info->main_pid || main_fmt != dmx_info->main_fmt) {
                         cmd = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_STOP);
                         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, cmd);
                         Stop_Dmx_Main_Audio(demux_handle);
@@ -5530,10 +5531,10 @@ int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, con
                             dmx_info->ad_pid = -1;
                         }
 
-                        dmx_info->main_pid = current_metadata_unit->stream_id & 0xFFFF;
+                        dmx_info->main_pid = main_pid;
                         dmx_info->demux_id = current_metadata_unit->stream_id >> 16;//demux id
-                        dmx_info->main_fmt = android_fmt_convert_to_dmx_fmt(encodingFormat2AudioFormat(current_metadata_unit->flags));
-                        ALOGI("changed to main_pid %d stream_id %d ",dmx_info->main_pid,current_metadata_unit->stream_id);
+                        dmx_info->main_fmt = main_fmt;
+                        ALOGI("changed to main_pid %d  main_format %d stream_id %d ",dmx_info->main_pid, dmx_info->main_fmt, current_metadata_unit->stream_id);
 
                         Init_Dmx_Main_Audio(demux_handle, dmx_info->main_fmt, dmx_info->main_pid);
                         Start_Dmx_Main_Audio(demux_handle);
@@ -5543,7 +5544,6 @@ int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, con
                     } else {
                         //do nothing
                     }
-                }
             } else if (current_metadata_unit->broadcast_type == AUDIO_BROADCAST_AUDIO_DESCRIPTION) {
                 /*when switch to ad track, audio hal receive AUDIO_BROADCAST_AUDIO_DESCRIPTION event,
                 AUDIO_BROADCAST_AUDIO_DESCRIPTION means   dtv ad info changed, need enable ad function*/
