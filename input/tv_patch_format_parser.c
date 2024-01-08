@@ -200,6 +200,25 @@ static int hdmiin_audio_format_detection(struct aml_mixer_handle *mixer_handle)
     }
 }
 
+static int audio_pcpd_monitor_enable(struct aml_mixer_handle *mixer_handle, int enable)
+{
+    aml_mixer_ctrl_set_int(mixer_handle, AML_MIXER_ID_AUDIO_PCPD_MONITOR_ENABLE, enable);
+    return 0;
+}
+
+static int audio_pcpd_monitor_format_detection(struct aml_mixer_handle *mixer_handle)
+{
+    int type = 0;
+
+    type = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_AUDIO_PCPD_MONITOR_DATA_TYPE);
+
+    if (type >= LPCM && type <= PAUSE) {
+        return type;
+    } else {
+        return LPCM;
+    }
+}
+
 static int spdifin_audio_format_detection(struct aml_mixer_handle *mixer_handle)
 {
     int type = 0;
@@ -499,6 +518,34 @@ int audio_type_parse(void *buffer, size_t bytes, int *package_size,
     return AudioType;
 }
 
+void audio_pcpd_format_detect(audio_type_parse_t *status)
+{
+    audio_type_parse_t *audio_type_status = status;
+    int cur_type = LPCM;
+
+    if (!audio_type_status) {
+        return;
+    }
+
+    if (audio_type_status->pcpd_monitor_flag) {
+        cur_type = audio_pcpd_monitor_format_detection(audio_type_status->mixer_handle);
+        if (cur_type != LPCM) {
+            audio_type_status->cur_audio_type = cur_type;
+
+            if (audio_type_status->audio_type == LPCM && audio_type_status->cur_audio_type != LPCM) {
+                ALOGI("%s() PcPd Monitor raw data found: type(%d)\n", __FUNCTION__, audio_type_status->cur_audio_type);
+                enable_HW_resample(audio_type_status->mixer_handle, HW_RESAMPLE_DISABLE);
+            }
+
+            if (audio_type_status->audio_type != audio_type_status->cur_audio_type) {
+                audio_type_status->fmt_change = true;
+            }
+
+            audio_type_status->audio_type = audio_type_status->cur_audio_type;
+        }
+    }
+}
+
 int audio_raw_data_parse(audio_type_parse_t *status, void *buffer, size_t bytes)
 {
 
@@ -736,7 +783,12 @@ static void* audio_type_parse_threadloop(void *data)
     int read_bytes = 0, read_back, nodata_count;
     int txlx_chip = check_chip_name("txlx", 4, audio_type_status->mixer_handle);
     int txl_chip = check_chip_name("txl", 3, audio_type_status->mixer_handle);
+    audio_type_status->pcpd_monitor_flag = false;
+    int chip_with_pcpd_monitor = check_chip_name("t5m", 3, audio_type_status->mixer_handle) ||
+                                     check_chip_name("t5w", 3, audio_type_status->mixer_handle);
+    audio_type_status->pcpd_monitor_flag = chip_with_pcpd_monitor;
     int auge_chip = alsa_device_is_auge();
+    audio_type_status->fmt_change = false;
 
     ret = audio_type_parse_init(audio_type_status);
     if (ret < 0) {
@@ -762,6 +814,9 @@ static void* audio_type_parse_threadloop(void *data)
     } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_SPDIF) {
         cur_samplerate = set_resample_source(audio_type_status->mixer_handle, RESAMPLE_FROM_SPDIFIN);
     }
+
+    if (chip_with_pcpd_monitor)
+        audio_pcpd_monitor_enable(audio_type_status->mixer_handle, 1);
 
     while (audio_type_status->running_flag) {
         if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
@@ -835,24 +890,67 @@ static void* audio_type_parse_threadloop(void *data)
                     usleep((read_bytes - read_back) * 1000 / 4 / 48 / 2);
                 }
             }
-            if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
-                aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/tv_parser.raw",
-                    audio_type_status->parse_buffer, read_bytes);
-            }
 
             if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
                 aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/tv_parser.raw", audio_type_status->parse_buffer + 3, read_bytes);
             }
 
-            if (ret >= 0) {
-                audio_type_status->cur_audio_type = audio_type_parse(audio_type_status->parse_buffer,
+            if (chip_with_pcpd_monitor)
+            {
+               audio_type_status->cur_audio_type = audio_pcpd_monitor_format_detection(audio_type_status->mixer_handle);
+               if (audio_type_status->audio_type == LPCM && audio_type_status->cur_audio_type != LPCM) {
+                   ALOGI("%s() PcPd Monitor raw data found: type(%d)\n", __FUNCTION__, audio_type_status->cur_audio_type);
+                   enable_HW_resample(audio_type_status->mixer_handle, HW_RESAMPLE_DISABLE);
+               }
+
+               if (audio_type_status->cur_audio_type >= AC3 && audio_type_status->cur_audio_type <= MAT)
+               {
+                   int pos_sync_word = -1;
+
+                   if (audio_type_status->audio_type != audio_type_status->cur_audio_type) {
+                       audio_type_status->fmt_change = true;
+                   }
+                   if (audio_type_status->fmt_change == true) {
+                       pos_sync_word = seek_61937_sync_word(audio_type_status->parse_buffer, read_bytes);
+                       if (pos_sync_word >= 0) {
+                           audio_type_parse(audio_type_status->parse_buffer,
+                                               read_bytes, &(audio_type_status->package_size),
+                                               &(audio_type_status->audio_ch_mask));
+                           audio_type_status->fmt_change = false;
+                       }
+                   }
+               }
+
+               if (audio_type_status->cur_audio_type == LPCM) {
+                   if (ret >= 0) {
+                       audio_type_status->cur_audio_type = audio_type_parse(audio_type_status->parse_buffer,
+                                                           read_bytes, &(audio_type_status->package_size),
+                                                           &(audio_type_status->audio_ch_mask));
+                       //ALOGD("cur_audio_type=%d\n", audio_type_status->cur_audio_type);
+                       memcpy(audio_type_status->parse_buffer, audio_type_status->parse_buffer + read_bytes, 3);
+                       update_audio_type(audio_type_status, read_bytes, cur_samplerate);
+                   } else {
+                       audio_type_status->cur_audio_type = LPCM;
+                       audio_type_status->audio_type = audio_type_status->cur_audio_type;
+                       usleep(10 * 1000);
+                   }
+               } else {
+                   audio_type_status->read_bytes = 0;
+                   audio_type_status->audio_type = audio_type_status->cur_audio_type;
+               }
+            }else {
+               if (ret >= 0) {
+                   audio_type_status->cur_audio_type = audio_type_parse(audio_type_status->parse_buffer,
                                                     read_bytes, &(audio_type_status->package_size),
                                                     &(audio_type_status->audio_ch_mask));
-                //ALOGD("cur_audio_type=%d\n", audio_type_status->cur_audio_type);
-                memcpy(audio_type_status->parse_buffer, audio_type_status->parse_buffer + read_bytes, 3);
-                update_audio_type(audio_type_status, read_bytes, cur_samplerate);
-            } else {
-                usleep(10 * 1000);
+                   //ALOGD("cur_audio_type=%d\n", audio_type_status->cur_audio_type);
+                   memcpy(audio_type_status->parse_buffer, audio_type_status->parse_buffer + read_bytes, 3);
+                   update_audio_type(audio_type_status, read_bytes, cur_samplerate);
+               } else {
+                   audio_type_status->cur_audio_type = LPCM;
+                   audio_type_status->audio_type = audio_type_status->cur_audio_type;
+                   usleep(10 * 1000);
+               }
             }
         } else {
             if (auge_chip || txlx_chip) {

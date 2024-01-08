@@ -349,6 +349,7 @@ void *audio_patch_input_threadloop(void *data)
                     enable_tv_mute(aml_dev, false);
                 }
 
+                audio_pcpd_format_detect(patch->audio_parse_para);
                 aml_audio_trace_int("input_read_thread", read_bytes);
                 aml_alsa_input_read(&in->stream, patch->in_buf, read_bytes);
                 aml_audio_trace_int("input_read_thread", 0);

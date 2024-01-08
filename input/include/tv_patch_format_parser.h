@@ -98,6 +98,8 @@ typedef struct audio_type_parse {
 
     int running_flag;
     audio_devices_t input_dev;
+    bool fmt_change;
+    bool pcpd_monitor_flag;
 } audio_type_parse_t;
 
 int create_pthread_for_audio_type_parse(
@@ -154,4 +156,6 @@ int audio_parse_get_audio_samplerate(audio_type_parse_t *status);
 
 int eArcIn_audio_format_detection(struct aml_mixer_handle *mixer_handle);
 
-#endif /* __TV_PATCH_FORMAT_PARSER_H__ */
+void audio_pcpd_format_detect(audio_type_parse_t *status);
+
+#endif
