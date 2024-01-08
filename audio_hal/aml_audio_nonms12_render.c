@@ -208,7 +208,6 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
     bool dts_pcm_direct_output = false;
     int decoder_remain_size = 0;
     int ret_size;
-    checkout_pts_offset checkout_pts;
 #ifdef ENABLE_DVB_PATCH
     dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
     bool dtv_stream_flag = patch && is_same_patch_src(adev, SRC_DTV) && aml_out->is_tv_src_stream;
@@ -243,44 +242,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
             ALOGV("first_in_frame_pts %" PRId64 " ms" , aml_dec->first_in_frame_pts / 90);
         }
         if (do_sync_flag) {
-            if(patch->skip_amadec_flag) {
-                if (patch->cur_package) {
-                    if (!is_dtv_multi_demux(adev) && patch->singleDmxNonTunnelMode) {
-                        checkout_pts.offset = patch->decoder_offset;
-                        ALOGV("offset:%" PRId64 "\n", checkout_pts.offset);
-                        if (patch->PServerDev != -1) {
-                            PtsServ_ioctl(patch->PServerDev, PTSSERVER_IOC_CHECKOUT_APTS, (unsigned long)&checkout_pts);
-                        }
-                        // aml_dec->in_frame_pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
-                        aml_dec->in_frame_pts = checkout_pts.pts_90k;
-                        if (aml_dec->in_frame_pts != -1) {
-                            patch->last_valid_pts = aml_dec->in_frame_pts;
-                        }
-                        if (aml_dec->in_frame_pts == -1) {
-                            if (aml_dec->out_frame_pts) {
-                                aml_dec->in_frame_pts = aml_dec->out_frame_pts;
-                            } else {
-                                aml_dec->in_frame_pts = patch->last_valid_pts;
-                            }
-                        }
-                        ALOGV("in_frame_pts:%" PRId64 " PtsServ_checkout_pts64:%" PRId64 " aml_dec->out_frame_pts  %" PRId64 "\n",aml_dec->in_frame_pts, checkout_pts.pts_64,aml_dec->out_frame_pts);
-                    }
-                    else {
-                        if (patch->cur_package->pts != DTVSYNC_INVALID_PTS) {
-                            if (patch->cur_package->pts != 0) {
-                                aml_dec->in_frame_pts = patch->cur_package->pts;
-                                aml_dec->out_frames = 0;
-                            }
-                         } else {
-                            aml_dec->in_frame_pts = aml_dec->out_frame_pts;
-                         }
-                    }
-                 } else {
-                    ALOGW("cur_package null !!!");
-                }
-            } else {
-                aml_dec->in_frame_pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
-            }
+            get_dtv_checkin_pts(stream, &aml_dec->in_frame_pts, aml_dec->out_frame_pts, &aml_dec->out_frames);
         }
 #endif
         if (is_dolby_ddp_support_compression_format(aml_out->hal_internal_format)) {

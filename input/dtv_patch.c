@@ -635,7 +635,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                         }
                         uio_deinit_new(&dtv_audio_instances->uio_fd);
                     }
-                    if (dtvsync->mediasync_new != NULL &&  patch->singleDmxNonTunnelMode) {
+                    if (dtvsync->mediasync_new != NULL) {
                         aml_dtvsync_release(dtvsync);
                     }
                 }

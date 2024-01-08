@@ -239,6 +239,12 @@ enum {
     APTS_DISCONTINUE = 0x10, //apts discontinued;
 };
 
+typedef struct checkoutptsoffset {
+    uint64_t offset;
+    uint64_t pts_90k;
+    uint64_t pts_64;
+} checkout_pts_offset;
+
 struct avsync_para {
     int cur_pts_diff; // pcr-apts
     int last_pts_diff; // pcr-apts
@@ -322,6 +328,7 @@ int dtv_set_audio_latency(int apts_diff,struct aml_audio_patch* patch);
 bool dtv_avsync_lookup_process(struct aml_audio_patch *patch, struct aml_audio_device *aml_dev);
 void dtv_avsync_pause_process(struct audio_stream_out *stream, int cmd);
 void dtv_avsync_param_reset(struct audio_stream_out *stream);
+void get_dtv_checkin_pts (struct audio_stream_out *stream, int64_t *in_frame_pts, int64_t out_frame_pts, int *out_frames);
 
 
 #endif  /* _DTV_PATCH_HAL_AVSYNC_H_ */
