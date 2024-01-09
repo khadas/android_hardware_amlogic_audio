@@ -121,18 +121,16 @@ int dca_decoder_process_patch(aml_dec_t *aml_dec, unsigned char*buffer, int byte
 int dca_decoder_config(aml_dec_t *aml_dec, aml_dec_config_type_t config_type, aml_dec_config_t *aml_dec_config);
 int dca_decoder_getinfo(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_dec_info_t *aml_dec_info);
 
-///< internal api, for VirtualX.
-
 /**
-* @brief Get dca decoder output channel(internal use).
+* @brief Get dtshd decoder output channel(internal use).
 * @param None
 * @return [success]: 0 decoder not init.
 *         [success]: 1 ~ 8, output channel number
 *            [fail]: -1 get output channel fail.
 */
-int dca_get_out_ch_internal(void);
+int dtshd_get_out_ch_internal(void);
 /**
-* @brief Set dca decoder output channel(internal use).
+* @brief Set dtshd decoder output channel(internal use).
 * @param ch_num: The num of channels you want the decoder to output
 *              0: Default setting, decoder configs output channel automatically.
 *          1 ~ 8: The decoder outputs the specified number of channels
@@ -140,7 +138,7 @@ int dca_get_out_ch_internal(void);
 * @return [success]: 0
 *            [fail]: -1 set output channel fail.
 */
-int dca_set_out_ch_internal(int ch_num);
+int dtshd_set_out_ch_internal(int ch_num);
 
 extern aml_dec_func_t aml_dca_func;
 

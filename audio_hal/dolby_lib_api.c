@@ -440,7 +440,37 @@ bool is_ms12_tuning_dat_in_dut() //available in Dolby MS12 V2.4 or later
 
 #endif
 
+eDTSLibType_t detect_dts_lib_type(void) {
+    void *hDTSLibHanle = NULL;
 
+    // the priority would be "DTSX > DTSHD" lib
+    // DTSX is first priority
+    if (file_accessible(DTS_X_LIB_PATH_A) == 0) {
+        // try to open lib see if it's OK?
+        hDTSLibHanle = dlopen(DTS_X_LIB_PATH_A, RTLD_NOW);
+        if (hDTSLibHanle != NULL) {
+            dlclose(hDTSLibHanle);
+            hDTSLibHanle = NULL;
+            ALOGI("[%s:%d] Found libHwAudio_dtsx lib", __func__, __LINE__);
+            return eDTSXLib;
+        }
+    }
+
+    // DTSHD is second priority
+    if (file_accessible(DTS_HD_LIB_PATH_A) == 0) {
+        // try to open lib see if it's OK?
+        hDTSLibHanle = dlopen(DTS_HD_LIB_PATH_A, RTLD_NOW);
+        if (hDTSLibHanle != NULL) {
+            dlclose(hDTSLibHanle);
+            hDTSLibHanle = NULL;
+            ALOGI("[%s:%d] Found libHwAudio_dtshd lib", __func__, __LINE__);
+            return eDTSHDLib;
+        }
+    }
+
+    ALOGW("[%s:%d] Failed to find libHwAudio_dtsx.so and libHwAudio_dtshd.so, %s", __FUNCTION__, __LINE__, dlerror());
+    return eDTSNull;
+}
 
 int dts_lib_decode_enable() {
     int enable = 0;
@@ -451,16 +481,16 @@ int dts_lib_decode_enable() {
 
     //try to open lib see if it's OK?
     s_aml_so_type = AML_SO_TYPE_NONE;
-    hDtsLibHandle  = dlopen(DTS_DCA_LIB_PATH_A, RTLD_NOW);
-    ALOGI("%s, 32bit lib:%s, hDtsLibHandle:%p\n", __FUNCTION__, DTS_DCA_LIB_PATH_A, hDtsLibHandle);
+    hDtsLibHandle  = dlopen(DTS_HD_LIB_PATH_A, RTLD_NOW);
+    ALOGI("%s, 32bit lib:%s, hDtsLibHandle:%p\n", __FUNCTION__, DTS_HD_LIB_PATH_A, hDtsLibHandle);
 
     //open 32bit so failed, here try to open the 64bit dolby dcv so.
     if (hDtsLibHandle == NULL) {
-        hDtsLibHandle = dlopen(DTS_DCA_LIB64_PATH_A, RTLD_NOW);
+        hDtsLibHandle = dlopen(DTS_HD_LIB64_PATH_A, RTLD_NOW);
         if (hDtsLibHandle != NULL) {
             s_aml_so_type = AML_SO_TYPE_64bit;
         }
-        ALOGI("%s, 64bit lib:%s, hDolbyDcvLibHandle:%p\n", __FUNCTION__, DTS_DCA_LIB64_PATH_A, hDtsLibHandle);
+        ALOGI("%s, 64bit lib:%s, hDolbyDcvLibHandle:%p\n", __FUNCTION__, DTS_HD_LIB64_PATH_A, hDtsLibHandle);
     } else {
         s_aml_so_type = AML_SO_TYPE_32bit;
     }
@@ -475,10 +505,10 @@ int dts_lib_decode_enable() {
     //Here start to get stat info of matching so.
     switch (s_aml_so_type) {
         case AML_SO_TYPE_32bit:
-            ret = stat(DTS_DCA_LIB_PATH_A, &stat_info);
+            ret = stat(DTS_HD_LIB_PATH_A, &stat_info);
             break;
         case AML_SO_TYPE_64bit:
-            ret = stat(DTS_DCA_LIB64_PATH_A, &stat_info);
+            ret = stat(DTS_HD_LIB64_PATH_A, &stat_info);
             break;
         default:
             ret = -1;//dlopen failed, so enable should be 0;

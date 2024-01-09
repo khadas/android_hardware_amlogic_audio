@@ -35,7 +35,7 @@
 #include <cutils/properties.h>
 
 #include "audio_hw.h"
-#include "aml_dts_dec_api.h"
+#include "aml_dtshd_dec_api.h"
 
 
 
@@ -556,7 +556,7 @@ static int _dts_stream_type_mapping(unsigned int stream_type)
             break;
         case DTSSTREAMTYPE_DTS_MA:
         case DTSSTREAMTYPE_DTS_LOSSLESS:
-            dts_type = TYPE_DTS_HD;
+            dts_type = TYPE_DTS_HD_MA;
             break;
         case DTSSTREAMTYPE_DTS_LBR:
             dts_type = TYPE_DTS_EXPRESS;
@@ -992,7 +992,7 @@ int dca_decoder_getinfo(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_d
     return ret;
 }
 
-int dca_get_out_ch_internal(void)
+int dtshd_get_out_ch_internal(void)
 {
     ///< not init yet.
     if (!dts_decoder_getinfo)
@@ -1008,7 +1008,7 @@ int dca_get_out_ch_internal(void)
     }
 }
 
-int dca_set_out_ch_internal(int ch_num)
+int dtshd_set_out_ch_internal(int ch_num)
 {
     if (!dts_decoder_config) {
         ///< static param, will take effect after decoder_init.

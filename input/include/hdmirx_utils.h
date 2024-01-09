@@ -77,6 +77,23 @@ struct format_desc {
      * and does not support Dolby TrueHD decoding.
      */
     bool   MAT_PCM_48kHz_only;
+    /* The Codec Vendor specific (DTS Audio) Subtype from SAD (Byte 3).
+     * | EDID SAD Byte1 |   EDID SAD Byte3    |      Description         |
+     * |----------------|---------------------|--------------------------|
+     * |  Bit3 ~ Bit6   | Bit2 | Bit1 | Bit0  |                          |
+     * |----------------|---------------------|--------------------------|
+     * |     7 = DTS    |Byte3 = 0xC0 = Maximum bitrate divided by8kHz.  |
+     * |----------------|------------------------------------------------|
+     * |   11 = DTS-HD  |   X  |   X  |   0   |DTS-HD MA is NOT supported|
+     * |   11 = DTS-HD  |   X  |   X  |   1   |DTS-HD MA is supported.   |
+     * |   11 = DTS-HD  |   X  |   1  |   X   |DTS:X (P1) is supported.  |
+     * |   11 = DTS-HD  |   1  |   X  |   X   |DTS:X (P2) is supported.  |
+     * |-----------------------------------------------------------------|
+     * DTS-HD extension substreams (with or without core) including XLL (lossless) bitstreams as know as DTS-HD MA.
+     * DTS:X (P1) supports all DTS formats except DTS:X (P2).
+     * DTS:X (P2) supports all DTS formats.
+     */
+    unsigned int dts_vsdb_byte3;
 };
 
 /*

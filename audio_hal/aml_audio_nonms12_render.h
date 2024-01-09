@@ -26,5 +26,25 @@
 int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer, size_t bytes);
 bool aml_decoder_output_compatible(struct audio_stream_out *stream, audio_format_t sink_format, audio_format_t optical_format);
 int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t format, aml_dec_config_t * dec_config);
+
+/**
+* @brief Get dca decoder output channel(internal use).
+* @param None
+* @return [success]: 0 decoder not init.
+*         [success]: 1 ~ 8, output channel number
+*            [fail]: -1 get output channel fail.
+*/
+int dca_get_out_ch_internal(void);
+/**
+* @brief Set dca decoder output channel(internal use).
+* @param ch_num: The num of channels you want the decoder to output
+*              0: Default setting, decoder configs output channel automatically.
+*          1 ~ 8: The decoder outputs the specified number of channels
+*                (At present, @ch_num only supports 2-ch and 6-ch).
+* @return [success]: 0
+*            [fail]: -1 set output channel fail.
+*/
+int dca_set_out_ch_internal(int ch_num);
+
 #endif
 

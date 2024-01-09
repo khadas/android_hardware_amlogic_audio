@@ -3,7 +3,8 @@ LOCAL_PATH:= $(call my-dir)
 # build libamladecs so
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
-    aml_dts_dec_api.c    \
+    aml_dtshd_dec_api.c    \
+    aml_dtsx_dec_api.c    \
     aml_ddp_dec_api.c    \
     aml_dec_api.c        \
     aml_aac_dec_api.c   \
@@ -19,7 +20,8 @@ LOCAL_SHARED_LIBRARIES := \
     libutils \
     libamaudioutils \
     libamlparser \
-    libalsautils
+    libalsautils \
+    libamlresampler
 
 LOCAL_C_INCLUDES := \
    external/tinyalsa/include \

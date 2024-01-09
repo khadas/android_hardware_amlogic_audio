@@ -4337,6 +4337,14 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         }
     }
 
+    if (eDTSXLib == adev->dts_lib_type) {
+        char *dtsx_parm = strstr(kvpairs, "dtsx_");
+        if (dtsx_parm != NULL) {
+            if (aml_dtsx_update_runtime_params(&adev->dts_x, parms) == 0)
+                goto exit;
+        }
+    }
+
     ret = str_parms_get_str(parms, "bypass_dap", value, sizeof(value));
     if (ret >= 0) {
         sscanf(value,"%d %f", &adev->ms12.dap_bypass_enable, &adev->ms12.dap_bypassgain);
@@ -4347,7 +4355,7 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     ret = str_parms_get_str(parms, "VX_SET_DTS_Mode", value, sizeof(value));
     if (ret >= 0) {
         int dts_decoder_output_mode = atoi(value);
-        if (dts_decoder_output_mode > 6 || dts_decoder_output_mode < 0)
+        if (dts_decoder_output_mode > 8 || dts_decoder_output_mode < 0)
             goto exit;
         if (dts_decoder_output_mode == 2)
             adev->native_postprocess.vx_force_stereo = 1;
@@ -8638,7 +8646,12 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     /* if MS12 is inside, here adev->dolby_lib_type_last will be always eDolbyMS12Lib(2). */
     adev->dolby_lib_type_last = adev->dolby_lib_type;
     adev->dolby_decode_enable = dolby_lib_decode_enable(adev->dolby_lib_type_last);
-    adev->dts_decode_enable = dts_lib_decode_enable();
+    adev->dts_lib_type = detect_dts_lib_type();
+    if (adev->dts_lib_type == eDTSXLib) {
+        adev->dts_decode_enable = 1;
+    } else {
+        adev->dts_decode_enable = dts_lib_decode_enable();
+    }
     adev->is_ms12_tuning_dat = is_ms12_tuning_dat_in_dut();
 
 #ifdef MS12_V24_ENABLE
@@ -8719,6 +8732,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     }
 
     memset(&adev->dts_hd, 0, sizeof(struct dca_dts_dec));
+    memset(&adev->dts_x, 0, sizeof(dtsx_dec_t));
     adev->sound_track_mode = 0;
 
 #if ENABLE_NANO_NEW_PATH

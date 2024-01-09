@@ -389,11 +389,11 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 if ((adev->effect_ctrl.effect_mode == EFFECT_MODE_DAP) || (adev->effect_ctrl.effect_mode == EFFECT_MODE_OFF)) {
                    //Do nothing
                 } else {
-                    if (dec_pcm_data->data_ch == 6) {
+                    if (dec_pcm_data->data_ch == 6 || dec_pcm_data->data_ch == 8) {
                         ret = audio_VX_post_process(VX_postprocess, (int16_t *)dec_data, pcm_len);
                         if (ret > 0) {
-                            pcm_len = ret; /* VX will downmix 6ch to 2ch, pcm size will be changed */
-                            dec_pcm_data->data_ch /= 3;
+                            pcm_len = ret; /* VX will downmix 6ch/8ch to 2ch, pcm size will be changed */
+                            dec_pcm_data->data_ch = 2;
                         }
                     }
                 }
@@ -659,6 +659,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
 bool aml_decoder_output_compatible(struct audio_stream_out *stream, audio_format_t sink_format __unused, audio_format_t optical_format) {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct aml_audio_device *adev = aml_out->dev;
     bool is_compatible = true;
 
     if (aml_out->hal_internal_format != aml_out->aml_dec->format) {
@@ -675,17 +676,51 @@ bool aml_decoder_output_compatible(struct audio_stream_out *stream, audio_format
             || (optical_format == AUDIO_FORMAT_AC3 && dcv_config->decoding_mode != DDP_DECODE_MODE_SINGLE)) {
                 is_compatible = false;
         }
-    } else if ((aml_out->aml_dec->format == AUDIO_FORMAT_DTS)
-                || (aml_out->aml_dec->format == AUDIO_FORMAT_DTS_HD)) {
-        aml_dca_config_t* dca_config = (aml_dca_config_t *)(&aml_out->dec_config);
-        if ((optical_format == AUDIO_FORMAT_PCM_16_BIT) && (dca_config->digital_raw > AML_DEC_CONTROL_DECODING)) {
-            is_compatible = false;
+    } else if (is_dts_format(aml_out->aml_dec->format)) {
+        if (adev->dts_lib_type == eDTSXLib) {
+            aml_dtsx_config_t* dtsx_config = (aml_dtsx_config_t *)(&aml_out->dec_config);
+            // Still need to discuss.
+            if ((optical_format == AUDIO_FORMAT_PCM_16_BIT) && (dtsx_config->digital_raw > AML_DEC_CONTROL_DECODING)) {
+                is_compatible = false;
+            }
+        } else {
+            aml_dca_config_t* dca_config = (aml_dca_config_t *)(&aml_out->dec_config);
+            if ((optical_format == AUDIO_FORMAT_PCM_16_BIT) && (dca_config->digital_raw > AML_DEC_CONTROL_DECODING)) {
+                is_compatible = false;
+            }
         }
     }
 
     return is_compatible;
 }
 
+int dca_get_out_ch_internal(void)
+{
+    struct aml_audio_device *adev = (struct aml_audio_device *)aml_adev_get_handle();
+
+    if (!adev)
+        return -1;
+
+    if (adev->dts_lib_type == eDTSXLib) {
+        return dtsx_get_out_ch_internal(&adev->dts_x);
+    } else {
+        return dtshd_get_out_ch_internal();
+    }
+}
+
+int dca_set_out_ch_internal(int ch_num)
+{
+    struct aml_audio_device *adev = (struct aml_audio_device *)aml_adev_get_handle();
+
+    if (!adev)
+        return -1;
+
+    if (adev->dts_lib_type == eDTSXLib) {
+        return dtsx_set_out_ch_internal(&adev->dts_x, ch_num);
+    } else {
+        return dtshd_set_out_ch_internal(ch_num);
+    }
+}
 
 static void ddp_decoder_config_prepare(struct audio_stream_out *stream, aml_dcv_config_t * ddp_config)
 {
@@ -734,33 +769,78 @@ static void ddp_decoder_config_prepare(struct audio_stream_out *stream, aml_dcv_
     return;
 }
 
-static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dca_config_t * dts_config)
+static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dec_config_t *dec_config)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
+    struct aml_arc_hdmi_desc *p_hdmi_descs = get_arc_hdmi_cap(adev);
 
     adev->dtslib_bypass_enable = 0;
 
-    dts_config->digital_raw = AML_DEC_CONTROL_CONVERT;
-    dts_config->is_dtscd = aml_out->is_dtscd;
-    if (aml_out->hal_format == AUDIO_FORMAT_IEC61937 && !dts_config->is_dtscd) {
-        dts_config->is_iec61937 = true;
-    } else {
-        dts_config->is_iec61937 = false;
-    }
-
-    if ((adev->cur_out_devices == OUTPORT_HEADPHONE) || (adev->cur_out_devices == OUTPORT_A2DP) ||
-         (adev->cur_out_devices == OUTPORT_HDMI_ARC) || (adev->effect_ctrl.effect_mode == EFFECT_MODE_DAP)) {
-        if (adev->native_postprocess.libvx_exist)
+    if ( (adev->cur_out_devices == OUTPORT_HEADPHONE) || (adev->cur_out_devices == OUTPORT_A2DP) ||
+         (adev->cur_out_devices == OUTPORT_HDMI_ARC) || (adev->effect_ctrl.effect_mode == EFFECT_MODE_DAP) ||
+         (adev->native_postprocess.vx_force_stereo == 1)) {
+        if (adev->native_postprocess.libvx_exist) {
+            ALOGD("%s(): set 2 ch", __func__);
             dca_set_out_ch_internal(2);
+        }
     } else {
-        if (adev->native_postprocess.libvx_exist)
+        if (adev->native_postprocess.libvx_exist) {
+            ALOGD("%s(): set auto ch", __func__);
             dca_set_out_ch_internal(0);
+        }
     }
 
-    dts_config->dev = (void *)adev;
-    ALOGI("%s digital_raw:%d, dual_output_flag:%d, is_iec61937:%d, is_dtscd:%d"
-        , __func__, dts_config->digital_raw, aml_out->dual_output_flag, dts_config->is_iec61937, dts_config->is_dtscd);
+    if (adev->dts_lib_type == eDTSXLib) {
+        aml_dtsx_config_t *dtsx_config = &dec_config->dtsx_config;
+        dtsx_config->digital_raw = AML_DEC_CONTROL_CONVERT;
+        dtsx_config->is_dtscd = aml_out->is_dtscd;
+        if (aml_out->hal_format == AUDIO_FORMAT_IEC61937 && !dtsx_config->is_dtscd) {
+            dtsx_config->is_iec61937 = true;
+        } else {
+            dtsx_config->is_iec61937 = false;
+        }
+        dtsx_config->dev = (void *)adev;
+
+        if (adev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS) {
+            dtsx_config->passthroug_enable = 1;
+        } else {
+            dtsx_config->passthroug_enable = 0;
+        }
+
+        if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0 || (adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI) != 0) {
+            dtsx_config->is_hdmi_output = 1;
+        } else {
+            dtsx_config->is_hdmi_output = 0;
+        }
+
+        if (p_hdmi_descs->dtshd_fmt.is_support) {
+            dtsx_config->sink_dev_type = p_hdmi_descs->dtshd_fmt.dts_vsdb_byte3;
+        } else {
+            dtsx_config->sink_dev_type = 0; //CA(0),MA(1),P1(2),P2(4)
+        }
+
+        ALOGI("[%s:%d] digital_raw:%d, dual_output_flag:%d, is_iec61937:%d, is_dtscd:%d, passthroug:%d, is_hdmi_output:%d, sink_dev_type:%d", __func__, __LINE__,
+            dtsx_config->digital_raw, aml_out->dual_output_flag, dtsx_config->is_iec61937,
+            dtsx_config->is_dtscd, dtsx_config->passthroug_enable, dtsx_config->is_hdmi_output,
+            dtsx_config->sink_dev_type);
+    } else if (adev->dts_lib_type == eDTSHDLib) {
+        aml_dca_config_t * dts_config = &dec_config->dca_config;
+        dts_config->digital_raw = AML_DEC_CONTROL_CONVERT;
+        dts_config->is_dtscd = aml_out->is_dtscd;
+        if (aml_out->hal_format == AUDIO_FORMAT_IEC61937 && !dts_config->is_dtscd) {
+            dts_config->is_iec61937 = true;
+        } else {
+            dts_config->is_iec61937 = false;
+        }
+
+        dts_config->dev = (void *)adev;
+        ALOGI("%s digital_raw:%d, dual_output_flag:%d, is_iec61937:%d, is_dtscd:%d"
+            , __func__, dts_config->digital_raw, aml_out->dual_output_flag, dts_config->is_iec61937, dts_config->is_dtscd);
+    } else {
+        ALOGE("[%s:%d] Without any dts library", __func__, __LINE__);
+    }
+
     return;
 }
 
@@ -858,6 +938,7 @@ int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t f
 #endif
 
     dec_config->dts_decode_enable = adev->dts_decode_enable;
+    dec_config->dts_lib_type = adev->dts_lib_type;
 
     switch ((uint32_t)format) {
     case AUDIO_FORMAT_AC3:
@@ -869,13 +950,15 @@ int aml_decoder_config_prepare(struct audio_stream_out *stream, audio_format_t f
     case AUDIO_FORMAT_DTS: {
         if (bd_config->DTS_output_ch)
             dca_set_out_ch_internal(bd_config->DTS_output_ch);
-        dts_decoder_config_prepare(stream, &dec_config->dca_config);
+
+        dts_decoder_config_prepare(stream, dec_config);
     }
     case AUDIO_FORMAT_DTS_HD: {
-        if (adev->dts_decode_enable) {
-            if (bd_config->DTS_output_ch)
-                dca_set_out_ch_internal(bd_config->DTS_output_ch);
-            dts_decoder_config_prepare(stream, &dec_config->dca_config);
+        if (adev->dts_decode_enable && bd_config->DTS_output_ch)
+            dca_set_out_ch_internal(bd_config->DTS_output_ch);
+
+        if (adev->dts_lib_type != eDTSNull) {
+            dts_decoder_config_prepare(stream, dec_config);
         } else {
             iec_decoder_config_prepare(stream, &dec_config->iec_config);
         }

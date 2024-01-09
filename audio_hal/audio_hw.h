@@ -58,7 +58,8 @@
 #include "aml_audio_resampler.h"
 #include "aml_audio_speed_manager.h"
 #include "../decoder/include/aml_dec_api.h"
-#include "../decoder/include/aml_dts_dec_api.h"
+#include "../decoder/include/aml_dtshd_dec_api.h"
+#include "../decoder/include/aml_dtsx_dec_api.h"
 #include "audio_usb_hal.h"
 #include "aml_audio_timer.h"
 #include "aml_config_data.h"
@@ -167,6 +168,7 @@ enum audio_hal_format {
     TYPE_AC4_ATMOS_PROMPT_ON_ATMOS = 20,
     TYPE_AAC  = 21,
     TYPE_HEAAC = 22,
+    TYPE_DTSX = 23,
 };
 #define FRAMESIZE_16BIT_STEREO 4
 #define FRAMESIZE_32BIT_STEREO 8
@@ -371,11 +373,14 @@ struct aml_audio_device {
     int dolby_lib_type;
     int dolby_lib_type_last;
     int dolby_decode_enable;   /*it can decode dolby, not passthrough lib*/
+    int dts_lib_type;
     int dts_decode_enable;
     int support_ms12_version;
 
-    /*used for dts decoder*/
+    /*used for dtshd decoder*/
     struct dca_dts_dec dts_hd;
+    /*used for dtsx decoder*/
+    dtsx_dec_t dts_x;
     bool bDVEnable;
     //TODO: temporary solution for MS12 not support PCM32 input
     int16_t *temp_out_16_buf;

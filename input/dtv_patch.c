@@ -68,7 +68,7 @@
 #include "uio_audio_api.h"
 #include "audio_dtv_sync.h"
 #include "aml_ddp_dec_api.h"
-#include "aml_dts_dec_api.h"
+#include "aml_dtshd_dec_api.h"
 #include "dtv_patch_utils.h"
 #include "aml_audio_ac3parser.h"
 #include "aml_audio_report.h"

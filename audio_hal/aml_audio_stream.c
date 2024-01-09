@@ -841,6 +841,7 @@ void aml_decoder_info_dump(struct aml_audio_device *adev, int fd)
     dprintf(fd, "\n-------------[AML_HAL] licence decoder --------------------------\n");
     dprintf(fd, "[AML_HAL]    dolby_lib: %d\n", adev->dolby_lib_type);
     dprintf(fd, "[AML_HAL]    build ms12 version: %d\n", adev->support_ms12_version);
+    dprintf(fd, "[AML_HAL]    dts_lib: %d\n", adev->dts_lib_type);
     dprintf(fd, "[AML_HAL]    MS12 library size:\n");
     dprintf(fd, "             \t-V2 Encrypted: %d\n", get_file_size("/oem/lib/ms12/libdolbyms12.so"));
     dprintf(fd, "             \t-V2 Decrypted: %d\n", get_file_size("/odm/lib/ms12/libdolbyms12.so"));
@@ -1078,6 +1079,7 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
     int update_type = get_codec_type(format);
     int update_threshold = DOLBY_FMT_UPDATE_THRESHOLD;
     int cur_aml_dap_surround_virtualizer = dolby_ms12_get_dap_surround_virtualizer();
+    bool is_headphone_x = 0;
 
     if (is_dolby_ms12_support_compression_format(format)) {
         update_threshold = DOLBY_FMT_UPDATE_THRESHOLD;
@@ -1105,15 +1107,23 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
      * @dts_hd.stream_type is updated after decoding at least one frame.
      */
     if (is_dts_format(format)) {
-        if (adev->dts_hd.stream_type <= 0 /*TYPE_PCM*/) {
-            adev->audio_hal_info.update_cnt = 0;
+        if (adev->dts_lib_type == eDTSXLib) {
+            if (adev->dts_x.stream_type <= 0 /*TYPE_PCM*/) {
+                adev->audio_hal_info.update_cnt = 0;
+            }
+            update_type = adev->dts_x.stream_type;
+        } else {
+            if (adev->dts_hd.stream_type <= 0 /*TYPE_PCM*/) {
+                adev->audio_hal_info.update_cnt = 0;
+            }
+            update_type = adev->dts_hd.stream_type;
         }
 
-        update_type = adev->dts_hd.stream_type;
         if (update_type != adev->audio_hal_info.update_type) {
             adev->audio_hal_info.update_cnt = 0;
         }
     }
+
 
     bool is_dolby_atmos_off = (MS12_DAP_SPEAKER_VIRTUALIZER_OFF == cur_aml_dap_surround_virtualizer);
     if (atmos_flag == 1) {
@@ -1137,14 +1147,19 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
     adev->audio_hal_info.aml_dap_surround_virtualizer = cur_aml_dap_surround_virtualizer;
 
     if (adev->audio_hal_info.update_cnt == update_threshold) {
+        if (adev->dts_lib_type == eDTSXLib) {
+            is_headphone_x = adev->dts_x.is_headphone_x;
+        } else {
+            is_headphone_x = adev->dts_hd.is_headphone_x;
+        }
 
-        if ((format == AUDIO_FORMAT_DTS || format == AUDIO_FORMAT_DTS_HD) && adev->dts_hd.is_headphone_x) {
+        if (is_dts_format(format) && is_headphone_x) {
             aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, TYPE_DTS_HP);
         }
         aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, update_type);
         ALOGD("%s() audio hal format change to %x, atmos flag = %d, is_dolby_atmos = %d, dts_hp_x = %d, update_type = %d is_dolby_atmos_off = %d\n",
             __FUNCTION__, adev->audio_hal_info.format, adev->audio_hal_info.is_dolby_atmos, adev->ms12.is_dolby_atmos,
-            adev->dts_hd.is_headphone_x, adev->audio_hal_info.update_type, is_dolby_atmos_off);
+            is_headphone_x, adev->audio_hal_info.update_type, is_dolby_atmos_off);
         ALOGD("%s() cur_out_devices %#x, dap_bypass_enable = %d, is_ms12_tuning_dat = %d, dolby_ms12_enable = %d, output_config = %#x\n",
             __FUNCTION__, adev->cur_out_devices, adev->ms12.dap_bypass_enable, adev->is_ms12_tuning_dat, ms12->dolby_ms12_enable, ms12->output_config);
     }

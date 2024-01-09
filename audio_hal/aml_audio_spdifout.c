@@ -75,18 +75,22 @@ static int select_digital_device(struct spdifout_handle *phandle) {
                 /*if it is dd/dts, we use spdif_a, then it can output to spdif/hdmi at the same time*/
                 device_id = DIGITAL_DEVICE;
             } else {
-                /*for ddp, we need use spdif_b, then select hdmi to spdif_b, then spdif can output dd*/
+                /*for ddp/dts-hd, we need use spdif_b, then select hdmi to spdif_b, then spdif can output dd*/
                 device_id = DIGITAL_DEVICE2;
-                /* for MAT, if json config that mat output by i2s, then we should select tdm */
-                if (phandle->audio_format == AUDIO_FORMAT_MAT && bd_config->hdmitx_hbr_src >= AML_TDM_A_TO_HDMITX)
+                /* for MAT/dts-hd ma, if json config that mat output by i2s, then we should select tdm */
+                if (bd_config->hdmitx_hbr_src >= AML_TDM_A_TO_HDMITX &&
+                    (phandle->audio_format == AUDIO_FORMAT_MAT ||
+                    (phandle->audio_format == AUDIO_FORMAT_DTS_HD && (phandle->in_data_ch == 8))))
                     device_id = TDM_DEVICE;
             }
         } else {
-            /*default we only use spdif_a to output spdif/hdmi*/
             device_id = DIGITAL_DEVICE;
-            /* for MAT, if json config that mat output by i2s, then we should select tdm */
-            if (phandle->audio_format == AUDIO_FORMAT_MAT && bd_config->hdmitx_hbr_src >= AML_TDM_A_TO_HDMITX)
+            /* for MAT/DTS-HD MA, if json config that mat output by i2s, then we should select tdm */
+            if (bd_config->hdmitx_hbr_src >= AML_TDM_A_TO_HDMITX &&
+                (phandle->audio_format == AUDIO_FORMAT_MAT ||
+                (phandle->audio_format == AUDIO_FORMAT_DTS_HD && (phandle->in_data_ch == 8)))) {
                 device_id = TDM_DEVICE;
+            }
         }
         if (audio_is_linear_pcm(phandle->audio_format)) {
             if (phandle->channel_mask == AUDIO_CHANNEL_OUT_5POINT1 || phandle->channel_mask == AUDIO_CHANNEL_OUT_7POINT1)
@@ -105,6 +109,7 @@ static int select_digital_device(struct spdifout_handle *phandle) {
                  */
                 if (phandle->audio_format == AUDIO_FORMAT_E_AC3 ||
                     phandle->audio_format == AUDIO_FORMAT_MAT ||
+                    phandle->audio_format == AUDIO_FORMAT_DTS_HD ||
                     (audio_is_linear_pcm(phandle->audio_format) && (phandle->in_data_ch == 8 || phandle->in_data_ch == 6))) {
                     device_id = EARC_DEVICE;
                 } else if (phandle->audio_format == AUDIO_FORMAT_AC3) {
@@ -150,7 +155,8 @@ static int select_digital_device(struct spdifout_handle *phandle) {
                 /* TV which supports earc prefers it as output device */
                 if (phandle->audio_format == AUDIO_FORMAT_E_AC3 ||
                     phandle->audio_format == AUDIO_FORMAT_MAT ||
-                    (audio_is_linear_pcm(phandle->audio_format) && (phandle->in_data_ch == 8 || phandle->in_data_ch == 6))) {
+                    (audio_is_linear_pcm(phandle->audio_format) && (phandle->in_data_ch == 8 || phandle->in_data_ch == 6)) ||
+                    (phandle->audio_format == AUDIO_FORMAT_DTS_HD && (phandle->in_data_ch == 8))) {
                     device_id = EARC_DEVICE;
                 }
             }
@@ -335,6 +341,7 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
     int aml_spdif_format = AML_STEREO_PCM;
     audio_format_t audio_format = AUDIO_FORMAT_PCM_16_BIT;
     int aml_arc_format = AML_AUDIO_CODING_TYPE_STEREO_LPCM;
+    bool is_hbr_audio = false;
 
     if (spdif_config == NULL) {
         ALOGE("%s spdif_config is NULL", __func__);
@@ -405,11 +412,23 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
         memset(&stream_config, 0, sizeof(aml_stream_config_t));
         memset(&device_config, 0, sizeof(aml_device_config_t));
 
+        aml_spdif_format = halformat_convert_to_spdif(audio_format, spdif_config->channel_mask);
+        aml_arc_format   = halformat_convert_to_arcformat(audio_format, spdif_config->channel_mask);
+
+        if (aml_spdif_format == AML_TRUE_HD
+            || aml_spdif_format == AML_DTS_HD_MA
+            || aml_spdif_format == AML_MULTI_CH_LPCM
+            || aml_arc_format == AML_AUDIO_CODING_TYPE_MLP
+            || aml_arc_format == AML_DTS_HD_MA
+            || aml_arc_format == AML_AUDIO_CODING_TYPE_MULTICH_8CH_LPCM) {
+            is_hbr_audio = true;
+        }
+
         /*config stream info*/
         stream_config.config.channel_mask = spdif_config->channel_mask;
-        if (spdif_config->data_ch == 8 && spdif_config->rate == 192000
-            && !(bd_config->hdmitx_hbr_src >= AML_TDM_A_TO_HDMITX))
+        if (is_hbr_audio && !(bd_config->hdmitx_hbr_src >= AML_TDM_A_TO_HDMITX))
             stream_config.config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+
         /*earc only supports 8 channel multi channel, if the channel is not 2 and 8, we need convert it to 8 channel*/
         if (EARC_DEVICE == device_id) {
             if (spdif_config->data_ch == 2 || spdif_config->data_ch == 8) {
@@ -433,9 +452,6 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
         phandle->sample_rate      = spdif_config->rate;
         ALOGI("%s   device_id:%d  device_config.device_port:%d", __func__, device_id, device_config.device_port);
 
-        aml_spdif_format = halformat_convert_to_spdif(audio_format, stream_config.config.channel_mask);
-        aml_arc_format   = halformat_convert_to_arcformat(audio_format, stream_config.config.channel_mask);
-
         /*for dts cd , we can't set the format as dts, we should set it as pcm*/
         if (aml_spdif_format == AML_DTS && spdif_config->is_dtscd) {
             aml_spdif_format = AML_STEREO_PCM;
@@ -450,7 +466,8 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
             struct audio_board_config *bd_config = &aml_dev->board_config;
 
             aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_I2S2HDMI_FORMAT, aml_spdif_format);
-            if (aml_spdif_format == AML_TRUE_HD && bd_config->hdmitx_hbr_src >= AML_TDM_A_TO_HDMITX)
+            if ((aml_spdif_format == AML_TRUE_HD || aml_spdif_format == AML_DTS_HD_MA)
+                && bd_config->hdmitx_hbr_src >= AML_TDM_A_TO_HDMITX)
                 hdmitx_src = bd_config->hdmitx_hbr_src;
             else if (aml_spdif_format == AML_MULTI_CH_LPCM && bd_config->hdmitx_multi_ch_src >= AML_TDM_A_TO_HDMITX)
                 hdmitx_src = bd_config->hdmitx_multi_ch_src;

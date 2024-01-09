@@ -708,8 +708,17 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
                 fmt_desc->atmos_supported = (val & 0x1) > 0 ? true : false;
                 if (fmt_desc->atmos_supported == false)
                     fmt_desc->is_support = false;
+            } else if (format == AML_HDMI_FORMAT_DTS && fmt_desc->is_support == true) {
+                fmt_desc->dts_vsdb_byte3 = val;
+            } else if (format == AML_HDMI_FORMAT_DTSHD && fmt_desc->is_support == true) {
+                /*
+                 * For some devices(AVR/Soundbar) using older versions of DTSX, it will send two
+                 * identical DTS-HD SADs with the difference being vsdb.
+                 * We only use SADs with maximum support capabilities. Refer to #format_desc.dts_vsdb_byte3.
+                 */
+                fmt_desc->dts_vsdb_byte3 = val > fmt_desc->dts_vsdb_byte3 ? val : fmt_desc->dts_vsdb_byte3;
             } else {
-                //TODO, how to update the DTS/DTSHD/... SAD.
+                //TODO, how to update the other SAD.
                 ALOGW("[%s:%d] this SAD fmt is %s, mark it as TODO.\n",
                     __func__, __LINE__, get_audio_format_code_name_by_id(format));
             }
@@ -723,9 +732,9 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
     }
     memcpy(&mgr->hdmi_arc_capability_desc, hdmi_desc, sizeof(struct aml_arc_hdmi_desc));
     if (fmt_desc) {
-        ALOGI("----[%s] support:%d, ch:%d, sample_mask:%#x, bit_rate:%d, atmos:%d",
+        ALOGI("----[%s] support:%d, ch:%d, sample_mask:%#x, bit_rate:%d, atmos:%d, dts_vsdb:%d",
             hdmiFormat2Str(fmt_desc->fmt),fmt_desc->is_support, fmt_desc->max_channels,
-            fmt_desc->sample_rate_mask, fmt_desc->max_bit_rate, fmt_desc->atmos_supported);
+            fmt_desc->sample_rate_mask, fmt_desc->max_bit_rate, fmt_desc->atmos_supported, fmt_desc->dts_vsdb_byte3);
     }
 
     return 0;

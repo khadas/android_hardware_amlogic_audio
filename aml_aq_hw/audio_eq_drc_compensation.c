@@ -31,6 +31,7 @@
 #include "aml_DRC_param_gen.h"
 #include "audio_post_process.h"
 #include "aml_ai_audio.h"
+#include "aml_audio_nonms12_render.h"
 
 #undef  LOG_TAG
 #define LOG_TAG  "audio_hw_aq_eqdrc"

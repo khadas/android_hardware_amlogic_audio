@@ -1950,7 +1950,7 @@ int halformat_convert_to_arcformat(audio_format_t format, int ch_mask) {
             aml_spdif_format = AML_AUDIO_CODING_TYPE_DTS;
             break;
         case AUDIO_FORMAT_DTS_HD:
-            if (ch_mask == AUDIO_CHANNEL_OUT_7POINT1) {
+            if (audio_channel_count_from_out_mask(ch_mask) > 2) {
                 aml_spdif_format = AML_AUDIO_CODING_TYPE_DTS_HD_MA;
             } else {
                 aml_spdif_format = AML_AUDIO_CODING_TYPE_DTS_HD;

@@ -283,15 +283,26 @@ int aml_audio_resample_reset(aml_audio_resample_t * aml_audio_resample)
 
 int aml_audio_resample_process_wrapper(aml_audio_resample_t **resample_handle, void *buffer, size_t len, int sr, int ch_num)
 {
-   int ret = 0;
-   if (*resample_handle) {
-        if (sr != (int)(*resample_handle)->resample_config.input_sr) {
-            audio_resample_config_t resample_config;
-            ALOGD("Sample rate is changed from %d to %d, reset the resample\n",(*resample_handle)->resample_config.input_sr, sr);
-            aml_audio_resample_close(*resample_handle);
-            *resample_handle = NULL;
+    int ret = 0;
+
+    do {
+        if (*resample_handle) {
+            if (sr != (int)(*resample_handle)->resample_config.input_sr) {
+                audio_resample_config_t resample_config;
+                ALOGD("Sample rate is changed from %d to %d, reset the resample\n",(*resample_handle)->resample_config.input_sr, sr);
+                aml_audio_resample_close(*resample_handle);
+                *resample_handle = NULL;
+                break;
+            }
+            if (ch_num != (int)(*resample_handle)->resample_config.channels) {
+                audio_resample_config_t resample_config;
+                ALOGD("input channel is changed from %d to %d, reset the resample\n",(*resample_handle)->resample_config.channels, ch_num);
+                aml_audio_resample_close(*resample_handle);
+                *resample_handle = NULL;
+                break;
+            }
         }
-    }
+    } while (0);
 
     if (*resample_handle == NULL) {
         audio_resample_config_t resample_config;
