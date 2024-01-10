@@ -206,13 +206,13 @@ static int create_patch_internal(struct patch_manager *patch_mgr,
         struct aml_audio_patch *old_patch = get_patch_from_mgr(patch_mgr);
         ALOGD("%s: patch exists, first release it", __func__);
         ALOGD("%s: new input %#x, old input %#x", __func__, src_device, old_patch->input_src);
-        if (type == PATCH_TYPE_TV) {
+        if (!patch_mgr->audio_patch->is_dtv_src) {
             /*coverity[sleep]*/
             release_tv_patch(patch_mgr->adev);
             set_patch_running_mgr(patch_mgr, false);
         }
 #ifdef ENABLE_DVB_PATCH
-        else if (type == PATCH_TYPE_DTV) {
+        else {
             //release_dtv_patch(patch_mgr->adev);
             set_patch_running_mgr(patch_mgr, false);
         }
