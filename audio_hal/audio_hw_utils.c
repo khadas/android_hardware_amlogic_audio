@@ -94,7 +94,7 @@ static const char* aml_chip_name[]= {
     "g12a", "g12b", "gxlx2", "sm1", "a1", NULL, "tl1", "tm2",
     "c1", NULL, "sc2", "c2", "t5", "t5d", "t7", "s4",
     "t3", "p1", "s4d","t5w", "a5", "c3", "s5", "gxlx3",
-    "a4", "t5m", "t3x", NULL, "txhd2", "s1a"
+    "a4", "t5m", "t3x", NULL, "txhd2", "s1a", "s7"
 };
 
 // add array of dd/ddp mute frame for mute function
