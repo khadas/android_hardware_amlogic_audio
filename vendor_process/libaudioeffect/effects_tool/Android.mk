@@ -11,8 +11,11 @@ LOCAL_SYSTEM_EXT_MODULE := true
 LOCAL_SRC_FILES := main.cpp
 
 LOCAL_SHARED_LIBRARIES := \
+    libaudiofoundation \
+    liblog \
     libcutils \
     libutils \
+    libbinder \
     libaudioclient \
     libmedia \
     libmedia_helper \
@@ -28,7 +31,10 @@ endif
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 31 && echo OK), OK)
 LOCAL_CFLAGS += -DUSE_IDENTITY_CREATE_AUDIOEFFECT
 LOCAL_SHARED_LIBRARIES += \
-    framework-permission-aidl-cpp
+    framework-permission-aidl-cpp \
+    libaudioclient_aidl_conversion \
+    libaudio_aidl_conversion_common_cpp \
+
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
 LOCAL_LICENSE_CONDITIONS := notice
 endif

@@ -34,6 +34,8 @@
 #include <system/audio_effect.h>
 #ifdef USE_IDENTITY_CREATE_AUDIOEFFECT
 #include <android/content/AttributionSourceState.h>
+#include <binder/MemoryDealer.h>
+#include <media/AidlConversion.h>
 #endif
 
 #include "Virtualx.h"
@@ -297,7 +299,7 @@ effect_uuid_t gEffectStr[] = {
     {0x61821587, 0xce3c, 0x4aac, 0x9122, {0x86, 0xd8, 0x74, 0xea, 0x1f, 0xb1}}, // 4:Virtualx
 };
 
-static int Balance_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue)
+static int Balance_effect_func(sp<AudioEffect>& gAudioEffect, int gParamIndex, int gParamValue)
 {
     balance_gain blrg;
     String8 keyValuePairs = String8("");
@@ -411,7 +413,7 @@ static int Balance_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int g
     }
 }
 
-static int TrebleBass_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue)
+static int TrebleBass_effect_func(sp<AudioEffect>& gAudioEffect, int gParamIndex, int gParamValue)
 {
     switch (gParamIndex) {
     case TREBLEBASS_PARAM_BASS_LEVEL:
@@ -450,7 +452,7 @@ static int TrebleBass_effect_func(AudioEffect* gAudioEffect, int gParamIndex, in
     }
 }
 
-static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue,float gParamScale,float gParaRange[VX_MAX_PARAM_SIZE])
+static int Virtualx_effect_func(sp<AudioEffect>& gAudioEffect, int gParamIndex, int gParamValue,float gParamScale,float gParaRange[VX_MAX_PARAM_SIZE])
 {
     int rc = 0;
     switch (gParamIndex) {
@@ -1375,7 +1377,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
     }
 }
 
-static int HPEQ_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue, signed char gParamBand[5])
+static int HPEQ_effect_func(sp<AudioEffect>& gAudioEffect, int gParamIndex, int gParamValue, signed char gParamBand[5])
 {
     switch (gParamIndex) {
     case HPEQ_PARAM_ENABLE:
@@ -1419,7 +1421,7 @@ static int HPEQ_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gPar
     }
 }
 
-static int GEQ_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue, signed char gParamBands[9])
+static int GEQ_effect_func(sp<AudioEffect>& gAudioEffect, int gParamIndex, int gParamValue, signed char gParamBands[9])
 {
     switch (gParamIndex) {
     case GEQ_PARAM_ENABLE:
@@ -1467,57 +1469,67 @@ static int GEQ_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gPara
     }
 }
 
-static void effectCallback(int32_t event __unused, void* user __unused, void *info __unused)
-{
-    LOG("%s : %s():line:%d\n", __FILE__, __FUNCTION__, __LINE__);
-}
+class AudioEffectCallback : public AudioEffect::IAudioEffectCallback {
+  public:
+    bool receivedFramesProcessed = false;
+
+    void onFramesProcessed(int32_t framesProcessed) override {
+        LOG("number of frames processed %d", framesProcessed);
+        receivedFramesProcessed = true;
+    }
+};
 
 #ifdef USE_IDENTITY_CREATE_AUDIOEFFECT
-static int create_audio_effect(AudioEffect **gAudioEffect, String16 name16 __unused, int index)
+static const char* gPackageName = "AudioEffectTool";
+static sp<AudioEffect> create_audio_effect(String16 name16 __unused, int index)
 #else
-static int create_audio_effect(AudioEffect **gAudioEffect, String16 name16, int index)
+static sp<AudioEffect> create_audio_effect(String16 name16, int index)
 #endif
 {
     status_t status = NO_ERROR;
-    AudioEffect *pAudioEffect = NULL;
     audio_session_t gSessionId = AUDIO_SESSION_OUTPUT_MIX;
-
-    if (*gAudioEffect != NULL)
-        return 0;
+    sp<AudioEffectCallback> cb;
 #ifdef USE_IDENTITY_CREATE_AUDIOEFFECT
-    AttributionSourceState attributionSource = AttributionSourceState();
-    pAudioEffect = new AudioEffect(attributionSource);
+    std::string packageName{gPackageName};
+    AttributionSourceState attributionSource;
+    attributionSource.packageName = packageName;
+    attributionSource.uid = VALUE_OR_FATAL(legacy2aidl_uid_t_int32_t(getuid()));
+    attributionSource.pid = getpid();
+    attributionSource.token = sp<BBinder>::make();
+    sp<AudioEffect> pAudioEffect = new AudioEffect(attributionSource);
+    cb = sp<AudioEffectCallback>::make();
 #else
-    pAudioEffect = new AudioEffect(name16);
+    sp<AudioEffect> pAudioEffect = new AudioEffect(name16);
+    cb = nullptr;
 #endif
     if (!pAudioEffect) {
         LOG("create audio effect object failed\n");
-        return -1;
+        return nullptr;
     }
 
-    status = pAudioEffect->set(NULL,
-            &(gEffectStr[index]), // specific uuid
-            0, // priority,
-            effectCallback,
-            NULL, // callback user data
-            gSessionId,
-            0); // default output device
+    status = pAudioEffect->set(nullptr,
+                            &(gEffectStr[index]), // specific uuid
+                            0, // priority,
+                            cb,
+                            gSessionId,
+                            AUDIO_IO_HANDLE_NONE,
+                            {}, //default output device
+                            false,
+                            (cb != nullptr));
     if (status != NO_ERROR) {
         LOG("set effect parameters failed\n");
-        return -1;
+        return nullptr;
     }
 
     status = pAudioEffect->initCheck();
     if (status != NO_ERROR) {
         LOG("init audio effect failed\n");
-        return -1;
+        return nullptr;
     }
 
     pAudioEffect->setEnabled(true);
     LOG("effect %d is %s\n", index, pAudioEffect->getEnabled()?"enabled":"disabled");
-
-    *gAudioEffect = pAudioEffect;
-    return 0;
+    return pAudioEffect;
 }
 
 int GetIntData (int *data)
@@ -1797,7 +1809,7 @@ int main(int argc,char **argv)
     float grange[VX_MAX_PARAM_SIZE] = {0};
     String16 name16[EFFECT_MAX] = {String16("AudioEffectEQTest"), String16("AudioEffectHPEQTest"),
         String16("AudioEffectGEQTest"),String16("AudioEffectVirtualxTest")};
-    AudioEffect* gAudioEffect[EFFECT_MAX] = {0};
+    sp<AudioEffect> gAudioEffect[EFFECT_MAX] = {0};
 
     if (argc < 4) {
         if (argc == 1) {
@@ -1916,61 +1928,71 @@ int main(int argc,char **argv)
         return -1;
     }
 
+    sp<AudioEffect> new_effect;
     while (1) {
         switch (gEffectIndex) {
         case EFFECT_BALANCE:
-            ret = create_audio_effect(&gAudioEffect[EFFECT_BALANCE], name16[EFFECT_BALANCE], EFFECT_BALANCE);
-            if (ret < 0) {
+            new_effect = create_audio_effect(name16[EFFECT_BALANCE], EFFECT_BALANCE);
+            if (new_effect == NULL) {
                 LOG("create Balance effect failed\n");
                 goto Error;
             }
             //------------set Balance parameters---------------------------------------
-            if (Balance_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue) < 0) {
+            if (Balance_effect_func(new_effect, gParamIndex, gParamValue) < 0) {
                 LOG("Balance Test failed\n");
                 goto Error;
             }
+            gAudioEffect[EFFECT_BALANCE] = new_effect;
             break;
         case EFFECT_TREBLEBASS:
-            ret = create_audio_effect(&gAudioEffect[EFFECT_TREBLEBASS], name16[EFFECT_TREBLEBASS], EFFECT_TREBLEBASS);
-            if (ret < 0) {
+            new_effect = create_audio_effect(name16[EFFECT_TREBLEBASS], EFFECT_TREBLEBASS);
+            if (new_effect == NULL) {
                 LOG("create TrebleBass effect failed\n");
                 goto Error;
             }
             //------------set TrebleBass parameters------------------------------------
-            if (TrebleBass_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue) < 0) {
+            if (TrebleBass_effect_func(new_effect, gParamIndex, gParamValue) < 0) {
                 LOG("TrebleBass Test failed\n");
                 goto Error;
             }
+            gAudioEffect[EFFECT_TREBLEBASS] = new_effect;
             break;
         case EFFECT_HPEQ:
-            ret = create_audio_effect(&gAudioEffect[EFFECT_HPEQ], name16[EFFECT_HPEQ], EFFECT_HPEQ);
-            if (ret < 0) {
+            new_effect =  create_audio_effect(name16[EFFECT_HPEQ], EFFECT_HPEQ);
+            if (new_effect == NULL) {
                 LOG("create Hpeq effect failed\n");
                 goto Error;
             }
             //------------set HPEQ parameters------------------------------------------
-            if (HPEQ_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue, gParamBand) < 0)
+            if (HPEQ_effect_func(new_effect, gParamIndex, gParamValue, gParamBand) < 0) {
                 LOG("HPEQ Test failed\n");
+                goto Error;
+            }
+            gAudioEffect[EFFECT_HPEQ] = new_effect;
             break;
          case EFFECT_GEQ:
-             ret = create_audio_effect(&gAudioEffect[EFFECT_GEQ], name16[EFFECT_GEQ], EFFECT_GEQ);
-             if (ret < 0) {
+            new_effect = create_audio_effect(name16[EFFECT_GEQ], EFFECT_GEQ);
+            if (new_effect == NULL) {
                  LOG("create Geq effect failed\n");
                   goto Error;
-             }
-             //------------set GEQ parameters------------------------------------------
-             if (GEQ_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue,gParamBands) < 0)
+            }
+            //------------set GEQ parameters------------------------------------------
+            if (GEQ_effect_func(new_effect, gParamIndex, gParamValue,gParamBands) < 0) {
                 LOG("GEQ Test failed\n");
-             break;
+            }
+            gAudioEffect[EFFECT_GEQ] = new_effect;
+            break;
          case EFFECT_VIRTUALX:
-            ret = create_audio_effect(&gAudioEffect[EFFECT_VIRTUALX], name16[EFFECT_VIRTUALX], EFFECT_VIRTUALX);
-            if (ret < 0) {
+            new_effect = create_audio_effect(name16[EFFECT_VIRTUALX], EFFECT_VIRTUALX);
+            if (new_effect == NULL) {
                 LOG("create Virtualx effect failed\n");
                 goto Error;
             }
             //------------set Virtualx parameters-------------------------------------------
-            if (Virtualx_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue,gParamScale,grange) < 0)
+            if (Virtualx_effect_func(new_effect, gParamIndex, gParamValue,gParamScale,grange) < 0) {
                 LOG("Virtualx Test failed\n");
+            }
+            gAudioEffect[EFFECT_VIRTUALX] = new_effect;
             break;
         default:
             break;
