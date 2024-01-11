@@ -540,7 +540,7 @@ int update_edid_after_edited_audio_sad(struct audio_hw_device *dev, struct forma
 
     if (AML_DIGITAL_AUDIO_MODE_BYPASS == adev->digital_audio_mode) {
         /* update the AVR's EDID */
-        write_default_edid_to_hdmirx(dev, hdmi_desc->EDID_length);
+        write_new_edid_to_hdmirx(dev, (void *)&hdmi_desc->target_EDID_array[0], hdmi_desc->EDID_length);
         ALOGI("Bypass mode!, update AVR EDID.");
     }
     else if (AML_DIGITAL_AUDIO_MODE_AUTO == adev->digital_audio_mode) {
