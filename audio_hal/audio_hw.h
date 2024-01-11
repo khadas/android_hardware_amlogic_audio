@@ -532,6 +532,9 @@ struct aml_audio_device {
     pthread_mutex_t usb_lock;
     pthread_mutex_t stream_release_lock;
     struct aml_post_effect_ctrl effect_ctrl;
+    /*A consistent loudness level must be maintained at the PCM output, for the Dolby or other audio formats. */
+    /*It is desirable that the bitstream output(over S/PDIF, HDMI, or eARC) should be played back at a consistent level.*/
+    int loudness_level;//Specify the loudness level of decoding output
 };
 
 struct meta_data {

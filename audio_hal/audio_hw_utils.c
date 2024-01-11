@@ -3521,3 +3521,62 @@ bool netflix_request_dd_output()
     return ret;
 }
 
+
+const char *tv_standards[] = {
+    "dvb",
+    "atsc",
+    "dtmb",
+    "isdb",
+    "sbtvd",
+};
+
+static tv_standards_t get_digital_terresteral_tv_standards(void)
+{
+    tv_standards_t active_tv_standards = DVB;//set dvb as default
+    char prop_value[PROPERTY_VALUE_MAX];
+    int i = 0;
+    int ntv_standards = sizeof(tv_standards) / sizeof(*tv_standards);
+
+    if (property_get("ro.vendor.platform.digitaltv.standards", prop_value, "0")) {
+        ALOGI("%s line %d value %s\n", __func__, __LINE__, prop_value);
+        for (i = 0; i < ntv_standards; i++) {
+            if (strcmp(prop_value, tv_standards[i]) == 0) {
+                active_tv_standards = i;
+                ALOGI("%s line %d current standards %s\n", __func__, __LINE__, tv_standards[i]);
+            }
+        }
+    }
+
+    return active_tv_standards;
+}
+
+int get_loudness_level(void)//LUFS or LKFS
+{
+    tv_standards_t current_tv_standards = get_digital_terresteral_tv_standards();
+    int loudness_level = -23;
+
+    switch (current_tv_standards)
+    {
+        case DTMB:
+        case ATSC:
+            loudness_level = -24;
+            break;
+        case DVB:
+            loudness_level = -23;
+            break;
+        case ISDB:
+            //fixme
+            loudness_level = -24;
+            break;
+        case SBTVD:
+        default:
+            //fixme
+            loudness_level = -23;
+            break;
+    }
+
+    ALOGI("%s line %d current_tv_standards %d Loudness Level is %d (LUFS/LKFS)\n", __func__, __LINE__, current_tv_standards, loudness_level);
+    return loudness_level;
+}
+
+

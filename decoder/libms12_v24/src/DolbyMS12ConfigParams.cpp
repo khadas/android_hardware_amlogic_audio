@@ -138,7 +138,7 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mCompressorProfile(0)
 
     //HE-AAC SWITCHES
-    , mAssocInstance(0)/* Error restricting associated instance to 2 channels (-as: 0,1) */
+    , mAssocInstance(6)/* Error restricting associated instance to 2 channels (-as: 0,1) */
     , mDefDialnormVal(108)
     , mDualMonoreproductionMode(0)
     , mAribChannelMappingFlag(0)
@@ -1237,11 +1237,11 @@ int DolbyMS12ConfigParams::SetAc4Switches(char **ConfigParams, int *row_index)
 int DolbyMS12ConfigParams::SetHEAACSwitches(char **ConfigParams, int *row_index)
 {
     ALOGV("+%s() line %d\n", __FUNCTION__, __LINE__);
-    if ((mHasAssociateInput == true) && ((mAudioStreamOutFormat == AUDIO_FORMAT_AAC) || \
+    if ((mAudioStreamOutFormat == AUDIO_FORMAT_AAC) || \
                                          (mAudioStreamOutFormat == AUDIO_FORMAT_AAC_LATM) || \
                                          (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V1) || \
-                                         (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V2))) {
-        {
+                                         (mAudioStreamOutFormat == AUDIO_FORMAT_HE_AAC_V2)) {
+        if (mHasAssociateInput == true) {
             sprintf(ConfigParams[*row_index], "%s", "-as");
             (*row_index)++;
             sprintf(ConfigParams[*row_index], "%d", mAssocInstance);

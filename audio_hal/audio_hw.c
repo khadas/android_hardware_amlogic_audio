@@ -8564,6 +8564,8 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->continuous_enable_mixer_max_size = property_get_bool("ro.vendor.media.audio.continuous.enable_mixer_max_size", true);
     adev->stream_pause_delay = property_get_int32("ro.vendor.media.audio.stream.pause.delay", 24);
     adev->dac_softmute_delay = property_get_int32("ro.vendor.media.audio.softmute.delay", 0);
+    /* get the device Loudness level */
+    adev->loudness_level = get_loudness_level();
 
     /*for ms12 case, we set default continuous mode*/
     if (eDolbyMS12Lib == adev->dolby_lib_type) {

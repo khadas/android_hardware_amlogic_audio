@@ -105,6 +105,14 @@ enum {
 #define AVSYNC_NONMS12_AUDIO_HAL_ARC_LATENCY_DDP_PROPERTY "vendor.media.audio.hal.nonms12.arc_latency.ddp"
 #define AVSYNC_NONMS12_AUDIO_HAL_ARC_LATENCY_DDP (-35)
 
+typedef enum tv_standards_t
+{
+    DVB,//-23(LUFS/LKFS)
+    ATSC,//-24(LUFS/LKFS)
+    DTMB,//-24(LUFS/LKFS)
+    ISDB,//-24(LUFS/LKFS)
+    SBTVD,//-24(LUFS/LKFS)
+} tv_standards_t;
 
 
 int64_t aml_gettime(void);
@@ -329,4 +337,6 @@ const char *show_format(audio_format_t fmt);
 
 int adev_open_sys_resource_mgr(struct aml_audio_device *adev);
 int adev_close_sys_resource_mgr(struct aml_audio_device *adev);
+int get_loudness_level(void);
+
 #endif

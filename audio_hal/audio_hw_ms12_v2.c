@@ -465,7 +465,7 @@ audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format)
             hal_format == AUDIO_FORMAT_HE_AAC_V2 ||
             hal_format == AUDIO_FORMAT_AAC ||
             hal_format == AUDIO_FORMAT_AAC_LATM)  {
-            if (!property_get_bool("ro.vendor.audio.use.ms12heaac", false)) {
+            if (!property_get_bool("ro.vendor.audio.use.ms12heaac", true)) {
                 return AUDIO_FORMAT_PCM_16_BIT;
             }
         }
@@ -3996,6 +3996,10 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
     if (aml_out->hw_sync_mode) {
         dolby_ms12_register_ms12sync_callback(ms12->dolby_ms12_ptr, ms12_sync_callback, (void *)stream);
         aml_out->b_install_sync_callback = true;
+    }
+
+    if (hal_internal_format == AUDIO_FORMAT_AAC || hal_internal_format == AUDIO_FORMAT_AAC_LATM) {
+        dolby_ms12_set_heaac_default_dialnorm_value(adev->loudness_level);
     }
 
     aml_ms12_main_decoder_open(ms12, hal_internal_format, aml_out->hal_channel_mask, sample_rate);

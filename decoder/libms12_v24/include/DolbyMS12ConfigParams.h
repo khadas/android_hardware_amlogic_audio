@@ -358,7 +358,9 @@ public:
     }
     virtual void setHEAACDefaultDialnormValue(int val)
     {
-        mDefDialnormVal = val;
+        //Default dialnorm value (dB/4)
+        //0 - 127; Default = 92 (-23dB)
+        mDefDialnormVal = val * (-4);
     }
     virtual void setDualMonoreproductionMode(int val)
     {
