@@ -5066,7 +5066,11 @@ int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct aud
         set_dev_patch_src(adev, SRC_DTV);
         dtv_audio_instances->dtv_scene = DTV_TUNER_FRAMEWORK;
         /*2.create audio dtv patch*/
-        ret = create_dtv_patch(dev, AUDIO_DEVICE_IN_TV_TUNER, AUDIO_DEVICE_OUT_SPEAKER);
+        ret = patch_mgr_create_patch(adev,
+                                    SRC_DTV,
+                                    AUDIO_DEVICE_IN_TV_TUNER,
+                                    AUDIO_DEVICE_OUT_SPEAKER,
+                                    PATCH_TYPE_DTV);
         if (ret == 0) {
             set_dev_patch_running(adev, true);
             if (get_dev_patch(adev)) {
@@ -5150,7 +5154,7 @@ int disable_dtv_patch_for_tuner_framework(struct audio_stream_out *stream)
         dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, val);
 
         /*2.release dtv patch*/
-        ret = release_dtv_patch(adev);
+        patch_mgr_release_patch(adev, PATCH_TYPE_DTV);
         ALOGD("%s[%d]:the audio_patching: %d, patch: %p, ret: %d", __func__, __LINE__, is_dev_patch_running(adev), get_dev_patch(adev), ret);
     } else {
         ALOGE("%s[%d]:adev %p, patch %p", __func__, __LINE__, adev, get_dev_patch(adev));

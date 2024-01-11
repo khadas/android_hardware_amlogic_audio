@@ -7758,9 +7758,16 @@ static int adev_release_audio_patch(struct audio_hw_device *dev,
             AM_LOGI("Patch %d: dev[%s(id:%d)] -> dev_0[%s(id:%d)]", handle, audioDevType2Str(patch->sources[0].ext.device.type),
                 patch->sources[0].id, audioDevType2Str(patch->sinks[0].ext.device.type), patch->sinks[0].id);
 #ifdef ENABLE_DVB_PATCH
-            ret = patch_mgr_release_patch(aml_dev, PATCH_TYPE_DTV);
+            if (is_same_patch_src(aml_dev, SRC_DTV) &&
+                    patch->sources[0].ext.device.type == AUDIO_DEVICE_IN_TV_TUNER) {
+                ALOGI("patch src == DTV now line %d \n", __LINE__);
+                ret = patch_mgr_release_patch(aml_dev, PATCH_TYPE_DTV);
+            } else
 #endif
-            ret = patch_mgr_release_patch(aml_dev, PATCH_TYPE_TV);
+            {
+                ret = patch_mgr_release_patch(aml_dev, PATCH_TYPE_TV);
+            }
+
             /*for no patch case, we need to restore it*/
             ret = adev_release_patch_restore_resource(aml_dev);
         } else if (patch->sinks[0].type == AUDIO_PORT_TYPE_MIX) {
