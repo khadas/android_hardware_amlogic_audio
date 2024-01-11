@@ -293,6 +293,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             if (dap_processing) {
                 ret = aml_audio_check_and_realloc((void **)&adev->audioeffect_tmp_buffer, &adev->audioeffect_tmp_buffer_size, buffer_need_size);
                 R_CHECK_RET(ret, "alloc audioeffect_tmp_buffer size:%zu fail", buffer_need_size);
+                memset(adev->audioeffect_tmp_buffer, 0, adev->audioeffect_tmp_buffer_size);
 
                 if (adev->ms12.spdif_ring_buffer.size && get_buffer_read_space(&adev->ms12.spdif_ring_buffer) >= (int)bytes) {
                     ring_buffer_read(&adev->ms12.spdif_ring_buffer, (unsigned char*)adev->audioeffect_tmp_buffer, bytes);
