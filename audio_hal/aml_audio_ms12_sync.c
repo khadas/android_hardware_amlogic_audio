@@ -1325,7 +1325,7 @@ int aml_audio_get_ms12_presentation_position(const struct audio_stream_out *stre
     *timestamp = out->lasttimestamp;
 
     {
-        if (direct_continuous((struct audio_stream_out *)stream)) {
+        if (direct_continuous((struct audio_stream_out *)stream) && adev->ms12.dolby_ms12_enable) {
             pthread_mutex_lock(&adev->ms12.main_apts_update_lock);
             clock_gettime(CLOCK_MONOTONIC, timestamp);
             frames_written_hw = adev->ms12.last_frames_position;

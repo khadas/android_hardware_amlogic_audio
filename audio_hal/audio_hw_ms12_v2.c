@@ -4411,18 +4411,8 @@ uint64_t dolby_ms12_get_main_pcm_generated(struct audio_stream_out *stream) {
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     uint64_t pcm_frame_generated = 0;
     uint64_t main_input_offset_frame = 0;
-    audio_format_t audio_format = AUDIO_FORMAT_DEFAULT;
     int latency_frames = 0;
 
-    if (aml_out->hw_sync_mode && aml_out->hwsync && aml_out->hwsync->aout)
-        audio_format = aml_out->hwsync->aout->hal_internal_format;
-    else {
-        audio_format = aml_out->hal_internal_format;
-    }
-    if (audio_format == AUDIO_FORMAT_INVALID) {
-        return 0;
-    }
-    audio_format = ms12_get_audio_hal_format(audio_format);
     pcm_frame_generated = dolby_ms12_get_continuous_nframes_pcm_output(ms12->dolby_ms12_ptr, MAIN_INPUT_STREAM);
 
     if (adev->debug_flag) {
