@@ -1364,10 +1364,21 @@ int aml_audio_get_hdmi_latency_offset(audio_format_t source_format,
            } else if (sink_format == AUDIO_FORMAT_AC3) {
               latency_ms = -10;
            } else {
-              latency_ms = 0;
+              /*
+               * PCM[AC3/EAC3 through OMX decoder with mixer thread], TB44 target [-45, 0] for PCM output
+               * old tuning value is zero as the avsync(avg) result is about 8/+16.4. so in OTT-22503
+               * change the 0 to (-20), the avsync(avg) finally result change to -12/-3.8(hope)
+               */
+              latency_ms = -20;
            }
-        } else
-           latency_ms = 0;
+        } else {
+             /*
+              * PCM[AC3/EAC3 through OMX decoder with mixer thread + DDP-Lib], TB44 target [-45, 0] for PCM output
+              * old tuning value is -30 as the avsync(avg) result is about -3.8(Self-test).so in OTT-22450
+              * change the (-30) to (-45), finally the avsync(avg) result change to -12.6(Self-test)
+              */
+            latency_ms = -45; /*TB44, pcm(DDP with omx decoder), target [-45, 0]*/
+        }
     } else {
         prop_name = "vendor.media.audio.hal.hdmi_latency.raw";
         if (source_format == AUDIO_FORMAT_E_AC3) {
@@ -1375,16 +1386,27 @@ int aml_audio_get_hdmi_latency_offset(audio_format_t source_format,
                  if (sink_format == AUDIO_FORMAT_E_AC3) {
                         latency_ms = -80;
                  } else if (sink_format == AUDIO_FORMAT_PCM_16_BIT) {
-                        latency_ms = -60;
+                        latency_ms = -80;
                  }
              } else {
-                 latency_ms = -25; //left offset -50 --> -35.-25
+                 /*
+                  * Bitstream[AC3/EAC3 Direct thread + DDP-Lib], TB44 target [-100, 0] for PCM output
+                  * old tuning value is -95 as the avsync(avg) result is about -14.4(Self-test).so in OTT-22450
+                  * change the -95 to (-115), finally the avsync(avg) result change to -38.2(Self-test)
+                  */
+                 latency_ms = -115; /*TB44, DDP(DDP with Direct), target [-100, 0]*/
              }
         } else  if(source_format == AUDIO_FORMAT_AC3) {
             if (ms12_enable)
                 latency_ms = 0;
-             else
-                latency_ms = -95;
+             else {
+                 /*
+                  * Bitstream[AC3/EAC3 Direct thread + DDP-Lib], TB44 target [-100, 0] for PCM output
+                  * old tuning value is -95 as the avsync(avg) result is about 3. so in OTT-22450
+                  * change the -95 to (-115), finally the avsync(avg) result change to
+                  */
+                latency_ms = -115; /*TB44, DDP(DDP with Direct), target [-100, 0]*/
+             }
         }
     }
     ret = property_get(prop_name, buf, NULL);
@@ -1394,6 +1416,7 @@ int aml_audio_get_hdmi_latency_offset(audio_format_t source_format,
     }
     return latency_ms;
 }
+
 
 int aml_audio_get_speaker_latency_offset(int aformat ,int ms12_enable)
 {
