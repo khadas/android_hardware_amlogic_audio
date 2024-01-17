@@ -1576,6 +1576,12 @@ static int out_pause_new (struct audio_stream_out *stream)
     pthread_mutex_lock (&aml_dev->lock);
     pthread_mutex_lock (&aml_out->lock);
 
+    if (!aml_out->is_tv_src_stream && (aml_out->flags & AUDIO_OUTPUT_FLAG_DIRECT) && is_dev_patch_exist(aml_dev)) {
+        ALOGW("%s tv path exists, %p can not execute pause !!!", __func__, aml_out);
+        ret = OK;
+        goto exit;
+    }
+
     /* a stream should fail to pause if not previously started */
     if (aml_out->pause_status == true) {
         // If output stream is standby or paused,
@@ -1714,6 +1720,12 @@ static int out_flush_new (struct audio_stream_out *stream)
 
     aml_audio_trace_int("out_flush_new", 1);
     out->write_count = 0;
+
+    if (!out->is_tv_src_stream && (out->flags & AUDIO_OUTPUT_FLAG_DIRECT) && is_dev_patch_exist(adev)) {
+        ALOGW("%s tv path exists, %p can not execute flush !!!", __func__, out);
+        return 0;
+    }
+
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         if (out->total_write_size == 0) {
             out->pause_status = false;
