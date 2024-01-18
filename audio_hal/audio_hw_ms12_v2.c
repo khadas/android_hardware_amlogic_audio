@@ -4170,7 +4170,14 @@ int dolby_ms12_encoder_reconfig(struct dolby_ms12_desc *ms12) {
         output_config |= MS12_OUTPUT_MASK_MC;
     }
 
-    bool is_atmos_supported = is_platform_supported_ddp_atmos(hdmi_descs->ddp_fmt.atmos_supported, adev->out_device, is_TV(adev));
+    /* SWPL-152241 [legacyDevice] play Dolby_Atmos_ChannelCheck_321_ddp.mp4 Lb/Rb no silent */
+    /* dumpsys media.audio_flinger
+       Output devices: 0x40000 (AUDIO_DEVICE_OUT_HDMI_ARC)
+       cur_out_devices   :    0x40000
+       hdmi_descs->ddp_fmt.atmos_supported 0 out_device 0x80002 cur_out_devices 0x40000
+       this leads -legacy_ddplus_out ddp5.1 output setting wrong. */
+
+    bool is_atmos_supported = is_platform_supported_ddp_atmos(hdmi_descs->ddp_fmt.atmos_supported, adev->cur_out_devices, is_TV(adev));
     if (dolby_ms12_get_ddp_5_1_out() != !is_atmos_supported) {
         set_ms12_out_ddp_5_1(AUDIO_FORMAT_E_AC3, is_atmos_supported);
         b_reset = 1;
