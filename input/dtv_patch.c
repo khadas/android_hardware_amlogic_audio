@@ -422,7 +422,8 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
             ALOGI("associate_audio_mixing_enable set to %d\n", demux_info->associate_audio_mixing_enable);
             if (dtv_audio_instances->dtv_scene == DTV_TUNER_FRAMEWORK) {
                if (demux_info->dual_decoder_support) {
-                    Init_Dmx_AD_Audio(demux_handle, demux_info->ad_fmt, demux_info->ad_pid, 0);
+                    /*tuner hal path , ad need use pes mode*/
+                    Init_Dmx_AD_Audio(demux_handle, demux_info->ad_fmt, demux_info->ad_pid, 1);
                     Start_Dmx_AD_Audio(demux_handle);
                 } else {
                    Stop_Dmx_AD_Audio(demux_handle);
