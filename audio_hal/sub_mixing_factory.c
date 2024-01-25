@@ -443,6 +443,9 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
         out->hwsync_extractor = new_hw_avsync_header_extractor(consume_meta_data,
                 consume_output_data, out);
         out->first_pts_set = false;
+        if (out->hwsync && out->hwsync->mediasync) {
+            out->hwsync->wait_video_done = false;
+        }
         out->need_first_sync = false;
         out->last_pts = 0;
         out->last_payload_offset = 0;
@@ -1807,6 +1810,9 @@ static int out_flush_subMixingPCM(struct audio_stream_out *stream)
         //mixer_set_inport_state(audio_mixer, out->port_index, FLUSHING);
         aml_out->last_frames_position = 0;
         aml_out->first_pts_set = false;
+        if (aml_out->hwsync && aml_out->hwsync->mediasync) {
+            aml_out->hwsync->wait_video_done = false;
+        }
         aml_out->need_first_sync = false;
         aml_out->last_pts = 0;
         aml_out->last_payload_offset = 0;

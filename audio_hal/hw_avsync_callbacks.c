@@ -69,6 +69,7 @@ int on_meta_data_cbk(void *cookie,
     uint64_t pcr = 0;
     int pcr_pts_gap = 0;
     int insert_size = 0;
+    bool amaster_mode = true;
     int32_t tuning_latency = aml_audio_get_hwsync_latency_offset(false);
 
     if (!cookie || !header) {
@@ -133,6 +134,7 @@ int on_meta_data_cbk(void *cookie,
         if (out->hwsync && out->hwsync->use_mediasync) {
             if(out->first_pts_set == true)
                 out->first_pts_set = false;
+                out->hwsync->wait_video_done = false;
         }
         return -EINVAL;
     }
@@ -176,8 +178,17 @@ int on_meta_data_cbk(void *cookie,
             }
 
             //ALOGI("%s =============== can drop============", __FUNCTION__);
-            aml_hwsync_wait_video_start(out->hwsync);
-            aml_hwsync_wait_video_drop(out->hwsync, pts64);
+            if (out->hwsync->wait_video_done == false) {
+                aml_hwsync_wait_video_start(out->hwsync);
+                aml_hwsync_wait_video_drop(out->hwsync, pts64);
+                out->hwsync->wait_video_done = true;
+            } else {
+                aml_hwsync_wrap_is_amaster(out->hwsync, &amaster_mode);
+                if (!amaster_mode) {
+                    aml_hwsync_wrap_set_amaster(out->hwsync);
+                }
+            }
+
             aml_audio_hwsync_set_first_pts(out->hwsync, pts64);
 
             out->first_pts_set = true;
@@ -241,10 +252,10 @@ int on_meta_data_cbk(void *cookie,
         }
 
         if (abs(pcr_pts_gap) > (APTS_DISCONTINUE_THRESHOLD_MIN_35MS/90) && pts64 > pcr && pcr != 0) {
-            bool amaster_mode = true;
             aml_hwsync_wrap_is_amaster(out->hwsync, &amaster_mode);
             if (!amaster_mode) {
                 ALOGE("%s not amaster mode", __func__);
+                out->first_pts_set = false;
                 return 0;
             }
             int insert_size = 0;
