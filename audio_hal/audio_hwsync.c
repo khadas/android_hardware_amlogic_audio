@@ -619,6 +619,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, uint64_t apts, int 
             aml_hwsync_wrap_is_amaster(out->hwsync, &amaster_mode);
             if (!amaster_mode) {
                 ALOGE("%s not amaster mode", __func__);
+                out->hwsync->first_apts_flag = false;
                 return 0;
             }
 
@@ -654,9 +655,16 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, uint64_t apts, int 
             ALOGI("%s aml_audio_hwsync_set_first_pts = 0x%" PRIx64 " (%" PRIx64 " ms)", __FUNCTION__, apts - latency_pts, (apts - latency_pts)/90);
             if (p_hwsync->use_mediasync) {
                 ALOGI("%s =============== can drop============", __FUNCTION__);
-                aml_hwsync_wait_video_start(p_hwsync);
-                aml_hwsync_wait_video_drop(p_hwsync, apts - latency_pts);
-
+                if (p_hwsync->wait_video_done == false) {
+                    aml_hwsync_wait_video_start(p_hwsync);
+                    aml_hwsync_wait_video_drop(p_hwsync, apts - latency_pts);
+                    p_hwsync->wait_video_done == true;
+                } else {
+                    aml_hwsync_wrap_is_amaster(out->hwsync, &amaster_mode);
+                    if (!amaster_mode) {
+                        mediasync_wrap_setSyncMode(out->hwsync->mediasync, MEDIA_SYNC_AMASTER);
+                    }
+                }
             }
             aml_audio_hwsync_set_first_pts(p_hwsync, apts - latency_pts);
         } else  if (p_hwsync->first_apts_flag) {

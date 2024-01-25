@@ -500,3 +500,12 @@ void aml_hwsync_wrap_is_amaster(audio_hwsync_t *p_hwsync, bool *b_amaster) {
     }
     return;
 }
+
+void aml_hwsync_wrap_set_amaster(audio_hwsync_t *p_hwsync)
+{
+    if (p_hwsync == NULL || p_hwsync->mediasync == NULL) {
+        ALOGE("%s : p_hwsync(%p) or mediasync(%p) is NULL", __func__, p_hwsync, p_hwsync->mediasync);
+        return;
+    }
+    mediasync_wrap_setSyncMode(p_hwsync->mediasync, MEDIA_SYNC_AMASTER);
+}

@@ -139,6 +139,7 @@ int dolby_ms12_main_pause(struct audio_stream_out *stream)
         }
 
         aml_out->hwsync->first_apts_flag = false;
+        aml_out->hwsync->wait_video_done = false;
         ALOGD("%s tsync pause finished", __func__);
     }
     pthread_mutex_unlock(&ms12->main_lock);

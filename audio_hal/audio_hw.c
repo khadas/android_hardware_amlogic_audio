@@ -1125,6 +1125,7 @@ static int out_set_parameters (struct audio_stream *stream, const char *kvpairs)
                 //ALOGI("set ms12_out %p hw_sync_mode %d",adev->ms12_out, adev->ms12_out->hw_sync_mode);
             }
             hw_sync->first_apts_flag = false;
+            hw_sync->wait_video_done = false;
 
             pthread_mutex_lock (&adev->lock);
             pthread_mutex_lock (&out->lock);
@@ -1471,6 +1472,7 @@ exit:
         aml_hwsync_wrap_set_pause(out->hwsync);
         out->tsync_status = TSYNC_STATUS_PAUSED;
         out->hwsync->first_apts_flag = false;
+        out->hwsync->wait_video_done = false;
     }
     pthread_mutex_unlock (&adev->lock);
     pthread_mutex_unlock (&out->lock);
@@ -3060,6 +3062,7 @@ int output_stream_hwsync_prepare(struct aml_stream_out *out, int hw_sync_id)
             ALOGI("set ms12_out:%p hw_sync_mode %d",adev->ms12_out, adev->ms12_out->hw_sync_mode);
         }
         hw_sync->first_apts_flag = false;
+        hw_sync->wait_video_done = false;
 
         pthread_mutex_lock (&adev->lock);
         pthread_mutex_lock (&out->lock);
@@ -5679,6 +5682,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
     effect_descriptor_t tmpdesc;
     int return_bytes = bytes;
     uint64_t apts64 = 0;
+    bool amaster_mode = true;
 
     audio_hwsync_t *hw_sync = aml_out->hwsync;
     bool digital_input_src = (aml_out->is_tv_src_stream && patch && \
@@ -5719,6 +5723,7 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
 
         if (aml_out->tsync_status != TSYNC_STATUS_RUNNING && aml_out->hw_sync_mode) {
             hw_sync->first_apts_flag = false; //start tsync again.
+            hw_sync->wait_video_done = false;
         }
 
         aml_out->standby = false;
@@ -5894,6 +5899,11 @@ hwsync_rewrite:
                     aml_hwsync_wait_video_start(hw_sync);
                     aml_hwsync_wait_video_drop(hw_sync, apts64);
                     hw_sync->wait_video_done = true;
+                } else {
+                    aml_hwsync_wrap_is_amaster(hw_sync, &amaster_mode);
+                    if (!amaster_mode) {
+                        aml_hwsync_wrap_set_amaster(hw_sync);
+                    }
                 }
 
                 // missing code with aml_audio_hwsync_checkin_apts, need to add for netflix tunnel mode. zzz
@@ -5957,6 +5967,11 @@ hwsync_rewrite:
                         aml_hwsync_wait_video_start(hw_sync);
                         aml_hwsync_wait_video_drop(hw_sync, apts64);
                         hw_sync->wait_video_done = true;
+                    } else {
+                        aml_hwsync_wrap_is_amaster(hw_sync, &amaster_mode);
+                        if (!amaster_mode) {
+                            aml_hwsync_wrap_set_amaster(hw_sync);
+                        }
                     }
 
                     /* video will drop frames from HEAAC to DDP51 in NTS fly audio cases,
