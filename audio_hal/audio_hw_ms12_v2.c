@@ -2668,7 +2668,6 @@ int mat_bypass_process(struct audio_stream_out *stream, void *buffer, size_t byt
 
     ms12->is_bypass_ms12 = is_ms12_passthrough(stream);
     if (ms12->is_bypass_ms12
-        && (adev->continuous_audio_mode == 0)
         && is_mat) {
 
         if (bytes != 0 && buffer != NULL) {
