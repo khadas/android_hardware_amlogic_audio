@@ -502,11 +502,8 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                 patch->decoder_offset += patch->cur_package->size;
              }
         } else {
-             if (patch->aformat == AUDIO_FORMAT_HE_AAC_V1 ||
-                 patch->aformat == AUDIO_FORMAT_AAC_LATM ||
-                 patch->aformat == AUDIO_FORMAT_AAC ||
-                 patch->aformat == AUDIO_FORMAT_MP3 ||
-                 patch->aformat == AUDIO_FORMAT_MP2) {
+             /*when ad enable, dolby format need split the frame and non dolby format send the complete frame to  decoder*/
+             if (!is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)) {
                  patch->decoder_offset += patch->cur_package->size;
              } else {
                  patch->decoder_offset += patch->cur_package->split_frame_size;

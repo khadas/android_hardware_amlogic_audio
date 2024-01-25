@@ -550,6 +550,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                     if (dtvsync->mediasync_new == NULL) {
                         dtvsync->mediasync_new = aml_dtvsync_create(dtvsync);
                         dtvsync->sync_type = DTVSYNC_MEDIASYNC;
+                        dtvsync->last_lookup_apts = DTVSYNC_INVALID_PTS;
                         if (dtvsync->mediasync_new == NULL)
                             ALOGI("mediasync create failed\n");
                         else {

@@ -3506,7 +3506,8 @@ Aml_MS12_SyncPolicy_t ms12_dtv_sync_callback(void *priv_data, unsigned long long
         if (aml_dtvsync) {
             async_policy = &(aml_dtvsync->apolicy);
             ret = aml_audio_hwsync_lookup_apts(aml_out->hwsync, consume_payload, &apts);
-            if (ret == 0) {
+            if (ret == 0 && aml_dtvsync->last_lookup_apts != apts) {
+                aml_dtvsync->last_lookup_apts = apts;
                 if (apts > delay_pts_diff) {
                     new_apts = apts - delay_pts_diff;
                 } else {
