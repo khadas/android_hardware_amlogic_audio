@@ -244,13 +244,8 @@ AD_PACK_STATUS_T check_ad_package_status(int64_t main_pts, int64_t ad_pts, aml_d
     int timems_diff = llabs(main_pts - ad_pts) / 90;
 
     if (timems_diff > AD_PACK_STATUS_UNNORMAL_THRESHOLD_MS) {
-        if (is_dolby_format) {
-           ALOGI("timems_diff %d it is impossible so drop", timems_diff);
-           return AD_PACK_STATUS_DROP;
-        } else {
-            ALOGI("timems_diff %d it is impossible so do not check", timems_diff);
-            return AD_PACK_STATUS_NORMAL;
-        }
+        ALOGI("timems_diff %d it is impossible so do not check", timems_diff);
+        return AD_PACK_STATUS_NORMAL;
     }
     switch (ad_status) {
         case AD_PACK_STATUS_NORMAL:
