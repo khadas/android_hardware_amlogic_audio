@@ -542,6 +542,8 @@ struct aml_audio_device {
 
     /* primary streamout config format, juged by policy */
     audio_format_t primary_out_format;
+    /* index for submix ringbuffer */
+    int port_index;
 };
 
 struct meta_data {

@@ -159,7 +159,7 @@ bool is_HBR_stream(struct audio_stream_in *stream)
 
 bool is_game_mode(struct aml_audio_device *aml_dev)
 {
-    if (is_same_patch_src(aml_dev, SRC_HDMIIN) ||
+    if (!is_same_patch_src(aml_dev, SRC_HDMIIN) ||
         !is_dev_patch_exist(aml_dev) ||
         (is_dev_patch_valid(aml_dev) && is_dev_patch_exist(aml_dev) && (get_dev_patch(aml_dev)->input_src != AUDIO_DEVICE_IN_HDMI ||
         get_dev_patch(aml_dev)->IEC61937_format == true))) {

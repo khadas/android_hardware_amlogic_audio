@@ -53,6 +53,8 @@
 #include "tv_private_object.h"
 #include "dolby_lib_api.h"
 #include "spdif_encoder_api.h"
+#include "audio_port.h"
+#include "amlAudioMixer.h"
 
 void audio_digital_input_format_check(struct aml_audio_patch *patch)
 {
@@ -328,12 +330,20 @@ void *audio_patch_input_threadloop(void *data)
             if (is_same_patch_src(aml_dev, SRC_HDMIIN) && in->audio_packet_type == AUDIO_PACKET_AUDS && in->config.channels != 2) {
                 input_stream_channels_adjust(&in->stream, patch->in_buf, read_bytes);
             } else {
-                if (is_tv_mute(aml_dev) && (audio_is_linear_pcm(patch->aformat)) && is_game_mode(aml_dev)) {
-                    ring_buffer_reset(ringbuffer);
-                    if (aml_dev->pcm_handle[I2S_DEVICE]) {
-                        ret = pcm_ioctl(aml_dev->pcm_handle[I2S_DEVICE], SNDRV_PCM_IOCTL_RESET, 0);
-                        if (ret < 0) {
-                            ALOGE("cannot reset pcm!");
+                if (is_tv_mute(aml_dev)) {
+                    if (aml_dev->dolby_lib_type == eDolbyDcvLib && aml_dev->useSubMix) {
+                        struct subMixing *sm = aml_dev->sm;
+                        struct amlAudioMixer *audio_mixer = sm->mixerData;
+                        input_port *port = audio_mixer->in_ports[aml_dev->port_index];
+                        ring_buffer_reset(port->r_buf);
+                    }
+                    if ((audio_is_linear_pcm(patch->aformat)) && is_game_mode(aml_dev)) {
+                        ring_buffer_reset(ringbuffer);
+                        if (aml_dev->pcm_handle[I2S_DEVICE]) {
+                            ret = pcm_ioctl(aml_dev->pcm_handle[I2S_DEVICE], SNDRV_PCM_IOCTL_RESET, 0);
+                            if (ret < 0) {
+                                ALOGE("cannot reset pcm!");
+                            }
                         }
                     }
                     enable_tv_mute(aml_dev, false);
@@ -588,6 +598,10 @@ void *audio_patch_output_threadloop(void *data)
 
     while (!patch->output_thread_exit) {
         int period_mul;
+
+        /* for submix ringbuffer */
+        if (aml_dev->dolby_lib_type == eDolbyDcvLib && aml_dev->useSubMix)
+            aml_dev->port_index = out->inputPortID;
 
         if (patch->format_change && !patch->output_teardown_over) {
             struct audio_stream_out *new_stream_out = NULL;
