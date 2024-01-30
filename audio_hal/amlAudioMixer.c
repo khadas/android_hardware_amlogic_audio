@@ -602,6 +602,8 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
         aml_audio_switch_output_mode((int16_t *)out_port->data_buf,
             out_port->bytes_avail, mixing_out_format, out_port->sound_track_mode);
         if (is_include_sco_out_port(adev->cur_out_devices)) {
+            void *mixed_out_buffer = p_cur_mixer->mixed_buf;
+            int mixed_out_bytes = p_cur_mixer->mixed_out_bytes;
             if (out_port->cfg.channelCnt == 1) {
                 in_data_config.channel_mask = AUDIO_CHANNEL_OUT_MONO;
             } else if (out_port->cfg.channelCnt == 2) {
@@ -614,9 +616,9 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
             in_data_config.sample_rate = mixing_out_rate;
             in_data_config.format = mixing_out_format;
             if (is_TV(adev))
-                apply_volume(adev->sink_gain[OUTPORT_BT_SCO], out_port->data_buf, sizeof(uint16_t),
-                    out_port->bytes_avail);
-            ret = write_to_sco(adev, &in_data_config, out_port->data_buf, out_port->bytes_avail);
+                apply_volume(adev->sink_gain[OUTPORT_BT_SCO], mixed_out_buffer, sizeof(uint16_t),
+                    mixed_out_bytes);
+            ret = write_to_sco(adev, &in_data_config, mixed_out_buffer, mixed_out_bytes);
             if (ret < 0) {
                 ALOGE("%s write_to_sco fail when insert", __func__);
                 break;
