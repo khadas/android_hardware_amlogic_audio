@@ -68,6 +68,7 @@ typedef enum
 struct audio_patch_latency_detail
 {
     unsigned int ringbuffer_latency;
+    unsigned int smringbuffer_latency;
     unsigned int user_tune_latency;
     unsigned int alsa_in_latency;
     unsigned int alsa_i2s_out_latency;

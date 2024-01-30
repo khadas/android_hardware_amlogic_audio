@@ -762,6 +762,7 @@ int aml_dev_dump_latency(struct aml_audio_device *aml_dev, int fd)
         aml_dev_sample_audio_path_latency(aml_dev, NULL);
         dprintf(fd, "[AML_HAL]      audio patch latency         : %6d ms\n", patch->audio_latency.ringbuffer_latency);
         dprintf(fd, "[AML_HAL]      audio spk tuning latency    : %6d ms\n", patch->audio_latency.user_tune_latency);
+        dprintf(fd, "[AML_HAL]      audio mixer buffer latency  : %6d ms\n", patch->audio_latency.smringbuffer_latency);
         dprintf(fd, "[AML_HAL]      MS12 buffer latency         : %6d ms\n", patch->audio_latency.ms12_latency);
         dprintf(fd, "[AML_HAL]      alsa out hw i2s latency     : %6d ms\n", patch->audio_latency.alsa_i2s_out_latency);
         dprintf(fd, "[AML_HAL]      alsa out hw spdif latency   : %6d ms\n", patch->audio_latency.alsa_spdif_out_latency);

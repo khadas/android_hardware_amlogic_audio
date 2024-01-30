@@ -62,53 +62,6 @@ enum {
     INPORT_FEED_SILENCE_DONE, //underrun will happen quickly, we feed some silence data to avoid noise
 };
 
-//simple mixer support: 2 in , 1 out
-struct amlAudioMixer {
-    input_port *in_ports[NR_INPORTS];
-    uint32_t inportsMasks; // records of inport IDs
-    uint32_t inportsAvailMasks; // 1<< NR_INPORTS - 1
-    MIXER_OUTPUT_PORT cur_output_port_type;
-    output_port *out_ports[MIXER_OUTPUT_PORT_NUM];
-    pthread_mutex_t outport_locks[MIXER_OUTPUT_PORT_NUM];
-    pthread_mutex_t inport_lock;
-    ssize_t (*write)(struct amlAudioMixer *mixer, void *buffer, int bytes);
-
-    aml_pcm_mixing_st ch_mux_mixer;
-    aml_pcm_mixing_st stereo_mixer;
-    aml_pcm_mixing_st multich_mixer;
-    aml_pcm_downmix_st pcm_downmix;
-
-    struct audioCfg cfg; //mixing output config
-    uint32_t hwsync_frame_size;
-    pthread_t out_mixer_tid;
-    pthread_mutex_t lock;
-    unsigned int exit_thread : 1;
-    unsigned int mixing_enable : 1;
-    aml_mixer_state state;
-    struct timespec tval_last_write;
-    struct aml_audio_device *adev;
-    bool continuous_output;
-    //int init_ok : 1;
-    int submix_standby;
-    //aml_audio_mixer_run_state_type_e run_state;
-    bool reset_virtual_buf;  /* when audio port restart, need to reset */
-
-    //multich pcm output
-    bool mc_out_enable;
-    port_state mc_out_status;
-    bool aaudio_low_latency;
-    uint64_t run_count; // use for reduce debug info
-
-    // alsa delay info
-    struct timespec outport_delay_ts[MIXER_OUTPUT_PORT_NUM];
-    uint32_t outport_delay_ms[MIXER_OUTPUT_PORT_NUM];
-    pthread_mutex_t outport_delay_locks[MIXER_OUTPUT_PORT_NUM];
-    int multi_aaudio_port_index;
-
-    //using which one of aml_pcm_mixing_st
-    int type;
-};
-
 int mixer_set_state(struct amlAudioMixer *audio_mixer, aml_mixer_state state)
 {
     audio_mixer->state = state;
