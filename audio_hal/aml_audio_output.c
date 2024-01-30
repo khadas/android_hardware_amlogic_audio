@@ -440,8 +440,12 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     memcpy(adev->out_16_buf, (unsigned char*)adev->audioeffect_tmp_buffer, bytes);
                 }
 
-                /* For local play or dtv input, analog audio output channel should be switched by User setting*/
-                if ((dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER || dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) &&
+                /* For local play or dtv input, analog audio output channel should be switched by User setting,
+                 * T7 BDS HDMITX uses AML_AUDIO_OUT_DEV_TYPE_OTHER for output
+                 */
+                if ((dev == AML_AUDIO_OUT_DEV_TYPE_SPEAKER ||
+                    dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE ||
+                    dev == AML_AUDIO_OUT_DEV_TYPE_OTHER) &&
                         (!is_dev_patch_exist(adev) || is_same_patch_src(adev, SRC_DTV))) {
                     aml_audio_switch_output_mode((int16_t *)adev->out_16_buf, bytes, AUDIO_FORMAT_PCM_16_BIT, adev->sound_track_mode);
                 }
