@@ -553,12 +553,14 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                             } else
                                 mixer_main_buffer_write_sm(stream, dec_data, pcm_len);
                         } else
-    #endif
-                            //here stream without right initial config "audioCfg", so set it
+   #endif
+                       {
+                             //here stream without right initial config "audioCfg", so set it
                             aml_out->audioCfg.format = output_format;
                             aml_out->audioCfg.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
                             aml_out->audioCfg.sample_rate = OUTPUT_ALSA_SAMPLERATE;
                             mixer_main_buffer_write_sm(stream, dec_data, pcm_len);
+                        }
                     } else { /*no submix */
                         //AM_LOGI("aml_hw_mixer -> hw_mix -> audio_output");
                         struct aml_hw_mixer_buffer in_buf;
