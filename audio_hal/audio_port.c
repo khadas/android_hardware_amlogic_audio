@@ -856,7 +856,7 @@ static ssize_t output_port_post_process(output_port *port, void *buffer, int byt
         } else {
             /*do ease process when adjust vol,vol apply is handled by ease process,when ease process finished,
             vol apply need handled by apply volume function,vol is float type,use fabs to compare*/
-            apply_volume_2ch_by_format(vol, vol_buf, samples, src_cfg->format, target_cfg->format);
+            apply_volume_2ch_by_format(1.0, vol_buf, samples, src_cfg->format, target_cfg->format);
             aml_audio_ease_process(adev->volume_ease.ease, vol_buf, samples * dest_sample_size);
         }
 
