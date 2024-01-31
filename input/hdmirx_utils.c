@@ -554,8 +554,9 @@ int update_edid_after_edited_audio_sad(struct audio_hw_device *dev, struct forma
             const char *default_edid_str = get_default_edid_str(adev);
             memcpy(EDID_cur_array, default_edid_str, EDID_ARRAY_MAX_LEN);
 
-            /* edit the current EDID audio array to add DDP-SAD(byte3-bit0~1) and MAT-SAD(byte3-bit0~1)*/
-            for (int n = 0; n < EDID_ARRAY_MAX_LEN / SAD_SIZE; n++) {
+            /* edit the current EDID audio array to add DDP-SAD(byte3-bit0~1) and MAT-SAD(byte3-bit0~1) */
+            /* loop is less then 12 as the (EDID_cur_array + TLV_HEADER_SIZE - SAD_SIZE) is 33 */
+            for (int n = 0; n < EDID_ARRAY_MAX_LEN / SAD_SIZE - 1; n++) {
                 update_dolby_atmos_decoding_and_rendering_cap_for_ddp_sad(
                     (void *)(EDID_cur_array  + SAD_SIZE*n)
                     , (EDID_ARRAY_MAX_LEN - SAD_SIZE * n)
