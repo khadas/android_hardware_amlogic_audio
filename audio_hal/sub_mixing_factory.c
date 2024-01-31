@@ -800,6 +800,10 @@ int out_get_presentation_position_port(
         pthread_mutex_lock(&out->apts_update_lock);
         ret = mixer_get_presentation_position(audio_mixer, out->inputPortID, frames, timestamp);
         pthread_mutex_unlock(&out->apts_update_lock);
+        // convert the frames for resample in AudioHal
+        if (out->hal_rate != MM_FULL_POWER_SAMPLING_RATE) {
+            *frames = (*frames * out->hal_rate) / MM_FULL_POWER_SAMPLING_RATE;
+        }
         struct timespec adjusted_timestamp;
         // libaudioclient code expects HAL position to lag behind server position.
         // If the two are the same, it resets timestamp to the current time.
