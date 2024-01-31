@@ -5490,7 +5490,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                 }
             }
             adev->mix_init_flag = true;
-            dolby_ms12_encoder_reconfig(&adev->ms12);
+            audiohal_send_msg_2_ms12(&adev->ms12, MS12_MESG_TYPE_RESET_MS12_ENCODER);
             pthread_mutex_unlock(&adev->lock);
             /* if ms12 reconfig, do avsync */
             if (ret == 0 && is_dev_patch_exist(adev) &&
