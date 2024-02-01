@@ -69,14 +69,14 @@ struct format_desc {
     unsigned int sample_rate_mask;
     unsigned int max_bit_rate;
     /* only used by dd+ format */
-    bool   atmos_supported;
+    bool atmos_supported;
     /* parse Dolby Vendor-Specific Audio Data Block.
      * Dolby Audio and Dolby Atmos over HDMI Specification doc.
      * The audio_hw_profile.c fils also has the detail description.
      * Sink device supports Dolby MAT PCM decoding at 48 kHz only,
      * and does not support Dolby TrueHD decoding.
      */
-    bool   MAT_PCM_48kHz_only;
+    bool MAT_PCM_48kHz_only;
     /* The Codec Vendor specific (DTS Audio) Subtype from SAD (Byte 3).
      * | EDID SAD Byte1 |   EDID SAD Byte3    |      Description         |
      * |----------------|---------------------|--------------------------|
@@ -137,7 +137,7 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len);
 /*@ brief after edited the audio sad, then update edid
  * return zero if success;
  */
-int update_edid_after_edited_audio_sad(struct audio_hw_device *dev, struct format_desc *fmt_desc);
+int update_edid_after_edited_audio_sad(struct audio_hw_device *dev);
 
 #if ANDROID_PLATFORM_SDK_VERSION > 32
 /*@ brief "read_hdmi_arc_info" for v7

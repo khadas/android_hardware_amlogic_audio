@@ -264,9 +264,10 @@ static inline audio_format_t encodingFormat2AudioFormat(AUDIO_ENCODING_FORMAT_E 
 }
 
 enum {
-    ATTEND_TYPE_NONE = 0,
-    ATTEND_TYPE_ARC,
-    ATTEND_TYPE_EARC
+    ATTEND_TYPE_NONE = -1,
+    ATTEND_TYPE_DISCONNECT = 0,
+    ATTEND_TYPE_ARC = 1,
+    ATTEND_TYPE_EARC = 2
 };
 
 static inline bool is_main_write_usecase(stream_usecase_t usecase)

@@ -287,7 +287,7 @@ static int update_dolby_atmos_decoding_and_rendering_cap_for_ddp_sad(
         ret = -1;
     }
 
-    //ALOGV("%s line %d ddp sad [%#x %#x %#x]\n", __func__, __LINE__, ddp_sad[0], ddp_sad[1], ddp_sad[2]);
+    ALOGV("%s line %d ddp sad [%#x %#x %#x]\n", __func__, __LINE__, ddp_sad[0], ddp_sad[1], ddp_sad[2]);
     return ret;
 }
 
@@ -333,7 +333,7 @@ static int update_dolby_MAT_decoding_cap_for_dolby_MAT_and_dolby_TRUEHD_sad(
         ret = -1;
     }
 
-    //ALOGV("%s line %d mat sad [%#x %#x %#x]\n", __func__, __LINE__, mat_sad[0], mat_sad[1], mat_sad[2]);
+    ALOGV("%s line %d mat sad [%#x %#x %#x]\n", __func__, __LINE__, mat_sad[0], mat_sad[1], mat_sad[2]);
     return ret;
 }
 
@@ -360,13 +360,7 @@ static void send_arc_format_info(struct audio_hw_device *dev, uint8_t *descripto
         set_arc_format(dev, temp_sad_str, AUDIO_HAL_CHAR_MAX_LEN);
     }
 
-    if (hdmi_desc->mat_fmt.atmos_supported)
-        update_edid_after_edited_audio_sad(dev, &hdmi_desc->mat_fmt);
-    else if (hdmi_desc->ddp_fmt.atmos_supported)
-        update_edid_after_edited_audio_sad(dev, &hdmi_desc->ddp_fmt);
-    else
-        update_edid_after_edited_audio_sad(dev, &hdmi_desc->dd_fmt);
-
+    update_edid_after_edited_audio_sad(dev);
     update_sink_format_after_hotplug(adev);
 }
 
@@ -521,95 +515,108 @@ int set_arc_hdmi(struct audio_hw_device *dev, char *value, size_t len)
     return 0;
 }
 
-int update_edid_after_edited_audio_sad(struct audio_hw_device *dev, struct format_desc *fmt_desc)
+int update_edid_after_edited_audio_sad(struct audio_hw_device *dev)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     struct aml_arc_hdmi_desc *hdmi_desc = get_arc_hdmi_cap(adev);
-    if (!fmt_desc)
-        return 0;
-    ALOGD("Update [%s] support:%d, ch:%d, sample_mask:%#x, bit_rate:%d, atmos:%d",
-        hdmiFormat2Str(fmt_desc->fmt), fmt_desc->is_support, fmt_desc->max_channels,
-        fmt_desc->sample_rate_mask, fmt_desc->max_bit_rate, fmt_desc->atmos_supported);
+    int output_device = aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_ATTENDED_TYPE);
+
+    ALOGD("digital_audio_mode = %d; output device type = %d; ddp atmos:%d; mat atmos:%d;",
+            adev->digital_audio_mode, output_device, hdmi_desc->ddp_fmt.atmos_supported, hdmi_desc->mat_fmt.atmos_supported);
 
     /*
      * if there is no ddp/ms12 lib, don't update edid.
+     * if output device is arc/earc disconnect, don't update edid
      */
-    if (adev->dolby_lib_type == eDolbyNull) {
+    if (adev->dolby_lib_type == eDolbyNull || output_device == ATTEND_TYPE_DISCONNECT) {
         return 0;
+    }
+
+    /* if can't get arc/earc type from driver, it only supports arc output. */
+    if (output_device == ATTEND_TYPE_NONE) {
+        output_device = ATTEND_TYPE_ARC;
     }
 
     if (AML_DIGITAL_AUDIO_MODE_BYPASS == adev->digital_audio_mode) {
         /* update the AVR's EDID */
         write_new_edid_to_hdmirx(dev, (void *)&hdmi_desc->target_EDID_array[0], hdmi_desc->EDID_length);
         ALOGI("Bypass mode!, update AVR EDID.");
-    }
-    else if (AML_DIGITAL_AUDIO_MODE_AUTO == adev->digital_audio_mode) {
-        if (!fmt_desc->is_support) {
-            //if AVR doesn't support DDP, update EDID to default EDID
-            write_default_edid_to_hdmirx(dev, hdmi_desc->EDID_length);
-        } else {
-            /* get the default EDID audio array */
-            char EDID_cur_array[EDID_ARRAY_MAX_LEN] = {0};
-            int available_edid_len = 0;
-            const char *default_edid_str = get_default_edid_str(adev);
-            memcpy(EDID_cur_array, default_edid_str, EDID_ARRAY_MAX_LEN);
+    } else if (AML_DIGITAL_AUDIO_MODE_AUTO == adev->digital_audio_mode) {
+        /* get the default EDID audio array */
+        char EDID_cur_array[EDID_ARRAY_MAX_LEN] = {0};
+        int available_edid_len = 0;
+        const char *default_edid_str = get_default_edid_str(adev);
+        memcpy(EDID_cur_array, default_edid_str, EDID_ARRAY_MAX_LEN);
 
-            /* edit the current EDID audio array to add DDP-SAD(byte3-bit0~1) and MAT-SAD(byte3-bit0~1) */
-            /* loop is less then 12 as the (EDID_cur_array + TLV_HEADER_SIZE - SAD_SIZE) is 33 */
-            for (int n = 0; n < EDID_ARRAY_MAX_LEN / SAD_SIZE - 1; n++) {
+        /* edit the current EDID audio array to add DDP-SAD(byte3-bit0~1) and MAT-SAD(byte3-bit0~1) */
+        /* loop is less then 12 as the (EDID_cur_array + TLV_HEADER_SIZE - SAD_SIZE) is 33 */
+        for (int n = 0; n < EDID_ARRAY_MAX_LEN / SAD_SIZE - 1; n++) {
+            if (output_device == ATTEND_TYPE_ARC) {
                 update_dolby_atmos_decoding_and_rendering_cap_for_ddp_sad(
+                    (void *)(EDID_cur_array  + SAD_SIZE*n)
+                    , (EDID_ARRAY_MAX_LEN - SAD_SIZE * n)
+                    , 0 , hdmi_desc->ddp_fmt.atmos_supported);
+
+                /* MAT dependent value is chanegd with ddp atmos flag: case 1948,1954 */
+                update_dolby_MAT_decoding_cap_for_dolby_MAT_and_dolby_TRUEHD_sad(
                     (void *)(EDID_cur_array  + SAD_SIZE*n)
                     , (EDID_ARRAY_MAX_LEN - SAD_SIZE * n)
                     , hdmi_desc->ddp_fmt.atmos_supported
                     , hdmi_desc->ddp_fmt.atmos_supported);
+            } else if (output_device == ATTEND_TYPE_EARC) {
+                update_dolby_atmos_decoding_and_rendering_cap_for_ddp_sad(
+                    (void *)(EDID_cur_array  + SAD_SIZE*n)
+                    , (EDID_ARRAY_MAX_LEN - SAD_SIZE * n)
+                    , 0 , hdmi_desc->ddp_fmt.atmos_supported);
+
+                /* MAT dependent value is chanegd with ddp atmos flag: case 1952, 1958 */
                 update_dolby_MAT_decoding_cap_for_dolby_MAT_and_dolby_TRUEHD_sad(
                     (void *)(EDID_cur_array  + SAD_SIZE*n)
                     , (EDID_ARRAY_MAX_LEN - SAD_SIZE * n)
                     , hdmi_desc->mat_fmt.atmos_supported
                     , hdmi_desc->mat_fmt.atmos_supported);
-
-                /* From the SAD table, one invalid SAD is like this [0, 0, 0], here filter the valid SAD */
-                if (EDID_cur_array[SAD_SIZE*n]) {
-                    available_edid_len += SAD_SIZE;
-                }
             }
-            /* Skip PCM SAD */
-            memmove((EDID_cur_array + TLV_HEADER_SIZE - SAD_SIZE) , EDID_cur_array, available_edid_len);
-            available_edid_len -= SAD_SIZE;
-            for (int cnt = 0; cnt < EDID_ARRAY_MAX_LEN; cnt++) {
-                ALOGV("%s line %d EDID_cur_array(%d) [%#x]\n",  __func__, __LINE__, cnt, EDID_cur_array[cnt]);
+            /* From the SAD table, one invalid SAD is like this [0, 0, 0], here filter the valid SAD */
+            if (EDID_cur_array[SAD_SIZE*n]) {
+                available_edid_len += SAD_SIZE;
             }
-
-            /* DDP TB35 case:passthrough_edid_not_duplicate_mat_pcm */
-            /* when DDP Library inside, EDID should ignore MAT after DUT is connected to eARC.*/
-            if (adev->dolby_lib_type_last == eDolbyDcvLib) {
-                int edid_length = available_edid_len;
-                for (int i = 0; i < available_edid_len / SAD_SIZE; ) {
-                    char AudioFormatCodes = (EDID_cur_array[TLV_HEADER_SIZE + 3*i] >> 3) & 0xF;
-                    if (AudioFormatCodes == AML_HDMI_FORMAT_MAT) {
-                        char *pr = &EDID_cur_array[TLV_HEADER_SIZE + 3*i];
-                        memmove(pr, (pr + 3), (edid_length - 3*i - 3));
-                        edid_length -= 3;
-                        ALOGW("%s line %d will remove MAT codec %d\n", __func__, __LINE__, AudioFormatCodes);
-                        break;
-                    } else {
-                        i++;
-                    }
-                }
-                available_edid_len = edid_length;
-            }
-
-            unsigned int *ptr = (unsigned int *)EDID_cur_array;
-            ptr[0] = 0;
-            ptr[1] = available_edid_len;
-
-            for (int cnt = 0; cnt < EDID_ARRAY_MAX_LEN; cnt++) {
-                ALOGV("%s line %d EDID_cur_array(%d) [%#x]\n",  __func__, __LINE__, cnt, EDID_cur_array[cnt]);
-            }
-
-            /* update the EDID after editing*/
-            write_new_edid_to_hdmirx(dev, (void *)EDID_cur_array, available_edid_len);
         }
+        /* Skip PCM SAD */
+        memmove((EDID_cur_array + TLV_HEADER_SIZE - SAD_SIZE) , EDID_cur_array, available_edid_len);
+        available_edid_len -= SAD_SIZE;
+        for (int cnt = 0; cnt < EDID_ARRAY_MAX_LEN; cnt++) {
+            ALOGV("%s line %d EDID_cur_array(%d) [%#x]\n",  __func__, __LINE__, cnt, EDID_cur_array[cnt]);
+        }
+
+        /* DDP TB35 case:passthrough_edid_not_duplicate_mat_pcm */
+        /* when DDP Library inside, EDID should ignore MAT after DUT is connected to eARC.*/
+        if (adev->dolby_lib_type_last == eDolbyDcvLib) {
+            int edid_length = available_edid_len;
+            for (int i = 0; i < available_edid_len / SAD_SIZE; ) {
+                char AudioFormatCodes = (EDID_cur_array[TLV_HEADER_SIZE + 3*i] >> 3) & 0xF;
+                if (AudioFormatCodes == AML_HDMI_FORMAT_MAT) {
+                    char *pr = &EDID_cur_array[TLV_HEADER_SIZE + 3*i];
+                    memmove(pr, (pr + 3), (edid_length - 3*i - 3));
+                    edid_length -= 3;
+                    ALOGW("%s line %d will remove MAT codec %d\n", __func__, __LINE__, AudioFormatCodes);
+                    break;
+                } else {
+                    i++;
+                }
+            }
+            available_edid_len = edid_length;
+        }
+
+        unsigned int *ptr = (unsigned int *)EDID_cur_array;
+        ptr[0] = 0;
+        ptr[1] = available_edid_len;
+
+        for (int cnt = 0; cnt < EDID_ARRAY_MAX_LEN; cnt++) {
+            ALOGV("%s line %d EDID_cur_array(%d) [%#x]\n",  __func__, __LINE__, cnt, EDID_cur_array[cnt]);
+        }
+
+        /* update the EDID after editing*/
+        write_new_edid_to_hdmirx(dev, (void *)EDID_cur_array, available_edid_len);
     } else if (hdmi_desc->default_edid == false) {
         /* Reset the audio default EDID */
         write_default_edid_to_hdmirx(dev, hdmi_desc->EDID_length);
@@ -626,8 +633,7 @@ int set_arc_format(struct audio_hw_device *dev, char *value, size_t len)
     char *pt = NULL, *tmp = NULL;
     int i = 0, val = 0;
     AML_HDMI_FORMAT_E format = AML_HDMI_FORMAT_LPCM;
-    bool is_dolby_sad = false;
-    bool is_dts_sad = false;
+
     if (strlen (value) > len) {
         ALOGW("[%s:%d] value array len:%zu overflow!", __func__, __LINE__, strlen(value));
         return -EINVAL;

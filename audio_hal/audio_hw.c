@@ -4008,7 +4008,7 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         goto exit;
     }
 
-    //add for fire os tv for Dolby audio setting
+    /* it is for audio output format setting from user */
     ret = str_parms_get_int (parms, "hdmi_format", &val);
     if (ret >= 0 ) {
         if (adev->digital_audio_mode != val) {
@@ -4019,9 +4019,7 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         /* only switch from/to bypass mode, update the DUT's EDID */
         if (adev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS ||
             adev->last_digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS) {
-            struct aml_arc_hdmi_desc *hdmi_descs = get_arc_hdmi_cap(adev);
-            struct format_desc *ddp_fmt = &hdmi_descs->ddp_fmt;
-            update_edid_after_edited_audio_sad(dev, ddp_fmt);
+            update_edid_after_edited_audio_sad(dev);
         }
         adev->last_digital_audio_mode = adev->digital_audio_mode;
         //sysfs_set_sysfs_str(REPORT_DECODED_INFO, kvpairs);
