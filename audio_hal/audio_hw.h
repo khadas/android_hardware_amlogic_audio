@@ -942,9 +942,17 @@ static inline void set_primary_out_format(struct aml_audio_device *adev, audio_f
 static inline audio_format_t get_primary_out_format(struct aml_audio_device *adev)
 {
     //TODO: temporary solution for MS12 not support PCM32 input
+    //The primary output may be not created firstly during the VTS test,
+    //so that the submix in the adev_init_later does not have a chance to be created
+    //The code in the middle of the later TODO will definitely be removed
+    if (!adev->primary_out_format) {
+        return adev->primary_out_format;
+    }
+
     if (adev->dolby_lib_type == 2 /*eDolbyMS12Lib*/  || adev->dolby_lib_type_last == 2/*eDolbyMS12Lib*/) {
         return AUDIO_FORMAT_PCM_16_BIT;
     }
+
     //TODO: End
     return adev->primary_out_format;
 }

@@ -4719,7 +4719,7 @@ static int adev_init_later(struct aml_audio_device *adev, struct aml_stream_out 
         return -1;
     }
 
-    if (flags & AUDIO_OUTPUT_FLAG_PRIMARY) {
+    if ((flags & AUDIO_OUTPUT_FLAG_PRIMARY) || (!primaryOutFormat && !flags)) {
         primaryOutFormat = aml_out->hal_format;
         uint32_t primaryOutRate = aml_out->hal_rate;
 
@@ -8106,6 +8106,7 @@ static int adev_close(hw_device_t *device)
         pthread_mutex_unlock(&adev_mutex);
         return 0;
     }
+    adev_close_sys_resource_mgr(adev);
 
     /* free ease resource  */
     aml_audio_ease_close(adev->audio_ease);
@@ -8193,7 +8194,6 @@ static int adev_close(hw_device_t *device)
     aml_audio_debug_malloc_close();
     pthread_mutex_unlock(&adev_mutex);
 
-    adev_close_sys_resource_mgr(adev);
     AM_LOGI("exit");
     return 0;
 }
