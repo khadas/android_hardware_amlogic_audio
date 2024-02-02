@@ -3446,6 +3446,7 @@ typedef struct sys_resource_manager_handler {
     DResman_add_handler_and_resreports Resman_add_handler_and_resreports;
     DResman_add_debug_callback  Resman_add_debug_callback;
     DResman_get_debug_info Resman_get_debug_info;
+    int fd;
 } ResManagerHandler;
 
 enum RESMAN_APP {
@@ -3481,6 +3482,7 @@ int adev_open_sys_resource_mgr(struct aml_audio_device *adev)
         return -ENOMEM;
     }
 
+    sysMgr->fd = -1;
     sysMgr->resMgrLibHandle = dlopen("libmediahal_resman.so", RTLD_NOW);
     if (sysMgr->resMgrLibHandle == NULL) {
         aml_audio_free(sysMgr);
@@ -3508,14 +3510,20 @@ int adev_open_sys_resource_mgr(struct aml_audio_device *adev)
 
     //call Resman to register audio callback handler
     if (sysMgr && sysMgr->resMgrLibHandle) {
-        int fd = sysMgr->Resman_init("DumpState", RESMAN_APP_DIAGNOSTICS);
-        int ret = sysMgr->Resman_add_handler_and_resreports(fd,
+        sysMgr->fd = sysMgr->Resman_init("DumpState", RESMAN_APP_DIAGNOSTICS);
+        if (sysMgr->fd < 0) {
+            ALOGE("%s() Resman_init failed, fd:%d", __func__, sysMgr->fd);
+            return sysMgr->fd;
+        } else {
+            ALOGI("%s() fd:%d", __func__, sysMgr->fd);
+        }
+        int ret = sysMgr->Resman_add_handler_and_resreports(sysMgr->fd,
                                                             on_dump_audio_hal_callback,
                                                             on_dump_audio_hal_callback,
                                                             (void *)adev);
         if (ret == 0) {
             if (sysMgr->Resman_add_debug_callback) {
-                sysMgr->Resman_add_debug_callback(fd, on_sys_log_level, (void *)adev);
+                sysMgr->Resman_add_debug_callback(sysMgr->fd, on_sys_log_level, (void *)adev);
             }
             ALOGI("%s() OK!", __func__);
         }
@@ -3527,12 +3535,17 @@ int adev_open_sys_resource_mgr(struct aml_audio_device *adev)
 int adev_close_sys_resource_mgr(struct aml_audio_device *adev)
 {
     if (adev->sys_res_mgr) {
+        if (adev->sys_res_mgr->fd >= 0) {
+            adev->sys_res_mgr->Resman_close(adev->sys_res_mgr->fd);
+        }
+        ALOGI("%s() fd:%d done", __func__, adev->sys_res_mgr->fd);
         if (adev->sys_res_mgr->resMgrLibHandle) {
             dlclose(adev->sys_res_mgr->resMgrLibHandle);
             adev->sys_res_mgr->resMgrLibHandle = NULL;
         }
         free(adev->sys_res_mgr);
         adev->sys_res_mgr = NULL;
+        ALOGI("%s() close done", __func__);
     }
     return 0;
 }
