@@ -3122,7 +3122,7 @@ int mat_bitstream_output(void *buffer, void *priv_data, size_t size)
 
     bitstream_out = &ms12->bitstream_out[bitstream_id];
 
-    if (adev->optical_format == AUDIO_FORMAT_PCM_16_BIT) {
+    if (adev->optical_format == AUDIO_FORMAT_PCM_16_BIT || adev->optical_format == AUDIO_FORMAT_AC3) {
         return 0;
     }
 #if 0
