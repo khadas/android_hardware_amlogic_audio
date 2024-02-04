@@ -5081,6 +5081,7 @@ int enable_dtv_patch_for_tuner_framework(struct audio_config *config, struct aud
             set_dev_patch_running(adev, true);
             if (get_dev_patch(adev)) {
                 get_dev_patch(adev)->cbs_patch = true;
+                adev->mute_start = true;
             }
         }
 

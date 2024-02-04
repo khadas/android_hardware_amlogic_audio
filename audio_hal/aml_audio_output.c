@@ -407,6 +407,9 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                         volume *= adev->eq_data.p_gain.media2spk_extra_gain;
                     }
                     volume *= adev->eq_data.p_gain.speaker * adev->sink_gain[OUTPORT_SPEAKER];
+                    if (is_same_patch_src(adev, SRC_DTV) && get_dev_patch(adev)->cbs_patch) {
+                         volume *= get_dtv_volume(adev);
+                    }
 
                     /* for ms12 lib, and audio volume control in ms12, bypass all volume apply */
                     if (eDolbyMS12Lib == adev->dolby_lib_type && aml_out->ms12_vol_ctrl) {
