@@ -3046,7 +3046,7 @@ static int dtv_uio_read(unsigned char *buffer, int buffer_size, bool exit) {
                 break;
             } else {
                 ALOGV("wait %d ms buffer_size %d left %d", 5 * trycount, buffer_size, nNextReadSize);
-                usleep(5000);
+                usleep(3000);
                 continue;
             }
         }
@@ -3077,6 +3077,8 @@ void *audio_dtv_patch_input_threadloop(void *data)
     int nInBufferSize = read_bytes * 10; //full buffer size
     char *inbuf = NULL;//real buffer
     char *ad_buffer = NULL;
+    unsigned char main_head[32];
+    int main_head_size;
 
     struct package *dtv_package = NULL;
 
@@ -3179,24 +3181,26 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     if (frame_size == 0) {
                           nNextReadSize = 512;
                           int data_offset = 0;
+                          main_head_size = (int)sizeof(main_head);
                           rlen = 0;
                           while (frame_size == 0 && !patch->input_thread_exit) {
                                if (patch->output_thread_exit) {
                                    break;
                                }
-                               nRet = dtv_uio_read((unsigned char *)(inbuf) , nNextReadSize, patch->output_thread_exit);
+                               nRet = dtv_uio_read((unsigned char *)(inbuf) , main_head_size, patch->output_thread_exit);
                                if (nRet == 0) {
                                     frame_size = dcv_decoder_get_framesize((unsigned char *)(inbuf) ,
                                         nNextReadSize, &data_offset);
+
                                     if (frame_size) {//sync word detected
                                          ALOGV("find dolby sync word pos %d frame_size %d rlen %d %0x %0x\n",
                                             data_offset, frame_size,rlen, inbuf[data_offset], inbuf[data_offset + 1]);
                                          if (data_offset == 0) {
-                                             rlen = 512;
+                                             rlen = main_head_size;
                                          } else {
                                              patch->input_skipped_bytes += data_offset;
-                                             memmove(inbuf, inbuf + data_offset, nNextReadSize - data_offset);
-                                             rlen = nNextReadSize - data_offset;
+                                             memmove(inbuf, inbuf + data_offset, main_head_size - data_offset);
+                                             rlen = main_head_size - data_offset;
                                          }
                                          nNextReadSize = frame_size - rlen;
                                          break;
@@ -3234,8 +3238,8 @@ void *audio_dtv_patch_input_threadloop(void *data)
                 }
             }
             /*coverity[sleep]*/
-            nRet = dtv_uio_read((unsigned char *)(inbuf + rlen), nNextReadSize, patch->input_thread_exit);
-            ALOGV("uio_read_buffer nRet:%d nNextReadSize %d \n",nRet, nNextReadSize);
+
+            nRet = dtv_uio_read((unsigned char *)(inbuf + rlen), nNextReadSize, patch->output_thread_exit);
             if (nRet == 0)  {
                 dtv_package->size = rlen + nNextReadSize;
                 dtv_package->data = (char *)inbuf;
