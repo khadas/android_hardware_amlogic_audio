@@ -707,7 +707,9 @@ void *audio_patch_output_threadloop(void *data)
             patch->output_teardown_over = false;
         }
     }
+    pthread_mutex_lock(&aml_dev->lock);
     do_output_standby_l((struct audio_stream *)out);
+    pthread_mutex_unlock(&aml_dev->lock);
     adev_close_output_stream_new(patch->dev, &out->stream);
     if (patch->out_buf) {
         aml_audio_free(patch->out_buf);
