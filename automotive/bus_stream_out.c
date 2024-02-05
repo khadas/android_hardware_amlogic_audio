@@ -35,6 +35,7 @@
 
 #include "audio_hw.h"
 #include "audio_hw_utils.h"
+#include "a2dp_hal.h"
 #include "aml_audio_stream_base.h"
 #include "bus_mix_playback_handler.h"
 #include "playback_handler_base.h"
@@ -239,12 +240,17 @@ static ssize_t bus_out_write(struct audio_stream_out *stream, const void* buffer
         out->standby = false;
     }
 
-    apply_volume(out->volume, (void *)buffer, sample_size, bytes);
-
-    if (playback_handler) {
-        playback_handler->write(playback_handler, buffer, bytes);
+    struct aml_audio_device *adev = out->adev;
+    if (is_include_a2dp_out_port(adev->out_device) && adev->a2dp_out_follow_bus_id == out->bus_id) {
+        audio_config_base_t in_data_config = {out->src_config.sample_rate, out->src_config.channel_mask, out->src_config.format};
+        a2dp_out_write(adev, &in_data_config, buffer, bytes);
     } else {
-        AM_LOGW("Warning, playback_handler =NULL!");
+        apply_volume(out->volume, (void *)buffer, sample_size, bytes);
+        if (playback_handler) {
+            playback_handler->write(playback_handler, buffer, bytes);
+        } else {
+            AM_LOGW("Warning, playback_handler =NULL!");
+        }
     }
 
     out->written_all_frames += bytes / out->frame_size;
@@ -345,7 +351,7 @@ static int bus_stream_out_init(struct bus_stream_out *out,
                         audio_devices_t devices,
                         audio_output_flags_t flags,
                         struct audio_config *config,
-                        const char *address __unused)
+                        const char *address)
 {
     int ret = 0;
     int bus_id = -1;
@@ -609,6 +615,13 @@ int adev_set_bus_parameters(struct audio_hw_device *dev, struct str_parms *parms
                 }
             }
         }
+        goto do_switch_map;
+    }
+
+    ret = str_parms_get_int(parms, "hal_param_a2dp_out_follow_bus_id", &val);
+    if (ret >= 0) {
+        adev->a2dp_out_follow_bus_id = val;
+        AM_LOGI("a2dp_out_follow_bus_id:%d", val);
         goto do_switch_map;
     }
 

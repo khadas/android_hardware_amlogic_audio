@@ -554,6 +554,7 @@ struct aml_audio_device {
     struct bus_submix_core *bus_mixer_core;
     struct audio_stream_out* mBus_stream_outs[STREAM_USECASE_MAX];
     int bus_stream_count;
+    int a2dp_out_follow_bus_id;   /* for automotive bus output */
 #endif
 };
 
