@@ -5493,11 +5493,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                 adev_ms12_prepare((struct audio_hw_device *)adev);
             }
             if (is_dev_patch_exist(adev) && (is_same_patch_src(adev, SRC_HDMIIN) || is_same_patch_src(adev, SRC_SPDIFIN))) {
-                if (ms12->main_input_fmt != AUDIO_FORMAT_INVALID &&
-                    ms12->main_input_fmt != aml_out->hal_internal_format) {
-                    /*main decoder changed, switch the dolby decoder*/
-                    dolby_ms12_main_close(stream);
-                }
+                dolby_ms12_main_close(stream);
             }
             adev->mix_init_flag = true;
             audiohal_send_msg_2_ms12(&adev->ms12, MS12_MESG_TYPE_RESET_MS12_ENCODER);
@@ -8078,7 +8074,13 @@ int adev_ms12_prepare(struct audio_hw_device *dev) {
 
     aml_out = (struct aml_stream_out *)stream_out;
 
-    get_sink_format(&aml_out->stream);
+
+    //here type of output stream is normal,should add restricted condition to update format.
+    //config_output also invoke to here, this fix for tv/dtv source.
+    //not invoke get_sink_format to update output strategy.
+    if (!direct_active(adev)) {
+        get_sink_format(&aml_out->stream);
+    }
 
     adev->continuous_audio_mode = true;
     adev->ms12.is_continuous_paused = false;

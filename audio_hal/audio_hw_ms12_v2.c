@@ -1384,9 +1384,9 @@ bool is_ms12_passthrough(struct audio_stream_out *stream) {
         }
     }
     if (adev->debug_flag & AUDIO_HAL_DEBUG_PASSTHROUGH) {
-        ALOGD("%s line %d bypass_ms12 =%d digital mode =%s optical format =0x%x internal format 0x%x",
+        ALOGD("%s line %d bypass_ms12 =%d digital mode =%s optical format =0x%x internal format 0x%x  hal_rate:%d",
             __FUNCTION__, __LINE__, bypass_ms12, digitalAudioModeType2Str(adev->digital_audio_mode),
-            ms12->optical_format, aml_out->hal_internal_format);
+            ms12->optical_format, aml_out->hal_internal_format, aml_out->hal_rate);
     }
     return bypass_ms12;
 }
@@ -1451,7 +1451,6 @@ int dolby_ms12_main_process(
     }
 
     pthread_mutex_lock(&ms12->lock);
-
     if (ms12->dolby_ms12_enable && !aml_out->is_ms12_main_decoder) {
         dolby_ms12_main_open(stream);
         /* dynamically set the drc parameters mode/cut/boost */
@@ -2385,7 +2384,8 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
                         break;
                     }
                     if (wait_cnt > 10) {
-                        ALOGI("%s wait bitstream closed exit", __func__);
+                        ALOGI("%s wait bitstream closed timeout, and close spdif directly", __func__);
+                        aml_audio_spdifout_close(bitstream_out->spdifout_handle);
                         return 0;
                     }
                     no_bitstream_ready = ((bitstream_out->spdifout_handle != NULL) && (bitstream_out->is_bypass_ms12 == 0));
@@ -2400,11 +2400,12 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
                 bitstream_out->spdifout_handle = NULL;
             }
 
-            if ((bitstream_out_b->spdifout_handle != NULL ) &&
-                ((bitstream_out_b->audio_format != output_format) ||
-                (output_format != AUDIO_FORMAT_IEC61937 && bitstream_out_b->sample_rate != aml_out->hal_rate))) {
+            if ((bitstream_out_b->spdifout_handle != NULL) &&
+                //this is dd output, 44.1 ddp files in passthrough mode should output 48k dd/44.1k ddp.
+                //here should not close spdifout. Or dd output will be close and open always.
+                (aml_out->hal_internal_format != AUDIO_FORMAT_E_AC3 && bitstream_out_b->sample_rate != aml_out->hal_rate)) {
                 aml_audio_spdifout_close(bitstream_out_b->spdifout_handle);
-                ALOGI("%s spdif_b format changed from 0x%x to 0x%x", __FUNCTION__, bitstream_out->audio_format, output_format);
+                ALOGI("%s spdif_b format changed from 0x%x to 0x%x", __FUNCTION__, bitstream_out_b->audio_format, output_format);
                 bitstream_out_b->spdifout_handle = NULL;
             }
 
