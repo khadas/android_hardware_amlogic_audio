@@ -22,8 +22,15 @@
 
 #include "audio_hw_utils.h"
 
+//#define DEBUG_BUS_CH_MAP
+
+#define MAX_BUS_NUM                         ( 8 )
+#define MAX_DEVICE_OUT_CHANNEL_COUNT        ( 8 )
+#define MAX_CHANNEL_INDEX_NUM               ( 24 )
+
 enum am_channel_index_mask_t {
-    AML_CHANNEL_INDEX_MASK_1              = 0x1,
+    AML_CHANNEL_INDEX_MASK_FIRST          = 0x1,
+    AML_CHANNEL_INDEX_MASK_1              = AML_CHANNEL_INDEX_MASK_FIRST,
     AML_CHANNEL_INDEX_MASK_2              = 0x1 << 1,
     AML_CHANNEL_INDEX_MASK_3              = 0x1 << 2,
     AML_CHANNEL_INDEX_MASK_4              = 0x1 << 3,
@@ -47,12 +54,13 @@ enum am_channel_index_mask_t {
     AML_CHANNEL_INDEX_MASK_22             = 0x1 << 21,
     AML_CHANNEL_INDEX_MASK_23             = 0x1 << 22,
     AML_CHANNEL_INDEX_MASK_24             = 0x1 << 23,
+    AML_CHANNEL_INDEX_MASK_LAST           = AML_CHANNEL_INDEX_MASK_24,
 };
 
 enum am_bus_id_t
 {
-    AM_BUS_ID_0 = 0,
-    AM_BUS_ID_1,
+    AM_BUS_ID_0 = 0, /* bus_0 */
+    AM_BUS_ID_1,     /* bus_1 */
     AM_BUS_ID_2,
     AM_BUS_ID_3,
     AM_BUS_ID_4,
@@ -90,11 +98,11 @@ static int set_channel_table_from_bus_id(uint32_t *channel_mask_table, int bus_i
         }
         break;
     default:
-        channel_mask_table[0] = AML_CHANNEL_INDEX_MASK_5;
+        channel_mask_table[0] = AML_CHANNEL_INDEX_MASK_1;
         if (channelNum >= 2) {
-            channel_mask_table[1] = AML_CHANNEL_INDEX_MASK_6;
+            channel_mask_table[1] = AML_CHANNEL_INDEX_MASK_2;
         }
-        AM_LOGI("Invalid bus_id:%d Using default channel mask", bus_id);
+        AM_LOGI("unknown bus_id:%d Using default channel mask", bus_id);
         break;
     }
 
@@ -129,9 +137,12 @@ static int set_channel_table_from_bus_id(uint32_t *channel_mask_table, int bus_i
             break;
         }
     }
+
+#ifdef DEBUG_BUS_CH_MAP
     for (int i = 0; i < channelNum; i++) {
         AM_LOGI("channels:%d bus_id:%d channel_tab[%d]=0x%x", channelNum, bus_id, i, channel_mask_table[i]);
     }
+#endif
     return 0;
 }
 
@@ -139,7 +150,7 @@ static inline int set_bus_out_main_channel_mask(uint32_t *channel_mask_table, ui
 {
     int ret = 0;
 
-    if ((channelNum < 4) || (channelNum > 8)) {
+    if ((channelNum < 4) || (channelNum > MAX_DEVICE_OUT_CHANNEL_COUNT)) {
         AM_LOGE("Un-support channels:%d", channelNum);
         return -1;
     }
@@ -174,9 +185,12 @@ static inline int set_bus_out_main_channel_mask(uint32_t *channel_mask_table, ui
         AM_LOGE("Error invalid channel count:%d", channelNum);
         break;
     }
+
+#ifdef DEBUG_BUS_CH_MAP
     for (int i = 0; i < (int)channelNum; i++) {
         AM_LOGI("channels:%d channel_tab[%d]=0x%x", channelNum, i, channel_mask_table[i]);
     }
+#endif
     return 0;
 }
 
@@ -189,6 +203,45 @@ static inline uint32_t get_channels_from_channel_table(uint32_t *channel_table, 
         }
     }
     return table_channels;
+}
+
+static inline uint32_t get_channel_mask_from_table(uint32_t *channel_table, int channels)
+{
+    const uint32_t sup_max_ch_mask = AML_CHANNEL_INDEX_MASK_1 | \
+                                    AML_CHANNEL_INDEX_MASK_2 | \
+                                    AML_CHANNEL_INDEX_MASK_3 | \
+                                    AML_CHANNEL_INDEX_MASK_4 | \
+                                    AML_CHANNEL_INDEX_MASK_5 | \
+                                    AML_CHANNEL_INDEX_MASK_6 | \
+                                    AML_CHANNEL_INDEX_MASK_7 | \
+                                    AML_CHANNEL_INDEX_MASK_8;
+    uint32_t channel_mask = 0;
+
+    for (int i = 0; i < channels; i++) {
+        if (channel_table[i] & sup_max_ch_mask) {
+            channel_mask |= channel_table[i];
+        }
+    }
+    return channel_mask;
+}
+
+/* Return: channels accord to mask */
+static inline int set_channel_table_from_mask(uint32_t *table, uint32_t mask)
+{
+    int index = 0;
+    for (int i = 0; i < MAX_CHANNEL_INDEX_NUM; i++) {
+        if (mask & (AML_CHANNEL_INDEX_MASK_FIRST << i)) {
+            table[index++] = AML_CHANNEL_INDEX_MASK_FIRST << i;
+        }
+    }
+    return index;
+}
+
+static void dump_channel_table(uint32_t *table, int count)
+{
+    for (int i = 0; i < count; i++) {
+        AM_LOGI("channel_table[%d] = %x", i, table[i]);
+    }
 }
 
 #endif

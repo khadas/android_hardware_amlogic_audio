@@ -100,6 +100,13 @@ int set_inport_channel_mux_table(input_port *in_port, int bus_id)
     return 0;
 }
 
+int set_inport_channel_mux_table_from_mask(input_port *in_port, uint32_t mask)
+{
+    int channels = set_channel_table_from_mask(in_port->mux_channel_table, mask);
+    in_port->mux_channels = channels;
+    return 0;
+}
+
 int get_mixer_port_presentation(BusSubMixCore *mixCore, input_port* in_port, uint64_t *frames, struct timespec *timestamp)
 {
     int ret = 0;

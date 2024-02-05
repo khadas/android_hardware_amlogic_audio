@@ -4427,6 +4427,10 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 
     set_param_kara(dev, parms);
 
+#ifdef ENABLE_AUTOMOTIVE_AUDIO_FUNCTION
+    adev_set_bus_parameters(dev, parms);
+#endif
+
 exit:
     str_parms_destroy (parms);
     /* always success to pass VTS */
@@ -8256,7 +8260,7 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
         devs_nums = __builtin_popcount(aml_dev->cur_out_devices);
         if (devs_nums == 1) {
             out_device = aml_dev->cur_out_devices;
-        } else if (devs_nums == 2){
+        } else if (devs_nums == 2) {
             /* If there are two sink devices, the SPDIF is removed because the priority of SPDIF is low. */
             if (aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_SPDIF) {
                 out_device = (aml_dev->cur_out_devices & (~AUDIO_DEVICE_OUT_SPDIF));

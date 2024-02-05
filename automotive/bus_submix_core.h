@@ -52,6 +52,7 @@ input_port * create_mixer_port(BusSubMixCore *mixCore,
 int delete_mixer_port(BusSubMixCore *mixCore, input_port * in_port);
 
 int set_inport_channel_mux_table(input_port *in_port, int bus_id);
+int set_inport_channel_mux_table_from_mask(input_port *in_port, uint32_t mask);
 
 int get_mixer_port_presentation(BusSubMixCore *mixCore, input_port* in_port, uint64_t *frames, struct timespec *timestamp);
 

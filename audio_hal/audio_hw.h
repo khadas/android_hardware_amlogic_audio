@@ -66,8 +66,11 @@
 #include "audio_hw_resource_def.h"
 #include "../input/include/device_patch_mgr.h"
 #include "aml_audio_stream_base.h"
-#include "../automotive/bus_submix_core.h"
 
+#ifdef ENABLE_AUTOMOTIVE_AUDIO_FUNCTION
+#include "../automotive/bus_submix_core.h"
+#include "../automotive/bus_stream_out.h"
+#endif
 
 /* number of frames per period */
 /*
@@ -432,7 +435,6 @@ struct aml_audio_device {
     int system_app_mixing_status;
     int audio_type;
     struct aml_mixer_handle alsa_mixer;
-    struct bus_submix_core *bus_mixer_core;
     struct subMixing *sm;
     struct aml_audio_mixer *audio_mixer;
     bool useSubMix;
@@ -550,6 +552,12 @@ struct aml_audio_device {
     /* index for submix ringbuffer */
     int port_index;
     pthread_mutex_t bitstream_lock;
+
+#ifdef ENABLE_AUTOMOTIVE_AUDIO_FUNCTION
+    struct bus_submix_core *bus_mixer_core;
+    struct audio_stream_out* mBus_stream_outs[STREAM_USECASE_MAX];
+    int bus_stream_count;
+#endif
 };
 
 struct meta_data {

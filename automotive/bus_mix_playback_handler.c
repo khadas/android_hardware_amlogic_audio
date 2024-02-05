@@ -44,6 +44,7 @@ typedef struct bus_mix_playback_handler {
     input_port *mix_port;
     int portId;
     int busId;
+    uint32_t mux_channel_mask;
     bool mixer_exit;
     pthread_mutex_t lock;
     pthread_cond_t cond;
@@ -154,7 +155,11 @@ int bus_port_open(void *handle, uint64_t written_frames)
             return -EINVAL;
         }
 
-        ret = set_inport_channel_mux_table(in_port, playbackPort->busId);
+        if (playbackPort->mux_channel_mask == 0) {
+            ret = set_inport_channel_mux_table(in_port, playbackPort->busId);
+        } else {
+            ret = set_inport_channel_mux_table_from_mask(in_port, playbackPort->mux_channel_mask);
+        }
         if (ret < 0) {
             delete_mixer_port(playbackPort->mixCore, in_port);
             pthread_mutex_unlock(&playbackPort->lock);
@@ -200,7 +205,8 @@ int bus_port_get_presentation_position(void *handle, uint64_t *frames, struct ti
 PlaybackHandlerBase *create_bus_playback_handler(struct aml_audio_device* adev,
                                         struct audio_stream_out *stream_out,
                                         struct audio_config *config,
-                                        int bus_id)
+                                        int bus_id,
+                                        uint32_t mux_channel_mask)
 {
     BusMixPlaybackHandler *playbackPort = (BusMixPlaybackHandler *)aml_audio_calloc(1, sizeof(BusMixPlaybackHandler));
     if (!playbackPort) {
@@ -224,6 +230,7 @@ PlaybackHandlerBase *create_bus_playback_handler(struct aml_audio_device* adev,
 
     playbackPort->stream_out = stream_out;
     playbackPort->busId = bus_id;
+    playbackPort->mux_channel_mask = mux_channel_mask;
 
     if (pthread_mutex_init(&playbackPort->lock, NULL) != 0) {
         AM_LOGE("pthread_mutex_init fail, errno:%s", strerror(errno));
@@ -240,7 +247,7 @@ PlaybackHandlerBase *create_bus_playback_handler(struct aml_audio_device* adev,
         goto err;
     }
 
-    AM_LOGI("OK bus_id:%d", bus_id);
+    AM_LOGI("OK bus_id:%d mux_channel_mask:%x", bus_id, mux_channel_mask);
     return &playbackPort->playback_handler;
 
 err:
