@@ -549,14 +549,14 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
     } else {
         out_port->sound_track_mode = audio_mixer->adev->sound_track_mode;
     }
+    void *mixed_out_buffer = p_cur_mixer->mixed_buf;
+    int mixed_out_bytes = p_cur_mixer->mixed_out_bytes;
 
     while (out_port->bytes_avail > 0) {
         // out_write_callbacks();
-        aml_audio_switch_output_mode((int16_t *)out_port->data_buf,
-            out_port->bytes_avail, mixing_out_format, out_port->sound_track_mode);
+        aml_audio_switch_output_mode((int16_t *)mixed_out_buffer,
+            mixed_out_bytes, mixing_out_format, out_port->sound_track_mode);
         if (is_include_sco_out_port(adev->cur_out_devices)) {
-            void *mixed_out_buffer = p_cur_mixer->mixed_buf;
-            int mixed_out_bytes = p_cur_mixer->mixed_out_bytes;
             if (out_port->cfg.channelCnt == 1) {
                 in_data_config.channel_mask = AUDIO_CHANNEL_OUT_MONO;
             } else if (out_port->cfg.channelCnt == 2) {
@@ -580,8 +580,6 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
             if (is_include_a2dp_out_port(adev->cur_out_devices) || is_include_usb_out_port(adev->cur_out_devices)) {
                 void *proc_buf = NULL;
                 size_t proc_bytes = 0;
-                void *mixed_out_buffer = p_cur_mixer->mixed_buf;
-                int mixed_out_bytes = p_cur_mixer->mixed_out_bytes;
                 int sample_size = audio_bytes_per_sample(mixing_out_format);
                 if (out_port->cfg.channelCnt == 1) {
                     in_data_config.channel_mask = AUDIO_CHANNEL_OUT_MONO;
@@ -627,8 +625,6 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
                 // For STB, do not send data to spdif/hdmitx when bt/usb is connected and mute hdmitx cannot be controlled.
 
             } else {
-                void *mixed_out_buffer = p_cur_mixer->mixed_buf;
-                int mixed_out_bytes = p_cur_mixer->mixed_out_bytes;
                 if (audio_mixer->submix_standby) {
                     pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
                     mixer_output_startup(audio_mixer);
