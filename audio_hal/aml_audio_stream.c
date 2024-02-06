@@ -1434,7 +1434,7 @@ void tv_do_ease_in(struct audio_stream_out *stream, void *write_buf, size_t writ
 void tv_do_ease_out(struct aml_audio_device *aml_dev)
 {
 
-    int fade_mode = property_get_int32("vendor.dtv.audio.fade_mode", DO_FADE_AT_ALSA);
+    int fade_mode = property_get_int32("vendor.dtv.audio.fade_mode", DO_FADE_AT_HAL);
     int duration_ms = 0;
 
     switch (fade_mode) {
@@ -1473,7 +1473,8 @@ void tv_do_ease_out(struct aml_audio_device *aml_dev)
                         aml_dev->ms12.do_easing = true;
                         ALOGI("%s()  %d ms doing easing out", __func__, duration_ms);
                         set_ms12_main_audio_mute(&aml_dev->ms12, true, duration_ms);
-                        usleep(2 * duration_ms * 1000);
+                        /*left 10ms for ms12 to do complete fade process*/
+                        usleep((duration_ms + 10) * 1000);
                         aml_dev->ms12.do_easing = false;
                     } else {
                         start_ease_out(aml_dev->audio_ease, is_TV(aml_dev), duration_ms / 2);

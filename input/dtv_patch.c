@@ -4732,7 +4732,8 @@ static int release_dtv_output_stream_thread(struct aml_audio_patch *patch)
         pthread_join(patch->audio_output_threadID, NULL);
         pthread_mutex_destroy(&patch->dtv_output_mutex);
         patch->output_thread_created = 0;
-        set_output_device_mute(aml_dev, AUDIO_DEVICE_OUT_SPEAKER, false, true);
+        //no need to do unmute speaker here,adev close output stream has already called unmute.
+        //set_output_device_mute(aml_dev, AUDIO_DEVICE_OUT_SPEAKER, false, true);
     }
     ALOGI("--%s", __FUNCTION__);
     return 0;
@@ -5189,11 +5190,15 @@ int out_pause_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
         if (aml_out->stream_status == STREAM_PAUSED) {
             return ret;
         }
+        if ( get_dev_patch(adev)) {
+            tv_do_ease_out(adev);
+        }
         if (dtvsync && dtvsync->mediasync_new) {
             aml_dtvsync_setPause(dtvsync, true);
         }
         cmd = (path_id << DVB_DEMUX_ID_BASE | AUDIO_DTV_PATCH_CMD_PAUSE);
         ret = dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_CONTROL, cmd);
+
     }
     aml_out->stream_status = STREAM_PAUSED;
     return ret;
@@ -5214,6 +5219,10 @@ int out_resume_dtv_stream_for_tunerframework(struct audio_stream_out *stream)
         if (aml_out->stream_status != STREAM_PAUSED) {
             return ret;
         }
+        if (get_dev_patch(adev)) {
+           adev->mute_start = true;
+        }
+
         if (dtvsync && dtvsync->mediasync_new) {
             aml_dtvsync_setPause(dtvsync, false);
         }

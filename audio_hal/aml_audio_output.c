@@ -407,7 +407,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                         volume *= adev->eq_data.p_gain.media2spk_extra_gain;
                     }
                     volume *= adev->eq_data.p_gain.speaker * adev->sink_gain[OUTPORT_SPEAKER];
-                    if (is_same_patch_src(adev, SRC_DTV) && get_dev_patch(adev)->cbs_patch) {
+                    if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_exist(adev) && get_dev_patch(adev)->cbs_patch) {
                          volume *= get_dtv_volume(adev);
                     }
 
