@@ -69,6 +69,7 @@ typedef struct _aml_mmap_audio_client_st {
     struct audioCfg                 stCfg;
     enum aml_mmap_audio_status_t    status;
     bool                            bBufferReady;
+    pthread_mutex_t                 statusMutex;
 } aml_mmap_audio_client_st;
 
 
@@ -432,6 +433,7 @@ static int outMmapStart(const struct audio_stream_out *stream)
     aml_mmap_thread_param_st *pstThread = &pstMmapMananger->stThreadParam;
 
     pstParam->u32FramePosition = 0;
+    pstParam->s64BufferEmptyNs = 0;
     if (mmap_audio_start_client(pstMmapMananger, out->mmap_audio_client_id) != 0) {
         AM_LOGE("mmap_audio_start_client failed(client_id %d)", out->mmap_audio_client_id);
         return -ENOSYS;
@@ -460,14 +462,24 @@ static int outMmapStop(const struct audio_stream_out *stream)
         return -ENOSYS;
     }
 
-    /*sleep some time, to make sure the read thread read all the data*/
-    aml_audio_sleep(8 * 1000);
+    /*
+     * sleep some time, to make sure the read thread read all the data
+     * currently, nts aaudio server buffer is about 16ms(minus 1ms for system jitter)
+    */
+    if (pstParam->time_nanoseconds > 0) {
+        pstParam->s64BufferEmptyNs = pstParam->time_nanoseconds + 15 * 1000 * 1000;
+        aml_audio_sleep(8 * 1000);
+    } else {
+        pstParam->s64BufferEmptyNs = 0;
+    }
+    /*
     if (mmap_audio_stop_client_complete(mmap_audio_manager, mmap_audio_client_id) != 0) {
         AM_LOGE("mmap_audio_stop_client failed(client_id %d)", mmap_audio_client_id);
         return -ENOSYS;
     }
     memset(pstParam->pu8MmapAddr, 0, pstParam->u32BufferSize);
     pstParam->u32FramePosition = 0;
+    */
     AM_LOGI("--stream:%p", stream);
     return 0;
 }
@@ -910,6 +922,7 @@ int mmap_audio_register_client(void *pstMananger, struct aml_stream_out *aml_out
     pstMmapMananger->pstClientList[index] = pstMmapClient;
     aml_out->mmap_audio_manager = pstMmapMananger;
     aml_out->mmap_audio_client_id = index;
+    pthread_mutex_init(&pstMmapClient->statusMutex, NULL);
     pthread_mutex_unlock(&pstMmapMananger->mutex);
     AM_LOGI("OK ! stream %p, client id %d",  aml_out, index);
 
@@ -938,6 +951,7 @@ void mmap_audio_unregister_client(void *pstMananger, int client_id)
         pstMmapClient->pu8TempBuf = NULL;
         pstMmapClient->uxTempBufLen = 0;
     }
+    pthread_mutex_destroy(&pstMmapClient->statusMutex);
     AM_LOGI("OK ! stream %p, client id %d",  pstMmapClient->stStream, client_id);
     aml_audio_free(pstMmapClient);
     pstMmapMananger->pstClientList[client_id] = NULL;
@@ -968,7 +982,10 @@ int mmap_audio_start_client(void *pstMananger, int client_id)
         AM_LOGE("mmap status is %d !", pstMmapClient->status);
         return -ENODATA;
     }
+
+    pthread_mutex_lock(&pstMmapClient->statusMutex);
     pstMmapClient->status = MMAP_START;
+    pthread_mutex_unlock(&pstMmapClient->statusMutex);
     return 0;
 }
 
@@ -986,7 +1003,10 @@ int mmap_audio_stop_client(void *pstMananger, int client_id)
         AM_LOGW("not start done or mmap not init");
         return -ENODATA;
     }
+    pthread_mutex_lock(&pstMmapClient->statusMutex);
     pstMmapClient->status = MMAP_STOP;
+    pthread_mutex_unlock(&pstMmapClient->statusMutex);
+    AM_LOGI("stream %p, client id %d, stop",  pstMmapClient->stStream, client_id);
     return 0;
 }
 
@@ -1004,7 +1024,10 @@ int mmap_audio_stop_client_complete(void *pstMananger, int client_id)
         AM_LOGW("not in stop status");
         return -ENODATA;
     }
+    pthread_mutex_lock(&pstMmapClient->statusMutex);
     pstMmapClient->status = MMAP_STOP_DONE;
+    pthread_mutex_unlock(&pstMmapClient->statusMutex);
+    AM_LOGI("stream %p, client id %d, stop_done",  pstMmapClient->stStream, client_id);
     return 0;
 }
 
@@ -1126,6 +1149,22 @@ static int mmap_audio_process_client_data(aml_mmap_audio_client_st *pstMmapClien
     apply_volume(out->volume_l, pu8TempBufferAddr, 2, u32BurstSizeByte);
     pstMmapClient->u32BytesAvail = u32BurstSizeByte;
     pstMmapClient->u32FramesAvail = frames;
+
+    // NTS AUDIO-AGGRPLAYDELAY
+    // All ui audio data should be played and stop-start latency still be short.
+    if (pstMmapClient->status == MMAP_STOP) {
+        int64_t interval_ns = pstParam->time_nanoseconds - pstParam->s64BufferEmptyNs;
+
+        pthread_mutex_lock(&pstMmapClient->statusMutex);
+        if (pstMmapClient->status == MMAP_STOP && interval_ns >= 0) {
+            pstMmapClient->status = MMAP_STOP_DONE;
+            memset(pstParam->pu8MmapAddr, 0, pstParam->u32BufferSize);
+            pstParam->u32FramePosition = 0;
+            pstParam->s64BufferEmptyNs = 0;
+            AM_LOGI("stream %p, client id %d, stop_done", out, pstMmapClient->s32AllocId);
+        }
+        pthread_mutex_unlock(&pstMmapClient->statusMutex);
+    }
 
     if (out->dev->debug_flag) {
         int buffer_frames = pstParam->u32BufferSize/pstParam->u32FrameSize;

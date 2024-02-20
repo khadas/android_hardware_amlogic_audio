@@ -50,6 +50,7 @@ typedef struct AML_MMAP_AUDIO_PARAM {
     unsigned int                u32FrameSize;
     unsigned int                u32BufferSize;
     int64_t                     time_nanoseconds;
+    int64_t                     s64BufferEmptyNs;
     /*This variable is used for mark mmap stream position function invoked by first time.
     **It was fixed for VTS case(GetMmapPositionOfNonMmapedStream).
     */
