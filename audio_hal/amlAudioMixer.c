@@ -2101,11 +2101,14 @@ struct amlAudioMixer *newAmlAudioMixer(struct aml_audio_device *adev, struct aud
     pthread_mutex_init(&audio_mixer->lock, NULL);
     pthread_mutex_init(&audio_mixer->inport_lock, NULL);
 
-    memset(&aaudio_config, 0, sizeof(aaudio_config));
-    aaudio_config.sample_rate = 48000;
-    aaudio_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
-    aaudio_config.format = AUDIO_FORMAT_PCM_16_BIT;
-    init_mixer_multi_aaudio_input_port(audio_mixer, &aaudio_config);
+    audio_mixer->multi_aaudio_port_index = -1;
+    if (get_media_aaudio_enable_status()) {
+        memset(&aaudio_config, 0, sizeof(aaudio_config));
+        aaudio_config.sample_rate = 48000;
+        aaudio_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
+        aaudio_config.format = AUDIO_FORMAT_PCM_16_BIT;
+        init_mixer_multi_aaudio_input_port(audio_mixer, &aaudio_config);
+    }
 
     AM_LOGI("mixer_type:%d chNum:%d format:0x%x main_channel_mask:0x%x",
         audio_mixer->type, mixer_cfg.channelCnt, mixer_cfg.format, main_channel_mask);

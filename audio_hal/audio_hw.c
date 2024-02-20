@@ -3348,7 +3348,11 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         const char *llp_prop = "vendor.media.llp";
         bool request_llp_mode = false;
 
-        outMmapInit(out);
+        if (outMmapInit(out) != 0) {
+            AM_LOGE("outMmapInit out %p fail !", out);
+            ret = -1;
+            goto err;
+        }
         request_llp_mode = getprop_bool(llp_prop);
         AM_LOGI("%s %d", llp_prop, request_llp_mode);
 
@@ -3563,8 +3567,8 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     }
 
     if (out->flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) {
-        outMmapDeInit(out);
-        if (out->aaudio_low_latency) {
+        ret = outMmapDeInit(out);
+        if (ret == 0 && out->aaudio_low_latency) {
             aml_leave_aaudio_low_latency(adev);
             get_sink_format((struct audio_stream_out *)out);
             out->aaudio_low_latency = false;
@@ -8828,7 +8832,9 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->aaudio_low_latency_count = 0;
 
     create_async_write_thread();
-    adev->mmap_audio_manager = mmap_audio_new_manager(eDolbyMS12Lib == adev->dolby_lib_type);
+    if (get_media_aaudio_enable_status()) {
+        adev->mmap_audio_manager = mmap_audio_new_manager(eDolbyMS12Lib == adev->dolby_lib_type);
+    }
 
     adev_open_sys_resource_mgr(adev);
 

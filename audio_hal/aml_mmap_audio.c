@@ -678,6 +678,10 @@ int outMmapInit(struct aml_stream_out *out)
         return -1;
     }
     pstMmapMananger = adev->mmap_audio_manager;
+    if (pstMmapMananger == NULL) {
+        AM_LOGE("pstMmapMananger is NULL");
+        return -1;
+    }
 
     out->stream.start = outMmapStart;
     out->stream.stop = outMmapStop;
@@ -731,7 +735,8 @@ int outMmapDeInit(struct aml_stream_out *out)
     AM_LOGI("stream:%p", out);
     aml_mmap_audio_param_st     *pstParam = (aml_mmap_audio_param_st *)out->pstMmapAudioParam;
     aml_mmap_audio_manager_st   *pstMmapMananger = out->mmap_audio_manager;
-    R_CHECK_POINTER_LEGAL(0, pstParam, "uninitialized, can't deinit");
+    R_CHECK_POINTER_LEGAL(-1, pstParam, "uninitialized, can't deinit");
+    R_CHECK_POINTER_LEGAL(-1, pstMmapMananger, "");
 
     mmap_audio_unregister_client(pstMmapMananger, out->mmap_audio_client_id);
     munmap(pstParam->pu8MmapAddr, pstParam->u32BufferSize);

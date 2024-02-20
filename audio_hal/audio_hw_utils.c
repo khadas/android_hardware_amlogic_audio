@@ -3187,6 +3187,26 @@ bool is_aaudio_low_latency_mode()
     return false;
 }
 
+enum AudioMMapPolicy {
+    MMAP_POLICY_UNSPECIFIED = 0,
+    MMAP_POLICY_NEVER = 1,
+    MMAP_POLICY_AUTO = 2,
+    MMAP_POLICY_ALWAYS = 3,
+};
+
+bool get_media_aaudio_enable_status()
+{
+    const char *mmapPolicyProperty = "aaudio.mmap_policy";
+    int mmapPolicy = aml_getprop_int(mmapPolicyProperty);
+
+    if (mmapPolicy == MMAP_POLICY_AUTO || mmapPolicy == MMAP_POLICY_ALWAYS) {
+        AM_LOGI("return true");
+        return true;
+    }
+    AM_LOGI("return false");
+    return false;
+}
+
 /** this macro, passing mask's name and value
  * If X with masking, then format name to output string(S)
  *
