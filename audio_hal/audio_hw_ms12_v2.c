@@ -1665,6 +1665,7 @@ int dolby_ms12_main_process(
                     ALOGE("wrong ac4 frame size");
                     goto exit;
                 }
+                update_audio_format(adev, ms12_hal_format);
 
             }
         } else {

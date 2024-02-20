@@ -7158,7 +7158,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         ret = write_func_p(stream, buffer, bytes);
         /* update audio format to display audio info banner.*/
         /* DTS needs earlier update in decode flow */
-        if (!is_dts_format(aml_out->hal_internal_format))
+        if (!is_dts_format(aml_out->hal_internal_format) && (aml_out->hal_internal_format != AUDIO_FORMAT_AC4))
             update_audio_format(adev, aml_out->hal_internal_format);
     }
     aml_audio_trace_int("out_write_new", 0);

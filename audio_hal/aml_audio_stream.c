@@ -44,7 +44,8 @@
 #ifdef MS12_V24_ENABLE
 #include "audio_hw_ms12_v2.h"
 #endif
-#define FMT_UPDATE_THRESHOLD_MAX    (10)
+#define DOLBY_AC4_FMT_UPDATE_THRESHOLD  (40)
+#define FMT_UPDATE_THRESHOLD_MAX    (100)
 #define DOLBY_FMT_UPDATE_THRESHOLD  (5)
 #define DTS_FMT_UPDATE_THRESHOLD    (1)
 
@@ -1083,6 +1084,9 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
 
     if (is_dolby_ms12_support_compression_format(format)) {
         update_threshold = DOLBY_FMT_UPDATE_THRESHOLD;
+        if (format == AUDIO_FORMAT_AC4) {
+            update_threshold = DOLBY_AC4_FMT_UPDATE_THRESHOLD;
+        }
     } else if (is_dts_format(format)) {
         update_threshold = DTS_FMT_UPDATE_THRESHOLD;
     }
