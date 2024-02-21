@@ -313,7 +313,6 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     bool do_sync_flag = dtv_stream_flag && patch && patch->skip_amadec_flag && patch->dtvsync->sync_type == DTVSYNC_MEDIASYNC;
 #endif
 
-
     /*
      * define the bypass_aml_dec by audio format
      * 1. AC3/E-AC3/E-AC3_JOC/AC4/TrueHD/MAT
@@ -333,9 +332,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
         if (do_sync_flag) {
             if (patch->skip_amadec_flag) {
                 if (patch->cur_package) {
-                    if (patch->cur_package->pts == 0) {
-                        patch->cur_package->pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
-                    }
+                    get_dtv_checkin_pts(stream, &patch->cur_package->pts,0,0);
                 }
             }
         }
