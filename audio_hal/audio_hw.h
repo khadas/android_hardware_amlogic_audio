@@ -549,6 +549,7 @@ struct aml_audio_device {
     audio_format_t primary_out_format;
     /* index for submix ringbuffer */
     int port_index;
+    pthread_mutex_t bitstream_lock;
 };
 
 struct meta_data {

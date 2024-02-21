@@ -580,6 +580,11 @@ int aml_audio_spdifout_process(void *phandle, void *buffer, size_t byte)
     device_id = spdifout_phandle->device_id;
     alsa_handle = aml_dev->alsa_handle[device_id];
 
+    if (phandle && NULL == alsa_handle) {
+        ALOGW("%s: alsa_handle:%p, need to close spdifout %p, return directly", __func__, alsa_handle, phandle);
+        return AML_SPDIFOUT_PROCESS_ALSA_IS_NULL;
+    }
+
     if (spdifout_phandle->need_spdif_enc) {
         ret = aml_spdif_encoder_process(spdifout_phandle->spdif_enc_handle, buffer, byte, &output_buffer, &output_buffer_bytes);
         if (ret != 0) {
@@ -714,7 +719,7 @@ int aml_audio_spdifout_close(void *phandle)
     alsa_handle = aml_dev->alsa_handle[device_id];
 
     if (alsa_handle) {
-        ALOGI("%s close spdif output bitstream id=%d handle %p", __func__, device_id, alsa_handle);
+        ALOGI("%s close spdif output bitstream id=%d handle %p, phandle:%p", __func__, device_id, alsa_handle, phandle);
         /*when spdif is closed, we need set raw to pcm flag, other spdif pcm may have problem*/
         aml_alsa_output_close_new(alsa_handle);
         aml_dev->alsa_handle[device_id] = NULL;
