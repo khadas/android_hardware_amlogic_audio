@@ -7151,6 +7151,15 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         aml_out->continuous_mode_check = false;
     }
 
+    if (adev->ms12.dolby_ms12_enable) {
+        if (aml_out->is_mat_changed) {
+            ALOGI("MAT1.0(truehd) is different with MAT2.0(pcm)&MAT2.1(atmos), MAT format is changed. Need to reset MS12 pipeline.");
+            dolby_ms12_main_close(stream);
+            aml_out->is_mat_changed = false;
+        }
+    }
+
+
     aml_audio_trace_int("out_write_new", bytes);
     /**
      * deal with the device output changes

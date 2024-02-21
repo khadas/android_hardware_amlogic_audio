@@ -4125,6 +4125,7 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
     set_ms12_main_audio_mute(ms12, false, 0);
     adev->ms12.main_input_fmt = AUDIO_FORMAT_INVALID;
     ms12->ms12_main_stream_out = NULL;
+    ms12->mat_stream_profile = 0;
 
     return 0;
 }
