@@ -8119,6 +8119,7 @@ static int adev_close(hw_device_t *device)
         ALOGD("%s, ms12_mesg_thread_destroy finished!\n", __func__);
     }
     aml_audio_all_timer_delete();
+    pthread_mutex_destroy(&adev->bitstream_lock);
 
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         int wait_count = 0;
@@ -8778,6 +8779,10 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->count = 1;
     aml_audio_board_config_init(&adev->board_config);
 
+    if (pthread_mutex_init(&adev->bitstream_lock, NULL)) {
+        ALOGE("%s pthread_mutex_init(bitstream_lock) failed", __func__);
+        goto err_vol_ease;
+    }
     ALOGD("%s adev->dolby_lib_type:%d  !is_TV(adev):%d", __func__, adev->dolby_lib_type, !is_TV(adev));
     /* create thread for communication between Audio Hal and MS12 */
     if ((eDolbyMS12Lib == adev->dolby_lib_type)) {
@@ -8830,7 +8835,6 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     return 0;
 
 Err_MS12_MesgThreadCreate:
-
     aml_audio_ease_close(adev->volume_ease.ease);
 err_vol_ease:
     aml_audio_ease_close(adev->audio_ease);

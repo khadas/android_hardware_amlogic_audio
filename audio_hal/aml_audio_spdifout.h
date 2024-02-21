@@ -21,6 +21,16 @@
 #define IEC_DD_FRAME_SIZE 1536
 #define IEC_DDP_FRAME_SIZE 6144
 
+enum {
+    AML_SPDIFOUT_PROCESS_INVALID,
+    AML_SPDIFOUT_PROCESS_ERROR = -1,
+
+    AML_SPDIFOUT_PROCESS_OK = 0,
+    AML_SPDIFOUT_PROCESS_ALSA_IS_NULL = 10,
+
+    AML_SPDIFOUT_PROCESS_MAX
+};
+
 typedef struct {
     audio_format_t audio_format;
     audio_format_t sub_format;

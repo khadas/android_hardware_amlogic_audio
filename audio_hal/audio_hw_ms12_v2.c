@@ -710,6 +710,8 @@ int get_ms12_mat_dec_delay() {
 
 static void ms12_close_all_spdifout(struct dolby_ms12_desc *ms12) {
     int i = 0;
+    struct aml_audio_device *adev = adev_get_handle();
+    pthread_mutex_lock(&adev->bitstream_lock);
     for (i = 0; i < BITSTREAM_OUTPUT_CNT; i++) {
         struct bitstream_out_desc * bitstream_out = &ms12->bitstream_out[i];
         if (bitstream_out->spdifout_handle) {
@@ -719,6 +721,7 @@ static void ms12_close_all_spdifout(struct dolby_ms12_desc *ms12) {
         }
         memset(bitstream_out, 0, sizeof(struct bitstream_out_desc));
     }
+    pthread_mutex_unlock(&adev->bitstream_lock);
 }
 
 void dynamic_set_dolby_ms12_drc_parameters(struct dolby_ms12_desc *ms12)
@@ -2235,6 +2238,7 @@ static ssize_t aml_ms12_spdif_output_new (struct audio_stream_out *stream,
 
     int ret = 0;
 
+    pthread_mutex_lock(&adev->bitstream_lock);
     /*some switch happen*/
     if (bitstream_desc->spdifout_handle != NULL && bitstream_desc->audio_format != output_format) {
         ALOGI("spdif output format changed from =0x%x to 0x%x", bitstream_desc->audio_format, output_format);
@@ -2268,6 +2272,7 @@ static ssize_t aml_ms12_spdif_output_new (struct audio_stream_out *stream,
         bitstream_desc->sample_rate = spdif_config.rate;
         ret = aml_audio_spdifout_open(&bitstream_desc->spdifout_handle, &spdif_config);
         if (ret != 0) {
+            pthread_mutex_unlock(&adev->bitstream_lock);
             ALOGE("open spdif out failed\n");
             return ret;
         }
@@ -2295,6 +2300,7 @@ static ssize_t aml_ms12_spdif_output_new (struct audio_stream_out *stream,
     if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0) {
         aml_audio_spdifout_config_earc_ca(bitstream_desc->spdifout_handle, ch_mask);
     }
+    pthread_mutex_unlock(&adev->bitstream_lock);
 
     return ret;
 }
@@ -2391,6 +2397,7 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
                 } while (1);
             }
 
+            pthread_mutex_lock(&adev->bitstream_lock);
             if ((bitstream_out->spdifout_handle != NULL ) &&
                 ((bitstream_out->audio_format != output_format) ||
                 (bitstream_out->sample_rate !=  aml_out->hal_rate))) {
@@ -2429,10 +2436,12 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
                 bitstream_out->is_bypass_ms12 = ms12->is_bypass_ms12;
                 ret = aml_audio_spdifout_open(&bitstream_out->spdifout_handle, &spdif_config);
                 if (ret != 0) {
+                    pthread_mutex_unlock(&adev->bitstream_lock);
                     ALOGE("%s open spdif out failed\n", __func__);
                     return ret;
                 }
             }
+            pthread_mutex_unlock(&adev->bitstream_lock);
         }
 
         bitstream_out->audio_format = output_format;
@@ -2475,8 +2484,21 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
              }
         }
 #endif
-        aml_audio_spdifout_process(bitstream_out->spdifout_handle, buffer, bytes);
-
+        /*
+        **ms12 callback write dd stream and ac3 bypass write dd stream, the two thread use the same alsa
+        **device(dd) handle. It will appear that alsa device of ac3 bypss is closed by upper bitstream_out_b
+        **detected aml_audio_spdifout_close logic.
+        **that leads to this scene, spdifout_handle is not null but the alsa handle is null.
+        **Here add a protect to reopen alsa device by closing spdifout_handle.
+        */
+        pthread_mutex_lock(&adev->bitstream_lock);
+        ret = aml_audio_spdifout_process(bitstream_out->spdifout_handle, buffer, bytes);
+        if (ret == AML_SPDIFOUT_PROCESS_ALSA_IS_NULL) {
+            ALOGW("%s: close spdifout %p, then auto reopen it next call", __func__, bitstream_out->spdifout_handle);
+            aml_audio_spdifout_close(bitstream_out->spdifout_handle);
+            bitstream_out->spdifout_handle = NULL;
+        }
+        pthread_mutex_unlock(&adev->bitstream_lock);
     }
 
     return 0;
