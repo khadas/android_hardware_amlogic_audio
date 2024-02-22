@@ -166,7 +166,7 @@ int TrebleBass_load_ini_file(TREBLEBASSContext *pContext)
 
     result = 0;
 error:
-    ALOGD("%s: %s", __FUNCTION__, result == 0 ? "sucessful" : "failed");
+    ALOGD("%s: %s", __FUNCTION__, result == 0 ? "successful" : "failed");
     delete pIniParser;
     pIniParser = NULL;
     return result;
@@ -193,7 +193,7 @@ int TrebleBass_init(TREBLEBASSContext *pContext)
     pContext->config.outputCfg.bufferProvider.releaseBuffer = NULL;
     pContext->config.outputCfg.bufferProvider.cookie = NULL;
     pContext->config.outputCfg.mask = EFFECT_CONFIG_ALL;
-    ALOGD("%s: sucessful", __FUNCTION__);
+    ALOGD("%s: successful", __FUNCTION__);
 
     return 0;
 }

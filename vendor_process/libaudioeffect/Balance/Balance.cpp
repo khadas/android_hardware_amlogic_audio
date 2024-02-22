@@ -247,7 +247,7 @@ int Balance_load_ini_file(BalanceContext *pContext)
 
     result = 0;
 error:
-    ALOGD("%s: %s", __FUNCTION__, result == 0 ? "sucessful" : "failed");
+    ALOGD("%s: %s", __FUNCTION__, result == 0 ? "successful" : "failed");
     delete pIniParser;
     pIniParser = NULL;
     return result;
@@ -280,7 +280,7 @@ int Balance_init(BalanceContext *pContext)
     data->RampVolumeR = 1.0;
     pthread_mutex_init(&pContext->lock, NULL);
 
-    ALOGD("%s: sucessful", __FUNCTION__);
+    ALOGD("%s: successful", __FUNCTION__);
 
     return 0;
 }
