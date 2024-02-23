@@ -275,7 +275,7 @@ int HPEQ_load_ini_file(HPEQContext *pContext)
 
     result = 0;
 error:
-    ALOGD("%s: %s", __FUNCTION__, result == 0 ? "sucessful" : "failed");
+    ALOGD("%s: %s", __FUNCTION__, result == 0 ? "successful" : "failed");
     delete pIniParser;
     pIniParser = NULL;
     return result;
@@ -310,7 +310,7 @@ int HPEQ_init(HPEQContext *pContext)
 
     HPEQ_init_api((void *)data, HPEQ_5_BAND);
 
-    ALOGD("%s: sucessful", __FUNCTION__);
+    ALOGD("%s: successful", __FUNCTION__);
 
     return 0;
 }
