@@ -1083,17 +1083,6 @@ int get_the_dolby_ms12_prepared(
         output_config = bd_config->ms12_output_mask;
     set_dolby_ms12_drc_parameters(input_format, output_config);
 
-    /* 1.If HDMIIN-source got Atmos_Music_32_Objects_PCM_MAT2.mat / Atmos_Music_16_Objects_TrueHD.mat to ARC-sink */
-    /*   with 'top' command, found the 'android.hardware.audio.service-droidlogic' will used 80%+ CPU. */
-    /* 2.To reconfig the ms12 nodes depending on the user case when digital input case to refine ms12 performance */
-    /* 3.For DDP-ARC,  top result about 60%+ CPU */
-    /* 4.For MAT-eARC, top result about 50%+ CPU */
-    if (is_dev_patch_valid(adev) && is_dev_patch_exist(adev) && \
-           (get_dev_patch(adev)->input_src == AUDIO_DEVICE_IN_HDMI || get_dev_patch(adev)->input_src == AUDIO_DEVICE_IN_SPDIF)) {
-        output_config = get_ms12_output_mask(adev->sink_format, adev->optical_format,
-            (adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0);
-    }
-
     if (is_dev_patch_valid(adev) && is_dev_patch_exist(adev) && get_dev_patch(adev)->input_src == AUDIO_DEVICE_IN_HDMI) {
         if (!adev->continuous_audio_mode &&
             ((input_format == AUDIO_FORMAT_AC3) || (input_format == AUDIO_FORMAT_E_AC3))) {
