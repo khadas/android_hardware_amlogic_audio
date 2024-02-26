@@ -4728,34 +4728,35 @@ static int adev_init_later(struct aml_audio_device *adev, struct aml_stream_out 
         AM_LOGE("fail, flags=0x%x aml_out=NULL !", flags);
         return -1;
     }
-
-    if ((flags & AUDIO_OUTPUT_FLAG_PRIMARY) || (!primaryOutFormat && !flags)) {
-        primaryOutFormat = aml_out->hal_format;
-        uint32_t primaryOutRate = aml_out->hal_rate;
-
-        if (primaryOutFormat != AUDIO_FORMAT_PCM_16_BIT && primaryOutFormat != AUDIO_FORMAT_PCM_32_BIT) {
-            primaryOutFormat = AUDIO_FORMAT_PCM_16_BIT;
-        }
-        set_primary_out_format(adev, primaryOutFormat);
-        primaryOutFormat = get_primary_out_format(adev);
-
-        if (adev->useSubMix && !adev->sm) {
-            initHalSubMixing(&adev->sm, MIXER_LPCM, adev, is_TV(adev));
-            subMixingSetSrcGain(adev, aml_audio_get_s_gain_by_src(adev, SRC_OTHER));
-#ifdef USB_KARAOKE
-            subMixingSetKaraoke(adev, &adev->usb_audio.karaoke);
-            pthread_mutex_init(&adev->usb_audio.karaoke.lock, NULL);
-            adev->usb_audio.karaoke.kara_mic_gain = 1.0;
-#endif
-        }
-
-        init_vendor_post_process(&adev->native_postprocess, primaryOutFormat);
-        if (is_vendor_support_libvx(&adev->native_postprocess)) {
-            dca_set_out_ch_internal(0);
-        }
-
-        AM_LOGI("AAAA primaryOutFormat:%s primaryOutRate:%d", audioFormat2Str(primaryOutFormat), primaryOutRate);
+   /*When an XTS test item split is run on multiple devices, a submix may not be created, resulting in a crash*/
+    if ((adev->useSubMix && adev->sm) || primaryOutFormat) {
+        return 0;
     }
+    primaryOutFormat = aml_out->hal_format;
+    uint32_t primaryOutRate = aml_out->hal_rate;
+
+    if (primaryOutFormat != AUDIO_FORMAT_PCM_16_BIT && primaryOutFormat != AUDIO_FORMAT_PCM_32_BIT) {
+        primaryOutFormat = AUDIO_FORMAT_PCM_16_BIT;
+    }
+    set_primary_out_format(adev, primaryOutFormat);
+    primaryOutFormat = get_primary_out_format(adev);
+
+    if (adev->useSubMix && !adev->sm) {
+        initHalSubMixing(&adev->sm, MIXER_LPCM, adev, is_TV(adev));
+        subMixingSetSrcGain(adev, aml_audio_get_s_gain_by_src(adev, SRC_OTHER));
+#ifdef USB_KARAOKE
+        subMixingSetKaraoke(adev, &adev->usb_audio.karaoke);
+        pthread_mutex_init(&adev->usb_audio.karaoke.lock, NULL);
+        adev->usb_audio.karaoke.kara_mic_gain = 1.0;
+#endif
+    }
+
+    init_vendor_post_process(&adev->native_postprocess, primaryOutFormat);
+    if (is_vendor_support_libvx(&adev->native_postprocess)) {
+        dca_set_out_ch_internal(0);
+    }
+
+    AM_LOGI("AAAA primaryOutFormat:%s primaryOutRate:%d", audioFormat2Str(primaryOutFormat), primaryOutRate);
 
     return 0;
 }
