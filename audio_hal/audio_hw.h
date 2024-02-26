@@ -758,6 +758,7 @@ struct aml_stream_out {
     struct timespec last_avsync_timestamp;
     int64_t jitter_ms;
     int     audio_delay;
+    int64_t needs_compensation_timeus;
     void *kara;
     uint64_t hwsync_parsed_frames_sum_paused;
     uint32_t last_write_start_time_in_ms; // For checking the writing time

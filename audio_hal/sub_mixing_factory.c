@@ -714,8 +714,20 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
         AM_LOGV("time spent on write %" PRId64 " us, written %zd", us_since_last_write, written);
         AM_LOGV("used_this_write %d us, target %d us", used_this_write, target_us);
         throttle_timeus = target_us - us_since_last_write;
+        if (throttle_timeus < 0 && us_since_last_write <= 500000)
+            out->needs_compensation_timeus += throttle_timeus;
+
         if (throttle_timeus > 0 && throttle_timeus < 200000) {
             AM_LOGV("throttle time %" PRId64 " us", throttle_timeus);
+            if (out->needs_compensation_timeus < 0) {
+                if (throttle_timeus <= llabs(out->needs_compensation_timeus)) {
+                    out->needs_compensation_timeus += throttle_timeus;
+                    goto exit;
+                } else {
+                    throttle_timeus += out->needs_compensation_timeus;
+                    out->needs_compensation_timeus = 0;
+                }
+            }
             if (throttle_timeus > 1800) {
                 usleep(throttle_timeus - 1800);
                 AM_LOGV("actual throttle %" PRId64 " us, since last %" PRId64 " us",
