@@ -146,6 +146,21 @@ int aml_hwsync_wrap_reset_pcrscr(audio_hwsync_t *p_hwsync, uint64_t pts)
     return 0;
 }
 
+int aml_hwsync_wrap_force_reset_pcrscr(audio_hwsync_t *p_hwsync, uint64_t pts)
+{
+    ALOGI("%s(), reset mediasync pcr:(%" PRIu64 ")", __func__, pts);
+    if (!p_hwsync->use_mediasync) {
+        ALOGE("%s : not support tsync", __func__);
+        return -1;
+    }
+    int64_t timeus = ((int64_t)pts) / 90 *1000;
+    bool ret = mediasync_wrap_forceUpdateAnchor(p_hwsync->mediasync, timeus, 0, 0);
+    if (ret == false) {
+        ALOGE("mediasync_wrap_forceUpdateAnchor error");
+        return -1;
+    }
+    return 0;
+}
 
 
 /***************  mediasync interfaces.   *****************/
@@ -281,6 +296,10 @@ void aml_hwsync_wrap_wait_video_drop(audio_hwsync_t *p_hwsync, uint64_t cur_pts,
     }
     ret = mediasync_wrap_getSyncMode(p_hwsync->mediasync, &mode);
     if (!ret) {
+        return;
+    }
+    if (mode != MEDIA_SYNC_VMASTER) {
+        AM_LOGE("not support mode %d", mode);
         return;
     }
     nowUs = systemTime(SYSTEM_TIME_MONOTONIC) / 1000LL;
@@ -501,11 +520,15 @@ void aml_hwsync_wrap_is_amaster(audio_hwsync_t *p_hwsync, bool *b_amaster) {
     return;
 }
 
-void aml_hwsync_wrap_set_amaster(audio_hwsync_t *p_hwsync)
+void aml_hwsync_wrap_set_amaster(audio_hwsync_t *p_hwsync, bool b_amster)
 {
     if (p_hwsync == NULL || p_hwsync->mediasync == NULL) {
         ALOGE("%s : p_hwsync(%p) or mediasync(%p) is NULL", __func__, p_hwsync, p_hwsync->mediasync);
         return;
     }
-    mediasync_wrap_setSyncMode(p_hwsync->mediasync, MEDIA_SYNC_AMASTER);
+    if (b_amster) {
+        mediasync_wrap_setSyncMode(p_hwsync->mediasync, MEDIA_SYNC_AMASTER);
+    } else {
+        mediasync_wrap_setSyncMode(p_hwsync->mediasync, MEDIA_SYNC_VMASTER);
+    }
 }

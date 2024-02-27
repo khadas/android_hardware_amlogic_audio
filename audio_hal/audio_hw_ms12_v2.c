@@ -3403,6 +3403,24 @@ Aml_MS12_SyncPolicy_t ms12_sync_callback(void *priv_data, unsigned long long u64
     }
     ret = aml_audio_hwsync_lookup_apts(aml_out->hwsync, consume_payload, &apts);
 
+    // Fix : several hwsync header pts is the same, result in avsync jitter and inserting zero data
+    if (audio_is_linear_pcm(aml_out->hal_internal_format) && ret == 0 && aml_out->hwsync->first_apts_flag) {
+        if (apts == aml_out->last_hwsync_header_pts) {
+            uint64_t pts_delta = 0;
+            if (consume_payload > aml_out->last_payload_offset) {
+                pts_delta = (consume_payload - aml_out->last_payload_offset) * 90 /(aml_out->hal_frame_size * 48);
+                if (debug_enable) {
+                    AM_LOGI("apts=%"PRIu64", consume_payload=(%"PRIu64", last=%"PRIu64"), frame_size=%d, pts_delta=%"PRIu64"",
+                        apts, consume_payload, aml_out->last_payload_offset, aml_out->hal_frame_size, pts_delta);
+                }
+                apts += pts_delta;
+            }
+        } else {
+            aml_out->last_payload_offset = consume_payload;
+            aml_out->last_hwsync_header_pts = apts;
+        }
+    }
+
     decoded_frame = dolby_ms12_get_decoder_nframes_pcm_output(ms12->dolby_ms12_ptr, audio_format, MAIN_INPUT_STREAM);
     if (aml_out->hal_rate != 48000 && aml_out->hal_rate !=0 && !audio_is_linear_pcm(aml_out->hal_internal_format)) {
         decoded_frame = decoded_frame * 48000 / aml_out->hal_rate;

@@ -1473,6 +1473,8 @@ exit:
         out->tsync_status = TSYNC_STATUS_PAUSED;
         out->hwsync->first_apts_flag = false;
         out->hwsync->wait_video_done = false;
+        // prepare for the next wait_video_drop function
+        aml_hwsync_wrap_set_amaster(out->hwsync, false);
     }
     pthread_mutex_unlock (&adev->lock);
     pthread_mutex_unlock (&out->lock);
@@ -1624,6 +1626,8 @@ static int out_pause_new (struct audio_stream_out *stream)
 exit:
     aml_out->pause_status = true;
     aml_out->hwsync_parsed_frames_sum_paused = aml_out->hwsync_parsed_frames_sum;
+    aml_out->last_payload_offset = 0;
+    aml_out->last_hwsync_header_pts = 0;
 
     pthread_mutex_unlock(&aml_out->lock);
     pthread_mutex_unlock(&aml_dev->lock);
@@ -1738,6 +1742,8 @@ static int out_flush_new (struct audio_stream_out *stream)
         if (out->hw_sync_mode) {
             aml_audio_hwsync_init(out->hwsync, out);
             dolby_ms12_hwsync_init();
+            out->last_payload_offset = 0;
+            out->last_hwsync_header_pts = 0;
         }
         //normal pcm(mixer thread) do not flush dolby ms12 input buffer
         if (continuous_mode(adev) && (out->flags & AUDIO_OUTPUT_FLAG_DIRECT)) {
@@ -3327,6 +3333,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->write_count = 0;
     out->frame_write_sum_updated = false;
     out->is_insert_zero_data = false;
+    out->is_waiting_video = false;
     out->insert_zero_data_ms = 0;
     out->hwsync_parsed_frames_sum_paused = 0;
     out->last_periodic_print_time_in_ms = 0;
@@ -5653,7 +5660,13 @@ void aml_stream_timer_pause_callback(union sigval sigv)
         //cts tunnel underrun case failed, depond on pause/resume invoked from AudioFlinger.
         //sometimes AudioFlinger always invoke the pause to Hal during 800ms for track retry count.
         //so add this code to control pause/resume MediaSync and video in Hal.
-        if (!out->is_insert_zero_data && !out->hwsync->end_of_hwsync_frame)
+
+        //out_pause_new will trigger wait_video_done, the next wait_video_done will cause timeout again,
+        //then enter a dead-loop.
+        AM_LOGI("out=%p is_insert_zero_data=%d end_of_hwsync_frame=%d is_waiting_video=%d",
+            out, out->is_insert_zero_data, out->hwsync->end_of_hwsync_frame, out->is_waiting_video);
+
+        if (!out->is_insert_zero_data && !out->hwsync->end_of_hwsync_frame && !out->is_waiting_video)
             out_pause_new((struct audio_stream_out *)out);
     }
     pthread_mutex_unlock(&adev->stream_release_lock);
@@ -5903,13 +5916,15 @@ hwsync_rewrite:
             if (eDolbyMS12Lib == adev->dolby_lib_type && !is_bypass_dolbyms12(stream)) {
                 if (hw_sync->wait_video_done == false && hw_sync->use_mediasync) {
                     apts64 = cur_pts & ULLONG_MAX;
+                    aml_out->is_waiting_video = true;
                     aml_hwsync_wait_video_start(hw_sync);
                     aml_hwsync_wait_video_drop(hw_sync, apts64);
+                    aml_out->is_waiting_video = false;
                     hw_sync->wait_video_done = true;
                 } else {
                     aml_hwsync_wrap_is_amaster(hw_sync, &amaster_mode);
                     if (!amaster_mode) {
-                        aml_hwsync_wrap_set_amaster(hw_sync);
+                        aml_hwsync_wrap_set_amaster(hw_sync, true);
                     }
                 }
 
@@ -5971,13 +5986,15 @@ hwsync_rewrite:
 
                     aml_audio_hwsync_update_threshold(hw_sync);
                     if (hw_sync->wait_video_done == false) {
+                        aml_out->is_waiting_video = true;
                         aml_hwsync_wait_video_start(hw_sync);
                         aml_hwsync_wait_video_drop(hw_sync, apts64);
+                        aml_out->is_waiting_video = false;
                         hw_sync->wait_video_done = true;
                     } else {
                         aml_hwsync_wrap_is_amaster(hw_sync, &amaster_mode);
                         if (!amaster_mode) {
-                            aml_hwsync_wrap_set_amaster(hw_sync);
+                            aml_hwsync_wrap_set_amaster(hw_sync, true);
                         }
                     }
 
@@ -6078,8 +6095,10 @@ hwsync_rewrite:
                     {
                         if (hw_sync->first_apts_flag == false) {
                             if (hw_sync->wait_video_done == false) {
+                                aml_out->is_waiting_video = true;
                                 if (!adev->is_netflix)
                                     aml_hwsync_wait_video_drop(aml_out->hwsync,apts64);
+                                aml_out->is_waiting_video = false;
 
                                 hw_sync->wait_video_done = true;
                             }

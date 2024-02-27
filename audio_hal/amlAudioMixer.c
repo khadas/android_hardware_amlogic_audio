@@ -902,6 +902,9 @@ static void process_port_msg(input_port *in_port)
             AM_LOGI("[%s:%d] hwsync:%p tsync pause", __func__, __LINE__, hwsync);
             if (hwsync != NULL) {
                 aml_hwsync_wrap_set_pause(hwsync);
+                // prepare for the next wait_video_drop function
+                hwsync->wait_video_done = false;
+                aml_hwsync_wrap_set_amaster(hwsync, false);
             }
             set_inport_state(in_port, PAUSING);
             break;

@@ -41,6 +41,10 @@ bool mediasync_wrap_clearAnchor(void* handle);
 bool mediasync_wrap_updateAnchor(void* handle, int64_t anchorTimeMediaUs,
 								int64_t anchorTimeRealUs,
 								int64_t maxTimeMediaUs);
+bool mediasync_wrap_forceUpdateAnchor(void* handle, int64_t anchorTimeMediaUs,
+								int64_t anchorTimeRealUs,
+								int64_t maxTimeMediaUs);
+
 bool mediasync_wrap_setPlaybackRate(void* handle, float rate);
 bool mediasync_wrap_getPlaybackRate(void* handle, float *rate);
 bool mediasync_wrap_getMediaTime(void* handle, int64_t realUs,

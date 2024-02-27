@@ -261,7 +261,13 @@ void am_timer_pause_callback(union sigval sigv)
         //cts tunnel underrun case failed, depond on pause/resume invoked from AudioFlinger.
         //sometimes AudioFlinger always invoke the pause to Hal during 800ms for track retry count.
         //so add this code to control pause/resume MediaSync and video in Hal.
-        if (!out->is_insert_zero_data)
+
+        //out_pause will trigger wait_video_done, the next wait_video_done will cause timeout again,
+        //then enter a dead-loop.
+        AM_LOGI("out=%p is_insert_zero_data=%d is_waiting_video=%d",
+            out, out->is_insert_zero_data, out->is_waiting_video);
+
+        if (!out->is_insert_zero_data && !out->is_waiting_video)
             out_pause_subMixingPCM((struct audio_stream_out *)out);
     }
     return ;
@@ -449,6 +455,7 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
         out->need_first_sync = false;
         out->last_pts = 0;
         out->last_payload_offset = 0;
+        out->last_hwsync_header_pts = 0;
         pthread_mutex_init(&out->mdata_lock, NULL);
         list_init(&out->mdata_list);
         pthread_mutex_lock(&adev->lock);
@@ -1816,6 +1823,7 @@ static int out_flush_subMixingPCM(struct audio_stream_out *stream)
         aml_out->need_first_sync = false;
         aml_out->last_pts = 0;
         aml_out->last_payload_offset = 0;
+        aml_out->last_hwsync_header_pts = 0;
         //aml_out->pause_status = false;
         //aml_out->standby = true;
     } else {
