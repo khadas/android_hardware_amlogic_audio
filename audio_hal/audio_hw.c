@@ -2902,7 +2902,10 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
 
     if (ret >= 0) {
         in->frames_read += in_frames;
-        in->timestamp_nsec = pcm_get_timestamp(in->pcm, in->config.rate, 0 /*isOutput*/);
+	if (property_get_int32("vendor.media.hdmi.camera", 0) && in->device & AUDIO_DEVICE_IN_HDMI) {
+	    in->timestamp_nsec = aml_audio_get_systime_ns();
+	} else
+            in->timestamp_nsec = pcm_get_timestamp(in->pcm, in->config.rate, 0 /*isOutput*/);
     }
     bool mic_muted = false;
     adev_get_mic_mute((struct audio_hw_device*)adev, &mic_muted);
@@ -9106,9 +9109,10 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
             }
             aml_dev->active_inport = inport;
             aml_dev->src_gain[inport] = 1.0;
-            if (inport == INPORT_HDMIIN || inport == INPORT_ARCIN || inport == INPORT_SPDIF
-                || inport == INPORT_LINEIN || ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_ATV))) {
-                 aml_dev->dev2mix_patch = true;
+            if ((inport == INPORT_HDMIIN || inport == INPORT_ARCIN || inport == INPORT_SPDIF
+                || inport == INPORT_LINEIN || ((inport == INPORT_TUNER) && (aml_dev->patch_src == SRC_ATV)))
+                && (!property_get_int32("vendor.media.hdmi.camera", 0))) {
+                    aml_dev->dev2mix_patch = true;
 #if 0
                 aml_dev2mix_parser_create(dev, src_config->ext.device.type);
 #endif
