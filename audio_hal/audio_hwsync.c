@@ -431,7 +431,7 @@ int aml_audio_hwsync_find_frame(audio_hwsync_t *p_hwsync,
                         }
                     }
                     p_hwsync->hw_sync_metadata_unit_header_cnt = 0;
-                    continue;
+                    break;
                 } else {
                     break;
                 }
