@@ -2381,6 +2381,7 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
                     if (wait_cnt > 10) {
                         ALOGI("%s wait bitstream closed timeout, and close spdif directly", __func__);
                         aml_audio_spdifout_close(bitstream_out->spdifout_handle);
+                        bitstream_out->spdifout_handle = NULL;
                         return 0;
                     }
                     no_bitstream_ready = ((bitstream_out->spdifout_handle != NULL) && (bitstream_out->is_bypass_ms12 == 0));
