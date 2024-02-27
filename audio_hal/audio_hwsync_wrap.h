@@ -35,6 +35,7 @@ int aml_hwsync_wrap_set_start_pts(audio_hwsync_t *p_hwsync, uint32_t pts);
 int aml_hwsync_wrap_set_start_pts64(audio_hwsync_t *p_hwsync,uint64_t pts);
 int aml_hwsync_wrap_get_pts(audio_hwsync_t *p_hwsync, uint64_t *pts);
 int aml_hwsync_wrap_reset_pcrscr(audio_hwsync_t *p_hwsync, uint64_t pts);
+int aml_hwsync_wrap_force_reset_pcrscr(audio_hwsync_t *p_hwsync, uint64_t pts);
 bool aml_hwsync_wrap_get_id(void *mediasync, int32_t* id);
 bool aml_hwsync_wrap_set_id(audio_hwsync_t *p_hwsync, uint32_t id);
 bool aml_hwsync_wrap_set_static_id(audio_hwsync_t *p_hwsync, uint32_t id);
@@ -53,7 +54,7 @@ void* aml_hwsync_mediasync_create(void);
 
 int aml_audio_start_trigger(void *stream);
 void aml_hwsync_wrap_is_amaster(audio_hwsync_t *p_hwsync, bool *b_amaster);
-void aml_hwsync_wrap_set_amaster(audio_hwsync_t *p_hwsync);
+void aml_hwsync_wrap_set_amaster(audio_hwsync_t *p_hwsync, bool b_amster);
 
 
 #endif

@@ -664,6 +664,7 @@ struct aml_stream_out {
     bool need_first_sync;
     uint64_t last_pts;
     uint64_t last_payload_offset;
+    uint64_t last_hwsync_header_pts;
     uint64_t last_decout_frame;
     struct audio_config out_cfg;
     int debug_stream;
@@ -739,6 +740,7 @@ struct aml_stream_out {
     char stream_dump_file[128];
     bool frame_write_sum_updated;
     bool is_insert_zero_data;
+    bool is_waiting_video;
     bool hwsync_header_stripped;
     uint32_t insert_zero_data_ms;
     uint32_t timer_id;
@@ -765,6 +767,7 @@ struct aml_stream_out {
     void *mmap_audio_manager;
     int mmap_audio_client_id;
     int current_digital_audio_format;
+
 };
 
 typedef ssize_t (*write_func)(struct audio_stream_out *stream, const void *buffer, size_t bytes);

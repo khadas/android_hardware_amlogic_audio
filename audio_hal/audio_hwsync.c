@@ -564,7 +564,10 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, uint64_t apts, int 
             aml_audio_hwsync_set_first_pts(out->hwsync, apts64);
             /*the wait function sometime causes too much time which causes audio break*/
             //aml_hwsync_wait_video_drop(out->hwsync, apts32);
-            aml_hwsync_wrap_reset_pcrscr(out->hwsync, apts64);
+            // aml_hwsync_wrap_reset_pcrscr may not update pcr because of threshold
+            if (aml_hwsync_wrap_force_reset_pcrscr(out->hwsync, apts64) != 0) {
+                aml_hwsync_wrap_reset_pcrscr(out->hwsync, apts64);
+            }
         } else  if (p_hwsync->first_apts_flag) {
             if (apts >= abs(latency_pts)) {
                 //apts -= latency_pts;
@@ -656,8 +659,10 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, uint64_t apts, int 
             if (p_hwsync->use_mediasync) {
                 ALOGI("%s =============== can drop============", __FUNCTION__);
                 if (p_hwsync->wait_video_done == false) {
+                    out->is_waiting_video = true;
                     aml_hwsync_wait_video_start(p_hwsync);
                     aml_hwsync_wait_video_drop(p_hwsync, apts - latency_pts);
+                    out->is_waiting_video = false;
                     p_hwsync->wait_video_done == true;
                 } else {
                     aml_hwsync_wrap_is_amaster(out->hwsync, &amaster_mode);

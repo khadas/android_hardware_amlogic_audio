@@ -53,6 +53,10 @@ typedef mediasync_result (*MediaSync_clearAnchor_func)(void* handle);
 typedef mediasync_result (*MediaSync_updateAnchor_func)(void* handle, int64_t anchorTimeMediaUs,
                                                         int64_t anchorTimeRealUs,
                                                         int64_t maxTimeMediaUs);
+typedef mediasync_result (*MediaSync_forceUpdateAnchor_func)(void* handle, int64_t anchorTimeMediaUs,
+                                                        int64_t anchorTimeRealUs,
+                                                        int64_t maxTimeMediaUs);
+
 typedef mediasync_result (*MediaSync_setPlaybackRate_func)(void* handle, float rate);
 typedef mediasync_result (*MediaSync_getPlaybackRate_func)(void* handle, float *rate);
 typedef mediasync_result (*MediaSync_getMediaTime_func)(void* handle, int64_t realUs,
@@ -87,6 +91,7 @@ static MediaSync_getPause_func gMediaSync_getPause = NULL;
 static MediaSync_setStartingTimeMedia_func gMediaSync_setStartingTimeMedia = NULL;
 static MediaSync_clearAnchor_func gMediaSync_clearAnchor = NULL;
 static MediaSync_updateAnchor_func gMediaSync_updateAnchor = NULL;
+static MediaSync_forceUpdateAnchor_func gMediaSync_forceUpdateAnchor = NULL;
 static MediaSync_setPlaybackRate_func gMediaSync_setPlaybackRate = NULL;
 static MediaSync_getPlaybackRate_func gMediaSync_getPlaybackRate = NULL;
 static MediaSync_getMediaTime_func gMediaSync_getMediaTime = NULL;
@@ -190,6 +195,12 @@ static bool mediasync_wrap_create_init()
     if (gMediaSync_updateAnchor == NULL) {
         ALOGE(" dlsym MediaSync_updateAnchor failed, err=%s \n", dlerror());
         return err;
+    }
+
+    gMediaSync_forceUpdateAnchor =
+        (MediaSync_updateAnchor_func)dlsym(glibHandle, "MediaSync_forceUpdateAnchor");
+    if (gMediaSync_forceUpdateAnchor == NULL) {
+        ALOGW(" dlsym MediaSync_forceUpdateAnchor failed, err=%s \n", dlerror());
     }
 
     gMediaSync_setPlaybackRate =
@@ -442,6 +453,34 @@ bool mediasync_wrap_updateAnchor(void* handle, int64_t anchorTimeMediaUs,
      }
      return false;
 }
+
+bool mediasync_wrap_forceUpdateAnchor(void* handle, int64_t anchorTimeMediaUs,
+                                int64_t anchorTimeRealUs,
+                                int64_t maxTimeMediaUs) {
+    if (gMediaSync_forceUpdateAnchor == NULL) {
+        ALOGE("[%s] gMediaSync_forceUpdateAnchor = NULL\n", __func__);
+        return false;
+    }
+
+    if (handle != NULL)  {
+        bool ispause = false;
+        mediasync_result ret = gMediaSync_getPause(handle, &ispause);
+        if ((ret == AM_MEDIASYNC_OK) && ispause) {
+            gMediaSync_setPause(handle, false);
+        }
+
+        ret = gMediaSync_forceUpdateAnchor(handle, anchorTimeMediaUs, anchorTimeRealUs, maxTimeMediaUs);
+        if (ret == AM_MEDIASYNC_OK) {
+            return true;
+        } else {
+            ALOGE("[%s] no ok\n", __func__);
+        }
+    } else {
+        ALOGE("[%s] no handle\n", __func__);
+    }
+    return false;
+}
+
 bool mediasync_wrap_setPlaybackRate(void* handle, float rate) {
      if (handle != NULL)  {
          mediasync_result ret = gMediaSync_setPlaybackRate(handle, rate);

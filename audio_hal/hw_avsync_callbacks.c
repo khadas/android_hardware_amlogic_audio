@@ -70,6 +70,8 @@ int on_meta_data_cbk(void *cookie,
     int pcr_pts_gap = 0;
     int insert_size = 0;
     bool amaster_mode = true;
+    bool header_pts_update = false;
+    bool debug_enable = get_debug_value(AML_DEBUG_AUDIOHAL_HW_SYNC);
     int32_t tuning_latency = aml_audio_get_hwsync_latency_offset(false);
 
     if (!cookie || !header) {
@@ -109,20 +111,33 @@ int on_meta_data_cbk(void *cookie,
     ALOGV("offset =%" PRId64 " aligned_offset=%" PRId64 " frame size=%d samplerate=%d", offset, aligned_offset,frame_size,sample_rate);
     if (offset >= aligned_offset && mdata_list) {
         pts = header->pts;
-        pts_delta = (offset - aligned_offset) * 1000000000LL/(frame_size * sample_rate);
-        pts += pts_delta;
-        out->last_pts = pts;
-        out->last_payload_offset = offset;
+        // Fix : several hwsync header pts is the same, result in avsync jitter and inserting zero data
+        if (out->last_hwsync_header_pts != pts || !out->first_pts_set) {
+            out->last_hwsync_header_pts = pts;
+            pts_delta = (offset - aligned_offset) * 1000000000LL/(frame_size * sample_rate);
+            pts += pts_delta;
+            out->last_pts = pts;
+            out->last_payload_offset = offset;
+            header_pts_update = true;
+        } else {
+            header_pts_update = false;
+        }
         list_remove(&mdata_list->list);
         aml_audio_free(mdata_list);
-        ALOGV("head pts =%" PRId64 " delta =%" PRId64 " pts =%" PRId64 " ",header->pts, pts_delta, pts);
-    } else if ((offset > out->last_payload_offset) && out->last_pts != 0) {
-        pts_delta = (offset - out->last_payload_offset) * 1000000000LL/(frame_size * sample_rate);
-        pts = out->last_pts + pts_delta;
-        ALOGV("last pts=%" PRId64 " delta=%" PRId64 " pts=%" PRId64 " ", out->last_pts, pts_delta, pts);
-    } else {
-        ret = -EINVAL;
-        goto err_lock;
+        if (debug_enable) {
+            ALOGI("head pts =%"PRId64" delta =%"PRId64" pts =%"PRId64" header_pts_update =%d",header->pts, pts_delta, pts, header_pts_update);
+        }
+    }
+
+    if (header_pts_update == false) {
+        if ((offset > out->last_payload_offset) && out->last_pts != 0) {
+            pts_delta = (offset - out->last_payload_offset) * 1000000000LL/(frame_size * sample_rate);
+            pts = out->last_pts + pts_delta;
+            ALOGV("last pts=%" PRId64 " delta=%" PRId64 " pts=%" PRId64 " ", out->last_pts, pts_delta, pts);
+        } else {
+            ret = -EINVAL;
+            goto err_lock;
+        }
     }
 
     pts64 = pts / 1000000 * 90;
@@ -134,7 +149,6 @@ int on_meta_data_cbk(void *cookie,
         if (out->hwsync && out->hwsync->use_mediasync) {
             if(out->first_pts_set == true)
                 out->first_pts_set = false;
-                out->hwsync->wait_video_done = false;
         }
         return -EINVAL;
     }
@@ -179,17 +193,26 @@ int on_meta_data_cbk(void *cookie,
 
             //ALOGI("%s =============== can drop============", __FUNCTION__);
             if (out->hwsync->wait_video_done == false) {
+                out->is_waiting_video = true;
                 aml_hwsync_wait_video_start(out->hwsync);
                 aml_hwsync_wait_video_drop(out->hwsync, pts64);
+                out->is_waiting_video = false;
                 out->hwsync->wait_video_done = true;
             } else {
                 aml_hwsync_wrap_is_amaster(out->hwsync, &amaster_mode);
                 if (!amaster_mode) {
-                    aml_hwsync_wrap_set_amaster(out->hwsync);
+                    aml_hwsync_wrap_set_amaster(out->hwsync, true);
                 }
             }
 
             aml_audio_hwsync_set_first_pts(out->hwsync, pts64);
+
+            /*
+             * Fix :
+             * 1. pcr_pts_gap is huge and cause seek stuck
+             * 2. aml_hwsync_wrap_reset_pcrscr may not update pcr because of threshold
+            */
+            aml_hwsync_wrap_force_reset_pcrscr(out->hwsync, pts64);
 
             out->first_pts_set = true;
             //*delay_ms = 40;
@@ -274,7 +297,7 @@ int on_meta_data_cbk(void *cookie,
             out->is_insert_zero_data = false;
         }
 
-        if (abs(pcr_pts_gap) > 100) {
+        if (abs(pcr_pts_gap) > 100 || debug_enable) {
             ALOGI("[avsync, %p] tunnel pcm pts[%"PRIu64"]ms pcr[%"PRIu64"]ms diff[%d]ms need_insert[%d]bytes",
                 out->hwsync,
                 pts64/90,

@@ -303,7 +303,8 @@ ssize_t header_extractor_write(struct hw_avsync_header_extractor *header_extract
                     int64_t time_diff = calc_time_interval_us(&header_extractor->last_hwavsync_timestamp, &current_timestamp);
                     if (time_diff >= (TIME_DIFF_THRESHOLD * USEC_PER_SEC) ||
                         header_extractor->pts_gap / NSEC_PER_MSEC > 100 ||
-                        hwsync_header_get_apts(sync_header) <= header_extractor->last_pts) {
+                        hwsync_header_get_apts(sync_header) <= header_extractor->last_pts
+                        || get_debug_value(AML_DEBUG_AUDIOHAL_HW_SYNC)) {
                         ALOGI("[hwsync_extractor:%p]tunnel pcm time_diff[%"PRIu64"]us frame_body_size[%d]bytes pts_info[%"PRIu64" - %"PRIu64"]ms pts_gap[%"PRIu64"]ms",
                             header_extractor,
                             time_diff,
