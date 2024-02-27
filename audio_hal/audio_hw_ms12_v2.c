@@ -4188,6 +4188,8 @@ int dolby_ms12_encoder_reconfig(struct dolby_ms12_desc *ms12) {
     if (!ms12) {
         return -EINVAL;
     }
+
+    pthread_mutex_lock(&ms12->lock);
     current_mat_encoder_enable = ms12->output_config & MS12_OUTPUT_MASK_MAT;
     current_ddp_encoder_enable = ms12->output_config & MS12_OUTPUT_MASK_DDP;
     adev = ms12_to_adev(ms12);
@@ -4229,6 +4231,7 @@ int dolby_ms12_encoder_reconfig(struct dolby_ms12_desc *ms12) {
         aml_ms12_main_encoder_reconfig(ms12, output_config);
         ms12->b_encoder_reset = true;
     }
+    pthread_mutex_unlock(&ms12->lock);
     return 0;
 }
 
