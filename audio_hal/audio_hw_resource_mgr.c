@@ -658,7 +658,7 @@ bool is_output_device_muted(struct aml_audio_device *adev,
     }
 
     port_info = get_in_port_info_map(mgr, outport);
-    AM_LOGI("device:%#x port_mute:%d, fade_mute:%d",
+    AM_LOGV("device:%#x port_mute:%d, fade_mute:%d",
         device, port_info->mute, port_info->fade_mute);
 
     if (fade_mute)
