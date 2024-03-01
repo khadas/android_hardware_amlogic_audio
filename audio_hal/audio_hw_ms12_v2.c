@@ -2251,6 +2251,7 @@ static ssize_t aml_ms12_spdif_output_new (struct audio_stream_out *stream,
     if (bitstream_desc->spdifout_handle == NULL) {
         /*we need update ms12 optical_format in the master pcm output*/
         if (ms12->optical_format != adev->optical_format) {
+            pthread_mutex_unlock(&adev->bitstream_lock);
             ALOGI("wait ms12 optical format update");
             return -1;
         }
