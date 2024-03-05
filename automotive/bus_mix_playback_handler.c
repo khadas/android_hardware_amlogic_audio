@@ -24,6 +24,7 @@
 #include "bus_mix_playback_handler.h"
 #include "playback_handler_base.h"
 #include "audio_hw_utils.h"
+#include "aml_dump_debug.h"
 #include "audio_data_process.h"
 #include "audio_port.h"
 #include "bus_submix_core.h"
@@ -101,7 +102,7 @@ size_t bus_port_write(void *handle, const void* buffer, size_t bytes)
     }
 
     if (getprop_bool("vendor.media.audiohal.outdump")) {
-        aml_audio_dump_audio_bitstreams("/data/audio/bus_playback_handler_out.raw", buffer, bytes);
+        aml_dump_audio_bitstreams("/data/audio/bus_playback_handler_out.raw", buffer, bytes);
     }
 
     while (written < bytes) {
