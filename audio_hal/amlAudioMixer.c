@@ -913,8 +913,13 @@ static void process_port_msg(input_port *in_port)
             if (hwsync != NULL) {
                 aml_hwsync_wrap_set_pause(hwsync);
                 // prepare for the next wait_video_drop function
+                // aml_hwsync_wrap_wait_video_drop will return if it is vmaster mode.
                 hwsync->wait_video_done = false;
-                aml_hwsync_wrap_set_amaster(hwsync, false);
+                if (out->restore_vmaster) {
+                    aml_hwsync_wrap_set_amaster(hwsync, false);
+                    out->restore_vmaster = false;
+                }
+
             }
             set_inport_state(in_port, PAUSING);
             break;

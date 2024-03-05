@@ -201,22 +201,23 @@ int on_meta_data_cbk(void *cookie,
             } else {
                 aml_hwsync_wrap_is_amaster(out->hwsync, &amaster_mode);
                 if (!amaster_mode) {
+                    out->restore_vmaster = true;
                     aml_hwsync_wrap_set_amaster(out->hwsync, true);
                 }
             }
 
             aml_audio_hwsync_set_first_pts(out->hwsync, pts64);
 
+            out->first_pts_set = true;
+            //*delay_ms = 40;
             /*
              * Fix :
              * 1. pcr_pts_gap is huge and cause seek stuck
              * 2. aml_hwsync_wrap_reset_pcrscr may not update pcr because of threshold
             */
-            aml_hwsync_wrap_force_reset_pcrscr(out->hwsync, pts64);
-
-            out->first_pts_set = true;
-            //*delay_ms = 40;
-            //aml_hwsync_reset_tsync_pcrscr(out->hwsync, pts64);
+            if (aml_hwsync_wrap_force_reset_pcrscr(out->hwsync, pts64) != 0) {
+                aml_hwsync_wrap_reset_pcrscr(out->hwsync, pts64);
+            }
         } else {
             enum hwsync_status sync_status = CONTINUATION;
             struct hw_avsync_header_extractor *hwsync_extractor;

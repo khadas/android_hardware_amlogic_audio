@@ -1474,7 +1474,10 @@ exit:
         out->hwsync->first_apts_flag = false;
         out->hwsync->wait_video_done = false;
         // prepare for the next wait_video_drop function
-        aml_hwsync_wrap_set_amaster(out->hwsync, false);
+        if (out->restore_vmaster) {
+            aml_hwsync_wrap_set_amaster(out->hwsync, false);
+            out->restore_vmaster = false;
+        }
     }
     pthread_mutex_unlock (&adev->lock);
     pthread_mutex_unlock (&out->lock);
@@ -3288,6 +3291,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->is_closing = false;
     out->pause_time = 0;
     out->needs_compensation_timeus = 0;
+    out->restore_vmaster = false;
 
     clock_gettime(CLOCK_MONOTONIC, &out->last_info_timestamp);
     clock_gettime(CLOCK_MONOTONIC, &out->last_avsync_timestamp);
@@ -5880,6 +5884,7 @@ hwsync_rewrite:
                 } else {
                     aml_hwsync_wrap_is_amaster(hw_sync, &amaster_mode);
                     if (!amaster_mode) {
+                        aml_out->restore_vmaster = true;
                         aml_hwsync_wrap_set_amaster(hw_sync, true);
                     }
                 }
@@ -5950,6 +5955,7 @@ hwsync_rewrite:
                     } else {
                         aml_hwsync_wrap_is_amaster(hw_sync, &amaster_mode);
                         if (!amaster_mode) {
+                            aml_out->restore_vmaster = true;
                             aml_hwsync_wrap_set_amaster(hw_sync, true);
                         }
                     }

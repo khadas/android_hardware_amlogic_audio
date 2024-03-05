@@ -754,6 +754,7 @@ struct aml_stream_out {
     bool frame_write_sum_updated;
     bool is_insert_zero_data;
     bool is_waiting_video;
+    bool restore_vmaster;
     bool hwsync_header_stripped;
     uint32_t insert_zero_data_ms;
     uint32_t timer_id;
