@@ -134,11 +134,18 @@ static int select_digital_device(struct spdifout_handle *phandle) {
                  *ddp always used spdif_a
                  */
                 if (phandle->audio_format == AUDIO_FORMAT_E_AC3) {
-                    device_id = DIGITAL_DEVICE;
+                    if (check_chip_name("txhd2", 3, &aml_dev->alsa_mixer))
+                        device_id = DIGITAL_DEVICE2;
+                    else
+                        device_id = DIGITAL_DEVICE;
                 } else if (phandle->audio_format == AUDIO_FORMAT_AC3) {
                     if (aml_dev->optical_format == AUDIO_FORMAT_E_AC3) {
                         /*it has dual output, then dd use spdif_b for spdif only*/
-                        device_id = DIGITAL_DEVICE2;
+                        /*for txhd2 dd use spdif a*/
+                        if (check_chip_name("txhd2", 3, &aml_dev->alsa_mixer))
+                            device_id = DIGITAL_DEVICE;
+                        else
+                            device_id = DIGITAL_DEVICE2;
                     } else {
                         /*it doesn't have dual output, then dd use spdif_a for arc/spdif*/
                         device_id = DIGITAL_DEVICE;
@@ -163,7 +170,7 @@ static int select_digital_device(struct spdifout_handle *phandle) {
             ALOGI("%s  device_id:%d, device_index:%d", __func__, device_id, device_index);
         }
     }
-    ALOGI("%s return device_id:%d", __func__, device_id);
+    ALOGI("%s return device_id:%d, audio_format:0x%x\n", __func__, device_id, phandle->audio_format);
     return device_id;
 }
 

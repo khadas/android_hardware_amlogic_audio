@@ -117,6 +117,7 @@ static struct aml_mixer_list gAmlMixerList[] = {
     {AML_MIXER_ID_AI_SOUND_MODE,         "AI Sort Result"},
     {AML_MIXER_ID_AUDIO_PCPD_MONITOR_ENABLE,  "Pc_Pd_Monitor_A Detect enable"},
     {AML_MIXER_ID_AUDIO_PCPD_MONITOR_DATA_TYPE,  "Pc_Pd_Monitor_A Audio Type"},
+    {AML_MIXER_ID_AUDIO_SPDIF_ARC_SOURCE, "Audio spdif_arc source"},
 };
 
 static char *get_mixer_name_by_id(int mixer_id)

@@ -605,9 +605,21 @@ int set_output_device_mute(struct aml_audio_device *adev, audio_devices_t device
         } else {
             if (is_earc_descrpt())
                 aml_mixer_ctrl_set_int(mgr->mixer_ctrl, AML_MIXER_ID_ARC_EARC_SPDIFOUT_REG_MUTE, enable);
-            else
-                aml_mixer_ctrl_set_int(mgr->mixer_ctrl, AML_MIXER_ID_HDMI_ARC_AUDIO_ENABLE, !enable);
+            else {
+                /*txhd2 use mixer_paths.xml,forward compatbility*/
+                if (!check_chip_name("txhd2", 3, mgr->mixer_ctrl))
+                    aml_mixer_ctrl_set_int(mgr->mixer_ctrl, AML_MIXER_ID_HDMI_ARC_AUDIO_ENABLE, !enable);
+            }
         }
+        /*hdmi_arc mute from mixer_paths.xml*/
+        if (enable) {
+            /*hdmi arc off is mute kcontrol, not enable*/
+            audio_route_apply_path(mgr->ar, "hdmi_arc_off");
+        } else {
+            audio_route_apply_path(mgr->ar, "hdmi_arc");
+        }
+        audio_route_update_mixer(mgr->ar);
+
         port_info->mute = enable;
         break;
     case AUDIO_DEVICE_OUT_SPEAKER:
