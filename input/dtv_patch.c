@@ -456,6 +456,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
 
             demux_info->mixing_level = (val * 64 - 32 * 100) / 100; //[0,100] mapping to [-32,32]
             ALOGI("mixing_level set to %d\n", demux_info->mixing_level);
+#ifndef AUDIO_HAL_DISABLE_MS12
             if (eDolbyMS12Lib == adev->dolby_lib_type_last &&
                 (path_id == dtv_audio_instances->demux_index_working)) {
                 pthread_mutex_lock(&ms12->lock);
@@ -463,6 +464,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                 set_ms12_ad_mixing_level(ms12, demux_info->mixing_level);
                 pthread_mutex_unlock(&ms12->lock);
             }
+#endif
             if (non_dolby_format(demux_info->ad_fmt)) {
                  //for shine ad menu dolby low -10 medium 0 high 10 match -6db 0db 6db
                  demux_info->mixing_level = mixing_coefficient[demux_info->mixing_level + mixing_level_base];
@@ -1611,6 +1613,7 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
                 get_sink_format(stream_out);
             }
         }
+#ifndef AUDIO_HAL_DISABLE_MS12
         if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
             consume_size = dolby_ms12_get_main_bytes_consumed(stream_out);
             consume_size  = consume_size > ms12_threshold_size ? consume_size - ms12_threshold_size : 0;
@@ -1619,7 +1622,7 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
             else
                 dolby_ms12_get_pcm_output_size(&all_pcm_len1, &all_zero_len);
         }
-
+#endif
         /* +[SE] [BUG][SWPL-22893]
               add: reset decode data when replay video*/
         if (patch->dtv_replay_flag) {
@@ -1627,7 +1630,7 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
             patch->dtv_replay_flag = false;
         }
         ret = out_write_new(stream_out, patch->out_buf, ret);
-
+#ifndef AUDIO_HAL_DISABLE_MS12
         if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
             uint64_t size = dolby_ms12_get_main_bytes_consumed(stream_out);
             size  = size > ms12_threshold_size ? size - ms12_threshold_size : 0;
@@ -1649,7 +1652,7 @@ int audio_dtv_patch_output_dolby(struct aml_audio_patch *patch,
             }
             patch->dtv_pcm_readed += ret;
         }
-
+#endif
         if (aml_dev->debug_flag) {
             if (ddp_dec)
                 ALOGI("after decode: decode_offset: %" PRId64 ", ddp.remain_size=%d\n",
@@ -2019,12 +2022,12 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
             aml_out->hal_format = aml_out->hal_internal_format = patch->aformat;
             get_sink_format(stream_out);
         }
-
+#ifndef AUDIO_HAL_DISABLE_MS12
         if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
             remain_size = dolby_ms12_get_main_buffer_avail(NULL);
             dolby_ms12_get_pcm_output_size(&all_pcm_len1, &all_zero_len);
         }
-
+#endif
         //package iec61937
         //papbpcpd
         p16_mixbuff = (uint16_t*)mixbuffer;
@@ -2078,13 +2081,14 @@ int audio_dtv_patch_output_dolby_dual_decoder(struct aml_audio_patch *patch,
         }
 
         if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
+#ifndef AUDIO_HAL_DISABLE_MS12
             int size = dolby_ms12_get_main_buffer_avail(NULL);
             dolby_ms12_get_pcm_output_size(&all_pcm_len2, &all_zero_len);
             patch->decoder_offset += remain_size + main_size - size;
             patch->outlen_after_last_validpts += (unsigned int)(all_pcm_len2 - all_pcm_len1);
             //ALOGD("remain_size %d,size %d,main_size %d,validpts %d",remain_size,size,main_size,patch->outlen_after_last_validpts);
             patch->dtv_pcm_readed += main_size;
-
+#endif
         } else {
             patch->decoder_offset += main_frame_size;
             patch->dtv_pcm_readed += main_size;
@@ -3801,11 +3805,13 @@ void aml_audio_flush_dtv_output(struct aml_stream_out *aml_out) {
                aml_decoder_flush(aml_out->aml_dec);
             }
         }
+#ifndef AUDIO_HAL_DISABLE_MS12
         if (aml_dev->ms12.dual_decoder_support) {
             dolby_ms12_flush_input_buffer();
         } else {
             dolby_ms12_flush_main_input_buffer();
         }
+#endif
         patch->decoder_offset = 0;
         patch->dtv_pcm_wrote =0;
         aml_out->last_decout_frame = 0;
@@ -5412,6 +5418,7 @@ int out_set_audio_description_mix_level(struct audio_stream_out *stream, const f
         ALOGD("%s[%d]:the audio_patching: %d, patch: %p. decoder state: %d", __func__, __LINE__, is_dev_patch_running(adev), get_dev_patch(adev), get_dev_patch(adev)->dtv_decoder_state);
         if (dtv_tuner_framework(stream)) {
             dmx_info->mixing_level = leveldB;
+#ifndef AUDIO_HAL_DISABLE_MS12
             if (eDolbyMS12Lib == adev->dolby_lib_type_last &&
                 (path_id == dtv_audio_instances->demux_index_working)) {
                 pthread_mutex_lock(&ms12->lock);
@@ -5420,6 +5427,7 @@ int out_set_audio_description_mix_level(struct audio_stream_out *stream, const f
                 /*coverity[double_unlock]*/
                 pthread_mutex_unlock(&ms12->lock);
             }
+#endif
         }
     } else {
         ALOGE("%s[%d]:adev %p, patch %p", __func__, __LINE__, adev, get_dev_patch(adev));

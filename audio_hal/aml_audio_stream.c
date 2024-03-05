@@ -1079,7 +1079,10 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     int update_type = get_codec_type(format);
     int update_threshold = DOLBY_FMT_UPDATE_THRESHOLD;
-    int cur_aml_dap_surround_virtualizer = dolby_ms12_get_dap_surround_virtualizer();
+    int cur_aml_dap_surround_virtualizer = 0;
+#ifndef AUDIO_HAL_DISABLE_MS12
+    cur_aml_dap_surround_virtualizer = dolby_ms12_get_dap_surround_virtualizer();
+#endif
     bool is_headphone_x = 0;
 
     if (is_dolby_ms12_support_compression_format(format)) {

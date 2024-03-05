@@ -784,6 +784,7 @@ ssize_t hw_write (struct audio_stream_out *stream
 
     pthread_mutex_unlock(&adev->alsa_pcm_lock);
 
+#ifndef AUDIO_HAL_DISABLE_MS12
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         /*it is the main alsa write function we need notify that to all sub-stream */
         adev->ms12.latency_frame = latency_frames;
@@ -792,7 +793,7 @@ ssize_t hw_write (struct audio_stream_out *stream
         }
         //ALOGD("alsa latency=%d", latency_frames);
     }
-
+#endif
     /*
     */
     if (!continuous_mode(adev)) {
@@ -871,6 +872,8 @@ ssize_t hw_write (struct audio_stream_out *stream
         pthread_mutex_unlock(&aml_out->apts_update_lock);
         //ALOGI("position =%lld time sec = %ld, nanosec = %ld", aml_out->last_frames_position, aml_out->lasttimestamp.tv_sec , aml_out->lasttimestamp.tv_nsec);
     }
+
+#ifndef AUDIO_HAL_DISABLE_MS12
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         if (continuous_mode(adev)) {
             if (adev->ms12.is_continuous_paused) {
@@ -911,11 +914,12 @@ ssize_t hw_write (struct audio_stream_out *stream
         }
         adev->ms12.last_sys_audio_cost_pos = sys_total_cost;
     }
+#endif
     if (adev->debug_flag) {
         AM_LOGI("io %d: out:%p pcm handle %p format input:%s output:%s 61937: %d",
               aml_out->io_handle, stream, aml_out->pcm, audioFormat2Str(aml_out->hal_internal_format),
               audioFormat2Str(output_format), is_iec61937_format(stream));
-
+#ifndef AUDIO_HAL_DISABLE_MS12
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             //ms12 internal buffer avail(main/associate/system)
             if (adev->ms12.dolby_ms12_enable == true) {
@@ -923,7 +927,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                       __FUNCTION__, dolby_ms12_get_main_buffer_avail(NULL), dolby_ms12_get_associate_buffer_avail(), dolby_ms12_get_system_buffer_avail(NULL));
             }
         }
-
+#endif
         if ((aml_out->hal_internal_format == AUDIO_FORMAT_AC3) || (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3)) {
             ALOGI("%s() total_frame %"PRIu64" latency_frames %d last_frames_position %"PRIu64" total write %"PRIu64" total writes frames %"PRIu64" diff latency %"PRIu64" ms\n",
                   __FUNCTION__, total_frame, latency_frames, aml_out->last_frames_position, aml_out->input_bytes_size, write_frames, (write_frames - total_frame) / 48);

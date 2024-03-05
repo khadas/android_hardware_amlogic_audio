@@ -4664,6 +4664,7 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
         return strdup(temp_buf);
     } else if (strstr (keys, "ac4_active_pres_id")) {
        int active_id_offset = -1;
+#ifndef AUDIO_HAL_DISABLE_MS12
         if ((eDolbyMS12Lib == adev->dolby_lib_type) && (adev->ms12.input_config_format == AUDIO_FORMAT_AC4)) {
             //should use the dolby_ms12_get_ac4_active_presentation() before or after get_dolby_ms12_cleanup()
             pthread_mutex_lock(&adev->ms12.lock);
@@ -4672,6 +4673,7 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
             }
             pthread_mutex_unlock(&adev->ms12.lock);
         }
+#endif
         sprintf(temp_buf, "ac4_active_pres_id=%d", active_id_offset);
         return strdup(temp_buf);
     }
@@ -5242,7 +5244,9 @@ int do_output_standby_l(struct audio_stream *stream)
                 adev->mix_init_flag = false;
             } else {
                 if (is_dolby_ms12_main_stream((struct audio_stream_out *)stream)) {
+#ifndef AUDIO_HAL_DISABLE_MS12
                     dolby_ms12_set_pause_flag(false);
+#endif
                 }
             }
         }
@@ -6634,13 +6638,14 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
            */
         alsa_latency_frame = adev->ms12.latency_frame;
         int system_latency = 0;
+#ifndef AUDIO_HAL_DISABLE_MS12
         //TODO: temporary solution for MS12 not support PCM32 input
         if (aml_out->hal_internal_format == AUDIO_FORMAT_PCM_32_BIT) {
             system_latency = dolby_ms12_get_system_buffer_avail(NULL) * 2 / frame_size;
         } else
         //END
         system_latency = dolby_ms12_get_system_buffer_avail(NULL) / frame_size;
-
+#endif
         if (adev->compensate_video_enable) {
             alsa_latency_frame = 0;
         }
@@ -7985,8 +7990,9 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
 
     adev_audio_patches_dump(aml_dev, fd);
 
+#ifndef AUDIO_HAL_DISABLE_MS12
     dolby_ms12_info_dump(fd);
-
+#endif
     aml_alsa_device_status_dump(aml_dev, fd);
 
     aml_alsa_mixer_status_dump(aml_dev, fd);
@@ -8124,7 +8130,9 @@ static int adev_close(hw_device_t *device)
             /*coverity[sleep]*/
             usleep(10*1000);//10ms
         }
+#ifndef AUDIO_HAL_DISABLE_MS12
         aml_ms12_lib_release();
+#endif
         release_dolby_dev();
         ALOGD("%s, wait_count:%d, ms12 resource should be released finish\n", __func__, wait_count);
     }

@@ -91,6 +91,7 @@ int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
 int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *write_buf, size_t write_bytes)
 
 {
+#ifndef AUDIO_HAL_DISABLE_MS12
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
     int return_bytes = write_bytes;
@@ -208,7 +209,13 @@ re_write:
     dolby_ms12_get_pcm_output_size(&all_pcm_len2, &all_zero_len);
 
     return return_bytes;
+#else
+    (void)(stream);
+    (void)(write_buf);
+    (void)(write_bytes);
 
+    return 0;
+#endif
 }
 
 static void aml_audio_ms12_init_pts_param(struct dolby_ms12_desc *ms12, uint64_t first_pts)
@@ -284,6 +291,7 @@ static int aml_audio_ms12_process(struct audio_stream_out *stream, const void *w
 
 int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, size_t bytes)
 {
+#ifndef AUDIO_HAL_DISABLE_MS12
     int ret = -1;
     int dec_used_size = 0;
     int used_size = 0;
@@ -511,6 +519,11 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     }
 #endif
     return return_bytes;
+#else
+    (void)(stream);
+    (void)(buffer);
+    return bytes;
+#endif
 }
 
 

@@ -86,6 +86,35 @@ const char *scheduler_state_2_string[MS12_SCHEDULER_MAX] = {
     "SCHEDULER_STANDBY",
 };
 
+#ifdef AUDIO_HAL_DISABLE_MS12
+void dolby_ms12_set_pause_flag(bool flag __unused) {
+    return;
+}
+
+int aml_ms12_update_runtime_params(struct dolby_ms12_desc *ms12_desc __unused, char *cmd __unused) {
+    return 0;
+}
+
+unsigned long long dolby_ms12_get_consumed_sys_audio(void) {
+    return 0;
+}
+int dolby_ms12_enable_atmos_drop(int atmos_drop __unused) {
+    return 0;
+}
+int dolby_ms12_get_channel_config(audio_channel_mask_t channel_mask __unused) {
+    return 0;
+}
+
+int dolby_ms12_get_lfe_config(audio_channel_mask_t channel_mask __unused) {
+    return 0;
+}
+
+int dolby_ms12_set_scheduler_state(int sch_state __unused) {
+    return 0;
+}
+
+#endif
+
 /*****************************************************************************
 *   Function Name:  set_dolby_ms12_runtime_pause
 *   Description:    set pause or resume to dolby ms12.
