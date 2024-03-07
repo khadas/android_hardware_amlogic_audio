@@ -831,7 +831,7 @@ int DAPV2_setParameter(DAPV2Context *pContext, void *pParam, void *pValue) {
             sprintf(tempbuf, ",%d",data->dolby_base_profile[value].dap_ieq_param.a_ieq_band_target[i]);
             tmpParam += String8::format("%s", tempbuf);
         }
-        memcpy(tempbuf, tmpParam.string(), strlen(tmpParam.string()) > BUFFER_MAX_LENGTH ? BUFFER_MAX_LENGTH : strlen(tmpParam.string()));
+        memcpy(tempbuf, tmpParam.c_str(), strlen(tmpParam.c_str()) > BUFFER_MAX_LENGTH ? BUFFER_MAX_LENGTH : strlen(tmpParam.c_str()));
         tmpParam.clear();
         sprintf(temp, " -dap_graphic_eq %d,%d",data->dolby_base_profile[value].dap_geq_param.geq_enable,
             data->dolby_base_profile[value].dap_geq_param.geq_nb_bands);
@@ -845,7 +845,7 @@ int DAPV2_setParameter(DAPV2Context *pContext, void *pParam, void *pValue) {
             sprintf(tempbuf,",%d", data->dolby_base_profile[value].dap_geq_param.a_geq_band_target[i]);
             tmpParam += String8::format("%s",tempbuf);
         }
-        memcpy(tempbuf, tmpParam.string(), strlen(tmpParam.string()) > BUFFER_MAX_LENGTH ? BUFFER_MAX_LENGTH : strlen(tmpParam.string()));
+        memcpy(tempbuf, tmpParam.c_str(), strlen(tmpParam.c_str()) > BUFFER_MAX_LENGTH ? BUFFER_MAX_LENGTH : strlen(tmpParam.c_str()));
         setParameters(String8(tempbuf));
 
         ALOGD("set profile is %d",value);
@@ -969,11 +969,11 @@ int DAPV2_setParameter(DAPV2Context *pContext, void *pParam, void *pValue) {
             sprintf(tempbuf,",%d", *ptmp++);
             tmpParam += String8::format("%s",tempbuf);
         }
-        if (strlen(tmpParam.string()) > sizeof(tempbuf)) {
+        if (strlen(tmpParam.c_str()) > sizeof(tempbuf)) {
             ALOGE("set DAP_PARAM_GEQ param size exceeds %zu", sizeof(tempbuf));
             return -EINVAL;
         }
-        memcpy(tempbuf, tmpParam.string(), strlen(tmpParam.string()));
+        memcpy(tempbuf, tmpParam.c_str(), strlen(tmpParam.c_str()));
         setParameters(String8(tempbuf));
         break;
     case DAP_PARAM_IEQ:
@@ -991,11 +991,11 @@ int DAPV2_setParameter(DAPV2Context *pContext, void *pParam, void *pValue) {
             sprintf(tempbuf, ",%d", *ptmp++);
             tmpParam += String8::format("%s", tempbuf);
         }
-        if (strlen(tmpParam.string()) > sizeof(tempbuf)) {
+        if (strlen(tmpParam.c_str()) > sizeof(tempbuf)) {
             ALOGE("set DAP_PARAM_IEQ param size exceeds %zu", sizeof(tempbuf));
             return -EINVAL;
         }
-        memcpy(tempbuf, tmpParam.string(), strlen(tmpParam.string()));
+        memcpy(tempbuf, tmpParam.c_str(), strlen(tmpParam.c_str()));
         setParameters(String8(tempbuf));
         break;
     case DAP_PARAM_POST_GAIN:

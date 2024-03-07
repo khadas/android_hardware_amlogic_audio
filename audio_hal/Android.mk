@@ -115,6 +115,7 @@ include $(BUILD_PREBUILT)
         system/libfmq/include \
         system/media/alsa_utils/include \
         hardware/libhardware/include \
+        hardware/libhardware/include_vendor \
         $(LOCAL_PATH)/../utils \
         $(LOCAL_PATH)/../utils/include \
         $(LOCAL_PATH)/../utils/ini/include \
