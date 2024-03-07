@@ -789,6 +789,19 @@ int dtv_patch_get_latency(struct aml_audio_device *aml_dev)
     release_dtv_mutex_lock(aml_dev);
     return latencyms;
 }
+int dtv_patch_get_es_pts_dts_flag(struct aml_audio_device *aml_dev)
+{
+    struct aml_audio_patch *patch = get_dev_patch(aml_dev);
+    int pts_dts_flag;
+    if (patch == NULL) {
+        //ALOGI("dtv patch == NULL");
+        return -1;
+    } else {
+        pts_dts_flag =  patch->audio_pts_dts_flag;
+    }
+    //ALOGI("%s pts_dts_flag %d", __FUNCTION__, pts_dts_flag);
+    return pts_dts_flag;
+}
 
 
 static int dtv_patch_audio_info(void *args,unsigned char ori_channum,unsigned char lfepresent)
@@ -3637,6 +3650,10 @@ void *audio_dtv_patch_input_threadloop(void *data)
                                 dtv_package->data = (char *)mEsData->data;
                                 dtv_package->pts = mEsData->pts;
                                 dtv_package->pts_dts_flag = mEsData->pts_dts_flag;
+                                if (patch->audio_pts_dts_flag != mEsData->pts_dts_flag) {
+                                    patch->audio_pts_dts_flag = mEsData->pts_dts_flag;
+                                    ALOGV("patch->audio_pts_dts_flag = %d", mEsData->pts_dts_flag);
+                                }
                                 aml_audio_free(mEsData);
                                 mEsData = NULL;
                                 demux_info->mEsData = NULL;
@@ -4989,6 +5006,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     }
     patch->dtv_aformat = get_dtv_aformat(aml_dev);
     patch->mode = get_dtv_sound_mode(aml_dev);
+    patch->audio_pts_dts_flag = 0;
     patch->dtv_output_clock = 0;
     patch->dtv_default_i2s_clock = get_dtv_i2s_clock(aml_dev);
     patch->dtv_default_spdif_clock = get_dtv_spdif_clock(aml_dev);

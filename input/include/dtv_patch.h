@@ -60,7 +60,8 @@ typedef enum {
     AUDIO_DTV_PATCH_CMD_SET_MEDIA_FIRST_LANG  = 29,
     AUDIO_DTV_PATCH_CMD_SET_MEDIA_SECOND_LANG = 30,
     AUDIO_DTV_PATCH_CMD_SET_SPDIF_PROTECTION_MODE  = 31,
-    AUDIO_DTV_PATCH_CMD_NUM             = 32,
+    AUDIO_DTV_PATCH_CMD_ES_PTS_DTS_FLAG  = 32,
+    AUDIO_DTV_PATCH_CMD_NUM             = 33,
 } AUDIO_DTV_PATCH_CMD_TYPE;
 
 enum {
@@ -138,6 +139,7 @@ int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms);
 int get_dtv_parameters(struct audio_hw_device *dev, const char *keys);
 bool is_dtv_patch_alive(struct aml_audio_device *aml_dev);
 int dtv_patch_get_latency(struct aml_audio_device *aml_dev);
+int dtv_patch_get_es_pts_dts_flag(struct aml_audio_device *aml_dev);
 int audio_get_sample_rate_channels(int *sample_rate, int *channels, int *lfepresent);
 void get_dtv_amadec_audio_info (struct aml_audio_device *dev );
 

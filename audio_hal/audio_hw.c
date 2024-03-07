@@ -4684,6 +4684,13 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
 #endif
         sprintf(temp_buf, "ac4_active_pres_id=%d", active_id_offset);
         return strdup(temp_buf);
+    } else if (strstr (keys, "hal_param_dtv_es_pts_dts_flag") ) {
+#ifdef ENABLE_DVB_PATCH
+        int latencyms = dtv_patch_get_es_pts_dts_flag(adev);
+        sprintf(temp_buf, "hal_param_dtv_es_pts_dts_flag=%d", latencyms);
+#endif
+        ALOGV("temp_buf %s", temp_buf);
+        return strdup(temp_buf);
     }
 
     return strdup("");

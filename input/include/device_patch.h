@@ -244,6 +244,7 @@ struct aml_audio_patch
     struct cmd_node *dtv_cmd_list;
     void *dtv_package_list;
     struct package *cur_package;
+    int audio_pts_dts_flag;
 #endif
     bool skip_amadec_flag;
     int sync_type;

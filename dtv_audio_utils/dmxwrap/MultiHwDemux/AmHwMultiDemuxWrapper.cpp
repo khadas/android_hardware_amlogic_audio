@@ -69,14 +69,13 @@ static void getAudioEsData(AmHwMultiDemuxWrapper* mDemuxWrapper, int fid, const 
     if (len == (es_header->len + sizeof(struct dmx_non_sec_es_header))) {
         const unsigned char *data_es  = data + sizeof(struct dmx_non_sec_es_header);
         mEsData->data = (uint8_t*)aml_audio_malloc(es_header->len);
-        if (!mEsData->data) {
-           aml_audio_free(mEsData);
-           return;
+        if (mEsData->data) {
+           memcpy(mEsData->data, data_es, es_header->len);
         }
-        memcpy(mEsData->data, data_es, es_header->len);
         mEsData->size = es_header->len;
         mEsData->pts = es_header->pts;
         mEsData->pts_dts_flag = es_header->pts_dts_flag;
+        ALOGV("es_header->pts_dts_flag %0x",es_header->pts_dts_flag);
         mDemuxWrapper->last_queue_es_apts = es_header->pts;
         mEsData->used_size = 0;
         //ALOGI("getAudioEsData %p mEsData->size %d mEsData->pts %lld, cached size:%d",mEsData, mEsData->size,mEsData->pts, mDemuxWrapper->mDemuxEsDataCacheSize);
