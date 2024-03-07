@@ -459,7 +459,7 @@ int aml_send_ms12_scheduler_state_2_ms12(void)
            pthread_mutex_unlock(&ms12->lock);
            return -1;
     } else {
-        dolby_ms12_set_scheduler_state(ms12->ms12_scheduler_state);
+        set_dolby_ms12_continuous_state(ms12, ms12->ms12_scheduler_state);
         ALOGD("%s adev:%p, sch_state:%d(%s) ", __func__, adev, sch_state, scheduler_state_2_string[sch_state]);
     }
     pthread_mutex_unlock(&ms12->lock);
@@ -505,7 +505,7 @@ int aml_set_ms12_scheduler_state(struct dolby_ms12_desc *ms12)
             //audio_one_shot_timer_start(AML_TIMER_ID_1, AML_TIMER_DELAY);
             audio_one_shot_timer_start(ms12->ms12_timer_id, AML_TIMER_DELAY);
         } else {
-            dolby_ms12_set_scheduler_state(sch_state);
+            set_dolby_ms12_continuous_state(ms12, sch_state);
         }
 
         ALOGI("%s  ms12_scheduler_state:%d, sch_state:%d %s is sent to ms12", __func__,
@@ -517,7 +517,7 @@ int aml_set_ms12_scheduler_state(struct dolby_ms12_desc *ms12)
         }
 
         sch_state = MS12_SCHEDULER_RUNNING;
-        dolby_ms12_set_scheduler_state(sch_state);
+        set_dolby_ms12_continuous_state(ms12, sch_state);
         ALOGI("%s  is_arc_connecting:%d, is_netflix:%d, sch_state:%d %s is sent to ms12", __func__,
             is_arc_connecting, is_netflix, sch_state, scheduler_state_2_string[sch_state]);
     }

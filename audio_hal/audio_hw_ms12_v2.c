@@ -912,6 +912,19 @@ void set_dolby_ms12_main_speed(struct dolby_ms12_desc *ms12, double speed) {
     }
 }
 
+void set_dolby_ms12_continuous_state(struct dolby_ms12_desc *ms12, int state) {
+    ms12->ms12_continuous_state = state;
+    if (state == MS12_SCHEDULER_RUNNING) {
+        if (sem_post(&ms12->standby_sem)) {
+            ALOGE("%s post ms12 unstandby semaphore failed", __FUNCTION__);
+        } else {
+            ALOGD("%s  post ms12 unstandby semaphore successful", __FUNCTION__);
+        }
+    } else {
+        // do nothing
+    }
+}
+
 void update_drc_parameter_when_output_config_changed(struct dolby_ms12_desc *ms12)
 {
     /*
@@ -1193,6 +1206,14 @@ int get_the_dolby_ms12_prepared(
     ALOGI("set ms12 sys pos =%" PRId64 "", ms12->sys_audio_base_pos);
     ms12->aaudio_low_latency = false;
     ms12->tempo_speed        = 1.0f;
+    ms12->ms12_continuous_state = MS12_SCHEDULER_RUNNING;
+
+    if (sem_init(&ms12->standby_sem, 0, 1)) {
+        ALOGE("%s init ms12 standby semaphore failed\n", __FUNCTION__);
+        goto Err_Ms12_Config;
+    } else {
+        ALOGD("%s init ms12 standby semaphore successful\n", __FUNCTION__);
+    }
 
     ms12->iec61937_ddp_buf = aml_audio_calloc(1, MS12_DDP_FRAME_SIZE);
     if (ms12->iec61937_ddp_buf == NULL) {
@@ -2113,11 +2134,19 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
     ALOGI("%s() dolby_ms12_set_quit_flag %d", __FUNCTION__, is_quit);
     dolby_ms12_set_quit_flag(is_quit);
 
+    if (ms12->ms12_continuous_state == MS12_SCHEDULER_STANDBY) {
+        sem_post(&ms12->standby_sem);
+    }
     if (ms12->dolby_ms12_threadID != 0) {
         ms12->dolby_ms12_thread_exit = true;
         pthread_join(ms12->dolby_ms12_threadID, NULL);
         ms12->dolby_ms12_threadID = 0;
         ALOGI("%s() dolby_ms12_threadID reset to %ld\n", __FUNCTION__, ms12->dolby_ms12_threadID);
+    }
+    if (sem_destroy(&ms12->standby_sem)) {
+        ALOGE("%s release ms12 standby semaphore failed\n", __FUNCTION__);
+    } else {
+        ALOGD("%s release ms12 standby semaphore successful\n", __FUNCTION__);
     }
     set_audio_system_format(AUDIO_FORMAT_INVALID);
     set_audio_app_format(AUDIO_FORMAT_INVALID);
@@ -3921,6 +3950,14 @@ static void *dolby_ms12_threadloop(void *data)
             break;
         }
         ALOGV("%s() dolby_ms12_scheduler_run end", __FUNCTION__);
+        if (ms12->ms12_continuous_state == MS12_SCHEDULER_STANDBY) {
+            ALOGD("%s  ms12 continuous start standby wait ....\n", __FUNCTION__);
+            if (sem_wait(&ms12->standby_sem)) {
+                ALOGE("%s wait ms12 semaphore failed\n", __FUNCTION__);
+            } else {
+                ALOGD("%s wait ms12 semaphore successful, currently wakedup.\n", __FUNCTION__);
+            }
+        }
     }
     ALOGI("%s remove   ms12 stream %p", __func__, aml_out);
     if (continuous_mode(adev)) {
