@@ -332,10 +332,14 @@ void *audio_patch_input_threadloop(void *data)
             } else {
                 if (is_tv_mute(aml_dev)) {
                     if (aml_dev->dolby_lib_type == eDolbyDcvLib && aml_dev->useSubMix) {
-                        struct subMixing *sm = aml_dev->sm;
-                        struct amlAudioMixer *audio_mixer = sm->mixerData;
-                        input_port *port = audio_mixer->in_ports[aml_dev->port_index];
-                        ring_buffer_reset(port->r_buf);
+                        if (aml_dev->sm && aml_dev->sm->mixerData) {
+                            struct subMixing *sm = aml_dev->sm;
+                            struct amlAudioMixer *audio_mixer = sm->mixerData;
+                            if (audio_mixer->in_ports[aml_dev->port_index]) {
+                                input_port *port = audio_mixer->in_ports[aml_dev->port_index];
+                                ring_buffer_reset(port->r_buf);
+                            }
+                        }
                     }
                     if ((audio_is_linear_pcm(patch->aformat)) && is_game_mode(aml_dev)) {
                         ring_buffer_reset(ringbuffer);
