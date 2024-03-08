@@ -161,15 +161,6 @@ static audio_format_t get_sink_capability (struct aml_audio_device *adev)
             sink_capability = AUDIO_FORMAT_AC3;
         }
 
-        /* eARC TXs support formats at least support dd, for Test ID HFR5-1-27 */
-        if (sink_capability == AUDIO_FORMAT_PCM_16_BIT &&
-            aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_ATTENDED_TYPE) == ATTEND_TYPE_EARC &&
-            is_arc_connected(adev)) {
-            sink_capability = AUDIO_FORMAT_AC3;
-            dd_is_support = true;
-            hdmi_desc->dd_fmt.is_support = true;
-        }
-
         ALOGI ("%s mat_is_support:%d, dd support:%d ddp support:%#x\n", __FUNCTION__, mat_is_support, dd_is_support, ddp_is_support);
     }
 
