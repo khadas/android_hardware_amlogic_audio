@@ -627,11 +627,19 @@ write:
     * Or the sink device will no sound when it just only support pcm.
     **/
     if (adev->raw_to_pcm_flag) {
-        pcm_stop(aml_out->pcm);
-        adev->raw_to_pcm_flag = false;
-        aml_out->alsa_running_status = false;
-        aml_out->alsa_status_changed = true;
-        ALOGI("raw to lpcm switch %s\n",__func__);
+        int stop_now = true;
+
+        if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) &&
+            aml_audio_earctx_get_type(adev) == ATTEND_TYPE_NONE)
+            stop_now = false;
+
+        if (stop_now) {
+            pcm_stop(aml_out->pcm);
+            adev->raw_to_pcm_flag = false;
+            aml_out->alsa_running_status = false;
+            aml_out->alsa_status_changed = true;
+            ALOGI("raw to lpcm switch %s\n",__func__);
+        }
     }
 
     /*for ms12 case, we control the output buffer level*/

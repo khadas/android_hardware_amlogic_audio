@@ -606,9 +606,17 @@ ssize_t hw_write (struct audio_stream_out *stream
                     ALOGE("%s() get pcm handle failed", __func__);
                 }
                 if (adev->raw_to_pcm_flag && aml_out->pcm) {
-                    ALOGI("disable raw_to_pcm_flag --");
-                    pcm_stop(aml_out->pcm);
-                    adev->raw_to_pcm_flag = false;
+                    int stop_now = true;
+
+                    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) &&
+                        aml_audio_earctx_get_type(adev) == ATTEND_TYPE_NONE)
+                        stop_now = false;
+
+                    if (stop_now) {
+                        ALOGI("disable raw_to_pcm_flag --");
+                        pcm_stop(aml_out->pcm);
+                        adev->raw_to_pcm_flag = false;
+                    }
                 }
             }
         } else {
