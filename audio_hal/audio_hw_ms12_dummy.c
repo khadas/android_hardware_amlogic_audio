@@ -559,4 +559,7 @@ int aml_dap_process(
     return 0;
 }
 
+void set_dolby_ms12_continuous_state(struct dolby_ms12_desc *ms12 __unused, int state __unused) {
+    return;
+}
 
