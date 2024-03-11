@@ -1359,7 +1359,6 @@ bool is_ms12_passthrough(struct audio_stream_out *stream) {
     bool bypass_ms12 = false;
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
-    struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
     /* TrueHD-content can not passthrough, should be decoded with DLB-MS12 pipeline */
     bool is_bypass_truehd = false;
@@ -1371,7 +1370,7 @@ bool is_ms12_passthrough(struct audio_stream_out *stream) {
 
     is_truehd = (aml_out->hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD);
     is_mat = (aml_out->hal_internal_format == AUDIO_FORMAT_MAT);
-    is_truehd_supported = ((ms12->optical_format == AUDIO_FORMAT_MAT) || (ms12->optical_format == AUDIO_FORMAT_DOLBY_TRUEHD));
+    is_truehd_supported = ((adev->optical_format == AUDIO_FORMAT_MAT) || (adev->optical_format == AUDIO_FORMAT_DOLBY_TRUEHD));
 
     /* source is HDMI-IN, the mat can do passthrough when MAT is supported in sink*/
     if (is_hdmiin_source_for_audio_patch(adev)) {
@@ -1393,7 +1392,7 @@ bool is_ms12_passthrough(struct audio_stream_out *stream) {
          * only the optical_format >= hal_internal_format, we can do passthrough,
          * otherwise we need do some convert
          */
-        && ((ms12->optical_format >= aml_out->hal_internal_format) || is_bypass_truehd)) {
+        && ((adev->optical_format >= aml_out->hal_internal_format) || is_bypass_truehd)) {
         if (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3 ||
             aml_out->hal_internal_format == AUDIO_FORMAT_AC3) {
             /*current we only support 48k ddp/dd bypass*/
@@ -1412,7 +1411,7 @@ bool is_ms12_passthrough(struct audio_stream_out *stream) {
     if (adev->debug_flag & AUDIO_HAL_DEBUG_PASSTHROUGH) {
         ALOGD("%s line %d bypass_ms12 =%d digital mode =%s optical format =0x%x internal format 0x%x  hal_rate:%d",
             __FUNCTION__, __LINE__, bypass_ms12, digitalAudioModeType2Str(adev->digital_audio_mode),
-            ms12->optical_format, aml_out->hal_internal_format, aml_out->hal_rate);
+            adev->optical_format, aml_out->hal_internal_format, aml_out->hal_rate);
     }
     return bypass_ms12;
 }
@@ -2839,7 +2838,8 @@ int ms12_passthrough_output(struct aml_stream_out *aml_out) {
     if ((adev->digital_audio_mode != AML_DIGITAL_AUDIO_MODE_BYPASS)) {
         ms12->is_bypass_ms12 = false;
     }
-    if (ms12->is_bypass_ms12 != bitstream_out->is_bypass_ms12) {
+    if (ms12->is_bypass_ms12 != bitstream_out->is_bypass_ms12 &&
+        bitstream_out->spdifout_handle != NULL) {
         ALOGI("change to bypass mode from =%d to %d", bitstream_out->is_bypass_ms12, ms12->is_bypass_ms12);
         ms12_close_all_spdifout(ms12);
     }
@@ -3099,6 +3099,11 @@ int spdif_bitstream_output(void *buffer, void *priv_data, size_t size)
             __FUNCTION__, size, aml_out->dual_output_flag, adev->optical_format, adev->sink_format, ms12->bitstream_cnt, ms12->input_total_ms);
     }
 
+    /*if it is in bypass mode, spdif output info need update after dolby_ms12_main_open*/
+    if (adev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS &&
+        ms12->main_input_fmt == AUDIO_FORMAT_INVALID) {
+        return 0;
+    }
     /*
      * when ac3 should bypass ms12 and output the AC3, ignore the MS12 ac3 output.
      */
@@ -4051,6 +4056,8 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
     ms12->main_input_fmt = hal_internal_format;
     ms12->main_input_insert_zero = 0;
     aml_out->is_ms12_main_decoder = true;
+    ms12->is_bypass_ms12 = is_ms12_passthrough(stream);
+
     if (adev->continuous_audio_mode && (aml_out->virtual_buf_handle == NULL)) {
         uint64_t buf_ns_begin  = MS12_MAIN_INPUT_BUF_NONEPCM_NS;
         uint64_t buf_ns_target = MS12_MAIN_INPUT_BUF_NONEPCM_NS;
@@ -4223,6 +4230,13 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
     adev->ms12.main_input_fmt = AUDIO_FORMAT_INVALID;
     ms12->ms12_main_stream_out = NULL;
     ms12->mat_stream_profile = 0;
+
+    ms12->is_bypass_ms12 = false;
+    /*the main stream is closed, we should update the sink format now*/
+    if (adev->active_outputs[STREAM_PCM_NORMAL] && (adev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS)) {
+        get_sink_format(&adev->active_outputs[STREAM_PCM_NORMAL]->stream);
+    }
+
 
     return 0;
 }
