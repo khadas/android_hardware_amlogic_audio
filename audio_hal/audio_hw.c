@@ -8785,6 +8785,13 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     }
     adev->volume_ease.config_easing = true;
 
+    // Fix for sink_gain 0.0 missing after system boot-up,
+    // then it has a pop when gain change from 0.0 to 0.01
+    if (adev->eq_drc_inited && adev->useSubMix) {
+        adev->last_sink_gain = adev->eq_data.p_gain.speaker;
+        AM_LOGI("last_sink_gain %f, use speaker gain", adev->last_sink_gain);
+    }
+
     // adev->debug_flag is set in hw_write()
     // however, sometimes function didn't goto hw_write() before encounting error.
     // set debug_flag here to see more debug log when debugging.
