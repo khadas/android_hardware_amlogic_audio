@@ -109,6 +109,8 @@ struct dca_dts_dec {
     unsigned char *inbuf;
     aml_dec_control_type_t digital_raw;
     ring_buffer_t input_ring_buf;
+    unsigned char *sample_convert_buf;
+    int sample_convert_buf_size;
 };
 
 int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config);

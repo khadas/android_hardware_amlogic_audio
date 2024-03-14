@@ -21,7 +21,8 @@ LOCAL_SHARED_LIBRARIES := \
     libamaudioutils \
     libamlparser \
     libalsautils \
-    libamlresampler
+    libamlresampler \
+    libaudioutils
 
 LOCAL_C_INCLUDES := \
    external/tinyalsa/include \

@@ -65,7 +65,8 @@ typedef enum {
     AML_DEC_CONFIG_OUTPUT_CHANNEL,  //runtime/static param
     AML_DEC_CONFIG_FADE,
     AML_DEC_CONFIG_PAN,
-    AML_DEC_CONFIG_PLACEMENT
+    AML_DEC_CONFIG_PLACEMENT,
+    AML_DEC_CONFIG_OUTPUT_BITWIDTH
 } aml_dec_config_type_t;
 
 typedef enum {
@@ -162,6 +163,7 @@ typedef struct aml_dca_config {
     bool is_dtscd;
     bool is_iec61937;
     int output_ch;
+    int output_bw;
     void *dev;
 } aml_dca_config_t;
 

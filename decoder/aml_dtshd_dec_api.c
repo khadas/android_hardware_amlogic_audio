@@ -33,6 +33,8 @@
 #include <sound/asound.h>
 #include <cutils/log.h>
 #include <cutils/properties.h>
+#include <audio_utils/channels.h>
+#include <audio_utils/format.h>
 
 #include "audio_hw.h"
 #include "aml_dtshd_dec_api.h"
@@ -110,7 +112,8 @@ struct dca_dts_debug {
 };
 static struct dca_dts_debug dts_debug = {0};
 
-static unsigned int dca_initparam_out_ch = 2;
+static unsigned int _dca_initparam_out_ch = 2;
+static unsigned int _dca_initparam_out_bitwidth = 16;
 
 ///static struct pcm_info pcm_out_info;
 /*dts decoder lib function*/
@@ -389,11 +392,27 @@ static int _dts_pcm_output(struct dca_dts_dec *dts_dec)
         memset(dec_pcm_data->buf, 0, dts_dec->outlen_pcm);
     }
 
+    if (dts_dec->pcm_out_info.bytes_per_sample == 3) {  // 24bit pcm packed.
+        uint32_t src_frame_size = audio_bytes_per_sample(AUDIO_FORMAT_PCM_24_BIT_PACKED) * \
+                            audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO);
+        uint32_t frame_count = dts_dec->outlen_pcm / src_frame_size;
+
+        memcpy(dts_dec->sample_convert_buf, dec_pcm_data->buf, dts_dec->outlen_pcm);
+        memcpy_by_audio_format(dec_pcm_data->buf, AUDIO_FORMAT_PCM_32_BIT,
+            (const void *)dts_dec->sample_convert_buf, AUDIO_FORMAT_PCM_24_BIT_PACKED,
+            frame_count * audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO));
+
+        dts_dec->outlen_pcm = frame_count * audio_bytes_per_sample(AUDIO_FORMAT_PCM_32_BIT) * \
+                            audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO);
+        dec_pcm_data->data_format = AUDIO_FORMAT_PCM_32_BIT;
+    } else {
+        dec_pcm_data->data_format = AUDIO_FORMAT_PCM_16_BIT;
+    }
+
     if (dts_debug.fp_pcm) {
         fwrite(dec_pcm_data->buf, 1, dts_dec->outlen_pcm, dts_debug.fp_pcm);
     }
 
-    dec_pcm_data->data_format = AUDIO_FORMAT_PCM_16_BIT;
     dec_pcm_data->data_ch = channel_num;
     dec_pcm_data->data_sr = dts_dec->pcm_out_info.sample_rate;
     dec_pcm_data->data_len = dts_dec->outlen_pcm;
@@ -500,10 +519,16 @@ static int dca_decoder_init(aml_dec_control_type_t digital_raw)
     (*dts_decoder_init)(1, digital_raw);
 
     if (dts_decoder_config) {
+        /* Set decoder output channel. */
         dca_config_t dca_config;
         memset(&dca_config, 0, sizeof(dca_config));
-        dca_config.output_ch = dca_initparam_out_ch;
+        dca_config.output_ch = _dca_initparam_out_ch;
         (*dts_decoder_config)(DCA_CONFIG_OUT_CH, (dca_config_t *)&dca_config);
+
+        /* Set decoder output pcm bitwidth. */
+        memset(&dca_config, 0, sizeof(dca_config));
+        dca_config.output_bitwidth = _dca_initparam_out_bitwidth;
+        (*dts_decoder_config)(DCA_CONFIG_OUT_BITDEPTH, (dca_config_t *)&dca_config);
     }
     return 0;
 Error:
@@ -619,15 +644,18 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
     dts_dec->frame_info.size = 0;
 
     dts_dec->inbuf = (unsigned char*) aml_audio_malloc(MAX_DCA_FRAME_LENGTH);  ///< same as dca decoder
-    dec_pcm_data->buf_size = MAX_DCA_FRAME_LENGTH * 2;
+    dec_pcm_data->buf_size = MAX_DCA_FRAME_LENGTH * 4; // for 32-bit pcm
     dec_pcm_data->buf = (unsigned char *)aml_audio_malloc(dec_pcm_data->buf_size);
     dec_raw_data->buf_size = MAX_DCA_FRAME_LENGTH * 2;
     dec_raw_data->buf = (unsigned char *)aml_audio_malloc(dec_raw_data->buf_size);
+    dts_dec->sample_convert_buf_size = dec_pcm_data->buf_size;
+    dts_dec->sample_convert_buf = (unsigned char *)aml_audio_malloc(dts_dec->sample_convert_buf_size);
     if (!dec_pcm_data->buf || !dec_raw_data->buf || !dts_dec->inbuf) {
         ALOGE("%s malloc memory failed!", __func__);
         goto error;
     }
     memset(dec_pcm_data->buf, 0, dec_pcm_data->buf_size);
+    memset(dts_dec->sample_convert_buf, 0, dts_dec->sample_convert_buf_size);
     memset(dec_raw_data->buf , 0, dec_raw_data->buf_size);
     memset(raw_in_data, 0, sizeof(dec_data_info_t));  ///< no use
 
@@ -900,7 +928,14 @@ int dca_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, a
         switch (config_type) {
             case AML_DEC_CONFIG_OUTPUT_CHANNEL:
             {
-                dca_initparam_out_ch = aml_dec_config->dca_config.output_ch;
+                _dca_initparam_out_ch = aml_dec_config->dca_config.output_ch;
+                ret = 0;
+                break;
+            }
+
+            case AML_DEC_CONFIG_OUTPUT_BITWIDTH:
+            {
+                _dca_initparam_out_bitwidth = aml_dec_config->dca_config.output_bw;
                 ret = 0;
                 break;
             }
@@ -1013,7 +1048,7 @@ int dtshd_set_out_ch_internal(int ch_num)
 {
     if (!dts_decoder_config) {
         ///< static param, will take effect after decoder_init.
-        dca_initparam_out_ch = ch_num;
+        _dca_initparam_out_ch = ch_num;
         ALOGI("%s: DTS Channel Output Mode = %d!", __FUNCTION__, ch_num);
         return 0;
     }
