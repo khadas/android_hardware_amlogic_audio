@@ -129,7 +129,8 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mRISCPrecisionFlag(1)
     , mDualMonoReproMode(0)
     , mVerbosity(2)
-    , mOutputBitDepth(16)//use 16 bit per sample
+    , mOutputBitDepth(16)//use 16 bit per sample for not support 32bit ms12 lib
+    , mOutputBitDepth2(32)//use 32 bit per sample for support 32bit ms12 lib
     , mAssociatedAudioMixing(1)
     , mSystemAPPAudioMixing(1)
     , mUserControlVal(0)
@@ -807,6 +808,13 @@ int DolbyMS12ConfigParams::SetFunctionalSwitches(char **ConfigParams, int *row_i
         sprintf(ConfigParams[*row_index], "%s", "-w");
         (*row_index)++;
         sprintf(ConfigParams[*row_index], "%d", mOutputBitDepth);
+        (*row_index)++;
+    }
+
+    if ((mOutputBitDepth2 == 16) || (mOutputBitDepth2 == 24) || (mOutputBitDepth2 == 32)) {
+        sprintf(ConfigParams[*row_index], "%s", "-w2");
+        (*row_index)++;
+        sprintf(ConfigParams[*row_index], "%d", mOutputBitDepth2);
         (*row_index)++;
     }
 

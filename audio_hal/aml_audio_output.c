@@ -26,6 +26,7 @@
 #include <tinyalsa/asoundlib.h>
 #include <audio_utils/channels.h>
 #include <aml_android_utils.h>
+#include <audio_utils/primitives.h>
 
 #include "aml_audio_output.h"
 #include "alsa_manager.h"
@@ -163,7 +164,19 @@ static inline ssize_t stream_pcm32_process_for_tv(struct audio_stream_out *strea
                 adev->volume_ease.config_easing = false;
             }
 
-            size_t ret_frames = audio_post_process(&adev->native_postprocess, adev->out_32_buf, out_frames);
+            // ms12 always output 32bit pcm, if native_postprocess not support 32bit, Convert 32bit to 16bit.
+            if (adev->native_postprocess.src_format == AUDIO_FORMAT_PCM_16_BIT) {
+                ret = aml_audio_check_and_realloc((void **)&adev->out_16_buf, &adev->out_16_buf_size, buffer_need_size);
+                memcpy_to_i16_from_i32(adev->out_16_buf, adev->out_32_buf, bytes / sizeof(int32_t));
+                size_t ret_frames = audio_post_process(&adev->native_postprocess, adev->out_16_buf, out_frames);
+                bytes = ret_frames * 4;
+                memcpy_to_i32_from_i16(adev->out_32_buf, adev->out_16_buf, bytes / sizeof(int16_t));
+                bytes *= 2;
+            } else if (adev->native_postprocess.src_format == AUDIO_FORMAT_PCM_32_BIT) {
+                size_t ret_frames = audio_post_process(&adev->native_postprocess, adev->out_32_buf, out_frames);
+                bytes = ret_frames * 8;
+            }
+            out_frames = bytes / 2 / 4;
             //AM_LOGI("bytes:%d in_frames:%d out_frames:%d", bytes, out_frames, ret_frames);
 
             if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
@@ -293,40 +306,31 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             apply_volume(gain_speaker, tmp_buffer, sizeof(uint32_t), bytes);
         }
 
-        /* 2 ch 32 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
-        ret = aml_audio_check_and_realloc((void **)&adev->tmp_buffer_8ch, &adev->tmp_buffer_8ch_size,
-            FRAMESIZE_32BIT_8ch * out_frames);
-        R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%zu fail", FRAMESIZE_32BIT_8ch * out_frames);
-
         if (aml_out->is_tv_platform == 1) {
+            /* 2 ch 32 bit --> 8 ch 32 bit mapping, need 8X size of input buffer size */
+            ret = aml_audio_check_and_realloc((void **)&adev->tmp_buffer_8ch, &adev->tmp_buffer_8ch_size,
+                FRAMESIZE_32BIT_8ch * out_frames);
+            R_CHECK_RET(ret, "alloc tmp_buffer_8ch size:%zu fail", FRAMESIZE_32BIT_8ch * out_frames);
             out_frames = bytes / FRAMESIZE_32BIT_STEREO;
             stream_pcm32_process_for_tv(stream, auge_chip, buffer, bytes);
+            *output_buffer = adev->tmp_buffer_8ch;
+            *output_buffer_bytes = FRAMESIZE_32BIT_8ch * out_frames;
+            out_data_info->audio_format = AUDIO_FORMAT_PCM_32_BIT;
+            out_data_info->channel_mask = AUDIO_CHANNEL_OUT_7POINT1;
         } else {
-            int32_t *tmp_buffer = (int32_t *)buffer;
-            out_frames = bytes / FRAMESIZE_32BIT_STEREO;
-            if (!aml_out->ms12_vol_ctrl) {
-                float gain_speaker = adev->sink_gain[OUTPORT_SPEAKER];
-                if (aml_out->hw_sync_mode)
-                    gain_speaker *= aml_out->volume_l;
-                apply_volume(gain_speaker, tmp_buffer, sizeof(uint32_t), bytes);
+            if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_exist(adev)) {
+                if (is_dolby_ms12_support_compression_format(aml_out->hal_internal_format))  {
+                    aml_audio_switch_output_mode((int16_t *)buffer, bytes, AUDIO_FORMAT_PCM_32_BIT, get_dev_patch(adev)->mode);
+                }
+            } else if (!is_dev_patch_exist(adev)) {
+                aml_audio_switch_output_mode((int16_t *)buffer, bytes, AUDIO_FORMAT_PCM_32_BIT, adev->sound_track_mode);
+            }
 
-            }
-            for (i = 0; i < out_frames; i++) {
-                adev->tmp_buffer_8ch[8 * i] = tmp_buffer[2 * i];
-                adev->tmp_buffer_8ch[8 * i + 1] = tmp_buffer[2 * i + 1];
-                adev->tmp_buffer_8ch[8 * i + 2] = tmp_buffer[2 * i];
-                adev->tmp_buffer_8ch[8 * i + 3] = tmp_buffer[2 * i + 1];
-                adev->tmp_buffer_8ch[8 * i + 4] = tmp_buffer[2 * i];
-                adev->tmp_buffer_8ch[8 * i + 5] = tmp_buffer[2 * i + 1];
-                adev->tmp_buffer_8ch[8 * i + 6] = 0;
-                adev->tmp_buffer_8ch[8 * i + 7] = 0;
-            }
+            *output_buffer = (void *) buffer;
+            *output_buffer_bytes = bytes;
+            out_data_info->audio_format = AUDIO_FORMAT_PCM_32_BIT;
+            out_data_info->channel_mask = AUDIO_CHANNEL_OUT_STEREO;
         }
-
-        *output_buffer = adev->tmp_buffer_8ch;
-        *output_buffer_bytes = FRAMESIZE_32BIT_8ch * out_frames;
-        out_data_info->audio_format = AUDIO_FORMAT_PCM_32_BIT;
-        out_data_info->channel_mask = AUDIO_CHANNEL_OUT_7POINT1;
     } else {
         ret = aml_audio_check_and_realloc((void **)&adev->out_16_buf, &adev->out_16_buf_size, buffer_need_size);
         R_CHECK_RET(ret, "alloc out_16_buf size:%zu fail", bytes);

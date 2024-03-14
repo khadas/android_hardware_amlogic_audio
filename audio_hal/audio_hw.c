@@ -6559,17 +6559,6 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
 
             const void *source = buffer;
             int source_bytes = bytes;
-            //TODO: temporary solution for MS12 not support PCM32 input
-            if (aml_out->hal_internal_format == AUDIO_FORMAT_PCM_32_BIT) {
-                int buffer_need_size = bytes >> 1;
-                ret = aml_audio_check_and_realloc((void **)&adev->temp_out_16_buf, &adev->temp_out_16_buf_size, buffer_need_size);
-                R_CHECK_RET(ret, "alloc out_32_buf size:%d fail", buffer_need_size);
-                memcpy_to_i16_from_i32((void*)adev->temp_out_16_buf, buffer, bytes / sizeof(int32_t));
-                source = adev->temp_out_16_buf;
-                source_bytes = bytes >> 1;
-                bytes_remaining = source_bytes;
-            }
-            //END
 
             while (bytes_remaining && adev->ms12.dolby_ms12_enable && retry < 20) {
                 size_t used_size = 0;
@@ -6586,12 +6575,6 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
                 }
             }
             if (bytes_remaining) {
-                //TODO: temporary solution for MS12 not support PCM32 input
-                if (aml_out->hal_internal_format == AUDIO_FORMAT_PCM_32_BIT) {
-                    bytes_remaining *= 2;
-                    ms12->sys_audio_skip += bytes_remaining / frame_size;
-                } else
-                //END
                 ms12->sys_audio_skip += bytes_remaining / frame_size;
                 ALOGI("bytes_remaining =%zu total skip =%" PRId64 "", bytes_remaining, ms12->sys_audio_skip);
             }
@@ -6647,11 +6630,6 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
         alsa_latency_frame = adev->ms12.latency_frame;
         int system_latency = 0;
 #ifndef AUDIO_HAL_DISABLE_MS12
-        //TODO: temporary solution for MS12 not support PCM32 input
-        if (aml_out->hal_internal_format == AUDIO_FORMAT_PCM_32_BIT) {
-            system_latency = dolby_ms12_get_system_buffer_avail(NULL) * 2 / frame_size;
-        } else
-        //END
         system_latency = dolby_ms12_get_system_buffer_avail(NULL) / frame_size;
 #endif
         if (adev->compensate_video_enable) {
