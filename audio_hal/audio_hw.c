@@ -8559,6 +8559,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->in_device = AUDIO_DEVICE_IN_BUILTIN_MIC & ~AUDIO_DEVICE_BIT_IN;
     adev->hi_pcm_mode = false;
     adev->last_sink_capability = 0;
+    adev->first_data = false;
 
     adev->eq_data.card = adev->card;
     if (eq_drc_init(&adev->eq_data) == 0) {

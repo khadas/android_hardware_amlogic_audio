@@ -1656,19 +1656,29 @@ static int mixer_do_mixing_16bit(struct amlAudioMixer *audio_mixer)
         pthread_mutex_unlock(&audio_mixer->outport_locks[port_index]);
     }
     static uint32_t no_data_cnt = 0;
-    if (!is_data_valid && (adev->cur_out_devices & AUDIO_DEVICE_OUT_ALL_A2DP)) {
-        if (adev->debug_flag) {
-            AM_LOGI("inport no valid data");
-        }
-        /* If all input ports timeout for 1.6s and there is no data, we stop sending
-         * data to the BT stack in order to save power. (200 * 8ms = 1.6s)
-         */
-        if (no_data_cnt >= 200) {
+    if (!is_data_valid) {
+        if (adev->cur_out_devices & AUDIO_DEVICE_OUT_ALL_A2DP) {
+            if (adev->debug_flag) {
+                AM_LOGI("inport no valid data");
+            }
+            /* If all input ports timeout for 1.6s and there is no data, we stop sending
+             * data to the BT stack in order to save power. (200 * 8ms = 1.6s)
+             */
+            if (no_data_cnt >= 200) {
+                return -1;
+            }
+            no_data_cnt++;
+        } else if (is_TV(adev) && !adev->first_data){
+            no_data_cnt = 0;
             return -1;
+        } else {
+            no_data_cnt = 0;
         }
-        no_data_cnt++;
     } else {
         no_data_cnt = 0;
+        if (!adev->first_data) {
+            adev->first_data = true;
+        }
     }
 
     pthread_mutex_lock(&audio_mixer->outport_locks[MIXER_OUTPUT_PORT_MULTI_PCM]);

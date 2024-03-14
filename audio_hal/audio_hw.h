@@ -550,6 +550,10 @@ struct aml_audio_device {
     pthread_mutex_t bitstream_lock;
     bool singleDmxNonTunnelMode;
 
+    /* if no data write, donot open pcm device and write,
+       otherwise bootvideo can't open pcm device and play failed.*/
+    bool first_data;
+
 #ifdef ENABLE_AUTOMOTIVE_AUDIO_FUNCTION
     struct bus_submix_core *bus_mixer_core;
     struct audio_stream_out* mBus_stream_outs[STREAM_USECASE_MAX];

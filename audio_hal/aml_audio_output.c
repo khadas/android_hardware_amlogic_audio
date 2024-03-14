@@ -590,7 +590,7 @@ ssize_t hw_write (struct audio_stream_out *stream
 
     pthread_mutex_lock(&adev->alsa_pcm_lock);
     aml_out->alsa_output_format = output_format;
-    if (aml_out->stream_status != STREAM_HW_WRITING) {
+    if (aml_out->stream_status != STREAM_HW_WRITING || aml_out->pcm == NULL) {
         ALOGI("%s, aml_out %p alsa open output_format %#x\n", __func__, aml_out, output_format);
         if (adev->useSubMix) {
             if (/*adev->audio_patching &&*/
