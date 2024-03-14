@@ -451,7 +451,17 @@ eDTSLibType_t detect_dts_lib_type(void) {
         if (hDTSLibHanle != NULL) {
             dlclose(hDTSLibHanle);
             hDTSLibHanle = NULL;
-            ALOGI("[%s:%d] Found libHwAudio_dtsx lib", __func__, __LINE__);
+            ALOGI("[%s:%d] Found 32bit libHwAudio_dtsx lib", __func__, __LINE__);
+            return eDTSXLib;
+        }
+    }
+    if (file_accessible(DTS_X_LIB64_PATH_A) == 0) {
+        // try to open lib see if it's OK?
+        hDTSLibHanle = dlopen(DTS_X_LIB64_PATH_A, RTLD_NOW);
+        if (hDTSLibHanle != NULL) {
+            dlclose(hDTSLibHanle);
+            hDTSLibHanle = NULL;
+            ALOGI("[%s:%d] Found 64bit libHwAudio_dtsx lib", __func__, __LINE__);
             return eDTSXLib;
         }
     }
@@ -463,7 +473,17 @@ eDTSLibType_t detect_dts_lib_type(void) {
         if (hDTSLibHanle != NULL) {
             dlclose(hDTSLibHanle);
             hDTSLibHanle = NULL;
-            ALOGI("[%s:%d] Found libHwAudio_dtshd lib", __func__, __LINE__);
+            ALOGI("[%s:%d] Found 32bit libHwAudio_dtshd lib", __func__, __LINE__);
+            return eDTSHDLib;
+        }
+    }
+    if (file_accessible(DTS_HD_LIB64_PATH_A) == 0) {
+        // try to open lib see if it's OK?
+        hDTSLibHanle = dlopen(DTS_HD_LIB64_PATH_A, RTLD_NOW);
+        if (hDTSLibHanle != NULL) {
+            dlclose(hDTSLibHanle);
+            hDTSLibHanle = NULL;
+            ALOGI("[%s:%d] Found 64bit libHwAudio_dtshd lib", __func__, __LINE__);
             return eDTSHDLib;
         }
     }
