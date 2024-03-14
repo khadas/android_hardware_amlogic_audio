@@ -431,7 +431,7 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
     // when connect bt, bt stream maybe open before hdmi stream close,
     // bt stream mediasync is set to adev->hw_mediasync, and it would be
     // release in hdmi stream close, so bt stream mediasync is invalid
-    if (out->hwsync->mediasync != NULL && adev->hw_mediasync == NULL) {
+    if (out->hwsync && out->hwsync->mediasync != NULL && adev->hw_mediasync == NULL) {
         adev->hw_mediasync = aml_audio_hwsync_create();
         out->hwsync->use_mediasync = true;
         out->hwsync->mediasync = adev->hw_mediasync;

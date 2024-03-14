@@ -107,7 +107,7 @@ int do_mixing_by_ch_mux(void *data_mixed,
                 for (j = 0; j < out_ch_count; j++) {
                     for (i = 0; i < in_mux_channels; i++) {
                         if (in_ch_tab[i] == out_ch_tab[j]) {
-                            int64_t tmp = tmp = (int64_t)out[j] + (int64_t)(in[i] << 16);
+                            int64_t tmp = (int64_t)out[j] + (int64_t)(in[i] << 16);
                             out[j] = CLIPINT(tmp);
                         }
                     }

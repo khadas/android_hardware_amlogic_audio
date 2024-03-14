@@ -1301,6 +1301,7 @@ int get_the_dolby_ms12_prepared(
     **  the system stream data can't send to ms12/speaker when bootup,
     **  this lead to system stream always pop noise when playback YouTuBe.
     */
+   /*coverity[missing_lock]*/
     if (adev->audio_patch_2_af_stream || (adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) != 0
         || ms12->ms12_scheduler_state == MS12_SCHEDULER_RUNNING) {
         ms12->last_scheduler_state = MS12_SCHEDULER_NONE;
@@ -4925,6 +4926,7 @@ int aml_dap_open(
     set_ms12_full_dap_disable(ms12, false);
 
     ALOGI("--%s(), locked", __FUNCTION__);
+    /*coverity[double_unlock]*/
     pthread_mutex_unlock(&ms12->lock);
 
     ALOGI("-%s()\n\n", __FUNCTION__);

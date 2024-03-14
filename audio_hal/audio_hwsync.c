@@ -663,7 +663,7 @@ int aml_audio_hwsync_audio_process(audio_hwsync_t *p_hwsync, uint64_t apts, int 
                     aml_hwsync_wait_video_start(p_hwsync);
                     aml_hwsync_wait_video_drop(p_hwsync, apts - latency_pts);
                     out->is_waiting_video = false;
-                    p_hwsync->wait_video_done == true;
+                    p_hwsync->wait_video_done = true;
                 } else {
                     aml_hwsync_wrap_is_amaster(out->hwsync, &amaster_mode);
                     if (!amaster_mode) {

@@ -262,6 +262,9 @@ void *audio_patch_input_threadloop(void *data)
             if (ret == 0) {
                 in = (struct aml_stream_in *)new_stream;
                 patch->input_teardown_over = true;
+            } else {
+                AM_LOGE("old stream or new stream is NULL");
+                break;
             }
             AM_LOGE("---input handle format change over, ret:%d", ret);
         }

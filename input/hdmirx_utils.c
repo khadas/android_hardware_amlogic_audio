@@ -551,30 +551,26 @@ int update_edid_after_edited_audio_sad(struct audio_hw_device *dev)
         /* edit the current EDID audio array to add DDP-SAD(byte3-bit0~1) and MAT-SAD(byte3-bit0~1) */
         /* loop is less then 12 as the (EDID_cur_array + TLV_HEADER_SIZE - SAD_SIZE) is 33 */
         for (int n = 0; n < EDID_ARRAY_MAX_LEN / SAD_SIZE - 1; n++) {
-            if (output_device == ATTEND_TYPE_ARC) {
+            if (output_device == ATTEND_TYPE_ARC || output_device == ATTEND_TYPE_EARC) {
                 update_dolby_atmos_decoding_and_rendering_cap_for_ddp_sad(
                     (void *)(EDID_cur_array  + SAD_SIZE*n)
                     , (EDID_ARRAY_MAX_LEN - SAD_SIZE * n)
                     , 0 , hdmi_desc->ddp_fmt.atmos_supported);
 
                 /* MAT dependent value is chanegd with ddp atmos flag: case 1948,1954 */
-                update_dolby_MAT_decoding_cap_for_dolby_MAT_and_dolby_TRUEHD_sad(
-                    (void *)(EDID_cur_array  + SAD_SIZE*n)
-                    , (EDID_ARRAY_MAX_LEN - SAD_SIZE * n)
-                    , hdmi_desc->ddp_fmt.atmos_supported
-                    , hdmi_desc->ddp_fmt.atmos_supported);
-            } else if (output_device == ATTEND_TYPE_EARC) {
-                update_dolby_atmos_decoding_and_rendering_cap_for_ddp_sad(
-                    (void *)(EDID_cur_array  + SAD_SIZE*n)
-                    , (EDID_ARRAY_MAX_LEN - SAD_SIZE * n)
-                    , 0 , hdmi_desc->ddp_fmt.atmos_supported);
-
-                /* MAT dependent value is chanegd with ddp atmos flag: case 1952, 1958 */
-                update_dolby_MAT_decoding_cap_for_dolby_MAT_and_dolby_TRUEHD_sad(
-                    (void *)(EDID_cur_array  + SAD_SIZE*n)
-                    , (EDID_ARRAY_MAX_LEN - SAD_SIZE * n)
-                    , hdmi_desc->mat_fmt.atmos_supported
-                    , hdmi_desc->mat_fmt.atmos_supported);
+                if (output_device == ATTEND_TYPE_ARC)
+                    update_dolby_MAT_decoding_cap_for_dolby_MAT_and_dolby_TRUEHD_sad(
+                        (void *)(EDID_cur_array  + SAD_SIZE*n)
+                        , (EDID_ARRAY_MAX_LEN - SAD_SIZE * n)
+                        , hdmi_desc->ddp_fmt.atmos_supported
+                        , hdmi_desc->ddp_fmt.atmos_supported);
+                else
+                    /* MAT dependent value is chanegd with ddp atmos flag: case 1952, 1958 */
+                    update_dolby_MAT_decoding_cap_for_dolby_MAT_and_dolby_TRUEHD_sad(
+                        (void *)(EDID_cur_array  + SAD_SIZE*n)
+                        , (EDID_ARRAY_MAX_LEN - SAD_SIZE * n)
+                        , hdmi_desc->mat_fmt.atmos_supported
+                        , hdmi_desc->mat_fmt.atmos_supported);
             }
             /* From the SAD table, one invalid SAD is like this [0, 0, 0], here filter the valid SAD */
             if (EDID_cur_array[SAD_SIZE*n]) {

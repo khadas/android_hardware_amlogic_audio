@@ -983,7 +983,7 @@ static int _aml_dtsx_dualcore_init(dtsx_dec_t *p_dtsx_dec)
     return 0;
 
 DTSX_DUALCORE_INIT_FAIL:
-    if (p_dtsx_dec->p_dtsx_dec_inst) {
+    if (p_dtsx_dec && p_dtsx_dec->p_dtsx_dec_inst) {
         (_aml_dts_decoder_deinit)(p_dtsx_dec->p_dtsx_dec_inst);
     }
 
@@ -1210,6 +1210,8 @@ DTSX_INIT_FAIL:
 
 int dtsx_decoder_release_patch(aml_dec_t *aml_dec)
 {
+    if (!aml_dec)
+        return -1;
     dtsx_dec_t *dtsx_dec = (dtsx_dec_t *)aml_dec;
     struct aml_audio_device *adev = NULL;
     dec_data_info_t *dec_pcm_data = &aml_dec->dec_pcm_data;
@@ -1227,63 +1229,62 @@ int dtsx_decoder_release_patch(aml_dec_t *aml_dec)
     }
     _unload_dtsx_function_symbol();
 
-    if (dtsx_dec) {
-        if (dtsx_dec->inbuf) {
-            aml_audio_free(dtsx_dec->inbuf);
-            dtsx_dec->inbuf = NULL;
-        }
-        if (dec_pcm_data->buf) {
-            aml_audio_free(dec_pcm_data->buf);
-            dec_pcm_data->buf = NULL;
-        }
-        if (dec_raw_data->buf) {
-            aml_audio_free(dec_raw_data->buf);
-            dec_raw_data->buf = NULL;
-        }
-        if (dtsx_dec->resample_handle) {
-            aml_audio_resample_close(dtsx_dec->resample_handle);
-            dtsx_dec->resample_handle = NULL;
-        }
-        ring_buffer_release(&dtsx_dec->input_ring_buf);
-        ring_buffer_release(&dtsx_dec->spdif_ring_buffer);
-
-        if (_dtsx_debug.fp_input_raw) {
-            fclose(_dtsx_debug.fp_input_raw);
-            _dtsx_debug.fp_input_raw = NULL;
-        }
-
-        if (_dtsx_debug.fp_dec_in_raw) {
-            fclose(_dtsx_debug.fp_dec_in_raw);
-            _dtsx_debug.fp_dec_in_raw = NULL;
-        }
-
-        if (_dtsx_debug.fp_decode_pcm) {
-            fclose(_dtsx_debug.fp_decode_pcm);
-            _dtsx_debug.fp_decode_pcm = NULL;
-        }
-
-        if (_dtsx_debug.fp_output_raw) {
-            fclose(_dtsx_debug.fp_output_raw);
-            _dtsx_debug.fp_output_raw = NULL;
-        }
-
-        if (_dtsx_debug.fp_spk_pcm) {
-            fclose(_dtsx_debug.fp_spk_pcm);
-            _dtsx_debug.fp_spk_pcm = NULL;
-        }
-
-        if (_dtsx_debug.fp_hp_pcm) {
-            fclose(_dtsx_debug.fp_hp_pcm);
-            _dtsx_debug.fp_hp_pcm = NULL;
-        }
-
-        adev = (struct aml_audio_device *)(aml_dec->dev);
-        memset(&adev->dts_x, 0, sizeof(dtsx_dec_t));
-        aml_dec->frame_cnt = 0;
-
-        aml_audio_free(dtsx_dec);
-        dtsx_dec = NULL;
+    if (dtsx_dec->inbuf) {
+        aml_audio_free(dtsx_dec->inbuf);
+        dtsx_dec->inbuf = NULL;
     }
+    if (dec_pcm_data->buf) {
+        aml_audio_free(dec_pcm_data->buf);
+        dec_pcm_data->buf = NULL;
+    }
+    if (dec_raw_data->buf) {
+        aml_audio_free(dec_raw_data->buf);
+        dec_raw_data->buf = NULL;
+    }
+    if (dtsx_dec->resample_handle) {
+        aml_audio_resample_close(dtsx_dec->resample_handle);
+        dtsx_dec->resample_handle = NULL;
+    }
+    ring_buffer_release(&dtsx_dec->input_ring_buf);
+    ring_buffer_release(&dtsx_dec->spdif_ring_buffer);
+
+    if (_dtsx_debug.fp_input_raw) {
+        fclose(_dtsx_debug.fp_input_raw);
+        _dtsx_debug.fp_input_raw = NULL;
+    }
+
+    if (_dtsx_debug.fp_dec_in_raw) {
+        fclose(_dtsx_debug.fp_dec_in_raw);
+        _dtsx_debug.fp_dec_in_raw = NULL;
+    }
+
+    if (_dtsx_debug.fp_decode_pcm) {
+        fclose(_dtsx_debug.fp_decode_pcm);
+        _dtsx_debug.fp_decode_pcm = NULL;
+    }
+
+    if (_dtsx_debug.fp_output_raw) {
+        fclose(_dtsx_debug.fp_output_raw);
+        _dtsx_debug.fp_output_raw = NULL;
+    }
+
+    if (_dtsx_debug.fp_spk_pcm) {
+        fclose(_dtsx_debug.fp_spk_pcm);
+        _dtsx_debug.fp_spk_pcm = NULL;
+    }
+
+    if (_dtsx_debug.fp_hp_pcm) {
+        fclose(_dtsx_debug.fp_hp_pcm);
+        _dtsx_debug.fp_hp_pcm = NULL;
+    }
+
+    adev = (struct aml_audio_device *)(aml_dec->dev);
+    memset(&adev->dts_x, 0, sizeof(dtsx_dec_t));
+    aml_dec->frame_cnt = 0;
+
+    aml_audio_free(dtsx_dec);
+    dtsx_dec = NULL;
+
     return 1;
 }
 
@@ -1536,8 +1537,8 @@ void dtsx_reset_config_params(void)
                 memset(_dtsx_dec->init_argv[i], 0, DTSX_PARAM_STRING_LEN);
             }
         }
+        _dtsx_dec->init_argc = 0;
     }
-    _dtsx_dec->init_argc = 0;
     ALOGI("[%s:%d] DTSX reset config params success", __func__, __LINE__);
     return ;
 }

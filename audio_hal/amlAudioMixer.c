@@ -190,7 +190,7 @@ int init_mixer_input_port(struct amlAudioMixer *audio_mixer,
     }
     /* if direct on, ie. the ALSA buffer is full, no need padding data anymore  */
     direct_on = (audio_mixer->in_ports[AML_MIXER_INPUT_PORT_PCM_DIRECT] != NULL);
-    struct audioCfg portConfig;
+    struct audioCfg portConfig = {0};
     setPortConfig(&portConfig, config);
     in_port = new_input_port(MIXER_FRAME_COUNT, &portConfig, flags, volume, direct_on, false);
     if (in_port == NULL) {
@@ -251,7 +251,7 @@ int init_mixer_multi_aaudio_input_port(struct amlAudioMixer *audio_mixer,
     input_port *in_port = NULL;
     uint8_t port_index = -1;
 
-    struct audioCfg portConfig;
+    struct audioCfg portConfig = {0};
     setPortConfig(&portConfig, config);
     in_port = new_input_port(MIXER_FRAME_COUNT, &portConfig, 0, 1.0f, false, true);
     if (in_port == NULL) {
@@ -550,7 +550,7 @@ static int mixer_output_write(struct amlAudioMixer *audio_mixer)
 
     if (audio_mixer->type == SUB_MIXER_NORMAL) {
         p_cur_mixer = &audio_mixer->stereo_mixer;
-    } else if (audio_mixer->type == SUB_MIXER_CH_MUX) {
+    } else {
         p_cur_mixer =  &audio_mixer->ch_mux_mixer;
     }
 

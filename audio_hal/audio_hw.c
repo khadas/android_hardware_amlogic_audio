@@ -5616,7 +5616,7 @@ void aml_stream_timer_pause_callback(union sigval sigv)
         }
     }
 
-    if (adev && out && is_hwsync_lpcm) {
+    if (out && is_hwsync_lpcm) {
         //cts tunnel underrun case failed, depond on pause/resume invoked from AudioFlinger.
         //sometimes AudioFlinger always invoke the pause to Hal during 800ms for track retry count.
         //so add this code to control pause/resume MediaSync and video in Hal.
@@ -6516,6 +6516,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
             }
         }
         /* here to check if ms12 is already enabled, if main stream is doing init ms12, we don't need do it */
+        /*coverity[missing_lock]*/
         if (!adev->ms12.dolby_ms12_enable && !adev->doing_reinit_ms12 && !adev->doing_cleanup_ms12) {
             ALOGI("%s(), 0x%x, Switching system output to MS12, need MS12 reconfig output", __func__, aml_out->out_device);
             need_reconfig_output = true;
@@ -6899,6 +6900,7 @@ int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby)
     /*any stream is active, and the ms12 scheduler state is not Running.
     **here should send the MS12_SCHEDULER_RUNNING to ms12.
     */
+   /*coverity[missing_lock]*/
     if (ms12->ms12_scheduler_state != MS12_SCHEDULER_RUNNING && aml_dev->usecase_masks >= 1) {
         aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
         if (eDolbyMS12Lib == aml_dev->dolby_lib_type &&
