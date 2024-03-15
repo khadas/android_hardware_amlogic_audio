@@ -18,6 +18,7 @@
 #define ANDROID_HARDWARE_STREAM_HAL_HIDL_H
 
 #include <atomic>
+#include <vector>
 
 #include PATH(android/hardware/audio/FILE_VERSION/IStream.h)
 #include PATH(android/hardware/audio/FILE_VERSION/IStreamIn.h)
@@ -189,7 +190,7 @@ class StreamOutHalHidl : public StreamOutHalInterface, public StreamHalHidl {
     status_t setEventCallback(const sp<StreamOutHalInterfaceEventCallback>& callback) override;
 
     // Methods used by StreamCodecFormatCallback (HIDL).
-    void onCodecFormatChanged(const std::basic_string<uint8_t>& metadataBs);
+    void onCodecFormatChanged(const std::vector<uint8_t>& metadataBs);
 
   private:
     friend class DeviceHalHidl;
