@@ -172,7 +172,7 @@ int bus_port_open(void *handle, uint64_t written_frames)
     }
 
     pthread_mutex_unlock(&playbackPort->lock);
-    AM_LOGI("OK channels:%d portId:%d busId:%d", source_channels, playbackPort->portId, playbackPort->busId);
+    AM_LOGI("OK channels:%d portId:%d busId:%d mix_port:%p", source_channels, playbackPort->portId, playbackPort->busId, playbackPort->mix_port);
     return ret;
 }
 
@@ -180,10 +180,12 @@ int bus_port_close(void *handle)
 {
     BusMixPlaybackHandler *playbackPort = (BusMixPlaybackHandler *)handle;
     pthread_mutex_lock(&playbackPort->lock);
+    ALOGD("+%s() mix_port:%p",__func__, playbackPort->mix_port);
     if (playbackPort->mix_port) {
         delete_mixer_port(playbackPort->mixCore, playbackPort->mix_port);
         playbackPort->mix_port = NULL;
         playbackPort->portId = -1;
+        ALOGD("-%s() mix_port:%p",__func__, playbackPort->mix_port);
     }
     pthread_mutex_unlock(&playbackPort->lock);
     return 0;

@@ -44,9 +44,12 @@ input_port * create_mixer_port(BusSubMixCore *mixCore,
         return NULL;
     }
 
+    pthread_mutex_lock(&mixCore->lock);
+
     in_port = new_input_port(MIXER_FRAME_COUNT, audCfg, flags, volume, false, false);
     if (in_port == NULL) {
         AM_LOGE("new_input_port fail return NULL!");
+        pthread_mutex_unlock(&mixCore->lock);
         return NULL;
     }
     //user already write out frames sum
@@ -62,12 +65,14 @@ input_port * create_mixer_port(BusSubMixCore *mixCore,
     if (ret < 0) {
         AM_LOGE("Error, failed add new input_port!");
         free_input_port(in_port);
+        pthread_mutex_unlock(&mixCore->lock);
         return NULL;
     }
 
     mixCore->in_port_count++;
     AM_LOGI("in_port:%p, index:%d, count:%d buffer_frames:%d, frame_write_sum:%" PRId64 "",
         in_port, in_port->ID, mixCore->in_port_count, MIXER_FRAME_COUNT, frames_written);
+    pthread_mutex_unlock(&mixCore->lock);
     return in_port;
 }
 
@@ -78,9 +83,12 @@ int delete_mixer_port(BusSubMixCore *mixCore, input_port * in_port)
         return 0;
     }
 
+    pthread_mutex_lock(&mixCore->lock);
+
     delete_mixer_input_port(mixCore->audio_mixer, in_port->ID);
     mixCore->in_port_count--;
     AM_LOGI("in_port:%p index:%d count:%d", in_port, in_port->ID, mixCore->in_port_count);
+    pthread_mutex_unlock(&mixCore->lock);
     return 0;
 }
 
@@ -116,7 +124,9 @@ int get_mixer_port_presentation(BusSubMixCore *mixCore, input_port* in_port, uin
 
 BusSubMixCore *get_bus_mix_core(struct aml_audio_device *adev)
 {
+    pthread_mutex_lock(&adev->lock);
     if (adev->bus_mixer_core) {
+        pthread_mutex_unlock(&adev->lock);
         return adev->bus_mixer_core;
     }
 
@@ -127,16 +137,25 @@ BusSubMixCore *get_bus_mix_core(struct aml_audio_device *adev)
     BusSubMixCore *mixCore = aml_audio_calloc(1, sizeof(BusSubMixCore));
     if (!mixCore) {
         AM_LOGE("No memory, return!");
-        return NULL;
+        goto err;
     }
     mixCore->audio_mixer = (struct amlAudioMixer*)adev->sm->mixerData;
     adev->bus_mixer_core = mixCore;
+    if (pthread_mutex_init(&mixCore->lock, NULL) != 0) {
+        AM_LOGE("pthread_mutex_init fail, errno:%s", strerror(errno));
+        goto err;
+    }
+
+err:
+    pthread_mutex_unlock(&adev->lock);
     return mixCore;
 }
 
 void release_bus_mix_core(struct aml_audio_device *adev)
 {
+    pthread_mutex_lock(&adev->lock);
     if (!adev->bus_mixer_core) {
+        pthread_mutex_unlock(&adev->lock);
         return;
     }
 
@@ -144,6 +163,8 @@ void release_bus_mix_core(struct aml_audio_device *adev)
         deleteHalSubMixing(adev->sm);
     }
 
+    pthread_mutex_destroy(&adev->bus_mixer_core->lock);
     aml_audio_free(adev->bus_mixer_core);
     adev->bus_mixer_core = NULL;
+    pthread_mutex_unlock(&adev->lock);
 }

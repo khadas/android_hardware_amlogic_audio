@@ -179,7 +179,7 @@ static int bus_out_set_volume(struct audio_stream_out *stream, float left,
 
 static int bus_stream_out_standby(struct audio_stream *stream)
 {
-    AM_LOGI("stream:%p", stream);
+    AM_LOGD("+stream:%p", stream);
     struct bus_stream_out *out = (struct bus_stream_out *)stream;
 
     pthread_mutex_lock(&out->lock);
@@ -191,6 +191,7 @@ static int bus_stream_out_standby(struct audio_stream *stream)
             out->playback_handler = NULL;
         }
         out->standby = true;
+        AM_LOGD("-stream:%p playback_handler:%p", stream, playback_handler);
     }
     pthread_mutex_unlock(&out->lock);
     return 0;
@@ -452,6 +453,8 @@ void adev_remove_bus_stream_out(struct audio_hw_device *adev, struct audio_strea
     int count = aml_dev->bus_stream_count;
     bool found = false;
 
+    pthread_mutex_lock(&aml_dev->lock);
+
     for (int i = 0; i < count; i++) {
         if (found) {
             aml_dev->mBus_stream_outs[i - 1] = aml_dev->mBus_stream_outs[i];
@@ -463,7 +466,7 @@ void adev_remove_bus_stream_out(struct audio_hw_device *adev, struct audio_strea
             aml_dev->bus_stream_count--;
         }
     }
-
+    pthread_mutex_unlock(&aml_dev->lock);
     AM_LOGI("found:%d out:%p count:%d", true, out, aml_dev->bus_stream_count);
 }
 
@@ -478,6 +481,8 @@ struct bus_stream_out *adev_get_bus_stream_out(struct audio_hw_device *adev, int
     struct bus_stream_out *out = NULL;
     int count = aml_dev->bus_stream_count;
 
+    pthread_mutex_lock(&aml_dev->lock);
+
     for (int i = 0; i < count; i++) {
         struct bus_stream_out *temp = (struct bus_stream_out *)aml_dev->mBus_stream_outs[i];
         if (temp->bus_id == busId) {
@@ -485,6 +490,7 @@ struct bus_stream_out *adev_get_bus_stream_out(struct audio_hw_device *adev, int
             break;
         }
     }
+    pthread_mutex_unlock(&aml_dev->lock);
     return out;
 }
 

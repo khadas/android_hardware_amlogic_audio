@@ -29,6 +29,7 @@ typedef struct bus_submix_core {
     struct aml_audio_device *adev;
     struct amlAudioMixer *audio_mixer;
     int in_port_count;
+    pthread_mutex_t lock;
 } BusSubMixCore;
 
 typedef int (*on_notify_t)(void *data);
