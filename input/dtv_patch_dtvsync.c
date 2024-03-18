@@ -609,6 +609,12 @@ int aml_dtvsync_process_resample(struct audio_stream_out *stream,
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_audio_patch *patch = get_dev_patch(adev);
+
+    if (adev->sink_format != AUDIO_FORMAT_PCM_16_BIT) {
+        ALOGW("sink_format %0x non ms12 raw output do not support raw speed output !!!",adev->optical_format);
+        return 0;
+    }
+
     float speed = 0.0f;
     int ret = -1;
 
