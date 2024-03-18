@@ -176,6 +176,14 @@ include $(BUILD_PREBUILT)
 #For audio content recognize
 LOCAL_CFLAGS += -DENABLE_AML_ACR
 
+#For DTS VX version selected
+ifeq ($(BOARD_AUDIO_EFFECT_DTS_VX_VERSION), v2)
+    $(info "--- build DTS_VX_VERSION = v2 ---")
+else
+    $(info "--- DTS_VX_V4_ENABLE = true ---")
+    LOCAL_CFLAGS += -DDTS_VX_V4_ENABLE
+endif
+
 ifneq ($(BOARD_DISABLE_DVB_AUDIO), true)
         LOCAL_CFLAGS += -DENABLE_DVB_PATCH
         LOCAL_SRC_FILES += ../input/dtv_patch.c \

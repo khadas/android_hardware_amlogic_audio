@@ -12,7 +12,7 @@ LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libdl \
     libutils \
-    libamaudioutils \
+    libamaudioutils
 
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH) \
@@ -22,11 +22,20 @@ LOCAL_C_INCLUDES := \
     hardware/libhardware/include/hardware \
     hardware/libhardware/include \
     system/media/audio/include \
+    system/core/libutils/include
 
-LOCAL_SRC_FILES := Virtualx.cpp
-LOCAL_SRC_FILES += ../Utility/AudioFade.c
+ifeq ($(BOARD_AUDIO_EFFECT_DTS_VX_VERSION), v2)
+    $(info "---- DTS VX build version = v2 ---")
+    LOCAL_SRC_FILES := Virtualx.cpp \
+
+    LOCAL_SRC_FILES += ../Utility/AudioFade.c
+else
+    $(info "---- DTS VX build version = v4 ---")
+    LOCAL_SRC_FILES := Virtualx_v4.cpp
+endif
 
 LOCAL_CFLAGS += -O2
+LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 
 LOCAL_LDLIBS   +=  -llog
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)

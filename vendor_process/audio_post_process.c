@@ -16,7 +16,6 @@
 #include <audio_utils/format.h>
 
 #include "audio_post_process.h"
-#include "Virtualx.h"
 #include "aml_dec_api.h"
 #include "aml_dtshd_dec_api.h"
 #include "aml_dtsx_dec_api.h"
@@ -24,15 +23,20 @@
 #include "aml_ai_audio.h"
 #include "aml_audio_nonms12_render.h"
 
+#ifdef DTS_VX_V4_ENABLE
+#include "Virtualx_v4.h"
+#define VIRTUALX_LICENSE_LIB_PATH "/vendor/lib/soundfx/libvxv4.so"
+#else
+#include "Virtualx.h"
+#define VIRTUALX_LICENSE_LIB_PATH "/vendor/lib/soundfx/libvx.so"
+#endif
+
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #endif
 
 //post-processing effects implemented by AML only support PCM32
 #define EFFECT_PROCESSING_FORMAT (AUDIO_FORMAT_PCM_32_BIT)
-
-/* path of virtualx effect license library */
-#define VIRTUALX_LICENSE_LIB_PATH "/vendor/lib/soundfx/libvx.so"
 #define DEBUG_ENABLE_DUMP_EFFECT_INFO 1
 
 bool Check_VX_lib(void);
@@ -89,7 +93,7 @@ static struct effect_insert_seq_desc Effect_Insert_Seq_List[] = {
 struct effect_insert_seq_desc *find_effect_insert_desc_by_name(const char* name)
 {
     for (int i= 0; i < ARRAY_SIZE(Effect_Insert_Seq_List); i++) {
-        if (strcmp(name, Effect_Insert_Seq_List[i].name) == 0) {
+        if (strncmp(name, Effect_Insert_Seq_List[i].name, strlen(Effect_Insert_Seq_List[i].name)) == 0) {
             return &Effect_Insert_Seq_List[i];
         }
     }
