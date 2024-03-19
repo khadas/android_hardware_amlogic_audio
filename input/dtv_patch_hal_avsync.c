@@ -2111,37 +2111,55 @@ void get_dtv_checkin_pts (struct audio_stream_out *stream, int64_t *in_frame_pts
     if (patch->skip_amadec_flag) {
         if (patch->cur_package) {
             if (!is_dtv_multi_demux(adev) && patch->singleDmxNonTunnelMode) {
-                checkout_pts.offset = patch->decoder_offset;
-                ALOGV("offset:%" PRId64 "\n", checkout_pts.offset);
-                if (patch->PServerDev != -1) {
-                    PtsServ_ioctl(patch->PServerDev, PTSSERVER_IOC_CHECKOUT_APTS, (unsigned long)&checkout_pts);
-                }
-                // aml_dec->in_frame_pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
-                *in_frame_pts = checkout_pts.pts_90k;
-                if (*in_frame_pts != out_frame_pts)
-                    *out_frames = 0;
-                if (*in_frame_pts != -1) {
-                    patch->last_valid_pts = *in_frame_pts;
-                }
-                if (*in_frame_pts == -1) {
-                    if (out_frame_pts) {
-                        *in_frame_pts = out_frame_pts;
-                    } else {
-                        *in_frame_pts = patch->last_valid_pts;
+                if (aml_out->aml_dec) {
+                    checkout_pts.offset = patch->decoder_offset;
+                    if (patch->PServerDev != -1) {
+                        PtsServ_ioctl(patch->PServerDev, PTSSERVER_IOC_CHECKOUT_APTS, (unsigned long)&checkout_pts);
                     }
+                    // aml_dec->in_frame_pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
+                    *in_frame_pts = checkout_pts.pts_90k;
+                    if (*in_frame_pts != out_frame_pts)
+                        *out_frames = 0;
+                    if (*in_frame_pts != -1) {
+                        patch->last_valid_pts = *in_frame_pts;
+                    }
+                    if (*in_frame_pts == -1) {
+                        if (out_frame_pts) {
+                            *in_frame_pts = out_frame_pts;
+                        } else {
+                            *in_frame_pts = patch->last_valid_pts;
+                        }
+                    }
+                    if (adev->debug_flag > 1)
+                        ALOGD("offset:%" PRId64 " in_frame_pts:%" PRId64 " PtsServ_checkout_pts64:%" PRId64 " aml_dec->out_frame_pts  %" PRId64 "\n",checkout_pts.offset,*in_frame_pts, checkout_pts.pts_64,out_frame_pts);
+                }else {
+                    checkout_pts.offset = patch->decoder_offset;
+                    if (patch->PServerDev != -1) {
+                        PtsServ_ioctl(patch->PServerDev, PTSSERVER_IOC_CHECKOUT_APTS, (unsigned long)&checkout_pts);
+                    }
+                    *in_frame_pts = checkout_pts.pts_90k;
+                    if (*in_frame_pts != -1) {
+                        patch->last_valid_pts = *in_frame_pts;
+                    }
+                    if (*in_frame_pts == -1) {
+                        *in_frame_pts = 0;
+                    }
+                    if (adev->debug_flag > 1)
+                        ALOGD("offset:%" PRId64 " in_frame_pts:%" PRId64 " PtsServ_checkout_pts64:%" PRId64 " aml_dec->out_frame_pts  %" PRId64 "\n",checkout_pts.offset,*in_frame_pts, checkout_pts.pts_64,out_frame_pts);
                 }
-                ALOGV("in_frame_pts:%" PRId64 " PtsServ_checkout_pts64:%" PRId64 " aml_dec->out_frame_pts  %" PRId64 "\n",*in_frame_pts, checkout_pts.pts_64,out_frame_pts);
             }
             else {
-                if (patch->cur_package->pts != DTVSYNC_INVALID_PTS) {
-                    if (patch->cur_package->pts != 0) {
-                        *in_frame_pts = patch->cur_package->pts;
+                if (aml_out->aml_dec) {
+                    if (patch->cur_package->pts != DTVSYNC_INVALID_PTS) {
+                        if (patch->cur_package->pts != 0) {
+                            *in_frame_pts = patch->cur_package->pts;
+                            *out_frames = 0;
+                        }
+                     } else {
+                        *in_frame_pts = out_frame_pts;
                         *out_frames = 0;
-                    }
-                 } else {
-                    *in_frame_pts = out_frame_pts;
-                    *out_frames = 0;
-                 }
+                     }
+                }
             }
          } else {
             ALOGW("cur_package null !!!");
