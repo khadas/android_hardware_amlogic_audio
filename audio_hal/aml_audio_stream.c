@@ -1371,8 +1371,8 @@ int aml_audio_earc_get_latency(struct aml_audio_device *adev)
 }
 
 #define AML_DETECT_VALUE 1500
-void tv_do_ease_in(struct audio_stream_out *stream, void *write_buf, size_t write_bytes) {
-
+void tv_do_ease_in(struct audio_stream_out *stream, void *write_buf, size_t write_bytes)
+{
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *aml_dev = out->dev;
     int fade_mode = property_get_int32("vendor.dtv.audio.fade_mode", DO_FADE_AT_HAL);
@@ -1403,10 +1403,14 @@ void tv_do_ease_in(struct audio_stream_out *stream, void *write_buf, size_t writ
                     }
                 } else {
                     if (aml_dev->mute_start) {
-                         int fade_duration = MS12_AUDIO_FADEIN_TV_DURATION_US / 1000;
-                         ALOGI("ms12 render easing in using %d ms ",fade_duration);
-                         set_ms12_main_audio_mute(ms12, false, fade_duration);
-                         aml_dev->mute_start = false;
+                        if (!ms12->is_muted) {
+                            set_ms12_main_audio_mute(ms12, true, 0);
+                        } else {
+                             int fade_duration = MS12_AUDIO_FADEIN_TV_DURATION_US / 1000;
+                             ALOGI("ms12 render easing in using %d ms ",fade_duration);
+                             set_ms12_main_audio_mute(ms12, false, fade_duration);
+                             aml_dev->mute_start = false;
+                        }
                     }
                 }
             } else {
@@ -1444,14 +1448,15 @@ void tv_do_ease_out(struct aml_audio_device *aml_dev)
             }
             break;
         case DO_FADE_AT_HAL:
-
-            if (aml_dev && aml_dev->audio_ease) {
+            if (!aml_dev->mute_start) {
                 bool need_do_fade = false;
                 if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
                     need_do_fade = !aml_dev->ms12.is_muted;
                 } else {
-                    float vol_now = aml_audio_ease_get_current_volume(aml_dev->audio_ease);
-                    need_do_fade = (vol_now != 0.0f);
+                    if (aml_dev->audio_ease) {
+                        float vol_now = aml_audio_ease_get_current_volume(aml_dev->audio_ease);
+                        need_do_fade = (vol_now != 0.0f);
+                    }
                 }
                 if (!need_do_fade) {
                     ALOGI("%s()skip fade out", __func__);
@@ -1474,10 +1479,13 @@ void tv_do_ease_out(struct aml_audio_device *aml_dev)
                         usleep((duration_ms + 10) * 1000);
                         aml_dev->ms12.do_easing = false;
                     } else {
-                        start_ease_out(aml_dev->audio_ease, is_TV(aml_dev), duration_ms / 2);
-                        usleep(duration_ms * 1000);
+                        if (aml_dev->audio_ease) {
+                            start_ease_out(aml_dev->audio_ease, is_TV(aml_dev), duration_ms / 2);
+                            usleep(duration_ms * 1000);
+                        }
                     }
                 }
+                aml_dev->mute_start = true;
             }
             break;
         default:
