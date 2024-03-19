@@ -82,6 +82,7 @@ static int initSubMixingOutput(
         mixer_get_default_config(&mixer_cfg, is_TV(adev));
 #endif
         audio_format_t primaryOutFormat = get_primary_out_format(adev);
+        AM_LOGI("primaryOutFormat %d", primaryOutFormat);
         switch (primaryOutFormat)
         {
         case AUDIO_FORMAT_PCM_16_BIT:
@@ -94,6 +95,7 @@ static int initSubMixingOutput(
                 primaryOutFormat, mixer_cfg.format);
             break;
         }
+        AM_LOGI("mixer_cfg format %d, frame_size %d", mixer_cfg.format, mixer_cfg.frame_size);
 
         struct amlAudioMixer *amixer = newAmlAudioMixer(adev, mixer_cfg, outport_cfg, mixer_type);
         R_CHECK_POINTER_LEGAL(-ENOMEM, amixer, "newAmlAudioMixer failed");

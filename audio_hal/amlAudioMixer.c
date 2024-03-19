@@ -1406,7 +1406,7 @@ static int mixer_add_mixing_data(struct amlAudioMixer *audio_mixer, void *input,
         // 2ch pcm output is always exist.
         if (in_port->cfg.channelCnt != 2) {
             do_downmix_to_2ch(p_downmix, input, MIXER_FRAME_COUNT, &in_port->cfg);
-            do_mixing_2ch(p_2ch_mixer->mixed_buf, p_downmix->output_buf, MIXER_FRAME_COUNT, in_port->cfg.format, out_port->cfg.format);
+            do_mixing_2ch(p_2ch_mixer->mixed_buf, p_downmix->output_buf, MIXER_FRAME_COUNT, in_port->cfg.format, mixing_2ch_out_format);
         } else {
             do_mixing_2ch(p_2ch_mixer->mixed_buf, input, MIXER_FRAME_COUNT, in_port->cfg.format, mixing_2ch_out_format);
         }
