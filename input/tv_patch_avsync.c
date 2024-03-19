@@ -749,8 +749,10 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
 
         /* if min video latency is larger than audio latency, seek audio buffer to enlarge the audio delay */
         if (avDiff < 0) {
-            if (patch->aformat == AUDIO_FORMAT_AC3 || patch->aformat == AUDIO_FORMAT_E_AC3 ||
-                patch->aformat == AUDIO_FORMAT_MAT || patch->aformat == AUDIO_FORMAT_DOLBY_TRUEHD)
+#if 0
+            if (((aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0) &&
+                (patch->aformat == AUDIO_FORMAT_AC3 || patch->aformat == AUDIO_FORMAT_E_AC3 ||
+                patch->aformat == AUDIO_FORMAT_MAT || patch->aformat == AUDIO_FORMAT_DOLBY_TRUEHD))
             {
                 seek_duration_ret = ringbuffer_seek_for_raw_data(patch, avDiff);
                 if (seek_duration_ret == 0)
@@ -759,12 +761,14 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
                 }
             }
             else
+#endif
             {
                 seek_duration_ret = ringbuffer_seek(patch, avDiff);
             }
         } else if (patch->audio_latency.ringbuffer_latency > AVSYNC_RINGBUFFER_MIN_LATENCY) {
-            if (patch->aformat == AUDIO_FORMAT_AC3 || patch->aformat == AUDIO_FORMAT_E_AC3 ||
-                patch->aformat == AUDIO_FORMAT_MAT || patch->aformat == AUDIO_FORMAT_DOLBY_TRUEHD)
+            if (((aml_dev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0) &&
+                (patch->aformat == AUDIO_FORMAT_AC3 || patch->aformat == AUDIO_FORMAT_E_AC3 ||
+                patch->aformat == AUDIO_FORMAT_MAT || patch->aformat == AUDIO_FORMAT_DOLBY_TRUEHD))
             {
                  seek_duration_ret = ringbuffer_seek_for_raw_data(patch, avDiff);
             }
