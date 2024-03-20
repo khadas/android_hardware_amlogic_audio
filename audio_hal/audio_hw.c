@@ -7776,7 +7776,7 @@ int adev_create_audio_patch(struct audio_hw_device *dev,
         ret = -EINVAL;
         unregister_audio_patch(dev, patch_set);
     }
-
+    aml_dev->audio_hal_info.update_cnt = 0;
     aml_mixer_ctrl_set_int(&aml_dev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, TYPE_PCM);
     AM_LOGI("dev=%p cur_out_device=0x%x",
             aml_dev, aml_dev->cur_out_devices);
