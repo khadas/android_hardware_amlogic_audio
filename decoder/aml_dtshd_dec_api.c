@@ -114,6 +114,8 @@ static struct dca_dts_debug dts_debug = {0};
 
 static unsigned int _dca_initparam_out_ch = 2;
 static unsigned int _dca_initparam_out_bitwidth = 16;
+//~~~todo: if enable all path 32bit, set dts output to 24bit
+//static unsigned int _dca_initparam_out_bitwidth = 24;
 
 ///static struct pcm_info pcm_out_info;
 /*dts decoder lib function*/

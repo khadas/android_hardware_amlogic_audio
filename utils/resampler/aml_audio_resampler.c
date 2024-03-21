@@ -19,23 +19,29 @@
 
 #include <math.h>
 #include <cutils/log.h>
+#include <system/audio.h>
 #include <aml_audio_resampler.h>
 
-//Clip from 16.16 fixed-point to 0.15 fixed-point.
-inline static short clip(int x) {
-    if (x < -32768) {
-        return -32768;
-    } else if (x > 32767) {
-        return 32767;
-    } else {
-        return x;
+static inline int16_t clamp16(int32_t sample)
+{
+    if ((sample >> 15) ^ (sample >> 31)) {
+        sample = 0x7FFF ^ (sample >> 31);
     }
+    return sample;
+}
+
+static inline int32_t clamp32(int64_t sample)
+{
+    if ((sample >> 31) ^ (sample >> 63)) {
+        sample = 0x7FFFFFFF ^ (sample >> 63);
+    }
+    return sample;
 }
 
 int resampler_init(struct resample_para *resample) {
 
-    ALOGD("%s, Init Resampler: input_sr = %d, output_sr = %d \n",
-        __FUNCTION__,resample->input_sr,resample->output_sr);
+    ALOGD("%s, Init Resampler: input_sr = %d, output_sr = %d, channel = %d, format = %d\n",
+        __FUNCTION__, resample->input_sr, resample->output_sr, resample->channels, resample->aformat);
 
     static const double kPhaseMultiplier = 1L << 28;
     unsigned int i;
@@ -56,13 +62,15 @@ int resampler_init(struct resample_para *resample) {
 }
 
 int resample_process(struct resample_para *resample, unsigned int in_frame,
-        int16_t* input, int16_t* output) {
+        void *input, void *output) {
     unsigned int inputIndex = 0;
     unsigned int outputIndex = 0;
     unsigned int FractionStep = resample->FractionStep;
-    int16_t last_sample[MAX_RESAMPLE_CHANNEL];
+    int32_t last_sample[MAX_RESAMPLE_CHANNEL];
     unsigned int i;
     unsigned int channels = resample->channels;
+    int16_t *input16, *output16;
+    int32_t *input32, *output32;
 
     static const unsigned int kPhaseMask = (1LU << 28) - 1;
     unsigned int frac = resample->SampleFraction;
@@ -70,36 +78,73 @@ int resample_process(struct resample_para *resample, unsigned int in_frame,
     for (i = 0; i < channels; i++)
         last_sample[i] = resample->lastsample[i];
 
+    if (resample->aformat == AUDIO_FORMAT_PCM_16_BIT) {
+        input16 = (int16_t *)input;
+        output16 = (int16_t *)output;
 
-    while (inputIndex == 0) {
-        for (i = 0; i < channels; i++) {
-            *output++ = clip((int) last_sample[i] +
-                ((((int) input[i] - (int) last_sample[i]) * ((int) frac >> 13)) >> 15));
+        while (inputIndex == 0) {
+            for (i = 0; i < channels; i++) {
+                *output16++ = clamp16((int32_t) last_sample[i] +
+                    ((((int32_t) input16[i] - (int32_t) last_sample[i]) * ((int32_t) frac >> 13)) >> 15));
+            }
+
+            frac += FractionStep;
+            inputIndex += (frac >> 28);
+            frac = (frac & kPhaseMask);
+            outputIndex++;
         }
 
-        frac += FractionStep;
-        inputIndex += (frac >> 28);
-        frac = (frac & kPhaseMask);
-        outputIndex++;
-    }
+        while (inputIndex < in_frame) {
+            for (i = 0; i < channels; i++) {
+                *output16++ = clamp16((int32_t) input16[channels * (inputIndex - 1) + i] +
+                    ((((int32_t) input16[channels * inputIndex + i]
+                    - (int32_t) input16[channels * (inputIndex - 1) + i]) * ((int32_t) frac >> 13)) >> 15));
+            }
 
-    while (inputIndex < in_frame) {
-        for (i = 0; i < channels; i++) {
-            *output++ = clip((int) input[channels * (inputIndex - 1) + i] +
-                ((((int) input[channels * inputIndex + i]
-                - (int) input[channels * (inputIndex - 1) + i]) * ((int) frac >> 13)) >> 15));
+            frac += FractionStep;
+            inputIndex += (frac >> 28);
+            frac = (frac & kPhaseMask);
+            outputIndex++;
         }
 
-        frac += FractionStep;
-        inputIndex += (frac >> 28);
-        frac = (frac & kPhaseMask);
-        outputIndex++;
+        resample->SampleFraction = frac;
+
+        for (i = 0; i < channels; i++)
+            resample->lastsample[i] = input16[channels * (in_frame - 1) + i];
+    } else {
+        input32 = (int32_t *)input;
+        output32 = (int32_t *)output;
+
+        while (inputIndex == 0) {
+            for (i = 0; i < channels; i++) {
+                *output32++ = clamp32((int64_t) last_sample[i] +
+                    ((((int64_t) input32[i] - (int64_t) last_sample[i]) * ((int64_t) frac >> 13)) >> 15));
+            }
+
+            frac += FractionStep;
+            inputIndex += (frac >> 28);
+            frac = (frac & kPhaseMask);
+            outputIndex++;
+        }
+
+        while (inputIndex < in_frame) {
+            for (i = 0; i < channels; i++) {
+                *output32++ = clamp32((int64_t) input32[channels * (inputIndex - 1) + i] +
+                    ((((int64_t) input32[channels * inputIndex + i]
+                    - (int64_t) input32[channels * (inputIndex - 1) + i]) * ((int64_t) frac >> 13)) >> 15));
+            }
+
+            frac += FractionStep;
+            inputIndex += (frac >> 28);
+            frac = (frac & kPhaseMask);
+            outputIndex++;
+        }
+
+        resample->SampleFraction = frac;
+
+        for (i = 0; i < channels; i++)
+            resample->lastsample[i] = input32[channels * (in_frame - 1) + i];
     }
-
-    resample->SampleFraction = frac;
-
-    for (i = 0; i < channels; i++)
-        resample->lastsample[i] = input[channels * (in_frame - 1) + i];
 
     return outputIndex;
 }

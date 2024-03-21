@@ -336,7 +336,10 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 audio_format_t output_format;
                 if (audio_is_linear_pcm(aml_out->hal_internal_format)) {
                     output_format = aml_out->hal_internal_format;
-                } else {
+                } /*else if (is_dts_format(aml_out->hal_internal_format)) {
+                    //~~~todo: if enable all path 32bit, set dts output to 32bit
+                    output_format = AUDIO_FORMAT_PCM_32_BIT;
+                } */else {
                     output_format = AUDIO_FORMAT_PCM_16_BIT;
                 }
                 void  *dec_data = (void *)dec_pcm_data->buf;
@@ -365,7 +368,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                                                  adev->cur_out_devices);
                 if (input_sr != output_sr) {
                     audio_resample_config_t cfg = {
-                        .aformat = AUDIO_FORMAT_PCM_16_BIT, // TODO
+                        .aformat = output_format,
                         .channels = dec_pcm_data->data_ch,
                         .input_sr = input_sr,
                         .output_sr = output_sr,
@@ -384,7 +387,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 }
 
                 /*process the stream volume before mix*/
-                aml_audio_stream_volume_process(stream, dec_data, sizeof(int16_t), dec_pcm_data->data_ch, pcm_len);
+                aml_audio_stream_volume_process(stream, dec_data, audio_bytes_per_sample(output_format), dec_pcm_data->data_ch, pcm_len);
 
                 if ((adev->effect_ctrl.effect_mode == EFFECT_MODE_DAP) || (adev->effect_ctrl.effect_mode == EFFECT_MODE_OFF)) {
                    //Do nothing

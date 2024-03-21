@@ -32,6 +32,7 @@ typedef struct android_resample_handle {
     ring_buffer_t ring_buf;
     void *resampler;
     void *provider;
+    audio_format_t aformat;
 }android_resample_handle_t;
 
 int android_resample_init(android_resample_handle_t *handle,
