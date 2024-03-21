@@ -2145,7 +2145,7 @@ void get_dtv_checkin_pts (struct audio_stream_out *stream, int64_t *in_frame_pts
                         *in_frame_pts = 0;
                     }
                     if (adev->debug_flag > 1)
-                        ALOGD("offset:%" PRId64 " in_frame_pts:%" PRId64 " PtsServ_checkout_pts64:%" PRId64 " aml_dec->out_frame_pts  %" PRId64 "\n",checkout_pts.offset,*in_frame_pts, checkout_pts.pts_64,out_frame_pts);
+                        ALOGD("offset:%" PRId64 " in_frame_pts:%" PRId64 " PtsServ_checkout_pts64:%" PRId64 " \n",checkout_pts.offset,*in_frame_pts,checkout_pts.pts_64);
                 }
             }
             else {

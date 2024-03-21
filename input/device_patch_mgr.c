@@ -223,7 +223,15 @@ static int create_patch_internal(struct patch_manager *patch_mgr,
         }
 #ifdef ENABLE_DVB_PATCH
         else {
-            //release_dtv_patch(patch_mgr->adev);
+            //FIXME. there have two case-----OTT and TV
+            //1. OTT support the single demux and multi demux(PIP and FCC)
+            //2. In the case of  patch type is DTV, there need not release the old dtv patch when create the dtv patch two time, which is key with the FCC and PIP case.
+            //3. In the case of  patch type is TV, there need release the old patch when one source switch to other source
+            //4. However, when ATV or HDMI switch to DTV, if it create atv or hdmi patch before release the dtv patch,
+            //5. there will cause the patch manager abnormal and memory leak.
+            //5. Therefore, we need release the old DTV patch when dtv source switch to other tv source.
+            if (type == PATCH_TYPE_TV)
+                release_dtv_patch(patch_mgr->adev);
             set_patch_running_mgr(patch_mgr, false);
         }
 #endif
