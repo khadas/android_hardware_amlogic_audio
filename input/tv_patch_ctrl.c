@@ -577,9 +577,7 @@ int get_hdmiin_channel(struct aml_mixer_handle *mixer_handle)
 
     /*hdmirx audio support: N/A, 2, 3, 4, 5, 6, 7, 8*/
     channel_index = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_HDMI_IN_CHANNELS);
-    if (channel_index == 0) {
-        return 0;
-    } else if (channel_index == 1) {
+    if (channel_index == 0 || channel_index == 1) {
         return 2;
     } else {
         return 8;

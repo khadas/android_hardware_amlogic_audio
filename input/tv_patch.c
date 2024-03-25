@@ -616,6 +616,7 @@ void *audio_patch_output_threadloop(void *data)
             ret = teardown_output_format_change(patch, stream_out, &new_stream_out);
             if (ret == 0) {
                 out = (struct aml_stream_out *)new_stream_out;
+                stream_out = new_stream_out;
                 patch->output_stream = (struct aml_stream_out *)new_stream_out;
                 patch->output_teardown_over = true;
             }
