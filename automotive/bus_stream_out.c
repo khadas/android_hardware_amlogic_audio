@@ -39,6 +39,7 @@
 #include "bus_mix_playback_handler.h"
 #include "playback_handler_base.h"
 #include "aml_channel_index.h"
+#include "aml_volume_utils.h"
 
 #define DEFAULT_STREAM_OUT_SAMPLE_RATE      48000
 #define DEFAULT_STREAM_OUT_FORMAT          AUDIO_FORMAT_PCM_16_BIT
@@ -69,6 +70,9 @@ struct bus_stream_out {
     struct timespec last_timestamp_report;
     uint64_t written_all_frames;
     int64_t last_write_time_us;
+
+    /*volume from set_port_config*/
+    float volume;
 
     int bus_id;
     uint32_t mux_channel_mask;
@@ -137,7 +141,18 @@ static int bus_out_set_format(struct audio_stream *stream, audio_format_t format
 
 static int bus_out_dump(const struct audio_stream *stream, int fd)
 {
-    AM_LOGV("out_dump() stream:%p fd:%d", stream, fd);
+    struct bus_stream_out *out = (struct bus_stream_out *)stream;
+
+    pthread_mutex_lock(&out->lock);
+    dprintf(fd, "\tbus_steam_out_dump:\n");
+    dprintf(fd, "\t\taddress: %s\n", out->address);
+    dprintf(fd, "\t\tdevices: %x\n", out->devices);
+    dprintf(fd, "\t\tsample_rate: %u\n", bus_out_get_sample_rate(stream));
+    dprintf(fd, "\t\tbuffer_size: %zu\n", bus_out_get_buffer_size(stream));
+    dprintf(fd, "\t\tchannel_mask: %08x\n", bus_out_get_channels(stream));
+    dprintf(fd, "\t\tformat: %x\n", bus_out_get_format(stream));
+    dprintf(fd, "\t\tvolume: %f\n", out->volume);
+    pthread_mutex_unlock(&out->lock);
     return 0;
 }
 
@@ -201,6 +216,7 @@ static ssize_t bus_out_write(struct audio_stream_out *stream, const void* buffer
 {
     struct bus_stream_out *out = (struct bus_stream_out *)stream;
     struct playback_handler_base *playback_handler;
+    size_t sample_size = audio_bytes_per_sample(out->src_config.format);
 
     if (!buffer) {
         return bytes;
@@ -222,6 +238,8 @@ static ssize_t bus_out_write(struct audio_stream_out *stream, const void* buffer
         }
         out->standby = false;
     }
+
+    apply_volume(out->volume, (void *)buffer, sample_size, bytes);
 
     if (playback_handler) {
         playback_handler->write(playback_handler, buffer, bytes);
@@ -364,6 +382,7 @@ static int bus_stream_out_init(struct bus_stream_out *out,
 
     out->mux_channel_mask = 0;
     out->bus_id = bus_id;
+    out->volume = 1.0;
     if (pthread_mutex_init(&out->lock, NULL) != 0) {
         AM_LOGE("pthread_mutex_init fail, errno:%s", strerror(errno));
         ret = -EINVAL;
@@ -603,6 +622,29 @@ do_switch_map:
     return ret;
 }
 
+int adev_set_audio_port_config_for_bus(struct audio_hw_device *dev, const struct audio_port_config *config)
+{
+    int bus_id = -1;
+    const char *bus_addr = config->ext.device.address;
+    struct bus_stream_out *out = NULL;
+    int ret = 0;
+
+    if (strstr(bus_addr, "bus")) {
+        bus_id = atoi(bus_addr + strlen("bus"));
+        out = adev_get_bus_stream_out(dev, bus_id);
+    }
+
+    if (out) {
+        pthread_mutex_lock(&out->lock);
+        out->volume =  DbToAmpl(config->gain.values[0] / 100.0);
+        pthread_mutex_unlock(&out->lock);
+        AM_LOGI("set volume: %f for %s",out->volume, bus_addr);
+    } else {
+        AM_LOGE("Can't find bus_stream_out of bus_addr:%s", bus_addr);
+        ret = -EINVAL;
+    }
+    return ret;
+}
 
 int adev_open_bus_output_stream(struct audio_hw_device *dev,
                                 audio_io_handle_t handle,

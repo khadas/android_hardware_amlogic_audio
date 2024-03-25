@@ -8528,7 +8528,11 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->hw_device.close_input_stream = adev_close_input_stream;
     adev->hw_device.create_audio_patch = adev_create_audio_patch;
     adev->hw_device.release_audio_patch = adev_release_audio_patch;
+#ifdef ENABLE_AUTOMOTIVE_AUDIO_FUNCTION
+    adev->hw_device.set_audio_port_config = adev_set_audio_port_config_for_bus;
+#else
     adev->hw_device.set_audio_port_config = adev_set_audio_port_config;
+#endif
 #if ANDROID_PLATFORM_SDK_VERSION > 32
     adev->hw_device.set_device_connected_state_v7 = adev_set_device_connected_state_v7;
     adev->hw_device.get_audio_port_v7 = adev_get_audio_port_v7;
