@@ -212,6 +212,14 @@ static const struct pcm_config pcm_config_in = {
     .format = PCM_FORMAT_S16_LE,
 };
 
+static const struct pcm_config pcm_config_earc_in = {
+    .channels = 2,
+    .rate = MM_FULL_POWER_SAMPLING_RATE,
+    .period_size = DEFAULT_CAPTURE_PERIOD_SIZE,
+    .period_count = EARC_CAPTURE_PERIOD_COUNT,
+    .format = PCM_FORMAT_S16_LE,
+};
+
 static const struct pcm_config pcm_config_bt = {
     .channels = 1,
     .rate = VX_NB_SAMPLING_RATE,
@@ -2104,6 +2112,12 @@ static unsigned int select_port_by_device(struct aml_stream_in *in)
         inport = PORT_BUILTINMIC;
     } else if (in_device & AUDIO_DEVICE_IN_ECHO_REFERENCE) {
         inport = PORT_ECHO_REFERENCE;
+    } else if (in_device & AUDIO_DEVICE_IN_LINE) {
+        /* TODO: json config the linein device */
+        if (is_SBR(adev) && alsa_device_is_auge())
+            inport = PORT_I2S2HDMI;
+        else
+            inport = PORT_I2S;
     } else {
         /* fix auge tv input, hdmirx, tuner */
         if (alsa_device_is_auge()
@@ -4976,7 +4990,10 @@ int adev_open_input_stream(struct audio_hw_device *dev,
         config->sample_rate = in->config.rate;
         in->requested_rate = in->config.rate;
     } else {
-        memcpy(&in->config, &pcm_config_in, sizeof(pcm_config_in));
+        if (in->device & AUDIO_DEVICE_IN_HDMI_ARC)
+            memcpy(&in->config, &pcm_config_earc_in, sizeof(pcm_config_earc_in));
+        else
+            memcpy(&in->config, &pcm_config_in, sizeof(pcm_config_in));
     }
     in->config.channels = channel_count;
     in->source = source;
@@ -5451,7 +5468,10 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                 adev_ms12_prepare((struct audio_hw_device *)adev);
             }
             /*after enable teardown_output_format_change for ms12 case, this code can be removed*/
-            if (is_dev_patch_exist(adev) && (is_same_patch_src(adev, SRC_HDMIIN) || is_same_patch_src(adev, SRC_SPDIFIN))) {
+            if (is_dev_patch_exist(adev) &&
+                (is_same_patch_src(adev, SRC_HDMIIN) ||
+                is_same_patch_src(adev, SRC_SPDIFIN) ||
+                is_same_patch_src(adev, SRC_ARCIN))) {
                 dolby_ms12_main_close(stream);
             }
             adev->mix_init_flag = true;

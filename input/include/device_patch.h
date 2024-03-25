@@ -111,6 +111,13 @@ struct aml_audio_patch
     audio_channel_mask_t in_chanmask;
     int in_sample_rate;
     audio_format_t in_format;
+    bool arc_layout_b;
+    bool last_layout_b;
+    int channel_count;
+    int ca;
+    enum earc_audio_type earcin_audio_type;
+    bool cs_mute;
+    bool reset_input;
     bool need_reconfig_mediasync;
     audio_devices_t output_src;
     bool is_dtv_src;

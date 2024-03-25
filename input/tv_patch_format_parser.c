@@ -131,57 +131,79 @@ static audio_channel_mask_t get_dolby_channel_mask(const unsigned char *frameBuf
     }
 }
 
-/*
- * eARC type:
- *  0: "UNDEFINED"
- *  1: "STEREO LPCM"
- *  2: "MULTICH 2CH LPCM"
- *  3: "MULTICH 8CH LPCM"
- *  4: "MULTICH 16CH LPCM"
- *  5: "MULTICH 32CH LPCM"
- *  6: "High Bit Rate LPCM"
- *  7: "AC-3 (Dolby Digital)", Layout A
- *  8: "AC-3 (Dolby Digital Layout B)"
- *  9: "E-AC-3/DD+ (Dolby Digital Plus)"
- * 10: "MLP (Dolby TrueHD)"
- * 11: "DTS"
- * 12: "DTS-HD"
- * 13: "DTS-HD MA"
- * 14: "DSD (One Bit Audio 6CH)"
- * 15: "DSD (One Bit Audio 12CH)"
- * 16: "PAUSE"
- */
-int eArcIn_audio_format_detection(struct aml_mixer_handle *mixer_handle)
+int eArcIn_coding_type_detection(struct aml_mixer_handle *mixer_handle)
 {
-    int type = 0;
-    int audio_code = 0;
-    type = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_EARCRX_AUDIO_CODING_TYPE);
+    return aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_EARCRX_AUDIO_CODING_TYPE);
+}
+
+bool eArcIn_get_cs_mute(struct aml_mixer_handle *mixer_handle)
+{
+    return !!aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_EARCRX_CS_MUTE);
+}
+
+int non_pcm_coding_type_to_codec(enum earc_audio_type type)
+{
+    int audio_codec = 0;
 
     switch (type) {
-        case 7:
-        case 8:
-            audio_code = AC3;
+        case EARC_AC3:
+        case EARC_AC3_LAYOUT_B:
+            audio_codec = AC3;
             break;
-        case 9:
-            audio_code = EAC3;
+        case EARC_EAC3:
+        case EARC_EAC3_LAYOUT_B:
+            audio_codec = EAC3;
             break;
-        case 10:
-            audio_code = MAT;
+        case EARC_MLP:
+        case EARC_MLP_LAYOUT_B:
+            audio_codec = MAT;
             break;
-        case 11:
-            audio_code = DTS;
+        case EARC_DTS:
+        case EARC_DTS_LAYOUT_B:
+            audio_codec = DTS;
             break;
-        case 12:
-            audio_code = DTSHD;
+        case EARC_DTS_HD:
+        case EARC_DTS_HD_LAYOUT_B:
+            audio_codec = DTSHD;
             break;
-        case 16:
-            audio_code = PAUSE;
+        case EARC_PAUSE:
+            //audio_code = PAUSE;
+            //break;
+        // TODO: test found that switching format get pause type, ignore it
+        case EARC_UNDEFINED:
+            audio_codec = NOT_READY;
             break;
         default:
-            audio_code = LPCM;
+            audio_codec = LPCM;
+            break;
         /* TODO -Add multi-channel LPCM support */
     }
-    return audio_code;
+
+    return audio_codec;
+}
+
+int pcm_coding_type_to_channels(enum earc_audio_type type)
+{
+    int channels = 2;
+
+    switch (type) {
+    case EARC_MULTICH_8CH_LPCM:
+        channels = 8;
+        break;
+    case EARC_MULTICH_16CH_LPCM:
+        channels = 16;
+        break;
+    case EARC_MULTICH_32CH_LPCM:
+        channels = 32;
+        break;
+    case EARC_STEREO_LPCM:
+    case EARC_MULTICH_2CH_LPCM:
+    default:
+        channels = 2;
+        break;
+    }
+
+    return channels;
 }
 
 static int hdmiin_audio_format_detection(struct aml_mixer_handle *mixer_handle)
@@ -789,6 +811,7 @@ static void* audio_type_parse_threadloop(void *data)
     audio_type_status->pcpd_monitor_flag = chip_with_pcpd_monitor;
     int auge_chip = alsa_device_is_auge();
     audio_type_status->fmt_change = false;
+    int type = LPCM;
 
     ret = audio_type_parse_init(audio_type_status);
     if (ret < 0) {
@@ -826,7 +849,7 @@ static void* audio_type_parse_threadloop(void *data)
         } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_SPDIF) {
             cur_samplerate = get_spdifin_samplerate(audio_type_status->mixer_handle);
         } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI_ARC) {
-            cur_samplerate = -1;//temp code
+            cur_samplerate = get_eArcIn_samplerate(audio_type_status->mixer_handle);
         }
 
         if (cur_samplerate == -1)
@@ -834,12 +857,13 @@ static void* audio_type_parse_threadloop(void *data)
 
         /*check hdmiin audio input sr and reset hw resample*/
         if (cur_samplerate != last_cur_samplerate && cur_samplerate != HW_RESAMPLE_DISABLE) {
-            last_cur_samplerate = cur_samplerate;
             if (audio_type_status->audio_type == LPCM) {
                 enable_HW_resample(audio_type_status->mixer_handle, cur_samplerate);
+                audio_type_status->reset_input = true;
                 ALOGD("Reset hdmiin/spdifin audio resample sr from %d to %d\n",
                     last_cur_samplerate, cur_samplerate);
             }
+            last_cur_samplerate = cur_samplerate;
         }
 
         if (audio_type_status->soft_parser && audio_type_status->in) {
@@ -954,20 +978,25 @@ static void* audio_type_parse_threadloop(void *data)
             }
         } else {
             if (auge_chip || txlx_chip) {
+                bool layout_b = false;
                 // get audio format from hw.
                 if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
                     audio_type_status->cur_audio_type = hdmiin_audio_format_detection(audio_type_status->mixer_handle);
                 } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_SPDIF) {
                     audio_type_status->cur_audio_type = spdifin_audio_format_detection(audio_type_status->mixer_handle);
                 } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI_ARC) {
-                    audio_type_status->cur_audio_type = eArcIn_audio_format_detection(audio_type_status->mixer_handle);
+                    type = non_pcm_coding_type_to_codec(eArcIn_coding_type_detection(audio_type_status->mixer_handle));
+                    if (type != NOT_READY)
+                        audio_type_status->cur_audio_type = type;
                 }
 
                 if (audio_type_status->audio_type != LPCM && audio_type_status->cur_audio_type == LPCM) {
                     enable_HW_resample(audio_type_status->mixer_handle, cur_samplerate);
+                    audio_type_status->reset_input = true;
                 } else if (audio_type_status->audio_type == LPCM && audio_type_status->cur_audio_type != LPCM){
                     ALOGV("Raw data found: type(%d)\n", audio_type_status->cur_audio_type);
                     enable_HW_resample(audio_type_status->mixer_handle, HW_RESAMPLE_DISABLE);
+                    audio_type_status->reset_input = true;
                 }
 
                 audio_type_status->audio_type = audio_type_status->cur_audio_type;

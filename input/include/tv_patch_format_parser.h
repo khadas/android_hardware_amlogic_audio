@@ -20,6 +20,7 @@
 #include "aml_ac3_parser.h"
 
 enum audio_type {
+    NOT_READY = -1,
     LPCM = 0,
     AC3,
     EAC3,
@@ -33,6 +34,55 @@ enum audio_type {
     MPEGH,
 };
 
+/*
+ * eARC type:
+ *  0: "UNDEFINED"
+ *  1: "STEREO LPCM"
+ *  2: "MULTICH 2CH LPCM"
+ *  3: "MULTICH 8CH LPCM"
+ *  4: "MULTICH 16CH LPCM"
+ *  5: "MULTICH 32CH LPCM"
+ *  6: "High Bit Rate LPCM"
+ *  7: "AC-3 (Dolby Digital)", Layout A
+ *  8: "AC-3 (Dolby Digital Layout B)"
+ *  9: "E-AC-3/DD+ (Dolby Digital Plus)"
+ * 10: "MLP (Dolby TrueHD)"
+ * 11: "DTS"
+ * 12: "DTS-HD"
+ * 13: "DTS-HD MA"
+ * 14: "DSD (One Bit Audio 6CH)"
+ * 15: "DSD (One Bit Audio 12CH)"
+ * 16: "PAUSE"
+ * 17: "E-AC-3/DD+ (Dolby Digital Plus Layout B)"
+ * 18: "MLP (Dolby TrueHD Layout B)"
+ * 19: "DTS Layout B"
+ * 20: "DTS-HD Layout B"
+ * 21: "DTS-HD MA Layout B"
+ */
+enum earc_audio_type {
+    EARC_UNDEFINED = 0,
+    EARC_STEREO_LPCM,
+    EARC_MULTICH_2CH_LPCM,
+    EARC_MULTICH_8CH_LPCM,
+    EARC_MULTICH_16CH_LPCM,
+    EARC_MULTICH_32CH_LPCM,
+    EARC_HBR_LPCM,
+    EARC_AC3,
+    EARC_AC3_LAYOUT_B,
+    EARC_EAC3,
+    EARC_MLP,
+    EARC_DTS,
+    EARC_DTS_HD,
+    EARC_DTS_HD_MA,
+    EARC_SACD_6CH,
+    EARC_SACD_12CH,
+    EARC_PAUSE,
+    EARC_EAC3_LAYOUT_B,
+    EARC_MLP_LAYOUT_B,
+    EARC_DTS_LAYOUT_B,
+    EARC_DTS_HD_LAYOUT_B,
+    EARC_DTS_HD_MA_LAYOUT_B,
+};
 
 enum audio_sample {
     HW_NONE = 0,
@@ -88,6 +138,7 @@ typedef struct audio_type_parse {
 
     int audio_type;
     int cur_audio_type;
+    bool reset_input;
 
     audio_channel_mask_t audio_ch_mask;
 
@@ -154,8 +205,13 @@ int audio_raw_data_parse(audio_type_parse_t *status, void *buffer, size_t bytes)
 
 int audio_parse_get_audio_samplerate(audio_type_parse_t *status);
 
-int eArcIn_audio_format_detection(struct aml_mixer_handle *mixer_handle);
+int eArcIn_coding_type_detection(struct aml_mixer_handle *mixer_handle);
+
+bool eArcIn_get_cs_mute(struct aml_mixer_handle *mixer_handle);
 
 void audio_pcpd_format_detect(audio_type_parse_t *status);
+
+int pcm_coding_type_to_channels(enum earc_audio_type type);
+int non_pcm_coding_type_to_codec(enum earc_audio_type type);
 
 #endif

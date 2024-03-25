@@ -694,7 +694,11 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
         ALOGE("malloc buffer failed\n");
         goto fail;
     }
-    aml_hdmi_audio_profile_parser();
+    if (is_HDMI_connected(adev)) {
+        aml_hdmi_audio_profile_parser();
+    } else {
+        memset(&hdmi_audio_profile, 0, sizeof(struct hdmi_audio_profile_t));
+    }
     memset(aud_cap, 0, 1024);
 
     /*currently we treat mat as truehd*/
