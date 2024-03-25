@@ -230,7 +230,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 #ifdef ENABLE_DVB_PATCH
         if (dtv_stream_flag  && patch->decoder_offset == 0) {
             if (patch->cur_package) {
-                if (!is_dtv_multi_demux(adev) && patch->singleDmxNonTunnelMode) {
+                if (!is_dtv_multi_demux(adev) && adev->singleDmxNonTunnelMode) {
                     aml_dec->in_frame_pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
                 }
                 else

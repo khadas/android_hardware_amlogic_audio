@@ -581,7 +581,7 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                             Init_Dmx_AD_Audio(demux_handle, demux_info->ad_fmt, demux_info->ad_pid, 1);
                             Start_Dmx_AD_Audio(demux_handle);
                         }
-                        if (!is_dtv_multi_demux(adev) && patch->singleDmxNonTunnelMode) {
+                        if (!is_dtv_multi_demux(adev) && adev->singleDmxNonTunnelMode) {
                             if (dtvsync->mediasync_new == NULL) {
                                 dtvsync->mediasync_new = aml_dtvsync_create(dtvsync);
                             ALOGI("create mediasync:%p\n", dtvsync->mediasync_new);
@@ -3337,7 +3337,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
                         demux_info->ad_package_status = AD_PACK_STATUS_NORMAL;
                         if (need_ad_main_align) {
                             ALOGV("mAdEsData %p patch->cur_outapts  %" PRId64 "  mAdEsData->pts %" PRId64 " diff %" PRId64 "ms",mAdEsData,patch->dtvsync->cur_outapts,mAdEsData->pts,(patch->dtvsync->cur_outapts - mAdEsData->pts)/90);
-                            if (!is_dtv_multi_demux(aml_dev) && patch->singleDmxNonTunnelMode) {
+                            if (!is_dtv_multi_demux(aml_dev) && aml_dev->singleDmxNonTunnelMode) {
                                 if (patch->dtvsync->cur_outapts > 0) {
                                     demux_info->ad_package_status = check_ad_package_status(patch->dtvsync->cur_outapts, mAdEsData->pts, demux_info);
                                     if (demux_info->ad_package_status == AD_PACK_STATUS_DROP) {
@@ -4018,7 +4018,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
 
         struct package *p_package = NULL;
         p_package = dtv_package_get(list);
-        if (!is_dtv_multi_demux(aml_dev) && patch->singleDmxNonTunnelMode && !ptsserver_has_data) {
+        if (!is_dtv_multi_demux(aml_dev) && aml_dev->singleDmxNonTunnelMode && !ptsserver_has_data) {
             if (patch->PServerDev != -1) {
                 PtsServ_ioctl(patch->PServerDev, PTSSERVER_IOC_GET_LIST_SIZE, (unsigned long)&ptsserver_list_size);
             }
@@ -4856,8 +4856,6 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     int ret = 0;
     int PServerInsId = 12;
     ptsserver_alloc_para mAllocPara;
-    struct utsname kernel_msg;
-    uname(&kernel_msg);
     // ALOGI("++%s live period_size %d\n", __func__, period_size);
     //pthread_mutex_lock(&aml_dev->patch_lock);
     if (get_dev_patch(aml_dev)) {
@@ -4895,7 +4893,6 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     patch->cmd_process_thread_exit = 0;
     memset(&patch->sync_para, 0, sizeof(struct avsync_para));
     patch->PServerDev = -1;
-    patch->singleDmxNonTunnelMode = false;
 
     patch->i2s_div_factor = property_get_int32(PROPERTY_AUDIO_TUNING_CLOCK_FACTOR, DEFAULT_TUNING_CLOCK_FACTOR);
     if (patch->i2s_div_factor == 0)
@@ -4932,11 +4929,6 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
         ret = -1;
         goto err;
     }
-#if ANDROID_PLATFORM_SDK_VERSION >= 30
-    if (strstr(kernel_msg.release, "5.15") != NULL) {
-        patch->singleDmxNonTunnelMode = true;
-    }
-#endif
     /* now  only sc2 can use new dtv path */
     if (property_get_bool("vendor.dtv.audio.skipamadec",true) && is_dtv_multi_demux(aml_dev)) {
         dtv_audio_instances->skip_amadec_flag = patch->skip_amadec_flag = true;
@@ -4947,7 +4939,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
            dtv_audio_instances->skip_amadec_flag = patch->skip_amadec_flag = true;
         }
     }
-    if (patch->singleDmxNonTunnelMode)
+    if (aml_dev->singleDmxNonTunnelMode)
         dtv_audio_instances->skip_amadec_flag = patch->skip_amadec_flag = true;
 
     if (patch->skip_amadec_flag) {
@@ -4984,7 +4976,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
         dtv_assoc_init();
     }
 
-    if (!is_dtv_multi_demux(aml_dev) && patch->singleDmxNonTunnelMode) {
+    if (!is_dtv_multi_demux(aml_dev) && aml_dev->singleDmxNonTunnelMode) {
         patch->PServerDev = PtsServ_open();
         ALOGI(" [%s:%d] PServerDev %d\n",__FUNCTION__,__LINE__, patch->PServerDev);
         if (patch->PServerDev != -1) {
@@ -5044,7 +5036,7 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
     /* Use flag to indicate that it will start to free patch struct.  TBD */
     invalidate_dev_patch(aml_dev);
     patch->cmd_process_thread_exit = 1;
-    if (!is_dtv_multi_demux(aml_dev) && patch->singleDmxNonTunnelMode) {
+    if (!is_dtv_multi_demux(aml_dev) && aml_dev->singleDmxNonTunnelMode) {
         int success = PtsServ_close(patch->PServerDev);
         ALOGI("PtsServ_close %d\n",success);
     }

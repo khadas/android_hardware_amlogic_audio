@@ -149,6 +149,7 @@
 #include "component_picture_mode.h"
 #include "dtv_private_object.h"
 #include "hdmirx_utils.h"
+#include <sys/utsname.h>
 
 #ifdef ENABLE_AUTOMOTIVE_AUDIO_FUNCTION
 #include "../automotive/bus_stream_out.h"
@@ -8655,6 +8656,16 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
         adev->dts_decode_enable = dts_lib_decode_enable();
     }
     adev->is_ms12_tuning_dat = is_ms12_tuning_dat_in_dut();
+
+#if ANDROID_PLATFORM_SDK_VERSION >= 30
+        struct utsname kernel_msg;
+        uname(&kernel_msg);
+        if (strstr(kernel_msg.release, "5.15") != NULL) {
+            adev->singleDmxNonTunnelMode = true;
+        } else {
+            adev->singleDmxNonTunnelMode = false;
+        }
+#endif
 
 #ifdef MS12_V24_ENABLE
     adev->support_ms12_version = eDolbyMS12_V2;

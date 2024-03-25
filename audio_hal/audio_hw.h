@@ -552,6 +552,7 @@ struct aml_audio_device {
     /* index for submix ringbuffer */
     int port_index;
     pthread_mutex_t bitstream_lock;
+    bool singleDmxNonTunnelMode;
 
 #ifdef ENABLE_AUTOMOTIVE_AUDIO_FUNCTION
     struct bus_submix_core *bus_mixer_core;

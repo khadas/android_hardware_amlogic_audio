@@ -269,7 +269,6 @@ struct aml_audio_patch
     bool is_dvi_signal;
     struct aml_stream_out *output_stream;
     int32_t PServerDev;
-    bool singleDmxNonTunnelMode;
     /* source data format change */
     bool format_change;
     bool input_teardown_over;
