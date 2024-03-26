@@ -74,4 +74,20 @@ int aml_audio_spdifout_config_earc_ca(void *phandle, int channel_mask);
 
 int aml_audio_spdifout_get_status(void *phandle);
 
+/**
+* @brief get the spdif handle current sample num which consumed by the function:aml_audio_spdifout_process()
+* @param  phandle:   spdif handle
+* @return [success]: >=0 (ms)
+*         [fail]: -1
+*/
+int get_aml_audio_spdifout_samplenum(void *phandle);
+
+/**
+* @brief get the spdif handle current duration which consumed by the function:aml_audio_spdifout_process()
+* @param  phandle:   spdif handle
+* @return [success]: >=0 (ms)
+*         [fail]: -1
+*/
+int get_aml_audio_spdifout_duration(void *phandle);
+
 #endif

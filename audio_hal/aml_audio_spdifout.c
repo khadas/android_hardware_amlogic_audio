@@ -53,6 +53,8 @@ typedef struct spdifout_handle {
     size_t buf_size;
     void * temp_buf;
     bool restore_hdmitx_selection;
+    uint32_t consumed_sample_num;//sample num
+    uint32_t consumed_duration;//ms
 } spdifout_handle_t;
 
 
@@ -382,6 +384,9 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
     phandle->out_data_ch = spdif_config->data_ch;
     phandle->in_data_ch  = spdif_config->data_ch;
 
+    phandle->consumed_sample_num = 0;
+    phandle->consumed_duration = 0;
+
     if (!phandle->spdif_enc_init && phandle->need_spdif_enc) {
         ret = aml_spdif_encoder_open(&phandle->spdif_enc_handle, phandle->audio_format);
         if (ret) {
@@ -581,6 +586,8 @@ int aml_audio_spdifout_process(void *phandle, void *buffer, size_t byte)
     if (phandle == NULL) {
         return -1;
     }
+    spdifout_phandle->consumed_sample_num = 0;
+    spdifout_phandle->consumed_duration = 0;
 
     device_id = spdifout_phandle->device_id;
     alsa_handle = aml_dev->alsa_handle[device_id];
@@ -627,6 +634,29 @@ int aml_audio_spdifout_process(void *phandle, void *buffer, size_t byte)
     }
 
 #endif
+
+    if (spdifout_phandle->audio_format == AUDIO_FORMAT_AC3) {
+        spdifout_phandle->consumed_sample_num = output_buffer_bytes / 4;
+    } else if (spdifout_phandle->audio_format == AUDIO_FORMAT_E_AC3) {
+        spdifout_phandle->consumed_sample_num = output_buffer_bytes / 16;
+    } else if (spdifout_phandle->audio_format == AUDIO_FORMAT_MAT) {
+        spdifout_phandle->consumed_sample_num = output_buffer_bytes / 64;
+    } else {
+        //Todo, dts/dtshd/mult-ch-PCM
+        ALOGV("unsupport foramt 0x%x", spdifout_phandle->audio_format);
+    }
+
+    if (spdifout_phandle->sample_rate != 0) {
+        spdifout_phandle->consumed_duration = spdifout_phandle->consumed_sample_num * 1000 / spdifout_phandle->sample_rate;
+    }
+    else {
+        spdifout_phandle->consumed_duration = spdifout_phandle->consumed_sample_num * 1000 / DEFAULT_OUT_SAMPLING_RATE;
+    }
+
+    ALOGV("%s line %d format 0x%x sample_rate %d consumed sample num %d duration %d(ms)",
+        __func__, __LINE__, spdifout_phandle->audio_format, spdifout_phandle->sample_rate,
+        spdifout_phandle->consumed_sample_num, spdifout_phandle->consumed_duration);
+
 
     if (is_dev_patch_exist(aml_dev)) {
         if (aml_dev->sink_gain[get_output_by_devices(aml_dev->cur_out_devices)] < FLOAT_ZERO && is_STB(aml_dev)) {
@@ -906,6 +936,38 @@ int aml_audio_spdifout_get_status(void *phandle) {
         running_status = (alsa_state == PCM_STATE_RUNNING);
     }
     return running_status;
+}
+
+/* only call it just after aml_audio_spdifout_process() which update this consumed_sample_num*/
+int get_aml_audio_spdifout_samplenum(void *phandle)
+{
+    struct spdifout_handle *spdifout_phandle = (struct spdifout_handle *)phandle;
+    int ret = -1;
+    if (phandle == NULL) {
+        ret = -1;
+    }
+    else {
+        ret = spdifout_phandle->consumed_sample_num;
+    }
+
+    ALOGV("%s line %d format 0x%x consumed sample num %d", __func__, __LINE__, spdifout_phandle->audio_format, ret);
+    return ret;
+}
+
+/* only call it just after aml_audio_spdifout_process() which update this consumed_duration*/
+int get_aml_audio_spdifout_duration(void *phandle)
+{
+    struct spdifout_handle *spdifout_phandle = (struct spdifout_handle *)phandle;
+    int ret = -1;
+    if (phandle == NULL) {
+        ret = -1;
+    }
+    else {
+        ret = spdifout_phandle->consumed_duration;
+    }
+
+    ALOGV("%s line %d format 0x%x spdif out duration %d", __func__, __LINE__, spdifout_phandle->audio_format, ret);
+    return ret;
 }
 
 

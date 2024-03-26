@@ -167,6 +167,18 @@ re_write:
         }
 #ifdef ENABLE_DVB_PATCH
         bool dtv_stream_flag = patch && is_same_patch_src(adev, SRC_DTV) && aml_out->is_tv_src_stream;
+        if (dtv_stream_flag && is_ms12_passthrough(stream)) {
+            aml_dtvsync_t *aml_dtvsync = patch->dtvsync;
+            struct dtvsync_audio_policy *async_policy = NULL;
+            if (aml_dtvsync != NULL) {
+                async_policy = &(aml_dtvsync->apolicy);
+                if (async_policy->audiopolicy == DTVSYNC_AUDIO_DROP_PCM) {
+                   ALOGI("%s %s", __func__, "DROP_PCM");
+                   return return_bytes;
+                }
+            }
+
+        }
         if (dtv_stream_flag && patch->output_thread_exit) {
             return return_bytes;
         }

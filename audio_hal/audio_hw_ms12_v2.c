@@ -2423,9 +2423,21 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
             int64_t ms12_bypass_tuning_pts = dtv_get_ms12_bypass_latency_offset()/*ms*/ * MILLISECOND_2_PTS;
             if (aml_dtvsync && patch->cur_package && (patch->cur_package->pts != ULLONG_MAX)) {
                 /* Fixme: if there are multi frames in the dolby raw data, how to update the pts? */
-                aml_dtvsync->out_start_apts = patch->cur_package->pts;
-                aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_bypass_tuning_pts;
-                if (adev->debug_flag) {
+                if ((aml_dtvsync->out_end_apts > patch->cur_package->pts)
+                    && (DIFF_ABS(patch->dtvsync->last_package_pts, aml_dtvsync->out_end_apts) <= AUDIO_PTS_DISCONTINUE_THRESHOLD))
+                    aml_dtvsync->out_start_apts = aml_dtvsync->out_end_apts;
+                else
+                    aml_dtvsync->out_start_apts = patch->cur_package->pts;
+                if (aml_dtvsync->out_start_apts == DTVSYNC_INIT_PTS) {
+                    /*invalid pts */
+                    aml_dtvsync->cur_outapts = DTVSYNC_INIT_PTS;
+                }
+                else {
+                    aml_dtvsync->cur_outapts = aml_dtvsync->out_start_apts - alsa_latency + ms12_bypass_tuning_pts;
+                }
+                if (adev->debug_flag > 1) {
+                    ALOGI("%s last_package_pts  %" PRIx64 " out_end_apts %" PRIx64 " diff is %" PRIx64 " (max:5*90000)",
+                        __func__, patch->dtvsync->last_package_pts, aml_dtvsync->out_end_apts, DIFF_ABS(patch->dtvsync->last_package_pts, aml_dtvsync->out_end_apts));
                     ALOGI("%s package pts(ms) %" PRIu64 " start_pts(ms) %" PRIu64 " cur_outapts(ms) %" PRIu64 ", alsa_latency(ms) %" PRId64 "\n",
                         __func__, patch->cur_package->pts / 90, aml_dtvsync->out_start_apts / 90, aml_dtvsync->cur_outapts / 90, alsa_latency / 90);
                     ALOGI("%s package pts %" PRIx64 " start_pts %" PRIx64 " cur_outapts %" PRIx64 ", alsa_latency %" PRIx64 "\n",
@@ -2434,7 +2446,7 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
             }
         }
 
-        if (do_sync_flag && aml_out->dtvsync_enable) {
+        if (patch && do_sync_flag && aml_out->dtvsync_enable) {
             aml_dtvsync_t *aml_dtvsync = patch->dtvsync;
             struct dtvsync_audio_policy *async_policy = NULL;
              if (aml_dtvsync != NULL) {
@@ -2460,6 +2472,20 @@ int ac3_and_eac3_bypass_process(struct audio_stream_out *stream, void *buffer, s
             aml_audio_spdifout_close(bitstream_out->spdifout_handle);
             bitstream_out->spdifout_handle = NULL;
         }
+#ifdef ENABLE_DVB_PATCH
+        if (patch && do_sync_flag && aml_out->dtvsync_enable) {
+            aml_dtvsync_t *aml_dtvsync = patch->dtvsync;
+            int spdifout_duration = get_aml_audio_spdifout_duration(bitstream_out->spdifout_handle);
+            if (adev->debug_flag > 1) {
+                ALOGI("%s line %d format 0x%x spdif out duration %d", __func__, __LINE__, bitstream_out->audio_format, spdifout_duration);
+            }
+            if (spdifout_duration > 0) {
+                int cur_bitstream_pts = spdifout_duration * MILLISECOND_2_PTS;
+                aml_dtvsync->out_end_apts = aml_dtvsync->out_start_apts + cur_bitstream_pts;
+            }
+        }
+#endif
+
         pthread_mutex_unlock(&adev->bitstream_lock);
     }
 
@@ -3492,6 +3518,7 @@ Aml_MS12_SyncPolicy_t ms12_dtv_sync_callback(void *priv_data, unsigned long long
     audio_format_t audio_format = ms12_get_audio_hal_format(aml_out->hal_internal_format);
     int delay_frame = 0;
     int delay_pts_diff = 0;
+    bool skip_update_pts = false;
     int sync_enable = property_get_int32("vendor.media.dtvsync.enable", 1);
     bool do_sync_flag = is_same_patch_src(adev, SRC_DTV) && patch && patch->skip_amadec_flag && sync_enable;
     decoded_frame = dolby_ms12_get_decoder_nframes_pcm_output(ms12->dolby_ms12_ptr, audio_format, MAIN_INPUT_STREAM);
@@ -3501,6 +3528,11 @@ Aml_MS12_SyncPolicy_t ms12_dtv_sync_callback(void *priv_data, unsigned long long
         if (patch->output_thread_exit) {
             ALOGI("%s output_thread_exit", __func__);
             return audio_sync_policy;
+        }
+
+        /*when it is bypass mode, only need to update the sync policy and not update cur_outapts pts*/
+        if (ms12->is_bypass_ms12) {
+            skip_update_pts = true;
         }
 
         aml_dtvsync = patch->dtvsync;
@@ -3552,7 +3584,8 @@ Aml_MS12_SyncPolicy_t ms12_dtv_sync_callback(void *priv_data, unsigned long long
                 if (is_HDMI_connected(adev)) {
                     force_setting_delay_pts = aml_getprop_int(PROPERTY_LOCAL_PASSTHROUGH_LATENCY)  * MILLISECOND_2_PTS;
                 }
-                aml_dtvsync->cur_outapts = new_apts;
+                if (!skip_update_pts)
+                    aml_dtvsync->cur_outapts = new_apts;
 
                 if ((syncpolicy_status.eSyncPolicy == DTVSYNC_AUDIO_DROP_PCM) ||
                     (syncpolicy_status.eSyncPolicy == DTVSYNC_AUDIO_INSERT)) {
@@ -3566,9 +3599,11 @@ Aml_MS12_SyncPolicy_t ms12_dtv_sync_callback(void *priv_data, unsigned long long
                     }
                 }
 
-                aml_dtvsync->cur_outapts = new_apts + ms12_tuning_delay_pts + force_setting_delay_pts;
+                if (!skip_update_pts)
+                    aml_dtvsync->cur_outapts = new_apts + ms12_tuning_delay_pts + force_setting_delay_pts;
                 ms12_do_dtv_sync(stream_out);
-                aml_dtvsync->cur_outapts = new_apts;
+                if (!skip_update_pts)
+                    aml_dtvsync->cur_outapts = new_apts;
 
                 if (async_policy->audiopolicy != DTVSYNC_AUDIO_NORMAL_OUTPUT)
                     ALOGI("cur policy:%d, prm1:%d, prm2:%d\n", async_policy->audiopolicy,
