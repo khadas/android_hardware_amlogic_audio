@@ -7119,6 +7119,10 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         /* DTS needs earlier update in decode flow */
         if (!is_dts_format(aml_out->hal_internal_format) && (aml_out->hal_internal_format != AUDIO_FORMAT_AC4))
             update_audio_format(adev, aml_out->hal_internal_format);
+
+        if ((aml_out->hal_internal_format == AUDIO_FORMAT_AC4) && is_same_patch_src(adev, SRC_DTV)) {
+            update_audio_format(adev, aml_out->hal_internal_format);
+        }
     }
     aml_audio_trace_int("out_write_new", 0);
     if (ret > 0) {
