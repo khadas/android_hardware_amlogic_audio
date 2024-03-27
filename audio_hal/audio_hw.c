@@ -1322,7 +1322,6 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
     bool is_mmap_pcm = is_mmap_stream_and_pcm_format(out);
     bool is_ms12_pcm_volume_control = (is_direct_pcm && !is_mmap_pcm);
     bool is_dts = is_dts_format(out->hal_internal_format);
-    bool is_cbs_dtv_audio = dtv_tuner_framework(stream);
 
     AM_LOGI("out:%p left:%f continuous:%d internal_format:%s dolby:%d direct pcm:%d mmap_pcm:%d",
         stream, left, continuous_mode(adev), audioFormat2Str(out->hal_internal_format),
@@ -1355,7 +1354,7 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
      *use set_ms12_main_volume to control it.
      *The volume about mixer-PCM is controlled by AudioFlinger
      */
-    if ((eDolbyMS12Lib == adev->dolby_lib_type) && !is_cbs_dtv_audio && (is_dolby_format || is_ms12_pcm_volume_control)) {
+    if ((eDolbyMS12Lib == adev->dolby_lib_type) && (is_dolby_format || is_ms12_pcm_volume_control)) {
         if (out->volume_l != out->volume_r) {
             ALOGW("%s, left:%f right:%f NOT match", __FUNCTION__, left, right);
         }
@@ -1384,16 +1383,6 @@ static int out_set_volume (struct audio_stream_out *stream, float left, float ri
          */
         int dap_postgain = volume2Ms12DapPostgain(out->volume_l);
         set_ms12_dap_postgain(&adev->ms12, dap_postgain);
-    } else if (is_cbs_dtv_audio) {
-        /*
-            for none-ms12 case, as tuner framework passthrough mode will use this stream to
-            control the dtv status such as volume,pause,resume,we need check if this direct stream
-            is used in this case.in current design, dtv audio patch is maintained inside HAL,
-            it will use a separate output stream to store all the input information,
-            such as format,ch,sr and pts info.
-        */
-
-        set_dtv_volume(adev, left);
     }
     return 0;
 }
@@ -7327,6 +7316,7 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
         aml_out->stream.get_audio_description_mix_level = out_get_audio_description_mix_level;
         aml_out->stream.set_dual_mono_mode = out_set_dual_mono_mode;
         aml_out->stream.get_dual_mono_mode = out_get_dual_mono_mode;
+        aml_out->stream.set_volume = out_set_volume_for_tunerframework;
     }
 #endif
 #endif

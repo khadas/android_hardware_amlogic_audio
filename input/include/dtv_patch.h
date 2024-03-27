@@ -110,6 +110,7 @@ int out_get_audio_description_mix_level(struct audio_stream_out *stream, float *
 int out_set_audio_description_mix_level(struct audio_stream_out *stream, const float leveldB);
 int out_get_dual_mono_mode(struct audio_stream_out *stream, audio_dual_mono_mode_t *mode);
 int out_set_dual_mono_mode(struct audio_stream_out *stream, audio_dual_mono_mode_t mode);
+int out_set_volume_for_tunerframework(struct audio_stream_out *stream, float left, float right);
 
 #endif
 //int dtv_patch_add_cmd(int cmd);

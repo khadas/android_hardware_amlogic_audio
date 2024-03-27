@@ -5556,6 +5556,39 @@ int out_get_dual_mono_mode(struct audio_stream_out *stream, audio_dual_mono_mode
     return 0;
 }
 
+int out_set_volume_for_tunerframework(struct audio_stream_out *stream, float left, float right __unused)
+{
+    struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
+    struct audio_hw_device *dev = (struct audio_hw_device *)(aml_out)->dev;
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    bool is_cbs_dtv_audio = dtv_tuner_framework(stream);
+    int path_id = aml_out->demux_id;
+    int ret = 0, val = 0;
+
+    if (is_cbs_dtv_audio) {
+        /*
+            for none-ms12 case, as tuner framework passthrough mode will use this stream to
+            control the dtv status such as volume,pause,resume,we need check if this direct stream
+            is used in this case.in current design, dtv audio patch is maintained inside HAL,
+            it will use a separate output stream to store all the input information,
+            such as format,ch,sr and pts info.
+        */
+        if (is_STB(adev)) {
+            set_dtv_volume(adev, left);
+        } else if (is_TV(adev)) {
+           /*
+            * for tv , in tuner hal audio case, 0 and 1 sent to audio hal when
+            * tv mute or unmute
+            */
+            val = (left == 1.0f) ? 0:1;
+            val = (path_id << DVB_DEMUX_ID_BASE | val);
+            dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_MUTE, val);
+        }
+    }
+
+    return ret;
+}
+
 int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, const void *buffer, size_t bytes)
 {
 
@@ -5803,6 +5836,12 @@ int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     int ret = -1, val = 0;
+
+    /* set_dtv_parameters only called by tsplayer,tuner hal audio use audiotrack api */
+    if (is_dev_patch_exist(adev) && get_dev_patch(adev)->cbs_patch) {
+         ret = 0;
+         goto exit;
+    }
 
     /* dvb cmd deal with start */
     ret = str_parms_get_int(parms, "hal_param_dtv_patch_cmd", &val);
