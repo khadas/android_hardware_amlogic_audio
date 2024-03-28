@@ -5388,8 +5388,8 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
 
     /*get sink format*/
     get_sink_format (stream);
-    AM_LOGI("out:%p hal_internal_format:%s(%#x) dolby_lib_type: %d reset_decoder %d", aml_out,
-        audioFormat2Str(aml_out->hal_internal_format), aml_out->hal_internal_format, adev->dolby_lib_type, reset_decoder);
+    AM_LOGI("out:%p hal_internal_format:%s(%#x) dolby_lib_type: %d reset_decoder %d rate =%d ch=%d", aml_out,
+        audioFormat2Str(aml_out->hal_internal_format), aml_out->hal_internal_format, adev->dolby_lib_type, reset_decoder, aml_out->hal_rate, aml_out->hal_ch);
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         bool is_compatible = false;
         bool is_direct_pcm = is_direct_stream_and_pcm_format(aml_out);
@@ -5450,6 +5450,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             if (!ms12->dolby_ms12_enable) {
                 adev_ms12_prepare((struct audio_hw_device *)adev);
             }
+            /*after enable teardown_output_format_change for ms12 case, this code can be removed*/
             if (is_dev_patch_exist(adev) && (is_same_patch_src(adev, SRC_HDMIIN) || is_same_patch_src(adev, SRC_SPDIFIN))) {
                 dolby_ms12_main_close(stream);
             }

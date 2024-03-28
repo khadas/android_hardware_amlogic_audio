@@ -1609,7 +1609,7 @@ int dolby_ms12_main_process(
                 ALOGV("Input size =%zu used_size =%d output size=%d rate=%d internal format=0x%x rate=%d",
                     input_bytes, spdif_dec_used_size, main_frame_size, aml_out->hal_rate, aml_out->hal_internal_format, sample_rate);
 
-                if (adev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS && main_frame_size != 0 && adev->continuous_audio_mode) {
+                if (adev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS && main_frame_size != 0 && adev->continuous_audio_mode && !is_dev_patch_exist(adev)) {
                     struct bypass_frame_info frame_info = { 0 };
                     aml_out->ddp_frame_size    = main_frame_size;
                     frame_info.audio_format    = ms12_hal_format;
@@ -4050,6 +4050,7 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
         !is_dolby_ms12_support_compression_format(hal_internal_format)) {
         hal_internal_format = AUDIO_FORMAT_PCM_16_BIT;
     }
+    get_sink_format (stream);
 
     ms12->ms12_main_stream_out = aml_out;
     ms12->main_input_fmt = hal_internal_format;
