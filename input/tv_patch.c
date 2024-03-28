@@ -382,13 +382,14 @@ void *audio_patch_input_threadloop(void *data)
                     audio_raw_data_continuous_check(aml_dev, patch->audio_parse_para, patch->in_buf, read_bytes);
                 }
             }
-            audio_digital_input_format_check(patch);
         }
 
         if (patch->format_change && !patch->input_teardown_over) {
             AM_LOGI("+++ detect input format change, continue!");
             continue;
         }
+
+        audio_digital_input_format_check(patch);
 
         /*noise gate is only used in Linein for 16bit audio data*/
         if (get_active_inport(aml_dev) == INPORT_LINEIN && is_ng_enable(aml_dev)) {
