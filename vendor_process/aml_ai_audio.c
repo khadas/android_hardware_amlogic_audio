@@ -41,6 +41,7 @@
 #include "aml_android_utils.h"
 #include "aml_alsa_mixer.h"
 #include "audio_post_process.h"
+#include "aml_dump_debug.h"
 
 //IVA AI prebuilt library
 static const char *AI_LIB_PATH = "/vendor/lib/libamlogic_ai_audio.so";
@@ -371,9 +372,9 @@ static void *iva_lib_thread_loop(void *arg)
         }
 
 #ifdef ENABLE_ACR_DATA_DUMP
-        int enable_dump = aml_getprop_bool("vendor.media.audio_hal.ai.dump");
+        int enable_dump = (get_debug_value(AML_DUMP_AUDIOHAL_EFFECT) || aml_getprop_bool("vendor.media.audio_hal.ai.dump"));
         if (enable_dump) {
-            aml_ai_audio_dump_data("/data/audio/ai_in.pcm", filledBuffer->start, filledBuffer->bytes);
+            aml_ai_audio_dump_data("/data/vendor/audiohal/ai_in.pcm", filledBuffer->start, filledBuffer->bytes);
         }
 #endif
         pthread_mutex_lock(&aiModule->mutex);
@@ -739,15 +740,8 @@ int aml_ai_audio_dump_data(const char *path, const void *buf, size_t bytes)
     if (!path) {
         return -1;
     }
-
-    FILE *fp = fopen(path, "a+");
-    if (fp) {
-        int flen = fwrite((char *)buf, 1, bytes, fp);
-        fclose(fp);
-        return 0;
-    }
-    ALOGE("fail to open path=%s, errno=%s",  path, strerror(errno));
-    return -1;
+    aml_dump_audio_bitstreams(path, buf, bytes);
+    return 0;
 }
 
 //############ buffer control APIs #############//

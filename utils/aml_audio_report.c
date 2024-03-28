@@ -32,7 +32,7 @@
 
 int get_audio_info_enable(int dump_type) {
     int value = 0;
-    value = get_debug_value(AML_DEBUG_AUDIOINFO_REPORT);
+    value = get_debug_value(AML_DEBUG_AUDIOHAL_DECODED_INFO);
     return (value & dump_type);
 }
 

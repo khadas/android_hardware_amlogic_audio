@@ -37,6 +37,7 @@
 #include "audio_hw_utils.h"
 #include "aml_android_utils.h"
 #include "aml_malloc_debug.h"
+#include "aml_dump_debug.h"
 
 #ifndef min
 #define min(a,b) ((a) < (b) ? (a) : (b))
@@ -45,14 +46,8 @@
 
 static void dump(const void *buffer, int size, char *file_name)
 {
-    if (aml_getprop_bool("vendor.media.audiohal.tempodump")) {
-        FILE *fp1;
-        fp1 = fopen(file_name, "a+");
-        if (fp1) {
-            int flen = fwrite((char *)buffer, 1, size, fp1);
-            ALOGV("%s buffer %p size %d\n", __FUNCTION__, buffer, size);
-            fclose(fp1);
-        }
+    if (get_debug_value(AML_DUMP_AUDIOHAL_SPEED)) {
+        aml_dump_audio_bitstreams(file_name, buffer, size);
     }
 }
 
@@ -436,7 +431,7 @@ static int hal_scaletempo_transform (struct scale_tempo * st,
     //ALOGI ("offset_out %d bytes_out %d queued %d slide %d max %d, input size:%d",
     //       offset_out, bytes_out, st->bytes_queued,
     //       st->bytes_to_slide, st->bytes_queue_max, insize);
-    //aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/hal_st_transform.raw", outbuf, bytes_out);
+    //aml_dump_audio_bitstreams("/data/vendor/audiohal/hal_st_transform.raw", outbuf, bytes_out);
     return 0;
 }
 

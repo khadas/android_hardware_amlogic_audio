@@ -404,6 +404,8 @@ int dolby_ms12_encoder_reconfig(struct dolby_ms12_desc *ms12);
 
 void set_dolby_ms12_main_speed(struct dolby_ms12_desc *ms12, double speed);
 
+void set_dolby_ms12_continuous_state(struct dolby_ms12_desc *ms12, int status);
+
 /*
  *@brief prepare the virtual buffer info when stream resume
  */

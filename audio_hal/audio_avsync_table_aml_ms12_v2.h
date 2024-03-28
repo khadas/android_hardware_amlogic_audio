@@ -72,25 +72,25 @@
  * -220 -> -250 for result as +35 -> +60
  * -220 -> -180 for result as +35 -> -5
  */
-#define  AVSYNC_MS12_TUNNEL_BYPASS_LATENCY               (-130)
+#define  AVSYNC_MS12_TUNNEL_BYPASS_LATENCY               (-95)
 
 
 #define  AVSYNC_MS12_NETFLIX_NONTUNNEL_BYPASS_LATENCY            (-130)
 #define  AVSYNC_MS12_NETFLIX_TUNNEL_BYPASS_LATENCY               (-185)
 
-#define  AVSYNC_MS12_PCM_OUT_LATENCY                     (-10)
+#define  AVSYNC_MS12_PCM_OUT_LATENCY                     (15)
 #define  AVSYNC_MS12_DD_OUT_LATENCY                      (50)
 /*
  * 75 -> 35 for result as +20 -> +40
  * 75 -> 115 for result as +20 -> -20
  */
-#define  AVSYNC_MS12_DDP_OUT_LATENCY                     (80)
+#define  AVSYNC_MS12_DDP_OUT_LATENCY                     (95)
 
 /*
  * 10 -> -20 for result as +20 -> +50
  * 10 -> 30 for result as +20 -> -10
  */
-#define  AVSYNC_MS12_MAT_OUT_LATENCY                     (25)
+#define  AVSYNC_MS12_MAT_OUT_LATENCY                     (70)
 
 /* HDMI ARC tune */
 //1.tunnel mode

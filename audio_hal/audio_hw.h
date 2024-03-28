@@ -58,15 +58,19 @@
 #include "aml_audio_resampler.h"
 #include "aml_audio_speed_manager.h"
 #include "../decoder/include/aml_dec_api.h"
-#include "../decoder/include/aml_dts_dec_api.h"
+#include "../decoder/include/aml_dtshd_dec_api.h"
+#include "../decoder/include/aml_dtsx_dec_api.h"
 #include "audio_usb_hal.h"
 #include "aml_audio_timer.h"
 #include "aml_config_data.h"
 #include "audio_hw_resource_def.h"
 #include "../input/include/device_patch_mgr.h"
 #include "aml_audio_stream_base.h"
-#include "../automotive/bus_submix_core.h"
 
+#ifdef ENABLE_AUTOMOTIVE_AUDIO_FUNCTION
+#include "../automotive/bus_submix_core.h"
+#include "../automotive/bus_stream_out.h"
+#endif
 
 /* number of frames per period */
 /*
@@ -167,6 +171,7 @@ enum audio_hal_format {
     TYPE_AC4_ATMOS_PROMPT_ON_ATMOS = 20,
     TYPE_AAC  = 21,
     TYPE_HEAAC = 22,
+    TYPE_DTSX = 23,
 };
 #define FRAMESIZE_16BIT_STEREO 4
 #define FRAMESIZE_32BIT_STEREO 8
@@ -371,11 +376,14 @@ struct aml_audio_device {
     int dolby_lib_type;
     int dolby_lib_type_last;
     int dolby_decode_enable;   /*it can decode dolby, not passthrough lib*/
+    int dts_lib_type;
     int dts_decode_enable;
     int support_ms12_version;
 
-    /*used for dts decoder*/
+    /*used for dtshd decoder*/
     struct dca_dts_dec dts_hd;
+    /*used for dtsx decoder*/
+    dtsx_dec_t dts_x;
     bool bDVEnable;
     //TODO: temporary solution for MS12 not support PCM32 input
     int16_t *temp_out_16_buf;
@@ -427,7 +435,6 @@ struct aml_audio_device {
     int system_app_mixing_status;
     int audio_type;
     struct aml_mixer_handle alsa_mixer;
-    struct bus_submix_core *bus_mixer_core;
     struct subMixing *sm;
     struct aml_audio_mixer *audio_mixer;
     bool useSubMix;
@@ -545,6 +552,12 @@ struct aml_audio_device {
     /* index for submix ringbuffer */
     int port_index;
     pthread_mutex_t bitstream_lock;
+
+#ifdef ENABLE_AUTOMOTIVE_AUDIO_FUNCTION
+    struct bus_submix_core *bus_mixer_core;
+    struct audio_stream_out* mBus_stream_outs[STREAM_USECASE_MAX];
+    int bus_stream_count;
+#endif
 };
 
 struct meta_data {
@@ -741,6 +754,7 @@ struct aml_stream_out {
     bool frame_write_sum_updated;
     bool is_insert_zero_data;
     bool is_waiting_video;
+    bool restore_vmaster;
     bool hwsync_header_stripped;
     uint32_t insert_zero_data_ms;
     uint32_t timer_id;
@@ -753,6 +767,7 @@ struct aml_stream_out {
     struct timespec last_avsync_timestamp;
     int64_t jitter_ms;
     int     audio_delay;
+    int64_t needs_compensation_timeus;
     void *kara;
     uint64_t hwsync_parsed_frames_sum_paused;
     uint32_t last_write_start_time_in_ms; // For checking the writing time

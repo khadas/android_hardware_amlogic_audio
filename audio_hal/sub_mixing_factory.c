@@ -29,6 +29,7 @@
 #include "audio_hw_resource_mgr.h"
 
 //#define DEBUG_TIME
+#define DUMP_SUB_MIXING_HWSYNC       0x0001
 
 #define WRITE_COUNT_LATENCY_THRESHOLD  (6)
 #define SUBMIX_USECASE_MASK            (0xffffff7e)  /* PCM_NORMAL(0) and PCM_MMAP(7) have been cleared*/
@@ -40,6 +41,12 @@ static ssize_t out_write_subMixingPCM(struct audio_stream_out *stream,
 static int out_pause_subMixingPCM(struct audio_stream_out *stream);
 static int out_resume_subMixingPCM(struct audio_stream_out *stream);
 static int out_flush_subMixingPCM(struct audio_stream_out *stream);
+
+static int get_submixing_dump_enable(int dump_type) {
+    int value = 0;
+    value = get_debug_value(AML_DUMP_AUDIOHAL_SUBMIXING);
+    return (value & dump_type);
+}
 
 struct pcm *getSubMixingPCMdev(struct subMixing *sm)
 {
@@ -75,6 +82,7 @@ static int initSubMixingOutput(
         mixer_get_default_config(&mixer_cfg, is_TV(adev));
 #endif
         audio_format_t primaryOutFormat = get_primary_out_format(adev);
+        AM_LOGI("primaryOutFormat %d", primaryOutFormat);
         switch (primaryOutFormat)
         {
         case AUDIO_FORMAT_PCM_16_BIT:
@@ -87,6 +95,7 @@ static int initSubMixingOutput(
                 primaryOutFormat, mixer_cfg.format);
             break;
         }
+        AM_LOGI("mixer_cfg format %d, frame_size %d", mixer_cfg.format, mixer_cfg.frame_size);
 
         struct amlAudioMixer *amixer = newAmlAudioMixer(adev, mixer_cfg, outport_cfg, mixer_type);
         R_CHECK_POINTER_LEGAL(-ENOMEM, amixer, "newAmlAudioMixer failed");
@@ -366,8 +375,8 @@ static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
     //else
     //    out->last_frames_position = out->frame_write_sum;
     AM_LOGV("++written = %zd", written);
-    if (getprop_bool("vendor.media.audiohal.hwsync")) {
-        aml_audio_dump_audio_bitstreams("/data/audio/consumeout.raw", buffer, written);
+    if (get_submixing_dump_enable(DUMP_SUB_MIXING_HWSYNC)) {
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/consumeout.raw", buffer, written);
     }
     if (0) {
         AM_LOGD("last_frames_position(%" PRId64 ") latency_frames(%" PRId64 ")",
@@ -424,7 +433,7 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
     // when connect bt, bt stream maybe open before hdmi stream close,
     // bt stream mediasync is set to adev->hw_mediasync, and it would be
     // release in hdmi stream close, so bt stream mediasync is invalid
-    if (out->hwsync->mediasync != NULL && adev->hw_mediasync == NULL) {
+    if (out->hwsync && out->hwsync->mediasync != NULL && adev->hw_mediasync == NULL) {
         adev->hw_mediasync = aml_audio_hwsync_create();
         out->hwsync->use_mediasync = true;
         out->hwsync->mediasync = adev->hw_mediasync;
@@ -495,8 +504,8 @@ static ssize_t out_write_hwsync_lpcm(struct audio_stream_out *stream, const void
     AM_LOGV("bytes %zu, out->last_frames_position %" PRId64 " frame_sum %" PRId64 " ",
             bytes, out->last_frames_position, out->frame_write_sum);
 
-    if (getprop_bool("vendor.media.audiohal.hwsync") && written_total > 0) {
-        aml_audio_dump_audio_bitstreams("/data/audio/audiomain.raw", buffer, written_total);
+    if (get_submixing_dump_enable(DUMP_SUB_MIXING_HWSYNC) && written_total > 0) {
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/audiomain.raw", buffer, written_total);
     }
 
     if (written_total > 0) {
@@ -714,8 +723,20 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
         AM_LOGV("time spent on write %" PRId64 " us, written %zd", us_since_last_write, written);
         AM_LOGV("used_this_write %d us, target %d us", used_this_write, target_us);
         throttle_timeus = target_us - us_since_last_write;
+        if (throttle_timeus < 0 && us_since_last_write <= 500000)
+            out->needs_compensation_timeus += throttle_timeus;
+
         if (throttle_timeus > 0 && throttle_timeus < 200000) {
             AM_LOGV("throttle time %" PRId64 " us", throttle_timeus);
+            if (out->needs_compensation_timeus < 0) {
+                if (throttle_timeus <= llabs(out->needs_compensation_timeus)) {
+                    out->needs_compensation_timeus += throttle_timeus;
+                    goto exit;
+                } else {
+                    throttle_timeus += out->needs_compensation_timeus;
+                    out->needs_compensation_timeus = 0;
+                }
+            }
             if (throttle_timeus > 1800) {
                 usleep(throttle_timeus - 1800);
                 AM_LOGV("actual throttle %" PRId64 " us, since last %" PRId64 " us",

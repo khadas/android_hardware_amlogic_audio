@@ -30,9 +30,15 @@
 #include <inttypes.h>
 #include <cutils/list.h>
 #include <audio_utils/primitives.h>
+#include <sys/time.h>
 
-#include "audio_hw_utils.h"
-#include "aml_audio_timer.h"
+#ifndef __USE_GNU
+/* Define this to avoid a warning about implicit definition of ppoll.*/
+#define __USE_GNU
+#endif
+#include <poll.h>
+
+#include "aml_malloc_debug.h"
 #include "aml_ringbuffer.h"
 #include "aml_async_write.h"
 #include "aml_audio_spdifdec.h"
@@ -103,6 +109,28 @@ struct aml_async_writer {
 
 
 static struct aml_async_writer worker1;
+
+static int64_t _gettime(void)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return ((int64_t)(tv.tv_sec) * 1000000 + (int64_t)(tv.tv_usec));
+}
+
+static int _audio_sleep(uint64_t us)
+{
+    int ret = 0;
+    struct timespec ts;
+    if (us == 0) {
+        return 0;
+    }
+
+    ts.tv_sec = (long)us / 1000000ULL;
+    ts.tv_nsec = (long)(us - ts.tv_sec) * 1000;
+
+    ret = ppoll(NULL, 0, &ts, NULL);
+    return ret;
+}
 
 
 #ifdef AML_ASYNC_WRITE_COMPRESS_ENABLE
@@ -396,7 +424,7 @@ static void *async_write_threadloop(void *data)
     prctl(PR_SET_NAME, (unsigned long)"async_write_thread");
 
     while (1) {
-        uint64_t start_ms = aml_gettime()/1000;
+        uint64_t start_ms = _gettime()/1000;
         int delay_ms = 60;    // 60 ms
         int buf_num = 0;
         uint64_t cost_ms = 0;
@@ -438,7 +466,7 @@ static void *async_write_threadloop(void *data)
         } else {
             p_worker->is_standby = false;
 
-            cost_ms = aml_gettime()/1000 - start_ms;
+            cost_ms = _gettime()/1000 - start_ms;
             if (cost_ms >= 30) {
                 ALOGI("%s use %"PRId64" ms", __func__, cost_ms);
                 delay_ms -= (cost_ms - 10);
@@ -446,7 +474,7 @@ static void *async_write_threadloop(void *data)
                     delay_ms = 10;
                 }
             }
-            aml_audio_sleep(delay_ms * 1000);
+            _audio_sleep(delay_ms * 1000);
         }
     }
 }

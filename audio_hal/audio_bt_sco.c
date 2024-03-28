@@ -25,7 +25,7 @@
 #include "alsa_config_parameters.h"
 #include "alsa_device_parser.h"
 #include "aml_audio_timer.h"
-
+#include "aml_dump_debug.h"
 
 static const struct pcm_config config_bt = {
     .channels = 1,
@@ -37,10 +37,10 @@ static const struct pcm_config config_bt = {
 
 static void dump_output_data(struct aml_bt_output *bt, const void *buffer, uint32_t size)
 {
-    if (getprop_bool("vendor.media.audiohal.outdump")) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_SCO)) {
         char acFilePathStr[ENUM_TYPE_STR_MAX_LEN];
         sprintf(acFilePathStr, "/data/audio/bt_sco_%0.1fK_%dC_2B.pcm", bt->cfg.rate/1000.0, bt->cfg.channels);
-        aml_audio_dump_audio_bitstreams(acFilePathStr, buffer, size);
+        aml_dump_audio_bitstreams(acFilePathStr, buffer, size);
     }
 }
 

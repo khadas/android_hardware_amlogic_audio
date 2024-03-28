@@ -23,7 +23,7 @@
 #include "aml_dec_api.h"
 #include "audio_data_process.h"
 #include "aml_malloc_debug.h"
-
+#include "aml_dump_debug.h"
 
 #define MAD_LIB_PATH "/vendor/lib/libmad.so"
 #define MAD_LIB_64BIT_PATH "/vendor/lib64/libmad.so"
@@ -309,13 +309,8 @@ static int mad_decoder_release(aml_dec_t * aml_dec)
 }
 static void dump_mad_data(void *buffer, int size, char *file_name)
 {
-   if (property_get_bool("vendor.media.mad.dump",false)) {
-        FILE *fp1 = fopen(file_name, "a+");
-        if (fp1) {
-            int flen = fwrite((char *)buffer, 1, size, fp1);
-            ALOGI("%s buffer %p size %d flen %d\n", __FUNCTION__, buffer, size,flen);
-            fclose(fp1);
-        }
+   if (get_debug_value(AML_DUMP_AUDIOHAL_DECODER) || property_get_bool("vendor.media.mad.dump",false)) {
+       aml_dump_audio_bitstreams(file_name, buffer, size);
     }
 }
 

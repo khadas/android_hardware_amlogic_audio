@@ -75,7 +75,7 @@ ssize_t processing_multich_pcm(struct audio_stream_out *stream,
 
     out_frames = bytes / (nchannels * bytes_per_sample);
 
-    int enable_dump = aml_getprop_bool("vendor.media.audiohal.outdump");
+    int enable_dump = get_debug_value(AML_DUMP_AUDIOHAL_TV);
     if (adev->debug_flag) {
         ALOGD("%s,size %zu,format %x,ch %d\n",__func__,bytes,output_format,nchannels);
     }
@@ -84,12 +84,7 @@ ssize_t processing_multich_pcm(struct audio_stream_out *stream,
         {
             size_t out_frames = bytes / (nchannels * 2); /* input is nchannels 16 bit */
             if (enable_dump) {
-                FILE *fp1 = fopen("/data/vendor/audiohal/ms12_out_spk.pcm", "a+");
-                if (fp1) {
-                    int flen = fwrite((char *)buffer, 1, bytes, fp1);
-                    ALOGV("%s buffer %p size %zu\n", __FUNCTION__, buffer, bytes);
-                    fclose(fp1);
-                }
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/ms12_out_spk.pcm", buffer, bytes);
             }
 
             ret = aml_audio_check_and_realloc((void **)&adev->out_32_buf, &adev->out_32_buf_size, 2 * bytes);
@@ -102,12 +97,7 @@ ssize_t processing_multich_pcm(struct audio_stream_out *stream,
             }
             apply_volume_16to32(gain_speaker, (int16_t *)buffer, adev->out_32_buf, bytes);
             if (enable_dump) {
-                FILE *fp1 = fopen("/data/vendor/audiohal/ms12_out_spk-volume-32bit.pcm", "a+");
-                if (fp1) {
-                    int flen = fwrite((char *)adev->out_32_buf, 1, bytes*2, fp1);
-                    ALOGV("%s buffer %p size %zu\n", __FUNCTION__, adev->out_32_buf, bytes);
-                    fclose(fp1);
-                }
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/ms12_out_spk-volume-32bit.pcm", adev->out_32_buf, bytes*2);
             }
 
             /* nchannels 32 bit --> 8 channel 32 bit mapping */
@@ -128,11 +118,7 @@ ssize_t processing_multich_pcm(struct audio_stream_out *stream,
             out_data_info->audio_format = AUDIO_FORMAT_PCM_32_BIT;
             out_data_info->channel_mask = audio_channel_out_mask_from_count(bd_config->default_alsa_ch);
             if (enable_dump) {
-                FILE *fp1 = fopen("/data/vendor/audiohal/ms12_out_10_spk.pcm", "a+");
-                if (fp1) {
-                    int flen = fwrite((char *)adev->tmp_buffer_8ch, 1, out_frames * 4 * bd_config->default_alsa_ch, fp1);
-                    fclose(fp1);
-                }
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/ms12_out_10_spk.pcm", adev->tmp_buffer_8ch, out_frames * 4 * bd_config->default_alsa_ch);
             }
         }
     }
@@ -181,7 +167,7 @@ static inline ssize_t stream_pcm32_process_for_tv(struct audio_stream_out *strea
             //AM_LOGI("bytes:%d in_frames:%d out_frames:%d", bytes, out_frames, ret_frames);
 
             if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
-                aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audio_spk_pcm32.raw", adev->out_32_buf, bytes);
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/audio_spk_pcm32.raw", adev->out_32_buf, bytes);
             }
         } else if (dev == AML_AUDIO_OUT_DEV_TYPE_SPDIF) {
             volume *= adev->eq_data.p_gain.spdif_arc;
@@ -407,6 +393,9 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                         volume *= adev->eq_data.p_gain.media2spk_extra_gain;
                     }
                     volume *= adev->eq_data.p_gain.speaker * adev->sink_gain[OUTPORT_SPEAKER];
+                    if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_exist(adev) && get_dev_patch(adev)->cbs_patch) {
+                         volume *= get_dtv_volume(adev);
+                    }
 
                     /* for ms12 lib, and audio volume control in ms12, bypass all volume apply */
                     if (eDolbyMS12Lib == adev->dolby_lib_type && aml_out->ms12_vol_ctrl) {
@@ -421,15 +410,15 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     out_frames = audio_post_process(&adev->native_postprocess, adev->out_16_buf, out_frames);
                     bytes = out_frames * 4;
 
-                    if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-                        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audio_spk.pcm", adev->out_16_buf, bytes);
+                    if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
+                        aml_dump_audio_bitstreams("/data/vendor/audiohal/audio_spk.pcm", adev->out_16_buf, bytes);
                     }
                 } else if (dev == AML_AUDIO_OUT_DEV_TYPE_SPDIF) {
                     volume *= adev->eq_data.p_gain.spdif_arc;
                 } else if (dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) {
                     volume *= adev->eq_data.p_gain.headphone * adev->sink_gain[OUTPORT_HEADPHONE];
-                    if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-                        aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audio_headphone.pcm", adev->out_16_buf, bytes);
+                    if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
+                        aml_dump_audio_bitstreams("/data/vendor/audiohal/audio_headphone.pcm", adev->out_16_buf, bytes);
                     }
                 } else if (dev == AML_AUDIO_OUT_DEV_TYPE_OTHER) {
                     /* todo: apply speaker volume for hdmitx of BDS */
@@ -476,7 +465,7 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
             out_data_info->audio_format = AUDIO_FORMAT_PCM_32_BIT;
             out_data_info->channel_mask = audio_channel_out_mask_from_count(bd_config->default_alsa_ch);
             if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
-                aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/audio_volumed_processed.pcm", *output_buffer, *output_buffer_bytes);
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/audio_volumed_processed.pcm", *output_buffer, *output_buffer_bytes);
             }
         } else {
             if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_exist(adev)) {
@@ -617,9 +606,17 @@ ssize_t hw_write (struct audio_stream_out *stream
                     ALOGE("%s() get pcm handle failed", __func__);
                 }
                 if (adev->raw_to_pcm_flag && aml_out->pcm) {
-                    ALOGI("disable raw_to_pcm_flag --");
-                    pcm_stop(aml_out->pcm);
-                    adev->raw_to_pcm_flag = false;
+                    int stop_now = true;
+
+                    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) &&
+                        aml_audio_earctx_get_type(adev) == ATTEND_TYPE_NONE)
+                        stop_now = false;
+
+                    if (stop_now) {
+                        ALOGI("disable raw_to_pcm_flag --");
+                        pcm_stop(aml_out->pcm);
+                        adev->raw_to_pcm_flag = false;
+                    }
                 }
             }
         } else {
@@ -795,6 +792,7 @@ ssize_t hw_write (struct audio_stream_out *stream
 
     pthread_mutex_unlock(&adev->alsa_pcm_lock);
 
+#ifndef AUDIO_HAL_DISABLE_MS12
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         /*it is the main alsa write function we need notify that to all sub-stream */
         adev->ms12.latency_frame = latency_frames;
@@ -803,7 +801,7 @@ ssize_t hw_write (struct audio_stream_out *stream
         }
         //ALOGD("alsa latency=%d", latency_frames);
     }
-
+#endif
     /*
     */
     if (!continuous_mode(adev)) {
@@ -882,6 +880,8 @@ ssize_t hw_write (struct audio_stream_out *stream
         pthread_mutex_unlock(&aml_out->apts_update_lock);
         //ALOGI("position =%lld time sec = %ld, nanosec = %ld", aml_out->last_frames_position, aml_out->lasttimestamp.tv_sec , aml_out->lasttimestamp.tv_nsec);
     }
+
+#ifndef AUDIO_HAL_DISABLE_MS12
     if (eDolbyMS12Lib == adev->dolby_lib_type) {
         if (continuous_mode(adev)) {
             if (adev->ms12.is_continuous_paused) {
@@ -922,11 +922,12 @@ ssize_t hw_write (struct audio_stream_out *stream
         }
         adev->ms12.last_sys_audio_cost_pos = sys_total_cost;
     }
+#endif
     if (adev->debug_flag) {
         AM_LOGI("io %d: out:%p pcm handle %p format input:%s output:%s 61937: %d",
               aml_out->io_handle, stream, aml_out->pcm, audioFormat2Str(aml_out->hal_internal_format),
               audioFormat2Str(output_format), is_iec61937_format(stream));
-
+#ifndef AUDIO_HAL_DISABLE_MS12
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             //ms12 internal buffer avail(main/associate/system)
             if (adev->ms12.dolby_ms12_enable == true) {
@@ -934,7 +935,7 @@ ssize_t hw_write (struct audio_stream_out *stream
                       __FUNCTION__, dolby_ms12_get_main_buffer_avail(NULL), dolby_ms12_get_associate_buffer_avail(), dolby_ms12_get_system_buffer_avail(NULL));
             }
         }
-
+#endif
         if ((aml_out->hal_internal_format == AUDIO_FORMAT_AC3) || (aml_out->hal_internal_format == AUDIO_FORMAT_E_AC3)) {
             ALOGI("%s() total_frame %"PRIu64" latency_frames %d last_frames_position %"PRIu64" total write %"PRIu64" total writes frames %"PRIu64" diff latency %"PRIu64" ms\n",
                   __FUNCTION__, total_frame, latency_frames, aml_out->last_frames_position, aml_out->input_bytes_size, write_frames, (write_frames - total_frame) / 48);

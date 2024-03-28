@@ -49,12 +49,12 @@ cc_library_shared {
     ],
 
     srcs: [
+        "aml_async_write.c",
         "alsa_device_parser.c",
         "audio_data_process.c",
         "aml_alsa_mixer.c",
         "aml_android_hidl_utils.cpp",
         "aml_android_utils.c",
-        "aml_audio_mixer.c",
         "aml_audio_spdifdec.c",
         "aml_buffer_provider.c",
         "aml_configs/aml_conf_loader.c",
@@ -75,7 +75,7 @@ cc_library_shared {
         "aml_audio_sysfs.c",
         "aml_vad_wakeup.cpp",
         "cJSON/cJSON.c",
-        "aml_peq.c"
+        "aml_peq.c",
     ],
 
     shared_libs: [

@@ -16,6 +16,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <semaphore.h>
 #include <system/audio.h>
 #include <cutils/list.h>
 #include "dolby_ms12.h"
@@ -205,6 +206,9 @@ struct dolby_ms12_desc {
     bool main_input_insert_zero;
     bool aaudio_low_latency;
     bool dap_only_enable;
+    float tempo_speed;
+    int ms12_continuous_state;
+    sem_t standby_sem;
 };
 
 /*

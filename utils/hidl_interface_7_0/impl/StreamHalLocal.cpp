@@ -356,13 +356,14 @@ int StreamOutHalLocal::asyncEventCallback(
     sp<StreamOutHalInterfaceEventCallback> callback = self->mEventCallback.promote();
     if (callback.get() == nullptr) return 0;
     switch (event) {
-        case STREAM_EVENT_CBK_TYPE_CODEC_FORMAT_CHANGED:
+        case STREAM_EVENT_CBK_TYPE_CODEC_FORMAT_CHANGED: {
             // void* param is the byte string buffer from byte_string_from_audio_metadata().
             // As the byte string buffer may have embedded zeroes, we cannot use strlen()
-            callback->onCodecFormatChanged(std::basic_string<uint8_t>(
-                    (const uint8_t*)param,
-                    audio_utils::metadata::dataByteStringLen((const uint8_t*)param)));
+            const uint8_t* metadata = static_cast<const uint8_t*>(param);
+            size_t metadataLen = audio_utils::metadata::dataByteStringLen(metadata);
+            callback->onCodecFormatChanged({ metadata, metadata + metadataLen });
             break;
+        }
         default:
             ALOGW("%s unknown event %d", __func__, event);
             break;

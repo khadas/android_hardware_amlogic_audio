@@ -103,7 +103,6 @@ include $(BUILD_PREBUILT)
         aml_config_data.c \
         aml_audio_scaletempo.c \
         aml_audio_output.c \
-        aml_async_write.c \
         audio_dummy_streamout.c \
 
     LOCAL_C_INCLUDES += \
@@ -116,6 +115,7 @@ include $(BUILD_PREBUILT)
         system/libfmq/include \
         system/media/alsa_utils/include \
         hardware/libhardware/include \
+        hardware/libhardware/include_vendor \
         $(LOCAL_PATH)/../utils \
         $(LOCAL_PATH)/../utils/include \
         $(LOCAL_PATH)/../utils/ini/include \
@@ -238,14 +238,18 @@ endif
     LOCAL_CFLAGS += -DREPLACE_OUTPUT_BUFFER_WITH_CALLBACK
 
 #by default, we compile V2,V1 is not used now. TBD
-ifneq ($(TARGET_BUILD_DOLBY_MS12_V1), true)
     LOCAL_SRC_FILES += audio_hw_ms12_common.c
-    LOCAL_SRC_FILES += audio_hw_ms12_v2.c
+ifneq ($(TARGET_BUILD_DOLBY_MS12_V1), true)
     LOCAL_CFLAGS += -DMS12_V24_ENABLE
     LOCAL_C_INCLUDES += hardware/amlogic/audio/decoder/libms12_v24/include
-    LOCAL_SHARED_LIBRARIES += libms12api_v24
+ifeq ($(PRODUCT_DISABLE_MS12), true)
+    LOCAL_SRC_FILES += audio_hw_ms12_dummy.c
+    LOCAL_CFLAGS += -DAUDIO_HAL_DISABLE_MS12
 else
-    LOCAL_SRC_FILES += audio_hw_ms12_common.c
+    LOCAL_SRC_FILES += audio_hw_ms12_v2.c
+    LOCAL_SHARED_LIBRARIES += libms12api_v24
+endif
+else
     LOCAL_SRC_FILES += audio_hw_ms12.c
     LOCAL_C_INCLUDES += hardware/amlogic/audio/decoder/libms12_v1/include
     LOCAL_SHARED_LIBRARIES += libms12api

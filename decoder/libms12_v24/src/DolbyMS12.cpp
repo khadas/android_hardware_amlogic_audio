@@ -63,6 +63,7 @@ int (*FuncDolbyMS12Output)(void *, const void *, size_t);
 #endif
 
 int (*FuncDolbyMS12RegisterSyncCallback)(void *, ms12sync_callback , void *);
+int (*FuncDolbyMS12RegisterTempoCallback)(void *, ms12tempo_callback , void *);
 
 
 int (*FuncDolbyMS12UpdateRuntimeParams)(void *, int , char **);
@@ -232,6 +233,11 @@ int DolbyMS12::GetLibHandle(char *dolby_ms12_path)
     if (!FuncDolbyMS12RegisterSyncCallback) {
         ALOGE("%s, dlsym ms12_output_register_sync_callback fail\n", __FUNCTION__);
         goto ERROR;
+    }
+
+    FuncDolbyMS12RegisterTempoCallback = (int (*)(void *, ms12tempo_callback , void *)) dlsym(mDolbyMS12LibHandle, "ms12_register_tempo_callback");
+    if (!FuncDolbyMS12RegisterTempoCallback) {
+        ALOGE("%s, dlsym ms12_register_tempo_callback fail\n", __FUNCTION__);
     }
 
     FuncDolbyMS12UpdateRuntimeParams = (int (*)(void *, int , char **))  dlsym(mDolbyMS12LibHandle, "ms12_update_runtime_params");
@@ -454,6 +460,7 @@ void DolbyMS12::ReleaseLibHandle(void)
     FuncDolbyMS12Output = NULL;
 #endif
     FuncDolbyMS12RegisterSyncCallback = NULL;
+    FuncDolbyMS12RegisterTempoCallback = NULL;
     FuncDolbyMS12UpdateRuntimeParams = NULL;
     FuncDolbyMS12SchedulerRun = NULL;
     FuncDolbyMS12SetQuitFlag = NULL;
@@ -820,6 +827,20 @@ int DolbyMS12::DolbyMS12RegisterSyncCallback(void *DolbyMS12Pointer, ms12sync_ca
     }
 
     ret = (*FuncDolbyMS12RegisterSyncCallback)(DolbyMS12Pointer, callback, priv_data);
+    ALOGV("-%s() ret %d", __FUNCTION__, ret);
+    return ret;
+}
+
+int DolbyMS12::DolbyMS12RegisterTempoCallback(void *DolbyMS12Pointer, ms12tempo_callback callback, void *priv_data)
+{
+    int ret = 0;
+    ALOGV("+%s()", __FUNCTION__);
+    if (!FuncDolbyMS12RegisterTempoCallback) {
+        ALOGE("%s(), pls load lib first.\n", __FUNCTION__);
+        return -1;
+    }
+
+    ret = (*FuncDolbyMS12RegisterTempoCallback)(DolbyMS12Pointer, callback, priv_data);
     ALOGV("-%s() ret %d", __FUNCTION__, ret);
     return ret;
 }

@@ -54,7 +54,6 @@
 #else
 #include "audio_avsync_table_aml_ms12_v2.h"
 #endif
-#include "aml_async_write.h"
 #include "tv_private_object.h"
 #include "dtv_private_object.h"
 #include "audio_hw_resource_mgr.h"
@@ -873,28 +872,6 @@ int aml_audio_debug_set_optical_format()
         }
     }
     return -1;
-}
-
-int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes)
-{
-    if (!path) {
-        return -1;
-    }
-
-    if (get_debug_value(AML_DUMP_AUDIOHAL_ASYNC_WRITE)) {
-        aml_async_dump_data(buf, bytes, path);
-    } else {
-        FILE *fp = fopen(path, "a+");
-        if (fp) {
-            int flen = fwrite((char *)buf, 1, bytes, fp);
-            fclose(fp);
-            return 0;
-        }
-        AM_LOGE("fail to open path=%s, errno=%d/%s",  path, errno, strerror(errno));
-        return -1;
-    }
-
-    return 0;
 }
 
 //Tune the eRAC with non-tunnel for earc-ddp
@@ -1950,7 +1927,7 @@ int halformat_convert_to_arcformat(audio_format_t format, int ch_mask) {
             aml_spdif_format = AML_AUDIO_CODING_TYPE_DTS;
             break;
         case AUDIO_FORMAT_DTS_HD:
-            if (ch_mask == AUDIO_CHANNEL_OUT_7POINT1) {
+            if (audio_channel_count_from_out_mask(ch_mask) > 2) {
                 aml_spdif_format = AML_AUDIO_CODING_TYPE_DTS_HD_MA;
             } else {
                 aml_spdif_format = AML_AUDIO_CODING_TYPE_DTS_HD;
@@ -2916,7 +2893,7 @@ int aml_get_stream_dump_file_name(audio_format_t audio_format, char *file_name)
     }
 
     if (file_name)
-        snprintf(file_name, 128, "%sstream_pid%d_tid%d.%s", AUDIO_HAL_DUMP_DEFAULT_PATH, getpid(), gettid(), audio_type);
+        snprintf(file_name, 128, "%soutput_stream_in.%s", AUDIO_HAL_DUMP_DEFAULT_PATH, audio_type);
 
     ALOGI("%s line %d file_name %s\n", __func__, __LINE__, file_name);
     return 0;
@@ -3184,6 +3161,26 @@ bool is_aaudio_low_latency_mode()
     if (adev) {
         return adev->aaudio_low_latency;
     }
+    return false;
+}
+
+enum AudioMMapPolicy {
+    MMAP_POLICY_UNSPECIFIED = 0,
+    MMAP_POLICY_NEVER = 1,
+    MMAP_POLICY_AUTO = 2,
+    MMAP_POLICY_ALWAYS = 3,
+};
+
+bool get_media_aaudio_enable_status()
+{
+    const char *mmapPolicyProperty = "aaudio.mmap_policy";
+    int mmapPolicy = aml_getprop_int(mmapPolicyProperty);
+
+    if (mmapPolicy == MMAP_POLICY_AUTO || mmapPolicy == MMAP_POLICY_ALWAYS) {
+        AM_LOGI("return true");
+        return true;
+    }
+    AM_LOGI("return false");
     return false;
 }
 

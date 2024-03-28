@@ -16,6 +16,7 @@
 #include <inttypes.h>
 extern "C" {
 #include "aml_malloc_debug.h"
+#include "aml_dump_debug.h"
 }
 
 static void getVideoEsData(AmHwMultiDemuxWrapper* mDemuxWrapper,int fid,const uint8_t *data, int len, void *user_data) {
@@ -44,17 +45,12 @@ static void getVideoEsData(AmHwMultiDemuxWrapper* mDemuxWrapper,int fid,const ui
     msg->post();
     return;
 }
-#define  DEMUX_AUDIO_DUMP_PATH "/data/demux_audio.es"
-#define  DEMUX_AD_AUDIO_DUMP_PATH "/data/demux_audio_ad.es"
+#define  DEMUX_AUDIO_DUMP_PATH "/data/audio/demux_audio.es"
+#define  DEMUX_AD_AUDIO_DUMP_PATH "/data/audio/demux_audio_ad.es"
 static void dump_demux_data(void *buffer, int size, const char* file_name)
 {
-   if (property_get_bool("vendor.dvb.demux_audio_es.dump",false)) {
-        FILE *fp1 = fopen(file_name, "a+");
-        if (fp1) {
-            int flen = fwrite((char *)buffer, 1, size, fp1);
-            ALOGI("%s buffer %p size %d flen %d\n", __FUNCTION__, buffer, size,flen);
-            fclose(fp1);
-        }
+   if (get_debug_value(AML_DUMP_AUDIOHAL_DTV)) {
+       aml_dump_audio_bitstreams(file_name, buffer, size);
     }
 }
 

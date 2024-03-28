@@ -65,7 +65,8 @@ typedef enum {
     AML_DEC_CONFIG_OUTPUT_CHANNEL,  //runtime/static param
     AML_DEC_CONFIG_FADE,
     AML_DEC_CONFIG_PAN,
-    AML_DEC_CONFIG_PLACEMENT
+    AML_DEC_CONFIG_PLACEMENT,
+    AML_DEC_CONFIG_OUTPUT_BITWIDTH
 } aml_dec_config_type_t;
 
 typedef enum {
@@ -145,6 +146,7 @@ typedef struct aml_dec {
     int out_synced_frame_count;
     bool debug_synced_frame_pts_flag;
     int dts_decode_enable;
+    int dts_lib_type;   // #eDTSLibType_t
 } aml_dec_t;
 
 typedef struct aml_dcv_config {
@@ -161,8 +163,21 @@ typedef struct aml_dca_config {
     bool is_dtscd;
     bool is_iec61937;
     int output_ch;
+    int output_bw;
     void *dev;
 } aml_dca_config_t;
+
+typedef struct aml_dtsx_config {
+    audio_format_t format;
+    aml_dec_control_type_t digital_raw;
+    int sink_dev_type;
+    int passthroug_enable;
+    int is_hdmi_output;
+    bool is_dtscd;
+    bool is_iec61937;
+    int output_ch;
+    void *dev;
+} aml_dtsx_config_t;
 
 typedef struct aml_pcm_config {
     audio_format_t pcm_format;
@@ -212,6 +227,7 @@ typedef struct aml_dec_config {
     /*config for decoder init*/
     aml_dcv_config_t dcv_config;
     aml_dca_config_t dca_config;
+    aml_dtsx_config_t dtsx_config;
     aml_mad_config_t mad_config;
     aml_faad_config_t faad_config;
     aml_dra_config_t dra_config;
@@ -228,6 +244,7 @@ typedef struct aml_dec_config {
     unsigned char ad_pan;
 	unsigned char ad_placement;
     int dts_decode_enable;
+    int dts_lib_type;   // #eDTSLibType_t
 } aml_dec_config_t;
 
 

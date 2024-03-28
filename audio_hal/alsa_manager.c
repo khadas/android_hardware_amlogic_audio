@@ -605,8 +605,8 @@ write:
                     is_dtv_multi_demux(adev), is_dtv_start_mute(adev));
             }
         }
-        if (get_debug_value(AML_DUMP_AUDIOHAL_ALSA)) {
-            aml_audio_dump_audio_bitstreams(ALSA_OUTPUT_PCM_FILE, buffer, bytes);
+        if (get_debug_value(AML_DUMP_AUDIOHAL_OUT)) {
+            aml_dump_audio_bitstreams(ALSA_OUTPUT_PCM_FILE, buffer, bytes);
         }
 
         if (!adev->continuous_audio_mode && !audio_is_linear_pcm(aml_out->alsa_output_format)) {
@@ -627,11 +627,19 @@ write:
     * Or the sink device will no sound when it just only support pcm.
     **/
     if (adev->raw_to_pcm_flag) {
-        pcm_stop(aml_out->pcm);
-        adev->raw_to_pcm_flag = false;
-        aml_out->alsa_running_status = false;
-        aml_out->alsa_status_changed = true;
-        ALOGI("raw to lpcm switch %s\n",__func__);
+        int stop_now = true;
+
+        if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) &&
+            aml_audio_earctx_get_type(adev) == ATTEND_TYPE_NONE)
+            stop_now = false;
+
+        if (stop_now) {
+            pcm_stop(aml_out->pcm);
+            adev->raw_to_pcm_flag = false;
+            aml_out->alsa_running_status = false;
+            aml_out->alsa_status_changed = true;
+            ALOGI("raw to lpcm switch %s\n",__func__);
+        }
     }
 
     /*for ms12 case, we control the output buffer level*/
@@ -1179,7 +1187,7 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
             aml_audio_trace_int("bitstream_underrun", 0);
         }
     }
-    if (get_debug_value(AML_DUMP_AUDIOHAL_ALSA) ||
+    if (get_debug_value(AML_DUMP_AUDIOHAL_OUT) ||
         get_debug_value(AML_DEBUG_AUDIOHAL_LEVEL_DETECT)) {
         if (alsa_handle->format == AUDIO_FORMAT_AC3) {
             snprintf(audio_type, 32, "%s", "dd");
@@ -1195,9 +1203,8 @@ size_t aml_alsa_output_write_new(void *handle, const void *buffer, size_t bytes)
         snprintf(file_name, 128, "%s.%s", ALSA_OUTPUT_SPDIF_FILE, audio_type);
     }
 
-    if (get_debug_value(AML_DUMP_AUDIOHAL_ALSA)) {
-
-        aml_audio_dump_audio_bitstreams(file_name, buffer, bytes);
+    if (get_debug_value(AML_DUMP_AUDIOHAL_OUT)) {
+        aml_dump_audio_bitstreams(file_name, buffer, bytes);
     }
 
     alsa_handle->write_cnt++;

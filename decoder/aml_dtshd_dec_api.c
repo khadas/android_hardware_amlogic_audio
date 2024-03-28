@@ -33,11 +33,12 @@
 #include <sound/asound.h>
 #include <cutils/log.h>
 #include <cutils/properties.h>
+#include <audio_utils/channels.h>
+#include <audio_utils/format.h>
 
 #include "audio_hw.h"
-#include "aml_dts_dec_api.h"
-
-
+#include "aml_dtshd_dec_api.h"
+#include "aml_dump_debug.h"
 
 #define DOLBY_DTSHD_LIB_PATH     "/odm/lib/libHwAudio_dtshd.so"
 #define DOLBY_DTSHD_LIB64_PATH     "/odm/lib64/libHwAudio_dtshd.so"
@@ -111,7 +112,8 @@ struct dca_dts_debug {
 };
 static struct dca_dts_debug dts_debug = {0};
 
-static unsigned int dca_initparam_out_ch = 2;
+static unsigned int _dca_initparam_out_ch = 2;
+static unsigned int _dca_initparam_out_bitwidth = 16;
 
 ///static struct pcm_info pcm_out_info;
 /*dts decoder lib function*/
@@ -390,11 +392,27 @@ static int _dts_pcm_output(struct dca_dts_dec *dts_dec)
         memset(dec_pcm_data->buf, 0, dts_dec->outlen_pcm);
     }
 
+    if (dts_dec->pcm_out_info.bytes_per_sample == 3) {  // 24bit pcm packed.
+        uint32_t src_frame_size = audio_bytes_per_sample(AUDIO_FORMAT_PCM_24_BIT_PACKED) * \
+                            audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO);
+        uint32_t frame_count = dts_dec->outlen_pcm / src_frame_size;
+
+        memcpy(dts_dec->sample_convert_buf, dec_pcm_data->buf, dts_dec->outlen_pcm);
+        memcpy_by_audio_format(dec_pcm_data->buf, AUDIO_FORMAT_PCM_32_BIT,
+            (const void *)dts_dec->sample_convert_buf, AUDIO_FORMAT_PCM_24_BIT_PACKED,
+            frame_count * audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO));
+
+        dts_dec->outlen_pcm = frame_count * audio_bytes_per_sample(AUDIO_FORMAT_PCM_32_BIT) * \
+                            audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO);
+        dec_pcm_data->data_format = AUDIO_FORMAT_PCM_32_BIT;
+    } else {
+        dec_pcm_data->data_format = AUDIO_FORMAT_PCM_16_BIT;
+    }
+
     if (dts_debug.fp_pcm) {
         fwrite(dec_pcm_data->buf, 1, dts_dec->outlen_pcm, dts_debug.fp_pcm);
     }
 
-    dec_pcm_data->data_format = AUDIO_FORMAT_PCM_16_BIT;
     dec_pcm_data->data_ch = channel_num;
     dec_pcm_data->data_sr = dts_dec->pcm_out_info.sample_rate;
     dec_pcm_data->data_len = dts_dec->outlen_pcm;
@@ -501,10 +519,16 @@ static int dca_decoder_init(aml_dec_control_type_t digital_raw)
     (*dts_decoder_init)(1, digital_raw);
 
     if (dts_decoder_config) {
+        /* Set decoder output channel. */
         dca_config_t dca_config;
         memset(&dca_config, 0, sizeof(dca_config));
-        dca_config.output_ch = dca_initparam_out_ch;
+        dca_config.output_ch = _dca_initparam_out_ch;
         (*dts_decoder_config)(DCA_CONFIG_OUT_CH, (dca_config_t *)&dca_config);
+
+        /* Set decoder output pcm bitwidth. */
+        memset(&dca_config, 0, sizeof(dca_config));
+        dca_config.output_bitwidth = _dca_initparam_out_bitwidth;
+        (*dts_decoder_config)(DCA_CONFIG_OUT_BITDEPTH, (dca_config_t *)&dca_config);
     }
     return 0;
 Error:
@@ -556,7 +580,7 @@ static int _dts_stream_type_mapping(unsigned int stream_type)
             break;
         case DTSSTREAMTYPE_DTS_MA:
         case DTSSTREAMTYPE_DTS_LOSSLESS:
-            dts_type = TYPE_DTS_HD;
+            dts_type = TYPE_DTS_HD_MA;
             break;
         case DTSSTREAMTYPE_DTS_LBR:
             dts_type = TYPE_DTS_EXPRESS;
@@ -579,6 +603,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
 {
     struct dca_dts_dec *dts_dec = NULL;
     aml_dec_t  *aml_dec = NULL;
+    struct aml_audio_device *adev = NULL;
 
     ALOGI("%s enter", __func__);
     dts_dec = aml_audio_calloc(1, sizeof(struct dca_dts_dec));
@@ -589,6 +614,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
 
     aml_dec = &dts_dec->aml_dec;
     aml_dca_config_t *dca_config = &dec_config->dca_config;
+    adev = (struct aml_audio_device *)(dca_config->dev);
 
     dec_data_info_t *dec_pcm_data = &aml_dec->dec_pcm_data;
     dec_data_info_t *dec_raw_data = &aml_dec->dec_raw_data;
@@ -618,15 +644,18 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
     dts_dec->frame_info.size = 0;
 
     dts_dec->inbuf = (unsigned char*) aml_audio_malloc(MAX_DCA_FRAME_LENGTH);  ///< same as dca decoder
-    dec_pcm_data->buf_size = MAX_DCA_FRAME_LENGTH * 2;
+    dec_pcm_data->buf_size = MAX_DCA_FRAME_LENGTH * 4; // for 32-bit pcm
     dec_pcm_data->buf = (unsigned char *)aml_audio_malloc(dec_pcm_data->buf_size);
     dec_raw_data->buf_size = MAX_DCA_FRAME_LENGTH * 2;
     dec_raw_data->buf = (unsigned char *)aml_audio_malloc(dec_raw_data->buf_size);
+    dts_dec->sample_convert_buf_size = dec_pcm_data->buf_size;
+    dts_dec->sample_convert_buf = (unsigned char *)aml_audio_malloc(dts_dec->sample_convert_buf_size);
     if (!dec_pcm_data->buf || !dec_raw_data->buf || !dts_dec->inbuf) {
         ALOGE("%s malloc memory failed!", __func__);
         goto error;
     }
     memset(dec_pcm_data->buf, 0, dec_pcm_data->buf_size);
+    memset(dts_dec->sample_convert_buf, 0, dts_dec->sample_convert_buf_size);
     memset(dec_raw_data->buf , 0, dec_raw_data->buf_size);
     memset(raw_in_data, 0, sizeof(dec_data_info_t));  ///< no use
 
@@ -635,7 +664,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         goto error;
     }
 
-    if (property_get_bool(AML_DCA_PROP_DUMP_INPUT_RAW, 0)) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_DECODER) || property_get_bool(AML_DCA_PROP_DUMP_INPUT_RAW, 0)) {
         char name[64] = {0};
         snprintf(name, 64, "%sdts_input_raw.dts", AML_DCA_DUMP_FILE_DIR);
         dts_debug.fp_input_raw = fopen(name, "a+");
@@ -644,7 +673,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         }
     }
 
-    if (property_get_bool(AML_DCA_PROP_DUMP_OUTPUT_RAW, 0)) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_DECODER) || property_get_bool(AML_DCA_PROP_DUMP_OUTPUT_RAW, 0)) {
         char name[64] = {0};
         snprintf(name, 64, "%sdts_output_raw.dts", AML_DCA_DUMP_FILE_DIR);
         dts_debug.fp_output_raw = fopen(name, "a+");
@@ -653,7 +682,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         }
     }
 
-    if (property_get_bool(AML_DCA_PROP_DUMP_OUTPUT_PCM, 0)) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_DECODER) || property_get_bool(AML_DCA_PROP_DUMP_OUTPUT_PCM, 0)) {
         char name[64] = {0};
         snprintf(name, 64, "%sdts_%d_%dch.pcm", AML_DCA_DUMP_FILE_DIR, 48000, 2);
         dts_debug.fp_pcm = fopen(name, "a+");
@@ -662,7 +691,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         }
     }
 
-    if (property_get_bool(AML_DCA_PROP_DEBUG_FLAG, 0)) {
+    if (adev->debug_flag || property_get_bool(AML_DCA_PROP_DEBUG_FLAG, 0)) {
         ALOGD("true");
         dts_debug.debug_flag = true;
     } else {
@@ -899,7 +928,14 @@ int dca_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, a
         switch (config_type) {
             case AML_DEC_CONFIG_OUTPUT_CHANNEL:
             {
-                dca_initparam_out_ch = aml_dec_config->dca_config.output_ch;
+                _dca_initparam_out_ch = aml_dec_config->dca_config.output_ch;
+                ret = 0;
+                break;
+            }
+
+            case AML_DEC_CONFIG_OUTPUT_BITWIDTH:
+            {
+                _dca_initparam_out_bitwidth = aml_dec_config->dca_config.output_bw;
                 ret = 0;
                 break;
             }
@@ -992,7 +1028,7 @@ int dca_decoder_getinfo(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_d
     return ret;
 }
 
-int dca_get_out_ch_internal(void)
+int dtshd_get_out_ch_internal(void)
 {
     ///< not init yet.
     if (!dts_decoder_getinfo)
@@ -1008,11 +1044,11 @@ int dca_get_out_ch_internal(void)
     }
 }
 
-int dca_set_out_ch_internal(int ch_num)
+int dtshd_set_out_ch_internal(int ch_num)
 {
     if (!dts_decoder_config) {
         ///< static param, will take effect after decoder_init.
-        dca_initparam_out_ch = ch_num;
+        _dca_initparam_out_ch = ch_num;
         ALOGI("%s: DTS Channel Output Mode = %d!", __FUNCTION__, ch_num);
         return 0;
     }

@@ -35,8 +35,6 @@ extern unsigned int gSys_log_level;
 /* Maximum string length in audio hal. */
 #define AUDIO_HAL_CHAR_MAX_LEN     (256)
 
-#define ENUM_TYPE_STR_MAX_LEN                           (100)
-
 #define DD_MUTE_FRAME_SIZE 1536
 #define DDP_MUTE_FRAME_SIZE 6144
 #define MAT_MUTE_FRAME_SIZE 15360
@@ -131,7 +129,6 @@ bool is_rtl_bt_module();
 int aml_audio_get_debug_flag();
 int aml_audio_get_default_alsa_output_ch();
 int aml_audio_debug_set_optical_format();
-int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes);
 int aml_audio_get_arc_latency_offset(int format);
 int aml_audio_get_ddp_latency_offset(int aformat,  bool dual_spdif);
 int aml_audio_get_pcm_latency_offset(int format, bool is_netflix);
@@ -274,6 +271,8 @@ void aml_enter_aaudio_low_latency(struct aml_audio_device *adev);
 void aml_leave_aaudio_low_latency(struct aml_audio_device *adev);
 bool is_aaudio_low_latency_mode();
 bool netflix_request_dd_output(void);
+bool get_media_aaudio_enable_status();
+
 
 #define AUDIO_CONFIG_STR_LEN        64
 static inline char *show_audio_config(audio_config_base_t *p, char *s, size_t n) {

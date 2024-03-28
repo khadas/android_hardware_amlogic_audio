@@ -32,4 +32,7 @@ int adev_open_bus_output_stream(struct audio_hw_device *dev,
 
 void adev_close_bus_output_stream(struct audio_hw_device *dev,
                             struct audio_stream_out *stream);
+
+int adev_set_bus_parameters(struct audio_hw_device *dev, struct str_parms *parms);
+
 #endif

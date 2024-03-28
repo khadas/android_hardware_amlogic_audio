@@ -99,6 +99,7 @@ typedef struct  aml_dtvsync {
     pthread_mutex_t ms_lock;
     dtvsync_type_t sync_type;
     uint64_t last_package_pts;
+    uint64_t last_lookup_apts;
 } aml_dtvsync_t;
 
 

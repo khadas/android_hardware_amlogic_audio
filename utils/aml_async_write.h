@@ -17,6 +17,7 @@
 #ifndef _AML_ASYNC_WRITE_H_
 #define _AML_ASYNC_WRITE_H_
 
+#include <system/audio.h>
 
 #define AML_ASYNC_WRITE_TRY_WITH_COMPRESS    0x100
 

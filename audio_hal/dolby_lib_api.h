@@ -25,12 +25,15 @@
 #endif
 #define DOLBY_DCV_LIB_PATH_A "/odm/lib/libHwAudio_dcvdec.so"
 #define DOLBY_DCV_LIB64_PATH_A "/odm/lib64/libHwAudio_dcvdec.so"
-#define DTS_DCA_LIB_PATH_A "/odm/lib/libHwAudio_dtshd.so"
-#define DTS_DCA_LIB64_PATH_A "/odm/lib64/libHwAudio_dtshd.so"
+#define DTS_HD_LIB_PATH_A "/odm/lib/libHwAudio_dtshd.so"
+#define DTS_HD_LIB64_PATH_A "/odm/lib64/libHwAudio_dtshd.so"
+#define DTS_X_LIB_PATH_A  "/odm/lib/libHwAudio_dtsx.so"
+#define DTS_X_LIB64_PATH_A  "/odm/lib64/libHwAudio_dtsx.so"
 #else
 #define DOLBY_MS12_LIB_PATH_A "/vendor/lib/libdolbyms12.so"
 #define DOLBY_DCV_LIB_PATH_A "/vendor/lib/libHwAudio_dcvdec.so"
-#define DTS_DCA_LIB_PATH_A "/vendor/lib/libHwAudio_dtshd.so"
+#define DTS_HD_LIB_PATH_A "/vendor/lib/libHwAudio_dtshd.so"
+#define DTS_X_LIB_PATH_A  "/vendor/lib/libHwAudio_dtsx.so"
 #endif
 
 #define DOLBY_TUNING_DAT "/vendor/etc/ms12_tuning.dat"
@@ -48,6 +51,13 @@ typedef enum eDolbyMS12Version {
     eDolbyMS12_V2  = 2,
 } eDolbyMS12Version_t;
 
+/** DTS decoder version used in Current System */
+typedef enum eDTSLibType {
+    eDTSNull  = 0,
+    eDTSHDLib = 1,
+    eDTSXLib  = 2,
+} eDTSLibType_t;
+
 /*
  *@brief define enum for aml so type
  */
@@ -60,6 +70,7 @@ typedef enum aml_so_type {
 }aml_so_type_t;
 
 enum eDolbyLibType detect_dolby_lib_type(void);
+eDTSLibType_t detect_dts_lib_type(void);
 int dolby_lib_decode_enable(eDolbyLibType_t lib_type);
 int dts_lib_decode_enable();
 char * get_ms12_path (void);

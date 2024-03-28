@@ -164,6 +164,13 @@ int dolby_ms12_output(void *dolby_mS12_pointer
 */
 int dolby_ms12_register_ms12sync_callback(void *dolby_mS12_pointer, void *callback, void *priv_data);
 
+/*@@
+    @brief register the sync callback
+    @void *dolby_ms12_pointer //dolby ms12 handle
+    @void *callback //tempo callback handle
+    @void *priv_data //priv data
+*/
+int dolby_ms12_register_ms12tempo_callback(void *dolby_mS12_pointer, void *callback, void *priv_data);
 
 /*@@
     @brief get all the runtime config params, as the style of "int argc, char **argv"

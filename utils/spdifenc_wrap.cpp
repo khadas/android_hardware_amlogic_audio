@@ -31,7 +31,7 @@
 
 extern "C"
 {
-//#include "audio_hw_utils.h"
+#include "aml_dump_debug.h"
 }
 
 #define DD_FRAME_SIZE 1536
@@ -108,18 +108,10 @@ public:
         int ret = -1;
         char *buf = (char *)buffer;
         ALOGV("write size %zu \n", bytes);
-#if 1
-        if (getprop_bool("vendor.media.audiohal.outdump")) {
-            FILE *fp1 = fopen("/data/audio_out/hdmi_audio_out.spdif", "a+");
-            if (fp1) {
-                fwrite((char *)buffer, 1, bytes, fp1);
-                //ALOGD("flen = %d---outlen=%d ", flen, out_frames * frame_size);
-                fclose(fp1);
-            } else {
-                //ALOGD("could not open file:/data/hdmi_audio_out.pcm");
-            }
+
+        if (get_debug_value(AML_DUMP_AUDIOHAL_SPDIF)) {
+            aml_dump_audio_bitstreams("/data/vendor/audiohal/hdmi_audio_out.spdif", buffer, bytes);
         }
-#endif
         mTotalBytes += bytes;
         if (mMute) {
             muteFrame(buf, bytes);

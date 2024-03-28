@@ -523,7 +523,7 @@ void aml_hwsync_wrap_is_amaster(audio_hwsync_t *p_hwsync, bool *b_amaster) {
 void aml_hwsync_wrap_set_amaster(audio_hwsync_t *p_hwsync, bool b_amster)
 {
     if (p_hwsync == NULL || p_hwsync->mediasync == NULL) {
-        ALOGE("%s : p_hwsync(%p) or mediasync(%p) is NULL", __func__, p_hwsync, p_hwsync->mediasync);
+        ALOGE("%s : p_hwsync(%p) or mediasync(%p) is NULL", __func__, p_hwsync, p_hwsync ? p_hwsync->mediasync : NULL);
         return;
     }
     if (b_amster) {

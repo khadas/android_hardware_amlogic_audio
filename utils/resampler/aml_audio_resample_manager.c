@@ -225,28 +225,10 @@ int aml_audio_resample_process(aml_audio_resample_t * aml_audio_resample, void *
     aml_audio_resample->total_out += aml_audio_resample->last_copy_size;
     //ALOGE("total rate=%f\n",(float)aml_audio_resample->total_out/(float)aml_audio_resample->total_in);
 
-#if 0
-        if (getprop_bool("media.audiohal.resample")) {
-            FILE *dump_fp = NULL;
-            dump_fp = fopen("/data/audio_hal/resamplein.pcm", "a+");
-            if (dump_fp != NULL) {
-                fwrite(in_data, size, 1, dump_fp);
-                fclose(dump_fp);
-            } else {
-                ALOGW("[Error] Can't write to /data/audio_hal/resamplein.pcm");
-            }
-
-            dump_fp = fopen("/data/audio_hal/resampleout.pcm", "a+");
-            if (dump_fp != NULL) {
-                fwrite(aml_audio_resample->resample_buffer, aml_audio_resample->resample_size, 1, dump_fp);
-                fclose(dump_fp);
-            } else {
-                ALOGW("[Error] Can't write to /data/audio_hal/resampleout.pcm");
-            }
-
-
-        }
-#endif
+    if (get_debug_value(AML_DUMP_AUDIOHAL_RESAMPLE)) {
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/resamplein.pcm", in_data, size);
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/resampleout.pcm", aml_audio_resample->resample_buffer, aml_audio_resample->resample_size);
+    }
 
     return 0;
 }
@@ -283,15 +265,26 @@ int aml_audio_resample_reset(aml_audio_resample_t * aml_audio_resample)
 
 int aml_audio_resample_process_wrapper(aml_audio_resample_t **resample_handle, void *buffer, size_t len, int sr, int ch_num)
 {
-   int ret = 0;
-   if (*resample_handle) {
-        if (sr != (int)(*resample_handle)->resample_config.input_sr) {
-            audio_resample_config_t resample_config;
-            ALOGD("Sample rate is changed from %d to %d, reset the resample\n",(*resample_handle)->resample_config.input_sr, sr);
-            aml_audio_resample_close(*resample_handle);
-            *resample_handle = NULL;
+    int ret = 0;
+
+    do {
+        if (*resample_handle) {
+            if (sr != (int)(*resample_handle)->resample_config.input_sr) {
+                audio_resample_config_t resample_config;
+                ALOGD("Sample rate is changed from %d to %d, reset the resample\n",(*resample_handle)->resample_config.input_sr, sr);
+                aml_audio_resample_close(*resample_handle);
+                *resample_handle = NULL;
+                break;
+            }
+            if (ch_num != (int)(*resample_handle)->resample_config.channels) {
+                audio_resample_config_t resample_config;
+                ALOGD("input channel is changed from %d to %d, reset the resample\n",(*resample_handle)->resample_config.channels, ch_num);
+                aml_audio_resample_close(*resample_handle);
+                *resample_handle = NULL;
+                break;
+            }
         }
-    }
+    } while (0);
 
     if (*resample_handle == NULL) {
         audio_resample_config_t resample_config;

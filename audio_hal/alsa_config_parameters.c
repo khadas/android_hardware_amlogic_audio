@@ -36,21 +36,33 @@
 
 
 /*
- *@brief get the hardware config parameters when the output format is DTS-HD/TRUE-HD
+ *@brief get the hardware config parameters when the output format is DTS-HD
  */
 static void get_dts_hd_hardware_config_parameters(
     struct pcm_config *hardware_config
-    , unsigned int channels __unused
-    , unsigned int rate)
+    , unsigned int channels
+    , unsigned int rate
+    , bool platform_is_tv)
 {
-    hardware_config->channels = 2;
+    hardware_config->channels = channels;
     hardware_config->format = PCM_FORMAT_S16_LE;
-    //TODO, maybe we should use "/sys/class/audiodsp/digital_codec" as 4
-    hardware_config->rate = rate * 4;
-    hardware_config->period_count = PLAYBACK_PERIOD_COUNT;
-    hardware_config->period_size = PERIOD_SIZE * 4 * 2;
-    hardware_config->start_threshold = PLAYBACK_PERIOD_COUNT * hardware_config->period_size;
+    hardware_config->rate = 48000;
+    if (!(rate % 44100)) {
+        hardware_config->rate = 44100;
+    } else if (!(rate % 48000)) {
+        hardware_config->rate = 48000;
+    }
+    hardware_config->period_count = 8;
+    hardware_config->period_size = PERIOD_SIZE; // default 48K
+    if (channels > 2) {
+        hardware_config->period_size = 4096;
+    }
+    hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count / 2;
+    if (platform_is_tv) {
+        hardware_config->start_threshold = hardware_config->period_size * hardware_config->period_count;
+    }
     hardware_config->avail_min = 0;
+
 
     return ;
 }
@@ -275,7 +287,7 @@ int get_hardware_config_parameters(
     }
     //DTS-HD
     else if (output_format == AUDIO_FORMAT_DTS_HD) {
-        get_dd_hardware_config_parameters(final_config, 2, rate, continuous_mode);
+        get_dts_hd_hardware_config_parameters(final_config, channels, rate, platform_is_tv);
     }
     // DTS
     else if (output_format == AUDIO_FORMAT_DTS) {

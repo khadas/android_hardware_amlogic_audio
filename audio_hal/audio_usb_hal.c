@@ -41,6 +41,7 @@
 #include <audio_utils/channels.h>
 #include <audio_utils/format.h>
 
+#include "aml_dump_debug.h"
 #include "audio_hal_debug.h"
 #include "audio_usb_hal.h"
 #include "sub_mixing_factory.h"
@@ -825,8 +826,8 @@ ssize_t usb_out_write(struct usb_out *out, const void *buffer, size_t bytes)
     if (aml_get_debug_value()) {
         AM_LOGI("out=%p buffer=%p bytes=%zu fr=%zu", out, buffer, bytes, fr);
     }
-    if (getprop_bool("vendor.media.audiohal.usb")) {
-        aml_audio_dump_audio_bitstreams("/data/audio/usb.raw", buffer, bytes);
+    if (get_debug_value(AML_DUMP_AUDIOHAL_USB)) {
+        aml_dump_audio_bitstreams("/data/audio/usb.raw", buffer, bytes);
     }
     int i = 0;
     struct pcm_config cfg = out->hal_config, *st_cfg = &cfg;
@@ -848,8 +849,8 @@ ssize_t usb_out_write(struct usb_out *out, const void *buffer, size_t bytes)
         bytes = out->mid_buffer_size[i];
         st_cfg->format = out->proxy_config.format;
         i++;
-        if (getprop_bool("vendor.media.audiohal.usb")) {
-            aml_audio_dump_audio_bitstreams("/data/audio/usb1.raw", buffer, bytes);
+        if (get_debug_value(AML_DUMP_AUDIOHAL_USB)) {
+            aml_dump_audio_bitstreams("/data/audio/usb1.raw", buffer, bytes);
         }
     }
     if (st_cfg->channels != out->proxy_config.channels) {
@@ -886,8 +887,8 @@ ssize_t usb_out_write(struct usb_out *out, const void *buffer, size_t bytes)
     if (ret != 0) {
         AM_LOGE("fail to write to proxy");
     }
-    if (getprop_bool("vendor.media.audiohal.usb")) {
-        aml_audio_dump_audio_bitstreams("/data/audio/usb_final.raw", buffer, bytes);
+    if (get_debug_value(AML_DUMP_AUDIOHAL_USB)) {
+        aml_dump_audio_bitstreams("/data/audio/usb_final.raw", buffer, bytes);
     }
     return bytes;
 }

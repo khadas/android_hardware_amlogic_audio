@@ -723,6 +723,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
         ALOGD("query hdmi format...\n");
         size += sprintf(aud_cap, "sup_formats=%s", "AUDIO_FORMAT_PCM_16_BIT|AUDIO_FORMAT_IEC61937");
 
+#ifdef ENABLE_AUDIO_AUTO_PATCH
         // workaround for Netlifx: switch audio output device UI from ARC to other device.
         // Netflix always use the HDMI Arc profile for all device to play video.
         int force_use_device = property_get_int32(PROP_AUDIO_OUTPUT_FORCEUSE, AUDIO_POLICY_FORCE_NONE);
@@ -733,6 +734,7 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
             AM_LOGI("force_device:%d, no need to get capability level, fot Netflix", force_use_device);
             return aud_cap;
         }
+#endif
         p_hdmi_descs->ddp_fmt.atmos_supported = 0;//default set ddp-joc atmos_supported as false
         p_hdmi_descs->ddp_fmt.is_support = 0;
         p_hdmi_descs->dd_fmt.max_channels = 0;
@@ -789,6 +791,16 @@ char*  get_hdmi_sink_cap_new(const char *keys, audio_format_t format, struct aml
                 size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS_HD");
             }
             p_hdmi_descs->dtshd_fmt.is_support = 1;
+            if (audio_cap_item->dep_value >= 0) {
+                /*
+                 * For some devices(AVR/Soundbar) using older versions of DTSX, it will send two
+                 * identical DTS-HD SADs with the difference being vsdb.
+                 * We only use SADs with maximum support capabilities. Refer to #format_desc.dts_vsdb_byte3.
+                 */
+                 p_hdmi_descs->dtshd_fmt.dts_vsdb_byte3 = \
+                    audio_cap_item->dep_value > p_hdmi_descs->dtshd_fmt.dts_vsdb_byte3 ? audio_cap_item->dep_value : p_hdmi_descs->dtshd_fmt.dts_vsdb_byte3;
+            }
+            ALOGI("%s dts-hd vendor special byte3:0x%x\n", __func__, p_hdmi_descs->dtshd_fmt.dts_vsdb_byte3);
         } else if ((audio_cap_item = get_edid_support_audio_format(AUDIO_FORMAT_DTS)) != NULL) {
             size += sprintf(aud_cap + size, "|%s", "AUDIO_FORMAT_DTS");
             p_hdmi_descs->dts_fmt.is_support = 1;
@@ -2179,7 +2191,7 @@ int nego_sample_rate(int input_rate, audio_format_t fmt, audio_devices_t devices
     rate = MAX(rate, 48000);
 #define ARRAY_STR_LEN 64
     char s0[AUDIO_DEVICE_OUT_STR_LEN], s1[ARRAY_STR_LEN];
-    AM_LOGI("tag=rate input rate=%d fmt=0x%x device=0x%x/%s sup_sampling_rates='%s' -> rate=%d",
+    AM_LOGV("tag=rate input rate=%d fmt=0x%x device=0x%x/%s sup_sampling_rates='%s' -> rate=%d",
             input_rate, fmt, devices, show_audio_device_out(devices, s0, AUDIO_DEVICE_OUT_STR_LEN),
             show_int_array(a, n, '|', s1, ARRAY_STR_LEN),
             rate);

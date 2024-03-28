@@ -91,6 +91,7 @@ int aml_audio_get_cur_ms12_latency(struct audio_stream_out *stream) {
 int aml_audio_ms12_process_wrapper(struct audio_stream_out *stream, const void *write_buf, size_t write_bytes)
 
 {
+#ifndef AUDIO_HAL_DISABLE_MS12
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
     int return_bytes = write_bytes;
@@ -208,7 +209,13 @@ re_write:
     dolby_ms12_get_pcm_output_size(&all_pcm_len2, &all_zero_len);
 
     return return_bytes;
+#else
+    (void)(stream);
+    (void)(write_buf);
+    (void)(write_bytes);
 
+    return 0;
+#endif
 }
 
 static void aml_audio_ms12_init_pts_param(struct dolby_ms12_desc *ms12, uint64_t first_pts)
@@ -284,6 +291,7 @@ static int aml_audio_ms12_process(struct audio_stream_out *stream, const void *w
 
 int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, size_t bytes)
 {
+#ifndef AUDIO_HAL_DISABLE_MS12
     int ret = -1;
     int dec_used_size = 0;
     int used_size = 0;
@@ -305,7 +313,6 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     bool do_sync_flag = dtv_stream_flag && patch && patch->skip_amadec_flag && patch->dtvsync->sync_type == DTVSYNC_MEDIASYNC;
 #endif
 
-
     /*
      * define the bypass_aml_dec by audio format
      * 1. AC3/E-AC3/E-AC3_JOC/AC4/TrueHD/MAT
@@ -325,9 +332,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
         if (do_sync_flag) {
             if (patch->skip_amadec_flag) {
                 if (patch->cur_package) {
-                    if (patch->cur_package->pts == 0) {
-                        patch->cur_package->pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
-                    }
+                    get_dtv_checkin_pts(stream, &patch->cur_package->pts,0,0);
                 }
             }
         }
@@ -433,7 +438,6 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                             aml_dec->out_frames /(dec_pcm_data->data_sr / 1000));
                     }
 
-                    //aml_audio_dump_audio_bitstreams("/data/mixing_data.raw", dec_data, dec_pcm_data->data_len);
                     /* audio data/apts, we send the APTS at first*/
                     if (ms12 && aml_dec) {
                         /*Fixme, how to get the right apts(long long unsigned int) and bytes_offset*/
@@ -502,11 +506,8 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                 patch->decoder_offset += patch->cur_package->size;
              }
         } else {
-             if (patch->aformat == AUDIO_FORMAT_HE_AAC_V1 ||
-                 patch->aformat == AUDIO_FORMAT_AAC_LATM ||
-                 patch->aformat == AUDIO_FORMAT_AAC ||
-                 patch->aformat == AUDIO_FORMAT_MP3 ||
-                 patch->aformat == AUDIO_FORMAT_MP2) {
+             /*when ad enable, dolby format need split the frame and non dolby format send the complete frame to  decoder*/
+             if (!is_dolby_ms12_support_compression_format(aml_out->hal_internal_format)) {
                  patch->decoder_offset += patch->cur_package->size;
              } else {
                  patch->decoder_offset += patch->cur_package->split_frame_size;
@@ -515,6 +516,11 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
     }
 #endif
     return return_bytes;
+#else
+    (void)(stream);
+    (void)(buffer);
+    return bytes;
+#endif
 }
 
 

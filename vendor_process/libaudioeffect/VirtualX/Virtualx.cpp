@@ -50,6 +50,7 @@ extern "C" {
 #include "../Utility/LibAudioEffect.h"
 #include "../Utility/AudioFade.h"
 #include "aml_volume_utils.h"
+#include "aml_dump_debug.h"
 
 #define MODEL_NAME_DEFAULT "DEFAULT"
 #define VALUE_MAX 100
@@ -3760,14 +3761,9 @@ static int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audi
     vxdata  *data = &pContext->gvxdata;
 
 #ifdef DEBUG_VX
-    bool VX_prop = getprop_bool("vendor.media.VX.debug");
+    bool VX_prop = (get_debug_value(AML_DUMP_AUDIOHAL_EFFECT));
     if (VX_prop) {
-        FILE *dump_fp = fopen("/data/vendor/audiohal/audio_vx_input.pcm", "a+");
-        if (dump_fp != NULL) {
-            int16_t *input = (int16_t *)inBuffer->raw;
-            fwrite(input, 1, byte_counter, dump_fp);
-            fclose(dump_fp);
-        }
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/audio_vx_input.pcm", inBuffer->raw, byte_counter);
     }
 #endif
 

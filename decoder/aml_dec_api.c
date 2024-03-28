@@ -33,7 +33,8 @@
 
 #include "aml_dec_api.h"
 #include "aml_ddp_dec_api.h"
-#include "aml_dts_dec_api.h"
+#include "aml_dtshd_dec_api.h"
+#include "aml_dtsx_dec_api.h"
 #include "aml_pcm_dec_api.h"
 #include "aml_mpeg_dec_api.h"
 #include "aml_iec_passthrough_api.h"
@@ -48,7 +49,13 @@
 #define AML_DEC_FRAGMENT_FRAMES     (512)
 #define AML_DEC_MAX_FRAMES          (AML_DEC_FRAGMENT_FRAMES * 4)
 
-static aml_dec_func_t * get_decoder_function(audio_format_t format, int dts_decode_enable)
+typedef enum eDTSLibType {
+    eDTSNull  = 0,
+    eDTSHDLib = 1,
+    eDTSXLib  = 2,
+} eDTSLibType_t;
+
+static aml_dec_func_t * get_decoder_function(audio_format_t format, int dts_lib_type)
 {
     switch ((uint32_t)format) {
     case AUDIO_FORMAT_AC3:
@@ -59,14 +66,18 @@ static aml_dec_func_t * get_decoder_function(audio_format_t format, int dts_deco
     case AUDIO_FORMAT_MAT:
         return &aml_iec_func;
     case AUDIO_FORMAT_DTS: {
-        return &aml_dca_func;
+        if (dts_lib_type == eDTSXLib)
+            return &aml_dtsx_func;
+        else
+            return &aml_dca_func;
     }
     case AUDIO_FORMAT_DTS_HD: {
-        if (dts_decode_enable) {
+        if (dts_lib_type == eDTSXLib)
+            return &aml_dtsx_func;
+        else if (dts_lib_type == eDTSHDLib)
             return &aml_dca_func;
-        } else {
+        else
             return &aml_iec_func;
-        }
     }
     case AUDIO_FORMAT_PCM_16_BIT:
     case AUDIO_FORMAT_PCM_32_BIT:
@@ -111,7 +122,7 @@ int aml_decoder_init(aml_dec_t **ppaml_dec, audio_format_t format, aml_dec_confi
         return -1;
     }
 
-    dec_fun = get_decoder_function(format, dec_config->dts_decode_enable);
+    dec_fun = get_decoder_function(format, dec_config->dts_lib_type);
     aml_dec_t *aml_dec_handle = NULL;
     if (dec_fun == NULL) {
         ALOGE("%s got dec_fun as NULL!\n", __func__);
@@ -141,6 +152,7 @@ int aml_decoder_init(aml_dec_t **ppaml_dec, audio_format_t format, aml_dec_confi
     dec_config->ad_fade = 0;
     dec_config->ad_pan = 0;
     aml_dec_handle->dts_decode_enable = dec_config->dts_decode_enable;
+    aml_dec_handle->dts_lib_type = dec_config->dts_lib_type;
     aml_dec_handle->ad_data = NULL;
     aml_dec_handle->ad_size = 0;
 
@@ -167,7 +179,7 @@ int aml_decoder_release(aml_dec_t *aml_dec)
         return -1;
     }
 
-    dec_fun = get_decoder_function(aml_dec->format, aml_dec->dts_decode_enable);
+    dec_fun = get_decoder_function(aml_dec->format, aml_dec->dts_lib_type);
     if (dec_fun == NULL) {
         return -1;
     }
@@ -192,7 +204,7 @@ int aml_decoder_flush(aml_dec_t *aml_dec)
         return -1;
     }
 
-    dec_fun = get_decoder_function(aml_dec->format, aml_dec->dts_decode_enable);
+    dec_fun = get_decoder_function(aml_dec->format, aml_dec->dts_lib_type);
     if (dec_fun == NULL) {
         return -1;
     }
@@ -216,7 +228,7 @@ int aml_decoder_set_config(aml_dec_t *aml_dec, aml_dec_config_type_t config_type
         ALOGE("%s aml_dec is NULL\n", __func__);
         return -1;
     }
-    dec_fun = get_decoder_function(aml_dec->format, aml_dec->dts_decode_enable);
+    dec_fun = get_decoder_function(aml_dec->format, aml_dec->dts_lib_type);
     if (dec_fun == NULL) {
         return -1;
     }
@@ -236,7 +248,7 @@ int aml_decoder_get_info(aml_dec_t *aml_dec, aml_dec_info_type_t info_type, aml_
         ALOGE("%s aml_dec is NULL\n", __func__);
         return -1;
     }
-    dec_fun = get_decoder_function(aml_dec->format, aml_dec->dts_decode_enable);
+    dec_fun = get_decoder_function(aml_dec->format, aml_dec->dts_lib_type);
     if (dec_fun == NULL) {
         return -1;
     }
@@ -287,6 +299,7 @@ int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int
     int spdif_offset = 0;
     int frame_size = 0;
     int fragment_size = 0;
+    int pcm_to_raw_rate_multiply = 1;
     dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
     dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
     dec_data_info_t * raw_in_data  = &aml_dec->raw_in_data;
@@ -297,7 +310,7 @@ int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int
         return -1;
     }
 
-    dec_fun = get_decoder_function(aml_dec->format, aml_dec->dts_decode_enable);
+    dec_fun = get_decoder_function(aml_dec->format, aml_dec->dts_lib_type);
     if (dec_fun == NULL) {
         ALOGW("[%s:%d] get_decoder_function format:%#x is null", __func__, __LINE__, aml_dec->format);
         return -1;
@@ -306,17 +319,21 @@ int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int
     if (aml_dec->fragment_left_size > 0) {
         ALOGV("[%s:%d] fragment_left_size=%d ", __func__, __LINE__, aml_dec->fragment_left_size);
         frame_size = audio_bytes_per_sample(dec_pcm_data->data_format) * dec_pcm_data->data_ch;
+        pcm_to_raw_rate_multiply = (dec_raw_data->data_ch / dec_pcm_data->data_ch) * pcm_to_raw_rate_multiply;
+        pcm_to_raw_rate_multiply = (dec_raw_data->data_sr / dec_pcm_data->data_sr) * pcm_to_raw_rate_multiply;
         fragment_size = AML_DEC_FRAGMENT_FRAMES * frame_size;
         memmove(dec_pcm_data->buf, (unsigned char *)dec_pcm_data->buf + fragment_size, aml_dec->fragment_left_size);
-        memmove(dec_raw_data->buf, (unsigned char *)dec_raw_data->buf + fragment_size, aml_dec->fragment_left_size);
+        memmove(dec_raw_data->buf,
+                (unsigned char *)dec_raw_data->buf + fragment_size * pcm_to_raw_rate_multiply,
+                aml_dec->fragment_left_size * pcm_to_raw_rate_multiply);
 
         if (aml_dec->fragment_left_size >= fragment_size) {
             dec_pcm_data->data_len = fragment_size;
-            dec_raw_data->data_len = fragment_size;
+            dec_raw_data->data_len = fragment_size * pcm_to_raw_rate_multiply;
             aml_dec->fragment_left_size -= fragment_size;
         } else {
             dec_pcm_data->data_len = aml_dec->fragment_left_size;
-            dec_raw_data->data_len = aml_dec->fragment_left_size;
+            dec_raw_data->data_len = aml_dec->fragment_left_size * pcm_to_raw_rate_multiply;
             aml_dec->fragment_left_size = 0;
         }
         *used_bytes = 0;
@@ -339,14 +356,17 @@ int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int
         get_audio_decoder_info(dec_info, aml_dec);
     }
     frame_size = audio_bytes_per_sample(dec_pcm_data->data_format) * dec_pcm_data->data_ch;
+    pcm_to_raw_rate_multiply = (dec_raw_data->data_ch / dec_pcm_data->data_ch) * pcm_to_raw_rate_multiply;
+    pcm_to_raw_rate_multiply = (dec_raw_data->data_sr / dec_pcm_data->data_sr) * pcm_to_raw_rate_multiply;
+
     /*one decoded frame length is too big, we need separate it*/
     if ((dec_pcm_data->data_len >= AML_DEC_MAX_FRAMES * frame_size) &&
         (dec_raw_data->data_format == AUDIO_FORMAT_IEC61937) &&
-        (dec_raw_data->data_len == dec_pcm_data->data_len)) {
+        (dec_raw_data->data_len == (dec_pcm_data->data_len * pcm_to_raw_rate_multiply))) {
         fragment_size = AML_DEC_FRAGMENT_FRAMES * frame_size;
         aml_dec->fragment_left_size = dec_pcm_data->data_len - fragment_size;
         dec_pcm_data->data_len = fragment_size;
-        dec_raw_data->data_len = fragment_size;
+        dec_raw_data->data_len = fragment_size * pcm_to_raw_rate_multiply;
     }
 
     if (ret >= 0 ) {

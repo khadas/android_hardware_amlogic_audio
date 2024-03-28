@@ -46,6 +46,10 @@
 #define DEFAULT_OUTPUT_BUFFER_FRAME_COUNT   1024
 #define MAX_ADDRESS_LEN                     48
 
+#define SPK_NAME_STR_PREFIX                   "spk_"
+#define BUS_NAME_STR_PREFIX                   "bus_"
+#define BUS_NAME_STR_PREFIX_LEN               ( 4 )
+
 struct bus_stream_out {
     struct audio_stream_out stream;
     struct aml_streamout_base base;
@@ -65,7 +69,11 @@ struct bus_stream_out {
     struct timespec last_timestamp_report;
     uint64_t written_all_frames;
     int64_t last_write_time_us;
+
     int bus_id;
+    uint32_t mux_channel_mask;
+    int dest_bus_id[MAX_BUS_NUM];
+    int dest_bus_count;
     char address[MAX_ADDRESS_LEN];
     bool standby;
     struct playback_handler_base *playback_handler;
@@ -171,7 +179,7 @@ static int bus_out_set_volume(struct audio_stream_out *stream, float left,
 
 static int bus_stream_out_standby(struct audio_stream *stream)
 {
-    AM_LOGI("stream:%p", stream);
+    AM_LOGD("+stream:%p", stream);
     struct bus_stream_out *out = (struct bus_stream_out *)stream;
 
     pthread_mutex_lock(&out->lock);
@@ -183,6 +191,7 @@ static int bus_stream_out_standby(struct audio_stream *stream)
             out->playback_handler = NULL;
         }
         out->standby = true;
+        AM_LOGD("-stream:%p playback_handler:%p", stream, playback_handler);
     }
     pthread_mutex_unlock(&out->lock);
     return 0;
@@ -201,7 +210,7 @@ static ssize_t bus_out_write(struct audio_stream_out *stream, const void* buffer
     playback_handler = out->playback_handler;
     if (out->standby) {
         if (playback_handler == NULL) {
-            playback_handler = create_bus_playback_handler(out->adev, &out->stream, &out->dest_config, out->bus_id);
+            playback_handler = create_bus_playback_handler(out->adev, &out->stream, &out->dest_config, out->bus_id, out->mux_channel_mask);
             if (playback_handler != NULL) {
                 playback_handler->open(playback_handler, out->written_all_frames);
                 out->playback_handler = playback_handler;
@@ -353,6 +362,7 @@ static int bus_stream_out_init(struct bus_stream_out *out,
         ret = -EINVAL;
     }
 
+    out->mux_channel_mask = 0;
     out->bus_id = bus_id;
     if (pthread_mutex_init(&out->lock, NULL) != 0) {
         AM_LOGE("pthread_mutex_init fail, errno:%s", strerror(errno));
@@ -363,6 +373,236 @@ static int bus_stream_out_init(struct bus_stream_out *out,
         out, ret, devices, config->sample_rate, config->channel_mask, config->format, out->frame_size, address, out->bus_id);
     return ret;
 }
+
+uint32_t get_channel_mask_from_bus_group(int* bus_array, int count)
+{
+    uint32_t mask = 0;
+    uint32_t table[MAX_DEVICE_OUT_CHANNEL_COUNT];
+    const uint32_t out_channel_num = 2;
+
+    for (int i = 0; i < count; i++) {
+        uint32_t temp_mask = 0;
+        set_channel_table_from_bus_id(table, bus_array[i], out_channel_num);
+        temp_mask = get_channel_mask_from_table(table, MAX_DEVICE_OUT_CHANNEL_COUNT);
+        mask |= temp_mask;
+    }
+    return mask;
+}
+
+int check_bus_stream_out_map_change(struct bus_stream_out *out, int bus_array[], int count)
+{
+    if (!out || !count) {
+        AM_LOGE("Invalid out:%p bus_count:%d", out, count);
+        for (int i = 0; i < count; i++) {
+            AM_LOGI("bus[%d]=%d", i, bus_array[i]);
+        }
+        return -EINVAL;
+    }
+
+    pthread_mutex_lock(&out->lock);
+
+    bool need_reset = false;
+    uint32_t new_channel_mask = get_channel_mask_from_bus_group(bus_array, count);
+    uint32_t cur_channel_mask = out->mux_channel_mask;
+    if (new_channel_mask != cur_channel_mask) {
+        out->mux_channel_mask = new_channel_mask;
+        for (int i = 0; i < MAX_BUS_NUM; i++) {
+            if (i < count) {
+                out->dest_bus_id[i] = bus_array[i];
+                out->dest_bus_count = count;
+            } else {
+                out->dest_bus_id[i] = 0;
+            }
+        }
+        need_reset = true;
+    }
+    pthread_mutex_unlock(&out->lock);
+
+    if (need_reset) {
+        bus_stream_out_standby((struct audio_stream *)out);
+    }
+
+    AM_LOGI("need_reset=%d, old_channel_mask: %x new_channel_mask:%x", need_reset, cur_channel_mask, new_channel_mask);
+    return 0;
+}
+
+struct audio_hw_device;
+struct aml_audio_device;
+
+void adev_add_bus_stream_out(struct audio_hw_device *adev, struct audio_stream_out *out)
+{
+    if (!adev || !out) {
+        AM_LOGE("Invalid adev:%p out:%p", adev, out);
+        return;
+    }
+
+    struct aml_audio_device* aml_dev = (struct aml_audio_device*)adev;
+    aml_dev->mBus_stream_outs[aml_dev->bus_stream_count++] = out;
+
+    AM_LOGI("out:%p count:%d", out, aml_dev->bus_stream_count);
+}
+
+void adev_remove_bus_stream_out(struct audio_hw_device *adev, struct audio_stream_out *out)
+{
+    if (!adev || !out) {
+        AM_LOGE("Invalid adev:%p out:%p", adev, out);
+        return;
+    }
+
+    struct aml_audio_device* aml_dev = (struct aml_audio_device*)adev;
+    int count = aml_dev->bus_stream_count;
+    bool found = false;
+
+    pthread_mutex_lock(&aml_dev->lock);
+
+    for (int i = 0; i < count; i++) {
+        if (found) {
+            aml_dev->mBus_stream_outs[i - 1] = aml_dev->mBus_stream_outs[i];
+        }
+
+        if (aml_dev->mBus_stream_outs[i] == out) {
+            aml_dev->mBus_stream_outs[i] = NULL;
+            found = true;
+            aml_dev->bus_stream_count--;
+        }
+    }
+    pthread_mutex_unlock(&aml_dev->lock);
+    AM_LOGI("found:%d out:%p count:%d", true, out, aml_dev->bus_stream_count);
+}
+
+struct bus_stream_out *adev_get_bus_stream_out(struct audio_hw_device *adev, int busId)
+{
+    if (!adev || (busId < 0)) {
+        AM_LOGE("Invalid adev:%p busId:%d", adev, busId);
+        return NULL;
+    }
+
+    struct aml_audio_device* aml_dev = (struct aml_audio_device*)adev;
+    struct bus_stream_out *out = NULL;
+    int count = aml_dev->bus_stream_count;
+
+    pthread_mutex_lock(&aml_dev->lock);
+
+    for (int i = 0; i < count; i++) {
+        struct bus_stream_out *temp = (struct bus_stream_out *)aml_dev->mBus_stream_outs[i];
+        if (temp->bus_id == busId) {
+            out = temp;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&aml_dev->lock);
+    return out;
+}
+
+int parser_bus_src(char *cstr, int *source_bus)
+{
+    if (!cstr || (strlen(cstr) < BUS_NAME_STR_PREFIX_LEN + 1)) {
+        AM_LOGI("Invalid cstr:%s", cstr);
+        return -EINVAL;
+    }
+
+    int bus_id = atoi(cstr + strlen("bus_"));
+    *source_bus = bus_id;
+    return 0;
+}
+
+int parser_bus_dest(char *cstr, int *table, int* count)
+{
+    if (!cstr || (strlen(cstr) < BUS_NAME_STR_PREFIX_LEN + 1)) {
+        AM_LOGI("Invalid cstr:%s", cstr);
+        return -EINVAL;
+    }
+
+    char *tmp;
+    char *off = strtok_r (cstr, ",", &tmp);
+    int num = 0;
+    while (off != NULL) {
+        int bus_id = atoi(off + BUS_NAME_STR_PREFIX_LEN);
+        table[num++] = bus_id;
+        off = strtok_r (NULL, ",", &tmp);
+    }
+    *count = num;
+    return 0;
+}
+
+/*
+    Parameter command line style:
+    1) customize bus switch parameters
+       "switch_src=bus_1;to_dest_spk=bus_2"
+    //start mirroring
+    2) mirroring_src=bus_1000;mirroring_dest=bus_10,bus_20
+    //stop mirroring
+    3) mirroring_src=bus_1000;mirroring=off
+*/
+int adev_set_bus_parameters(struct audio_hw_device *dev, struct str_parms *parms)
+{
+    struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    int ret = -1, val = 0;
+    char value[64] = {'\0'};
+    char *param = NULL;
+    const int MAX_DEST_BUS = 8;
+    bool parse_src = false;
+    bool parse_dest = false;
+    int src_bus = -1;
+    int dest_bus_table[MAX_BUS_NUM] = {-1};
+    int dest_bus_count = 0;
+
+    /* parse customize bus switch parameters */
+    ret = str_parms_get_str(parms, "switch_src", value, sizeof(value));
+    if (ret >= 0) {
+        ret = parser_bus_src(value, &src_bus);
+        parse_src = (ret == 0 ? true : false);
+
+        if (parse_src) {
+            ret = str_parms_get_str(parms, "to_dest_spk", value, sizeof(value));
+            if (ret >= 0) {
+                ret = parser_bus_dest(value, dest_bus_table, &dest_bus_count);
+                parse_dest = (ret == 0 ? true : false);
+            }
+        }
+        goto do_switch_map;
+    }
+
+    /* parse mirror mapping */
+    ret = str_parms_get_str(parms, "mirroring_src", value, sizeof(value));
+    if (ret >= 0) {
+        ret = parser_bus_src(value, &src_bus);
+        parse_src = (ret == 0 ? true : false);
+
+        if (parse_src) {
+            //parse mirroring_dest
+            ret = str_parms_get_str(parms, "mirroring_dest", value, sizeof(value));
+            if (ret >= 0) {
+                ret = parser_bus_dest(value, dest_bus_table, &dest_bus_count);
+                parse_dest = (ret == 0 ? true : false);
+            }
+
+            //parse mirroring_off
+            ret = str_parms_get_str(parms, "mirroring", value, sizeof(value));
+            if (ret >= 0) {
+                if (strncmp(value, "off", 3) == 0) {
+                    dest_bus_table[0] = src_bus;
+                    dest_bus_count = 1;
+                    parse_dest = true;
+                    AM_LOGW("parse mirroring_off OK! mirroring_src=bus_%d;mirroring=%s", src_bus, value);
+                } else {
+                    AM_LOGW("parse mirroring_off fail! mirroring_src=bus_%d;mirroring=%s", src_bus, value);
+                }
+            }
+        }
+        goto do_switch_map;
+    }
+
+do_switch_map:
+    if (parse_src && parse_dest) {
+        struct bus_stream_out *streamOut = adev_get_bus_stream_out(dev, src_bus);
+        check_bus_stream_out_map_change(streamOut, dest_bus_table, dest_bus_count);
+    }
+
+    //other common parameter support for bus_stream_out
+    return ret;
+}
+
 
 int adev_open_bus_output_stream(struct audio_hw_device *dev,
                                 audio_io_handle_t handle,
@@ -402,6 +642,7 @@ int adev_open_bus_output_stream(struct audio_hw_device *dev,
     if (ret == 0) {
         out->adev = (struct aml_audio_device*)dev;
         *stream_out = &out->stream;
+        adev_add_bus_stream_out(dev, &out->stream);
     } else {
         free(out);
         *stream_out = NULL;
@@ -424,4 +665,6 @@ void adev_close_bus_output_stream(struct audio_hw_device *dev,
         stream->common.standby((struct audio_stream*)stream);
     }
     free(stream);
+
+    adev_remove_bus_stream_out(dev, stream);
 }

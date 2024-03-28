@@ -41,7 +41,7 @@ static int bs_dump(const char *label, struct pcm_config *cfg, const void *buf, s
     char s[PCM_CONFIG_STR_LEN];
     snprintf(s, PCM_CONFIG_STR_LEN, "/data/audio/%s.%dhz_%dch_%dfmt.raw",
              label, cfg->rate, cfg->channels, cfg->format);
-    return aml_audio_dump_audio_bitstreams(s, buf, frames_to_bytes(cfg, frames));
+    return aml_dump_audio_bitstreams(s, buf, frames_to_bytes(cfg, frames));
 }
 
 /** mic
@@ -478,7 +478,7 @@ size_t audio_kara_mix(void *kara, void *data, size_t bytes) {
     cfg.rate = k->main_cfg.rate;
     r = mic_pop_with_cfg(k->mic, &mic_data, fr, &cfg);
     int dump = 0;
-    if (getprop_bool("vendor.media.audiohal.kara")) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_USB)) {
         dump++;
         bs_dump("mic", &cfg, mic_data, fr);
         bs_dump("main", &k->main_cfg, data, fr);
@@ -486,7 +486,7 @@ size_t audio_kara_mix(void *kara, void *data, size_t bytes) {
     mix_channel_format(data, &k->main_cfg,
                        mic_data, &cfg,
                        fr, &k->tmp_buf, &k->tmp_buf_sz);
-    if (getprop_bool("vendor.media.audiohal.kara")) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_USB)) {
         dump++;
         bs_dump("mixed", &k->main_cfg, data, fr);
     }

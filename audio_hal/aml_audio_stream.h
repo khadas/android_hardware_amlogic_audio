@@ -25,7 +25,7 @@
 #include "audio_hw.h"
 
 #define AUDIO_FADEOUT_TV_DURATION_US 100 * 1000
-#define MS12_AUDIO_FADEOUT_TV_DURATION_US 60 * 1000
+#define MS12_AUDIO_FADEOUT_TV_DURATION_US 30 * 1000
 #define MS12_AUDIO_FADEIN_TV_DURATION_US  200 * 1000
 #define AUDIO_FADEOUT_STB_DURATION_US 40 * 1000
 
@@ -264,9 +264,10 @@ static inline audio_format_t encodingFormat2AudioFormat(AUDIO_ENCODING_FORMAT_E 
 }
 
 enum {
-    ATTEND_TYPE_NONE = 0,
-    ATTEND_TYPE_ARC,
-    ATTEND_TYPE_EARC
+    ATTEND_TYPE_NONE = -1,
+    ATTEND_TYPE_DISCONNECT = 0,
+    ATTEND_TYPE_ARC = 1,
+    ATTEND_TYPE_EARC = 2
 };
 
 static inline bool is_main_write_usecase(stream_usecase_t usecase)

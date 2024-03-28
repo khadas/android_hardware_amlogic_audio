@@ -118,6 +118,7 @@ int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int
 int aml_add_audio_effect(struct aml_native_postprocess *native_postprocess, effect_handle_t effect, audio_port_handle_t port_handle __unused);
 int aml_remove_audio_effect(struct aml_native_postprocess *native_postprocess, effect_handle_t effect, audio_port_handle_t port_handle __unused);
 
+void VirtualX_decoder_type_config(struct aml_native_postprocess *native_postprocess, int dts_lib_type);
 void VirtualX_reset(struct aml_native_postprocess *native_postprocess);
 void VirtualX_Channel_reconfig(struct aml_native_postprocess *native_postprocess, int ch_num);
 int set_aml_dts_effect_param(struct aml_native_postprocess *native_postprocess, char *param);

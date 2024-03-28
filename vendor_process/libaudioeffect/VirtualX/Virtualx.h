@@ -123,7 +123,9 @@ typedef enum {
     AUDIO_PARAM_TYPE_TRU_VOLUME = 91,
     /* debug interface */
     AUDIO_ALL_PARAM_DUMP = 92,
+
     VIRTUALX_EFFECT_ENABLE = 93,
+    DTS_PARAM_DECODER_TYPE = 95,
 } Virtualx_params;
 
 #endif

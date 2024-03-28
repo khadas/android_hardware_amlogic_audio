@@ -26,7 +26,8 @@ struct aml_audio_device;
 struct playback_handler_base *create_bus_playback_handler(struct aml_audio_device* adev,
                                                 struct audio_stream_out *stream_out,
                                                 struct audio_config *config,
-                                                int bus_id);
+                                                int bus_id,
+                                                uint32_t mux_channel_mask);
 
 int delete_bus_playback_handler(struct playback_handler_base *handle);
 

@@ -44,7 +44,8 @@
 #ifdef MS12_V24_ENABLE
 #include "audio_hw_ms12_v2.h"
 #endif
-#define FMT_UPDATE_THRESHOLD_MAX    (10)
+#define DOLBY_AC4_FMT_UPDATE_THRESHOLD  (40)
+#define FMT_UPDATE_THRESHOLD_MAX    (100)
 #define DOLBY_FMT_UPDATE_THRESHOLD  (5)
 #define DTS_FMT_UPDATE_THRESHOLD    (1)
 
@@ -158,15 +159,6 @@ static audio_format_t get_sink_capability (struct aml_audio_device *adev)
             sink_capability = AUDIO_FORMAT_E_AC3;
         } else if (dd_is_support) {
             sink_capability = AUDIO_FORMAT_AC3;
-        }
-
-        /* eARC TXs support formats at least support dd, for Test ID HFR5-1-27 */
-        if (sink_capability == AUDIO_FORMAT_PCM_16_BIT &&
-            aml_mixer_ctrl_get_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_ATTENDED_TYPE) == ATTEND_TYPE_EARC &&
-            is_arc_connected(adev)) {
-            sink_capability = AUDIO_FORMAT_AC3;
-            dd_is_support = true;
-            hdmi_desc->dd_fmt.is_support = true;
         }
 
         ALOGI ("%s mat_is_support:%d, dd support:%d ddp support:%#x\n", __FUNCTION__, mat_is_support, dd_is_support, ddp_is_support);
@@ -396,11 +388,10 @@ static audio_format_t get_suitable_output_format(struct aml_stream_out *out,
 static audio_format_t reconfig_optical_audio_format(struct aml_stream_out *aml_out,
         audio_format_t org_optical_format)
 {
+    if (aml_out == NULL || eDolbyMS12Lib == aml_out->dev->dolby_lib_type)
+            return org_optical_format;
     audio_format_t ret_format = org_optical_format;
     struct aml_audio_device *aml_dev = aml_out->dev;
-
-    if (aml_out == NULL || eDolbyMS12Lib == aml_dev->dolby_lib_type)
-        return org_optical_format;
 
     if (aml_out->output_speed != 1.0f && aml_out->output_speed != 0.0f) {
         ALOGI("change to micro speed need reconfig optical audio format to PCM");
@@ -841,6 +832,7 @@ void aml_decoder_info_dump(struct aml_audio_device *adev, int fd)
     dprintf(fd, "\n-------------[AML_HAL] licence decoder --------------------------\n");
     dprintf(fd, "[AML_HAL]    dolby_lib: %d\n", adev->dolby_lib_type);
     dprintf(fd, "[AML_HAL]    build ms12 version: %d\n", adev->support_ms12_version);
+    dprintf(fd, "[AML_HAL]    dts_lib: %d\n", adev->dts_lib_type);
     dprintf(fd, "[AML_HAL]    MS12 library size:\n");
     dprintf(fd, "             \t-V2 Encrypted: %d\n", get_file_size("/oem/lib/ms12/libdolbyms12.so"));
     dprintf(fd, "             \t-V2 Decrypted: %d\n", get_file_size("/odm/lib/ms12/libdolbyms12.so"));
@@ -1077,10 +1069,17 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     int update_type = get_codec_type(format);
     int update_threshold = DOLBY_FMT_UPDATE_THRESHOLD;
-    int cur_aml_dap_surround_virtualizer = dolby_ms12_get_dap_surround_virtualizer();
+    int cur_aml_dap_surround_virtualizer = 0;
+#ifndef AUDIO_HAL_DISABLE_MS12
+    cur_aml_dap_surround_virtualizer = dolby_ms12_get_dap_surround_virtualizer();
+#endif
+    bool is_headphone_x = 0;
 
     if (is_dolby_ms12_support_compression_format(format)) {
         update_threshold = DOLBY_FMT_UPDATE_THRESHOLD;
+        if (format == AUDIO_FORMAT_AC4) {
+            update_threshold = DOLBY_AC4_FMT_UPDATE_THRESHOLD;
+        }
     } else if (is_dts_format(format)) {
         update_threshold = DTS_FMT_UPDATE_THRESHOLD;
     }
@@ -1105,15 +1104,23 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
      * @dts_hd.stream_type is updated after decoding at least one frame.
      */
     if (is_dts_format(format)) {
-        if (adev->dts_hd.stream_type <= 0 /*TYPE_PCM*/) {
-            adev->audio_hal_info.update_cnt = 0;
+        if (adev->dts_lib_type == eDTSXLib) {
+            if (adev->dts_x.stream_type <= 0 /*TYPE_PCM*/) {
+                adev->audio_hal_info.update_cnt = 0;
+            }
+            update_type = adev->dts_x.stream_type;
+        } else {
+            if (adev->dts_hd.stream_type <= 0 /*TYPE_PCM*/) {
+                adev->audio_hal_info.update_cnt = 0;
+            }
+            update_type = adev->dts_hd.stream_type;
         }
 
-        update_type = adev->dts_hd.stream_type;
         if (update_type != adev->audio_hal_info.update_type) {
             adev->audio_hal_info.update_cnt = 0;
         }
     }
+
 
     bool is_dolby_atmos_off = (MS12_DAP_SPEAKER_VIRTUALIZER_OFF == cur_aml_dap_surround_virtualizer);
     if (atmos_flag == 1) {
@@ -1137,14 +1144,19 @@ static int update_audio_hal_info(struct aml_audio_device *adev, audio_format_t f
     adev->audio_hal_info.aml_dap_surround_virtualizer = cur_aml_dap_surround_virtualizer;
 
     if (adev->audio_hal_info.update_cnt == update_threshold) {
+        if (adev->dts_lib_type == eDTSXLib) {
+            is_headphone_x = adev->dts_x.is_headphone_x;
+        } else {
+            is_headphone_x = adev->dts_hd.is_headphone_x;
+        }
 
-        if ((format == AUDIO_FORMAT_DTS || format == AUDIO_FORMAT_DTS_HD) && adev->dts_hd.is_headphone_x) {
+        if (is_dts_format(format) && is_headphone_x) {
             aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, TYPE_DTS_HP);
         }
         aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_AUDIO_HAL_FORMAT, update_type);
         ALOGD("%s() audio hal format change to %x, atmos flag = %d, is_dolby_atmos = %d, dts_hp_x = %d, update_type = %d is_dolby_atmos_off = %d\n",
             __FUNCTION__, adev->audio_hal_info.format, adev->audio_hal_info.is_dolby_atmos, adev->ms12.is_dolby_atmos,
-            adev->dts_hd.is_headphone_x, adev->audio_hal_info.update_type, is_dolby_atmos_off);
+            is_headphone_x, adev->audio_hal_info.update_type, is_dolby_atmos_off);
         ALOGD("%s() cur_out_devices %#x, dap_bypass_enable = %d, is_ms12_tuning_dat = %d, dolby_ms12_enable = %d, output_config = %#x\n",
             __FUNCTION__, adev->cur_out_devices, adev->ms12.dap_bypass_enable, adev->is_ms12_tuning_dat, ms12->dolby_ms12_enable, ms12->output_config);
     }
@@ -1359,8 +1371,8 @@ int aml_audio_earc_get_latency(struct aml_audio_device *adev)
 }
 
 #define AML_DETECT_VALUE 1500
-void tv_do_ease_in(struct audio_stream_out *stream, void *write_buf, size_t write_bytes) {
-
+void tv_do_ease_in(struct audio_stream_out *stream, void *write_buf, size_t write_bytes)
+{
     struct aml_stream_out *out = (struct aml_stream_out *) stream;
     struct aml_audio_device *aml_dev = out->dev;
     int fade_mode = property_get_int32("vendor.dtv.audio.fade_mode", DO_FADE_AT_HAL);
@@ -1391,10 +1403,14 @@ void tv_do_ease_in(struct audio_stream_out *stream, void *write_buf, size_t writ
                     }
                 } else {
                     if (aml_dev->mute_start) {
-                         int fade_duration = MS12_AUDIO_FADEIN_TV_DURATION_US / 1000;
-                         ALOGI("ms12 render easing in using %d ms ",fade_duration);
-                         set_ms12_main_audio_mute(ms12, false, fade_duration);
-                         aml_dev->mute_start = false;
+                        if (!ms12->is_muted) {
+                            set_ms12_main_audio_mute(ms12, true, 0);
+                        } else {
+                             int fade_duration = MS12_AUDIO_FADEIN_TV_DURATION_US / 1000;
+                             ALOGI("ms12 render easing in using %d ms ",fade_duration);
+                             set_ms12_main_audio_mute(ms12, false, fade_duration);
+                             aml_dev->mute_start = false;
+                        }
                     }
                 }
             } else {
@@ -1419,7 +1435,7 @@ void tv_do_ease_in(struct audio_stream_out *stream, void *write_buf, size_t writ
 void tv_do_ease_out(struct aml_audio_device *aml_dev)
 {
 
-    int fade_mode = property_get_int32("vendor.dtv.audio.fade_mode", DO_FADE_AT_ALSA);
+    int fade_mode = property_get_int32("vendor.dtv.audio.fade_mode", DO_FADE_AT_HAL);
     int duration_ms = 0;
 
     switch (fade_mode) {
@@ -1432,14 +1448,15 @@ void tv_do_ease_out(struct aml_audio_device *aml_dev)
             }
             break;
         case DO_FADE_AT_HAL:
-
-            if (aml_dev && aml_dev->audio_ease) {
+            if (!aml_dev->mute_start) {
                 bool need_do_fade = false;
                 if (eDolbyMS12Lib == aml_dev->dolby_lib_type) {
                     need_do_fade = !aml_dev->ms12.is_muted;
                 } else {
-                    float vol_now = aml_audio_ease_get_current_volume(aml_dev->audio_ease);
-                    need_do_fade = (vol_now != 0.0f);
+                    if (aml_dev->audio_ease) {
+                        float vol_now = aml_audio_ease_get_current_volume(aml_dev->audio_ease);
+                        need_do_fade = (vol_now != 0.0f);
+                    }
                 }
                 if (!need_do_fade) {
                     ALOGI("%s()skip fade out", __func__);
@@ -1458,13 +1475,17 @@ void tv_do_ease_out(struct aml_audio_device *aml_dev)
                         aml_dev->ms12.do_easing = true;
                         ALOGI("%s()  %d ms doing easing out", __func__, duration_ms);
                         set_ms12_main_audio_mute(&aml_dev->ms12, true, duration_ms);
-                        usleep(2 * duration_ms * 1000);
+                        /*left 10ms for ms12 to do complete fade process*/
+                        usleep((duration_ms + 10) * 1000);
                         aml_dev->ms12.do_easing = false;
                     } else {
-                        start_ease_out(aml_dev->audio_ease, is_TV(aml_dev), duration_ms / 2);
-                        usleep(duration_ms * 1000);
+                        if (aml_dev->audio_ease) {
+                            start_ease_out(aml_dev->audio_ease, is_TV(aml_dev), duration_ms / 2);
+                            usleep(duration_ms * 1000);
+                        }
                     }
                 }
+                aml_dev->mute_start = true;
             }
             break;
         default:

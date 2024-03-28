@@ -73,6 +73,8 @@ typedef struct patch_manager
     // Others not directly related to patch from adev
     struct component_noise_gate noise_gate;
     struct component_picture_mode pic_mode;
+    bool tv_have_exit;
+    bool atv_dtv_switch;
 } patch_manager;
 
 
@@ -200,7 +202,8 @@ static int create_patch_internal(struct patch_manager *patch_mgr,
         patch_type_to_str(type), patchSrc2Str(patch_src), src_device, sink_device);
 
     acquire_patch_mgr_lock(patch_mgr);
-
+    patch_mgr->tv_have_exit = false;
+    patch_mgr->atv_dtv_switch = false;
     // 1.Release exist old patch
     if (is_patch_exist_mgr(patch_mgr)) {
         struct aml_audio_patch *old_patch = get_patch_from_mgr(patch_mgr);
@@ -220,7 +223,15 @@ static int create_patch_internal(struct patch_manager *patch_mgr,
         }
 #ifdef ENABLE_DVB_PATCH
         else {
-            //release_dtv_patch(patch_mgr->adev);
+            //FIXME. there have two case-----OTT and TV
+            //1. OTT support the single demux and multi demux(PIP and FCC)
+            //2. In the case of  patch type is DTV, there need not release the old dtv patch when create the dtv patch two time, which is key with the FCC and PIP case.
+            //3. In the case of  patch type is TV, there need release the old patch when one source switch to other source
+            //4. However, when ATV or HDMI switch to DTV, if it create atv or hdmi patch before release the dtv patch,
+            //5. there will cause the patch manager abnormal and memory leak.
+            //5. Therefore, we need release the old DTV patch when dtv source switch to other tv source.
+            if (type == PATCH_TYPE_TV)
+                release_dtv_patch(patch_mgr->adev);
             set_patch_running_mgr(patch_mgr, false);
         }
 #endif
@@ -289,7 +300,8 @@ int release_patch_internal(struct patch_manager *patch_mgr, int type)
 
     ALOGI("%s() type:%s patch_src:%s ",__func__,
         patch_type_to_str(type), patchSrc2Str(patch_mgr->patch_src));
-
+    if (!patch_mgr->atv_dtv_switch)
+        patch_mgr->tv_have_exit = true;
     acquire_patch_mgr_lock(patch_mgr);
 
     switch (type)
@@ -629,15 +641,17 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
 #ifdef ENABLE_DVB_PATCH
             // no audio patching in dtv
             if (is_dev_patch_running(adev) && is_same_patch_src(adev, SRC_ATV)) {
+                adev->patch_manager->atv_dtv_switch = true;
                 // this is to handle atv->dtv case
                 ret = patch_mgr_release_patch(adev, PATCH_TYPE_TV);
                 ALOGI("%s, atv->dtv ret:%d", __func__, ret);
             }
             ALOGI("%s, now the audio patch src is %s, the audio_patching is %d ", __func__,
                 patchSrc2Str(get_dev_patch_src(adev)), is_dev_patch_running(adev));
-
-            if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_running(adev)) {
-                ALOGI("[audiohal_kpi] %s dtv patch exit do nothing\n ", __func__);
+            if (adev->patch_manager)
+                ALOGI("[%s] tv_have_exit %d",__FUNCTION__,adev->patch_manager->tv_have_exit);
+            if ((is_same_patch_src(adev, SRC_DTV) && is_dev_patch_running(adev))  || (get_dev_patch(adev) && get_dev_patch(adev)->is_dtv_src) || (adev->patch_manager->tv_have_exit)) {
+                ALOGI("[audiohal_kpi] %s dtv patch exit or tv_have_exit(%d) do nothing \n  ", __func__,adev->patch_manager->tv_have_exit);
             } else {
                 ALOGI("[audiohal_kpi] %s, now create the dtv patch now\n ", __func__);
                 ret = patch_mgr_create_patch(adev,
@@ -669,7 +683,7 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
         } else if (strncmp(value, "broadband", 9) == 0) {
 #ifdef ENABLE_DVB_PATCH
             if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_running(adev)) {
-                ALOGI("[audiohal_kpi] %s, release dtv patching", __func__);
+                ALOGI("[audiohal_kpi] %s, release dtv patching ", __func__);
                 ret = patch_mgr_release_patch(adev, PATCH_TYPE_DTV);
             }
             set_dev_patch_src(adev, SRC_INVAL);

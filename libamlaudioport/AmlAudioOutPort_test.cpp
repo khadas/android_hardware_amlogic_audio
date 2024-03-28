@@ -88,7 +88,7 @@ static int read_data_from_test_file(char *file_path,void *destiny_buffer, int le
     return read_size;
 }
 
-int aml_audio_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes) {
+int aml_dump_audio_bitstreams(const char *path, const void *buf, size_t bytes) {
     if (!path) {
         return 0;
     }
@@ -157,7 +157,7 @@ int main(int argc, char** argv) {
     get_file_length(filepath);
     do {
         read_size = read_data_from_test_file(filepath,(void *)buffer, size);
-        //aml_audio_dump_audio_bitstreams("/data/dump.es", buffer, read_size);
+        //aml_dump_audio_bitstreams("/data/audio/dump.es", buffer, read_size);
         actual_write_size = aml_audioport->write((const void *)buffer, read_size,false);
         ALOGI("actual_write_size:%d, request size:%d", actual_write_size, read_size);
     } while (read_size >0);

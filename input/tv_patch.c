@@ -262,6 +262,9 @@ void *audio_patch_input_threadloop(void *data)
             if (ret == 0) {
                 in = (struct aml_stream_in *)new_stream;
                 patch->input_teardown_over = true;
+            } else {
+                AM_LOGE("old stream or new stream is NULL");
+                break;
             }
             AM_LOGE("---input handle format change over, ret:%d", ret);
         }
@@ -353,12 +356,13 @@ void *audio_patch_input_threadloop(void *data)
                     enable_tv_mute(aml_dev, false);
                 }
 
+                audio_pcpd_format_detect(patch->audio_parse_para);
                 aml_audio_trace_int("input_read_thread", read_bytes);
                 aml_alsa_input_read(&in->stream, patch->in_buf, read_bytes);
                 aml_audio_trace_int("input_read_thread", 0);
 
                 if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
-                    aml_audio_dump_audio_bitstreams("/data/vendor/audiohal/tv_read.raw", patch->in_buf, read_bytes);
+                    aml_dump_audio_bitstreams("/data/vendor/audiohal/tv_read.raw", patch->in_buf, read_bytes);
                 }
 
                 if (IS_DIGITAL_IN_HW(patch->input_src) && !check_digital_in_stream_signal(&in->stream)) {
@@ -710,7 +714,9 @@ void *audio_patch_output_threadloop(void *data)
             patch->output_teardown_over = false;
         }
     }
+    pthread_mutex_lock(&aml_dev->lock);
     do_output_standby_l((struct audio_stream *)out);
+    pthread_mutex_unlock(&aml_dev->lock);
     adev_close_output_stream_new(patch->dev, &out->stream);
     if (patch->out_buf) {
         aml_audio_free(patch->out_buf);

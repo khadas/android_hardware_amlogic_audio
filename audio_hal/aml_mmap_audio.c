@@ -160,8 +160,8 @@ static void *outMmapThread(void *pArg) {
             } else {
                 out_write_new(&out->stream, pu8TempBufferAddr, u32BurstSizeByte);
             }
-            if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
-                aml_audio_dump_audio_bitstreams(MMAP_INPUT_FILE, pu8TempBufferAddr, u32BurstSizeByte);
+            if (get_debug_value(AML_DUMP_AUDIOHAL_MMAP)) {
+                aml_dump_audio_bitstreams(MMAP_INPUT_FILE, pu8TempBufferAddr, u32BurstSizeByte);
             }
             audio_virtual_buf_process((void *)pstVirtualBuffer, MMAP_WRITE_PERIOD_TIME_NANO);
             if (out->dev->debug_flag >= 100) {
@@ -690,6 +690,10 @@ int outMmapInit(struct aml_stream_out *out)
         return -1;
     }
     pstMmapMananger = adev->mmap_audio_manager;
+    if (pstMmapMananger == NULL) {
+        AM_LOGE("pstMmapMananger is NULL");
+        return -1;
+    }
 
     out->stream.start = outMmapStart;
     out->stream.stop = outMmapStop;
@@ -743,7 +747,8 @@ int outMmapDeInit(struct aml_stream_out *out)
     AM_LOGI("stream:%p", out);
     aml_mmap_audio_param_st     *pstParam = (aml_mmap_audio_param_st *)out->pstMmapAudioParam;
     aml_mmap_audio_manager_st   *pstMmapMananger = out->mmap_audio_manager;
-    R_CHECK_POINTER_LEGAL(0, pstParam, "uninitialized, can't deinit");
+    R_CHECK_POINTER_LEGAL(-1, pstParam, "uninitialized, can't deinit");
+    R_CHECK_POINTER_LEGAL(-1, pstMmapMananger, "");
 
     mmap_audio_unregister_client(pstMmapMananger, out->mmap_audio_client_id);
     munmap(pstParam->pu8MmapAddr, pstParam->u32BufferSize);
@@ -1139,11 +1144,11 @@ static int mmap_audio_process_client_data(aml_mmap_audio_client_st *pstMmapClien
         snprintf(aaudio_name, sizeof(aaudio_name)-1, "aaudio_in_%d", pstMmapClient->s32AllocId);
         check_audio_level(aaudio_name, pu8TempBufferAddr, u32BurstSizeByte);
     }
-    if (aml_getprop_bool("vendor.media.audiohal.outdump")) {
+    if (get_debug_value(AML_DUMP_AUDIOHAL_MMAP)) {
         char filepath[64];
         memset(filepath, 0, sizeof(filepath));
         snprintf(filepath, sizeof(filepath)-1, "%s_%d", MMAP_INPUT_FILE, pstMmapClient->s32AllocId);
-        aml_audio_dump_audio_bitstreams(filepath, pu8TempBufferAddr, u32BurstSizeByte);
+        aml_dump_audio_bitstreams(filepath, pu8TempBufferAddr, u32BurstSizeByte);
     }
 
     apply_volume(out->volume_l, pu8TempBufferAddr, 2, u32BurstSizeByte);

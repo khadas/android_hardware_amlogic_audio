@@ -86,6 +86,35 @@ const char *scheduler_state_2_string[MS12_SCHEDULER_MAX] = {
     "SCHEDULER_STANDBY",
 };
 
+#ifdef AUDIO_HAL_DISABLE_MS12
+void dolby_ms12_set_pause_flag(bool flag __unused) {
+    return;
+}
+
+int aml_ms12_update_runtime_params(struct dolby_ms12_desc *ms12_desc __unused, char *cmd __unused) {
+    return 0;
+}
+
+unsigned long long dolby_ms12_get_consumed_sys_audio(void) {
+    return 0;
+}
+int dolby_ms12_enable_atmos_drop(int atmos_drop __unused) {
+    return 0;
+}
+int dolby_ms12_get_channel_config(audio_channel_mask_t channel_mask __unused) {
+    return 0;
+}
+
+int dolby_ms12_get_lfe_config(audio_channel_mask_t channel_mask __unused) {
+    return 0;
+}
+
+int dolby_ms12_set_scheduler_state(int sch_state __unused) {
+    return 0;
+}
+
+#endif
+
 /*****************************************************************************
 *   Function Name:  set_dolby_ms12_runtime_pause
 *   Description:    set pause or resume to dolby ms12.
@@ -141,7 +170,11 @@ int dolby_ms12_main_pause(struct audio_stream_out *stream)
         aml_out->hwsync->first_apts_flag = false;
         aml_out->hwsync->wait_video_done = false;
         // prepare for the next wait_video_drop function
-        aml_hwsync_wrap_set_amaster(aml_out->hwsync, false);
+        if (aml_out->restore_vmaster) {
+            aml_out->restore_vmaster = false;
+            aml_hwsync_wrap_set_amaster(aml_out->hwsync, false);
+        }
+
 
         ALOGD("%s tsync pause finished", __func__);
     }
@@ -426,7 +459,7 @@ int aml_send_ms12_scheduler_state_2_ms12(void)
            pthread_mutex_unlock(&ms12->lock);
            return -1;
     } else {
-        dolby_ms12_set_scheduler_state(ms12->ms12_scheduler_state);
+        set_dolby_ms12_continuous_state(ms12, ms12->ms12_scheduler_state);
         ALOGD("%s adev:%p, sch_state:%d(%s) ", __func__, adev, sch_state, scheduler_state_2_string[sch_state]);
     }
     pthread_mutex_unlock(&ms12->lock);
@@ -472,7 +505,7 @@ int aml_set_ms12_scheduler_state(struct dolby_ms12_desc *ms12)
             //audio_one_shot_timer_start(AML_TIMER_ID_1, AML_TIMER_DELAY);
             audio_one_shot_timer_start(ms12->ms12_timer_id, AML_TIMER_DELAY);
         } else {
-            dolby_ms12_set_scheduler_state(sch_state);
+            set_dolby_ms12_continuous_state(ms12, sch_state);
         }
 
         ALOGI("%s  ms12_scheduler_state:%d, sch_state:%d %s is sent to ms12", __func__,
@@ -484,7 +517,7 @@ int aml_set_ms12_scheduler_state(struct dolby_ms12_desc *ms12)
         }
 
         sch_state = MS12_SCHEDULER_RUNNING;
-        dolby_ms12_set_scheduler_state(sch_state);
+        set_dolby_ms12_continuous_state(ms12, sch_state);
         ALOGI("%s  is_arc_connecting:%d, is_netflix:%d, sch_state:%d %s is sent to ms12", __func__,
             is_arc_connecting, is_netflix, sch_state, scheduler_state_2_string[sch_state]);
     }
