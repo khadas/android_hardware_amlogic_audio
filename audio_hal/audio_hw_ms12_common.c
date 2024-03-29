@@ -59,6 +59,12 @@
 #define ms12_to_adev(ms12_ptr)  (struct aml_audio_device *) (((char*) (ms12_ptr)) - offsetof(struct aml_audio_device, ms12))
 
 
+#define DOLBY_DRC_LINE_MODE 0
+#define DOLBY_DRC_RF_MODE   1
+#define DDPI_UDC_COMP_LINE 2
+
+
+
 /*
  *@brief
  *transfer mesg type to string,
@@ -780,3 +786,194 @@ void set_ms12_app_pcm_acmod_lfe(struct dolby_ms12_desc *ms12, audio_channel_mask
         aml_ms12_update_runtime_params(ms12, param);
     }
 }
+
+
+
+void set_ms12_drc_boost_value_for_2ch_downmixed_output(struct dolby_ms12_desc *ms12, int boost)
+{
+    char parm[64] = "";
+    sprintf(parm, "%s %d", "-bs", boost);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+void set_ms12_drc_cut_value_for_2ch_downmixed_output(struct dolby_ms12_desc *ms12, int cut)
+{
+    char parm[64] = "";
+    sprintf(parm, "%s %d", "-cs", cut);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+void set_ms12_drc_mode_for_2ch_downmixed_output(struct dolby_ms12_desc *ms12, bool drc_mode)
+{
+    char parm[64] = "";
+    sprintf(parm, "%s %d", "-drc", drc_mode);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+void set_ms12_drc_boost_value(struct dolby_ms12_desc *ms12, int boost)
+{
+    char parm[64] = "";
+    sprintf(parm, "%s %d", "-b", boost);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+void set_ms12_drc_cut_value(struct dolby_ms12_desc *ms12, int cut)
+{
+    char parm[64] = "";
+    sprintf(parm, "%s %d", "-c", cut);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+void set_ms12_drc_mode_for_multichannel_and_dap_output(struct dolby_ms12_desc *ms12, bool drc_mode)
+{
+    char parm[64] = "";
+    sprintf(parm, "%s %d", "-dap_drc", drc_mode);
+    if ((strlen(parm)) > 0 && ms12)
+        aml_ms12_update_runtime_params(ms12, parm);
+}
+
+
+void set_ms12_drc_parameters_for_2ch_downmix_output(struct dolby_ms12_desc *ms12, int drc_mode, int drc_cut, int drc_boost)
+{
+    if (ms12) {
+        set_ms12_drc_boost_value_for_2ch_downmixed_output(ms12, drc_boost);
+        set_ms12_drc_cut_value_for_2ch_downmixed_output(ms12, drc_cut);
+        set_ms12_drc_mode_for_2ch_downmixed_output(ms12, drc_mode);
+    }
+}
+
+void set_ms12_drc_parameters_for_multi_and_dap_output(struct dolby_ms12_desc *ms12, int drc_mode, int drc_cut, int drc_boost)
+{
+    if (ms12) {
+        set_ms12_drc_boost_value(ms12, drc_boost);
+        set_ms12_drc_cut_value(ms12, drc_cut);
+        set_ms12_drc_mode_for_multichannel_and_dap_output(ms12, drc_mode);
+    }
+}
+
+void dynamic_get_dolby_ms12_drc_parameters(struct aml_audio_device *adev, struct dolby_ms12_desc *ms12, audio_format_t format)
+{
+    int drc_mode = 0;
+    int drc_cut = 0;
+    int drc_boost = 0;
+    int dolby_ms12_drc_mode = DOLBY_DRC_RF_MODE;
+    int dolby_ms12_dap_drc_mode = DOLBY_DRC_RF_MODE;
+
+    struct aml_audio_patch *patch = get_dev_patch(adev);
+    bool is_dtv_patch = (get_dev_patch(adev) && is_same_patch_src(adev, SRC_DTV));
+    bool is_local_out_bitstream = !get_dev_patch(adev) && (adev->sink_format > AUDIO_FORMAT_PCM_16_BIT);
+
+    if (!ms12) {
+        ALOGE("%s() input ms12 is NULL!\n", __FUNCTION__);
+        return ;
+    }
+
+    if (0 == aml_audio_get_dolby_drc_mode(&drc_mode, &drc_cut, &drc_boost))
+        dolby_ms12_drc_mode = (drc_mode == DDPI_UDC_COMP_LINE) ? DOLBY_DRC_LINE_MODE : DOLBY_DRC_RF_MODE;
+
+    //1.through non-dtv patch and is_local_out_bitstream(false):
+    //if non-dolby format, use the DRC Line mode;
+    //if dolby format, use the DRC RF mode;
+    //2.through dtv patch(DTV, force setting), or is_local_out_bitstream(true):
+    //all the format choose the drc same rf mode;
+    if (!(is_dtv_patch || is_local_out_bitstream) && !is_dolby_ms12_support_compression_format(format)) {
+        dolby_ms12_drc_mode = DOLBY_DRC_LINE_MODE;
+    }
+    ms12->stereo_drc.boost = drc_boost;
+    ms12->stereo_drc.cut = drc_cut;
+    ms12->stereo_drc.mode = dolby_ms12_drc_mode;
+
+    if (ms12->output_config & MS12_OUTPUT_MASK_SPEAKER) {
+        if (0 == aml_audio_get_dolby_dap_drc_mode(&drc_mode, &drc_cut, &drc_boost))
+            dolby_ms12_dap_drc_mode = (drc_mode == DDPI_UDC_COMP_LINE) ? DOLBY_DRC_LINE_MODE : DOLBY_DRC_RF_MODE;
+
+        //1.through non-dtv patch and is_local_out_bitstream(false):
+        //if non-dolby format, use the DRC Line mode;
+        //if dolby format, use the DRC RF mode;
+        //2.through dtv patch(DTV, force setting), or is_local_out_bitstream(true):
+        //all the format choose the drc same rf mode;
+        if (!(is_dtv_patch || is_local_out_bitstream) && !is_dolby_ms12_support_compression_format(format)) {
+            dolby_ms12_dap_drc_mode = DOLBY_DRC_LINE_MODE;
+        }
+
+        ms12->multi_dap_drc.boost = drc_boost;
+        ms12->multi_dap_drc.cut = drc_cut;
+        ms12->multi_dap_drc.mode = dolby_ms12_dap_drc_mode;
+    }
+
+}
+
+void set_ms12_drc_params_for_stereo_and_dap_multi_pcm_output(
+    struct aml_audio_device *adev
+    , struct dolby_ms12_desc *ms12
+    , audio_format_t format)
+{
+    ALOGI("%s line %d format %#x\n", __FUNCTION__, __LINE__, format);
+    if (ms12->dolby_ms12_enable) {
+        dynamic_get_dolby_ms12_drc_parameters(adev, ms12, format);
+    }
+
+    set_ms12_drc_parameters_for_2ch_downmix_output(ms12, ms12->stereo_drc.mode, ms12->stereo_drc.cut, ms12->stereo_drc.boost);
+    ALOGI("%s line %d dynamic set drc %s boost %d cut %d for stereo downmix output!\n", __FUNCTION__, __LINE__,
+        (ms12->stereo_drc.mode == DOLBY_DRC_RF_MODE) ? "RF MODE" : "LINE MODE", ms12->stereo_drc.cut, ms12->stereo_drc.boost);
+
+    set_ms12_drc_parameters_for_multi_and_dap_output(ms12, ms12->multi_dap_drc.mode, ms12->multi_dap_drc.cut, ms12->multi_dap_drc.boost);
+    ALOGI("%s line %d dynamic set drc %s boost %d cut %d for multichannel and DAP output!\n", __FUNCTION__, __LINE__,
+        (ms12->multi_dap_drc.mode == DOLBY_DRC_RF_MODE) ? "RF MODE" : "LINE MODE", ms12->multi_dap_drc.cut, ms12->multi_dap_drc.boost);
+}
+
+
+#define DRC_RF_MODE_ADD_LEVEL (11)
+#define DVB_LEVEL (-3)
+#define ATSC_LEVEL (-4)
+#define DTMB_LEVEL (-4)
+#define ISDB_LEVEL (0)//TODO
+#define SBTVD_LEVEL (0)//TODO
+
+
+int get_ms12_syss_mixgain_target(void)
+{
+    int target = 0;
+    tv_standards_t current_tv_standards = get_digital_terresteral_tv_standards();
+    switch (current_tv_standards) {
+        case DVB:
+            target = DRC_RF_MODE_ADD_LEVEL + DVB_LEVEL;
+            break;
+        case ATSC:
+            target = DRC_RF_MODE_ADD_LEVEL + ATSC_LEVEL;
+            break;
+        case DTMB:
+            target = DRC_RF_MODE_ADD_LEVEL + DTMB_LEVEL;
+            break;
+        case ISDB:
+        case SBTVD:
+        default:
+            target = DRC_RF_MODE_ADD_LEVEL;
+            break;
+    }
+    return target;
+}
+
+
+void pcm_data_do_pre_attenuation(const void *buffer
+    , size_t bytes
+    , bool dolby_ms12_enable
+    , bool is_valid_patch
+    , bool is_drc_rf_mode
+    , int syss_target
+    , int bytes_per_sample
+    )
+{
+    ALOGV("%s() dolby_ms12_enable %d is_valid_patch %d is_drc_rf_mode %d syss_target %d\n", __FUNCTION__, dolby_ms12_enable, is_valid_patch, is_drc_rf_mode,  syss_target);
+    if (dolby_ms12_enable && is_valid_patch && is_drc_rf_mode) {
+        float pre_attenuation = DbToAmpl((float)syss_target);
+        apply_volume(pre_attenuation, (void *)buffer, bytes_per_sample, bytes);
+        ALOGV("%s() pre_attenuation(%f) about %d dB for system sound\n", __FUNCTION__, pre_attenuation, syss_target);
+    }
+}
+

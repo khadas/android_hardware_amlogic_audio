@@ -3010,11 +3010,17 @@ bool is_AC4_stream_with_pcm_sink_on_stb(struct aml_stream_out *aml_out)
     bool is_ac4 = (aml_out->hal_internal_format == AUDIO_FORMAT_AC4);
     bool is_pcm_sink_format = (adev->sink_format == AUDIO_FORMAT_PCM_16_BIT);
     if (adev->debug_flag > 1) {
-        ALOGI("%s line %d is_TV %d is_dtv_patch %d is_local_offload %d is_ac4 %d is_pcm_sink_format %d\n",
-            __func__, __LINE__, is_TV(adev), is_dtv_patch, is_local_offload, is_ac4, is_pcm_sink_format);
+        ALOGI("%s line %d is_STB %d is_dtv_patch %d is_local_offload %d is_ac4 %d is_pcm_sink_format %d ret %d\n",
+            __func__, __LINE__, is_STB(adev), is_dtv_patch, is_local_offload, is_ac4, is_pcm_sink_format,
+            (is_STB(adev) && (is_dtv_patch || is_local_offload) && is_ac4 && is_pcm_sink_format));
     }
 
-    return (!is_TV(adev) && (is_dtv_patch || is_local_offload) && is_ac4 && is_pcm_sink_format);
+    /*  on STB the volume is control by out_volume not adev_set_audio_port_config()--which TV device use. */
+    /*  is_STB = true  <==> is_TV = false; */
+    /*  is_STB = true contains is_SBR = true/false both */
+    /*  is_STB = false <==> is_TV = true; */
+    /*  is_TV = true contains is_SBR = true/false both */
+    return (is_STB(adev) && (is_dtv_patch || is_local_offload) && is_ac4 && is_pcm_sink_format);
 }
 
 float get_ac4_stream_volume(struct aml_stream_out *aml_out)
@@ -3590,7 +3596,7 @@ const char *tv_standards[] = {
     "sbtvd",
 };
 
-static tv_standards_t get_digital_terresteral_tv_standards(void)
+int get_digital_terresteral_tv_standards(void)
 {
     tv_standards_t active_tv_standards = DVB;//set dvb as default
     char prop_value[PROPERTY_VALUE_MAX];

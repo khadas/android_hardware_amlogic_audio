@@ -5452,6 +5452,17 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             reset_decoder = true;
         }
 
+        if (!reset_decoder) {
+            //Local playback and no dolby input, then non-dolby format lead the ms12_main1_dolby_dummy as true.
+            if (aml_out->is_normal_pcm && adev->ms12.dolby_ms12_enable) {
+                set_ms12_drc_params_for_stereo_and_dap_multi_pcm_output(
+                    adev
+                    , &(adev->ms12)
+                    , AUDIO_FORMAT_PCM_16_BIT //treat as PCM format to use the DRC Line mode.
+                    );
+            }
+        }
+
         if (!is_bypass_dolbyms12(stream) && (reset_decoder == true)) {
             pthread_mutex_lock(&adev->lock);
             if (!ms12->dolby_ms12_enable) {
@@ -6127,6 +6138,23 @@ hwsync_rewrite:
             write_bytes = outsize;
             //in_frames = outsize / frame_size;
             write_buf = hw_sync->hw_sync_body_buf;
+
+            /* PCM use the Tunnel mode */
+            if (audio_is_linear_pcm(aml_out->hal_internal_format)) {
+                bool is_dtv_patch = (get_dev_patch(adev) && is_same_patch_src(adev, SRC_DTV));
+                bool is_local_out_bitstream = !get_dev_patch(adev) && (adev->sink_format > AUDIO_FORMAT_PCM_16_BIT);
+
+                pcm_data_do_pre_attenuation(
+                    write_buf
+                    , write_bytes
+                    , adev->ms12.dolby_ms12_enable
+                    , (is_dtv_patch || is_local_out_bitstream)
+                    , (adev->ms12.stereo_drc.mode == DOLBY_DRC_RF_MODE)
+                    , adev->ms12.system_sound_target
+                    , audio_bytes_per_sample(aml_out->hal_internal_format)
+                    );
+            }
+
         } else {
             return_bytes = hwsync_cost_bytes;
             if (need_reconfig_output) {
@@ -6479,7 +6507,11 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
         // NTS PCM mode: volume-tunel-nontunel/audio-lat-heaac testcase.
         if (adev->is_netflix && (eDolbyMS12Lib == adev->dolby_lib_type) && !dolby_stream_active(adev)) {
             ALOGI("%s : without dolby_stream, netflix pcm drc use line mode", __func__);
-            dynamic_set_dolby_ms12_drc_parameters(&adev->ms12);
+            set_ms12_drc_params_for_stereo_and_dap_multi_pcm_output(
+                adev
+                , ms12
+                , AUDIO_FORMAT_PCM_16_BIT //treat as PCM format when stream is end.
+                );
         }
     }
 
@@ -6575,6 +6607,20 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
 
             const void *source = buffer;
             int source_bytes = bytes;
+
+            bool is_dtv_patch = (get_dev_patch(adev) && is_same_patch_src(adev, SRC_DTV));
+            bool is_local_out_bitstream = !get_dev_patch(adev) && (adev->sink_format > AUDIO_FORMAT_PCM_16_BIT);
+
+            pcm_data_do_pre_attenuation(
+                source
+                , source_bytes
+                , adev->ms12.dolby_ms12_enable
+                , (is_dtv_patch || is_local_out_bitstream)
+                , (adev->ms12.stereo_drc.mode == DOLBY_DRC_RF_MODE)
+                , adev->ms12.system_sound_target
+                , audio_bytes_per_sample(aml_out->hal_internal_format)
+                );
+
 
             while (bytes_remaining && adev->ms12.dolby_ms12_enable && retry < 20) {
                 size_t used_size = 0;
@@ -6718,7 +6764,11 @@ ssize_t mixer_app_buffer_write(struct audio_stream_out *stream, const void *buff
             // NTS PCM mode: volume-tunel-nontunel/audio-lat-heaac testcase.
             if (adev->is_netflix && !dolby_stream_active(adev)) {
                 ALOGI("%s : without dolby_stream, netflix pcm drc use line mode", __func__);
-                dynamic_set_dolby_ms12_drc_parameters(&adev->ms12);
+                set_ms12_drc_params_for_stereo_and_dap_multi_pcm_output(
+                    adev
+                    , ms12
+                    , AUDIO_FORMAT_PCM_16_BIT //treat as PCM format when stream is end.
+                    );
             }
         }
     }
@@ -7974,6 +8024,11 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
         aml_dev->sink_gain[OUTPORT_SPEAKER], aml_dev->sink_gain[OUTPORT_HDMI]);
     dprintf(fd, "[AML_HAL]      ms12 main volume: %10f\n", aml_dev->ms12.main_volume);
     dprintf(fd, "[AML_HAL]      ms12 main mute  : %10d\n", aml_dev->ms12.is_muted);
+
+    dprintf(fd, "[AML_HAL]      PCM(AAC/HEAAC/MPEG-L1~L3) data only do pre attenuation for DTV-patch&System PCM on DRC-RF mode\n");
+    dprintf(fd, "[AML_HAL]      system sound target: %2d dB\n", aml_dev->ms12.system_sound_target);
+    dprintf(fd, "[AML_HAL]      DRC mode: %s\n", (aml_dev->ms12.stereo_drc.mode == DOLBY_DRC_RF_MODE) ? "RF MODE" : "LINE MODE");
+
     aml_audio_ease_t *audio_ease = aml_dev->audio_ease;
     if (!audio_ease) {
         dprintf(fd, "[AML_HAL]      audio_ease is null \n");

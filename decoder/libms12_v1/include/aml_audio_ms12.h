@@ -68,6 +68,11 @@ struct pes_mixer_metadata{
     int pan_byte;
 };
 
+typedef struct drc_param {
+    int mode;
+    int cut;
+    int boost;
+} drc_param_t;
 
 struct dolby_ms12_desc {
     bool dolby_ms12_enable;
@@ -191,6 +196,10 @@ struct dolby_ms12_desc {
     bool sys_data_write2alsa_status;
     struct pes_mixer_metadata pes_mixer_md;
     bool enable_mixer_max_size;
+
+    drc_param_t stereo_drc;
+    drc_param_t multi_dap_drc;
+    int system_sound_target;
 };
 
 /*

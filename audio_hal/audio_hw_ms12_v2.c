@@ -67,8 +67,6 @@
 #include "dtv_private_object.h"
 #include "audio_hw_resource_mgr.h"
 
-#define DOLBY_DRC_LINE_MODE 0
-#define DOLBY_DRC_RF_MODE   1
 #define DDP_MAX_BUFFER_SIZE 2560//dolby ms12 input buffer threshold
 #define CONVERT_ONEDB_TO_GAIN  1.122018f
 #define MS12_MAIN_INPUT_BUF_PCM_NS         (64000000LL)
@@ -613,46 +611,6 @@ static inline alsa_device_t usecase_device_adapter_with_ms12(alsa_device_t useca
 }
 
 
-
-void set_ms12_drc_boost_value_for_2ch_downmixed_output(struct dolby_ms12_desc *ms12, int boost)
-{
-    char parm[64] = "";
-    sprintf(parm, "%s %d", "-bs", boost);
-    if ((strlen(parm)) > 0 && ms12)
-        aml_ms12_update_runtime_params(ms12, parm);
-}
-
-void set_ms12_drc_cut_value_for_2ch_downmixed_output(struct dolby_ms12_desc *ms12, int cut)
-{
-    char parm[64] = "";
-    sprintf(parm, "%s %d", "-cs", cut);
-    if ((strlen(parm)) > 0 && ms12)
-        aml_ms12_update_runtime_params(ms12, parm);
-}
-void set_ms12_drc_mode_for_2ch_downmixed_output(struct dolby_ms12_desc *ms12, bool drc_mode)
-{
-    char parm[64] = "";
-    sprintf(parm, "%s %d", "-drc", drc_mode);
-    if ((strlen(parm)) > 0 && ms12)
-        aml_ms12_update_runtime_params(ms12, parm);
-}
-
-void set_ms12_drc_boost_value(struct dolby_ms12_desc *ms12, int boost)
-{
-    char parm[64] = "";
-    sprintf(parm, "%s %d", "-b", boost);
-    if ((strlen(parm)) > 0 && ms12)
-        aml_ms12_update_runtime_params(ms12, parm);
-}
-
-void set_ms12_drc_cut_value(struct dolby_ms12_desc *ms12, int cut)
-{
-    char parm[64] = "";
-    sprintf(parm, "%s %d", "-c", cut);
-    if ((strlen(parm)) > 0 && ms12)
-        aml_ms12_update_runtime_params(ms12, parm);
-}
-
 void set_ms12_dap_postgain(struct dolby_ms12_desc *ms12, int postgain)
 {
     char parm[64] = "";
@@ -662,15 +620,6 @@ void set_ms12_dap_postgain(struct dolby_ms12_desc *ms12, int postgain)
     if ((strlen(parm)) > 0 && ms12)
         aml_ms12_update_runtime_params(ms12, parm);
     pthread_mutex_unlock(&ms12->lock);
-}
-
-
-void set_ms12_drc_mode_for_multichannel_and_dap_output(struct dolby_ms12_desc *ms12, bool drc_mode)
-{
-    char parm[64] = "";
-    sprintf(parm, "%s %d", "-dap_drc", drc_mode);
-    if ((strlen(parm)) > 0 && ms12)
-        aml_ms12_update_runtime_params(ms12, parm);
 }
 
 void set_ms12_fade_pan
@@ -739,6 +688,7 @@ static void ms12_close_all_spdifout(struct dolby_ms12_desc *ms12) {
     pthread_mutex_unlock(&adev->bitstream_lock);
 }
 
+#if 0
 void dynamic_set_dolby_ms12_drc_parameters(struct dolby_ms12_desc *ms12)
 {
     int drc_mode = 0;
@@ -791,6 +741,7 @@ void dynamic_set_dolby_ms12_drc_parameters(struct dolby_ms12_desc *ms12)
     }
 
 }
+#endif
 
 void set_ms12_main_audio_mute(struct dolby_ms12_desc *ms12, bool b_mute, unsigned int duration)
 {
@@ -928,30 +879,6 @@ void set_dolby_ms12_continuous_state(struct dolby_ms12_desc *ms12, int state) {
     }
 }
 
-void update_drc_parameter_when_output_config_changed(struct dolby_ms12_desc *ms12)
-{
-    /*
-     * if output config contains MS12_OUTPUT_MASK_SPEAKER
-     * the dap_init_mode will update the output config value as this logic
-     *
-     * if (mDolbyMS12OutConfig & MS12_OUTPUT_MASK_SPEAKER) {
-     *    if (mDAPInitMode) {
-     *        mDolbyMS12OutConfig |= MS12_OUTPUT_MASK_DAP;
-     *    } else {
-     *        mDolbyMS12OutConfig |= MS12_OUTPUT_MASK_STEREO;
-     *    }
-     * }
-     * so, here update the DRC:-b/-c/-drc DPA_DRC: -bs/-cs/-dap_drc again
-     */
-    int final_output_config = dolby_ms12_config_params_get_dolby_config_output_config();
-
-    if (final_output_config) {
-        ALOGD("%s line %d ms12 output config redefine from %#x to %#x\n",
-            __func__, __LINE__, ms12->output_config, final_output_config);
-        ms12->output_config = final_output_config;
-        dynamic_set_dolby_ms12_drc_parameters(ms12);
-    }
-}
 
 /*
  *@brief get dolby ms12 prepared
@@ -1183,8 +1110,6 @@ int get_the_dolby_ms12_prepared(
             }
         }
         ms12->main_input_sr = input_sample_rate;
-        update_drc_parameter_when_output_config_changed(ms12);
-
     }
     ms12->sys_audio_base_pos = adev->sys_audio_frame_written;
     ms12->sys_audio_skip     = 0;
@@ -1286,6 +1211,11 @@ int get_the_dolby_ms12_prepared(
     if (ms12->dolby_ms12_enable && adev->cur_out_devices == OUTPORT_HDMI_ARC && is_HDMI_connected(adev)) {
         set_ms12_full_dap_disable(ms12, true);
     }
+
+    ms12->system_sound_target = 0 - get_ms12_syss_mixgain_target();
+    ALOGI("%s() line %d system_sound_target %d dB (only do pre attenuation for DTV-patch&System PCM on DRC-RF mode)\n",
+        __FUNCTION__, __LINE__, ms12->system_sound_target);
+
 
     /*1)switch AudioPatch to AF stream, need send SCHEDULER_RUNNING state again.
     **  to avoid ms12 not wakeup, so that the device no sound.
@@ -1477,7 +1407,7 @@ int dolby_ms12_main_process(
     if (ms12->dolby_ms12_enable && !aml_out->is_ms12_main_decoder) {
         dolby_ms12_main_open(stream);
         /* dynamically set the drc parameters mode/cut/boost */
-        dynamic_set_dolby_ms12_drc_parameters(ms12);
+        //dynamic_set_dolby_ms12_drc_parameters(ms12);
     }
     /*coverity[double_unlock]*/
     pthread_mutex_unlock(&ms12->lock);
@@ -4179,6 +4109,14 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
             aml_spdif_decoder_reset(ms12->spdif_dec_handle);
         }
     }
+
+    if (ms12->dolby_ms12_enable) {
+        set_ms12_drc_params_for_stereo_and_dap_multi_pcm_output(
+            adev
+            , ms12
+            , hal_internal_format);
+    }
+
     return 0;
 }
 
@@ -4248,6 +4186,13 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
         get_sink_format(&adev->active_outputs[STREAM_PCM_NORMAL]->stream);
     }
 
+    if (ms12->dolby_ms12_enable) {
+        set_ms12_drc_params_for_stereo_and_dap_multi_pcm_output(
+            adev
+            , ms12
+            , AUDIO_FORMAT_PCM_16_BIT //treat as PCM format when stream is end.
+            );
+    }
 
     return 0;
 }
@@ -4906,7 +4851,6 @@ int aml_dap_open(
         ms12->ms12_digital_audio_format = adev->digital_audio_mode;
         ms12->main_input_fmt = input_format;
         ms12->main_input_sr = input_sample_rate;
-        update_drc_parameter_when_output_config_changed(ms12);
     }
     ms12->sys_audio_base_pos = adev->sys_audio_frame_written;
     ms12->sys_audio_skip = 0;

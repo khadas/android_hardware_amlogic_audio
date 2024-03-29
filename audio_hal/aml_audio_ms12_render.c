@@ -456,6 +456,31 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                     }
 #endif
                     /* audio data/apts, then we send the audio data*/
+
+                    /* In DTV case for AAC/HEAAC/MPEG-L1~L3 format data, every pcm sample will do pre attenuation */
+                    /* monitor the HDMI/SPDIF output with DVB */
+                    // Ref_Level_997Hz_23dBFS_200_MP1L2_DVB_h264_25fps.trp
+                    //         Audio Mode(NONE), PCM output, -23dB
+                    //         Audio Mode(AUTO), DD  output, -31dB
+                    // Loudness_Consistency_-23dB_ddp_DVB_h264_25fps.trp
+                    //         Audio Mode(NONE), PCM output, -23dB
+                    //         Audio Mode(AUTO), DD  output, -31dB
+                    // The AUDIO_FORMAT_AAC/AUDIO_FORMAT_AAC_LATM/AUDIO_FORMAT_MP2/AUDIO_FORMAT_MP3 Data will be decoded by this flow.
+                    if (aml_out->hal_internal_format == AUDIO_FORMAT_AAC ||
+                        aml_out->hal_internal_format == AUDIO_FORMAT_AAC_LATM ||
+                        aml_out->hal_internal_format == AUDIO_FORMAT_MP2 ||
+                        aml_out->hal_internal_format == AUDIO_FORMAT_MP3) {
+                        pcm_data_do_pre_attenuation(
+                            dec_data
+                            , dec_pcm_data->data_len
+                            , adev->ms12.dolby_ms12_enable
+                            , (patch && is_same_patch_src(adev, SRC_DTV))
+                            , (adev->ms12.stereo_drc.mode == DOLBY_DRC_RF_MODE)
+                            , adev->ms12.system_sound_target
+                            , audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT) //decoded pcm's bps
+                            );
+                    }
+
                     aml_audio_ms12_process_wrapper(stream, dec_data, dec_pcm_data->data_len);
 #ifdef ENABLE_DVB_PATCH
                     if (do_sync_flag) {

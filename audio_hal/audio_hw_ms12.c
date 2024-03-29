@@ -54,8 +54,6 @@
 #include "audio_hw_ms12_common.h"
 #include "aml_audio_output.h"
 
-#define DOLBY_DRC_LINE_MODE 0
-#define DOLBY_DRC_RF_MODE   1
 
 #define DDP_MAX_BUFFER_SIZE 2560//dolby ms12 input buffer threshold
 
@@ -535,58 +533,9 @@ static inline alsa_device_t usecase_device_adapter_with_ms12(alsa_device_t useca
     }
 }
 
-
-
-void set_ms12_drc_boost_value_for_2ch_downmixed_output(struct dolby_ms12_desc *ms12, int boost)
-{
-    char parm[64] = "";
-    sprintf(parm, "%s %d", "-bs", boost);
-    if ((strlen(parm)) > 0 && ms12)
-        aml_ms12_update_runtime_params(ms12, parm);
-}
-
-void set_ms12_drc_cut_value_for_2ch_downmixed_output(struct dolby_ms12_desc *ms12, int cut)
-{
-    char parm[64] = "";
-    sprintf(parm, "%s %d", "-cs", cut);
-    if ((strlen(parm)) > 0 && ms12)
-        aml_ms12_update_runtime_params(ms12, parm);
-}
-void set_ms12_drc_mode_for_2ch_downmixed_output(struct dolby_ms12_desc *ms12, bool drc_mode)
-{
-    char parm[64] = "";
-    sprintf(parm, "%s %d", "-drc", drc_mode);
-    if ((strlen(parm)) > 0 && ms12)
-        aml_ms12_update_runtime_params(ms12, parm);
-}
-
-void set_ms12_drc_boost_value(struct dolby_ms12_desc *ms12, int boost)
-{
-    char parm[64] = "";
-    sprintf(parm, "%s %d", "-b", boost);
-    if ((strlen(parm)) > 0 && ms12)
-        aml_ms12_update_runtime_params(ms12, parm);
-}
-
-void set_ms12_drc_cut_value(struct dolby_ms12_desc *ms12, int cut)
-{
-    char parm[64] = "";
-    sprintf(parm, "%s %d", "-c", cut);
-    if ((strlen(parm)) > 0 && ms12)
-        aml_ms12_update_runtime_params(ms12, parm);
-}
-
 void set_ms12_dap_postgain(struct dolby_ms12_desc *ms12 __unused, int postgain __unused)
 {
     return;
-}
-
-void set_ms12_drc_mode_for_multichannel_and_dap_output(struct dolby_ms12_desc *ms12, bool drc_mode)
-{
-    char parm[64] = "";
-    sprintf(parm, "%s %d", "-dap_drc", drc_mode);
-    if ((strlen(parm)) > 0 && ms12)
-        aml_ms12_update_runtime_params(ms12, parm);
 }
 
 void set_ms12_fade_pan
@@ -649,51 +598,6 @@ void set_ms12_main1_audio_pts(struct dolby_ms12_desc *ms12, uint64_t apts, uint6
     sprintf(parm, "%s %u,%u,%u,%u", "-main1_audio_pts", apts_high32b,apts_low32b, offset_high32b, offset_low32b);
     if ((strlen(parm)) > 0 && ms12)
         aml_ms12_update_runtime_params(ms12, parm);
-}
-
-
-
-void dynamic_set_dolby_ms12_drc_parameters(struct dolby_ms12_desc *ms12)
-{
-    int drc_mode = 0;
-    int drc_cut = 0;
-    int drc_boost = 0;
-    int dolby_ms12_drc_mode = DOLBY_DRC_RF_MODE;
-    int dolby_ms12_dap_drc_mode = DOLBY_DRC_RF_MODE;
-
-    if (!ms12) {
-        ALOGE("%s() input ms12 is NULL!\n", __FUNCTION__);
-        return ;
-    }
-
-    if (0 == aml_audio_get_dolby_drc_mode(&drc_mode, &drc_cut, &drc_boost))
-        dolby_ms12_drc_mode = (drc_mode == DDPI_UDC_COMP_LINE) ? DOLBY_DRC_LINE_MODE : DOLBY_DRC_RF_MODE;
-
-    /*
-     * if main input is hdmi-in/dtv/other-source PCM
-     * would not go through the DRC processing
-     * DRC LineMode means to bypass DRC processing.
-     */
-    if (audio_is_linear_pcm(ms12->main_input_fmt)) {
-        dolby_ms12_drc_mode = DOLBY_DRC_LINE_MODE;
-    }
-
-    set_ms12_drc_boost_value_for_2ch_downmixed_output(ms12, drc_boost);
-    set_ms12_drc_cut_value_for_2ch_downmixed_output(ms12, drc_cut);
-    set_ms12_drc_mode_for_2ch_downmixed_output(ms12, dolby_ms12_drc_mode);
-    ALOGI("%s dynamic set drc %s boost %d cut %d", __FUNCTION__,
-        (dolby_ms12_drc_mode == DOLBY_DRC_RF_MODE) ? "RF MODE" : "LINE MODE", drc_boost, drc_cut);
-
-    if (ms12->output_config & MS12_OUTPUT_MASK_DAP) {
-        if (0 == aml_audio_get_dolby_dap_drc_mode(&drc_mode, &drc_cut, &drc_boost))
-            dolby_ms12_dap_drc_mode = (drc_mode == DDPI_UDC_COMP_LINE) ? DOLBY_DRC_LINE_MODE : DOLBY_DRC_RF_MODE;
-        set_ms12_drc_boost_value(ms12, drc_boost);
-        set_ms12_drc_cut_value(ms12, drc_cut);
-        set_ms12_drc_mode_for_multichannel_and_dap_output(ms12, dolby_ms12_dap_drc_mode);
-        ALOGI("%s dynamic set dap_drc %s",
-            __FUNCTION__, (dolby_ms12_dap_drc_mode == DOLBY_DRC_RF_MODE) ? "RF MODE" : "LINE MODE");
-    }
-
 }
 
 void set_dolby_ms12_drc_parameters(audio_format_t input_format, int output_config_mask)
@@ -906,7 +810,7 @@ int get_the_dolby_ms12_prepared(
         output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO;
     }
 
-    set_dolby_ms12_drc_parameters(input_format, output_config);
+    //set_dolby_ms12_drc_parameters(input_format, output_config);
     aml_ms12_config(ms12, input_format, input_channel_mask, input_sample_rate, output_config, get_ms12_path());
 
     if (ms12->dolby_ms12_enable) {
@@ -981,6 +885,11 @@ int get_the_dolby_ms12_prepared(
     adev->doing_reinit_ms12     = false;
     ALOGI("--%s(), locked", __FUNCTION__);
     pthread_mutex_unlock(&ms12->lock);
+
+    ms12->system_sound_target = 0 - get_ms12_syss_mixgain_target();
+    ALOGI("%s() line %d system_sound_target %d dB (only do pre attenuation for DTV-patch&System PCM on DRC-RF mode)\n",
+        __FUNCTION__, __LINE__, ms12->system_sound_target);
+
 
     /*1)switch AudioPatch to AF stream, need send SCHEDULER_RUNNING state again.
     **  to avoid ms12 not wakeup, so that the device no sound.
@@ -2710,9 +2619,14 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
             , 0
             , MS12_MAIN_BUF_INCREASE_TIME_MS);
     }
-    if (!audio_is_linear_pcm(aml_out->hal_internal_format)) {
-        dynamic_set_dolby_ms12_drc_parameters(ms12);
+
+    if (ms12->dolby_ms12_enable) {
+        set_ms12_drc_params_for_stereo_and_dap_multi_pcm_output(
+            adev
+            , ms12
+            , aml_out->hal_internal_format);
     }
+
 
     return 0;
 }
@@ -2749,9 +2663,15 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
     if (aml_out->virtual_buf_handle) {
         audio_virtual_buf_close(&aml_out->virtual_buf_handle);
     }
+
     if (ms12->dolby_ms12_enable) {
-        set_ms12_drc_mode_for_2ch_downmixed_output(ms12, DOLBY_DRC_LINE_MODE);
+        set_ms12_drc_params_for_stereo_and_dap_multi_pcm_output(
+            adev
+            , ms12
+            , AUDIO_FORMAT_PCM_16_BIT //treat as PCM format when stream is end.
+            );
     }
+
     return 0;
 }
 

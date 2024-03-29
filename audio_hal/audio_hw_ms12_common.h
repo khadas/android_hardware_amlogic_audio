@@ -27,6 +27,9 @@
 
 #define DISABLE_CONTINUOUS_OUTPUT "persist.vendor.audio.continuous.disable"
 
+#define DOLBY_DRC_LINE_MODE 0
+#define DOLBY_DRC_RF_MODE   1
+
 /*
  *@brief define enum for MS12 message type
  */
@@ -133,5 +136,37 @@ void set_ms12_sys_pcm_acmod_lfe(struct dolby_ms12_desc *ms12, audio_channel_mask
 
 void set_ms12_app_pcm_acmod_lfe(struct dolby_ms12_desc *ms12, audio_channel_mask_t channel_mask);
 
+/*update drc/cut/boost for stereo pcm output*/
+void set_ms12_drc_boost_value_for_2ch_downmixed_output(struct dolby_ms12_desc *ms12, int boost);
 
+void set_ms12_drc_cut_value_for_2ch_downmixed_output(struct dolby_ms12_desc *ms12, int cut);
+
+void set_ms12_drc_mode_for_2ch_downmixed_output(struct dolby_ms12_desc *ms12, bool drc_mode);
+
+/*update drc/cut/boost for dap or multi-pcm output*/
+void set_ms12_drc_boost_value(struct dolby_ms12_desc *ms12, int boost);
+
+void set_ms12_drc_cut_value(struct dolby_ms12_desc *ms12, int cut);
+
+void set_ms12_drc_mode_for_multichannel_and_dap_output(struct dolby_ms12_desc *ms12, bool drc_mode);
+
+void set_ms12_drc_parameters_for_2ch_downmix_output(struct dolby_ms12_desc *aml_ms12, int drc_mode, int drc_cut, int drc_boost);
+void set_ms12_drc_parameters_for_multi_and_dap_output(struct dolby_ms12_desc *aml_ms12, int drc_mode, int drc_cut, int drc_boost);
+void dynamic_get_dolby_ms12_drc_parameters(struct aml_audio_device *adev, struct dolby_ms12_desc *ms12, audio_format_t format);
+void set_ms12_drc_params_for_stereo_and_dap_multi_pcm_output(
+    struct aml_audio_device *adev
+    , struct dolby_ms12_desc *ms12
+    , audio_format_t format);
+
+int get_ms12_syss_mixgain_target(void);
+
+void pcm_data_do_pre_attenuation(
+    const void *buffer
+    , size_t bytes
+    , bool dolby_ms12_enable
+    , bool is_valid_patch
+    , bool is_drc_rf_mode
+    , int syss_target
+    , int bytes_per_sample
+    );
 #endif //end of _AUDIO_HW_MS12_COMMON_H_

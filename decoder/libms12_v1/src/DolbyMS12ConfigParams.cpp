@@ -567,7 +567,7 @@ int DolbyMS12ConfigParams::SetFunctionalSwitches(char **ConfigParams, int *row_i
         (*row_index)++;
     }
 
-    if (mDAPDRCMode == 1) {
+    {
         sprintf(ConfigParams[*row_index], "%s", "-dap_drc");
         (*row_index)++;
         sprintf(ConfigParams[*row_index], "%d", mDAPDRCMode);
