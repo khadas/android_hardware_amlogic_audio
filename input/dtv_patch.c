@@ -5612,7 +5612,11 @@ int out_write_dtv_stream_for_tunerframework(struct audio_stream_out *stream, con
         }
     }
     audio_hwsync_t *hw_sync = aml_out->hwsync;
+    if (dtv_audio_instances->demux_index_working != -1 &&dtv_audio_instances->demux_index_working != path_id) {
+        aml_out->standby = 1;
+        ALOGI("[%s:%d]dtv_audio_instances->demux_index_working %d path_id %d",__FUNCTION__,__LINE__,dtv_audio_instances->demux_index_working, path_id);
 
+    }
     while (bytes_cost < total_bytes) {
         uint64_t  cur_pts = ULLONG_MAX;//defined in limits.h
         int outsize = 0;
