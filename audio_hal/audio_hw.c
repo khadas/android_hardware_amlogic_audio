@@ -8688,7 +8688,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     pthread_mutex_init(&adev->stream_release_lock, NULL);
 
     /* Set the earctx mode by the property, only need set false */
-    earctx_mode = property_get_bool("persist.sys.vendor.earc_settings", true);
+    earctx_mode = property_get_bool("persist.vendor.earc_settings", true);
     if (!earctx_mode) {
         aml_mixer_ctrl_set_int(&adev->alsa_mixer, AML_MIXER_ID_EARC_TX_EARC_MODE, earctx_mode);
         ALOGI("eARC_TX eARC Mode get from property: %d\n", earctx_mode);
