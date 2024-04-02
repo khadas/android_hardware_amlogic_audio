@@ -1,59 +1,44 @@
 package audio_hidl
 
 import (
-    //"fmt"
-    //"reflect"
-    "android/soong/android"
-    "android/soong/cc"
-    //"github.com/google/blueprint/proptools"
-    //"runtime/debug"
-    "strconv"
+	//"fmt"
+	//"reflect"
+	"android/soong/android"
+	"android/soong/cc"
+	//"github.com/google/blueprint/proptools"
+	//"runtime/debug"
 )
 
 func init() {
-    android.RegisterModuleType("audio_libamlaudioports_go_defaults", audio_hidl_DefaultsFactory)
+	android.RegisterModuleType("audio_libamlaudioports_go_defaults", audio_hidl_DefaultsFactory)
 }
 
 func audio_hidl_Defaults(ctx android.LoadHookContext) {
-    type propsE struct {
-        Shared_libs  []string
-        Include_dirs []string
-        Header_libs  []string
-        Cflags []string
-    }
-    p := &propsE{}
+	type propsE struct {
+		Shared_libs  []string
+		Include_dirs []string
+		Header_libs  []string
+		Cflags       []string
+	}
+	p := &propsE{}
 
-    // After Android T, PlatformVndkVersion return string like "Tiramisu", not string number like "32"
-    PlatformVndkVersion := ctx.DeviceConfig().PlatformVndkVersion()
-    IntPlatformVndkVersion,err := strconv.Atoi(PlatformVndkVersion)
-    //fmt.Println("PlatformVndkVersion:", PlatformVndkVersion)
+	// After Android T, PlatformSdkVersion return string like "Tiramisu", not string number like "32"
+	PlatformSdkVersion := ctx.Config().PlatformSdkVersion().String()
+	//fmt.Println("PlatformVndkVersion:", PlatformVndkVersion)
 
-    if err != nil {
-        p.Shared_libs =  append(p.Shared_libs, "libamlaudiohal.7.0")
-        p.Header_libs =  append(p.Header_libs, "av-headers")
-        p.Include_dirs =  append(p.Include_dirs, "hardware/amlogic/audio/utils/hidl_interface_7_0/include")
-    } else {
-        SDKVERSION := "-DANDROID_PLATFORM_SDK_VERSION=" + PlatformVndkVersion
-        p.Cflags  = append(p.Cflags,SDKVERSION)
-        if IntPlatformVndkVersion == 30 {
-            //fmt.Println("Add lib&include dir for HIDL 6.0")
-            p.Shared_libs =  append(p.Shared_libs, "libamlaudiohal.6.0")
-            p.Include_dirs =  append(p.Include_dirs, "frameworks/av/include")
-            p.Include_dirs =  append(p.Include_dirs, "frameworks/av/media/libaudiohal/include")
-        } else {
-            //fmt.Println("Add lib&include dir for HIDL 7.0")
-            p.Shared_libs =  append(p.Shared_libs, "libamlaudiohal.7.0")
-            p.Header_libs =  append(p.Header_libs, "av-headers")
-            p.Include_dirs =  append(p.Include_dirs, "hardware/amlogic/audio/utils/hidl_interface_7_0/include")
-        }
-    }
+	SDKVERSION := "-DANDROID_PLATFORM_SDK_VERSION=" + PlatformSdkVersion
+	p.Cflags = append(p.Cflags, SDKVERSION)
 
-    ctx.AppendProperties(p)
+	//fmt.Println("Add lib&include dir for HIDL 7.0")
+	p.Shared_libs = append(p.Shared_libs, "libamlaudiohal.7.0")
+	p.Header_libs = append(p.Header_libs, "av-headers")
+	p.Include_dirs = append(p.Include_dirs, "hardware/amlogic/audio/utils/hidl_interface_7_0/include")
+
+	ctx.AppendProperties(p)
 }
 
-func audio_hidl_DefaultsFactory() (android.Module) {
-    module := cc.DefaultsFactory()
-    android.AddLoadHook(module, audio_hidl_Defaults)
-    return module
+func audio_hidl_DefaultsFactory() android.Module {
+	module := cc.DefaultsFactory()
+	android.AddLoadHook(module, audio_hidl_Defaults)
+	return module
 }
-
