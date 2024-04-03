@@ -1021,10 +1021,10 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
                     AM_LOGI("output port:%s fade out, pausing->pausing_1, tsync pause audio", mixerInputType2Str(type));
                     aml_hwsync_wrap_set_pause(hwsync);
                     if (out) {
-                        if (out->hal_format == AUDIO_FORMAT_PCM_32_BIT) {
-                            audio_fade_func_32bit(in_port->data, ret, 0, out->hal_ch);
+                        if (in_port->cfg.format == AUDIO_FORMAT_PCM_32_BIT) {
+                            audio_fade_func_32bit(in_port->data, ret, 0, in_port->cfg.channelCnt);
                         } else {
-                            audio_fade_func_16bit(in_port->data, ret, 0, out->hal_ch);
+                            audio_fade_func_16bit(in_port->data, ret, 0, in_port->cfg.channelCnt);
                         }
                     }
                     set_inport_state(in_port, PAUSED);
@@ -1038,10 +1038,10 @@ static int mixer_inports_read(struct amlAudioMixer *audio_mixer)
                 } else if (fade_in) {
                     AM_LOGI("input port:%s fade in", mixerInputType2Str(type));
                     if (out) {
-                        if (out->hal_format == AUDIO_FORMAT_PCM_32_BIT) {
-                            audio_fade_func_32bit(in_port->data, ret, 1, out->hal_ch);
+                        if (in_port->cfg.format == AUDIO_FORMAT_PCM_32_BIT) {
+                            audio_fade_func_32bit(in_port->data, ret, 1, in_port->cfg.channelCnt);
                         } else {
-                            audio_fade_func_16bit(in_port->data, ret, 1, out->hal_ch);
+                            audio_fade_func_16bit(in_port->data, ret, 1, in_port->cfg.channelCnt);
                         }
                     }
                     set_inport_state(in_port, ACTIVE);

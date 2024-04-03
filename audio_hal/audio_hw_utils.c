@@ -1255,7 +1255,7 @@ void audio_fade_func_16bit(void *buf, int fade_size, int is_fadein, int channel_
         }
         fade_vol += fade_step;
     }
-    ALOGI("do fade %s done,size %d",is_fadein?"in":"out",fade_size);
+    ALOGI("do fade %s done,size %d ch %d",is_fadein?"in":"out",fade_size, channel_num);
 }
 
 void audio_fade_func_32bit(void *buf, int fade_size, int is_fadein, int channel_num) {
@@ -1275,7 +1275,7 @@ void audio_fade_func_32bit(void *buf, int fade_size, int is_fadein, int channel_
         }
         fade_vol += fade_step;
     }
-    ALOGI("do fade %s done,size %d",is_fadein?"in":"out",fade_size);
+    ALOGI("do fade %s done,size %d ch %d",is_fadein?"in":"out",fade_size, channel_num);
 }
 
 void ts_wait_time_us(struct timespec *ts, uint32_t time_us)

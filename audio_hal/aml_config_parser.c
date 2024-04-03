@@ -69,6 +69,7 @@ static cJSON *aml_createJsonRoot(const char *filename)
         fclose(fp);
         return NULL;
     }
+    input[len + 10 - 1] = '\0';
     ret = fread(input, 1, len, fp);
     // allocate the
     temp = cJSON_Parse(input);
