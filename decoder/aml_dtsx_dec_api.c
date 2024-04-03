@@ -236,7 +236,6 @@ static dtsx_config_params_t _dtsx_config_params = {
     .neox_down_mix = 1
 };
 
-///static struct pcm_info pcm_out_info;
 /*dts decoder lib function*/
 static int (*_aml_dts_decoder_init)(void **ppDtsInstance, unsigned int init_argc, const char *init_argv[]);
 static int (*_aml_dts_decoder_process)(void *pDtsInstance, const unsigned char *in_buf, unsigned int in_size, unsigned char **, unsigned int *);
@@ -629,9 +628,9 @@ static int _dtsx_pcm_output(dtsx_dec_t *dtsx_dec)
     if (rc != 0) {
         ALOGE("[%s:%d] _aml_dts_postprocess_get_out_info fail", __func__, __LINE__);
     } else {
-        dtsx_dec->pcm_out_info.sample_rate = nSampleRate;
-        dtsx_dec->pcm_out_info.channel_num = nChannel;
-        dtsx_dec->pcm_out_info.bytes_per_sample = nBitWidth / 8;
+        dtsx_dec->core2_pcm_out_info.sample_rate = nSampleRate;
+        dtsx_dec->core2_pcm_out_info.channel_num = nChannel;
+        dtsx_dec->core2_pcm_out_info.bytes_per_sample = nBitWidth / 8;
     }
 
     /* VX(VirtualX) uses 2CH as input by default.
@@ -1374,18 +1373,18 @@ int dtsx_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int by
         }
 
         ret = (_aml_dts_decoder_get_output_info)(dtsx_dec->p_dtsx_dec_inst, 0,
-                                         &dtsx_dec->pcm_out_info.sample_rate,
-                                         &dtsx_dec->pcm_out_info.channel_num,
+                                         &dtsx_dec->core1_pcm_out_info.sample_rate,
+                                         &dtsx_dec->core1_pcm_out_info.channel_num,
                                          &bits_per_sample);
         if (ret != 0) {
             ALOGW("[%s:%d] dtsx decode fail:%d", __func__, __LINE__, ret);
             return AML_DEC_RETURN_TYPE_NEED_DEC_AGAIN;
         }
 
-        dtsx_dec->pcm_out_info.bytes_per_sample = bits_per_sample / 8;
+        dtsx_dec->core1_pcm_out_info.bytes_per_sample = bits_per_sample / 8;
         if (_dtsx_debug.debug_flag) {
             ALOGD("[%s:%d] Core1 pcm(len:%d, sr:%d, ch:%d)", __func__, __LINE__,
-            dtsx_dec->outlen_pcm, dtsx_dec->pcm_out_info.sample_rate, dtsx_dec->pcm_out_info.channel_num);
+            dtsx_dec->outlen_pcm, dtsx_dec->core1_pcm_out_info.sample_rate, dtsx_dec->core1_pcm_out_info.channel_num);
         }
 
         ret = (_aml_dts_metadata_update)(dtsx_dec->p_dtsx_dec_inst, dtsx_dec->p_dtsx_pp_inst);
@@ -1408,9 +1407,9 @@ int dtsx_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int by
         void *dec_data = (void *)dec_pcm_data->buf;
         int core1_pcm_len = dtsx_dec->outlen_pcm;
 
-        if (core1_pcm_len > 0 && dtsx_dec->pcm_out_info.sample_rate != 48000) {
+        if (core1_pcm_len > 0 && dtsx_dec->core1_pcm_out_info.sample_rate != 48000) {
             ret = aml_audio_resample_process_wrapper(&dtsx_dec->resample_handle, dec_pcm_data->buf,
-                    core1_pcm_len, dtsx_dec->pcm_out_info.sample_rate, dtsx_dec->pcm_out_info.channel_num);
+                    core1_pcm_len, dtsx_dec->core1_pcm_out_info.sample_rate, dtsx_dec->core1_pcm_out_info.channel_num);
             if (ret != 0) {
                 ALOGE("aml_audio_resample_process_wrapper failed");
             } else {
@@ -1479,6 +1478,9 @@ int dtsx_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int by
 
             adev->dts_x.stream_type = dtsx_dec->stream_type;
             adev->dts_x.is_headphone_x = dtsx_dec->is_headphone_x;
+            adev->dts_x.core2_pcm_out_info.bytes_per_sample = dtsx_dec->core2_pcm_out_info.bytes_per_sample;
+            adev->dts_x.core2_pcm_out_info.sample_rate = dtsx_dec->core2_pcm_out_info.sample_rate;
+            adev->dts_x.core2_pcm_out_info.channel_num = dtsx_dec->core2_pcm_out_info.channel_num;
         }
 
         if (dtsx_dec->a_dtsx_pp_output_size[DTSX_OUTPUT_SPK] > 0) {
@@ -1505,14 +1507,7 @@ int dtsx_get_out_ch_internal(dtsx_dec_t *dtsx_dec)
     if (!_aml_dts_postprocess_get_out_info || !dtsx_dec->p_dtsx_pp_inst)
         return 0;
 
-    int rc = _aml_dts_postprocess_get_out_info(dtsx_dec->p_dtsx_pp_inst, DTSX_OUTPUT_SPK, &nSampleRate, &nChannel, &nBitWidth);
-    if (rc != 0) {
-        ALOGE("[%s:%d] _aml_dts_postprocess_get_out_info fail", __func__, __LINE__);
-    } else {
-        return nChannel;
-    }
-
-    return 0;
+    return dtsx_dec->core2_pcm_out_info.channel_num;
 }
 
 int dtsx_set_out_ch_internal(dtsx_dec_t *dtsx_dec, int ch_num)

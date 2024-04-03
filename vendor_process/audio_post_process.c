@@ -14,6 +14,7 @@
 #include <dlfcn.h>
 #include <cutils/log.h>
 #include <audio_utils/format.h>
+#include <audio_utils/primitives.h>
 
 #include "audio_post_process.h"
 #include "aml_dec_api.h"
@@ -22,6 +23,8 @@
 #include "aml_effects_util.h"
 #include "aml_ai_audio.h"
 #include "aml_audio_nonms12_render.h"
+#include "audio_hw_utils.h"
+
 
 #ifdef DTS_VX_V4_ENABLE
 #include "Virtualx_v4.h"
@@ -38,6 +41,7 @@
 //post-processing effects implemented by AML only support PCM32
 #define EFFECT_PROCESSING_FORMAT (AUDIO_FORMAT_PCM_32_BIT)
 #define DEBUG_ENABLE_DUMP_EFFECT_INFO 1
+
 
 bool Check_VX_lib(void);
 static int do_effect_process(struct aml_native_postprocess *native_postprocess, const effect_handle_t effect, void *in_buffer, size_t in_frames);
@@ -380,19 +384,35 @@ int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int
     int ret = 0;
     audio_buffer_t in_buf;
     audio_buffer_t out_buf;
+    size_t src_samples = bytes / audio_bytes_per_sample(native_postprocess->src_format);
+    size_t proced_samples = 0;
+    size_t frame_count = src_samples / native_postprocess->effect_in_ch;
+    void *processing_buffer = in_buffer;
+    int buffer_need_size = bytes; // src_format to proc_format need size.
+
+    if (native_postprocess->proc_format != native_postprocess->src_format) {
+        buffer_need_size = src_samples * audio_bytes_per_sample(native_postprocess->proc_format);
+        ret = aml_audio_check_and_realloc((void **)&native_postprocess->temp_vx_proc_buffer, &native_postprocess->temp_vx_proc_capacity, buffer_need_size);
+        R_CHECK_RET(ret, "alloc temp_vx_proc_buffer size:%d fail", buffer_need_size);
+        processing_buffer = native_postprocess->temp_vx_proc_buffer;
+        ret = 0;
+    }
 
     effect_handle_t effect = native_postprocess->postprocessors[0].itfe;
     if (effect && (*effect) && (*effect)->process && in_buffer &&
         native_postprocess->libvx_exist && (native_postprocess->effect_in_ch == 6 || native_postprocess->effect_in_ch == 8)) {
+        memcpy_by_audio_format(processing_buffer, native_postprocess->proc_format, in_buffer, native_postprocess->src_format, src_samples);
         /* do multi channel processing for dts streaming in VX */
-        in_buf.frameCount = bytes / native_postprocess->effect_in_ch / 2;
-        out_buf.frameCount = bytes / native_postprocess->effect_in_ch / 2;
-        in_buf.s16 = out_buf.s16 = in_buffer;
+        in_buf.frameCount = frame_count;
+        out_buf.frameCount = frame_count;
+        in_buf.s32 = out_buf.s32 = (int32_t *)processing_buffer;
         ret = (*effect)->process(effect, &in_buf, &out_buf);
         if (ret < 0) {
             ALOGE("postprocess failed\n");
         } else {
-            ret = bytes / (native_postprocess->effect_in_ch / 2);
+            ret = bytes / (native_postprocess->effect_in_ch / audio_bytes_per_sample(native_postprocess->src_format));
+            proced_samples = ret * 2;   // (frameCount * effect_out_ch) For TV, Virtual:X always output 2ch.
+            memcpy_by_audio_format(in_buffer, native_postprocess->src_format, processing_buffer, native_postprocess->proc_format, proced_samples);
         }
     }
 
