@@ -390,12 +390,13 @@ static  int unload_ddp_decoder_lib()
     return 0;
 }
 
-static int dcv_decoder_init(int decoding_mode, aml_dec_control_type_t digital_raw)
+static int dcv_decoder_init(int decoding_mode, aml_dec_control_type_t digital_raw, int is_pcmout_32bits)
 {
     int input_mode = 1;
     gDDPDecoderLibHandler = dlopen(DOLBY_DCV_LIB_PATH_A, RTLD_NOW);
     //open 32bit so failed, here try to open the 64bit dolby dcv so.
     if (gDDPDecoderLibHandler == NULL) {
+        ALOGW("%s, failed to open %s\n", __FUNCTION__, dlerror());
         gDDPDecoderLibHandler = dlopen(DOLBY_DCV_LIB64_PATH_A, RTLD_NOW);
         ALOGI("%s, 64bit lib:%s, gDDPDecoderLibHandler:%p\n", __FUNCTION__, DOLBY_DCV_LIB64_PATH_A, gDDPDecoderLibHandler);
     }
@@ -436,6 +437,11 @@ static int dcv_decoder_init(int decoding_mode, aml_dec_control_type_t digital_ra
         ALOGE("%s,can not find decoder config function,%s\n", __FUNCTION__, dlerror());
     } else {
         ALOGV("<%s::%d>--[ddp_decoder_config:]", __FUNCTION__, __LINE__);
+    }
+
+    if (is_pcmout_32bits) {
+        int out_bps = 32;
+        (*ddp_decoder_config)(NULL, DDP_CONFIG_OUT_BITDEPTH, (ddp_config_t *)&out_bps);
     }
 
     (*ddp_decoder_init)(decoding_mode, digital_raw, &handle);
@@ -503,9 +509,10 @@ int dcv_decoder_init_patch(aml_dec_t ** ppaml_dec, aml_dec_config_t * dec_config
     ddp_dec->digital_raw   = dcv_config->digital_raw;
     ddp_dec->nIsEc3        = dcv_config->nIsEc3;
     ddp_dec->is_iec61937   = dcv_config->is_iec61937;
+    ddp_dec->is_pcmout_32bits  = dcv_config->is_pcmout_32bits;
 
     aml_dec->format = dcv_config->format;
-    ret = dcv_decoder_init(ddp_dec->decoding_mode, ddp_dec->digital_raw);
+    ret = dcv_decoder_init(ddp_dec->decoding_mode, ddp_dec->digital_raw, ddp_dec->is_pcmout_32bits);
     ALOGI("dcv_decoder_init decoding mode =%d, ddp_dec->digital_raw=%d ret =%d", ddp_dec->decoding_mode, ddp_dec->digital_raw, ret);
     if (ret < 0) {
         goto error;
@@ -942,7 +949,7 @@ int dcv_decoder_process_patch(aml_dec_t * aml_dec, unsigned char *buffer, int by
     }
 
     if (ddp_dec->outlen_pcm > 0) {
-        dec_pcm_data->data_format = AUDIO_FORMAT_PCM_16_BIT;
+        dec_pcm_data->data_format = ddp_dec->is_pcmout_32bits ? AUDIO_FORMAT_PCM_32_BIT : AUDIO_FORMAT_PCM_16_BIT;
         dec_pcm_data->data_ch     = 2;
         dec_pcm_data->data_sr     = ddp_dec->pcm_out_info.sample_rate;
         dec_pcm_data->data_len    = ddp_dec->outlen_pcm;

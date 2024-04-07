@@ -155,6 +155,7 @@ typedef struct aml_dcv_config {
     bool is_iec61937;
     int decoding_mode;
     int nIsEc3;
+    int is_pcmout_32bits;
 } aml_dcv_config_t;
 
 typedef struct aml_dca_config {

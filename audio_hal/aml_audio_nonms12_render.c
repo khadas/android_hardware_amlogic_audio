@@ -336,10 +336,12 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 audio_format_t output_format;
                 if (audio_is_linear_pcm(aml_out->hal_internal_format)) {
                     output_format = aml_out->hal_internal_format;
-                } /*else if (is_dts_format(aml_out->hal_internal_format)) {
+                }/* else if (is_dts_format(aml_out->hal_internal_format)) {
                     //~~~todo: if enable all path 32bit, set dts output to 32bit
                     output_format = AUDIO_FORMAT_PCM_32_BIT;
-                } */else {
+                }*/ else if (dec_pcm_data->data_format == AUDIO_FORMAT_PCM_32_BIT) {
+                    output_format = AUDIO_FORMAT_PCM_32_BIT;
+                } else {
                     output_format = AUDIO_FORMAT_PCM_16_BIT;
                 }
                 void  *dec_data = (void *)dec_pcm_data->buf;
@@ -768,8 +770,11 @@ static void ddp_decoder_config_prepare(struct audio_stream_out *stream, aml_dcv_
         ddp_config->is_iec61937 = false;
     }
 
-    ALOGI("%s digital_raw:%d, dual_output_flag:%d, is_61937:%d, IsEc3:%d decoding_mode %d"
-        , __func__, ddp_config->digital_raw, aml_out->dual_output_flag, ddp_config->is_iec61937, ddp_config->nIsEc3,ddp_config->decoding_mode);
+    ddp_config->is_pcmout_32bits = (get_primary_out_format(adev) == AUDIO_FORMAT_PCM_32_BIT);
+
+    ALOGI("%s digital_raw:%d, dual_output_flag:%d, is_61937:%d, IsEc3:%d decoding_mode %d is_pcmout_32bits %d"
+        , __func__, ddp_config->digital_raw, aml_out->dual_output_flag, ddp_config->is_iec61937
+        , ddp_config->nIsEc3, ddp_config->decoding_mode, ddp_config->is_pcmout_32bits);
     return;
 }
 
