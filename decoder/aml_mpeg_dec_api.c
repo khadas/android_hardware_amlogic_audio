@@ -24,6 +24,8 @@
 #include "audio_data_process.h"
 #include "aml_malloc_debug.h"
 #include "aml_dump_debug.h"
+#include <audio_utils/channels.h>
+#include <audio_utils/format.h>
 
 #define MAD_LIB_PATH "/vendor/lib/libmad.so"
 #define MAD_LIB_64BIT_PATH "/vendor/lib64/libmad.so"
@@ -314,7 +316,6 @@ static void dump_mad_data(void *buffer, int size, char *file_name)
     }
 }
 
-
 static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int bytes)
 {
     struct mad_dec_t *mad_dec = NULL;
@@ -324,7 +325,7 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
         ALOGE("%s aml_dec is NULL", __func__);
         return -1;
     }
-
+    audio_format_t output_format, input_format;
     mad_dec = (struct mad_dec_t *)aml_dec;
     mad_config = &mad_dec->mad_config;
     mad_decoder_operations_t *mad_op = &mad_dec->mad_op;
@@ -335,6 +336,13 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
     int used_size = 0;
     int used_size_return = 0;
     int mark_remain_size = mad_dec->remain_size;
+    if (aml_dec->output_format == FMT_16BIT) {
+        output_format = AUDIO_FORMAT_PCM_16_BIT;
+        input_format = AUDIO_FORMAT_PCM_16_BIT;
+    } else if (aml_dec->output_format == FMT_32BIT) {
+        output_format = AUDIO_FORMAT_PCM_32_BIT;
+        input_format = AUDIO_FORMAT_PCM_32_BIT;
+    }
     ALOGV("remain_size %d bytes %d ad_decoder_supported %d ad_mixing_enable %d advol_level %d mixer_level %d",
         mad_dec->remain_size ,bytes, mad_dec->ad_decoder_supported, mad_dec->ad_mixing_enable, mad_dec->advol_level,mad_dec->mixer_level );
     if (bytes > 0) {
@@ -406,6 +414,11 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
             pAudioInfo.channels = 2;
     }
 
+    dec_pcm_data->data_sr  = pAudioInfo.samplerate;
+    dec_pcm_data->data_ch  = pAudioInfo.channels;
+    dec_pcm_data->data_format  = output_format;
+    aml_decoder_16bit_to_32bit(output_format, aml_dec, dec_pcm_data);
+
     if (mad_dec->ad_decoder_supported ) {
         used_size = 0;
         int ad_in_size = aml_dec->ad_size;
@@ -470,7 +483,7 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
             }
         }
         ALOGV("pADAudioInfo.channels %d pAudioInfo.channels %d",pADAudioInfo.channels, pAudioInfo.channels);
-        if (pADAudioInfo.channels == 1 && pAudioInfo.channels == 2) {
+        if (pADAudioInfo.channels == 1 && pAudioInfo.channels == 2 && ad_dec_pcm_data->data_len) {
             int16_t *samples_data = (int16_t *)ad_dec_pcm_data->buf;
             int i = 0, samples_num,samples;
             samples_num = ad_dec_pcm_data->data_len / sizeof(int16_t);
@@ -489,35 +502,34 @@ static int mad_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
                     ALOGW("invalid placement %d ", mad_dec->ad_placement);
                 }
             }
+            ad_dec_pcm_data->data_ch = pADAudioInfo.channels = 2;
             ad_dec_pcm_data->data_len  = ad_dec_pcm_data->data_len * 2;
         }
 
-        if (mad_dec->ad_mixing_enable) {
+        aml_decoder_16bit_to_32bit(output_format, aml_dec, ad_dec_pcm_data);
+        if (mad_dec->ad_mixing_enable && ad_dec_pcm_data->data_len) {
             int frames_written = 0;
             float mixing_coefficient = 1.0f;
+            uint32_t frame_size = audio_bytes_per_sample(output_format) * dec_pcm_data->data_ch;
             float ad_mixing_coefficient = DbToAmpl(mad_dec->mixer_level) * (mad_dec->advol_level / 100.0f);
             if (property_get_bool("vendor.media.dtv.pesmode",true)) {
                 float ad_fade_coef = DbToAmpl(mad_dec->ad_fade * (-0.3f));
                 ALOGV("ad_fade %d ad_fade_coef %f",mad_dec->ad_fade, ad_fade_coef);
                 mixing_coefficient *= ad_fade_coef;
-                apply_volume(mixing_coefficient, dec_pcm_data->buf, sizeof(uint16_t), dec_pcm_data->data_len);
+                apply_volume(mixing_coefficient, dec_pcm_data->buf, audio_bytes_per_sample(output_format), dec_pcm_data->data_len);
                 if (ad_dec_pcm_data->data_len) {
-                    apply_volume_pan(mad_dec->ad_pan, ad_dec_pcm_data->buf, sizeof(uint16_t), ad_dec_pcm_data->data_len);
+                    apply_volume_pan(mad_dec->ad_pan, ad_dec_pcm_data->buf, audio_bytes_per_sample(output_format), ad_dec_pcm_data->data_len);
                 }
             }
-            apply_volume(ad_mixing_coefficient, ad_dec_pcm_data->buf, sizeof(uint16_t), ad_dec_pcm_data->data_len);
+            apply_volume(ad_mixing_coefficient, ad_dec_pcm_data->buf, audio_bytes_per_sample(output_format), ad_dec_pcm_data->data_len);
 
             frames_written = do_mixing_2ch(dec_pcm_data->buf, ad_dec_pcm_data->buf ,
-                dec_pcm_data->data_len / 4 , AUDIO_FORMAT_PCM_16_BIT, AUDIO_FORMAT_PCM_16_BIT);
+                dec_pcm_data->data_len / frame_size, input_format, output_format);
             ALOGV("frames_written %d dec_pcm_data->data_len %d",frames_written, dec_pcm_data->data_len);
-            dec_pcm_data->data_len = frames_written * 4;
+            dec_pcm_data->data_len = frames_written * frame_size;
         }
 
     }
-
-    dec_pcm_data->data_sr  = pAudioInfo.samplerate;
-    dec_pcm_data->data_ch  = pAudioInfo.channels;
-    dec_pcm_data->data_format  = mad_config->mpeg_format;
     if (dec_pcm_data->data_len != ad_dec_pcm_data->data_len ) {
         ALOGV("dec_pcm_data->data_len %d ad_dec_pcm_data->data_len %d",dec_pcm_data->data_len ,ad_dec_pcm_data->data_len);
     }

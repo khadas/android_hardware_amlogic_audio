@@ -387,6 +387,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
             dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
             dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
             dec_data_info_t * raw_in_data  = &aml_dec->raw_in_data;
+            aml_dec->output_format = choose_dtv_pcm_output_format(get_primary_out_format(adev));
             left_bytes = bytes;
             do {
                 if (adev->debug_flag)
@@ -405,7 +406,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                     void  *dec_data = (void *)dec_pcm_data->buf;
 #ifdef ENABLE_DVB_PATCH
                     if (dtv_stream_flag) {
-                        aml_audio_switch_output_mode((int16_t *)dec_pcm_data->buf, dec_pcm_data->data_len, AUDIO_FORMAT_PCM_16_BIT, get_dev_patch(adev)->mode);
+                        aml_audio_switch_output_mode((int16_t *)dec_pcm_data->buf, dec_pcm_data->data_len, get_primary_out_format(adev), get_dev_patch(adev)->mode);
                         if (is_dtv_start_mute(adev)) {
                             memset(dec_pcm_data->buf, 0, dec_pcm_data->data_len);
                         }
@@ -417,14 +418,23 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                     if (patch) {
                         patch->sample_rate = dec_pcm_data->data_sr;
                     }
-                    if (dec_pcm_data->data_sr != OUTPUT_ALSA_SAMPLERATE ) {
-                         ret = aml_audio_resample_process_wrapper(&aml_out->resample_handle, dec_pcm_data->buf, dec_pcm_data->data_len, dec_pcm_data->data_sr, dec_pcm_data->data_ch);
-                         if (ret != 0) {
-                             ALOGI("aml_audio_resample_process_wrapper failed");
-                         } else {
-                             dec_data = aml_out->resample_handle->resample_buffer;
-                             dec_pcm_data->data_len = aml_out->resample_handle->resample_size;
-                         }
+
+                    int input_sr = dec_pcm_data->data_sr;
+                    int output_sr = OUTPUT_ALSA_SAMPLERATE;
+                    if (dec_pcm_data->data_sr != OUTPUT_ALSA_SAMPLERATE) {
+                        audio_resample_config_t cfg = {
+                            .aformat = get_primary_out_format(adev),
+                            .channels = dec_pcm_data->data_ch,
+                            .input_sr = input_sr,
+                            .output_sr = output_sr,
+                        };
+                        ret = aml_audio_resample_process_ex(&aml_out->resample_handle, &cfg, dec_data, dec_pcm_data->data_ch);
+                        if (ret != 0) {
+                            AM_LOGE("aml_audio_resample_process_ex fail ret=%d", ret);
+                        } else {
+                            dec_data = aml_out->resample_handle->resample_buffer;
+                            dec_pcm_data->data_len = aml_out->resample_handle->resample_size;
+                        }
                     }
 #ifdef ENABLE_DVB_PATCH
                     if (dtv_stream_flag)

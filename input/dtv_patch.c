@@ -2285,7 +2285,6 @@ int patch_thread_get_cmd(struct aml_audio_patch *patch, int *cmd, int *path_id)
         return dtv_patch_get_cmd(patch->dtv_cmd_list,cmd, path_id);
     }
 }
-
 static void *audio_dtv_patch_process_threadloop(void *data)
 {
     struct aml_audio_patch *patch = (struct aml_audio_patch *)data;
@@ -3919,7 +3918,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
     // FIXME: get actual configs
     stream_config.sample_rate = 48000;
     stream_config.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
-    stream_config.format = AUDIO_FORMAT_PCM_16_BIT;
+    stream_config.format = get_primary_out_format(aml_dev);
     /*
     may we just exit from a direct active stream playback
     still here.we need remove to standby to new playback
@@ -4272,7 +4271,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
     patch->sample_rate = stream_config.sample_rate = 48000;
     patch->chanmask = stream_config.channel_mask = AUDIO_CHANNEL_IN_STEREO;
     /*coverity[missing_lock]*/
-    patch->aformat = stream_config.format = AUDIO_FORMAT_PCM_16_BIT;
+    patch->aformat = stream_config.format = get_primary_out_format(aml_dev);
 
     int switch_flag = property_get_int32("vendor.media.audio.strategy.switch", 0);
     int show_first_nosync = property_get_int32("vendor.media.video.show_first_frame_nosync", 1);
@@ -4901,7 +4900,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     // save dev to patch
     patch->dev = dev;
     patch->input_src = input;
-    patch->aformat = AUDIO_FORMAT_PCM_16_BIT;
+    patch->aformat = get_primary_out_format(aml_dev);
     patch->is_dtv_src = true;
     patch->startplay_avsync_flag = 1;
     patch->ad_substream_checked_flag = false;

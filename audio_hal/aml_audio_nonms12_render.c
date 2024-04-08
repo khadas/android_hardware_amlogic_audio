@@ -254,6 +254,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
         dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
         dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
         dec_data_info_t * raw_in_data  = &aml_dec->raw_in_data;
+        aml_dec->output_format = choose_dtv_pcm_output_format(get_primary_out_format(adev));
         left_bytes = bytes;
 
         do {
