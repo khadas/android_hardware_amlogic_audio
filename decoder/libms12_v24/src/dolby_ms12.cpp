@@ -841,4 +841,23 @@ extern "C" int dolby_ms12_register_scaletempo_callback(void *callback, void *pri
     }
 }
 
+extern "C" int dolby_ms12_set_alsa_limit_frame(int limit_frame)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12SetAlsaLimitFrame(limit_frame);
+    }
+    return -1;
+}
+
+extern "C" int dolby_ms12_set_scheduler_sleep(int enable_sleep)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12* dolby_ms12_instance = getInstance();
+    if (dolby_ms12_instance) {
+        return dolby_ms12_instance->DolbyMS12SetSchedulerSleep(enable_sleep);
+    }
+    return -1;
+}
 

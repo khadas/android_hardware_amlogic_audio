@@ -41,6 +41,8 @@ typedef enum  {
     MS12_CONFIG_AC4DEC_GET_ACTIVE_PRESENTATION,
     MS12_CONFIG_AC4DEC_CHECK_THE_PGI_IS_PRESENT,
     MS12_CONFIG_ALSA_DELAY_FRAME,
+    MS12_CONFIG_ALSA_LIMIT_FRAME,
+    MS12_CONFIG_SCHEDULER_SLEEP,
 }ms12_config_type_t;
 
 typedef union ms12_config {
@@ -257,6 +259,10 @@ public:
     virtual int DolbyMS12SetAlsaDelayFrame(int delay_frame);
 
     virtual int     DolbyMS12RegisterScaletempoCallback(scaletempo_callback callback, void *priv_data);
+
+    virtual int DolbyMS12SetAlsaLimitFrame(int limit_frame);
+
+    virtual int DolbyMS12SetSchedulerSleep(int enable_sleep);
 
     // protected:
 

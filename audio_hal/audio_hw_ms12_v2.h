@@ -48,6 +48,9 @@
 #define MIXER_SECONDARY_INPUT 1
 #define MIXER_SYSTEM_INPUT    2
 
+#define MS12_ALSA_LOW_LIMIT_FRAME        (16 *48)   // 16 ms
+#define MS12_ALSA_DEFAULT_LIMIT_FRAME    1024       // 21.3 ms
+
 
 /**
  *  @brief Supported channel modes, independent on module or codec.
@@ -412,6 +415,10 @@ void set_dolby_ms12_continuous_state(struct dolby_ms12_desc *ms12, int status);
 int dolby_ms12_main_resume_prepare(struct audio_stream_out *stream);
 
 void set_ms12_set_compressor_profile(struct dolby_ms12_desc *ms12, int profile);
+
+void set_ms12_alsa_limit_frame(struct dolby_ms12_desc *ms12, int limit_frame);
+
+void set_ms12_scheduler_sleep(struct dolby_ms12_desc *ms12, bool enable_sleep);
 
 int aml_dap_open(
     struct aml_stream_out *aml_out

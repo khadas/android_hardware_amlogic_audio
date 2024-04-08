@@ -1247,7 +1247,9 @@ int get_the_dolby_ms12_prepared(
     if (pthread_mutex_init(&ms12->main_apts_update_lock, NULL)) {
         ALOGE("%s pthread_mutex_init(main_apts_update_lock) failed", __func__);
     }
-
+    set_ms12_alsa_limit_frame(ms12, MS12_ALSA_DEFAULT_LIMIT_FRAME);
+    set_ms12_scheduler_sleep(ms12, true);
+    ms12->scheduler_run_count = 0;
 
     ALOGI("-%s()\n\n", __FUNCTION__);
 
@@ -3893,6 +3895,41 @@ int ms12_tempo_callback(void *priv_data, void *info) {
     return ret;
 }
 
+static void dolby_ms12_sleep(struct aml_audio_device *adev, struct dolby_ms12_desc *ms12, int alsa_delay_frame)
+{
+    int sleep_time_us = 1000;
+
+    if (ms12 == NULL) {
+        return;
+    }
+    if (adev->ms12_dynamic_sleep == false) {
+        if (ms12->scheduler_sleep_enable != true) {
+            set_ms12_scheduler_sleep(ms12, true);
+        }
+        return;
+    } else {
+        if (ms12->scheduler_sleep_enable != false) {
+            set_ms12_scheduler_sleep(ms12, false);
+        }
+    }
+
+    if (ms12->scheduler_run_count <= 300) {
+        // ms12 output is not stable, use default value
+    } else if (adev->aaudio_low_latency == true) {
+        // low_latency mode, need alsa buffer level more stable.
+        sleep_time_us = 1000;
+    } else if (alsa_delay_frame > ms12->alsa_limit_frame/2) {
+        sleep_time_us = 2000;
+    } else if (alsa_delay_frame <= 6*48) {
+        // alsa buffer level too low ( <= 6ms), need to speed up
+        sleep_time_us = 0;
+    }
+
+    if (sleep_time_us > 0) {
+        usleep(sleep_time_us);
+    }
+}
+
 static void *dolby_ms12_threadloop(void *data)
 {
     ALOGI("+%s() ", __FUNCTION__);
@@ -3920,6 +3957,9 @@ static void *dolby_ms12_threadloop(void *data)
             int delayframe = aml_alsa_output_get_delayframe((struct audio_stream_out*)adev->ms12_out);
             dolby_ms12_set_alsa_delay_frame(delayframe);
             dolby_ms12_scheduler_run(ms12->dolby_ms12_ptr);
+
+            ms12->scheduler_run_count++;
+            dolby_ms12_sleep(adev, ms12, delayframe);
         } else {
             ALOGE("%s() ms12->dolby_ms12_ptr is NULL, fatal error!", __FUNCTION__);
             break;
@@ -3927,6 +3967,7 @@ static void *dolby_ms12_threadloop(void *data)
         ALOGV("%s() dolby_ms12_scheduler_run end", __FUNCTION__);
         if (ms12->ms12_continuous_state == MS12_SCHEDULER_STANDBY) {
             ALOGD("%s  ms12 continuous start standby wait ....\n", __FUNCTION__);
+            ms12->scheduler_run_count = 0;
             if (sem_wait(&ms12->standby_sem)) {
                 ALOGE("%s wait ms12 semaphore failed\n", __FUNCTION__);
             } else {
@@ -4306,14 +4347,20 @@ int dolby_ms12_encoder_reconfig(struct dolby_ms12_desc *ms12) {
 
     if (adev->sink_capability == AUDIO_FORMAT_MAT) {
         output_config = MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_MAT;
-        if (current_ddp_encoder_enable) {
+        if (current_ddp_encoder_enable || !current_mat_encoder_enable) {
             b_reset = 1;
         }
     } else {
         output_config = MS12_OUTPUT_MASK_DD | MS12_OUTPUT_MASK_DDP | MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_SPEAKER;
-        if (current_mat_encoder_enable) {
+        if (current_mat_encoder_enable || !current_ddp_encoder_enable) {
             b_reset = 1;
         }
+    }
+
+    if (adev->is_netflix && adev->aaudio_low_latency) {
+        // LLP only request pcm, turn off encoder to reduce cpu loading.
+        output_config = MS12_OUTPUT_MASK_STEREO | MS12_OUTPUT_MASK_SPEAKER;
+        b_reset = 1;
     }
     if (hdmi_descs->pcm_fmt.max_channels >= 6) {
         output_config |= MS12_OUTPUT_MASK_MC;
@@ -4814,6 +4861,22 @@ void set_ms12_set_compressor_profile(struct dolby_ms12_desc *ms12, int profile)
     if ((strlen(parm)) > 0 && ms12) {
         dolby_ms12_set_pcm_compressor_profile(profile);
         aml_ms12_update_runtime_params(ms12, parm);
+    }
+}
+
+void set_ms12_alsa_limit_frame(struct dolby_ms12_desc *ms12, int limit_frame)
+{
+    if (ms12 && limit_frame >= 0) {
+        dolby_ms12_set_alsa_limit_frame(limit_frame);
+        ms12->alsa_limit_frame = limit_frame;
+    }
+}
+
+void set_ms12_scheduler_sleep(struct dolby_ms12_desc *ms12, bool enable_sleep)
+{
+    if (ms12) {
+        dolby_ms12_set_scheduler_sleep(enable_sleep);
+        ms12->scheduler_sleep_enable = enable_sleep;
     }
 }
 

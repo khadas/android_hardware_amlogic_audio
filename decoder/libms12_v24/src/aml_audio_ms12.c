@@ -286,6 +286,11 @@ int aml_ms12_main_encoder_reconfig(struct dolby_ms12_desc *ms12_desc, int output
 
     dolby_ms12_encoder_close(ms12_desc->dolby_ms12_ptr);
 
+    if ((output_config & (MS12_OUTPUT_MASK_MAT|MS12_OUTPUT_MASK_DDP|MS12_OUTPUT_MASK_DD)) == 0) {
+        ALOGI("%s : output_config 0x%x not request open encoder", __func__, output_config);
+        return 0;
+    }
+
     dolby_ms12_config_params_reset_config_params();
     dolby_ms12_config_params_set_audio_stream_out_params(
         2 //AUDIO_OUTPUT_FLAG_PRIMARY

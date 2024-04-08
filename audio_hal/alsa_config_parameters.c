@@ -27,6 +27,7 @@
 #include "audio_hw_utils.h"
 #include "alsa_config_parameters.h"
 #include "aml_dump_debug.h"
+#include "dolby_lib_api.h"
 
 #define PERIOD_SIZE                     1024
 #define HARDWARE_CHANNEL_STEREO         2
@@ -198,6 +199,8 @@ static void get_pcm_hardware_config_parameters(
     , bool game_mode
     , bool is_netflix)
 {
+    struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
+
     if (platform_is_tv == false) {
         if (channels <= 2) {
             hardware_config->channels = HARDWARE_CHANNEL_STEREO;
@@ -243,10 +246,14 @@ static void get_pcm_hardware_config_parameters(
     hardware_config->avail_min = 0;
 
     if (is_netflix && is_aaudio_low_latency_mode()) {
-        // currently ms12 alsa start threshold : about 1024 frames
         hardware_config->period_size = LOW_LATENCY_PLAYBACK_NETFLIX_PERIOD_SIZE;
         hardware_config->period_count = LOW_LATENCY_PLAYBACK_NETFLIX_PERIOD_COUNT;
-        hardware_config->start_threshold = hardware_config->period_size * 4;
+        if (adev && eDolbyMS12Lib == adev->dolby_lib_type) {
+            // currently ms12 llp mode alsa buffer : about 768 frames
+            hardware_config->start_threshold = hardware_config->period_size * 3;
+        } else {
+            hardware_config->start_threshold = hardware_config->period_size * 4;
+        }
     }
 
     return ;

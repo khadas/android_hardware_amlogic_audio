@@ -3513,12 +3513,17 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     }
 
     if (out->flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) {
+        bool last_low_latency_mode = adev->aaudio_low_latency;
         ret = outMmapDeInit(out);
         if (ret == 0 && out->aaudio_low_latency) {
             aml_leave_aaudio_low_latency(adev);
             get_sink_format((struct audio_stream_out *)out);
             out->aaudio_low_latency = false;
             adev->aaudio_low_latency_updated = true;
+        }
+        if (last_low_latency_mode == true && adev->aaudio_low_latency == false && eDolbyMS12Lib == adev->dolby_lib_type) {
+            audiohal_send_msg_2_ms12(&adev->ms12, MS12_MESG_TYPE_RESET_MS12_ENCODER);
+            set_ms12_alsa_limit_frame(&adev->ms12, MS12_ALSA_DEFAULT_LIMIT_FRAME);  // use default limit value
         }
     }
 
@@ -8761,6 +8766,7 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->dac_softmute_delay = property_get_int32("ro.vendor.media.audio.softmute.delay", 0);
     /* get the device Loudness level */
     adev->loudness_level = get_loudness_level();
+    adev->ms12_dynamic_sleep = property_get_bool("ro.vendor.media.audio.ms12.dynamic_sleep", false);
 
     /*for ms12 case, we set default continuous mode*/
     if (eDolbyMS12Lib == adev->dolby_lib_type) {

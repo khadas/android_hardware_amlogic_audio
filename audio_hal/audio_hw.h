@@ -560,6 +560,7 @@ struct aml_audio_device {
     int bus_stream_count;
     int a2dp_out_follow_bus_id;   /* for automotive bus output */
 #endif
+    bool ms12_dynamic_sleep;
 };
 
 struct meta_data {

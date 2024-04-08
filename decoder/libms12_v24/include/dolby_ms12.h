@@ -425,6 +425,10 @@ int dolby_ms12_set_alsa_delay_frame(int delay_frame);
 
 int dolby_ms12_register_scaletempo_callback(void *callback, void *priv_data);
 
+int dolby_ms12_set_alsa_limit_frame(int limit_frame);
+
+int dolby_ms12_set_scheduler_sleep(int enable_sleep);
+
 #ifdef __cplusplus
 }
 #endif
