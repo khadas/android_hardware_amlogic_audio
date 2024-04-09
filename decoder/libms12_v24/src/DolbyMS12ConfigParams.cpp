@@ -130,7 +130,8 @@ DolbyMS12ConfigParams::DolbyMS12ConfigParams():
     , mDualMonoReproMode(0)
     , mVerbosity(2)
     , mOutputBitDepth(16)//use 16 bit per sample for not support 32bit ms12 lib
-    , mOutputBitDepth2(32)//use 32 bit per sample for support 32bit ms12 lib
+    // Temporary disable 32 bit now, audiohal pipeline is not totally ready.
+    , mOutputBitDepth2(16)//use 32 bit per sample for support 32bit ms12 lib
     , mAssociatedAudioMixing(1)
     , mSystemAPPAudioMixing(1)
     , mUserControlVal(0)

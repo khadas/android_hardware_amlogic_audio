@@ -2890,13 +2890,14 @@ static int ms12_output_master(void *buffer, void *priv_data, size_t size, audio_
 
     data_info.audio_format = output_format;
     data_info.channel_mask = audio_channel_out_mask_from_count(ms12_info->output_ch);
-
+#if 0
     //ms12 master output, alsa bitdepth by ms12 output bitdepth.
     if (data_info.audio_format == AUDIO_FORMAT_PCM_16_BIT) {
         adev->ms12_config.format = PCM_FORMAT_S16_LE;
     } else if (data_info.audio_format == AUDIO_FORMAT_PCM_32_BIT) {
         adev->ms12_config.format = PCM_FORMAT_S32_LE;
     }
+#endif
     ret = aml_audio_pcm_output((struct audio_stream_out *)aml_out, buffer, size, &data_info);
 
     /*we put passthrough ms12 data here*/
