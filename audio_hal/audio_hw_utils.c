@@ -1412,7 +1412,7 @@ int aml_audio_get_speaker_latency_offset(int aformat ,int ms12_enable)
            latency_ms = 0;
     } else {
         prop_name = "vendor.media.audio.hal.speaker_latency.raw";
-        latency_ms = 80;
+        latency_ms = 130;
     }
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0)

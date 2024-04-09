@@ -196,7 +196,7 @@
 #define  AVSYNC_NONMS12_HDMI_OUT_DDP_LATENCY_PROPERTY               "vendor.media.audio.hal.nonms12.hdmi.ddp"
 
 /* SPEAKER tune */
-#define  AVSYNC_NONMS12_SPEAKER_LATENCY                             (0)
+#define  AVSYNC_NONMS12_SPEAKER_LATENCY                             (200)
 #define  AVSYNC_NONMS12_SPEAKER_LATENCY_PROPERTY                    "vendor.media.audio.hal.nonms12.speaker"
 
 
