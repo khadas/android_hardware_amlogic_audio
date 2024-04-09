@@ -33,6 +33,8 @@
 #include <sound/asound.h>
 #include <cutils/log.h>
 #include <cutils/properties.h>
+#include <audio_utils/channels.h>
+#include <audio_utils/format.h>
 
 #include "audio_hw.h"
 #include "aml_dtsx_dec_api.h"
@@ -116,7 +118,7 @@ enum
     EXITING_STATUS = -1001,
     NO_ENOUGH_DATA = -1002,
 };
-
+#define OUTPUT_ALSA_SAMPLERATE (48000)
 ///< From dtshd_dec_api_common.h. It belongs to the pub header, so it won't change.
 enum AML_DTSX_STRMTYPE_MASK
 {
@@ -178,6 +180,7 @@ typedef struct dtsx_debug_s {
     FILE* fp_decode_pcm;
     FILE* fp_hp_pcm;
     FILE* fp_output_raw;
+    FILE* fp_24to32_pcm;
 } dtsx_debug_t;
 
 typedef struct dtsx_config_params_s {
@@ -197,6 +200,8 @@ typedef struct dtsx_config_params_s {
     int loudness_target[DTSX_OUTPUT_MAX];      // rang: -60 ~ -10
     bool neuralx_up_mix;
     bool neox_down_mix;
+    int core1_out_bitwidth;
+    int core2_out_bitwidth;
 } dtsx_config_params_t;
 
 static dtsx_debug_t _dtsx_debug = {0};
@@ -677,7 +682,10 @@ static int _dtsx_pcm_output(dtsx_dec_t *dtsx_dec)
         fwrite(dtsx_dec->a_dtsx_pp_output[DTSX_OUTPUT_HP], 1, dtsx_dec->a_dtsx_pp_output_size[DTSX_OUTPUT_HP], _dtsx_debug.fp_hp_pcm);
     }
 
-    dec_pcm_data->data_format = AUDIO_FORMAT_PCM_16_BIT;
+    if (dtsx_dec->core1_pcm_out_info.bytes_per_sample == 3)
+        dec_pcm_data->data_format = AUDIO_FORMAT_PCM_32_BIT;
+    else
+        dec_pcm_data->data_format = AUDIO_FORMAT_PCM_16_BIT;
     dec_pcm_data->data_ch = nChannel;
     dec_pcm_data->data_sr = nSampleRate;
     dec_pcm_data->data_len = dtsx_dec->a_dtsx_pp_output_size[DTSX_OUTPUT_SPK];
@@ -912,12 +920,15 @@ static int _aml_dtsx_dualcore_init(dtsx_dec_t *p_dtsx_dec)
     _dtsx_config_params.dec_sink_dev_type = p_dtsx_dec->sink_dev_type;
     _dtsx_config_params.pp_sink_dev_type = p_dtsx_dec->sink_dev_type;
     _dtsx_config_params.bPassthrough = p_dtsx_dec->passthroug_enable;
+    _dtsx_config_params.core1_out_bitwidth = 16;
+    _dtsx_config_params.core2_out_bitwidth = 16;
 
     /* Prepare the init argv for core1 decoder */
     snprintf(p_dtsx_dec->init_argv[cmd_count++], DTSX_PARAM_STRING_LEN, "dtsx_core1_max_spkrout=%d", _dtsx_config_params.core1_dec_out);
     snprintf(p_dtsx_dec->init_argv[cmd_count++], DTSX_PARAM_STRING_LEN, "dtsx_unalignedsyncword");
     snprintf(p_dtsx_dec->init_argv[cmd_count++], DTSX_PARAM_STRING_LEN, "dtsx_dec_sinkdevtype=%d", _dtsx_config_params.dec_sink_dev_type);
     snprintf(p_dtsx_dec->init_argv[cmd_count++], DTSX_PARAM_STRING_LEN, "dtsx_passthrough_enable=%d", _dtsx_config_params.bPassthrough);
+    snprintf(p_dtsx_dec->init_argv[cmd_count++], DTSX_PARAM_STRING_LEN, "dtsx_core1_out_bitwidth=%d", _dtsx_config_params.core1_out_bitwidth);
 
     ret = (_aml_dts_decoder_init)(&p_dtsx_dec->p_dtsx_dec_inst, cmd_count, (const char **)(p_dtsx_dec->init_argv));
     if (ret != 0) {
@@ -931,6 +942,7 @@ static int _aml_dtsx_dualcore_init(dtsx_dec_t *p_dtsx_dec)
     snprintf(p_dtsx_dec->init_argv[cmd_count++], DTSX_PARAM_STRING_LEN, "dtsx_pp_sinkdevtype=%d", _dtsx_config_params.pp_sink_dev_type);
     snprintf(p_dtsx_dec->init_argv[cmd_count++], DTSX_PARAM_STRING_LEN, "dtsx_core2_spkrout=%d", 2);
     snprintf(p_dtsx_dec->init_argv[cmd_count++], DTSX_PARAM_STRING_LEN, "dtsx_config_output_for_vx=%d", _dtsx_config_params.auto_config_out_for_vx);
+    snprintf(p_dtsx_dec->init_argv[cmd_count++], DTSX_PARAM_STRING_LEN, "dtsx_core2_out_bitwidth=%d", _dtsx_config_params.core2_out_bitwidth);
 
     // hybrid limiting in linked mode (Medium MIPS)
     snprintf(p_dtsx_dec->init_argv[cmd_count++], DTSX_PARAM_STRING_LEN, "dtsx_spk_limitertype=%d", _dtsx_config_params.limiter_type[DTSX_OUTPUT_SPK]);
@@ -1093,11 +1105,14 @@ int dtsx_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
     dec_pcm_data->buf = (unsigned char *)aml_audio_malloc(dec_pcm_data->buf_size);
     dec_raw_data->buf_size = MAX_DTS_RAW_OUTPUT_LENGTH * 2;
     dec_raw_data->buf = (unsigned char *)aml_audio_malloc(dec_raw_data->buf_size);
+    dtsx_dec->sample_convert_buf_size = dec_pcm_data->buf_size;
+    dtsx_dec->sample_convert_buf = (unsigned char *)aml_audio_malloc(dtsx_dec->sample_convert_buf_size);
     if (!dec_pcm_data->buf || !dec_raw_data->buf || !dtsx_dec->inbuf) {
         ALOGE("%s malloc memory failed!", __func__);
         goto DTSX_INIT_FAIL;
     }
     memset(dec_pcm_data->buf, 0, dec_pcm_data->buf_size);
+    memset(dtsx_dec->sample_convert_buf, 0, dtsx_dec->sample_convert_buf_size);
     memset(dec_raw_data->buf , 0, dec_raw_data->buf_size);
     memset(dtsx_dec->inbuf, 0, dtsx_dec->inbuf_size);
     memset(raw_in_data, 0, sizeof(dec_data_info_t));  ///< no use in DTSX
@@ -1133,6 +1148,15 @@ int dtsx_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
         snprintf(name, 64, "%sdtsx_decode_pcm.pcm", AML_DTSX_DUMP_FILE_DIR);
         _dtsx_debug.fp_decode_pcm = fopen(name, "a+");
         if (!_dtsx_debug.fp_decode_pcm) {
+            ALOGW("[Error] Can't write to %s", name);
+        }
+    }
+
+    if (_dtsx_config_params.core1_out_bitwidth == 24 && (get_debug_value(AML_DUMP_AUDIOHAL_DECODER) || property_get_bool(AML_DTSX_PROP_DUMP_DECODE_PCM, 0))) {
+        char name[64] = {0};
+        snprintf(name, 64, "%sdtsx_decode_24_to_32_pcm.pcm", AML_DTSX_DUMP_FILE_DIR);
+        _dtsx_debug.fp_24to32_pcm = fopen(name, "a+");
+        if (!_dtsx_debug.fp_24to32_pcm) {
             ALOGW("[Error] Can't write to %s", name);
         }
     }
@@ -1297,6 +1321,7 @@ int dtsx_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int by
     int frame_size = 0;
     int ret = 0, bits_per_sample = 0;
     unsigned char *dec_pcm_out = NULL;
+    uint32_t u32PredictionSize = 0;
 
     if (!aml_dec || !buffer) {
         ALOGE("[%s:%d] Invalid parameter: %s %s", __func__, __LINE__, DCA_CHECK_NULL_STR(aml_dec), DCA_CHECK_NULL_STR(buffer));
@@ -1392,24 +1417,66 @@ int dtsx_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int by
             ALOGW("[%s:%d] dtsx metadata update fail:%d", __func__, __LINE__, ret);
         }
 
-        if (dtsx_dec->outlen_pcm > dec_pcm_data->buf_size) {
-            ALOGI("[%s:%d] realloc decode buffer from (%d) to (%u)", __func__, __LINE__, dec_pcm_data->buf_size, dtsx_dec->outlen_pcm);
-            dec_pcm_data->buf = aml_audio_realloc(dec_pcm_data->buf, dtsx_dec->outlen_pcm);
+        u32PredictionSize = dtsx_dec->outlen_pcm;
+        if (dtsx_dec->core1_pcm_out_info.bytes_per_sample == 3) {
+            u32PredictionSize = dtsx_dec->outlen_pcm / audio_bytes_per_sample(AUDIO_FORMAT_PCM_24_BIT_PACKED) * \
+                            audio_bytes_per_sample(AUDIO_FORMAT_PCM_32_BIT);
+        }
+        if (u32PredictionSize > dec_pcm_data->buf_size) {
+            ALOGI("[%s:%d] realloc decode buffer from (%d) to (%u)", __func__, __LINE__, dec_pcm_data->buf_size, u32PredictionSize);
+            dec_pcm_data->buf = aml_audio_realloc(dec_pcm_data->buf, u32PredictionSize);
             if (dec_pcm_data->buf == NULL) {
-                ALOGE("[%s:%d] realloc for decode buffer(%u) failed", __func__, __LINE__, dtsx_dec->outlen_pcm);
+                ALOGE("[%s:%d] realloc for decode buffer(%u) failed", __func__, __LINE__, u32PredictionSize);
                 return AML_DEC_RETURN_TYPE_FAIL;
             }
-            dec_pcm_data->buf_size = dtsx_dec->outlen_pcm;
+            dec_pcm_data->buf_size = u32PredictionSize;
+
+            if (dtsx_dec->core1_pcm_out_info.bytes_per_sample == 3) {
+                dtsx_dec->sample_convert_buf = aml_audio_realloc(dtsx_dec->sample_convert_buf, u32PredictionSize);
+                if (dtsx_dec->sample_convert_buf == NULL) {
+                    ALOGE("[%s:%d] realloc for decode buffer(%u) failed", __func__, __LINE__, u32PredictionSize);
+                    return AML_DEC_RETURN_TYPE_FAIL;
+                }
+                dtsx_dec->sample_convert_buf_size = u32PredictionSize;
+            }
         }
 
-
         memcpy(dec_pcm_data->buf, dtsx_dec->a_dtsx_pp_output[DTSX_OUTPUT_SPK], dtsx_dec->outlen_pcm);
+
+        /*24 convert to 32*/
+        if (dtsx_dec->core1_pcm_out_info.bytes_per_sample == 3) {  // 24bit pcm packed.
+            uint32_t src_frame_size = audio_bytes_per_sample(AUDIO_FORMAT_PCM_24_BIT_PACKED) * \
+                                dtsx_dec->core1_pcm_out_info.channel_num;
+            uint32_t frame_count = dtsx_dec->outlen_pcm / src_frame_size;
+
+            memcpy(dtsx_dec->sample_convert_buf, dec_pcm_data->buf, dtsx_dec->outlen_pcm);
+            memcpy_by_audio_format(dec_pcm_data->buf, AUDIO_FORMAT_PCM_32_BIT,
+                (const void *)dtsx_dec->sample_convert_buf, AUDIO_FORMAT_PCM_24_BIT_PACKED,
+                frame_count * dtsx_dec->core1_pcm_out_info.channel_num);
+
+            dtsx_dec->outlen_pcm = frame_count * audio_bytes_per_sample(AUDIO_FORMAT_PCM_32_BIT) * \
+                                dtsx_dec->core1_pcm_out_info.channel_num;
+            dec_pcm_data->data_format = AUDIO_FORMAT_PCM_32_BIT;
+        } else {
+            dec_pcm_data->data_format = AUDIO_FORMAT_PCM_16_BIT;
+        }
+
+        /*dump 32bit data*/
+        if (_dtsx_debug.fp_24to32_pcm) {
+            fwrite(dec_pcm_data->buf, 1, dtsx_dec->outlen_pcm, _dtsx_debug.fp_24to32_pcm);
+        }
+
         void *dec_data = (void *)dec_pcm_data->buf;
         int core1_pcm_len = dtsx_dec->outlen_pcm;
 
         if (core1_pcm_len > 0 && dtsx_dec->core1_pcm_out_info.sample_rate != 48000) {
-            ret = aml_audio_resample_process_wrapper(&dtsx_dec->resample_handle, dec_pcm_data->buf,
-                    core1_pcm_len, dtsx_dec->core1_pcm_out_info.sample_rate, dtsx_dec->core1_pcm_out_info.channel_num);
+            audio_resample_config_t cfg = {
+                        .aformat = dtsx_dec->core1_pcm_out_info.bytes_per_sample == 3 ? AUDIO_FORMAT_PCM_32_BIT : AUDIO_FORMAT_PCM_16_BIT,
+                        .channels = dtsx_dec->core1_pcm_out_info.channel_num,
+                        .input_sr = dtsx_dec->core1_pcm_out_info.sample_rate,
+                        .output_sr = OUTPUT_ALSA_SAMPLERATE,
+                    };
+            ret = aml_audio_resample_process_ex(&dtsx_dec->resample_handle, &cfg, dec_pcm_data->buf, dtsx_dec->outlen_pcm);
             if (ret != 0) {
                 ALOGE("aml_audio_resample_process_wrapper failed");
             } else {
@@ -1417,12 +1484,27 @@ int dtsx_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int by
                 core1_pcm_len = dtsx_dec->resample_handle->resample_size;
             }
         }
-        if (_dtsx_debug.fp_decode_pcm) {
-            fwrite(dec_data, 1, core1_pcm_len, _dtsx_debug.fp_decode_pcm);
-        }
 
         // TODO: We should mix UI_Sound/TTS in @dtsx_dec->a_dtsx_pp_output[DTSX_OUTPUT_SPK].
         // IMPORTANT: We must mix UI_Sound/TTS before Virtual:X.
+
+        /*32 convert to 24*/
+        if (dtsx_dec->core1_pcm_out_info.bytes_per_sample == 3) {
+            uint32_t src_frame_size = audio_bytes_per_sample(AUDIO_FORMAT_PCM_32_BIT) * \
+                        dtsx_dec->core1_pcm_out_info.channel_num;
+            uint32_t frame_count = core1_pcm_len / src_frame_size;
+            memcpy(dtsx_dec->sample_convert_buf, dec_data, core1_pcm_len);
+            memcpy_by_audio_format(dec_data, AUDIO_FORMAT_PCM_24_BIT_PACKED,
+                    (const void *)dtsx_dec->sample_convert_buf, AUDIO_FORMAT_PCM_32_BIT,
+                    frame_count * dtsx_dec->core1_pcm_out_info.channel_num);
+
+            core1_pcm_len = frame_count * audio_bytes_per_sample(AUDIO_FORMAT_PCM_24_BIT_PACKED) * \
+                                dtsx_dec->core1_pcm_out_info.channel_num;
+        }
+
+        if (_dtsx_debug.fp_decode_pcm) {
+            fwrite(dec_data, 1, core1_pcm_len, _dtsx_debug.fp_decode_pcm);
+        }
 
         if (aml_dec->frame_cnt == 0) {
             ALOGI("[%s:%d] mute the first frame", __func__, __LINE__);
