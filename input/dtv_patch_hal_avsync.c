@@ -2116,23 +2116,22 @@ void get_dtv_checkin_pts (struct audio_stream_out *stream, int64_t *in_frame_pts
                     if (patch->PServerDev != -1) {
                         PtsServ_ioctl(patch->PServerDev, PTSSERVER_IOC_CHECKOUT_APTS, (unsigned long)&checkout_pts);
                     }
-                    // aml_dec->in_frame_pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
-                    *in_frame_pts = checkout_pts.pts_90k;
-                    if (*in_frame_pts != out_frame_pts)
+                  /*
+                   * in_frame_pts is ancher pts, if checkout ancher pts failed, use current output pts as ancher pts.
+                   */
+                    if (checkout_pts.pts_90k != -1) {
+                        *in_frame_pts = checkout_pts.pts_90k;
                         *out_frames = 0;
-                    if (*in_frame_pts != -1) {
-                        patch->last_valid_pts = *in_frame_pts;
-                    }
-                    if (*in_frame_pts == -1) {
-                        if (out_frame_pts) {
+                    } else {
+                        if (out_frame_pts)  {
                             *in_frame_pts = out_frame_pts;
-                        } else {
-                            *in_frame_pts = patch->last_valid_pts;
                         }
+                        *out_frames = 0;
                     }
+
                     if (adev->debug_flag > 1)
                         ALOGD("offset:%" PRId64 " in_frame_pts:%" PRId64 " PtsServ_checkout_pts64:%" PRId64 " aml_dec->out_frame_pts  %" PRId64 "\n",checkout_pts.offset,*in_frame_pts, checkout_pts.pts_64,out_frame_pts);
-                }else {
+                } else {
                     checkout_pts.offset = patch->decoder_offset;
                     if (patch->PServerDev != -1) {
                         PtsServ_ioctl(patch->PServerDev, PTSSERVER_IOC_CHECKOUT_APTS, (unsigned long)&checkout_pts);
