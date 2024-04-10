@@ -562,16 +562,14 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         } else if (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) {
             size = (DEFAULT_PLAYBACK_PERIOD_SIZE << 3) + (DEFAULT_PLAYBACK_PERIOD_SIZE << 1);
         }  else {
-            /*frame align*/
-            if (1 /* adev->continuous_audio_mode */) {
-                /*Tunnel sync HEADER is 16 bytes*/
-                if ((out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) && out->hw_sync_mode) {
-                    size = out->ddp_frame_size + TUNNEL_SYNC_HEADER_SIZE;
-                } else {
-                    size = out->ddp_frame_size * 4;
-                }
+            /*Tunnel sync HEADER is 16 bytes*/
+            if ((out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) && out->hw_sync_mode) {
+                size = out->ddp_frame_size + TUNNEL_SYNC_HEADER_SIZE;
+            } else if (eDolbyDcvLib == adev->dolby_lib_type) {
+                /*fix issue SWPL-162010, same with offload size to fix amnuplayer audio breaks issue*/
+                size = (DEFAULT_PLAYBACK_PERIOD_SIZE << 3) + (DEFAULT_PLAYBACK_PERIOD_SIZE << 1);
             } else {
-                size = PLAYBACK_PERIOD_COUNT * DEFAULT_PLAYBACK_PERIOD_SIZE;    //PERIOD_SIZE;
+                size = out->ddp_frame_size * 4;
             }
         }
 
