@@ -3108,7 +3108,7 @@ static int dtv_uio_read(unsigned char *buffer, int buffer_size, bool exit) {
         nRet = uio_read_buffer((unsigned char *)(buffer + rlen), nNextReadSize, exit);
         if (nRet <= 0) {
             trycount++;
-            if (trycount == 20) {
+            if (trycount == 10) {
                 ALOGV("wait %d ms buffer_size %d left %d", 5 * trycount, buffer_size, nNextReadSize);
                 break;
             } else {
@@ -3123,7 +3123,7 @@ static int dtv_uio_read(unsigned char *buffer, int buffer_size, bool exit) {
     if (rlen == buffer_size) {
          return 0;
     } else {
-         ALOGI("rlen %d buffer_size %d",rlen,buffer_size);
+         ALOGW("dtv_uio_read len %d buffer_size %d",rlen, buffer_size);
          return -1;
     }
 
@@ -3135,33 +3135,21 @@ void *audio_dtv_patch_input_threadloop(void *data)
     struct audio_hw_device *dev = patch->dev;
     struct aml_audio_device *aml_dev = (struct aml_audio_device *)dev;
     package_list *list = patch->dtv_package_list;
-    void *demux_handle = patch->demux_handle;
+    void *demux_handle = NULL;
     int read_bytes = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
     int ret = 0;
-    ALOGI("++%s create a input stream success now!!!\n ", __FUNCTION__);
-    int nNextFrameSize = 0; //next read frame size
-    int inlen = 0;//real data size in in_buf
-    int nInBufferSize = read_bytes * 10; //full buffer size
-    char *inbuf = NULL;//real buffer
+    int nInBufferSize = read_bytes * 2; //full buffer size
+    char *main_buffer = NULL;
     char *ad_buffer = NULL;
-    unsigned char main_head[32];
-    int main_head_size;
-
     struct package *dtv_package = NULL;
+    struct mAudioEsDataInfo *mEsData = NULL ,*mAdEsData = NULL;
 
-    struct mAudioEsDataInfo *mEsData = NULL ,*mAdEsData = NULL,*FragmentAdEsData = NULL;
-    int max_trycount = 2;
-    int frame_size = 0;
-    char buffer[1024];
-    int  data_len = 0;
-    int rlen = 0;//read buffer ret size
     struct mediasync_audio_queue_info audio_queue_info;
     aml_dtv_audio_instances_t *dtv_audio_instances =  get_dtv_audio_instance(aml_dev);
     aml_dtvsync_t *Dtvsync = NULL ;
     aml_demux_audiopara_t *demux_info = NULL;
     int path_index = 0, working_path_index = 0;
     int64_t last_queue_es_apts = 0;
-    bool need_check_framesize = property_get_bool("vendor.dtv.audio.need_check_framesize",true);
     bool need_ad_main_align = property_get_bool("vendor.dtv.audio.need_ad_main_align",true);
     ALOGI("[audiohal_kpi]++%s start input now patch->input_thread_exit %d!!!\n ",
           __FUNCTION__, patch->input_thread_exit);
@@ -3170,13 +3158,12 @@ void *audio_dtv_patch_input_threadloop(void *data)
     aml_set_thread_priority("dtv_input_patch", patch->audio_input_threadID);
     /*affinity the thread to cpu 2/3 which has few IRQ*/
     aml_audio_set_cpu23_affinity();
-    dtv_package_list_init(patch->dtv_package_list);
+    dtv_package_list_init(list);
 
     while (!patch->input_thread_exit) {
 
         int nRet = 0;
         if (!is_dtv_multi_demux(aml_dev)) {
-            //ALOGV("patch->input_skipped_bytes %llu",patch->input_skipped_bytes);
             pthread_mutex_lock(&patch->mutex);
             path_index = dtv_audio_instances->demux_index_working;
             demux_handle = dtv_audio_instances->demux_handle[path_index];
@@ -3189,113 +3176,17 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     goto exit;
                 }
             }
-            if (!inbuf) {
-                inbuf = aml_audio_calloc(1, nInBufferSize);
-                if (!inbuf) {
-                    ALOGE("inbuf malloc failed");
+            if (!main_buffer) {
+                main_buffer = aml_audio_calloc(1, nInBufferSize);
+                if (!main_buffer) {
+                    ALOGE("main_buffer malloc failed");
                     pthread_mutex_unlock(&patch->mutex);
                     goto exit;
                 }
             }
 
             int nNextReadSize = 0;
-            rlen = 0;
-            ALOGV("%d frame_size:%d \n", __LINE__,frame_size);
-            if (need_check_framesize) {
-                if (patch->aformat == AUDIO_FORMAT_AAC_LATM) {
-                    if (frame_size == 0) {
-                        int LATM_HEAD_LEN = 3;
-                        nNextReadSize = LATM_HEAD_LEN;
-                        int i = 0;
-                        while (frame_size == 0 && !patch->input_thread_exit) {
-                            if (patch->output_thread_exit) {
-                                 break;
-                             }
-                             nRet = dtv_uio_read((unsigned char *)(inbuf) + rlen, nNextReadSize, patch->output_thread_exit);
-                             if (nRet == 0)  {
-                                 if (inbuf[0] == 0x56 && (inbuf[1] & 0xe0) == 0xe0) {//LOAS sync word detected
-                                       frame_size = ((inbuf[1] & 0x1f) << 8) + inbuf[2];
-                                       ALOGV("find LOAS sync word pos %d frame_size %d\n", i, frame_size);
-                                      break;
-                                 } else {
-                                      nNextReadSize = 1;
-                                      i++;
-                                      patch->input_skipped_bytes++;
-                                      memmove(inbuf, inbuf + 1, 2);
-                                      rlen = 2;
-                                      continue;
-                                 }
-                             } else {
-                                 break;
-                             }
-                        }
-                        if (frame_size == 0)  {
-                            pthread_mutex_unlock(&patch->mutex);
-                            usleep(20000);
-                            continue;
-                        } else {
-                            nNextReadSize = frame_size;
-                            frame_size = 0;
-                            rlen = LATM_HEAD_LEN;
-                        }
-
-                    } else {
-                        ALOGI("frame_size %d",frame_size);
-                    }
-
-                } else if (patch->aformat == AUDIO_FORMAT_AC3 ||
-                                                          patch->aformat == AUDIO_FORMAT_E_AC3) {
-                    if (frame_size == 0) {
-                          nNextReadSize = 512;
-                          int data_offset = 0;
-                          main_head_size = (int)sizeof(main_head);
-                          rlen = 0;
-                          while (frame_size == 0 && !patch->input_thread_exit) {
-                               if (patch->output_thread_exit) {
-                                   break;
-                               }
-                               nRet = dtv_uio_read((unsigned char *)(inbuf) , main_head_size, patch->output_thread_exit);
-                               if (nRet == 0) {
-                                    frame_size = dcv_decoder_get_framesize((unsigned char *)(inbuf) ,
-                                        nNextReadSize, &data_offset);
-
-                                    if (frame_size) {//sync word detected
-                                         ALOGV("find dolby sync word pos %d frame_size %d rlen %d %0x %0x\n",
-                                            data_offset, frame_size,rlen, inbuf[data_offset], inbuf[data_offset + 1]);
-                                         if (data_offset == 0) {
-                                             rlen = main_head_size;
-                                         } else {
-                                             patch->input_skipped_bytes += data_offset;
-                                             memmove(inbuf, inbuf + data_offset, main_head_size - data_offset);
-                                             rlen = main_head_size - data_offset;
-                                         }
-                                         nNextReadSize = frame_size - rlen;
-                                         break;
-                                    } else {
-                                        patch->input_skipped_bytes += nNextReadSize;
-                                        nNextReadSize = 512;
-                                        continue;
-                                    }
-                               } else {
-                                  break;
-                               }
-                          }
-                          if (frame_size == 0)  {
-                              pthread_mutex_unlock(&patch->mutex);
-                              usleep(20000);
-                              continue;
-                          } else {
-                             frame_size = 0;
-                          }
-                    } else {
-                        ALOGI("frame_size %d",frame_size);
-                    }
-                } else if (patch->aformat == AUDIO_FORMAT_AC4) {
-                   nNextReadSize = read_bytes;
-                } else {
-                    nNextReadSize = read_bytes / 2;
-                }
-            } else {
+            {
                 if (patch->aformat == AUDIO_FORMAT_AC4) {
                     nNextReadSize = read_bytes;
                 } else if ((patch->aformat == AUDIO_FORMAT_MP3) || (patch->aformat == AUDIO_FORMAT_MP2)) {
@@ -3306,11 +3197,11 @@ void *audio_dtv_patch_input_threadloop(void *data)
             }
             /*coverity[sleep]*/
 
-            nRet = dtv_uio_read((unsigned char *)(inbuf + rlen), nNextReadSize, patch->output_thread_exit);
+            nRet = dtv_uio_read((unsigned char *)main_buffer, nNextReadSize, patch->output_thread_exit);
             if (nRet == 0)  {
-                dtv_package->size = rlen + nNextReadSize;
-                dtv_package->data = (char *)inbuf;
-                inbuf = NULL;
+                dtv_package->size = nNextReadSize;
+                dtv_package->data = (char *)main_buffer;
+                main_buffer = NULL;
             } else {
                 pthread_mutex_unlock(&patch->mutex);
                 usleep(5000);
@@ -3349,118 +3240,35 @@ void *audio_dtv_patch_input_threadloop(void *data)
                         demux_info->ad_package_status = AD_PACK_STATUS_NORMAL;
                         if (need_ad_main_align) {
                             ALOGV("mAdEsData %p patch->cur_outapts  %" PRId64 "  mAdEsData->pts %" PRId64 " diff %" PRId64 "ms",mAdEsData,patch->dtvsync->cur_outapts,mAdEsData->pts,(patch->dtvsync->cur_outapts - mAdEsData->pts)/90);
-                            if (!is_dtv_multi_demux(aml_dev) && aml_dev->singleDmxNonTunnelMode) {
-                                if (patch->dtvsync->cur_outapts > 0) {
-                                    demux_info->ad_package_status = check_ad_package_status(patch->dtvsync->cur_outapts, mAdEsData->pts, demux_info);
-                                    if (demux_info->ad_package_status == AD_PACK_STATUS_DROP) {
-                                        ALOGI("drop ad mAdEsData->size %d mAdEsData->pts%" PRId64 " patch->cur_outapts %u",mAdEsData->size,mAdEsData->pts,patch->cur_outapts);
-                                        if (mAdEsData->data) {
-                                            aml_audio_free(mAdEsData->data);
-                                            mAdEsData->data = NULL;
-                                        }
-                                        aml_audio_free(mAdEsData);
-                                        mAdEsData = NULL;
-                                        drop_count++;
-                                        if (drop_count == 2) {
-                                            dtv_package->ad_size = 0;
-                                            dtv_package->ad_data = NULL;
-                                            break;
-                                        } else {
-                                            continue;
-                                        }
-
-                                    } else if (demux_info->ad_package_status == AD_PACK_STATUS_HOLD) {
-                                        ALOGV("normally it is impossible");
+                            if (patch->dtvsync->cur_outapts > 0) {
+                                demux_info->ad_package_status = check_ad_package_status(patch->dtvsync->cur_outapts, mAdEsData->pts, demux_info);
+                                if (demux_info->ad_package_status == AD_PACK_STATUS_DROP) {
+                                    ALOGI("drop ad mAdEsData->size %d mAdEsData->pts%" PRId64 " patch->cur_outapts %u",mAdEsData->size,mAdEsData->pts,patch->cur_outapts);
+                                    if (mAdEsData->data) {
+                                        aml_audio_free(mAdEsData->data);
+                                        mAdEsData->data = NULL;
                                     }
-                                } else {
-                                    dtv_package->ad_size = 0;
-                                    dtv_package->ad_data = NULL;
-                                    break;
+                                    aml_audio_free(mAdEsData);
+                                    mAdEsData = NULL;
+                                    drop_count++;
+                                    if (drop_count == 2) {
+                                        dtv_package->ad_size = 0;
+                                        dtv_package->ad_data = NULL;
+                                        break;
+                                    } else {
+                                        continue;
+                                    }
+                                } else if (demux_info->ad_package_status == AD_PACK_STATUS_HOLD) {
+                                    ALOGV("normally it is impossible");
                                 }
                             } else {
-                                if (patch->cur_outapts > 0) {
-                                    demux_info->ad_package_status = check_ad_package_status(patch->dtvsync->cur_outapts, mAdEsData->pts, demux_info);
-                                    if (demux_info->ad_package_status == AD_PACK_STATUS_DROP) {
-                                        ALOGI("drop ad mAdEsData->size %d mAdEsData->pts%" PRId64 " patch->cur_outapts %u",mAdEsData->size,mAdEsData->pts,patch->cur_outapts);
-                                        if (mAdEsData->data) {
-                                            aml_audio_free(mAdEsData->data);
-                                            mAdEsData->data = NULL;
-                                        }
-                                        aml_audio_free(mAdEsData);
-                                        mAdEsData = NULL;
-                                        drop_count++;
-                                        if (drop_count == 2) {
-                                            dtv_package->ad_size = 0;
-                                            dtv_package->ad_data = NULL;
-                                            break;
-                                        } else {
-                                            continue;
-                                        }
-
-                                    } else if (demux_info->ad_package_status == AD_PACK_STATUS_HOLD) {
-                                        ALOGV("normally it is impossible");
-                                    }
-                                } else {
-                                    dtv_package->ad_size = 0;
-                                    dtv_package->ad_data = NULL;
-                                    break;
-                                }
+                                dtv_package->ad_size = 0;
+                                dtv_package->ad_data = NULL;
+                                break;
                             }
-
                         }
 
-                        if (need_check_framesize) {
-                            int i = 0;
-                            int ad_frame_size = 0;
-                            if (patch->aformat == AUDIO_FORMAT_AAC_LATM)  {
-
-                                ALOGV("mAdEsData->size %d mAdEsData->data %p %0x %0x %0x %0x",mAdEsData->size,mAdEsData->data,mAdEsData->data[0],mAdEsData->data[1],mAdEsData->data[2],mAdEsData->data[3]);
-                                if (FragmentAdEsData)  {
-
-                                     int data_size = mAdEsData->size;
-                                     mAdEsData->size = FragmentAdEsData->size + mAdEsData->size - FragmentAdEsData->used_size;
-                                     ALOGV("ad_buffer %p mAdEsData->data %p mAdEsData->size %d",ad_buffer,mAdEsData->data,mAdEsData->size);
-                                     mAdEsData->data = aml_audio_realloc(mAdEsData->data, mAdEsData->size);
-                                     ALOGV("FragmentAdEsData left  %d",FragmentAdEsData->size - FragmentAdEsData->used_size);
-                                     memmove(mAdEsData->data + (FragmentAdEsData->size - FragmentAdEsData->used_size), mAdEsData->data, data_size);
-                                     memcpy(mAdEsData->data, FragmentAdEsData->data + FragmentAdEsData->used_size, FragmentAdEsData->size - FragmentAdEsData->used_size);
-                                     if (FragmentAdEsData->data) {
-                                         aml_audio_free(FragmentAdEsData->data);
-                                         FragmentAdEsData->data = NULL;
-                                     }
-                                     aml_audio_free(FragmentAdEsData);
-                                     FragmentAdEsData = NULL;
-                                     ALOGV("new mAdEsData->size %d",mAdEsData->size);
-                                }
-                                char *ptr_data = (char *)mAdEsData->data + mAdEsData->used_size;
-                                while (mAdEsData->used_size + 3 <= mAdEsData->size) {
-                                    if (ptr_data[i] == 0x56 && (ptr_data[i + 1] & 0xe0) == 0xe0) {//LOAS sync word detected
-                                         ad_frame_size = ((ptr_data[i + 1] & 0x1f) << 8) + ptr_data[i + 2];
-                                         ALOGV("ad find LOAS sync word pos %d ad_frame_size %d\n", i, ad_frame_size);
-                                         break;
-                                    } else {
-                                       mAdEsData->used_size++;
-                                       i++;
-                                    }
-                                }
-                                ALOGV("mAdEsData left %d",mAdEsData->size - mAdEsData->used_size);
-                                if (ad_frame_size <= (mAdEsData->size - mAdEsData->used_size - 3))  {
-                                    memcpy(ad_buffer, mAdEsData->data + mAdEsData->used_size, ad_frame_size + 3);
-                                    dtv_package->ad_size = ad_frame_size + 3;
-                                    mAdEsData->used_size += (ad_frame_size + 3);
-                                } else {
-                                    FragmentAdEsData = mAdEsData;
-                                    mAdEsData = NULL;
-                                    demux_info->ad_package_status = AD_PACK_STATUS_HOLD;
-                                    continue;
-                                }
-
-                            }else {
-                                mAdEsData->used_size = mAdEsData->size;
-                                dtv_package->ad_size = mAdEsData->size;
-                                memcpy(ad_buffer, mAdEsData->data, mAdEsData->size);
-                            }
-                        } else {
+                        {
                             mAdEsData->used_size = mAdEsData->size;
                             dtv_package->ad_size = mAdEsData->size;
                             memcpy(ad_buffer, mAdEsData->data, mAdEsData->size);
@@ -3498,10 +3306,9 @@ void *audio_dtv_patch_input_threadloop(void *data)
                         }
                         pthread_cond_signal(&patch->cond);
                         pthread_mutex_unlock(&patch->mutex);
-                        inbuf = NULL;
+                        main_buffer = NULL;
                         dtv_package = NULL;
                         demux_info->dtv_package = NULL;
-                        usleep(5000);
                         break;
                     } else {
                         ALOGI("list->pack_num %d full !!!", list->pack_num);
@@ -3788,12 +3595,15 @@ void *audio_dtv_patch_input_threadloop(void *data)
     }
 exit:
 
-    if (inbuf) {
-        aml_audio_free(inbuf);
-        inbuf = NULL;
-    }
-
-    if (!is_dtv_multi_demux(aml_dev) ) {
+    if (!is_dtv_multi_demux(aml_dev)) {
+        if (main_buffer) {
+            aml_audio_free(main_buffer);
+            main_buffer = NULL;
+        }
+        if (ad_buffer) {
+            aml_audio_free(ad_buffer);
+            ad_buffer = NULL;
+        }
         if (dtv_package) {
            if (dtv_package->data) {
                aml_audio_free(dtv_package->data);
