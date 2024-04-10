@@ -260,13 +260,24 @@ void release_dtv_mutex_lock(struct aml_audio_device *adev)
 
 static bool is_multi_demux()
 {
+   /*
+    * the api indicate use which way to read data
+    * true : use new multi demux api
+    * false : use old uio abuf api
+    */
+    if (access("/sys/class/stb/demux0_source",F_OK) == 0) {
+         ALOGI("use AmHwDemux mode\n");
+         return false;
+    }
+
     if (access("/sys/module/dvb_demux/",F_OK) == 0 ||
         access("/sys/module/amlogic_dvb_demux/",F_OK) == 0) {
         ALOGI("use AmHwMultiDemux mode\n");
         return true;
     }
-    ALOGI("use AmHwDemux mode\n");
-    return false;
+
+    ALOGI("use AmHwMultiDemux mode\n");
+    return true;
 }
 
 int init_dtv_object(struct aml_audio_device *adev)
