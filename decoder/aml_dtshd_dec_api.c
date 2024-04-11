@@ -113,9 +113,6 @@ struct dca_dts_debug {
 static struct dca_dts_debug dts_debug = {0};
 
 static unsigned int _dca_initparam_out_ch = 2;
-static unsigned int _dca_initparam_out_bitwidth = 16;
-//~~~todo: if enable all path 32bit, set dts output to 24bit
-//static unsigned int _dca_initparam_out_bitwidth = 24;
 
 ///static struct pcm_info pcm_out_info;
 /*dts decoder lib function*/
@@ -395,17 +392,15 @@ static int _dts_pcm_output(struct dca_dts_dec *dts_dec)
     }
 
     if (dts_dec->pcm_out_info.bytes_per_sample == 3) {  // 24bit pcm packed.
-        uint32_t src_frame_size = audio_bytes_per_sample(AUDIO_FORMAT_PCM_24_BIT_PACKED) * \
-                            audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO);
+        uint32_t src_frame_size = audio_bytes_per_sample(AUDIO_FORMAT_PCM_24_BIT_PACKED) * channel_num;
         uint32_t frame_count = dts_dec->outlen_pcm / src_frame_size;
 
         memcpy(dts_dec->sample_convert_buf, dec_pcm_data->buf, dts_dec->outlen_pcm);
         memcpy_by_audio_format(dec_pcm_data->buf, AUDIO_FORMAT_PCM_32_BIT,
             (const void *)dts_dec->sample_convert_buf, AUDIO_FORMAT_PCM_24_BIT_PACKED,
-            frame_count * audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO));
+            frame_count * channel_num);
 
-        dts_dec->outlen_pcm = frame_count * audio_bytes_per_sample(AUDIO_FORMAT_PCM_32_BIT) * \
-                            audio_channel_count_from_out_mask(AUDIO_CHANNEL_OUT_STEREO);
+        dts_dec->outlen_pcm = frame_count * audio_bytes_per_sample(AUDIO_FORMAT_PCM_32_BIT) * channel_num;
         dec_pcm_data->data_format = AUDIO_FORMAT_PCM_32_BIT;
     } else {
         dec_pcm_data->data_format = AUDIO_FORMAT_PCM_16_BIT;
@@ -463,7 +458,7 @@ static int unload_dts_decoder_lib()
     return 0;
 }
 
-static int dca_decoder_init(aml_dec_control_type_t digital_raw)
+static int dca_decoder_init(aml_dec_control_type_t digital_raw, int output_bitwidth)
 {
     gDtsDecoderLibHandler = dlopen(DOLBY_DTSHD_LIB_PATH, RTLD_NOW);
     //open 32bit so failed, here try to open the 64bit dolby dcv so.
@@ -529,7 +524,7 @@ static int dca_decoder_init(aml_dec_control_type_t digital_raw)
 
         /* Set decoder output pcm bitwidth. */
         memset(&dca_config, 0, sizeof(dca_config));
-        dca_config.output_bitwidth = _dca_initparam_out_bitwidth;
+        dca_config.output_bitwidth = output_bitwidth;
         (*dts_decoder_config)(DCA_CONFIG_OUT_BITDEPTH, (dca_config_t *)&dca_config);
     }
     return 0;
@@ -630,7 +625,7 @@ int dca_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
     dts_dec->stream_type = 0;
     dts_dec->is_headphone_x = false;
 
-    if (dca_decoder_init(dts_dec->digital_raw) < 0) {
+    if (dca_decoder_init(dts_dec->digital_raw, dca_config->output_bw) < 0) {
         goto error;
     }
     dts_dec->status |= DCA_INITED;
@@ -931,13 +926,6 @@ int dca_decoder_config(aml_dec_t * aml_dec, aml_dec_config_type_t config_type, a
             case AML_DEC_CONFIG_OUTPUT_CHANNEL:
             {
                 _dca_initparam_out_ch = aml_dec_config->dca_config.output_ch;
-                ret = 0;
-                break;
-            }
-
-            case AML_DEC_CONFIG_OUTPUT_BITWIDTH:
-            {
-                _dca_initparam_out_bitwidth = aml_dec_config->dca_config.output_bw;
                 ret = 0;
                 break;
             }

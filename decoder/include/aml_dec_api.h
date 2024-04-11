@@ -188,6 +188,7 @@ typedef struct aml_dtsx_config {
     bool is_dtscd;
     bool is_iec61937;
     int output_ch;
+    int output_bw;
     void *dev;
 } aml_dtsx_config_t;
 

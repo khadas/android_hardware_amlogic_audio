@@ -341,10 +341,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 audio_format_t output_format;
                 if (audio_is_linear_pcm(aml_out->hal_internal_format)) {
                     output_format = aml_out->hal_internal_format;
-                }/* else if (is_dts_format(aml_out->hal_internal_format)) {
-                    //~~~todo: if enable all path 32bit, set dts output to 32bit
-                    output_format = AUDIO_FORMAT_PCM_32_BIT;
-                }*/ else if (dec_pcm_data->data_format == AUDIO_FORMAT_PCM_32_BIT) {
+                } else if (dec_pcm_data->data_format == AUDIO_FORMAT_PCM_32_BIT) {
                     output_format = AUDIO_FORMAT_PCM_32_BIT;
                 } else {
                     output_format = AUDIO_FORMAT_PCM_16_BIT;
@@ -788,6 +785,7 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dec_
     struct aml_stream_out *aml_out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_arc_hdmi_desc *p_hdmi_descs = get_arc_hdmi_cap(adev);
+    int output_bitwidth = 16;
 
     adev->dtslib_bypass_enable = 0;
 
@@ -803,6 +801,12 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dec_
             ALOGD("%s(): set auto ch", __func__);
             dca_set_out_ch_internal(0);
         }
+    }
+
+    if (get_primary_out_format(adev) == AUDIO_FORMAT_PCM_32_BIT) {
+        output_bitwidth = 24;   // DTS-HD M6 and DTS:X just support 16/24 bit pcm output.
+    } else {
+        output_bitwidth = 16;
     }
 
     if (adev->dts_lib_type == eDTSXLib) {
@@ -834,10 +838,13 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dec_
             dtsx_config->sink_dev_type = 0; //CA(0),MA(1),P1(2),P2(4)
         }
 
-        ALOGI("[%s:%d] digital_raw:%d, dual_output_flag:%d, is_iec61937:%d, is_dtscd:%d, passthroug:%d, is_hdmi_output:%d, sink_dev_type:%d", __func__, __LINE__,
+        dtsx_config->output_bw = output_bitwidth;
+
+        ALOGI("[%s:%d] digital_raw:%d, dual_output_flag:%d, is_iec61937:%d, is_dtscd:%d, passthroug:%d, is_hdmi_output:%d, sink_dev_type:%d output_bw:%d",
+            __func__, __LINE__,
             dtsx_config->digital_raw, aml_out->dual_output_flag, dtsx_config->is_iec61937,
             dtsx_config->is_dtscd, dtsx_config->passthroug_enable, dtsx_config->is_hdmi_output,
-            dtsx_config->sink_dev_type);
+            dtsx_config->sink_dev_type, dtsx_config->output_bw);
     } else if (adev->dts_lib_type == eDTSHDLib) {
         aml_dca_config_t * dts_config = &dec_config->dca_config;
         dts_config->digital_raw = AML_DEC_CONTROL_CONVERT;
@@ -848,9 +855,11 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dec_
             dts_config->is_iec61937 = false;
         }
 
+        dts_config->output_bw = output_bitwidth;
+
         dts_config->dev = (void *)adev;
-        ALOGI("%s digital_raw:%d, dual_output_flag:%d, is_iec61937:%d, is_dtscd:%d"
-            , __func__, dts_config->digital_raw, aml_out->dual_output_flag, dts_config->is_iec61937, dts_config->is_dtscd);
+        ALOGI("%s digital_raw:%d, dual_output_flag:%d, is_iec61937:%d, is_dtscd:%d output_bw:%d"
+            , __func__, dts_config->digital_raw, aml_out->dual_output_flag, dts_config->is_iec61937, dts_config->is_dtscd, dts_config->output_bw);
     } else {
         ALOGE("[%s:%d] Without any dts library", __func__, __LINE__);
     }

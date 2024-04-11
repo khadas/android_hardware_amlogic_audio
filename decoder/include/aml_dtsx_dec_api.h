@@ -134,6 +134,7 @@ typedef struct dtsx_dec_s {
     int passthroug_enable;
     int auto_config_out_for_vx;
     int loudness_enable;
+    int output_bitwidth;
     unsigned char *inbuf;
     unsigned int inbuf_size;
     unsigned char *a_dtsx_pp_output[3];

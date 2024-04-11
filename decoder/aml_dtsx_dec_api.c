@@ -920,8 +920,8 @@ static int _aml_dtsx_dualcore_init(dtsx_dec_t *p_dtsx_dec)
     _dtsx_config_params.dec_sink_dev_type = p_dtsx_dec->sink_dev_type;
     _dtsx_config_params.pp_sink_dev_type = p_dtsx_dec->sink_dev_type;
     _dtsx_config_params.bPassthrough = p_dtsx_dec->passthroug_enable;
-    _dtsx_config_params.core1_out_bitwidth = 16;
-    _dtsx_config_params.core2_out_bitwidth = 16;
+    _dtsx_config_params.core1_out_bitwidth = p_dtsx_dec->output_bitwidth;
+    _dtsx_config_params.core2_out_bitwidth = p_dtsx_dec->output_bitwidth;
 
     /* Prepare the init argv for core1 decoder */
     snprintf(p_dtsx_dec->init_argv[cmd_count++], DTSX_PARAM_STRING_LEN, "dtsx_core1_max_spkrout=%d", _dtsx_config_params.core1_dec_out);
@@ -1061,6 +1061,7 @@ int dtsx_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
     dec_data_info_t *dec_raw_data = &aml_dec->dec_raw_data;
     dec_data_info_t *raw_in_data  = &aml_dec->raw_in_data;
 
+    dtsx_dec->output_bitwidth = dtsx_config->output_bw;
     dtsx_dec->sink_dev_type = dtsx_config->sink_dev_type;
     dtsx_dec->passthroug_enable = dtsx_config->passthroug_enable;
     dtsx_dec->is_dtscd = dtsx_config->is_dtscd;
