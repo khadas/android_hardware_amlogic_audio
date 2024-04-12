@@ -3822,7 +3822,7 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
           __FUNCTION__, patch->output_thread_exit);
 
     prctl(PR_SET_NAME, (unsigned long)"dtv_output_patch");
-    //aml_set_thread_priority("dtv_output_patch", patch->audio_output_threadID);
+    aml_set_thread_sched_priority("dtv_output_patch", patch->audio_output_threadID, AUDIO_FIFO_THREAD_DEFAULT_PRIORITY - 1);
     /*affinity the thread to cpu 2/3 which has few IRQ*/
     aml_audio_set_cpu23_affinity();
     aml_out->output_speed = 1.0f;

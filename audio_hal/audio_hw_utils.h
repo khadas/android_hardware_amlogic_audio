@@ -111,7 +111,7 @@ typedef enum tv_standards_t
     ISDB,//-24(LUFS/LKFS)
     SBTVD,//-24(LUFS/LKFS)
 } tv_standards_t;
-
+#define AUDIO_FIFO_THREAD_DEFAULT_PRIORITY 5
 
 int64_t aml_gettime(void);
 int get_sysfs_uint(const char *path, uint *value);
@@ -165,6 +165,8 @@ int halformat_convert_to_spdif(audio_format_t format, int ch_mask);
 int halformat_convert_to_arcformat(audio_format_t format, int ch_mask);
 int alsa_device_get_port_index(alsa_device_t alsa_device);
 int aml_set_thread_priority(char *pName, pthread_t threadId);
+int aml_set_thread_sched_priority(char *pName, pthread_t threadId, int sched_priority);
+
 uint32_t out_get_alsa_latency_frames(const struct audio_stream_out *stream);
 bool is_multi_channel_pcm(struct audio_stream_out *stream);
 bool is_high_rate_pcm(struct audio_stream_out *stream);

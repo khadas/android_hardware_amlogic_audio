@@ -1971,13 +1971,28 @@ int alsa_device_get_port_index(alsa_device_t alsa_device)
     }
     return alsa_port;
 }
-
 int aml_set_thread_priority(char *pName, pthread_t threadId)
 {
     struct sched_param  params = {0};
     int                 ret = 0;
     int                 policy = SCHED_FIFO; /* value:1 [pthread.h] */
-    params.sched_priority = 5;
+    params.sched_priority = AUDIO_FIFO_THREAD_DEFAULT_PRIORITY;
+    ret = pthread_setschedparam(threadId, SCHED_FIFO, &params);
+    if (ret != 0) {
+        ALOGW("[%s:%d] set scheduled param error, ret:%#x", __func__, __LINE__, ret);
+    }
+    ret = pthread_getschedparam(threadId, &policy, &params);
+    ALOGD("[%s:%d] thread:%s set priority, ret:%d policy:%d priority:%d",
+        __func__, __LINE__, pName, ret, policy, params.sched_priority);
+    return ret;
+}
+
+int aml_set_thread_sched_priority(char *pName, pthread_t threadId, int sched_priority)
+{
+    struct sched_param  params = {0};
+    int                 ret = 0;
+    int                 policy = SCHED_FIFO; /* value:1 [pthread.h] */
+    params.sched_priority = sched_priority;
     ret = pthread_setschedparam(threadId, SCHED_FIFO, &params);
     if (ret != 0) {
         ALOGW("[%s:%d] set scheduled param error, ret:%#x", __func__, __LINE__, ret);
