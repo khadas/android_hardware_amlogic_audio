@@ -389,6 +389,7 @@ int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int
     size_t frame_count = src_samples / native_postprocess->effect_in_ch;
     void *processing_buffer = in_buffer;
     int buffer_need_size = bytes; // src_format to proc_format need size.
+    int out_frames = 0;
 
     if (native_postprocess->proc_format != native_postprocess->src_format) {
         buffer_need_size = src_samples * audio_bytes_per_sample(native_postprocess->proc_format);
@@ -409,14 +410,18 @@ int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int
         ret = (*effect)->process(effect, &in_buf, &out_buf);
         if (ret < 0) {
             ALOGE("postprocess failed\n");
+            out_frames = 0;
         } else {
-            ret = bytes / (native_postprocess->effect_in_ch / audio_bytes_per_sample(native_postprocess->src_format));
-            proced_samples = ret * 2;   // (frameCount * effect_out_ch) For TV, Virtual:X always output 2ch.
+            out_frames = bytes / native_postprocess->effect_in_ch / audio_bytes_per_sample(native_postprocess->src_format);
+            proced_samples = out_frames * 2;   // (frameCount * effect_out_ch) For TV, Virtual:X always output 2ch.
             memcpy_by_audio_format(in_buffer, native_postprocess->src_format, processing_buffer, native_postprocess->proc_format, proced_samples);
+            if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
+                aml_dump_audio_bitstreams("/data/vendor/audiohal/after_vx_processed.raw", in_buffer, proced_samples * 2);
+            }
         }
     }
 
-    return ret;
+    return (out_frames * audio_bytes_per_sample(native_postprocess->src_format) * 2 /*out channels*/);
 }
 
 /*
