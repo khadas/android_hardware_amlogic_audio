@@ -144,22 +144,6 @@ const int32_t default_usr_cfg_9_band[] = {
      0,  0,  0,  0,  0,  0,  0,  0,  0,   /* user */
 };
 
-#ifdef HPEQ_DEBUG
-static int getprop_bool(const char *path)
-{
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
-
-    ret = property_get(path, buf, NULL);
-    if (ret > 0) {
-        if (strcasecmp(buf, "true") == 0 || strcmp(buf, "1") == 0) {
-            return 1;
-        }
-    }
-    return 0;
-}
-#endif
-
 int HPEQ_get_model_name(char *model_name, int size)
 {
      int ret = -1;
