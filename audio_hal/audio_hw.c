@@ -4308,15 +4308,24 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         goto exit;
     }
 
+    //If virtualX effect load libvx successfully
+    //it's will set DTS decoder output mode and native_postprocess.libvx_running
     ret = str_parms_get_str(parms, "VX_SET_DTS_Mode", value, sizeof(value));
     if (ret >= 0) {
         int dts_decoder_output_mode = atoi(value);
-        if (dts_decoder_output_mode > 8 || dts_decoder_output_mode < 0)
+
+        if (dts_decoder_output_mode > 8 || dts_decoder_output_mode < 0) {
+            ALOGW("Warning! unsupport dts decoder output mode to %d", dts_decoder_output_mode);
             goto exit;
-        if (dts_decoder_output_mode == 2)
+        }
+
+        if (dts_decoder_output_mode == 2) {
             adev->native_postprocess.vx_force_stereo = 1;
-        else
+            adev->native_postprocess.libvx_running = 0;
+        } else {
+            adev->native_postprocess.libvx_running = 1;
             adev->native_postprocess.vx_force_stereo = 0;
+        }
         dca_set_out_ch_internal(dts_decoder_output_mode);
         ALOGD("set dts decoder output mode to %d", dts_decoder_output_mode);
         goto exit;

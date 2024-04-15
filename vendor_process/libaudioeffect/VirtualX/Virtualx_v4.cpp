@@ -1691,6 +1691,7 @@ static int Virtualx_init(vxContext *pContext)
         /* mode 0: auto output depending stream content */
         /* mode 2: force 2ch output */
         setParameters(String8("VX_SET_DTS_Mode=0"));
+        setParameters(String8("Effect_enable=VX_ON"));
     } else {
         setParameters(String8("VX_SET_DTS_Mode=2"));
     }
@@ -2361,7 +2362,6 @@ int VirtualxLib_Create(const effect_uuid_t *uuid, int32_t sessionId __unused, in
 
     pContext->state = VIRTUALX_STATE_INITIALIZED;
     pContext->vx_effect_enable = true;
-    setParameters(String8("Effect_enable=VX_ON"));
 
     ALOGD("%s: %p  OK", __FUNCTION__, pContext);
     return 0;
@@ -2383,6 +2383,8 @@ int VirtualxLib_Release(effect_handle_t handle)
     pContext->state = VIRTUALX_STATE_UNINITIALIZED;
     pContext->vx_effect_enable = false;
     setParameters(String8("Effect_enable=VX_OFF"));
+    //if virtualx exit then notify DCA switch to 2channel
+    setParameters(String8("VX_SET_DTS_Mode=2"));
     delete pContext;
     ALOGD("VirtualxLib_Release");
     return 0;

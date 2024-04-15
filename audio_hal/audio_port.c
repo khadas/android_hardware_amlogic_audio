@@ -848,7 +848,7 @@ static ssize_t output_port_post_process(output_port *port, void *buffer, int byt
                 R_CHECK_RET(ret, "alloc vol_buf size:%d fail", bytes);
                 memcpy(vol_buf, buffer, bytes);
                 if (port->postprocess) {
-                    audio_post_process(port->postprocess, vol_buf, frames);
+                    audio_post_process(port->postprocess, vol_buf, frames, src_cfg->format);
                 }
             } else if (dev == AML_AUDIO_OUT_DEV_TYPE_SPDIF) {
                 vol *= port->eq_data->p_gain.spdif_arc;
@@ -908,13 +908,14 @@ static ssize_t output_port_stereo_post_process(output_port *port, void *buffer, 
     int16_t *buf16 = buffer;
     int frames = bytes / FRAMESIZE_16BIT_STEREO;
     port->processed_buf = buffer;
+    struct audioCfg *src_cfg = &port->src_cfg;
 
     if (get_debug_value(AML_DUMP_AUDIOHAL_TV) || get_port_dump_enable(DUMP_OUTPUT_PORT_PROCESS)) {
         aml_dump_audio_bitstreams("/data/vendor/audiohal/port_befor_postprocess.raw", buf16, bytes);
     }
 
     if (port->postprocess)
-        audio_post_process(port->postprocess, buffer, frames);
+        audio_post_process(port->postprocess, buffer, frames, src_cfg->format);
 
     port->processed_bytes = bytes;
     if (get_debug_value(AML_DUMP_AUDIOHAL_TV) || get_port_dump_enable(DUMP_OUTPUT_PORT_PROCESS)) {

@@ -106,7 +106,6 @@ struct effect_insert_seq_desc *find_effect_insert_desc_by_name(const char* name)
 
 static int check_dts_config(struct aml_native_postprocess *native_postprocess) {
     int cur_channels = dca_get_out_ch_internal();
-
     if (native_postprocess->vx_force_stereo == 1)
         cur_channels = 2;
 
@@ -194,9 +193,7 @@ void update_effect_info_list(struct aml_native_postprocess *native_postprocess)
 
 exit:
     //some special process
-    if (newEffectInfo->idesc->type == EFFECT_TYPE_VIRTUAL_X) {
-        native_postprocess->libvx_exist = Check_VX_lib();
-    } else if (newEffectInfo->idesc->type == EFFECT_TYPE_TRUE_SURROUND_HD) {
+    if (newEffectInfo->idesc->type == EFFECT_TYPE_TRUE_SURROUND_HD) {
         native_postprocess->AML_DTS_index = newEffectInfo->index;
     }
     ALOGD("%s() effect:%s handle:%p type:%d port_handle:%d index: %d", __func__,
@@ -317,7 +314,7 @@ Data path:
     in_buffer [src_format] -> itfe.process() [proc_format]
 Note: return value must be: in_frames
 */
-size_t audio_post_process(struct aml_native_postprocess *native_postprocess, void *in_buffer, size_t in_frames)
+size_t audio_post_process(struct aml_native_postprocess *native_postprocess, void *in_buffer, size_t in_frames, audio_format_t format)
 {
     int ret = 0, j = 0;
     audio_buffer_t in_buf;
@@ -325,6 +322,10 @@ size_t audio_post_process(struct aml_native_postprocess *native_postprocess, voi
     int frames = in_frames;
     bool ai_process_done = false;
 
+    if (format != AUDIO_FORMAT_PCM_16_BIT && format != AUDIO_FORMAT_PCM_32_BIT) {
+        ALOGE("%s() Not support format:%x return!",__func__, format);
+        return frames;
+    }
 
     pthread_mutex_lock(&native_postprocess->lock);
     if (native_postprocess->num_postprocessors == 0) {
@@ -332,11 +333,11 @@ size_t audio_post_process(struct aml_native_postprocess *native_postprocess, voi
         return frames;
     }
 
-    if (native_postprocess->libvx_exist) {
+    if (native_postprocess->libvx_running) {
         check_dts_config(native_postprocess);
     }
 
-    if (native_postprocess->libvx_exist && native_postprocess->effect_in_ch == 6) {
+    if (native_postprocess->libvx_running && native_postprocess->effect_in_ch == 6) {
         ai_process_done = false;
     } else {
         if (native_postprocess->ai_handle) {
@@ -351,7 +352,7 @@ size_t audio_post_process(struct aml_native_postprocess *native_postprocess, voi
         effect_handle_t effect = native_postprocess->postprocessors[j].itfe;
         const struct aml_post_effect_info *effectInfo = &native_postprocess->postprocessors[j];
         if (effect && (*effect) && (*effect)->process && in_buffer) {
-            if ((native_postprocess->libvx_exist && (native_postprocess->effect_in_ch == 6 || native_postprocess->effect_in_ch == 8) && j == 0) ||
+            if ((native_postprocess->libvx_running && (native_postprocess->effect_in_ch == 6 || native_postprocess->effect_in_ch == 8) && j == 0) ||
                   (((native_postprocess->effect_ctrl.effect_mode == EFFECT_MODE_AUTO) && !(native_postprocess->effect_ctrl.is_dts)) && j == 0)) {
 
                 /* skip multi channel processing for dts streaming in VX */
@@ -364,6 +365,7 @@ size_t audio_post_process(struct aml_native_postprocess *native_postprocess, voi
                     /* Effect designed by customer without pre/post process */
                     ret = (*effect)->process(effect, &in_buf, &out_buf);
                 } else {
+                    native_postprocess->src_format = format;
                     ret = do_effect_process(native_postprocess, effect, in_buffer, in_frames);
                 }
             }
@@ -379,19 +381,23 @@ size_t audio_post_process(struct aml_native_postprocess *native_postprocess, voi
     return frames;
 }
 
-int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t bytes)
+int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t bytes, audio_format_t format)
 {
     int ret = 0;
     audio_buffer_t in_buf;
     audio_buffer_t out_buf;
-    size_t src_samples = bytes / audio_bytes_per_sample(native_postprocess->src_format);
+    size_t src_samples = bytes / audio_bytes_per_sample(format);
     size_t proced_samples = 0;
     size_t frame_count = src_samples / native_postprocess->effect_in_ch;
     void *processing_buffer = in_buffer;
     int buffer_need_size = bytes; // src_format to proc_format need size.
     int out_frames = 0;
 
-    if (native_postprocess->proc_format != native_postprocess->src_format) {
+    if (native_postprocess->libvx_running) {
+        check_dts_config(native_postprocess);
+    }
+
+    if (native_postprocess->proc_format != format) {
         buffer_need_size = src_samples * audio_bytes_per_sample(native_postprocess->proc_format);
         ret = aml_audio_check_and_realloc((void **)&native_postprocess->temp_vx_proc_buffer, &native_postprocess->temp_vx_proc_capacity, buffer_need_size);
         R_CHECK_RET(ret, "alloc temp_vx_proc_buffer size:%d fail", buffer_need_size);
@@ -401,8 +407,8 @@ int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int
 
     effect_handle_t effect = native_postprocess->postprocessors[0].itfe;
     if (effect && (*effect) && (*effect)->process && in_buffer &&
-        native_postprocess->libvx_exist && (native_postprocess->effect_in_ch == 6 || native_postprocess->effect_in_ch == 8)) {
-        memcpy_by_audio_format(processing_buffer, native_postprocess->proc_format, in_buffer, native_postprocess->src_format, src_samples);
+        native_postprocess->libvx_running && (native_postprocess->effect_in_ch == 6 || native_postprocess->effect_in_ch == 8)) {
+        memcpy_by_audio_format(processing_buffer, native_postprocess->proc_format, in_buffer, format, src_samples);
         /* do multi channel processing for dts streaming in VX */
         in_buf.frameCount = frame_count;
         out_buf.frameCount = frame_count;
@@ -412,16 +418,16 @@ int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int
             ALOGE("postprocess failed\n");
             out_frames = 0;
         } else {
-            out_frames = bytes / native_postprocess->effect_in_ch / audio_bytes_per_sample(native_postprocess->src_format);
+            out_frames = bytes / native_postprocess->effect_in_ch / audio_bytes_per_sample(format);
             proced_samples = out_frames * 2;   // (frameCount * effect_out_ch) For TV, Virtual:X always output 2ch.
-            memcpy_by_audio_format(in_buffer, native_postprocess->src_format, processing_buffer, native_postprocess->proc_format, proced_samples);
+            memcpy_by_audio_format(in_buffer, format, processing_buffer, native_postprocess->proc_format, proced_samples);
             if (get_debug_value(AML_DUMP_AUDIOHAL_TV)) {
                 aml_dump_audio_bitstreams("/data/vendor/audiohal/after_vx_processed.raw", in_buffer, proced_samples * 2);
             }
         }
     }
 
-    return (out_frames * audio_bytes_per_sample(native_postprocess->src_format) * 2 /*out channels*/);
+    return (out_frames * audio_bytes_per_sample(format) * 2 /*out channels*/);
 }
 
 /*
@@ -536,7 +542,7 @@ static int VirtualX_setparameter(struct aml_native_postprocess *native_postproce
 
 void VirtualX_decoder_type_config(struct aml_native_postprocess *native_postprocess, int dts_lib_type)
 {
-     if (native_postprocess->libvx_exist) {
+     if (native_postprocess->libvx_running) {
          VirtualX_setparameter(native_postprocess,
                                  DTS_PARAM_DECODER_TYPE,
                                  dts_lib_type, EFFECT_CMD_SET_PARAM);
@@ -547,7 +553,7 @@ void VirtualX_decoder_type_config(struct aml_native_postprocess *native_postproc
 
 void VirtualX_reset(struct aml_native_postprocess *native_postprocess)
 {
-     if (native_postprocess->libvx_exist) {
+     if (native_postprocess->libvx_running) {
         VirtualX_setparameter(native_postprocess, 0, 0, EFFECT_CMD_RESET);
         ALOGI("VirtualX_reset!\n");
      }
@@ -558,7 +564,7 @@ void VirtualX_Channel_reconfig(struct aml_native_postprocess *native_postprocess
 {
     int ret = -1;
 
-    if (native_postprocess->libvx_exist) {
+    if (native_postprocess->libvx_running) {
         ret = VirtualX_setparameter(native_postprocess,
                                     PARAM_CHANNEL_NUM,
                                     ch_num, EFFECT_CMD_SET_PARAM);
@@ -898,8 +904,9 @@ exit:
 
 bool is_vendor_support_libvx(struct aml_native_postprocess *native_postprocess)
 {
-    return native_postprocess->libvx_exist;
+    return native_postprocess->libvx_running;
 }
+
 
 int init_vendor_post_process(struct aml_native_postprocess *native_postprocess, audio_format_t src_format)
 {
@@ -910,7 +917,6 @@ int init_vendor_post_process(struct aml_native_postprocess *native_postprocess, 
 
     memset(native_postprocess, 0, sizeof(struct aml_native_postprocess));
     pthread_mutex_init(&native_postprocess->lock, NULL);
-    native_postprocess->libvx_exist = Check_VX_lib();
     native_postprocess->src_format = src_format;
     native_postprocess->proc_format = EFFECT_PROCESSING_FORMAT;
 

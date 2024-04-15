@@ -882,6 +882,10 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
 
             }
 
+#if 0
+            // TODO: Here is for special case: Speaker output short noise when DUT connected one special PC by HDMIN
+            // but the processing will cause contine noise output under PCM32 solution
+            // so, we temporarily remove this code
              ALOGV("bytes %zu bytes - read_bytes %zu nodata_count %d",bytes, bytes - read_bytes, nodata_count);
              if (is_dev_patch_valid(aml_dev) && audio_patch && (audio_patch->aformat == AUDIO_FORMAT_PCM_16_BIT ||
                 audio_patch->aformat == AUDIO_FORMAT_PCM_32_BIT) && (nodata_count == 2)) {
@@ -889,6 +893,8 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
                 memset((void*)buffer,0,bytes);
                 return 0;
              }
+#endif
+
              nodata_count++;
              if (nodata_count >= WAIT_COUNT_MAX) {
                  AM_LOGW("read timeout, in:%p read_bytes:%zu need:%zu", in, read_bytes, bytes);

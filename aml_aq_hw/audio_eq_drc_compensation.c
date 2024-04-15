@@ -831,12 +831,11 @@ int set_AQ_parameters(struct audio_hw_device *dev, struct str_parms *parms)
             adev->is_ui_force_dap_disable = true;
         } else if (strncmp(value, "VX_ON", 5) == 0) {
             adev->effect_ctrl.vx_enable = 1;
-            if (adev->native_postprocess.libvx_exist)
+            if (adev->native_postprocess.libvx_running)
                 dca_set_out_ch_internal(0);
         } else if (strncmp(value, "VX_OFF", 6) == 0) {
             adev->effect_ctrl.vx_enable = 0;
-            if (adev->native_postprocess.libvx_exist)
-                dca_set_out_ch_internal(2);
+            dca_set_out_ch_internal(2);
         }
 
         if (adev->effect_ctrl.dap_enable && adev->effect_ctrl.vx_enable)

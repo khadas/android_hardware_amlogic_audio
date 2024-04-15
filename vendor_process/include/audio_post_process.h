@@ -80,9 +80,13 @@ struct aml_native_postprocess {
     int num_postprocessors;
     struct aml_post_effect_info postprocessors[MAX_POSTPROCESSORS];
 
-    /* VirtualX effect license library exist flag */
-    /* Path: (/vendor/lib/soundfx/libvx.so) */
-    bool libvx_exist;
+    /*
+      Using effect impl library to check whether libvx exists and is running.
+       1) VirtualX effect license library exist
+       2) APP has create and enable this effect.
+       Path: (/vendor/lib/soundfx/libvx.so)
+    */
+    bool libvx_running;
     bool vx_force_stereo;
     /* channel num of effect input */
     int effect_in_ch;
@@ -115,8 +119,8 @@ struct aml_native_postprocess {
  *    output data frames
  *
  */
-size_t audio_post_process(struct aml_native_postprocess *native_postprocess, void *in_buffer, size_t in_frames);
-int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t bytes);
+size_t audio_post_process(struct aml_native_postprocess *native_postprocess, void *in_buffer, size_t in_frames, audio_format_t format);
+int audio_VX_post_process(struct aml_native_postprocess *native_postprocess, int16_t *in_buffer, size_t bytes, audio_format_t format);
 int aml_add_audio_effect(struct aml_native_postprocess *native_postprocess, effect_handle_t effect, audio_port_handle_t port_handle __unused);
 int aml_remove_audio_effect(struct aml_native_postprocess *native_postprocess, effect_handle_t effect, audio_port_handle_t port_handle __unused);
 

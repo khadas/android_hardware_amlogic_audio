@@ -397,7 +397,8 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                    //Do nothing
                 } else {
                     if (dec_pcm_data->data_ch == 6 || dec_pcm_data->data_ch == 8) {
-                        ret = audio_VX_post_process(VX_postprocess, (int16_t *)dec_data, pcm_len);
+                        //the output_format follow dts decoder output format
+                        ret = audio_VX_post_process(VX_postprocess, (int16_t *)dec_data, pcm_len, output_format);
                         if (ret > 0) {
                             pcm_len = ret; /* VX will downmix 6ch/8ch to 2ch, pcm size will be changed */
                             dec_pcm_data->data_ch = 2;
@@ -791,15 +792,16 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dec_
 
     if ( (adev->cur_out_devices == OUTPORT_HEADPHONE) || (adev->cur_out_devices == OUTPORT_A2DP) ||
          (adev->cur_out_devices == OUTPORT_HDMI_ARC) || (adev->effect_ctrl.effect_mode == EFFECT_MODE_DAP) ||
-         (adev->native_postprocess.vx_force_stereo == 1)) {
-        if (adev->native_postprocess.libvx_exist) {
-            ALOGD("%s(): set 2 ch", __func__);
-            dca_set_out_ch_internal(2);
-        }
+         (adev->effect_ctrl.effect_mode == EFFECT_MODE_OFF) || (adev->native_postprocess.vx_force_stereo == 1)) {
+        dca_set_out_ch_internal(2);
+        ALOGD("%s(): set 2 ch because of effect_mode", __func__);
     } else {
-        if (adev->native_postprocess.libvx_exist) {
-            ALOGD("%s(): set auto ch", __func__);
+        if (adev->native_postprocess.libvx_running) {
             dca_set_out_ch_internal(0);
+            ALOGD("%s(): set auto ch", __func__);
+        } else {
+            dca_set_out_ch_internal(2);
+            ALOGD("%s(): set 2 ch because of virtualx not running", __func__);
         }
     }
 
