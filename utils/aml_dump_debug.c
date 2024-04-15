@@ -91,9 +91,12 @@ void DoDumpData(const void *data_buf, int size, int aud_src_type) {
 }
 
 typedef struct aml_dump_debug {
-    pthread_t    threadid;
-    bool         bexit;
-    dump_debug_item_t  *items;
+    pthread_t                   threadid;
+    bool                        bexit;
+    pthread_mutex_t             mutex;
+    pthread_condattr_t          cond_attr;
+    pthread_cond_t              cond;
+    dump_debug_item_t           *items;
 } aml_dump_debug_t;
 
 static aml_dump_debug_t * g_debug_handle = NULL;
@@ -135,6 +138,18 @@ dump_debug_item_t aml_debug_items[AML_DEBUG_DUMP_MAX] = {
     {AML_DUMP_AUDIOHAL_ASYNC,           AML_DUMP_AUDIOHAL_ASYNC_PROPERTY,                  1},    //AML_DUMP_AUDIOHAL_ASYNC
 };
 
+
+void ts_wait_monotonic_time(struct timespec *ts, uint32_t time)
+{
+    clock_gettime(CLOCK_MONOTONIC, ts);
+    ts->tv_sec += time / 1000000;
+    ts->tv_nsec += (time * 1000) % 1000000000;
+    if (ts->tv_nsec >= 1000000000) {
+        ts->tv_sec++;
+        ts->tv_nsec -=1000000000;
+    }
+}
+
 static void aml_debug_update(void)
 {
     int i = 0;
@@ -153,10 +168,14 @@ static void aml_debug_update(void)
 static void *aml_debug_Thread(void *pArg)
 {
     aml_dump_debug_t * p_handle = (aml_dump_debug_t *)pArg;
-
+    ALOGI("enter %s", __FUNCTION__);
     while (!p_handle->bexit) {
         aml_debug_update();
-        usleep(1000 * 1000);
+        struct timespec ts;
+        ts_wait_monotonic_time(&ts, 1000 * 1000);
+        pthread_mutex_lock(&p_handle->mutex);
+        pthread_cond_timedwait(&p_handle->cond, &p_handle->mutex, &ts);
+        pthread_mutex_unlock(&p_handle->mutex);
     }
     ALOGI("exit %s", __FUNCTION__);
     return ((void *)0);
@@ -165,9 +184,14 @@ static void *aml_debug_Thread(void *pArg)
 
 void aml_audio_debug_open(void)
 {
+    ALOGI("%s enter", __FUNCTION__);
     if (g_debug_handle == NULL) {
         g_debug_handle = aml_audio_calloc(1, sizeof(aml_dump_debug_t));
         if (g_debug_handle) {
+            pthread_mutex_init(&g_debug_handle->mutex, NULL);
+            pthread_condattr_init(&g_debug_handle->cond_attr);
+            pthread_condattr_setclock(&g_debug_handle->cond_attr, CLOCK_MONOTONIC);
+            pthread_cond_init(&g_debug_handle->cond, &g_debug_handle->cond_attr);
             if (pthread_create(&g_debug_handle->threadid, NULL, &aml_debug_Thread, (void *)g_debug_handle)) {
                 ALOGE("%s create thread failed", __FUNCTION__);
                 return;
@@ -185,10 +209,14 @@ void aml_audio_debug_open(void)
 
 void aml_audio_debug_close(void)
 {
+    ALOGI("%s enter", __FUNCTION__);
     aml_dump_debug_t * p_handle = g_debug_handle;
     if (p_handle) {
         p_handle->bexit = true;
         if (p_handle->threadid != 0) {
+            pthread_mutex_lock(&p_handle->mutex);
+            pthread_cond_signal(&p_handle->cond);
+            pthread_mutex_unlock(&p_handle->mutex);
             pthread_join(p_handle->threadid, NULL);
         }
         aml_audio_free(p_handle);
