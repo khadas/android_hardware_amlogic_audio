@@ -266,51 +266,29 @@ bool aml_dtvsync_audioprocess(aml_dtvsync_t *p_dtvsync, int64_t apts, int64_t cu
     return ret;
 }
 
-bool aml_dtvsync_insertpcm(struct audio_stream_out *stream, audio_format_t format, int time_ms, bool is_ms12)
+bool aml_dtvsync_insertpcm(struct audio_stream_out *stream, audio_format_t format __unused, int time_ms, bool is_ms12)
 {
     struct aml_stream_out *aml_out = (struct aml_stream_out *) stream;
     struct aml_audio_device *adev = aml_out->dev;
     struct aml_audio_patch *patch = get_dev_patch(adev);
     int insert_size = 0, times = 0;
-
-    audio_data_info_t data_info = { 0 };
-    int t1 = 0;
-    int ret = 0;
-    ALOGI("insert time_ms=%d ms, is_ms12=%d\n", time_ms, is_ms12);
+    void *output_buf;
     insert_size =  192 * time_ms;
 
-    memset(patch->out_buf, 0, patch->out_buf_size);
-    if (insert_size <= patch->out_buf_size) {
-        if (!is_ms12) {
-            aml_hw_mixer_mixing(&adev->hw_mixer, patch->out_buf, insert_size, format);
-
-            data_info.audio_format = format;
-            data_info.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
-            ret = aml_audio_pcm_output((struct audio_stream_out *)aml_out, patch->out_buf, insert_size, &data_info);
-
-        } else {
-            ret = aml_audio_ms12_process_wrapper(stream, patch->out_buf, insert_size);
-        }
-        return true;
+    output_buf = aml_audio_calloc(1, insert_size);
+    if (!output_buf) {
+       ALOGI("[%s:%d] malloc failed" ,__FUNCTION__,__LINE__);
     }
-    if (patch->out_buf_size != 0)
-        t1 = insert_size / patch->out_buf_size;
-    else  {
-        ALOGI("fatal error out_buf_size is 0\n");
-        return false;
-    }
-    ALOGI("set t1=%d\n", t1);
-    for (int i = 0; i < t1; i++) {
-        if (!is_ms12) {
-            aml_hw_mixer_mixing(&adev->hw_mixer, patch->out_buf, patch->out_buf_size, format);
 
-            data_info.audio_format = format;
-            data_info.channel_mask = AUDIO_CHANNEL_OUT_STEREO;
-            ret = aml_audio_pcm_output((struct audio_stream_out *)aml_out, patch->out_buf, insert_size, &data_info);
-        } else {
-            ret = aml_audio_ms12_process_wrapper(stream, patch->out_buf, patch->out_buf_size);
-        }
+    memset(output_buf, 0, insert_size);
+
+    if (!is_ms12) {
+        mixer_main_buffer_write_sm(stream, output_buf, insert_size);
+    } else {
+        aml_audio_ms12_process_wrapper(stream, patch->out_buf, insert_size);
     }
+    aml_audio_free(output_buf);
+    output_buf = NULL;
     return true;
 }
 
@@ -496,9 +474,15 @@ int aml_dtvsync_nonms12_process_insert(struct audio_stream_out *stream,
                     aml_dtvsync_spdif_insertraw(stream,  &aml_out->spdifout2_handle,
                                             32, 1);
                 } else {
+                    if (aml_dec->format == AUDIO_FORMAT_E_AC3 &&
+                        aml_out->optical_format == AUDIO_FORMAT_E_AC3) {
 
-                    aml_dtvsync_spdif_insertraw(stream,  &aml_out->spdifout_handle,
-                                            32, 0);//insert non-IEC packet
+                        aml_dtvsync_spdif_insertraw(stream,  &aml_out->spdifout_handle,
+                                                32, 0);//insert non-IEC packet
+                    } else {
+                        aml_dtvsync_spdif_insertraw(stream,  &aml_out->spdifout_handle,
+                                                32, 1);
+                    }
                 }
             }
         }

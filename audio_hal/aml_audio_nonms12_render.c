@@ -262,6 +262,10 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
             used_size = 0;
 
             decoder_ret = aml_decoder_process(aml_dec, (unsigned char *)buffer + dec_used_size, left_bytes, &used_size);
+            if (adev && is_same_patch_src(adev,SRC_DTV) && is_dev_patch_running(adev) && is_dolby_ddp_support_compression_format(aml_out->hal_internal_format)) {
+                struct dolby_ddp_dec *ddp_dec = (struct dolby_ddp_dec *)aml_dec;
+                patch->in_read_frame_size = ddp_dec->curFrmSize;
+            }
             if (decoder_ret == AML_DEC_RETURN_TYPE_CACHE_DATA) {
                 ALOGV("[%s:%d] cache the data to decode", __func__, __LINE__);
                 break;

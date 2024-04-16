@@ -1612,6 +1612,8 @@ int dolby_ms12_main_process(
                 if (adev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS && main_frame_size != 0 && adev->continuous_audio_mode && !is_dev_patch_exist(adev)) {
                     struct bypass_frame_info frame_info = { 0 };
                     aml_out->ddp_frame_size    = main_frame_size;
+                    if (adev && is_same_patch_src(adev,SRC_DTV) && is_dev_patch_running(adev))
+                        patch->in_read_frame_size = main_frame_size;
                     frame_info.audio_format    = ms12_hal_format;
                     frame_info.samplerate      = ac3_info.sample_rate;
                     frame_info.dependency_frame = ac3_info.frame_dependent;
@@ -1653,6 +1655,8 @@ int dolby_ms12_main_process(
                 {
                     aml_ac3_parser_process(ms12->ac3_parser_handle, input_buffer, bytes, &parser_used_size, &main_frame_buffer, &main_frame_size, &ac3_info);
                     aml_out->ddp_frame_size = main_frame_size;
+                    if (adev && is_same_patch_src(adev,SRC_DTV) && is_dev_patch_running(adev))
+                        patch->in_read_frame_size = main_frame_size;
                     aml_out->ddp_frame_nblks = ac3_info.numblks;
                     aml_out->total_ddp_frame_nblks += aml_out->ddp_frame_nblks;
                     dependent_frame = ac3_info.frame_dependent;
@@ -1669,6 +1673,8 @@ int dolby_ms12_main_process(
                 if (adev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS && main_frame_size != 0) {
                     struct bypass_frame_info frame_info = { 0 };
                     aml_out->ddp_frame_size    = main_frame_size;
+                    if (adev && is_same_patch_src(adev,SRC_DTV) && is_dev_patch_running(adev))
+                        patch->in_read_frame_size = main_frame_size;
                     frame_info.audio_format    = ms12_hal_format;
                     frame_info.samplerate      = ac3_info.sample_rate;
                     frame_info.dependency_frame = ac3_info.frame_dependent;

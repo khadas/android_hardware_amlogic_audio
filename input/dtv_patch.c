@@ -3191,6 +3191,12 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     nNextReadSize = read_bytes;
                 } else if ((patch->aformat == AUDIO_FORMAT_MP3) || (patch->aformat == AUDIO_FORMAT_MP2)) {
                     nNextReadSize = read_bytes / 4;
+                } else if (patch->aformat == AUDIO_FORMAT_AC3 || patch->aformat == AUDIO_FORMAT_E_AC3) {
+                    if (patch->in_read_frame_size) {
+                        nNextReadSize = patch->in_read_frame_size;
+                    } else {
+                        nNextReadSize = read_bytes / 2;
+                    }
                 } else {
                     nNextReadSize = read_bytes / 2;
                 }
@@ -3302,7 +3308,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     ret = dtv_package_add(list, dtv_package);
                     if (ret == 0) {
                         if (aml_dev->debug_flag) {
-                            ALOGI("pthread_cond_signal dtv_package %p data size %d  ad data size %d", dtv_package,dtv_package->size,dtv_package->ad_size);
+                            ALOGI("pthread_cond_signal dtv_package %p data size %d  ad data size %d dtv_package_add %d", dtv_package,dtv_package->size,dtv_package->ad_size,list->pack_num);
                         }
                         pthread_cond_signal(&patch->cond);
                         pthread_mutex_unlock(&patch->mutex);
@@ -3832,14 +3838,12 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
         patch->dtvsync->last_package_pts = DTVSYNC_INIT_PTS;
         patch->dtvsync->last_queue_apts = DTVSYNC_INIT_PTS;
     }
-
     while (!patch->output_thread_exit) {
 
         if (patch->dtv_decoder_state == AUDIO_DTV_PATCH_DECODER_STATE_PAUSE) {
             usleep(1000);
             continue;
         }
-
         pthread_mutex_lock(&patch->mutex);
 
         struct package *p_package = NULL;
@@ -3907,11 +3911,10 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
             }
 
             if (aml_dev->debug_flag > 0) {
-                ALOGI("cur_package size %u pts %"PRIx64" jitter %"PRIx64" ms pts diff %"PRIx64" ms",
-                  p_package->size, patch->cur_package->pts, data_arrive_jitter_ms, data_pts_jitter_ms);
+                ALOGI("cur_package size %u pts %"PRIx64" jitter %"PRIx64" ms pts diff %"PRIx64" ms dtv_package_get %d",
+                  p_package->size, patch->cur_package->pts, data_arrive_jitter_ms, data_pts_jitter_ms,list->pack_num);
             }
         }
-
         if (last_out_speed != aml_out->output_speed && eDolbyMS12Lib != aml_dev->dolby_lib_type) {
             ALOGI("[%s-%d] speed change from %f to %f get_sink_format again", __func__, __LINE__,
                 last_out_speed, aml_out->output_speed);
@@ -4831,6 +4834,7 @@ int create_dtv_patch_l(struct audio_hw_device *dev, audio_devices_t input,
     patch->debug_para.debug_last_out_vpts = 0;
     patch->debug_para.debug_last_demux_pcr = 0;
     patch->debug_para.debug_time_interval = property_get_int32(PROPERTY_DEBUG_TIME_INTERVAL, DEFAULT_TUNING_CLOCK_FACTOR);
+    patch->in_read_frame_size = 0;
     /* Use flag to indicate that patch struct is ready.  TBD */
     validate_dev_patch(aml_dev);
 

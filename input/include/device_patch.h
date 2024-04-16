@@ -281,6 +281,7 @@ struct aml_audio_patch
     bool format_change;
     bool input_teardown_over;
     bool output_teardown_over;
+    int in_read_frame_size;
 };
 
 void create_tvin_buffer(struct aml_audio_patch *patch);
