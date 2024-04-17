@@ -25,7 +25,7 @@
 *vx process 256 as a block(256 *  4 bytes)
 * 32bit multich  case need to do
 */
-#define EFFECT_PROCESS_BLOCK_SIZE (256 *  4)
+#define EFFECT_PROCESS_BLOCK_SIZE (256 *  8)
 
 enum aml_post_effect_info_type {
     EFFECT_TYPE_VIRTUAL_X = 0,

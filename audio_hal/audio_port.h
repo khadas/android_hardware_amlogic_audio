@@ -158,6 +158,7 @@ typedef struct OUTPUT_PORT {
     void *processed_buf;
     size_t processed_bytes;
     void *vol_buf;
+    size_t vol_buf_size;
     float *sink_gain;
     float volume;
     float eq_gain;

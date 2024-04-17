@@ -437,7 +437,8 @@ static int pre_process_stereo(struct aml_native_postprocess *post_handle, void *
     audio_format_t out_format = post_handle->proc_format;
     if (in_format != out_format) {
         size_t request_buffer_size = in_frames * 2 /*channels*/ * audio_bytes_per_sample(out_format);
-        if (request_buffer_size > post_handle->temp_proc_capacity) {
+        if (request_buffer_size >= post_handle->temp_proc_capacity) {
+            request_buffer_size += EFFECT_PROCESS_BLOCK_SIZE;
             void *addr = aml_audio_realloc(post_handle->temp_proc_buffer, request_buffer_size);
             post_handle->temp_proc_buffer = addr;
             post_handle->temp_proc_capacity = request_buffer_size;

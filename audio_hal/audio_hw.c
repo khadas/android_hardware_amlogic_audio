@@ -184,8 +184,6 @@
 
 /* this latency is from logcat time. */
 #define HAL_MS12_PIPELINE_LATENCY (10)
-#define VX_BUFFER_CLEAR_STEREO_FRAME_SIZE 1024
-#define VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE 6144
 #define VX_BUFFER_CLEAR_COUNT 5
 
 static const struct pcm_config pcm_config_out = {
@@ -3487,23 +3485,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         close_ms12_output_main_stream(stream);
     }
 
-    /* After playback for previous dts stream, there is remain data in VirtualX library. It needs to clear data buffer of VirtualX by using
-       zero data to replace these remain data. Otherwise it will play this remain data first when start playback next time*/
-    if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0 && out->write_count > 0 && is_dts_format(out->hal_internal_format)) {
-        char *tmp_buffer = aml_audio_malloc(VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
-        if (!tmp_buffer) {
-            ALOGE("tmp_buffer NULL %d",__LINE__);
-        } else {
-            for (int i = 0; i < VX_BUFFER_CLEAR_COUNT; i++) {
-                 memset(tmp_buffer, 0, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
-                 audio_post_process(&adev->native_postprocess, (int16_t *)tmp_buffer, VX_BUFFER_CLEAR_STEREO_FRAME_SIZE);
-                 audio_VX_post_process(&adev->native_postprocess, (int16_t *)tmp_buffer, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
-            }
-            aml_audio_free(tmp_buffer);
-            tmp_buffer = NULL;
-        }
-    }
-
 #if ENABLE_DVB_PATCH
 #if ANDROID_PLATFORM_SDK_VERSION > 29
     if (dtv_tuner_framework(stream)) {
@@ -5567,24 +5548,6 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             aml_out->device = PORT_I2S;
         } else {
             aml_out->device = PORT_SPDIF;
-        }
-    }
-
-    /* After playback for previous dts stream, there is remain data in VirtualX library. It needs to clear data buffer of VirtualX by using
-       zero data to replace these remain data. Otherwise it will play this remain data first when start playback next time*/
-    if (is_dev_patch_valid(adev) && is_dev_patch_exist(adev) && (get_dev_patch(adev)->input_src == AUDIO_DEVICE_IN_HDMI)) {
-        if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_SPEAKER) != 0 && aml_out->write_count > 0) {
-            char *tmp_buffer = aml_audio_malloc(VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
-            if (!tmp_buffer) {
-                ALOGE("tmp_buffer NULL %d",__LINE__);
-            }
-            for (int i = 0; i < VX_BUFFER_CLEAR_COUNT; i++) {
-                 memset(tmp_buffer, 0, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
-                 audio_post_process(&adev->native_postprocess, (int16_t *)tmp_buffer, VX_BUFFER_CLEAR_STEREO_FRAME_SIZE);
-                 audio_VX_post_process(&adev->native_postprocess, (int16_t *)tmp_buffer, VX_BUFFER_CLEAR_MULTICHANNEL_FRAME_SIZE);
-            }
-            aml_audio_free(tmp_buffer);
-            tmp_buffer = NULL;
         }
     }
 

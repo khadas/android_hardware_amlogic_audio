@@ -816,9 +816,11 @@ static ssize_t output_port_post_process(output_port *port, void *buffer, int byt
     int samples = bytes / audio_bytes_per_sample(src_cfg->format);
     int frames = samples / src_cfg->channelCnt;
     int dest_sample_size = audio_bytes_per_sample(target_cfg->format);
+    size_t buffer_need_size = bytes + EFFECT_PROCESS_BLOCK_SIZE;
     const int out_channels = 8;
     void *out_buffer = port->processed_buf;
     float vol = 1.0;
+    int ret;
     int i = 0;
     struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
 
@@ -842,7 +844,9 @@ static ssize_t output_port_post_process(output_port *port, void *buffer, int byt
                     config_volume_easing(adev->volume_ease.ease, vol_now, vol);
                     adev->volume_ease.config_easing = false;
                 }
-
+                ret = aml_audio_check_and_realloc((void **)&port->vol_buf, &port->vol_buf_size, buffer_need_size);
+                R_CHECK_RET(ret, "alloc vol_buf size:%d fail", bytes);
+                memcpy(vol_buf, buffer, bytes);
                 if (port->postprocess) {
                     audio_post_process(port->postprocess, vol_buf, frames);
                 }
@@ -1234,6 +1238,7 @@ output_port *new_output_port(
             goto err_vol_buf;
         }
         port->vol_buf = vol_buf;
+        port->vol_buf_size = rbuf_size * STEREO_16BIT_TO_2CH_32BIT;
 
         ALOGI("%s(), rbuf bytes %d", __func__, rbuf_size * STEREO_16BIT_TO_2CH_32BIT);
     } else if (config->is_automotive) {
