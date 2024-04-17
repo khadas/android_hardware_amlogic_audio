@@ -212,7 +212,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 #ifdef ENABLE_DVB_PATCH
     dtvsync_process_res process_result = DTVSYNC_AUDIO_OUTPUT;
     bool dtv_stream_flag = patch && is_same_patch_src(adev, SRC_DTV) && aml_out->is_tv_src_stream;
-    bool do_sync_flag = dtv_stream_flag && patch->skip_amadec_flag;
+    bool do_sync_flag = patch && dtv_stream_flag && patch->skip_amadec_flag;
 #endif
 
 
@@ -230,7 +230,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 #ifdef ENABLE_DVB_PATCH
         if (dtv_stream_flag  && patch->decoder_offset == 0) {
             if (patch->cur_package) {
-                if (!is_dtv_multi_demux(adev) && patch->singleDmxNonTunnelMode) {
+                if (!is_dtv_multi_demux(adev) && adev->singleDmxNonTunnelMode) {
                     aml_dec->in_frame_pts = decoder_apts_lookup((unsigned int)patch->decoder_offset);
                 }
                 else
@@ -254,6 +254,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
         dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
         dec_data_info_t * dec_raw_data = &aml_dec->dec_raw_data;
         dec_data_info_t * raw_in_data  = &aml_dec->raw_in_data;
+        aml_dec->output_format = choose_dtv_pcm_output_format(get_primary_out_format(adev));
         left_bytes = bytes;
 
         do {
@@ -336,6 +337,11 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 audio_format_t output_format;
                 if (audio_is_linear_pcm(aml_out->hal_internal_format)) {
                     output_format = aml_out->hal_internal_format;
+                }/* else if (is_dts_format(aml_out->hal_internal_format)) {
+                    //~~~todo: if enable all path 32bit, set dts output to 32bit
+                    output_format = AUDIO_FORMAT_PCM_32_BIT;
+                }*/ else if (dec_pcm_data->data_format == AUDIO_FORMAT_PCM_32_BIT) {
+                    output_format = AUDIO_FORMAT_PCM_32_BIT;
                 } else {
                     output_format = AUDIO_FORMAT_PCM_16_BIT;
                 }
@@ -365,7 +371,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                                                  adev->cur_out_devices);
                 if (input_sr != output_sr) {
                     audio_resample_config_t cfg = {
-                        .aformat = AUDIO_FORMAT_PCM_16_BIT, // TODO
+                        .aformat = output_format,
                         .channels = dec_pcm_data->data_ch,
                         .input_sr = input_sr,
                         .output_sr = output_sr,
@@ -384,7 +390,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 }
 
                 /*process the stream volume before mix*/
-                aml_audio_stream_volume_process(stream, dec_data, sizeof(int16_t), dec_pcm_data->data_ch, pcm_len);
+                aml_audio_stream_volume_process(stream, dec_data, audio_bytes_per_sample(output_format), dec_pcm_data->data_ch, pcm_len);
 
                 if ((adev->effect_ctrl.effect_mode == EFFECT_MODE_DAP) || (adev->effect_ctrl.effect_mode == EFFECT_MODE_OFF)) {
                    //Do nothing
@@ -468,7 +474,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
 
                     /* if audio channel status changes to "NONAUDIO", software parser doesn't detect audio format change, mute audio */
                     if (is_same_patch_src(adev, SRC_HDMIIN) && audio_type_status != NULL &&
-                            audio_type_status->soft_parser && patch->IEC61937_format == false &&
+                            audio_type_status->soft_parser && patch && patch->IEC61937_format == false &&
                             aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_HDMIIN_NONAUDIO) == 1) {
                         memset(dec_data, 0, pcm_len);
                     }
@@ -758,14 +764,18 @@ static void ddp_decoder_config_prepare(struct audio_stream_out *stream, aml_dcv_
         ddp_config->nIsEc3 = 0;
     }
     /*check if the input format is contained with 61937 format*/
-    if (aml_out->hal_format == AUDIO_FORMAT_IEC61937) {
+    if (aml_out->hal_format == AUDIO_FORMAT_IEC61937
+        || (aml_out->is_tv_src_stream && !is_same_patch_src(adev, SRC_DTV))) {
         ddp_config->is_iec61937 = true;
     } else {
         ddp_config->is_iec61937 = false;
     }
 
-    ALOGI("%s digital_raw:%d, dual_output_flag:%d, is_61937:%d, IsEc3:%d decoding_mode %d"
-        , __func__, ddp_config->digital_raw, aml_out->dual_output_flag, ddp_config->is_iec61937, ddp_config->nIsEc3,ddp_config->decoding_mode);
+    ddp_config->is_pcmout_32bits = (get_primary_out_format(adev) == AUDIO_FORMAT_PCM_32_BIT);
+
+    ALOGI("%s digital_raw:%d, dual_output_flag:%d, is_61937:%d, IsEc3:%d decoding_mode %d is_pcmout_32bits %d"
+        , __func__, ddp_config->digital_raw, aml_out->dual_output_flag, ddp_config->is_iec61937
+        , ddp_config->nIsEc3, ddp_config->decoding_mode, ddp_config->is_pcmout_32bits);
     return;
 }
 
@@ -795,7 +805,7 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dec_
         aml_dtsx_config_t *dtsx_config = &dec_config->dtsx_config;
         dtsx_config->digital_raw = AML_DEC_CONTROL_CONVERT;
         dtsx_config->is_dtscd = aml_out->is_dtscd;
-        if (aml_out->hal_format == AUDIO_FORMAT_IEC61937 && !dtsx_config->is_dtscd) {
+        if ((aml_out->hal_format == AUDIO_FORMAT_IEC61937 || aml_out->is_tv_src_stream) && !dtsx_config->is_dtscd) {
             dtsx_config->is_iec61937 = true;
         } else {
             dtsx_config->is_iec61937 = false;
@@ -828,7 +838,7 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dec_
         aml_dca_config_t * dts_config = &dec_config->dca_config;
         dts_config->digital_raw = AML_DEC_CONTROL_CONVERT;
         dts_config->is_dtscd = aml_out->is_dtscd;
-        if (aml_out->hal_format == AUDIO_FORMAT_IEC61937 && !dts_config->is_dtscd) {
+        if ((aml_out->hal_format == AUDIO_FORMAT_IEC61937 || aml_out->is_tv_src_stream) && !dts_config->is_dtscd) {
             dts_config->is_iec61937 = true;
         } else {
             dts_config->is_iec61937 = false;

@@ -22,6 +22,8 @@
 #define PLAYBACK_PERIOD_COUNT                           (4)
 /* number of periods for capture */
 #define CAPTURE_PERIOD_COUNT                            (4)
+#define EARC_CAPTURE_PERIOD_COUNT                       (16)
+
 #define OUTPUT_BUFFER_SIZE                              (6 * 1024)
 #define OUTPUT_ALSA_SAMPLERATE                          (48000)
 

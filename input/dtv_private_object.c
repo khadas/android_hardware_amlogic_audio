@@ -330,3 +330,23 @@ int destroy_dtv_object(struct aml_audio_device *adev)
     free(dtv_obj);
     return 0;
 }
+int choose_dtv_pcm_output_format(audio_format_t output_format)
+{
+    int pcm_output_format;
+    switch (output_format) {
+        case AUDIO_FORMAT_PCM_16_BIT:
+            pcm_output_format = FMT_16BIT;
+            break;
+        case AUDIO_FORMAT_PCM_32_BIT:
+            pcm_output_format = FMT_32BIT;
+            break;
+        case AUDIO_FORMAT_PCM_FLOAT:
+            pcm_output_format = FMT_FLOAT;
+            break;
+        default:
+            pcm_output_format = FMT_16BIT;
+            break;
+    }
+    return pcm_output_format;
+}
+

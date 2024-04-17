@@ -150,6 +150,28 @@ int dvb_audio_get_sound_mode(int demux_id) {
 
 }
 
+int dvb_audio_get_es_pts_dts_flag(int demux_id) {
+    ALOGV("demux_id %d",demux_id);
+    int dtv_es_pts_dts_flag = 0;
+    int ret = 0;
+    struct str_parms *parms;
+    String8 mString = aml_audioport->getParameters(String8("hal_param_dtv_es_pts_dts_flag"));
+    if (!mString.isEmpty()) {
+       parms = str_parms_create_str(mString.c_str());
+       ret = str_parms_get_int(parms, "hal_param_dtv_es_pts_dts_flag", &dtv_es_pts_dts_flag);
+       if (ret < 0)
+           ALOGE("str_parms_get_int is error ");
+       str_parms_destroy (parms);
+       mString.clear();
+       ALOGI("dtv_es_pts_dts_flag:%d ", dtv_es_pts_dts_flag);
+       return dtv_es_pts_dts_flag;
+    } else {
+        mString.clear();
+        return dtv_es_pts_dts_flag;
+    }
+
+}
+
 int dvb_audio_set_param(AUDIO_DTV_PATCH_CMD_TYPE para_type, int demux_id, int val)
 {
   switch (para_type) {
@@ -167,6 +189,9 @@ int dvb_audio_get_param(AUDIO_DTV_PATCH_CMD_TYPE para_type, int demux_id, int *v
     switch (para_type) {
       case AUDIO_DTV_PATCH_CMD_OUTPUT_MODE:
          *val = dvb_audio_get_sound_mode(demux_id);
+        break;
+     case AUDIO_DTV_PATCH_CMD_ES_PTS_DTS_FLAG:
+         *val = dvb_audio_get_es_pts_dts_flag(demux_id);
         break;
       default:
           ALOGI("unsupport para_type %d", para_type);

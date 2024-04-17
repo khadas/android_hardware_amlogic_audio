@@ -631,7 +631,8 @@ private:
     int mRISCPrecisionFlag;//0 less&16bits for 16x32;1 high&32bits for 16x32
     int mDualMonoReproMode;//0-stereo;1-Left or first;2-right or second
     int mVerbosity;//here choose 0
-    int mOutputBitDepth;//here choose 16(bit)
+    int mOutputBitDepth;//here choose 16(bit) for not support 32bit ms12 lib
+    int mOutputBitDepth2;//here choose 32(bit) for support 32bit ms12 lib
     int mAssociatedAudioMixing;//0 off;1 on&default;
     int mSystemAPPAudioMixing;//0 off;1 on&default;
     int mUserControlVal;//-32(mute assoc) <--> 32(mute main)

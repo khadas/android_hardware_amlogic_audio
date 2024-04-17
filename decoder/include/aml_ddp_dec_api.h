@@ -115,7 +115,7 @@ struct dolby_ddp_dec {
     int Sample_Rate;
     int Same_ChNum_Count;
     int Same_SampleRate_Count;
-
+    int is_pcmout_32bits;
 };
 
 int dcv_decoder_init_patch(aml_dec_t ** ppaml_dec, aml_dec_config_t * dec_config);

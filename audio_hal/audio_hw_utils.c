@@ -95,7 +95,7 @@ static const char* aml_chip_name[]= {
     "g12a", "g12b", "gxlx2", "sm1", "a1", NULL, "tl1", "tm2",
     "c1", NULL, "sc2", "c2", "t5", "t5d", "t7", "s4",
     "t3", "p1", "s4d","t5w", "a5", "c3", "s5", "gxlx3",
-    "a4", "t5m", "t3x", NULL, "txhd2", "s1a", "s7"
+    "a4", "t5m", "t3x", NULL, "txhd2", "s1a", "s7", "s7d"
 };
 
 // add array of dd/ddp mute frame for mute function
@@ -1255,7 +1255,7 @@ void audio_fade_func_16bit(void *buf, int fade_size, int is_fadein, int channel_
         }
         fade_vol += fade_step;
     }
-    ALOGI("do fade %s done,size %d",is_fadein?"in":"out",fade_size);
+    ALOGI("do fade %s done,size %d ch %d",is_fadein?"in":"out",fade_size, channel_num);
 }
 
 void audio_fade_func_32bit(void *buf, int fade_size, int is_fadein, int channel_num) {
@@ -1275,7 +1275,7 @@ void audio_fade_func_32bit(void *buf, int fade_size, int is_fadein, int channel_
         }
         fade_vol += fade_step;
     }
-    ALOGI("do fade %s done,size %d",is_fadein?"in":"out",fade_size);
+    ALOGI("do fade %s done,size %d ch %d",is_fadein?"in":"out",fade_size, channel_num);
 }
 
 void ts_wait_time_us(struct timespec *ts, uint32_t time_us)
@@ -1412,7 +1412,7 @@ int aml_audio_get_speaker_latency_offset(int aformat ,int ms12_enable)
            latency_ms = 0;
     } else {
         prop_name = "vendor.media.audio.hal.speaker_latency.raw";
-        latency_ms = 80;
+        latency_ms = 130;
     }
     ret = property_get(prop_name, buf, NULL);
     if (ret > 0)

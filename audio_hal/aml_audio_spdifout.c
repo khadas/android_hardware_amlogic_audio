@@ -424,10 +424,8 @@ int aml_audio_spdifout_open(void **pphandle, spdif_config_t *spdif_config)
 
         if (aml_spdif_format == AML_TRUE_HD
             || aml_spdif_format == AML_DTS_HD_MA
-            || aml_spdif_format == AML_MULTI_CH_LPCM
             || aml_arc_format == AML_AUDIO_CODING_TYPE_MLP
-            || aml_arc_format == AML_DTS_HD_MA
-            || aml_arc_format == AML_AUDIO_CODING_TYPE_MULTICH_8CH_LPCM) {
+            || aml_arc_format == AML_DTS_HD_MA) {
             is_hbr_audio = true;
         }
 

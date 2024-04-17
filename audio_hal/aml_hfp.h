@@ -59,7 +59,7 @@ extern void audio_extn_hfp_set_parameters(struct aml_audio_device *adev, struct 
 #define CAPTURE_PERIOD_COUNT 4
 
 #define HFP_CARD 0
-#define HFP_UL_RD_DEVICE 7
+#define HFP_UL_RD_DEVICE 8
 #define HFP_UL_WR_DEVICE 0
 #define HFP_DL_RD_DEVICE 0
 #define HFP_DL_WR_DEVICE 1

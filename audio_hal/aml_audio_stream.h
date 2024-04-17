@@ -264,6 +264,16 @@ static inline audio_format_t encodingFormat2AudioFormat(AUDIO_ENCODING_FORMAT_E 
 }
 
 enum {
+    AUDIO_CODING_TYPE_UNDEFINED = 0,
+    AUDIO_CODING_TYPE_STEREO_LPCM,
+    AUDIO_CODING_TYPE_MULTICH_2CH_LPCM,
+    AUDIO_CODING_TYPE_MULTICH_8CH_LPCM,
+    AUDIO_CODING_TYPE_MULTICH_16CH_LPCM,
+    AUDIO_CODING_TYPE_MULTICH_32CH_LPCM,
+    AUDIO_CODING_TYPE_PAUSE = 16
+};
+
+enum {
     ATTEND_TYPE_NONE = -1,
     ATTEND_TYPE_DISCONNECT = 0,
     ATTEND_TYPE_ARC = 1,
@@ -491,5 +501,7 @@ const char *write_func_to_str(enum stream_write_func func);
 int aml_audio_earctx_get_type(struct aml_audio_device *adev);
 int aml_audio_earc_get_latency(struct aml_audio_device *adev);
 int set_device_control(struct audio_hw_device *dev, struct str_parms *parms);
+audio_channel_mask_t aml_map_ch_to_mask(int ch);
+audio_channel_mask_t aml_map_ca_to_mask(int ca);
 
 #endif /* _AML_AUDIO_STREAM_H_ */

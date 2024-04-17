@@ -19,6 +19,7 @@
 
 #include <cutils/log.h>
 #include <stdlib.h>
+#include <audio_utils/primitives.h>
 #include "aml_malloc_debug.h"
 #include "audio_android_resample_api.h"
 #include "aml_resample_wrap.h"
@@ -39,8 +40,8 @@ int android_resample_open(void **handle, const audio_resample_config_t *resample
     int ret = -1;
     android_resample_handle_t *resample = NULL;
 
-    if (resample_config->aformat != AUDIO_FORMAT_PCM_16_BIT) {
-        ALOGE("Not support Format =%d \n", resample_config->aformat);
+    if (resample_config->aformat != AUDIO_FORMAT_PCM_16_BIT && resample_config->aformat != AUDIO_FORMAT_PCM_32_BIT) {
+        ALOGE("Not support Format = %d \n", resample_config->aformat);
         return -1;
     }
 
@@ -50,11 +51,12 @@ int android_resample_open(void **handle, const audio_resample_config_t *resample
         return -1;
     }
 
+    resample->aformat = resample_config->aformat;
     resample->channels  = resample_config->channels;
     resample->input_sr  = resample_config->input_sr;
     resample->output_sr = resample_config->output_sr;
 
-    resample->ringbuf_size = resample->channels * audio_bytes_per_sample(resample_config->aformat) * RING_BUF_FRAMES;
+    resample->ringbuf_size = resample->channels * audio_bytes_per_sample(resample->aformat) * RING_BUF_FRAMES;
     ret = ring_buffer_init(&resample->ring_buf, resample->ringbuf_size);
     if (ret < 0) {
         ALOGE("ringbuffer init failed\n");
@@ -63,7 +65,7 @@ int android_resample_open(void **handle, const audio_resample_config_t *resample
 
     ret = android_resample_init(resample,
                                 resample->input_sr,
-                                resample_config->aformat,
+                                resample->aformat,
                                 resample->channels,
                                 in_read_func,
                                 &resample->ring_buf);
@@ -121,6 +123,11 @@ int android_resample_process(void *handle, void * in_buffer, size_t bytes, void 
     }
 
     if (get_buffer_write_space(&resample->ring_buf) > (int)bytes) {
+        if (resample->aformat == AUDIO_FORMAT_PCM_32_BIT) {
+            memcpy_to_float_from_i32((float*)(in_buffer),
+                                     (int32_t*)(in_buffer),
+                                    bytes / audio_bytes_per_sample(AUDIO_FORMAT_PCM_32_BIT));
+        }
         ring_buffer_write(&resample->ring_buf, in_buffer, bytes, UNCOVER_WRITE);
     } else {
         ALOGE("Lost data, bytes:%zu\n", bytes);
@@ -129,7 +136,7 @@ int android_resample_process(void *handle, void * in_buffer, size_t bytes, void 
     input_sr = resample->input_sr;
     output_sr = resample->output_sr;
 
-    framesize = audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT) * resample->channels;
+    framesize = audio_bytes_per_sample(resample->aformat) * resample->channels;
 
     input_size = bytes;
     input_frames = input_size / framesize;
@@ -151,8 +158,7 @@ int android_resample_process(void *handle, void * in_buffer, size_t bytes, void 
         resampled_size += android_resample_read(resample, (char *)out_buffer + resampled_size, min_outsize);
     }
 
-    //ALOGD("input_size = %d, resampled_size = %d, left_size = %d\n",
-        //input_size, resampled_size, get_buffer_read_space(&resample->ring_buf));
+    //ALOGD("input_size = %d, resampled_size = %d, left_size = %d\n", input_size, resampled_size, get_buffer_read_space(&resample->ring_buf));
     *out_size = resampled_size;
     return 0;
 }

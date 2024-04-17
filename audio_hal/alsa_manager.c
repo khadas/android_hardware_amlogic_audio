@@ -630,7 +630,7 @@ write:
         int stop_now = true;
 
         if ((adev->cur_out_devices & AUDIO_DEVICE_OUT_HDMI_ARC) &&
-            aml_audio_earctx_get_type(adev) == ATTEND_TYPE_NONE)
+            aml_audio_earctx_get_type(adev) == ATTEND_TYPE_DISCONNECT)
             stop_now = false;
 
         if (stop_now) {

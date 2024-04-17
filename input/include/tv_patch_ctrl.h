@@ -57,12 +57,17 @@ void audio_raw_data_continuous_check(struct aml_audio_device *aml_dev, audio_typ
 int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
                                        struct aml_stream_in *stream_in,
                                        ring_buffer_t *ringbuffer, int buffer_size);
+int reconfig_read_param_through_arcin(struct aml_audio_device *aml_dev,
+                                       struct aml_stream_in *stream_in,
+                                       ring_buffer_t *ringbuffer, int buffer_size);
+
 int stream_check_reconfig_param(struct audio_stream_out *stream);
 
 
 /*==================================mixer control commands=========================================*/
 int enable_HW_resample(struct aml_mixer_handle *mixer_handle, int enable_sr);
 int get_spdifin_samplerate(struct aml_mixer_handle *mixer_handle);
+eMixerHwResample get_eArcIn_samplerate(struct aml_mixer_handle *mixer_handle);
 int get_hdmiin_samplerate(struct aml_mixer_handle *mixer_handle);
 int get_hdmiin_channel(struct aml_mixer_handle *mixer_handle);
 hdmiin_audio_packet_t get_hdmiin_audio_packet(struct aml_mixer_handle *mixer_handle);

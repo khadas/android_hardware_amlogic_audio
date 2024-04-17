@@ -10,6 +10,14 @@ LOCAL_MODULE    := AudioEffectTool
 LOCAL_SYSTEM_EXT_MODULE := true
 LOCAL_SRC_FILES := main.cpp
 
+ifeq ($(BOARD_AUDIO_EFFECT_DTS_VX_VERSION), v2)
+    $(info "---- DTS effect tool build version = v2 ---")
+    LOCAL_SRC_FILES += vx_v2_ctrl.cpp
+else
+    $(info "---- DTS effect tool build version = v4 ---")
+    LOCAL_SRC_FILES += vx_v4_ctrl.cpp
+endif
+
 LOCAL_SHARED_LIBRARIES := \
     libaudiofoundation \
     liblog \
@@ -33,7 +41,6 @@ LOCAL_CFLAGS += -DUSE_IDENTITY_CREATE_AUDIOEFFECT
 LOCAL_SHARED_LIBRARIES += \
     framework-permission-aidl-cpp \
     libaudioclient_aidl_conversion \
-    libaudio_aidl_conversion_common_cpp \
 
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
 LOCAL_LICENSE_CONDITIONS := notice

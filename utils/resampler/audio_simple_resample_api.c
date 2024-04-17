@@ -28,7 +28,7 @@ int simple_resample_open(void **handle, const audio_resample_config_t *resample_
 {
     struct resample_para *resample = NULL;
 
-    if (resample_config->aformat != AUDIO_FORMAT_PCM_16_BIT) {
+    if (resample_config->aformat != AUDIO_FORMAT_PCM_16_BIT && resample_config->aformat != AUDIO_FORMAT_PCM_32_BIT) {
         ALOGE("Not support Format =%d \n", resample_config->aformat);
         return -1;
     }
@@ -43,6 +43,7 @@ int simple_resample_open(void **handle, const audio_resample_config_t *resample_
     resample->channels  = resample_config->channels;
     resample->input_sr  = resample_config->input_sr;
     resample->output_sr = resample_config->output_sr;
+    resample->aformat = resample_config->aformat;
     resampler_init(resample);
 
     *handle = resample;
@@ -59,11 +60,13 @@ void simple_resample_close(void *handle)
     }
     return;
 }
+
 int simple_resample_process(void *handle, void * in_buffer, size_t bytes, void * out_buffer, size_t * out_size)
 {
     struct resample_para *resample = NULL;
     int out_frame = 0;
     int in_frame = 0;
+    int sample_byte = 0;
 
     if (handle == NULL) {
         ALOGE("simple resample is NULL\n");
@@ -71,10 +74,12 @@ int simple_resample_process(void *handle, void * in_buffer, size_t bytes, void *
     }
     resample = (struct resample_para *)handle;
 
-    in_frame = bytes / (2 * resample->channels); // 2 means 16 bit data
-    out_frame = resample_process(resample, in_frame, (int16_t *) in_buffer, (int16_t *) out_buffer);
+    sample_byte = audio_bytes_per_sample(resample->aformat);
 
-    * out_size = out_frame * 2 * resample->channels;
+    in_frame = bytes / (sample_byte * resample->channels);
+    out_frame = resample_process(resample, in_frame, in_buffer, out_buffer);
+
+    *out_size = out_frame * sample_byte * resample->channels;
 
     return 0;
 }

@@ -60,8 +60,8 @@ typedef enum
     AM_AOUT_OUTPUT_DUAL_LEFT,  /**< Left audio output to dual channel*/
     AM_AOUT_OUTPUT_DUAL_RIGHT, /**< Right audio output to dual channel*/
     AM_AOUT_OUTPUT_SWAP,       /**< Swap left and right channel*/
-    AM_AOUT_OUTPUT_JOINT_STEREO,
-    AM_AOUT_OUTPUT_LRMIX       /**< mix left and right channel*/
+    AM_AOUT_OUTPUT_LRMIX,       /**< mix left and right channel*/
+    AM_AOUT_OUTPUT_JOINT_STEREO /**< JOINT output*/
 } AM_AOUT_OutputMode_t;
 
 /* all latency in unit 'ms' */
@@ -111,6 +111,13 @@ struct aml_audio_patch
     audio_channel_mask_t in_chanmask;
     int in_sample_rate;
     audio_format_t in_format;
+    bool arc_layout_b;
+    bool last_layout_b;
+    int channel_count;
+    int ca;
+    enum earc_audio_type earcin_audio_type;
+    bool cs_mute;
+    bool reset_input;
     bool need_reconfig_mediasync;
     audio_devices_t output_src;
     bool is_dtv_src;
@@ -237,6 +244,7 @@ struct aml_audio_patch
     struct cmd_node *dtv_cmd_list;
     void *dtv_package_list;
     struct package *cur_package;
+    int audio_pts_dts_flag;
 #endif
     bool skip_amadec_flag;
     int sync_type;
@@ -245,6 +253,8 @@ struct aml_audio_patch
     int adec_handle;
     void *ac3_parser_handle;
     void *ad_ac3_parser_handle;
+    void *ad_remain_buf;
+    int  ad_remain_size;
     void *heaac_parser_handle;
     void *ad_heaac_parser_handle;
     struct heaac_parser_info main_heaac_info;
@@ -267,7 +277,6 @@ struct aml_audio_patch
     bool is_dvi_signal;
     struct aml_stream_out *output_stream;
     int32_t PServerDev;
-    bool singleDmxNonTunnelMode;
     /* source data format change */
     bool format_change;
     bool input_teardown_over;

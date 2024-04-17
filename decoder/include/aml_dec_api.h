@@ -69,6 +69,14 @@ typedef enum {
     AML_DEC_CONFIG_OUTPUT_BITWIDTH
 } aml_dec_config_type_t;
 
+enum Output_format {
+    FMT_16BIT = 1,
+    FMT_24BIT,
+    FMT_32BIT,
+    FMT_FLOAT,
+    FMT_DOUBLE
+};
+
 typedef enum {
     AML_DEC_REMAIN_SIZE, //runtime param
     AML_DEC_STREAM_INFO,
@@ -147,6 +155,9 @@ typedef struct aml_dec {
     bool debug_synced_frame_pts_flag;
     int dts_decode_enable;
     int dts_lib_type;   // #eDTSLibType_t
+    int output_format;
+    void* sample_convert_buf;
+    size_t convert_buf_size;
 } aml_dec_t;
 
 typedef struct aml_dcv_config {
@@ -155,6 +166,7 @@ typedef struct aml_dcv_config {
     bool is_iec61937;
     int decoding_mode;
     int nIsEc3;
+    int is_pcmout_32bits;
 } aml_dcv_config_t;
 
 typedef struct aml_dca_config {
@@ -281,5 +293,7 @@ int aml_decoder_process(aml_dec_t *aml_dec, unsigned char*buffer, int bytes, int
 int aml_decoder_set_config(aml_dec_t *aml_dec, aml_dec_config_type_t config_type, aml_dec_config_t * dec_config);
 void aml_decoder_calc_coefficient(unsigned char ad_fade,float * mix_coefficient,float * ad_coefficient);
 void get_audio_decoder_info (aml_dec_info_t dec_info, aml_dec_t *aml_dec);
+void aml_decoder_16bit_to_32bit(audio_format_t output_format,aml_dec_t *aml_dec, dec_data_info_t * dec_pcm_data);
+
 
 #endif

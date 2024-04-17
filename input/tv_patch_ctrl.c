@@ -58,6 +58,14 @@
 #define MINUS_3_DB_IN_FLOAT M_SQRT1_2 // -3dB = 0.70710678
 #define HDMIIN_MULTICH_DOWNMIX
 
+typedef enum AML_INPUT_STREAM_CONFIG_TYPE {
+    AML_INPUT_STREAM_CONFIG_TYPE_CHANNELS   = 0,
+    AML_INPUT_STREAM_CONFIG_TYPE_PERIODS    = 1,
+
+    AML_INPUT_STREAM_CONFIG_TYPE_BUTT       = -1,
+} AML_INPUT_STREAM_CONFIG_TYPE_E;
+
+
 /*==================================input commands=========================================*/
 static inline int find_61937_sync_word(char *buffer, int size)
 {
@@ -350,7 +358,6 @@ bool check_digital_in_stream_signal(struct audio_stream_in *stream)
     return true;
 }
 
-
 void audio_raw_data_continuous_check(struct aml_audio_device *aml_dev, audio_type_parse_t *status, char *buffer, int size)
 {
     audio_type_parse_t *audio_type_status = status;
@@ -395,6 +402,174 @@ void audio_raw_data_continuous_check(struct aml_audio_device *aml_dev, audio_typ
             }
         }
     }
+}
+
+
+int in_reset_config_param(struct aml_stream_in *in, AML_INPUT_STREAM_CONFIG_TYPE_E enType, const void *pValue)
+{
+    struct aml_audio_device *adev = in->dev;
+    int s32Ret = 0;
+
+    switch (enType) {
+        case AML_INPUT_STREAM_CONFIG_TYPE_CHANNELS:
+            in->config.channels = *(unsigned int *)pValue;
+            ALOGD("%s:%d Config channel number to %d", __func__, __LINE__, in->config.channels);
+            break;
+
+        case AML_INPUT_STREAM_CONFIG_TYPE_PERIODS:
+            in->config.period_size = *(unsigned int *)pValue;
+            ALOGD("%s:%d Config Period size to %d", __func__, __LINE__, in->config.period_size);
+            break;
+        default:
+            ALOGW("%s:%d not support input stream type:%#x", __func__, __LINE__, enType);
+            return -1;
+    }
+
+    if (!in->standby) {
+        AM_LOGD("reconfig PCM type %d", enType);
+        do_input_standby(in);
+        usleep(50*1000);
+    }
+    s32Ret = start_input_stream(in);
+    in->standby = 0;
+    if (s32Ret < 0) {
+        ALOGW("start input stream failed! ret:%#x", s32Ret);
+    }
+    return s32Ret;
+}
+
+/*
+ * Reopen extn/arc alsa input when channel numbers, channel allocation or audio format changes.
+ * For arc input, if HBR is used then data come in fixed 8 channel layout.
+ */
+int reconfig_read_param_through_arcin(struct aml_audio_device *aml_dev,
+                                       struct aml_stream_in *stream_in,
+                                       ring_buffer_t *ringbuffer, int buffer_size)
+{
+    struct aml_stream_in *in = (struct aml_stream_in *)stream_in;
+    int nChannels, ca, audio_packet = AUDIO_PACKET_AUDS;
+    bool packet_hbr = false;
+    audio_format_t aformat = AUDIO_FORMAT_PCM_16_BIT;
+    struct aml_audio_patch *audio_patch = NULL;
+    audio_type_parse_t *audio_parse_para = NULL;
+    int buf_size = 0;
+    int period_size = 0;
+
+    if (!aml_dev || !stream_in) {
+        ALOGE("%s line %d aml_dev %p stream_in %p\n", __func__, __LINE__, aml_dev, stream_in);
+        return -1;
+    }
+
+    audio_patch = get_dev_patch(aml_dev);
+    audio_parse_para = (audio_type_parse_t *)audio_patch->audio_parse_para;
+
+    bool is_pcm, reset = audio_parse_para->reset_input;
+    int type, codec;
+    bool mute = eArcIn_get_cs_mute(&aml_dev->alsa_mixer);
+
+    audio_parse_para->reset_input = false;
+    type = audio_patch->earcin_audio_type;
+    if (type == AUDIO_CODING_TYPE_UNDEFINED || type == AUDIO_CODING_TYPE_PAUSE) {
+        aformat = audio_patch->aformat;
+        nChannels = in->config.channels;
+        ca = audio_patch->ca;
+        AM_LOGV("audio type keep format = %#x", aformat);
+    } else if (type >= AUDIO_CODING_TYPE_STEREO_LPCM &&
+        type <= AUDIO_CODING_TYPE_MULTICH_32CH_LPCM) {
+        is_pcm = true;
+        aformat = AUDIO_FORMAT_PCM_16_BIT;
+        nChannels = pcm_coding_type_to_channels(type);
+        AM_LOGV("audio multi channels = %d", nChannels);
+        if (nChannels == AUDIO_CODING_TYPE_STEREO_LPCM ||
+                nChannels == AUDIO_CODING_TYPE_MULTICH_2CH_LPCM) {
+            ca = 0;
+        }
+    } else {
+        is_pcm = false;
+        codec = non_pcm_coding_type_to_codec(type);
+        aformat = audio_type_convert_to_android_audio_format_t(codec);
+        nChannels = 2;
+        AM_LOGV("audio raw aformat %#x", aformat);
+    }
+
+    if (audio_is_linear_pcm(aformat)) {
+        bool reconfig = reset || (nChannels != 0 && nChannels != in->config.channels) ||
+            (aformat != audio_patch->aformat) || (ca != audio_patch->ca) || audio_patch->cs_mute != mute;
+
+        if (reconfig) {
+            int nChans = nChannels;
+
+            ALOGI("%s(), PCM INPUT ch/format/cs mute/ca %d/%x/%d/%d -> %d/%x/%d/%d,, reset %d",
+                __func__,
+                in->config.channels, audio_patch->aformat, audio_patch->cs_mute, audio_patch->ca,
+                nChannels, aformat, mute, ca, reset);
+
+            audio_patch->cs_mute = mute;
+
+#ifdef HDMI_ARC_PCM_32BIT_INPUT
+            if (in->from_input_thread) {
+                in->hal_format = audio_is_linear_pcm(aformat) ? AUDIO_FORMAT_PCM_32_BIT : AUDIO_FORMAT_PCM_16_BIT;
+            }
+#endif
+
+            // re-configure ring buffer size
+            if ((audio_packet == AUDIO_PACKET_HBR) &&
+                (aml_dev->in_device & AUDIO_DEVICE_IN_HDMI_ARC)) {
+                if (!alsa_device_is_auge()) {
+                    set_spdifin_pao(&aml_dev->alsa_mixer, true);
+                }
+                period_size = DEFAULT_CAPTURE_PERIOD_SIZE * 2;
+                // increase the buffer size
+                buf_size = buffer_size * 8;
+                nChans = 8; // Fixed 8 channel for HBR HDMI ARC input
+            } else {
+                if (!alsa_device_is_auge()) {
+                    set_spdifin_pao(&aml_dev->alsa_mixer, false);
+                }
+                period_size = DEFAULT_CAPTURE_PERIOD_SIZE;
+                // reset to original one
+                buf_size = buffer_size;
+            }
+            if (ringbuffer) {
+                ring_buffer_reset_size(ringbuffer, buf_size);
+            }
+
+            // reconfigure ALSA device for capturing
+            in->config.period_size = period_size;
+            ALOGD("%s() %d here %#x", __func__, __LINE__, aformat);
+            in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_CHANNELS, &nChans);
+
+            audio_patch->aformat = aformat;
+            audio_patch->ca = ca;
+
+            in->hal_format = audio_patch->aformat = aformat;
+            in->hal_channel_mask = /*(aml_dev->in_device & AUDIO_DEVICE_IN_HDMI_ARC) ? aml_map_ca_to_mask(ca) : */aml_map_ch_to_mask(nChannels);
+            return 0;
+        }
+    } else if ((aformat != audio_patch->aformat) || reset) {
+        if (aformat == AUDIO_FORMAT_MAT) {
+             period_size = DEFAULT_CAPTURE_PERIOD_SIZE * 4;
+             // increase the buffer size
+             buf_size = buffer_size * 8;
+         } else {
+             period_size = DEFAULT_CAPTURE_PERIOD_SIZE;
+             buf_size = buffer_size;
+         }
+         stream_in->config.period_size = period_size;
+
+        /* for bitstream input, reopen input with AUDIO_FORMAT_PCM_16_BIT 2 channel */
+        if (ringbuffer) {
+            ring_buffer_reset_size(ringbuffer, buf_size);
+        }
+
+        in->hal_format = audio_patch->aformat = aformat;
+        in->hal_channel_mask = AUDIO_CHANNEL_IN_STEREO;
+        nChannels = 2;
+        in_reset_config_param(stream_in, AML_INPUT_STREAM_CONFIG_TYPE_CHANNELS, &nChannels);
+        return 0;
+    }
+
+    return -1;
 }
 
 int reconfig_read_param_through_hdmiin(struct aml_audio_device *aml_dev,
@@ -553,6 +728,36 @@ int get_spdifin_samplerate(struct aml_mixer_handle *mixer_handle)
     return index;
 }
 
+static inline eMixerHwResample _sr_enum(int sr)
+{
+    switch (sr) {
+        case 32000:
+            return HW_RESAMPLE_32K;
+        case 44100:
+            return HW_RESAMPLE_44K;
+        case 48000:
+            return HW_RESAMPLE_48K;
+        case 88200:
+            return HW_RESAMPLE_88K;
+        case 96000:
+            return HW_RESAMPLE_96K;
+        case 176400:
+            return HW_RESAMPLE_176K;
+        case 192000:
+            return HW_RESAMPLE_192K;
+        default:
+            return HW_RESAMPLE_DISABLE;
+    }
+}
+
+eMixerHwResample get_eArcIn_samplerate(struct aml_mixer_handle *mixer_handle)
+{
+    int sr = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_EARCRX_AUDIO_SAMPLERATE);
+
+    /* eARC mix control does not return sample rate as enum type as HDMIIN and SPDIF */
+    return _sr_enum(sr);
+}
+
 int get_hdmiin_samplerate(struct aml_mixer_handle *mixer_handle)
 {
     int stable = 0;
@@ -577,9 +782,7 @@ int get_hdmiin_channel(struct aml_mixer_handle *mixer_handle)
 
     /*hdmirx audio support: N/A, 2, 3, 4, 5, 6, 7, 8*/
     channel_index = aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_HDMI_IN_CHANNELS);
-    if (channel_index == 0) {
-        return 0;
-    } else if (channel_index == 1) {
+    if (channel_index == 0 || channel_index == 1) {
         return 2;
     } else {
         return 8;
@@ -594,6 +797,81 @@ hdmiin_audio_packet_t get_hdmiin_audio_packet(struct aml_mixer_handle *mixer_han
         return AUDIO_PACKET_NONE;
     }
     return (hdmiin_audio_packet_t)audio_packet;
+}
+
+int get_arcin_channel(struct aml_mixer_handle *mixer_handle)
+{
+    if (aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_EARCRX_ATTENDED_TYPE) == ATTEND_TYPE_EARC) {
+        int type = eArcIn_coding_type_detection(mixer_handle);
+
+        if (type == AUDIO_CODING_TYPE_MULTICH_8CH_LPCM)
+            return 8;
+        else if (type == NOT_READY)
+            return NOT_READY;
+    }
+
+    return 2;
+}
+
+/* return audio channel assignment, see CEA-861-D Table 20 */
+int get_arcin_ca(struct aml_mixer_handle *mixer_handle)
+{
+    if (aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_EARCRX_ATTENDED_TYPE) == ATTEND_TYPE_EARC) {
+        return aml_mixer_ctrl_get_int(mixer_handle, AML_MIXER_ID_EARCRX_CA);
+    }
+
+    return 0;
+}
+
+/* get channel mask from HDMI IN, the mask is only used to count right channel numbers from mask */
+audio_channel_mask_t aml_map_ch_to_mask(int ch)
+{
+    switch (ch) {
+        case 2:
+            return AUDIO_CHANNEL_IN_STEREO;
+        case 3:
+            return AUDIO_CHANNEL_IN_STEREO | AUDIO_CHANNEL_IN_LOW_FREQUENCY;
+        case 4:
+            return AUDIO_CHANNEL_IN_STEREO | AUDIO_CHANNEL_IN_BACK_LEFT | AUDIO_CHANNEL_IN_BACK_RIGHT;
+        case 5:
+            return AUDIO_CHANNEL_IN_STEREO | AUDIO_CHANNEL_IN_CENTER | AUDIO_CHANNEL_IN_BACK_LEFT | AUDIO_CHANNEL_IN_BACK_RIGHT;
+        case 6:
+            return AUDIO_CHANNEL_IN_STEREO | AUDIO_CHANNEL_IN_CENTER | AUDIO_CHANNEL_IN_LOW_FREQUENCY | AUDIO_CHANNEL_IN_BACK_LEFT | AUDIO_CHANNEL_IN_BACK_RIGHT;
+        case 7:
+            return AUDIO_CHANNEL_IN_STEREO| AUDIO_CHANNEL_IN_CENTER | AUDIO_CHANNEL_IN_LOW_FREQUENCY | AUDIO_CHANNEL_IN_BACK_LEFT | AUDIO_CHANNEL_IN_BACK_RIGHT | AUDIO_CHANNEL_IN_BACK;
+        case 8:
+            return AUDIO_CHANNEL_IN_STEREO| AUDIO_CHANNEL_IN_CENTER | AUDIO_CHANNEL_IN_LOW_FREQUENCY | AUDIO_CHANNEL_IN_BACK_LEFT | AUDIO_CHANNEL_IN_BACK_RIGHT | AUDIO_CHANNEL_IN_LEFT_PROCESSED | AUDIO_CHANNEL_IN_RIGHT_PROCESSED;
+        default:
+            return AUDIO_CHANNEL_IN_STEREO;
+    }
+}
+
+/* get channel mask from ARC/eARC IN */
+audio_channel_mask_t aml_map_ca_to_mask(int ca)
+{
+    audio_channel_mask_t mask = 0;
+    const audio_channel_mask_t mask_tab[] = {
+        AUDIO_CHANNEL_IN_STEREO,
+        AUDIO_CHANNEL_IN_STEREO | AUDIO_CHANNEL_IN_BACK,
+        AUDIO_CHANNEL_IN_STEREO | AUDIO_CHANNEL_IN_BACK_LEFT | AUDIO_CHANNEL_IN_BACK_RIGHT,
+        AUDIO_CHANNEL_IN_STEREO | AUDIO_CHANNEL_IN_BACK_LEFT | AUDIO_CHANNEL_IN_BACK_RIGHT | AUDIO_CHANNEL_IN_BACK,
+        AUDIO_CHANNEL_IN_STEREO | AUDIO_CHANNEL_IN_BACK_LEFT | AUDIO_CHANNEL_IN_BACK_RIGHT | AUDIO_CHANNEL_IN_LEFT_PROCESSED | AUDIO_CHANNEL_IN_RIGHT_PROCESSED,
+        AUDIO_CHANNEL_IN_STEREO,
+        AUDIO_CHANNEL_IN_STEREO | AUDIO_CHANNEL_IN_BACK,
+        AUDIO_CHANNEL_IN_STEREO | AUDIO_CHANNEL_IN_BACK_LEFT,
+    };
+
+    if ((ca >= 0) || (ca <= 0x1f)) {
+        mask = AUDIO_CHANNEL_IN_STEREO;
+        if (ca & 1)
+            mask |= AUDIO_CHANNEL_IN_LOW_FREQUENCY;
+        if ((ca >> 1) & 1)
+            mask |= AUDIO_CHANNEL_IN_CENTER;
+        mask |=  mask_tab[ca/4];
+        return mask;
+    }
+
+    return 0;
 }
 
 int set_hdmiin_audio_mode(struct aml_mixer_handle *mixer_handle, char *mode)
@@ -691,16 +969,44 @@ bool is_av_in_stable_hw(struct audio_stream_in *stream)
     return true;
 }
 
+static int eArcIn_audio_format_detection(struct audio_stream_in *stream)
+{
+    struct aml_stream_in *in = (struct aml_stream_in *)stream;
+    struct aml_audio_device *aml_dev = in->dev;
+    struct aml_audio_patch *patch = get_dev_patch(aml_dev);
+    int type = 0;
+    int audio_code = 0;
+
+    type = eArcIn_coding_type_detection(&aml_dev->alsa_mixer);
+    if ((type == EARC_AC3_LAYOUT_B || type >= EARC_EAC3_LAYOUT_B) &&
+        (aml_mixer_ctrl_get_int(&aml_dev->alsa_mixer, AML_MIXER_ID_AML_CHIP_ID) < 0x36))
+        patch->arc_layout_b = true;
+    else
+        patch->arc_layout_b = false;
+
+    patch->earcin_audio_type = type;
+
+    return non_pcm_coding_type_to_codec(type);
+}
+
 bool is_spdif_in_stable_hw(struct audio_stream_in *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *) stream;
     struct aml_audio_device *aml_dev = in->dev;
+    struct aml_audio_patch *patch = get_dev_patch(aml_dev);
     int type = 0;
 
     if (is_earc_descrpt())
-        type = eArcIn_audio_format_detection(&aml_dev->alsa_mixer);
+        type = eArcIn_audio_format_detection(stream);
     else
         type = aml_mixer_ctrl_get_int (&aml_dev->alsa_mixer, AML_MIXER_ID_SPDIFIN_AUDIO_TYPE);
+
+    if (type == NOT_READY) {
+        AM_LOGV("%s(), in type is not ready yet", __func__);
+        patch->arc_layout_b = patch->last_layout_b;
+        return true;
+    }
+
     if (type != in->spdif_fmt_hw) {
         ALOGI ("%s(), in type changed from %d to %d", __func__, in->spdif_fmt_hw, type);
         in->spdif_fmt_hw = type;

@@ -52,7 +52,7 @@ public:
     mRead(read),
     mHandle(handle) {
         mWorkBufSize = 16384;
-        mWorkBuf = (unsigned char*)aml_audio_malloc (mWorkBufSize);
+        mWorkBuf = (unsigned char*)aml_audio_malloc(mWorkBufSize);
         if (!mWorkBuf) {
             ALOGE("fail failed check!!!\n");
         }
@@ -122,13 +122,19 @@ extern "C" int android_resample_init(android_resample_handle_t *handle,
 
     int sample_size = audio_bytes_per_sample(aformat);
 
-    resampler = AudioResampler::create(AUDIO_FORMAT_PCM_16_BIT,
+    if (aformat == AUDIO_FORMAT_PCM_16_BIT) {
+        resampler = AudioResampler::create(AUDIO_FORMAT_PCM_16_BIT,
                                     ch,
                                     handle->output_sr,
-                                    //AudioResampler::DYN_HIGH_QUALITY
                                     AudioResampler::DYN_MED_QUALITY
-                                    //AudioResampler::DYN_LOW_QUALITY
                                     );
+    } else if (aformat == AUDIO_FORMAT_PCM_32_BIT) {
+        resampler = AudioResampler::create(AUDIO_FORMAT_PCM_FLOAT,
+                                    ch,
+                                    handle->output_sr,
+                                    AudioResampler::DYN_MED_QUALITY
+                                    );
+    }
     if (!resampler) {
         ALOGE("create resample failed\n");
         return -1;
@@ -147,7 +153,7 @@ extern "C" int android_resample_init(android_resample_handle_t *handle,
     handle->resampler = (void *)resampler;
     handle->provider  = (void *)provider;
 
-    ALOGI("%s input sr = %d ch=%d output sr = %d\n",__func__, sr , ch, handle->output_sr);
+    ALOGI("%s input sr = %d, ch=%d, output sr = %d, audio_format_t = 0x%x\n",__func__, sr , ch, handle->output_sr, aformat);
     return 0;
 }
 
@@ -168,23 +174,25 @@ extern "C" int android_resample_read(android_resample_handle_t *handle, void *bu
     provider  = (Provider*) handle->provider;
 
     if (resampler) {
-        size_t frame_size = handle->channels * audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT);
+        size_t frame_size = handle->channels * audio_bytes_per_sample(handle->aformat);
+        size_t input_samples = in_size / audio_bytes_per_sample(handle->aformat);
 
         /*must init the buf, otherwise it will cause noise*/
         memset(buf, 0, in_size);
 
         resampled_frame = resampler->resample((int32_t *)buf, (in_size / frame_size), provider);
 
-        // use int16_t or float format for dynamic resampler
-        memcpy_to_i16_from_q4_27(reinterpret_cast<int16_t*>(buf),
+        if (handle->aformat == AUDIO_FORMAT_PCM_16_BIT) {
+            memcpy_to_i16_from_q4_27(reinterpret_cast<int16_t*>(buf),
                                  reinterpret_cast<int32_t*>(buf),
                                  resampled_frame * handle->channels);
+        } else if (handle->aformat == AUDIO_FORMAT_PCM_32_BIT) {
+            memcpy_to_i32_from_float(reinterpret_cast<int32_t*>(buf),
+                                 reinterpret_cast<float*>(buf),
+                                 resampled_frame * handle->channels);
+        }
 
         resampled_size = resampled_frame * frame_size;
-    }
-
-    if (get_debug_value(AML_DUMP_AUDIOHAL_RESAMPLE)) {
-        aml_dump_audio_bitstreams("/data/audio_hal/resampleout_ori.pcm", buf, resampled_size);
     }
 
     return resampled_size;

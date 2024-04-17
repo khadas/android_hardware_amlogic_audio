@@ -68,8 +68,7 @@ int aml_audio_resample_init(aml_audio_resample_t ** ppaml_audio_resample, resamp
         return -1;
     }
 
-
-    if (resample_config->aformat != AUDIO_FORMAT_PCM_16_BIT) {
+    if (resample_config->aformat != AUDIO_FORMAT_PCM_16_BIT && resample_config->aformat != AUDIO_FORMAT_PCM_32_BIT) {
         ALOGE("Not supported aformat = 0x%x\n", resample_config->aformat);
         return -1;
     }
@@ -179,6 +178,10 @@ int aml_audio_resample_process(aml_audio_resample_t * aml_audio_resample, void *
         return -1;
     }
 
+    if (get_debug_value(AML_DUMP_AUDIOHAL_RESAMPLE)) {
+        aml_dump_audio_bitstreams("/data/vendor/audiohal/resamplein.pcm", in_data, size);
+    }
+
     output_frames = size / aml_audio_resample->frame_bytes * aml_audio_resample->resample_rate;
     /* Resampler will use 32bit as processing and buffering unit, need alloc 2 period buffer size to align output data */
     out_size = 2 * aml_audio_resample->resample_config.channels * audio_bytes_per_sample(AUDIO_FORMAT_PCM_32_BIT) * output_frames;
@@ -226,7 +229,6 @@ int aml_audio_resample_process(aml_audio_resample_t * aml_audio_resample, void *
     //ALOGE("total rate=%f\n",(float)aml_audio_resample->total_out/(float)aml_audio_resample->total_in);
 
     if (get_debug_value(AML_DUMP_AUDIOHAL_RESAMPLE)) {
-        aml_dump_audio_bitstreams("/data/vendor/audiohal/resamplein.pcm", in_data, size);
         aml_dump_audio_bitstreams("/data/vendor/audiohal/resampleout.pcm", aml_audio_resample->resample_buffer, aml_audio_resample->resample_size);
     }
 

@@ -99,6 +99,8 @@ struct aml_native_postprocess {
     void *temp_proc_buffer;
     size_t temp_proc_capacity;
     size_t temp_proc_bytes;
+    void *temp_vx_proc_buffer;
+    size_t temp_vx_proc_capacity;
 };
 
 /*

@@ -385,10 +385,6 @@ struct aml_audio_device {
     /*used for dtsx decoder*/
     dtsx_dec_t dts_x;
     bool bDVEnable;
-    //TODO: temporary solution for MS12 not support PCM32 input
-    int16_t *temp_out_16_buf;
-    size_t temp_out_16_buf_size;
-    //END
     int16_t *out_16_buf;
     size_t out_16_buf_size;
     int32_t *out_32_buf;
@@ -552,11 +548,17 @@ struct aml_audio_device {
     /* index for submix ringbuffer */
     int port_index;
     pthread_mutex_t bitstream_lock;
+    bool singleDmxNonTunnelMode;
+
+    /* if no data write, donot open pcm device and write,
+       otherwise bootvideo can't open pcm device and play failed.*/
+    bool first_data;
 
 #ifdef ENABLE_AUTOMOTIVE_AUDIO_FUNCTION
     struct bus_submix_core *bus_mixer_core;
     struct audio_stream_out* mBus_stream_outs[STREAM_USECASE_MAX];
     int bus_stream_count;
+    int a2dp_out_follow_bus_id;   /* for automotive bus output */
 #endif
 };
 
@@ -950,29 +952,15 @@ static inline bool is_bypass_submix_active(struct aml_audio_device *adev)
 
 static inline void set_primary_out_format(struct aml_audio_device *adev, audio_format_t format)
 {
-    //TODO: temporary solution for MS12 not support PCM32 input
-    if (adev->dolby_lib_type == 2 /*eDolbyMS12Lib*/  || adev->dolby_lib_type_last == 2/*eDolbyMS12Lib*/) {
-        adev->primary_out_format = AUDIO_FORMAT_PCM_16_BIT;
-    } else
-    //TODO: End
     adev->primary_out_format = format;
 }
 
 static inline audio_format_t get_primary_out_format(struct aml_audio_device *adev)
 {
-    //TODO: temporary solution for MS12 not support PCM32 input
-    //The primary output may be not created firstly during the VTS test,
-    //so that the submix in the adev_init_later does not have a chance to be created
-    //The code in the middle of the later TODO will definitely be removed
     if (!adev->primary_out_format) {
         return adev->primary_out_format;
     }
 
-    if (adev->dolby_lib_type == 2 /*eDolbyMS12Lib*/  || adev->dolby_lib_type_last == 2/*eDolbyMS12Lib*/) {
-        return AUDIO_FORMAT_PCM_16_BIT;
-    }
-
-    //TODO: End
     return adev->primary_out_format;
 }
 

@@ -121,7 +121,8 @@ typedef struct dtsx_dec_s {
     int stream_type;    ///< enum audio_hal_format
     bool is_headphone_x;    // DTS Headphone:X stream.
     bool is_t1cc;   // T1-CC stands for a special category of content type referred to as Type-1 Certified Content.
-    struct pcm_info pcm_out_info;
+    struct pcm_info core1_pcm_out_info;
+    struct pcm_info core2_pcm_out_info;
     struct dtsx_frame_info frame_info;   ///< for frame parsing
 
     ///< Parameter
@@ -141,6 +142,8 @@ typedef struct dtsx_dec_s {
     int is_hdmi_output;
     ring_buffer_t input_ring_buf;
     ring_buffer_t spdif_ring_buffer;
+    unsigned char *sample_convert_buf;
+    int sample_convert_buf_size;
 } dtsx_dec_t;
 
 int dtsx_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t * dec_config);

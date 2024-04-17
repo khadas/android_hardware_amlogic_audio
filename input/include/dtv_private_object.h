@@ -20,6 +20,7 @@
 
 #include <sys/types.h>
 #include <pthread.h>
+#include <system/audio.h>
 
 struct dtv_private_object {
     int dtv_aformat;
@@ -61,7 +62,6 @@ struct dtv_private_object {
 };
 struct aml_audio_device;
 struct aml_dtv_audio_instances;
-
 int get_dtv_aformat(struct aml_audio_device *adev);
 void set_dtv_aformat(struct aml_audio_device *adev, int format);
 
@@ -120,4 +120,5 @@ void release_dtv_mutex_lock(struct aml_audio_device *adev);
 //new & init & release instance
 int init_dtv_object(struct aml_audio_device *adev);
 int destroy_dtv_object(struct aml_audio_device *adev);
+int choose_dtv_pcm_output_format(audio_format_t output_format);
 #endif

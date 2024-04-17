@@ -44,6 +44,8 @@
 #include "aml_dump_debug.h"
 #include "aml_audio_report.h"
 #include "aml_audio_sysfs.h"
+#include <audio_utils/channels.h>
+#include <audio_utils/format.h>
 
 
 #define AML_DEC_FRAGMENT_FRAMES     (512)
@@ -155,7 +157,8 @@ int aml_decoder_init(aml_dec_t **ppaml_dec, audio_format_t format, aml_dec_confi
     aml_dec_handle->dts_lib_type = dec_config->dts_lib_type;
     aml_dec_handle->ad_data = NULL;
     aml_dec_handle->ad_size = 0;
-
+    aml_dec_handle->convert_buf_size = 0;
+    aml_dec_handle->sample_convert_buf = NULL;
     if (get_debug_value(AML_DEBUG_AUDIOHAL_SYNCPTS)) {
         aml_dec_handle->debug_synced_frame_pts_flag = true;
     } else {
@@ -177,6 +180,11 @@ int aml_decoder_release(aml_dec_t *aml_dec)
     if (aml_dec == NULL) {
         ALOGE("%s aml_dec is NULL\n", __func__);
         return -1;
+    }
+    if (aml_dec->sample_convert_buf) {
+        aml_audio_free(aml_dec->sample_convert_buf);
+        aml_dec->sample_convert_buf = NULL;
+        aml_dec->convert_buf_size = 0;
     }
 
     dec_fun = get_decoder_function(aml_dec->format, aml_dec->dts_lib_type);
@@ -403,3 +411,29 @@ void aml_decoder_calc_coefficient(unsigned char ad_fade,float * mix_coefficient,
             *mix_coefficient = mixing_coefficient;
             *ad_coefficient = ad_mixing_coefficient;
 }
+
+void  aml_decoder_16bit_to_32bit(audio_format_t output_format,aml_dec_t *aml_dec, dec_data_info_t * dec_pcm_data) {
+    if (output_format == AUDIO_FORMAT_PCM_16_BIT) {
+        //do nothing
+    } else if (output_format == AUDIO_FORMAT_PCM_32_BIT) {
+         uint32_t src_frame_size = audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT) * dec_pcm_data->data_ch;
+          uint32_t frame_count = dec_pcm_data->data_len / src_frame_size;
+          aml_audio_check_and_realloc(&aml_dec->sample_convert_buf, &aml_dec->convert_buf_size, dec_pcm_data->data_ch);
+          if (dec_pcm_data->data_len > aml_dec->convert_buf_size) {
+              ALOGI("%s: !!realloc in buf size from %zu to %d", __func__, aml_dec->convert_buf_size, dec_pcm_data->data_len);
+              aml_dec->sample_convert_buf = aml_audio_realloc(aml_dec->sample_convert_buf, dec_pcm_data->data_len);
+              if (!aml_dec->sample_convert_buf) {
+                 ALOGI("sample_convert_buf realloc failed");
+                 return;
+              }
+              aml_dec->convert_buf_size = dec_pcm_data->data_len;
+              memset(aml_dec->sample_convert_buf, 0, aml_dec->convert_buf_size);
+          }
+          memcpy(aml_dec->sample_convert_buf, dec_pcm_data->buf, dec_pcm_data->data_len);
+          memcpy_by_audio_format(dec_pcm_data->buf, output_format,
+             (const void *)aml_dec->sample_convert_buf, AUDIO_FORMAT_PCM_16_BIT,
+             frame_count * dec_pcm_data->data_ch);
+          dec_pcm_data->data_len = frame_count * audio_bytes_per_sample(output_format) * dec_pcm_data->data_ch;
+    }
+}
+

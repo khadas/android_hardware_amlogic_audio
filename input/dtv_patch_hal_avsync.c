@@ -2110,7 +2110,7 @@ void get_dtv_checkin_pts (struct audio_stream_out *stream, int64_t *in_frame_pts
 
     if (patch->skip_amadec_flag) {
         if (patch->cur_package) {
-            if (!is_dtv_multi_demux(adev) && patch->singleDmxNonTunnelMode) {
+            if (!is_dtv_multi_demux(adev) && adev->singleDmxNonTunnelMode) {
                 if (aml_out->aml_dec) {
                     checkout_pts.offset = patch->decoder_offset;
                     if (patch->PServerDev != -1) {
