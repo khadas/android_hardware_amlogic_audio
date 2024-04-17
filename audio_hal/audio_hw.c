@@ -1412,6 +1412,10 @@ static int out_pause (struct audio_stream_out *stream)
         }
     }
     out->write_count = 0;
+    out->needs_compensation_timeus = 0;
+    if (adev->useSubMix && (out->hal_format == AUDIO_FORMAT_E_AC3 || out->hal_format == AUDIO_FORMAT_AC3)) {
+        out->input_bytes_size = 0;
+    }
     set_output_device_mute(adev, AUDIO_DEVICE_OUT_SPEAKER, true, true/*use fade*/);
     //need time to fadeout
     aml_audio_sleep(15000);
@@ -5649,6 +5653,29 @@ void aml_stream_timer_pause_callback(union sigval sigv)
     return ;
 }
 
+static void submix_post_sleep(struct aml_stream_out *aml_out)
+{
+    uint64_t curr_time_us = 0;
+    struct aml_audio_device *adev = (aml_out == NULL ? aml_out->dev : NULL);
+
+    if (aml_out == NULL || adev == NULL || !adev->useSubMix) {
+        return;
+    }
+    if (aml_out->submix_sleep_start_us == 0 || aml_out->submix_sleep_time_us == 0) {
+        return;
+    }
+
+    curr_time_us = aml_audio_get_systime();
+    if (curr_time_us > aml_out->submix_sleep_start_us) {
+        uint64_t past_time_us = curr_time_us - aml_out->submix_sleep_start_us;
+        if (aml_out->submix_sleep_time_us > past_time_us) {
+            uint64_t slee_time_us = aml_out->submix_sleep_time_us - past_time_us;
+            usleep(slee_time_us);
+            AM_LOGI("slee_time_us %"PRId64" us, actual sleep %" PRId64 " us",
+                slee_time_us, aml_audio_get_systime() - curr_time_us);
+        }
+    }
+}
 
 ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buffer,
                                  size_t bytes)
@@ -6414,11 +6441,22 @@ exit:
                 goto hwsync_rewrite;
             }
         }
-        else if (return_bytes < 0)
+        else if (return_bytes < 0) {
+            submix_post_sleep(aml_out);
+            if (adev->debug_flag) {
+                AM_LOGI("return");
+            }
             return return_bytes;
-        else
+        } else {
+            submix_post_sleep(aml_out);
+            if (adev->debug_flag) {
+                AM_LOGI("return");
+            }
             return total_bytes;
+        }
     }
+
+    submix_post_sleep(aml_out);
 
     if (adev->debug_flag) {
         ALOGI("%s return %d!\n", __FUNCTION__, return_bytes);

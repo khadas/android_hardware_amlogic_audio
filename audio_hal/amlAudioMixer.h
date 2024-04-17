@@ -145,6 +145,7 @@ int mixer_get_presentation_position(
         struct amlAudioMixer *audio_mixer,
         uint8_t port_index,
         uint64_t *frames,
+        int64_t *s64_negative_frames,
         struct timespec *timestamp);
 int mixer_set_padding_size(
         struct amlAudioMixer *audio_mixer,
@@ -161,6 +162,7 @@ int mixer_set_karaoke(struct amlAudioMixer *audio_mixer, struct kara_manager *ka
 void mixer_enable_multich_output(struct amlAudioMixer *audio_mixer, bool enable);
 int mixer_get_mc_outport_latency_frames(struct amlAudioMixer *audio_mixer);
 int mixer_reset_virtual_buf(void *audio_mixer, bool reset);
+int mixer_get_inport_start_threshold(struct aml_stream_out *out, struct amlAudioMixer *audio_mixer);
 
 
 __END_DECLS

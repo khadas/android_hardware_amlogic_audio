@@ -1304,7 +1304,7 @@ static ssize_t multich_output_port_write(output_port *mc_port, void *buffer, int
     clock_gettime(CLOCK_MONOTONIC, &ts_end);
 
     system_time_diff_ms = calc_time_interval_us(&ts_start, &ts_end) / MSEC_PER_SEC;
-    duration_ms = bytes / mc_port->cfg.frame_size;
+    duration_ms = bytes *1000 / mc_port->cfg.frame_size / mc_port->cfg.sampleRate;
     calculate_delay_ms = delay_ms + duration_ms - system_time_diff_ms;
 
     // some error issue happen !

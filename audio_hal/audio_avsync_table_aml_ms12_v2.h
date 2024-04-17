@@ -369,10 +369,10 @@
 
 /*below DDP tuning is for NonMS12*/
 //  0 --> -3 -> 20
-#define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_PCM_LATENCY                 (25)
+#define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_PCM_LATENCY                 (40)
 #define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_DD_LATENCY                  (-95)
 // -25 -> -40
-#define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_DDP_LATENCY                 (30)
+#define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_DDP_LATENCY                 (60)
 
 #define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_PCM_LATENCY_PROPERTY        "vendor.media.audio.hal.nonms12.netflix.hdmi.pcm"
 #define  AVSYNC_NONMS12_NETFLIX_HDMI_OUT_DD_LATENCY_PROPERTY         "vendor.media.audio.hal.nonms12.netflix.hdmi.dd"

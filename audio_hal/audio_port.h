@@ -126,6 +126,7 @@ typedef struct INPUT_PORT {
     /* consumed by read after init */
     uint64_t mix_consumed_frames;
     uint64_t presentation_frames;
+    int64_t  s64_negative_frames;
     int padding_frames;
     bool pts_valid;
     bool        first_read;

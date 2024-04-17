@@ -784,6 +784,8 @@ struct aml_stream_out {
     void *mmap_audio_manager;
     int mmap_audio_client_id;
     int current_digital_audio_format;
+    uint64_t submix_sleep_start_us;
+    uint64_t submix_sleep_time_us;
 
 };
 

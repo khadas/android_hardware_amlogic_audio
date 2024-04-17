@@ -641,6 +641,8 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
     //uint64_t begin_time, end_time;
     ssize_t written = 0;
     size_t remain = 0;
+    bool start_active = false;
+    bool sleep_permit = true;
     int frame_size = audio_bytes_per_sample(out->audioCfg.format) * audio_channel_count_from_out_mask(out->audioCfg.channel_mask);
     int64_t throttle_timeus = 0;//aml_audio_get_throttle_timeus(bytes);
     int channels = 2;
@@ -661,6 +663,7 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
             mixerInputType2Str(get_input_port_type(&out->audioCfg, out->flags)));
         out->standby = false;
         out->audio_data_handle_state = AUDIO_DATA_HANDLE_START;
+        start_active = true;
     }
 
     /*
@@ -723,10 +726,33 @@ static ssize_t out_write_direct_pcm(struct audio_stream_out *stream, const void 
         AM_LOGV("time spent on write %" PRId64 " us, written %zd", us_since_last_write, written);
         AM_LOGV("used_this_write %d us, target %d us", used_this_write, target_us);
         throttle_timeus = target_us - us_since_last_write;
-        if (throttle_timeus < 0 && us_since_last_write <= 500000)
+        if (throttle_timeus < 0 && us_since_last_write <= 500000 && !start_active)
             out->needs_compensation_timeus += throttle_timeus;
 
-        if (throttle_timeus > 0 && throttle_timeus < 200000) {
+        /*
+         * Currently npcm and pcm output is serial,
+         * If sleep after pcm output, it will cause npcm start late and its startup position large(after tune)
+         *
+         * Temporary solution :
+         * don't sleep at here when second data writing, try to let pcm and npcm output simultaneously
+        */
+        if (adev->is_netflix && adev->optical_format == AUDIO_FORMAT_E_AC3 && !audio_is_linear_pcm(out->hal_format)) {
+            int start_threshold_bytes = mixer_get_inport_start_threshold(out, audio_mixer);
+            if (out->input_bytes_size < start_threshold_bytes
+                && (out->input_bytes_size + bytes >= start_threshold_bytes)) {
+                if (throttle_timeus > 1800) {
+                    out->submix_sleep_start_us = aml_audio_get_systime();
+                    out->submix_sleep_time_us = (throttle_timeus - 1800)/2;
+                }
+                sleep_permit = false;
+                AM_LOGI("don't sleep (%"PRId64" us"") at here, let npcm output quickly", out->submix_sleep_time_us);
+            }
+        } else {
+            out->submix_sleep_start_us = 0;
+            out->submix_sleep_time_us = 0;
+        }
+
+        if (throttle_timeus > 0 && throttle_timeus < 200000 && sleep_permit) {
             AM_LOGV("throttle time %" PRId64 " us", throttle_timeus);
             if (out->needs_compensation_timeus < 0) {
                 if (throttle_timeus <= llabs(out->needs_compensation_timeus)) {
@@ -813,6 +839,7 @@ int out_get_presentation_position_port(
     int ret = 0;
     int tuning_latency_frame= 0;
     int frame_latency = 0;
+    int64_t negative_frames = 0;
     R_CHECK_POINTER_LEGAL(-EINVAL, frames, "");
     R_CHECK_POINTER_LEGAL(-EINVAL, timestamp, "");
     bool is_earc = 0;//(ATTEND_TYPE_EARC == aml_audio_earctx_get_type(adev));
@@ -826,7 +853,7 @@ int out_get_presentation_position_port(
 
     if (out->out_device & AUDIO_DEVICE_OUT_ALL_A2DP) {
         pthread_mutex_lock(&out->apts_update_lock);
-        ret = mixer_get_presentation_position(audio_mixer, out->inputPortID, frames, timestamp);
+        ret = mixer_get_presentation_position(audio_mixer, out->inputPortID, frames, &negative_frames, timestamp);
         pthread_mutex_unlock(&out->apts_update_lock);
         // convert the frames for resample in AudioHal
         if (out->hal_rate != MM_FULL_POWER_SAMPLING_RATE) {
@@ -864,7 +891,7 @@ int out_get_presentation_position_port(
         } else {
             pthread_mutex_lock(&out->apts_update_lock);
             ret = mixer_get_presentation_position(audio_mixer,
-                out->inputPortID, frames, timestamp);
+                out->inputPortID, frames, &negative_frames, timestamp);
             pthread_mutex_unlock(&out->apts_update_lock);
             // convert the frames for resample in AudioHal
             if (out->hal_rate != MM_FULL_POWER_SAMPLING_RATE) {
@@ -894,6 +921,13 @@ int out_get_presentation_position_port(
         }
 
         frame_latency = latency_ms * (out->hal_rate / MSEC_PER_SEC);
+
+        // negative_frames should >= -100ms
+        if (adev->is_netflix && !out->is_tv_src_stream
+            && negative_frames < 0 && negative_frames >= -100*48) {
+            frame_latency += negative_frames;
+        }
+
         if (frame_latency < 0 && *frames < abs(frame_latency)) {
             *frames = 0;
         } else {
@@ -902,7 +936,7 @@ int out_get_presentation_position_port(
 
 
         if (adev->debug_flag) {
-            AM_LOGI("tuning_latency_ms:%d, frame_latency:%d", latency_ms, frame_latency);
+            AM_LOGI("tuning_latency_ms:%d, frame_latency:%d, negative_frames %"PRId64"", latency_ms, frame_latency, negative_frames);
         }
         out->last_frames_position = *frames;
     } else {
@@ -1721,6 +1755,7 @@ static int out_pause_subMixingPCM(struct audio_stream_out *stream)
     aml_audio_trace_int("out_pause_subMixingPCM", 1);
     aml_out->write_count = 0;
     aml_out->pause_time = aml_audio_get_systime() / 1000; //us --> ms
+    aml_out->needs_compensation_timeus = 0;
     if (aml_audio_trace_debug_level() > 0)
     {
         if (aml_out->pause_time > aml_out->write_time && (aml_out->pause_time - aml_out->write_time < 5*1000)) { //continually write time less than 5s, audio gap
