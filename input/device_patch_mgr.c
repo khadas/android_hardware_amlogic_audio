@@ -737,9 +737,9 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
             set_dev_patch_src(adev, SRC_LINEIN);
             set_audio_source_routing(adev, LINEIN);
         } else if (strncmp(value, "hdmi", 4) == 0 && is_dev_patch_exist(adev)) {
-            get_audio_patch_by_src_dev(dev, AUDIO_DEVICE_IN_LINE, &pAudPatchTmp);
+            get_audio_patch_by_src_dev(dev, AUDIO_DEVICE_IN_HDMI, &pAudPatchTmp);
             if (pAudPatchTmp == NULL) {
-                ALOGE("%s,There is no audio patch using LINEIN as input", __func__);
+                ALOGE("%s,There is no audio patch using HDMI as input", __func__);
                 goto exit;
             }
             if (get_dev_patch(adev) && get_dev_patch(adev)->input_src != AUDIO_DEVICE_IN_LINE) {
