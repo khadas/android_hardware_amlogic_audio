@@ -247,6 +247,7 @@ struct aml_audio_patch
     int audio_pts_dts_flag;
 #endif
     bool skip_amadec_flag;
+    int in_read_frame_size;
     int sync_type;
     /*add a new flag to check the patch is created from tuner framework*/
     bool cbs_patch;
@@ -257,6 +258,7 @@ struct aml_audio_patch
     int  ad_remain_size;
     void *heaac_parser_handle;
     void *ad_heaac_parser_handle;
+    void *ac4_parser_handle;
     struct heaac_parser_info main_heaac_info;
     struct heaac_parser_info ad_heaac_info;
 
@@ -281,7 +283,6 @@ struct aml_audio_patch
     bool format_change;
     bool input_teardown_over;
     bool output_teardown_over;
-    int in_read_frame_size;
 };
 
 void create_tvin_buffer(struct aml_audio_patch *patch);

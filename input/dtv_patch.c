@@ -71,9 +71,10 @@
 #include "aml_dtshd_dec_api.h"
 #include "dtv_patch_utils.h"
 #include "aml_audio_ac3parser.h"
+#include "aml_audio_ac4parser.h"
+#include "aml_audio_heaacparser.h"
 #include "aml_audio_report.h"
 #include "aml_audio_sysfs.h"
-#include "aml_audio_heaacparser.h"
 #include "audio_hw_ms12_common.h"
 #include "aml_audio_output.h"
 #include "audio_hw_resource_mgr.h"
@@ -627,18 +628,16 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
                         ALOGI("receive close cmd, release mediasync.\n");
                     }
                 } else {
-                    if (/*patch && patch->skip_amadec_flag*/1) {
-                        if (demux_handle) {
-                            if (demux_info->dual_decoder_support) {
-                                Stop_Dmx_AD_Audio(demux_handle);
-                                Destroy_Dmx_AD_Audio(demux_handle);
-                                Close_Dmx_Audio(demux_handle);
-                            }
-                            demux_handle = NULL;
-                            dtv_audio_instances->demux_handle[path_id] = NULL;
-                        }
-                        uio_deinit_new(&dtv_audio_instances->uio_fd);
+
+                    if (demux_handle) {
+                        Stop_Dmx_AD_Audio(demux_handle);
+                        Destroy_Dmx_AD_Audio(demux_handle);
+                        Close_Dmx_Audio(demux_handle);
+                        demux_handle = NULL;
+                        dtv_audio_instances->demux_handle[path_id] = NULL;
                     }
+                    uio_deinit_new(&dtv_audio_instances->uio_fd);
+
                     if (dtvsync->mediasync_new != NULL) {
                         aml_dtvsync_release(dtvsync);
                     }
@@ -2743,6 +2742,7 @@ int audio_dtv_patch_output_single_decoder(struct aml_audio_patch *patch,
             }
             used_size += parser_used_size;
             patch->cur_package->split_frame_size = main_frame_size;
+            patch->in_read_frame_size = main_frame_size;
             if (aml_dev->debug_flag) {
                 ALOGD("p_package->pts %0" PRIx64 "",cur_package->pts);
                 ALOGD("main_frame_size %d p_package->size %d used_size %d", main_frame_size, cur_package->size, used_size);
@@ -2755,7 +2755,26 @@ int audio_dtv_patch_output_single_decoder(struct aml_audio_patch *patch,
         }
         /*coverity[leaked_storage]*/
     }
-    else {
+    else if (patch->aformat == AUDIO_FORMAT_AC4) {
+        if (!patch->ac4_parser_handle) {
+            aml_ac4_parser_open(&aml_out->ac4_parser_handle);
+        }
+        void *main_frame_buffer = cur_package->data;
+        int main_frame_size = cur_package->size;
+        int used_size = 0;
+        int32_t parser_used_size = 0;
+        struct ac4_parser_info ac4_info = { 0 };
+        aml_ac4_parser_process(patch->ac4_parser_handle, cur_package->data, cur_package->size, &parser_used_size, &main_frame_buffer, &main_frame_size, &ac4_info);
+        ALOGV("frame size =%d frame rate=%d sample rate=%d used =%d", ac4_info.frame_size, ac4_info.frame_rate, ac4_info.sample_rate, parser_used_size);
+        if (main_frame_size == 0 && parser_used_size == 0) {
+            used_size = cur_package->size;
+            ALOGE("wrong ac4 frame size");
+        }
+        if (ac4_info.frame_size) {
+            patch->in_read_frame_size = ac4_info.frame_size;
+        }
+        ret = out_write_new(stream_out, cur_package->data, cur_package->size);
+    } else {
         ret = out_write_new(stream_out, cur_package->data, cur_package->size);
     }
 
@@ -2867,6 +2886,7 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
             }
             used_size += parser_used_size;
             main_size = main_frame_size;
+            patch->in_read_frame_size = main_frame_size;
             patch->cur_package->split_frame_size = main_frame_size;
             if (aml_dev->debug_flag) {
                 ALOGD("p_package->pts %0" PRIx64 "",p_package->pts);
@@ -2993,6 +3013,7 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
             }
             used_size += parser_used_size;
             patch->cur_package->split_frame_size = main_frame_size;
+            patch->in_read_frame_size = main_frame_size;
             if (aml_dev->debug_flag) {
                 ALOGD("p_package->pts %0" PRIx64 "",p_package->pts);
                 ALOGD("main size %d p_package->size %d used_size %d",main_frame_size, p_package->size, used_size);
@@ -3117,10 +3138,10 @@ static int dtv_uio_read(unsigned char *buffer, int buffer_size, bool exit) {
         if (nRet <= 0) {
             trycount++;
             if (trycount == 10) {
-                ALOGV("wait %d ms buffer_size %d left %d", 5 * trycount, buffer_size, nNextReadSize);
+                ALOGV("wait %d ms buffer_size %d left %d", 3 * trycount, buffer_size, nNextReadSize);
                 break;
             } else {
-                ALOGV("wait %d ms buffer_size %d left %d", 5 * trycount, buffer_size, nNextReadSize);
+                ALOGV("wait %d ms buffer_size %d left %d", 3 * trycount, buffer_size, nNextReadSize);
                 usleep(3000);
                 continue;
             }
@@ -3128,7 +3149,7 @@ static int dtv_uio_read(unsigned char *buffer, int buffer_size, bool exit) {
         rlen += nRet;
         nNextReadSize -= nRet;
     }
-    if (rlen == buffer_size) {
+    if (rlen) {
          return 0;
     } else {
          ALOGW("dtv_uio_read len %d buffer_size %d",rlen, buffer_size);
@@ -3172,7 +3193,6 @@ void *audio_dtv_patch_input_threadloop(void *data)
 
         int nRet = 0;
         if (!is_dtv_multi_demux(aml_dev)) {
-            pthread_mutex_lock(&patch->mutex);
             path_index = dtv_audio_instances->demux_index_working;
             demux_handle = dtv_audio_instances->demux_handle[path_index];
             demux_info = &dtv_audio_instances->demux_info[path_index];
@@ -3180,7 +3200,6 @@ void *audio_dtv_patch_input_threadloop(void *data)
                 dtv_package = aml_audio_calloc(1, sizeof(struct package));
                 if (!dtv_package) {
                     ALOGI("dtv_package malloc failed ");
-                    pthread_mutex_unlock(&patch->mutex);
                     goto exit;
                 }
             }
@@ -3188,41 +3207,33 @@ void *audio_dtv_patch_input_threadloop(void *data)
                 main_buffer = aml_audio_calloc(1, nInBufferSize);
                 if (!main_buffer) {
                     ALOGE("main_buffer malloc failed");
-                    pthread_mutex_unlock(&patch->mutex);
                     goto exit;
                 }
             }
 
             int nNextReadSize = 0;
-            {
+            if (patch->in_read_frame_size) {
+               nNextReadSize = patch->in_read_frame_size;
+            } else {
                 if (patch->aformat == AUDIO_FORMAT_AC4) {
                     nNextReadSize = read_bytes;
                 } else if ((patch->aformat == AUDIO_FORMAT_MP3) || (patch->aformat == AUDIO_FORMAT_MP2)) {
                     nNextReadSize = read_bytes / 4;
-                } else if (patch->aformat == AUDIO_FORMAT_AC3 || patch->aformat == AUDIO_FORMAT_E_AC3) {
-                    if (patch->in_read_frame_size) {
-                        nNextReadSize = patch->in_read_frame_size;
-                    } else {
-                        nNextReadSize = read_bytes / 2;
-                    }
                 } else {
                     nNextReadSize = read_bytes / 2;
                 }
             }
-            /*coverity[sleep]*/
-
             nRet = dtv_uio_read((unsigned char *)main_buffer, nNextReadSize, patch->output_thread_exit);
             if (nRet == 0)  {
                 dtv_package->size = nNextReadSize;
                 dtv_package->data = (char *)main_buffer;
                 main_buffer = NULL;
             } else {
-                pthread_mutex_unlock(&patch->mutex);
                 usleep(5000);
                 continue;
             }
-
-            ALOGV("demux_info->ad_pid %d demux_info->dual_decoder_support %d", demux_info->ad_pid, demux_info->dual_decoder_support);
+            if (aml_dev->debug_flag)
+               ALOGI("demux_info->ad_pid %d demux_info->dual_decoder_support %d", demux_info->ad_pid, demux_info->dual_decoder_support);
             if (demux_info->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
                 int get_count = 0,drop_count = 0;
                 dtv_package->ad_size = 0;
@@ -3245,8 +3256,9 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     if (mAdEsData) {
                         demux_info->ad_package_status = AD_PACK_STATUS_NORMAL;
                         if (need_ad_main_align) {
-                            ALOGV("mAdEsData %p patch->cur_outapts  %" PRId64 "  mAdEsData->pts %" PRId64 " diff %" PRId64 "ms",mAdEsData,patch->dtvsync->cur_outapts,mAdEsData->pts,(patch->dtvsync->cur_outapts - mAdEsData->pts)/90);
-                            if (patch->dtvsync && patch->dtvsync->cur_outapts > 0) {
+                            if (aml_dev->debug_flag)
+                                ALOGI("mAdEsData %p patch->cur_outapts  %" PRId64 "  mAdEsData->pts %" PRId64 " diff %" PRId64 "ms",mAdEsData,patch->dtvsync->cur_outapts,mAdEsData->pts,(patch->dtvsync->cur_outapts - mAdEsData->pts)/90);
+                            if (patch->dtvsync->cur_outapts > 0) {
                                 demux_info->ad_package_status = check_ad_package_status(patch->dtvsync->cur_outapts, mAdEsData->pts, demux_info);
                                 if (demux_info->ad_package_status == AD_PACK_STATUS_DROP) {
                                     if (mAdEsData->data) {
@@ -3267,6 +3279,7 @@ void *audio_dtv_patch_input_threadloop(void *data)
                                     ALOGV("normally it is impossible");
                                 }
                             } else {
+                                ALOGI("mAdEsData %p AD_PACK_STATUS_HOLD", mAdEsData);
                                 dtv_package->ad_size = 0;
                                 dtv_package->ad_data = NULL;
                                 break;
@@ -3290,7 +3303,6 @@ void *audio_dtv_patch_input_threadloop(void *data)
                     }
                 }while (demux_info->ad_package_status != AD_PACK_STATUS_NORMAL) ;
             }
-            pthread_mutex_unlock(&patch->mutex);
             /* add dtv package to package list */
             while (!patch->input_thread_exit) {
                 pthread_mutex_lock(&patch->mutex);
@@ -3789,6 +3801,10 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
     if (patch->ad_heaac_parser_handle) {
         aml_heaac_parser_reset(patch->ad_heaac_parser_handle);
     }
+    if (patch->ac4_parser_handle) {
+        aml_ac4_parser_reset(patch->ac4_parser_handle);
+    }
+
     if (patch->ad_remain_buf) {
         patch->ad_remain_size = 0;
     }
@@ -4230,6 +4246,7 @@ static void *audio_dtv_patch_process_threadloop_v2(void *data)
 
                 patch->dtv_pcm_readed = patch->dtv_pcm_wrote = 0;
                 patch->numDecodedSamples = patch->numOutputSamples = 0;
+                patch->in_read_frame_size = 0;
                 create_dtv_output_stream_thread(patch);
             } else {
                 ALOGI("++%s line %d  live state unsupport state %d cmd %d !\n",
@@ -4885,6 +4902,8 @@ int release_dtv_patch_l(struct aml_audio_device *aml_dev)
     }
     aml_heaac_parser_close(patch->heaac_parser_handle);
     aml_heaac_parser_close(patch->ad_heaac_parser_handle);
+
+    aml_ac4_parser_close(patch->ac4_parser_handle);
 
     ring_buffer_release(&(patch->aml_ringbuffer));
 
