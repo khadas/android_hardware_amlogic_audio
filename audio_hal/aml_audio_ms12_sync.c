@@ -47,6 +47,7 @@ static int get_nonms12_dv_tunnel_input_latency(audio_format_t input_format) {
     int latency_ms = 0;
     char *prop_name = NULL;
     switch (input_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_16_BIT: {
         /*for non tunnel ddp2h/heaac case:netflix AL1 case */
         prop_name = AVSYNC_NONMS12_DV_TUNNEL_PCM_LATENCY_PROPERTY;
@@ -81,6 +82,7 @@ static int get_nonms12_dv_tunnel_output_latency(audio_format_t output_format) {
     char *prop_name = NULL;
 
     switch (output_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_16_BIT: {
         prop_name = AVSYNC_NONMS12_DV_TUNNEL_PCMOUT_LATENCY_PROPERTY;
         latency_ms = AVSYNC_NONMS12_DV_TUNNEL_PCMOUT_LATENCY;
@@ -113,6 +115,7 @@ static int get_ms12_dv_tunnel_input_latency(audio_format_t input_format) {
     int latency_ms = 0;
     char *prop_name = NULL;
     switch (input_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_16_BIT: {
         /*for non tunnel ddp2h/heaac case:netflix AL1 case */
         prop_name = AVSYNC_MS12_DV_TUNNEL_PCM_LATENCY_PROPERTY;
@@ -152,6 +155,7 @@ static int get_ms12_dv_tunnel_output_latency(audio_format_t output_format) {
     char *prop_name = NULL;
 
     switch (output_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_16_BIT: {
         prop_name = AVSYNC_MS12_DV_TUNNEL_PCMOUT_LATENCY_PROPERTY;
         latency_ms = AVSYNC_MS12_DV_TUNNEL_PCMOUT_LATENCY;
@@ -221,6 +225,7 @@ static int get_ms12_nontunnel_input_latency(audio_format_t input_format) {
     int latency_ms = 0;
     char *prop_name = NULL;
     switch (input_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_16_BIT: {
         prop_name = AVSYNC_MS12_NONTUNNEL_PCM_LATENCY_PROPERTY;
         latency_ms = AVSYNC_MS12_NONTUNNEL_PCM_LATENCY;
@@ -258,6 +263,7 @@ static int get_ms12_tunnel_input_latency(audio_format_t input_format, enum OUT_P
     int latency_ms = 0;
     char *prop_name = NULL;
     switch (input_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_16_BIT: {
         /* CVBS output DDP target is [-45, +125]*/
         if ((port == OUTPORT_SPEAKER) || (port == OUTPORT_AUX_LINE)) {
@@ -328,6 +334,7 @@ static int get_ms12_netflix_nontunnel_input_latency(audio_format_t input_format)
     struct aml_audio_device *adev = adev_get_handle();
 
     switch (input_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_16_BIT: {
         if (is_TV(adev)) {
             prop_name = AVSYNC_MS12_TV_NETFLIX_NONTUNNEL_PCM_LATENCY_PROPERTY;
@@ -372,6 +379,7 @@ static int get_ms12_netflix_tunnel_input_latency(audio_format_t input_format) {
     struct aml_audio_device *adev = adev_get_handle();
 
     switch (input_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_16_BIT: {
         /*for non tunnel ddp2h/heaac case:netflix AL1 case */
         if (is_TV(adev)) {
@@ -416,6 +424,7 @@ static int get_ms12_output_latency(audio_format_t output_format) {
     int latency_ms = 0;
     char *prop_name = NULL;
     switch (output_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_16_BIT: {
         latency_ms = AVSYNC_MS12_PCM_OUT_LATENCY;
         prop_name = AVSYNC_MS12_PCM_OUT_LATENCY_PROPERTY;
@@ -457,6 +466,7 @@ static int get_ms12_netflix_output_latency(audio_format_t output_format) {
     int latency_ms = 0;
     char *prop_name = NULL;
     switch (output_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_16_BIT: {
         latency_ms = AVSYNC_MS12_NETFLIX_PCM_OUT_LATENCY;
         prop_name = AVSYNC_MS12_NETFLIX_PCM_OUT_LATENCY_PROPERTY;
@@ -1042,6 +1052,7 @@ static int get_nonms12_netflix_tunnel_input_latency(audio_format_t input_format,
     int latency_ms = 0;
     char *prop_name = NULL;
     switch (input_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_16_BIT: {
         /*for tunnel ddp2h/heaac case:netflix AL1 case */
         if (input_channel_count > 2) {
@@ -1093,6 +1104,7 @@ static int get_nonms12_tunnel_input_latency(audio_format_t input_format, device_
     char *prop_name = NULL;
     if (platform_type == STB) {
         switch (input_format) {
+        case AUDIO_FORMAT_PCM_32_BIT:
         case AUDIO_FORMAT_PCM_16_BIT: {
             prop_name = AVSYNC_NONMS12_TUNNEL_STB_PCM_LATENCY_PROPERTY;
             latency_ms = AVSYNC_NONMS12_TUNNEL_STB_PCM_LATENCY;
@@ -1117,6 +1129,7 @@ static int get_nonms12_tunnel_input_latency(audio_format_t input_format, device_
     }
     else if (platform_type == TV) {
         switch (input_format) {
+        case AUDIO_FORMAT_PCM_32_BIT:
         case AUDIO_FORMAT_PCM_16_BIT: {
             prop_name = AVSYNC_NONMS12_TUNNEL_TV_PCM_LATENCY_PROPERTY;
             latency_ms = AVSYNC_NONMS12_TUNNEL_TV_PCM_LATENCY;
@@ -1152,6 +1165,7 @@ static int get_nonms12_output_latency(audio_format_t output_format) {
     int latency_ms = 0;
     char *prop_name = NULL;
     switch (output_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_16_BIT: {
         latency_ms = AVSYNC_NONMS12_STB_PCMOUT_LATENCY;
         prop_name = AVSYNC_NONMS12_STB_PCMOUT_LATENCY_PROPERTY;
@@ -1430,6 +1444,7 @@ static int dtv_get_ms12_input_latency(audio_format_t input_format) {
     int latency_ms = 0;
     char *prop_name = NULL;
     switch (input_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_16_BIT: {
         prop_name = AVSYNC_MS12_DTV_PCM_LATENCY_PROPERTY;
         latency_ms = AVSYNC_MS12_DTV_PCM_LATENCY;
@@ -1487,6 +1502,7 @@ static int dtv_get_ms12_output_latency(audio_format_t output_format) {
     int latency_ms = 0;
     char *prop_name = NULL;
     switch (output_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_16_BIT: {
         latency_ms = AVSYNC_MS12_DTV_PCM_OUT_LATENCY;
         prop_name = AVSYNC_MS12_DTV_PCM_OUT_LATENCY_PROPERTY;
@@ -1661,6 +1677,7 @@ static int dtv_get_nonms12_input_latency(audio_format_t input_format) {
     int latency_ms = 0;
     char *prop_name = NULL;
     switch (input_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_16_BIT: {
         prop_name = AVSYNC_NONMS12_DTV_PCM_LATENCY_PROPERTY;
         latency_ms = AVSYNC_NONMS12_DTV_PCM_LATENCY;
@@ -1709,6 +1726,7 @@ static int dtv_get_nonms12_output_latency(audio_format_t output_format) {
     int latency_ms = 0;
     char *prop_name = NULL;
     switch (output_format) {
+    case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_16_BIT: {
         latency_ms = AVSYNC_NONMS12_DTV_PCM_OUT_LATENCY;
         prop_name = AVSYNC_NONMS12_DTV_PCM_OUT_LATENCY_PROPERTY;

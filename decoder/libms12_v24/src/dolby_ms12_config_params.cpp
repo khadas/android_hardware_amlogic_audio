@@ -1061,6 +1061,18 @@ extern "C" void dolby_ms12_set_dap_only(int dap_only)
     }
 }
 
+extern "C" void dolby_ms12_set_output_bitwidth(int bit_width)
+{
+    ALOGV("%s()\n", __FUNCTION__);
+    android::DolbyMS12ConfigParams *config_param = getInstance();
+    if (config_param) {
+        config_param->setBitWidth(bit_width);
+    }
+    else {
+        ALOGW("Found the config_param handle illegal\n");
+    }
+}
+
 
 /*****************************************************************************************************************/
 /*END*/

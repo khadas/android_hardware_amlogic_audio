@@ -119,6 +119,7 @@ void aml_audio_board_config_init(struct audio_board_config *config)
         config->ms12_output_mask = aml_get_jason_int_value("MS12_Output_Masks", 0);
         config->DTS_output_ch = aml_get_jason_int_value("DTS_Output_Channels", 0);
         config->cpux_affinity_support = aml_get_jason_int_value("CPUX_Affinity_Support", -1);
+        config->audio_process_bitwidth    = aml_get_jason_int_value("Audio_Process_BitWidth", 16);
     }
 }
 

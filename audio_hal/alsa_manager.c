@@ -279,6 +279,10 @@ int aml_alsa_output_open(struct audio_stream_out *stream) {
                 card, device_index, show_pcm_config(config, s, PCM_CONFIG_STR_LEN));
         pcm = pcm_open(card, device_index, PCM_OUT, config);
         if (!pcm || !pcm_is_ready(pcm)) {
+            if (pcm) {
+                pcm_close(pcm);
+                usleep(20000);
+            }
             ALOGE("%s, pcm %p open [ready %d] failed", __func__, pcm, pcm_is_ready(pcm));
             return -ENOENT;
         }

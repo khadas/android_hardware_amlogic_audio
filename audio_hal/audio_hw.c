@@ -2191,8 +2191,8 @@ int start_input_stream(struct aml_stream_in *in)
 
     AM_LOGD("io %d: in:%p open alsa_card(%d %d) alsa_device(%d), in_device:%#x", in->io_handle,
           in, card, port, alsa_device, adev->in_device);
-    AM_LOGD("device:%s(%#x) channels=%d period_size=%d rate=%d requested_rate=%d mode= %d",
-        audioDevType2Str(in->device | AUDIO_DEVICE_BIT_IN), (in->device | AUDIO_DEVICE_BIT_IN),
+    AM_LOGD("device:%s(%#x) format=%d channels=%d period_size=%d rate=%d requested_rate=%d mode= %d",
+        audioDevType2Str(in->device | AUDIO_DEVICE_BIT_IN), (in->device | AUDIO_DEVICE_BIT_IN), in->config.format,
         in->config.channels, in->config.period_size, in->config.rate, in->requested_rate, adev->mode);
 
     in->pcm = pcm_open(card, alsa_device, PCM_IN | PCM_MONOTONIC | PCM_NONEBLOCK, &in->config);
@@ -3137,6 +3137,16 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         out->hal_rate = config->sample_rate;
         out->hal_format = config->format;
         out->hal_internal_format = out->hal_format;
+        /*hdmi in/arc in/ spdif in, the raw data is IEC61937 format*/
+        if (is_dev_patch_exist(adev) &&
+            out->is_tv_src_stream &&
+            !audio_is_linear_pcm(out->hal_format) &&
+            (is_same_patch_src(adev, SRC_HDMIIN) ||
+            is_same_patch_src(adev, SRC_SPDIFIN) ||
+            is_same_patch_src(adev, SRC_ARCIN))) {
+            out->hal_format = AUDIO_FORMAT_IEC61937;
+        }
+
         if (out->hal_internal_format == AUDIO_FORMAT_E_AC3_JOC) {
             out->hal_internal_format = AUDIO_FORMAT_E_AC3;
             AM_LOGD("config hal_format %s change to hal_internal_format(%s)!",
@@ -4696,24 +4706,14 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
     return strdup("");
 }
 
-static int adev_init_later(struct aml_audio_device *adev, struct aml_stream_out *aml_out, audio_output_flags_t flags)
+static int adev_config_process_bitwidth(struct aml_audio_device *adev)
 {
-    audio_format_t primaryOutFormat = get_primary_out_format(adev);
+    audio_format_t primaryOutFormat = AUDIO_FORMAT_PCM_16_BIT;
 
-    if (!aml_out) {
-        AM_LOGE("fail, flags=0x%x aml_out=NULL !", flags);
-        return -1;
+    if (adev->board_config.audio_process_bitwidth == 32) {
+        primaryOutFormat = AUDIO_FORMAT_PCM_32_BIT;
     }
-   /*When an XTS test item split is run on multiple devices, a submix may not be created, resulting in a crash*/
-    if ((adev->useSubMix && adev->sm) || primaryOutFormat) {
-        return 0;
-    }
-    primaryOutFormat = aml_out->hal_format;
-    uint32_t primaryOutRate = aml_out->hal_rate;
 
-    if (primaryOutFormat != AUDIO_FORMAT_PCM_16_BIT && primaryOutFormat != AUDIO_FORMAT_PCM_32_BIT) {
-        primaryOutFormat = AUDIO_FORMAT_PCM_16_BIT;
-    }
     set_primary_out_format(adev, primaryOutFormat);
     primaryOutFormat = get_primary_out_format(adev);
 
@@ -4732,7 +4732,7 @@ static int adev_init_later(struct aml_audio_device *adev, struct aml_stream_out 
         dca_set_out_ch_internal(0);
     }
 
-    AM_LOGI("AAAA primaryOutFormat:%s primaryOutRate:%d", audioFormat2Str(primaryOutFormat), primaryOutRate);
+    AM_LOGI("AAAA primaryOutFormat:%s", audioFormat2Str(primaryOutFormat));
 
     return 0;
 }
@@ -5486,13 +5486,6 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             pthread_mutex_lock(&adev->lock);
             if (!ms12->dolby_ms12_enable) {
                 adev_ms12_prepare((struct audio_hw_device *)adev);
-            }
-            /*after enable teardown_output_format_change for ms12 case, this code can be removed*/
-            if (is_dev_patch_exist(adev) &&
-                (is_same_patch_src(adev, SRC_HDMIIN) ||
-                is_same_patch_src(adev, SRC_SPDIFIN) ||
-                is_same_patch_src(adev, SRC_ARCIN))) {
-                dolby_ms12_main_close(stream);
             }
             adev->mix_init_flag = true;
             audiohal_send_msg_2_ms12(&adev->ms12, MS12_MESG_TYPE_RESET_MS12_ENCODER);
@@ -7321,8 +7314,6 @@ int adev_open_output_stream_new(struct audio_hw_device *dev,
     aml_out->card = adev->card;
     aml_out->hwsync_parsed_frames_sum = 0;
 
-    adev_init_later(adev, aml_out, flags);
-
     if (adev->useSubMix) {
         // In V1.1, android out lpcm stream and hwsync pcm stream goes to aml mixer,
         // tv source keeps the original way.
@@ -8894,6 +8885,10 @@ static int adev_open(const hw_module_t* module, const char* name, hw_device_t** 
     adev->debug_flag = aml_audio_get_debug_flag();
     adev->count = 1;
     aml_audio_board_config_init(&adev->board_config);
+
+    /*set audio hal process bitwidth*/
+    adev_config_process_bitwidth(adev);
+
 
     if (pthread_mutex_init(&adev->bitstream_lock, NULL)) {
         ALOGE("%s pthread_mutex_init(bitstream_lock) failed", __func__);

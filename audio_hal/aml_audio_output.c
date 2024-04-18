@@ -865,7 +865,8 @@ ssize_t hw_write (struct audio_stream_out *stream
     /*
     */
     if (!continuous_mode(adev)) {
-        if (aml_out->hal_internal_format == AUDIO_FORMAT_PCM_16_BIT) {
+        if (aml_out->hal_internal_format == AUDIO_FORMAT_PCM_16_BIT ||
+            aml_out->hal_internal_format == AUDIO_FORMAT_PCM_32_BIT) {
             write_frames = aml_out->input_bytes_size / aml_out->hal_frame_size;
             //total_frame = write_frames;
         } else {

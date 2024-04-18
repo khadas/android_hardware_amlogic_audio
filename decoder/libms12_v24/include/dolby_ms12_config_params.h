@@ -677,6 +677,11 @@ int dolby_ms12_get_lfe_config(audio_channel_mask_t channel_mask);
 
 void dolby_ms12_set_dap_only(int dap_only);
 
+/**
+ * @brief set ms12 output bit width
+ */
+void dolby_ms12_set_output_bitwidth(int bit_width);
+
 /*End*/
 
 #ifdef __cplusplus

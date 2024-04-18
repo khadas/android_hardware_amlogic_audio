@@ -37,6 +37,7 @@ struct audio_board_config {
     int ms12_output_mask;
     int DTS_output_ch;
     int cpux_affinity_support;
+    int audio_process_bitwidth;   /*this control the bidwidth of audio hal processing*/
 };
 
 int aml_audio_config_parser();

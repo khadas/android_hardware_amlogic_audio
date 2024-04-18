@@ -290,7 +290,8 @@ unsigned int get_ms12_buffer_latency(struct aml_stream_out *out)
     ALOGV("%s, flags:0x%x, format:0x%x", __func__, out->flags, out->hal_internal_format);
     if (is_dolby_ms12_support_compression_format(out->hal_internal_format)) {
         ms12_latency = MS12_MAIN_INPUT_BUF_NONEPCM_NS / (1000*1000);
-    } else if (out->hal_internal_format & AUDIO_FORMAT_PCM_16_BIT) {
+    } else if (out->hal_internal_format & AUDIO_FORMAT_PCM_16_BIT ||
+               out->hal_internal_format & AUDIO_FORMAT_PCM_32_BIT) {
         if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
             ms12_latency = MS12_MAIN_INPUT_BUF_PCM_NS / (1000*1000);
         } else {
@@ -469,6 +470,9 @@ audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format)
     } else if (hal_format == AUDIO_FORMAT_MP2 ||
                hal_format == AUDIO_FORMAT_MP3 ||
                hal_format == AUDIO_FORMAT_DRA) {
+        if (get_primary_out_format(aml_adev_get_handle()) == AUDIO_FORMAT_PCM_32_BIT) {
+            return AUDIO_FORMAT_PCM_32_BIT;
+        }
         return AUDIO_FORMAT_PCM_16_BIT;
     } else {
         if (hal_format == AUDIO_FORMAT_HE_AAC_V1 ||
@@ -476,6 +480,9 @@ audio_format_t ms12_get_audio_hal_format(audio_format_t hal_format)
             hal_format == AUDIO_FORMAT_AAC ||
             hal_format == AUDIO_FORMAT_AAC_LATM)  {
             if (!property_get_bool("ro.vendor.audio.use.ms12heaac", true)) {
+                if (get_primary_out_format(aml_adev_get_handle()) == AUDIO_FORMAT_PCM_32_BIT) {
+                    return AUDIO_FORMAT_PCM_32_BIT;
+                }
                 return AUDIO_FORMAT_PCM_16_BIT;
             }
         }
@@ -924,6 +931,9 @@ int get_the_dolby_ms12_prepared(
     set_audio_app_format(AUDIO_FORMAT_PCM_16_BIT);
     set_audio_main_format(input_format);
     dolby_ms12_set_dap_only(0);
+    if (get_primary_out_format(adev) == AUDIO_FORMAT_PCM_32_BIT) {
+        dolby_ms12_set_output_bitwidth(32);
+    }
 
     /*
      *-tv_tuning    Flag to activate a special processing graph for TV tuning purposes:
@@ -3680,7 +3690,7 @@ void ms12_do_dtv_sync(struct audio_stream_out *stream)
 int dolby_ms12_get_latency(audio_format_t output_format, int pcm_type)
 {
     int ms12_total_delay_frames = 0;
-    if (output_format == AUDIO_FORMAT_PCM_16_BIT) {
+    if (output_format == AUDIO_FORMAT_PCM_16_BIT || output_format == AUDIO_FORMAT_PCM_32_BIT) {
         if (pcm_type == NORMAL_LPCM)
             dolby_ms12_get_latency_for_stereo_out(&ms12_total_delay_frames);
         else if (pcm_type == DAP_LPCM)
@@ -4060,7 +4070,8 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
     */
     if (hal_internal_format == AUDIO_FORMAT_INVALID ||
         !is_dolby_ms12_support_compression_format(hal_internal_format)) {
-        hal_internal_format = AUDIO_FORMAT_PCM_16_BIT;
+        if (hal_internal_format != AUDIO_FORMAT_PCM_32_BIT)
+            hal_internal_format = AUDIO_FORMAT_PCM_16_BIT;
     }
     get_sink_format (stream);
 
@@ -4086,7 +4097,8 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
     }
     set_audio_main_format(hal_internal_format);
 
-    if (hal_internal_format == AUDIO_FORMAT_PCM_16_BIT) {
+    if (hal_internal_format == AUDIO_FORMAT_PCM_16_BIT ||
+        hal_internal_format == AUDIO_FORMAT_PCM_32_BIT) {
         sample_rate = DDP_OUTPUT_SAMPLE_RATE;
     }
 
@@ -4626,7 +4638,8 @@ bool is_rebuild_the_ms12_pipeline(    audio_format_t main_input_fmt, audio_forma
                         (main_input_fmt == AUDIO_FORMAT_AAC_LATM));
     bool is_ott_format_alive = (main_input_fmt == AUDIO_FORMAT_AC3) || \
                                 ((main_input_fmt & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3) || \
-                                (main_input_fmt == AUDIO_FORMAT_PCM_16_BIT);
+                                (main_input_fmt == AUDIO_FORMAT_PCM_16_BIT) || \
+                                (main_input_fmt == AUDIO_FORMAT_PCM_32_BIT);
     ALOGD("%s line %d is_ac4_alive %d is_mat_alive %d is_aac_alive %d is_ott_format_alive %d\n",
         __func__, __LINE__, is_ac4_alive, is_mat_alive, is_aac_alive, is_ott_format_alive);
 
@@ -4639,7 +4652,8 @@ bool is_rebuild_the_ms12_pipeline(    audio_format_t main_input_fmt, audio_forma
                         (hal_internal_format == AUDIO_FORMAT_AAC_LATM));
     bool request_ott_format_alive = (hal_internal_format == AUDIO_FORMAT_AC3) || \
                                 ((hal_internal_format & AUDIO_FORMAT_E_AC3) == AUDIO_FORMAT_E_AC3) || \
-                                (hal_internal_format == AUDIO_FORMAT_PCM_16_BIT);
+                                (hal_internal_format == AUDIO_FORMAT_PCM_16_BIT) || \
+                                (hal_internal_format == AUDIO_FORMAT_PCM_32_BIT);
     ALOGD("%s line %d request_ac4_alive %d request_mat_alive %d request_aac_alive %d request_ott_format_alive %d\n",
         __func__, __LINE__, request_ac4_alive, request_mat_alive, request_aac_alive, request_ott_format_alive);
 
@@ -4751,7 +4765,7 @@ int dolby_ms12_main_pipeline_latency_frames(struct audio_stream_out *stream) {
     /*the decoded pcm frame - mixer consumed frame, it is the delay*/
     decoded_frame = dolby_ms12_get_decoder_nframes_pcm_output(ms12->dolby_ms12_ptr, audio_format, MAIN_INPUT_STREAM);
     /*pcm data is resampled before ms12*/
-    if (aml_out->hal_rate != 48000 && aml_out->hal_rate != 0 && hal_internal_format != AUDIO_FORMAT_PCM_16_BIT) {
+    if (aml_out->hal_rate != 48000 && aml_out->hal_rate != 0 && hal_internal_format != AUDIO_FORMAT_PCM_16_BIT && hal_internal_format != AUDIO_FORMAT_PCM_32_BIT) {
         decoded_frame = decoded_frame * 48000 / aml_out->hal_rate;
     }
     main_mixer_consume = dolby_ms12_get_continuous_nframes_pcm_output(ms12->dolby_ms12_ptr, MAIN_INPUT_STREAM);

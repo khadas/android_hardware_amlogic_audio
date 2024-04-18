@@ -552,6 +552,12 @@ public:
         ALOGI("%s() mDapOnly %d\n", __FUNCTION__, mDapOnly);
     }
 
+    virtual void setBitWidth(int bit_width)
+    {
+        mOutputBitDepth2 = bit_width;
+        ALOGI("%s() mOutputBitDepth2 %d\n", __FUNCTION__, bit_width);
+    }
+
     virtual void setInputCMDMask(const char *input_cmd);
 
     virtual int getInputCMDMask(void)
