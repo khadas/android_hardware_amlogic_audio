@@ -1796,7 +1796,7 @@ MAIN_INPUT:
                 aml_audio_trace_int("ms12_scheduler_run", 0);
             }
             aml_ms12_main_decoder_process(ms12);
-
+            ms12->ms12_main_consume_bytes = dolby_ms12_get_decoder_n_bytes_consumed(ms12->dolby_ms12_ptr, main_format, MAIN_INPUT_STREAM);
             if (dolby_ms12_input_bytes > 0) {
                 /* Passthrough Mode, only get the MAIN data as the single input */
                 if ((ms12->dual_decoder_support == true) && is_ad_data_available(adev->digital_audio_mode)) {
@@ -2826,7 +2826,7 @@ int ms12_passthrough_output(struct aml_stream_out *aml_out) {
 
     if (adev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS && ms12_dec_out_nframes != 0 &&
         (hal_internal_format == AUDIO_FORMAT_E_AC3 || hal_internal_format == AUDIO_FORMAT_AC3)) {
-        uint64_t consume_offset = dolby_ms12_get_decoder_n_bytes_consumed(ms12->dolby_ms12_ptr, hal_internal_format, MAIN_INPUT_STREAM);
+        uint64_t consume_offset = ms12->ms12_main_consume_bytes;
         aml_ms12_bypass_checkout_data(ms12->ms12_bypass_handle, &output_buf, &out_size, consume_offset, &frame_info);
     }
 
@@ -4060,7 +4060,7 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
     ms12->main_input_insert_zero = 0;
     aml_out->is_ms12_main_decoder = true;
     ms12->is_bypass_ms12 = is_ms12_passthrough(stream);
-
+    ms12->ms12_main_consume_bytes = 0;
     if (adev->continuous_audio_mode && (aml_out->virtual_buf_handle == NULL)) {
         uint64_t buf_ns_begin  = MS12_MAIN_INPUT_BUF_NONEPCM_NS;
         uint64_t buf_ns_target = MS12_MAIN_INPUT_BUF_NONEPCM_NS;
@@ -4233,6 +4233,7 @@ int dolby_ms12_main_close(struct audio_stream_out *stream) {
     adev->ms12.main_input_fmt = AUDIO_FORMAT_INVALID;
     ms12->ms12_main_stream_out = NULL;
     ms12->mat_stream_profile = 0;
+    ms12->ms12_main_consume_bytes = 0;
 
     ms12->is_bypass_ms12 = false;
     /*the main stream is closed, we should update the sink format now*/
@@ -4255,6 +4256,7 @@ int dolby_ms12_main_flush(struct audio_stream_out *stream) {
     ms12->main_buffer_min_level = 0xFFFFFFFF;
     ms12->main_buffer_max_level = 0;
     ms12->last_frames_position = 0;
+    ms12->ms12_main_consume_bytes = 0;
 
     pthread_mutex_lock(&ms12->main_lock);
 

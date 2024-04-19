@@ -170,6 +170,7 @@ struct dolby_ms12_desc {
     uint64_t stereo_pcm_frames;
     uint64_t master_pcm_frames;
     uint64_t ms12_main_input_size;
+    uint64_t ms12_main_consume_bytes;
     bool b_legacy_ddpout;
     void *iec61937_ddp_buf;
     float main_volume;
