@@ -428,7 +428,7 @@ int aml_audio_ms12_render(struct audio_stream_out *stream, const void *buffer, s
                             .input_sr = input_sr,
                             .output_sr = output_sr,
                         };
-                        ret = aml_audio_resample_process_ex(&aml_out->resample_handle, &cfg, dec_data, dec_pcm_data->data_ch);
+                        ret = aml_audio_resample_process_ex(&aml_out->resample_handle, &cfg, dec_data, dec_pcm_data->data_len);
                         if (ret != 0) {
                             AM_LOGE("aml_audio_resample_process_ex fail ret=%d", ret);
                         } else {
