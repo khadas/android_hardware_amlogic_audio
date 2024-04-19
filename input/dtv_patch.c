@@ -2838,6 +2838,10 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
         char *ad_frame_buffer = NULL;
         void *ad_data_buffer = p_package->ad_data;
         int ad_data_size = p_package->ad_size;
+        if (p_package->ad_size > EAC3_IEC61937_FRAME_SIZE) {
+            ALOGI("p_package->ad_size %d invalid skip", p_package->ad_size);
+            ad_data_size = p_package->ad_size = 0;
+        }
         if (patch->ad_remain_size)  {
             if (patch->ad_remain_size + p_package->ad_size > EAC3_IEC61937_FRAME_SIZE) {
                 ALOGW("ad_remain_size %d + p_package->ad_size %d over flow ,reset ad_remain_size", patch->ad_remain_size, p_package->ad_size);
@@ -2956,6 +2960,10 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
         char *ad_frame_buffer = NULL;
         void *ad_data_buffer = p_package->ad_data;
         int ad_data_size = p_package->ad_size;
+        if (p_package->ad_size > EAC3_IEC61937_FRAME_SIZE) {
+            ALOGI("p_package->ad_size %d invalid skip", p_package->ad_size);
+            ad_data_size = p_package->ad_size = 0;
+        }
         if (patch->ad_remain_size) {
             if (patch->ad_remain_size + p_package->ad_size > EAC3_IEC61937_FRAME_SIZE) {
                 ALOGW("ad_remain_size %d + p_package->ad_size %d over flow ,reset ad_remain_size", patch->ad_remain_size, p_package->ad_size);
@@ -3216,14 +3224,6 @@ void *audio_dtv_patch_input_threadloop(void *data)
 
             ALOGV("demux_info->ad_pid %d demux_info->dual_decoder_support %d", demux_info->ad_pid, demux_info->dual_decoder_support);
             if (demux_info->dual_decoder_support && VALID_PID(demux_info->ad_pid)) {
-                if (!ad_buffer) {
-                    ad_buffer = aml_audio_malloc(nInBufferSize);
-                    if (!ad_buffer) {
-                        ALOGE("ad_buffer malloc failed");
-                        pthread_mutex_unlock(&patch->mutex);
-                        goto exit;
-                    }
-                }
                 int get_count = 0,drop_count = 0;
                 dtv_package->ad_size = 0;
                 do {
@@ -3249,7 +3249,6 @@ void *audio_dtv_patch_input_threadloop(void *data)
                             if (patch->dtvsync && patch->dtvsync->cur_outapts > 0) {
                                 demux_info->ad_package_status = check_ad_package_status(patch->dtvsync->cur_outapts, mAdEsData->pts, demux_info);
                                 if (demux_info->ad_package_status == AD_PACK_STATUS_DROP) {
-                                    ALOGI("drop ad mAdEsData->size %d mAdEsData->pts%" PRId64 " patch->cur_outapts %u",mAdEsData->size,mAdEsData->pts,patch->cur_outapts);
                                     if (mAdEsData->data) {
                                         aml_audio_free(mAdEsData->data);
                                         mAdEsData->data = NULL;
@@ -3274,23 +3273,14 @@ void *audio_dtv_patch_input_threadloop(void *data)
                             }
                         }
 
-                        {
-                            mAdEsData->used_size = mAdEsData->size;
-                            dtv_package->ad_size = mAdEsData->size;
-                            memcpy(ad_buffer, mAdEsData->data, mAdEsData->size);
-                        }
-                        dtv_package->ad_data = ad_buffer;
-                        ad_buffer = NULL;
+                        dtv_package->ad_size = mAdEsData->size;
+                        dtv_package->ad_data = (char *)mAdEsData->data;
                         demux_info->ad_pan  = mAdEsData->adpan;
                         demux_info->ad_fade = mAdEsData->adfade;
-                        if (mAdEsData->used_size == mAdEsData->size)  {
-                            if (mAdEsData->data) {
-                                 aml_audio_free(mAdEsData->data);
-                                 mAdEsData->data = NULL;
-                            }
-                            aml_audio_free(mAdEsData);
-                            mAdEsData = NULL;
-                        }
+                        if (aml_dev->debug_flag)
+                            ALOGI("ad mAdEsData->size %d mAdEsData->pts%" PRId64 "",mAdEsData->size,mAdEsData->pts);
+                        aml_audio_free(mAdEsData);
+                        mAdEsData = NULL;
                         break;
                     } else {
                         dtv_package->ad_size = 0;
