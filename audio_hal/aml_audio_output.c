@@ -489,6 +489,16 @@ ssize_t audio_hal_data_processing(struct audio_stream_out *stream,
                     memcpy(adev->out_16_buf, (unsigned char*)adev->audioeffect_tmp_buffer, bytes);
                 }
 
+                if (is_dts_format(aml_out->hal_internal_format) &&
+                        dev == AML_AUDIO_OUT_DEV_TYPE_SPDIF &&
+                        adev->dts_lib_type == eDTSXLib) {
+                    dtsx_dec_t *p_dtsx = (dtsx_dec_t *)(aml_out->aml_dec);
+                    if (p_dtsx && get_buffer_read_space(&p_dtsx->spdif_ring_buffer) >= (int)bytes) {
+                        ring_buffer_read(&p_dtsx->spdif_ring_buffer,
+                        (unsigned char*)adev->out_16_buf, bytes);
+                    }
+                }
+
                 /* For local play or dtv input, analog audio output channel should be switched by User setting,
                  * T7 BDS HDMITX uses AML_AUDIO_OUT_DEV_TYPE_OTHER for output
                  */

@@ -277,6 +277,13 @@ struct aml_bt_output {
     size_t resampler_in_frames;
 };
 
+typedef enum DEVICE_TYPE {
+    STB = 0,
+    TV  = 1,
+    SBR = 2,
+    BDS = 3
+} device_type_t;
+
 struct audio_hw_resource_mgr;
 struct sys_resource_manager_handler;
 

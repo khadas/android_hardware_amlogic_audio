@@ -34,13 +34,6 @@
 
 #define MS12_OUTPUT_5_1_DDP "vendor.media.audio.ms12.output.5_1_ddp"
 
-typedef enum DEVICE_TYPE {
-STB = 0,
-TV = 1,
-SBR = 2
-}device_type_t;
-
-
 static int get_nonms12_dv_tunnel_input_latency(audio_format_t input_format) {
     char buf[PROPERTY_VALUE_MAX] = {'\0'};
     int ret = -1;

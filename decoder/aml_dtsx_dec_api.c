@@ -660,8 +660,7 @@ static int _dtsx_pcm_output(dtsx_dec_t *dtsx_dec)
         memset(dec_pcm_data->buf, 0, dtsx_dec->a_dtsx_pp_output_size[DTSX_OUTPUT_SPK]);
     }
 
-    #if 0
-    if (dtsx_dec->a_dtsx_pp_output_size[DTSX_OUTPUT_HP] > 0) {
+    if (dtsx_dec->device_type == TV && dtsx_dec->a_dtsx_pp_output_size[DTSX_OUTPUT_HP] > 0) {
         if (get_buffer_write_space(&dtsx_dec->spdif_ring_buffer) < dtsx_dec->a_dtsx_pp_output_size[DTSX_OUTPUT_HP]) {
             ALOGE("spdif ringbuffer has not enough, drop %d bytes, reset size to %d",
                 get_buffer_read_space(&dtsx_dec->spdif_ring_buffer),
@@ -673,7 +672,6 @@ static int _dtsx_pcm_output(dtsx_dec_t *dtsx_dec)
                         dtsx_dec->a_dtsx_pp_output[DTSX_OUTPUT_HP],
                         dtsx_dec->a_dtsx_pp_output_size[DTSX_OUTPUT_HP], 0);
     }
-    #endif
 
     if (_dtsx_debug.fp_spk_pcm) {
         fwrite(dec_pcm_data->buf, 1, dtsx_dec->a_dtsx_pp_output_size[DTSX_OUTPUT_SPK], _dtsx_debug.fp_spk_pcm);
@@ -1067,6 +1065,7 @@ int dtsx_decoder_init_patch(aml_dec_t **ppaml_dec, aml_dec_config_t *dec_config)
     dtsx_dec->is_dtscd = dtsx_config->is_dtscd;
     dtsx_dec->is_iec61937 = dtsx_config->is_iec61937;
     dtsx_dec->is_hdmi_output = dtsx_config->is_hdmi_output;
+    dtsx_dec->device_type = dtsx_config->device_type;
     aml_dec->frame_cnt = 0;
     aml_dec->format = dtsx_config->format;
     dtsx_dec->stream_type = 0;

@@ -40,6 +40,7 @@
 #include "aml_hfp.h"
 #include "aml_mmap_audio.h"
 #include "amlAudioMixer.h"
+#include "dolby_lib_api.h"
 
 #ifdef ENABLE_AEC_APP
 #include "audio_aec.h"
@@ -823,6 +824,17 @@ static ssize_t output_port_post_process(output_port *port, void *buffer, int byt
     int ret;
     int i = 0;
     struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
+    struct aml_stream_out *dts_active_stream = NULL;
+
+    if (adev->active_outputs[STREAM_RAW_DIRECT]) {
+        dts_active_stream = adev->active_outputs[STREAM_RAW_DIRECT];
+    } else if (adev->active_outputs[STREAM_RAW_HWSYNC]) {
+        dts_active_stream = adev->active_outputs[STREAM_RAW_HWSYNC];
+    }
+
+    if (dts_active_stream && !is_dts_format(dts_active_stream->hal_internal_format)) {
+        dts_active_stream = NULL;
+    }
 
     if (get_debug_value(AML_DUMP_AUDIOHAL_TV) || get_port_dump_enable(DUMP_OUTPUT_PORT_PROCESS)) {
         aml_dump_audio_bitstreams("/data/vendor/audiohal/port_befor_postprocess.raw", buffer, bytes);
@@ -832,6 +844,17 @@ static ssize_t output_port_post_process(output_port *port, void *buffer, int byt
         void *vol_buf = port->vol_buf;
         vol = port->src_gain;
         memcpy(vol_buf, buffer, bytes);
+
+        /* When the dts format uses DTS:X to decode and output pcm and output it through arc/spdif,
+         * it is necessary to use data that has not been processed by DTS:X LnD.
+         * FIXME: The data here is not mixed with data from other ports, such as system sound.
+         */
+        if (adev->dts_lib_type == eDTSXLib && dts_active_stream && dev == AML_AUDIO_OUT_DEV_TYPE_SPDIF) {
+            dtsx_dec_t *p_dtsx = (dtsx_dec_t *)(dts_active_stream->aml_dec);
+            if (p_dtsx && get_buffer_read_space(&p_dtsx->spdif_ring_buffer) >= (int)bytes) {
+                ring_buffer_read(&p_dtsx->spdif_ring_buffer, vol_buf, bytes);
+            }
+        }
 
         if (port->eq_data && port->sink_gain) {
             if (dev == AML_AUDIO_OUT_DEV_TYPE_HEADPHONE) {

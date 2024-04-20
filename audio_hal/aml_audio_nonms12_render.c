@@ -842,6 +842,11 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dec_
 
         dtsx_config->output_bw = output_bitwidth;
 
+        if (is_STB(adev))
+            dtsx_config->device_type = STB;
+        else
+            dtsx_config->device_type = TV;
+
         ALOGI("[%s:%d] digital_raw:%d, dual_output_flag:%d, is_iec61937:%d, is_dtscd:%d, passthroug:%d, is_hdmi_output:%d, sink_dev_type:%d output_bw:%d",
             __func__, __LINE__,
             dtsx_config->digital_raw, aml_out->dual_output_flag, dtsx_config->is_iec61937,
