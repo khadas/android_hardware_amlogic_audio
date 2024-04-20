@@ -947,6 +947,9 @@ static int parse_heaac_adts_frame_header(struct audio_bit_parser * bit_parser, c
     frame_size = aac_frame_length;
     if ((frame_size == 0) || (frame_size >= 8191)) {
         ALOGE("Invalid HEAAC ADTS frame size 0");
+        heaac_info->frame_size = 0;
+        heaac_info->sample_rate = 0;
+        heaac_info->channel_mask = 0;
         return -1;
     }
 
@@ -955,6 +958,9 @@ static int parse_heaac_adts_frame_header(struct audio_bit_parser * bit_parser, c
     heaac_info->channel_mask = convert_channel_configuration_to_channelmask(channel_configuration);
     if (heaac_info->sample_rate == -1 || heaac_info->channel_mask == -1) {
         ALOGE("Invalid HEAAC ADTS frame sampling_frequency_index %u and  channel_configuration %u", sampling_frequency_index, channel_configuration);
+        heaac_info->frame_size = 0;
+        heaac_info->sample_rate = 0;
+        heaac_info->channel_mask = 0;
         return -1;
     }
     if (heaac_info->debug_print) {
@@ -997,6 +1003,7 @@ static int parse_heaac_loas_frame_header(struct audio_bit_parser * bit_parser, c
     ret = parseAudioMuxElement(bit_parser, heaac_info);
     if (ret) {
         ALOGE("%s line %d parse_AudioMuxElement ret %d frame 4bytes 0x%x 0x%x 0x%x 0x%x\n", __func__, __LINE__, ret, frameBuf[0], frameBuf[1], frameBuf[2], frameBuf[3]);
+        //heaac_info->frame_size = 0;
         return -1;
     }
     //heaac_info->sample_rate = heaac_info->sampleRateHz; // todo
@@ -1188,9 +1195,9 @@ resync:
 
     /*check whether the input data has a complete heaac frame*/
     if (ret != 0 || heaac_info->frame_size == 0) {
-        ALOGE("%s wrong frame size=%d ", __func__, heaac_info->frame_size);
+        ALOGE("%s wrong frame size=%d buf remain=%d left=%d", __func__, heaac_info->frame_size, heaac_parser_handle->buf_remain, buf_left);
         heaac_parser_handle->status = PARSER_SYNCING;
-        if (is_loas && heaac_info->frame_size > 0) {
+        if (is_loas && heaac_info->frame_size > heaac_parser_handle->buf_remain) {
             if (buf_left >= (heaac_info->frame_size - heaac_parser_handle->buf_remain)) {
                 buf_offset += (heaac_info->frame_size - heaac_parser_handle->buf_remain);
                 if (buf_offset > numBytes) {
