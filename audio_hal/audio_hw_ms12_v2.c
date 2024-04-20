@@ -4094,6 +4094,10 @@ int dolby_ms12_main_open(struct audio_stream_out *stream) {
             ad_vol = demux_info->advol_level;
             media_presentation_id = demux_info->media_presentation_id;
             dtv_decoder_offset_base = patch->decoder_offset;
+            /*for ac4, there is only one input case*/
+            if (hal_internal_format == AUDIO_FORMAT_AC4) {
+                ms12->dual_decoder_support = 0;
+            }
        } else {
             ms12->dual_decoder_support = 0;
             associate_audio_mixing_enable = 0;
