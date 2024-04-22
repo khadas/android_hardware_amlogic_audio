@@ -1204,3 +1204,17 @@ hdmiin_audio_packet_t audio_parse_get_audio_packet_type(audio_type_parse_t *stat
     return status->hdmi_packet;
 }
 
+void audio_fmt_check(audio_type_parse_t *status, void *buffer, size_t bytes)
+{
+
+    audio_type_parse_t *audio_type_status = status;
+
+    audio_type_status->cur_audio_type = hdmiin_audio_format_detection(audio_type_status->mixer_handle);
+    if (audio_type_status->audio_type == LPCM && audio_type_status->cur_audio_type != LPCM) {
+        ALOGI("audio_fmt_check Raw data found: type(%d)\n", audio_type_status->cur_audio_type);
+        enable_HW_resample(audio_type_status->mixer_handle, HW_RESAMPLE_DISABLE);
+        memset(buffer, 0, bytes);
+        audio_type_status->audio_type = audio_type_status->cur_audio_type;
+    }
+}
+

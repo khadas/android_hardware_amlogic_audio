@@ -204,6 +204,7 @@ void *audio_patch_input_threadloop(void *data)
     patch->sync_offset = -1;
     patch->start_mute = false;
     patch->mdelay = 0;
+    int old_chip_with_hw_det = check_chip_name("t5d", 3, &aml_dev->alsa_mixer);
 
     ALOGI("++%s", __FUNCTION__);
 
@@ -378,7 +379,6 @@ void *audio_patch_input_threadloop(void *data)
                 }
             }
             if (IS_DIGITAL_IN_HW(patch->input_src)) {
-                audio_format_t cur_aformat;
                 cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
                 if (in->data_type == DATA_NON_PCM) {
                     if (audio_is_linear_pcm(cur_aformat))
@@ -394,6 +394,15 @@ void *audio_patch_input_threadloop(void *data)
         }
 
         audio_pcpd_format_detect(patch->audio_parse_para);
+
+        /* For chip T5D or older version chip, there is limitation to process data type detection in hardware design.*/
+        /* So it needs to do process below to make data detection fast than before to avoid noise happen. */
+        if (old_chip_with_hw_det && IS_DIGITAL_IN_HW(patch->input_src)) {
+            cur_aformat = audio_parse_get_audio_type (patch->audio_parse_para);
+            if (patch && patch->audio_parse_para && audio_is_linear_pcm(cur_aformat)) {
+                audio_fmt_check(patch->audio_parse_para, patch->in_buf, read_bytes);
+            }
+        }
 
         /*noise gate is only used in Linein for 16bit audio data*/
         if (get_active_inport(aml_dev) == INPORT_LINEIN && is_ng_enable(aml_dev)) {

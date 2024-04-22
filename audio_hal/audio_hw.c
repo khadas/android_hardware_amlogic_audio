@@ -5512,6 +5512,19 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                 reset_decoder = false;
             }
         }
+        /* For HDMI case, it needs to do reconfiguration for the output when the stream type changes. It needs to */
+        /* reset ringbuffer of submix process to avoid noise happen for the remain data in ringbuffer. */
+        if (adev->dolby_lib_type == eDolbyDcvLib && is_same_patch_src(adev, SRC_HDMIIN) && adev->useSubMix) {
+            if (adev->sm && adev->sm->mixerData) {
+                struct subMixing *sm = adev->sm;
+                struct amlAudioMixer *audio_mixer = sm->mixerData;
+                unsigned int masks = audio_mixer->inportsMasks;
+                input_port *in_port = NULL;
+                in_port = mixer_get_inport(audio_mixer, &masks);
+                if (in_port)
+                    ring_buffer_reset(in_port->r_buf);
+            }
+        }
 
         pthread_mutex_lock(&adev->alsa_pcm_lock);
         if (aml_out->stream_status == STREAM_HW_WRITING) {

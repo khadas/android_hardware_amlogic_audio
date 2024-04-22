@@ -213,5 +213,5 @@ void audio_pcpd_format_detect(audio_type_parse_t *status);
 
 int pcm_coding_type_to_channels(enum earc_audio_type type);
 int non_pcm_coding_type_to_codec(enum earc_audio_type type);
-
+void audio_fmt_check(audio_type_parse_t *status, void *buffer, size_t bytes);
 #endif

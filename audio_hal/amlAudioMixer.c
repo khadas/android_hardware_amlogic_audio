@@ -2386,7 +2386,6 @@ int mixer_reset_virtual_buf(void *audio_mixer, bool reset)
     return 0;
 }
 
-
 int mixer_get_inport_start_threshold(struct aml_stream_out *out, struct amlAudioMixer *audio_mixer)
 {
     input_port *in_port = NULL;
@@ -2398,5 +2397,10 @@ int mixer_get_inport_start_threshold(struct aml_stream_out *out, struct amlAudio
     R_CHECK_POINTER_LEGAL(0, in_port, "");
 
     return in_port->inport_start_threshold;
+}
+
+input_port *mixer_get_inport(
+        struct amlAudioMixer *audio_mixer, uint32_t *pMasks) {
+    return mixer_get_inport_by_mask_right_first(audio_mixer, pMasks);
 }
 
