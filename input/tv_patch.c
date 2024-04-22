@@ -386,7 +386,6 @@ void *audio_patch_input_threadloop(void *data)
                     enable_tv_mute(aml_dev, false);
                 }
 
-                audio_pcpd_format_detect(patch->audio_parse_para);
                 aml_audio_trace_int("input_read_thread", read_bytes);
                 aml_alsa_input_read(&in->stream, patch->in_buf, read_bytes);
                 aml_audio_trace_int("input_read_thread", 0);
@@ -419,7 +418,7 @@ void *audio_patch_input_threadloop(void *data)
             continue;
         }
 
-        audio_digital_input_format_check(patch);
+        audio_pcpd_format_detect(patch->audio_parse_para);
 
         /*noise gate is only used in Linein for 16bit audio data*/
         if (get_active_inport(aml_dev) == INPORT_LINEIN && is_ng_enable(aml_dev)) {
@@ -693,6 +692,8 @@ void *audio_patch_output_threadloop(void *data)
             pthread_cond_timedwait(&patch->cond, &patch->mutex, &ts);
         }
         pthread_mutex_unlock(&patch->mutex);
+
+        audio_digital_input_format_check(patch);
 
         ALOGV("%s(), ringbuffer level read after wait-- %d",
               __func__, get_buffer_read_space(ringbuffer));
