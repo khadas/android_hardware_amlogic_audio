@@ -657,8 +657,11 @@ void set_ms12_dap_postgain(struct dolby_ms12_desc *ms12, int postgain)
 {
     char parm[64] = "";
     sprintf(parm, "%s %d", "-dap_gains", postgain);
+
+    pthread_mutex_lock(&ms12->lock);
     if ((strlen(parm)) > 0 && ms12)
         aml_ms12_update_runtime_params(ms12, parm);
+    pthread_mutex_unlock(&ms12->lock);
 }
 
 
