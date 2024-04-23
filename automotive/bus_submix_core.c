@@ -118,7 +118,8 @@ int set_inport_channel_mux_table_from_mask(input_port *in_port, uint32_t mask)
 int get_mixer_port_presentation(BusSubMixCore *mixCore, input_port* in_port, uint64_t *frames, struct timespec *timestamp)
 {
     int ret = 0;
-    ret = mixer_get_presentation_position(mixCore->audio_mixer, in_port->ID, frames, timestamp);
+    int64_t negative_frames = 0;
+    ret = mixer_get_presentation_position(mixCore->audio_mixer, in_port->ID, frames, &negative_frames, timestamp);
     return ret;
 }
 
