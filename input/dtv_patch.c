@@ -2751,6 +2751,13 @@ int audio_dtv_patch_output_single_decoder(struct aml_audio_patch *patch,
             if (get_debug_value(AML_DUMP_AUDIOHAL_DTV)) {
                 aml_dump_audio_bitstreams("/data/audio/audio_main.es", main_frame_buffer, main_frame_size);
             }
+            if (patch->main_heaac_info.is_adts) {
+                 aml_out->hal_internal_format = AUDIO_FORMAT_AAC;
+            }
+            if (patch->main_heaac_info.is_loas) {
+                aml_out->hal_internal_format = AUDIO_FORMAT_AAC_LATM;
+            }
+
             ret = out_write_new(stream_out, main_frame_buffer, main_frame_size);
         }
         /*coverity[leaked_storage]*/
@@ -3070,6 +3077,13 @@ int audio_dtv_patch_output_dual_decoder(struct aml_audio_patch *patch,
                 aml_dump_audio_bitstreams("/data/audio/audio_main.es", main_frame_buffer, main_frame_size);
                 aml_dump_audio_bitstreams("/data/audio/audio_ad.es", ad_frame_buffer, ad_frame_size);
             }
+
+            if (patch->main_heaac_info.is_adts) {
+                 aml_out->hal_internal_format = AUDIO_FORMAT_AAC;
+            }
+            if (patch->main_heaac_info.is_loas) {
+                aml_out->hal_internal_format = AUDIO_FORMAT_AAC_LATM;
+            }
             ret = out_write_new(stream_out, mixbuffer, dual_len);
 
         }
@@ -3169,7 +3183,6 @@ void *audio_dtv_patch_input_threadloop(void *data)
     int ret = 0;
     int nInBufferSize = read_bytes * 2; //full buffer size
     char *main_buffer = NULL;
-    char *ad_buffer = NULL;
     struct package *dtv_package = NULL;
     struct mAudioEsDataInfo *mEsData = NULL ,*mAdEsData = NULL;
 
@@ -3214,8 +3227,14 @@ void *audio_dtv_patch_input_threadloop(void *data)
             int nNextReadSize = 0;
             if (patch->in_read_frame_size) {
                nNextReadSize = patch->in_read_frame_size;
+               if (nNextReadSize > nInBufferSize) {
+                  main_buffer = aml_audio_realloc(main_buffer, nNextReadSize);
+               }
             } else {
-                if (patch->aformat == AUDIO_FORMAT_AC4) {
+                if (patch->aformat == AUDIO_FORMAT_AC4 ||
+                    patch->aformat == AUDIO_FORMAT_AAC ||
+                    patch->aformat == AUDIO_FORMAT_AAC_LATM) {
+                    //aac need more data to do format parser
                     nNextReadSize = read_bytes;
                 } else if ((patch->aformat == AUDIO_FORMAT_MP3) || (patch->aformat == AUDIO_FORMAT_MP2)) {
                     nNextReadSize = read_bytes / 4;
@@ -3608,10 +3627,6 @@ exit:
             aml_audio_free(main_buffer);
             main_buffer = NULL;
         }
-        if (ad_buffer) {
-            aml_audio_free(ad_buffer);
-            ad_buffer = NULL;
-        }
         if (dtv_package) {
            if (dtv_package->data) {
                aml_audio_free(dtv_package->data);
@@ -3809,7 +3824,6 @@ void *audio_dtv_patch_output_threadloop_v2(void *data)
         patch->ad_remain_size = 0;
     }
 
-    //struct heaac_parser_info heaac_info = { 0 };
     if (patch->aformat == AUDIO_FORMAT_AAC_LATM) {
         patch->main_heaac_info.is_loas = 1;
         patch->main_heaac_info.is_adts = 0;
