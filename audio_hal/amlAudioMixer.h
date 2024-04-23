@@ -19,9 +19,11 @@
 #define _AML_AUDIO_MIXER_H_
 
 #include <tinyalsa/asoundlib.h>
+#include <semaphore.h>
 #include "aml_ringbuffer.h"
 #include "audio_port.h"
 #include "karaoke_manager.h"
+#include "aml_audio_timer.h"
 
 #define MIXER_OUT_FRAME_SIZE                (8)
 #define MIXER_FRAME_COUNT                   (384)
@@ -44,6 +46,14 @@ typedef enum {
     MIXER_DRAIN_TRACK,      // drain currently playing track
     MIXER_DRAIN_ALL,        // fully drain the hardware
 } aml_mixer_state;
+
+typedef enum SUBMIX_SCHEDULER_STATE {
+    SUBMIX_SCHEDULER_NONE = -1,
+    SUBMIX_SCHEDULER_RUNNING =  0,
+    SUBMIX_SCHEDULER_STANDBY =  1,
+
+    SUBMIX_SCHEDULER_MAX,
+} submix_scheduler_state_t;
 
 //simple mixer support: 2 in , 1 out
 struct amlAudioMixer {
@@ -90,13 +100,16 @@ struct amlAudioMixer {
 
     //using which one of aml_pcm_mixing_st
     int type;
+    int submix_scheduler_state;
+    int last_scheduler_state;
+    sem_t submix_standby_sem;
+    uint32_t submix_timer_id;
 };
 
 enum aml_sub_mixer_type {
     SUB_MIXER_NORMAL = 0,
     SUB_MIXER_CH_MUX = 1,
 };
-
 /**
  * constructor with mixer output pcm configs
  * return NULL if no enough memory.
@@ -164,6 +177,11 @@ int mixer_get_mc_outport_latency_frames(struct amlAudioMixer *audio_mixer);
 int mixer_reset_virtual_buf(void *audio_mixer, bool reset);
 int mixer_get_inport_start_threshold(struct aml_stream_out *out, struct amlAudioMixer *audio_mixer);
 input_port *mixer_get_inport(struct amlAudioMixer *audio_mixer, uint32_t *pMasks);
+int aml_audiohal_sch_state_2_submix(struct amlAudioMixer *audio_mixer, int sch_state);
+int aml_set_submix_scheduler_state(struct amlAudioMixer *audio_mixer, int sch_state);
+void set_submix_continuous_state(struct amlAudioMixer *audio_mixer, int state);
+int aml_send_submix_standby_state_2_submix(void);
+void submix_timer_callback_handler(union sigval sigv);
 
 __END_DECLS
 

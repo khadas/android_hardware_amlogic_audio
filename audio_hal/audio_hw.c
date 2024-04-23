@@ -3847,6 +3847,8 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     struct aml_audio_device *adev = (struct aml_audio_device *) dev;
     struct str_parms *parms;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
+    struct subMixing *sm = adev->sm;
+    struct amlAudioMixer *audio_mixer = sm ? sm->mixerData : NULL;
     char value[AUDIO_HAL_CHAR_MAX_LEN] = {'\0'};
     int val = 0;
     int ret = 0;
@@ -3925,6 +3927,9 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 
         if (is_HDMI_connected(adev)) {
             aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
+            if (adev->useSubMix) {
+                aml_audiohal_sch_state_2_submix(audio_mixer, SUBMIX_SCHEDULER_RUNNING);
+            }
         }
         goto exit;
     }
@@ -4103,6 +4108,9 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 
             if (adev->is_netflix) {
                 aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
+                if (adev->useSubMix) {
+                    aml_audiohal_sch_state_2_submix(audio_mixer, SUBMIX_SCHEDULER_RUNNING);
+                }
             } else {
                 /* currently system send the "continuous_audio_mode=0" in below a few scenario,
                 ** 1)when ExoPlayer/AIV open and close, start play or exit play.
@@ -6906,6 +6914,8 @@ int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby)
     bool hw_mix = false;
     aml_dev = aml_out->dev;
     ms12 = &(aml_dev->ms12);
+    struct subMixing *sm = aml_dev->sm;
+    struct amlAudioMixer *audio_mixer = sm ? sm->mixerData : NULL;
 
     if (is_standby) {
         AM_LOGI("++ io %d: out:%p dev masks:%#x is_standby:%d out usecase:%s", aml_out->io_handle, aml_out,
@@ -6941,6 +6951,10 @@ int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby)
         if (0 == aml_dev->usecase_masks && is_TV(aml_dev)) {
             // send the SCHEDULER_STANDBY to ms12.
             aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_STANDBY);
+            if (aml_dev->useSubMix) {
+                ALOGI("send STANDBY msg to submix");
+                aml_audiohal_sch_state_2_submix(audio_mixer, SUBMIX_SCHEDULER_STANDBY);
+            }
         } else {
             // do something.
         }
@@ -6991,11 +7005,15 @@ int usecase_change_validate_l(struct aml_stream_out *aml_out, bool is_standby)
     **here should send the MS12_SCHEDULER_RUNNING to ms12.
     */
    /*coverity[missing_lock]*/
-    if (ms12->ms12_scheduler_state != MS12_SCHEDULER_RUNNING && aml_dev->usecase_masks >= 1) {
-        aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
-        if (eDolbyMS12Lib == aml_dev->dolby_lib_type &&
-            aml_out->usecase == STREAM_PCM_NORMAL &&
-            aml_dev->dac_softmute_delay > 0) {
+    if (aml_dev->usecase_masks >= 1) {
+        if (ms12->ms12_scheduler_state != MS12_SCHEDULER_RUNNING) {
+            aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
+        }
+        if (aml_dev->useSubMix && is_TV(aml_dev) && audio_mixer->submix_scheduler_state == SUBMIX_SCHEDULER_STANDBY) {
+            ALOGI("send RUNNING msg to submix");
+            aml_audiohal_sch_state_2_submix(audio_mixer, SUBMIX_SCHEDULER_RUNNING);
+        }
+        if (aml_out->usecase == STREAM_PCM_NORMAL &&aml_dev->dac_softmute_delay > 0) {
             int softmute_delay = aml_dev->dac_softmute_delay;
             /*
              * relationship with https://jira.amlogic.com/browse/SWPL-112419
@@ -8473,6 +8491,8 @@ static int adev_set_device_connected_state_v7(struct audio_hw_device *dev,
                                      bool connected)
 {
     struct aml_audio_device *aml_dev = (struct aml_audio_device *) dev;
+    struct subMixing *sm = aml_dev->sm;
+    struct amlAudioMixer *audio_mixer = sm ? sm->mixerData : NULL;
     struct str_parms *parms = NULL;
     if (port->type == AUDIO_PORT_TYPE_DEVICE) {
         AM_LOGI("%s address:%s, num_descriptors:%d, num_profiles:%d",
@@ -8495,6 +8515,8 @@ static int adev_set_device_connected_state_v7(struct audio_hw_device *dev,
                 struct dolby_ms12_desc *ms12 = &(aml_dev->ms12);
 
                 aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
+                if (aml_dev->useSubMix)
+                    aml_audiohal_sch_state_2_submix(audio_mixer, SUBMIX_SCHEDULER_RUNNING);
             }
         }
         if (port->ext.device.type & AUDIO_DEVICE_OUT_HDMI_ARC) {

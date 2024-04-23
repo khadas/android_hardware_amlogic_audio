@@ -1496,6 +1496,10 @@ static int usecase_change_validate_l_sm(struct aml_stream_out *aml_out, bool is_
             AM_LOGI("io %d: out:%p standby unmask usecase %s", aml_out->io_handle, aml_out,usecase2Str(aml_out->usecase));
             aml_dev->usecase_masks &= ~(1 << aml_out->usecase);
         }
+        if (0 == aml_dev->usecase_masks && is_TV(aml_dev)) {
+            ALOGI("send STANDBY msg to submix");
+            aml_audiohal_sch_state_2_submix(audio_mixer, SUBMIX_SCHEDULER_STANDBY);
+        }
         return 0;
     }
 
@@ -1546,6 +1550,10 @@ static int usecase_change_validate_l_sm(struct aml_stream_out *aml_out, bool is_
             /* add the new output usecase to aml_dev usecase masks */
             aml_dev->usecase_masks |= 1 << aml_out->usecase;
         }
+    }
+    if (aml_dev->usecase_masks >= 1 && is_TV(aml_dev) && audio_mixer->submix_scheduler_state == SUBMIX_SCHEDULER_STANDBY) {
+        ALOGI("send RUNNING msg to submix");
+        aml_audiohal_sch_state_2_submix(audio_mixer, SUBMIX_SCHEDULER_RUNNING);
     }
 
     if (STREAM_PCM_NORMAL == aml_out->usecase) {
