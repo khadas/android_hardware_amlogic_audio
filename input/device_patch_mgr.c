@@ -683,6 +683,7 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
         } else if (strncmp(value, "broadband", 9) == 0) {
 #ifdef ENABLE_DVB_PATCH
             if (is_same_patch_src(adev, SRC_DTV) && is_dev_patch_running(adev)) {
+                adev->patch_manager->atv_dtv_switch = true;
                 ALOGI("[audiohal_kpi] %s, release dtv patching ", __func__);
                 ret = patch_mgr_release_patch(adev, PATCH_TYPE_DTV);
             }
