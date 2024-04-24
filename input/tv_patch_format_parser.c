@@ -1000,6 +1000,9 @@ static void* audio_type_parse_threadloop(void *data)
                 }
 
                 audio_type_status->audio_type = audio_type_status->cur_audio_type;
+                if (audio_type_status->hdmi_packet != cur_audio_packet) {
+                    audio_type_status->hdmi_packet = cur_audio_packet;
+                }
             } else if (audio_type_status->input_dev == AUDIO_DEVICE_IN_HDMI) {
                 hdmiin_audio_packet_t audio_packet = get_hdmiin_audio_packet(audio_type_status->mixer_handle);
                 if (audio_packet == AUDIO_PACKET_HBR) {
