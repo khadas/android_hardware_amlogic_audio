@@ -669,6 +669,7 @@ void *audio_patch_output_threadloop(void *data)
             AM_LOGE("aml_audio_check_and_realloc fail");
             return (void *)-1;
         }
+        memset(patch->out_buf, 0, write_bytes * period_mul);
         pthread_mutex_lock(&patch->mutex);
         ALOGV("%s(), ringbuffer level read before wait--%d",
               __func__, get_buffer_read_space(ringbuffer));

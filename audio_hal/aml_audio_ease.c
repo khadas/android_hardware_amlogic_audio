@@ -227,7 +227,7 @@ int aml_audio_ease_process(aml_audio_ease_t * ease_handle, void * in_data, size_
     format = ease_handle->data_format.format;
     nframes  = size / (audio_bytes_per_sample(format) * ch);
 
-    if (ease_handle->ease_frames_elapsed >= ease_handle->ease_frames) {
+    if (ease_handle->ease_frames_elapsed >= ease_handle->ease_frames && ease_handle->ease_status == EaseIn) {
         ease_handle->do_easing = false;
         pthread_mutex_unlock(&ease_handle->ease_lock);
         return 0;
