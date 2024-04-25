@@ -19,6 +19,7 @@
  */
 #define LOG_TAG "audio_hw_process_effect_virtualsurround"
 //#define LOG_NDEBUG 0
+#define BUILD_FLOAT
 
 #include <cutils/log.h>
 #include <utils/Log.h>
@@ -38,23 +39,19 @@
 #include <cutils/properties.h>
 #include "Virtualsurround.h"
 
-
-#include "IniParser.h"
+#include "LVCS.h"
+#include "LVCS_Private.h"
+#include "LVCS_Tables.h"
+#include "VectorArithmetic.h"
+#include "CompLim.h"
 
 extern "C"{
 
-#include "LVCS.h"
-#include "InstAlloc.h"
-#include "LVCS_Private.h"
+#define MAX_INTERNAL_BLOCKSIZE 8128   /* Maximum multiple of 64  below 8191*/
+#define MIN_INTERNAL_BLOCKSIZE 16     /* Minimum internal block size */
+#define LVC_CHANNELS 2
 
-LVCS_Handle_t           hCSInstance = LVM_NULL; /* Concert Sound instance handle */
-LVCS_Instance_t         CS_Instance;        /* Concert Sound instance */
-LVCS_MemTab_t           CS_MemTab;          /* Memory table */
-LVCS_Capabilities_t     CS_Capabilities;    /* Initial capabilities */
 static pthread_mutex_t audio_vir_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-#define MODEL_SUM_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/model/model_sum.ini"
-#define AUDIO_EFFECT_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
 
 // effect_handle_t interface implementation for Virtualsurround effect
 extern const struct effect_interface_s VirtualsurroundInterface;
@@ -99,119 +96,59 @@ typedef struct VirtualsurroundContext_s {
     effect_config_t                 config;
     Virtualsurround_state_e         state;
     Virtualsurrounddata             gVirtualsurrounddata;
+    LVCS_Handle_t                   hCSInstance;        /* Concert Sound instance handle */
+    LVCS_Capabilities_t             CS_Capabilities;    /* Initial capabilities */
+    LVCS_Params_t                   CS_Params;
+    void *                          pScratch;
 } VirtualsurroundContext;
 
 const char *VirtualsurroundStatusstr[] = {"Disable", "Enable"};
 
-int Virtualsurround_get_model_name(char *model_name, int size) {
-    int ret = -1;
-    char node[PROPERTY_VALUE_MAX];
-
-    ret = property_get("vendor.tv.model_name", node, NULL);
-
-    if (ret < 0)
-        snprintf(model_name, size, "DEFAULT");
-    else
-        snprintf(model_name, size, "%s", node);
-    ALOGD("%s: Model Name -> %s", __FUNCTION__, model_name);
-    return ret;
-}
-
-int Virtualsurround_get_ini_file(char *ini_name, int size) {
-    int result = -1;
-    char model_name[50] = {0};
-    IniParser* pIniParser = NULL;
-    const char *ini_value = NULL;
-    const char *filename = MODEL_SUM_DEFAULT_PATH;
-
-    Virtualsurround_get_model_name(model_name, sizeof(model_name));
-    pIniParser = new IniParser();
-    if (pIniParser->parse(filename) < 0) {
-        ALOGW("%s: Load INI file -> %s Failed", __FUNCTION__, filename);
-        goto exit;
-    }
-    ini_value = pIniParser->GetString(model_name, "AMLOGIC_AUDIO_EFFECT_INI_PATH", AUDIO_EFFECT_DEFAULT_PATH);
-    if (ini_value == NULL || access(ini_value, F_OK) == -1) {
-        ALOGD("%s: INI File is not exist", __FUNCTION__);
-        goto exit;
-    }
-    ALOGD("%s: INI File -> %s", __FUNCTION__, ini_value);
-    strncpy(ini_name, ini_value, size);
-
-    result = 0;
-exit:
-    delete pIniParser;
-    pIniParser = NULL;
-    return result;
-}
-
-int Virtualsurround_load_ini_file(VirtualsurroundContext *pContext __unused)
-{
-    int result = -1;
-    char ini_name[100] = {0};
-    IniParser* pIniParser = NULL;
-    if (Virtualsurround_get_ini_file(ini_name, sizeof(ini_name)) < 0)
-        goto error;
-
-    pIniParser = new IniParser();
-    if (pIniParser->parse((const char *)ini_name) < 0) {
-        ALOGD("%s: %s load failed", __FUNCTION__, ini_name);
-        goto error;
-    }
-error:
-    ALOGD("%s: %s", __FUNCTION__, result == 0 ? "successful" : "failed");
-    delete pIniParser;
-    pIniParser = NULL;
-    return result;
-}
-
 int Virtualsurround_init(VirtualsurroundContext *pContext) {
-    LVCS_ReturnStatus_en    LVCS_Status;
-    LVCS_Params_t *CS_Params = &CS_Instance.Params;
-    int i = 0;
+    LVCS_ReturnStatus_en LVCS_Status;
+    LVCS_Capabilities_t CS_Capabilities;
+    LVCS_Handle_t hCSInstance = LVM_NULL;
+    LVCS_Params_t *CS_Params = &(pContext->CS_Params);
+    int BundleScratchSize = 3 * LVC_CHANNELS * (MIN_INTERNAL_BLOCKSIZE + MAX_INTERNAL_BLOCKSIZE) * sizeof(float);
 
     pthread_mutex_lock(&audio_vir_mutex);
-    CS_Capabilities.MaxBlockSize = 2048;
-    CS_Capabilities.pBundleInstance = (void*)hCSInstance;
-    LVCS_Status = LVCS_Memory(LVM_NULL,
-                              &CS_MemTab,
-                              &CS_Capabilities);
-    CS_MemTab.Region[LVCS_MEMREGION_PERSISTENT_SLOW_DATA].pBaseAddress = &CS_Instance;
-    /* Allocate memory */
-    for (i = 0; i < LVM_NR_MEMORY_REGIONS; i++) {
-        if (CS_MemTab.Region[i].Size != 0) {
-            CS_MemTab.Region[i].pBaseAddress = malloc(CS_MemTab.Region[i].Size);
-            if (CS_MemTab.Region[i].pBaseAddress == LVM_NULL) {
-                ALOGV("\tLVM_ERROR :LvmBundle_init CreateInstance Failed to allocate %d"
-                    " bytes for region %u\n", CS_MemTab.Region[i].Size, i );
-                pthread_mutex_unlock(&audio_vir_mutex);
-                return LVCS_NULLADDRESS;
-            } else {
-                ALOGV("\tLvmBundle_init CreateInstance allocated %d"
-                    " bytes for region %u at %p\n",
-                    CS_MemTab.Region[i].Size, i, CS_MemTab.Region[i].pBaseAddress);
-            }
-        }
+    pContext->pScratch = calloc(1, BundleScratchSize);
+    if (pContext->pScratch == LVM_NULL) {
+        ALOGE("%s: malloc buffer error!", __FUNCTION__);
+        return -1;
     }
-    hCSInstance = LVM_NULL;
+
+    CS_Capabilities.MaxBlockSize = 4096;
+
     LVCS_Status = LVCS_Init(&hCSInstance,
-                              &CS_MemTab,
-                              &CS_Capabilities);
+                            &CS_Capabilities,
+                            pContext->pScratch);
+
+    if (LVCS_Status != LVCS_SUCCESS) {
+        ALOGE("%s: init LVCS error!", __FUNCTION__);
+        return -1;
+    }
+
+    pContext->hCSInstance = hCSInstance;
+
+    CS_Params->OperatingMode = LVCS_OFF;
+    CS_Params->SpeakerType = LVCS_HEADPHONES;
+    CS_Params->SourceFormat = LVCS_STEREO;
+    CS_Params->CompressorMode = LVM_MODE_ON;
+    CS_Params->SampleRate  = LVM_FS_48000;
+    CS_Params->NrChannels = LVC_CHANNELS;
+    CS_Params->EffectLevel = 32767; /* 0~32767 */
+    CS_Params->ReverbLevel = 0;
+
     pContext->gVirtualsurrounddata.tbcfg.effectlevel = 0;
     pContext->gVirtualsurrounddata.tbcfg.enable = 0;
-    CS_Params->OperatingMode = LVCS_OFF;
-    CS_Params->CompressorMode = LVM_MODE_ON;
-    CS_Params->SourceFormat = LVCS_MONOINSTEREO;//LVCS_STEREO;
-    CS_Params->SpeakerType = LVCS_HEADPHONES;
-    CS_Params->SampleRate  = LVM_FS_48000;
-    CS_Params->ReverbLevel = 512;
-    CS_Params->EffectLevel = 16350; /* 0~32700 */
 
+    LVCS_Control(hCSInstance, CS_Params);
     pthread_mutex_unlock(&audio_vir_mutex);
 
     pContext->config.inputCfg.accessMode = EFFECT_BUFFER_ACCESS_READ;
     pContext->config.inputCfg.channels = AUDIO_CHANNEL_OUT_STEREO;
-    pContext->config.inputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
+    pContext->config.inputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     pContext->config.inputCfg.samplingRate = 48000;
     pContext->config.inputCfg.bufferProvider.getBuffer = NULL;
     pContext->config.inputCfg.bufferProvider.releaseBuffer = NULL;
@@ -219,13 +156,15 @@ int Virtualsurround_init(VirtualsurroundContext *pContext) {
     pContext->config.inputCfg.mask = EFFECT_CONFIG_ALL;
     pContext->config.outputCfg.accessMode = EFFECT_BUFFER_ACCESS_ACCUMULATE;
     pContext->config.outputCfg.channels = AUDIO_CHANNEL_OUT_STEREO;
-    pContext->config.outputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
+    pContext->config.outputCfg.format = AUDIO_FORMAT_PCM_32_BIT;
     pContext->config.outputCfg.samplingRate = 48000;
     pContext->config.outputCfg.bufferProvider.getBuffer = NULL;
     pContext->config.outputCfg.bufferProvider.releaseBuffer = NULL;
     pContext->config.outputCfg.bufferProvider.cookie = NULL;
     pContext->config.outputCfg.mask = EFFECT_CONFIG_ALL;
+
     ALOGD("%s: successful", __FUNCTION__);
+
     return 0;
 }
 
@@ -246,10 +185,7 @@ int Virtualsurround_configure(VirtualsurroundContext *pContext, effect_config_t 
     if (pConfig->outputCfg.accessMode != EFFECT_BUFFER_ACCESS_WRITE &&
             pConfig->outputCfg.accessMode != EFFECT_BUFFER_ACCESS_ACCUMULATE)
         return -EINVAL;
-    if (pConfig->inputCfg.format != AUDIO_FORMAT_PCM_16_BIT) {
-        ALOGW("%s: format in = 0x%x format out = 0x%x", __FUNCTION__, pConfig->inputCfg.format, pConfig->outputCfg.format);
-        pConfig->inputCfg.format = pConfig->outputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
-    }
+
     memcpy(&pContext->config, pConfig, sizeof(effect_config_t));
     return 0;
 }
@@ -260,10 +196,13 @@ int Virtualsurround_setParameter(VirtualsurroundContext *pContext, void *pParam,
     int32_t value;
     Virtualsurrounddata *data=&pContext->gVirtualsurrounddata;
     Virtualsurroundcfg *tbcfg=&data->tbcfg;
-    LVCS_Params_t *CS_Params = &CS_Instance.Params;
+    LVCS_Params_t *CS_Params = &(pContext->CS_Params);
+    LVCS_Handle_t hCSInstance = pContext->hCSInstance;
+
     /*coverity[missing_lock]*/
     if (hCSInstance == LVM_NULL)
-        return LVCS_NULLADDRESS;
+        return -1;
+
     pthread_mutex_lock(&audio_vir_mutex);
     switch (param) {
         case VIRTUALSURROUND_PARAM_ENABLE:
@@ -273,8 +212,7 @@ int Virtualsurround_setParameter(VirtualsurroundContext *pContext, void *pParam,
                CS_Params->OperatingMode = LVCS_ON;
             else
                CS_Params->OperatingMode = LVCS_OFF;
-            LVCS_Control(hCSInstance,CS_Params);
-            pthread_mutex_unlock(&audio_vir_mutex);
+            LVCS_Control(hCSInstance, CS_Params);
             break;
         case VIRTUALSURROUND_PARAM_EFFECTLEVEL:
             value = *(int32_t *)pValue;
@@ -285,14 +223,14 @@ int Virtualsurround_setParameter(VirtualsurroundContext *pContext, void *pParam,
                 CS_Params->EffectLevel  = 0;
             else
                 CS_Params->EffectLevel = tbcfg->effectlevel * 327;
-            LVCS_Control(hCSInstance,CS_Params);
-            pthread_mutex_unlock(&audio_vir_mutex);
+            LVCS_Control(hCSInstance, CS_Params);
             break;
         default:
             ALOGE("%s: unknown param %08x", __FUNCTION__, param);
             pthread_mutex_unlock(&audio_vir_mutex);
             return -EINVAL;
     }
+    pthread_mutex_unlock(&audio_vir_mutex);
     return 0;
 }
 
@@ -325,18 +263,20 @@ int Virtualsurround_getParameter(VirtualsurroundContext*pContext, void *pParam, 
     return 0;
 }
 
-int Virtualsurround_release(VirtualsurroundContext *pContext __unused) {
-    int i;
-    pthread_mutex_lock(&audio_vir_mutex);
-    for (i = 0; i < LVM_NR_MEMORY_REGIONS; i++) {
-        if (CS_MemTab.Region[i].pBaseAddress != 0) {
-            free(CS_MemTab.Region[i].pBaseAddress);
-            CS_MemTab.Region[i].pBaseAddress = NULL;
-        }
+int Virtualsurround_release(VirtualsurroundContext *pContext) {
+    if (pContext == NULL) {
+        return -EINVAL;
     }
-    hCSInstance = LVM_NULL;
+    LVCS_Handle_t *hCSInstance = (LVCS_Handle_t *)(pContext->hCSInstance);
 
+    pthread_mutex_lock(&audio_vir_mutex);
+    if (pContext->pScratch) {
+        free(pContext->pScratch);
+        pContext->pScratch = NULL;
+    }
+    LVCS_DeInit(hCSInstance);
     pthread_mutex_unlock(&audio_vir_mutex);
+
     return 0;
 }
 
@@ -356,8 +296,11 @@ int Virtualsurround_process(effect_handle_t self, audio_buffer_t *inBuffer, audi
         return -EINVAL;
     }
 
-    int16_t *in  = (int16_t *)inBuffer->raw;
-    int16_t *out = (int16_t *)outBuffer->raw;
+    int32_t *in  = (int32_t *)inBuffer->raw;
+    int32_t *out = (int32_t *)outBuffer->raw;
+    float *in_float  = (float *)inBuffer->raw;
+    float *out_float = (float *)outBuffer->raw;
+
     Virtualsurrounddata *data = &pContext->gVirtualsurrounddata;
     if (!data->tbcfg.enable) {
         for (size_t i = 0; i < inBuffer->frameCount; i++) {
@@ -365,11 +308,14 @@ int Virtualsurround_process(effect_handle_t self, audio_buffer_t *inBuffer, audi
             *out++ = *in++;
         }
     } else {
-        /*coverity[missing_lock]*/
+        LVCS_Handle_t hCSInstance = pContext->hCSInstance;
         if (hCSInstance == LVM_NULL)
-            return LVCS_NULLADDRESS;
+            return -1;
+
         pthread_mutex_lock(&audio_vir_mutex);
-        LVCS_Process(hCSInstance, in, out, inBuffer->frameCount);
+        memcpy_to_float_from_i32(in_float, in, inBuffer->frameCount * LVC_CHANNELS);
+        LVCS_Process(hCSInstance, in_float, out_float, inBuffer->frameCount);
+        memcpy_to_i32_from_float(out, out_float, inBuffer->frameCount * LVC_CHANNELS);
         pthread_mutex_unlock(&audio_vir_mutex);
 
     }
@@ -492,14 +438,12 @@ int VirtualsurroundLib_Create(const effect_uuid_t * uuid, int32_t sessionId __un
         return -EINVAL;
     }
     memset(pContext, 0, sizeof(VirtualsurroundContext));
-    if (Virtualsurround_load_ini_file(pContext) < 0) {
-        ALOGE("%s: Load INI File failed, use default param", __FUNCTION__);
-        pContext->gVirtualsurrounddata.tbcfg.enable = 0;
-    }
+
     pContext->itfe = &VirtualsurroundInterface;
     pContext->state = VIRTUALSURROUND_STATE_UNINITIALIZED;
-    *pHandle = (effect_handle_t)pContext;
     pContext->state = VIRTUALSURROUND_STATE_INITIALIZED;
+    pContext->hCSInstance = LVM_NULL;
+    *pHandle = (effect_handle_t)pContext;
     ALOGD("%s: %p", __FUNCTION__, pContext);
     return 0;
 }
@@ -535,7 +479,6 @@ int VirtualsurroundLib_GetDescriptor(const effect_uuid_t *uuid, effect_descripto
 }
 
 // effect_handle_t interface implementation for VirtualsurroundInterface effect
-
 const struct effect_interface_s VirtualsurroundInterface = {
         Virtualsurround_process,
         Virtualsurround_command,

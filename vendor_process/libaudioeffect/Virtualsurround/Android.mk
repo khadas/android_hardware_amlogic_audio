@@ -13,8 +13,15 @@ LOCAL_SHARED_LIBRARIES := \
     libaudioutils \
     libamaudioutils
 
+LOCAL_STATIC_LIBRARIES := \
+    libmusicbundle
+
 LOCAL_C_INCLUDES := \
-    $(LOCAL_PATH)/include \
+    $(LOCAL_PATH) \
+    frameworks/av/media/libeffects/lvm/lib/Common/lib \
+    frameworks/av/media/libeffects/lvm/lib/Common/src \
+    frameworks/av/media/libeffects/lvm/lib/StereoWidening/lib \
+    frameworks/av/media/libeffects/lvm/lib/StereoWidening/src \
     hardware/amlogic/audio/utils/ini/include \
     hardware/libhardware/include/hardware \
     hardware/libhardware/include \
@@ -22,11 +29,6 @@ LOCAL_C_INCLUDES := \
     system/media/audio_utils/include \
 
 LOCAL_SRC_FILES += Virtualsurround.cpp
-
-LOCAL_LDFLAGS_arm  += $(LOCAL_PATH)/libmusicbundle.a
-LOCAL_LDFLAGS_arm64  += $(LOCAL_PATH)/libmusicbundle64.a
-LOCAL_MULTILIB := both
-LOCAL_PRELINK_MODULE := false
 
 LOCAL_LDLIBS   +=  -llog
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
@@ -36,4 +38,5 @@ endif
 LOCAL_MODULE_RELATIVE_PATH := soundfx
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 legacy_proprietary
 LOCAL_LICENSE_CONDITIONS := notice proprietary by_exception_only
+
 include $(BUILD_SHARED_LIBRARY)
