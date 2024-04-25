@@ -53,6 +53,7 @@
 #include "device_patch_mgr.h"
 #include "component_picture_mode.h"
 #include "audio_data_process.h"
+#include "tv_private_object.h"
 
 #define INVALID_TYPE                -1
 #define MINUS_3_DB_IN_FLOAT M_SQRT1_2 // -3dB = 0.70710678
@@ -199,8 +200,15 @@ void aml_check_pic_mode(struct aml_audio_patch *patch)
         reconfig_dev_pic_mode_in(aml_dev, true);
         reconfig_dev_pic_mode_out(aml_dev, true);
         patch->pic_mode = get_dev_pic_mode(aml_dev);
+        if (is_game_mode(aml_dev)) {
+            /* The ringbuffer is cleared when the standard mode is switched to */
+            /* game mode,ensuring that there is a minimum latency in game mode */
+            enable_tv_mute(aml_dev, true);
+        } else {
+            /* do avsync when the game mode is switched to the standard mode */
+            patch->need_do_avsync = true;
+        }
     }
-
 }
 
 bool signal_status_check(audio_devices_t in_device, int *mute_time,
