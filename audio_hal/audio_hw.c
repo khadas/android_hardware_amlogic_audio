@@ -1306,8 +1306,7 @@ static uint32_t out_get_latency (const struct audio_stream_out *stream)
 bool dtv_tuner_framework(struct audio_stream_out *stream)
 {
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
-    if (out && (out->dev) && is_same_patch_src(out->dev, SRC_DTV) &&
-        is_dev_patch_running(out->dev) &&
+    if (out && (out->dev) &&
         (out->flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) &&
         (out->audioCfg.offload_info.content_id != 0)&&
         (out->audioCfg.offload_info.sync_id != 0)) {
