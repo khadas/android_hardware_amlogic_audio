@@ -788,7 +788,7 @@ void set_ms12_app_pcm_acmod_lfe(struct dolby_ms12_desc *ms12, audio_channel_mask
 }
 
 
-
+#ifndef AUDIO_HAL_DISABLE_MS12
 void set_ms12_drc_boost_value_for_2ch_downmixed_output(struct dolby_ms12_desc *ms12, int boost)
 {
     char parm[64] = "";
@@ -926,7 +926,7 @@ void set_ms12_drc_params_for_stereo_and_dap_multi_pcm_output(
     ALOGI("%s line %d dynamic set drc %s boost %d cut %d for multichannel and DAP output!\n", __FUNCTION__, __LINE__,
         (ms12->multi_dap_drc.mode == DOLBY_DRC_RF_MODE) ? "RF MODE" : "LINE MODE", ms12->multi_dap_drc.cut, ms12->multi_dap_drc.boost);
 }
-
+#endif
 
 #define DRC_RF_MODE_ADD_LEVEL (11)
 #define DVB_LEVEL (-3)

@@ -5452,6 +5452,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
             reset_decoder = true;
         }
 
+#ifndef AUDIO_HAL_DISABLE_MS12
         if (!reset_decoder) {
             //Local playback and no dolby input, then non-dolby format lead the ms12_main1_dolby_dummy as true.
             if (aml_out->is_normal_pcm && adev->ms12.dolby_ms12_enable) {
@@ -5462,6 +5463,7 @@ void config_output(struct audio_stream_out *stream, bool reset_decoder)
                     );
             }
         }
+#endif
 
         if (!is_bypass_dolbyms12(stream) && (reset_decoder == true)) {
             pthread_mutex_lock(&adev->lock);
@@ -6504,6 +6506,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
         aml_out->audio_data_handle_state = AUDIO_DATA_HANDLE_START;
         aml_out->standby = false;
 
+#ifndef AUDIO_HAL_DISABLE_MS12
         // NTS PCM mode: volume-tunel-nontunel/audio-lat-heaac testcase.
         if (adev->is_netflix && (eDolbyMS12Lib == adev->dolby_lib_type) && !dolby_stream_active(adev)) {
             ALOGI("%s : without dolby_stream, netflix pcm drc use line mode", __func__);
@@ -6513,6 +6516,7 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
                 , AUDIO_FORMAT_PCM_16_BIT //treat as PCM format when stream is end.
                 );
         }
+#endif
     }
 
     pthread_mutex_unlock(&adev->lock);
@@ -6759,6 +6763,7 @@ ssize_t mixer_app_buffer_write(struct audio_stream_out *stream, const void *buff
     if (aml_out->stream_status == STREAM_STANDBY && continuous_mode(adev)) {
         aml_out->stream_status = STREAM_HW_WRITING;
 
+#ifndef AUDIO_HAL_DISABLE_MS12
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             set_ms12_app_pcm_acmod_lfe(ms12, aml_out->hal_channel_mask);
             // NTS PCM mode: volume-tunel-nontunel/audio-lat-heaac testcase.
@@ -6771,6 +6776,7 @@ ssize_t mixer_app_buffer_write(struct audio_stream_out *stream, const void *buff
                     );
             }
         }
+#endif
     }
 
     while (bytes_remaining && adev->ms12.dolby_ms12_enable && retry > 0) {
