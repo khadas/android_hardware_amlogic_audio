@@ -3521,10 +3521,13 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             out->aaudio_low_latency = false;
             adev->aaudio_low_latency_updated = true;
         }
+
+#ifndef AUDIO_HAL_DISABLE_MS12
         if (last_low_latency_mode == true && adev->aaudio_low_latency == false && eDolbyMS12Lib == adev->dolby_lib_type) {
             audiohal_send_msg_2_ms12(&adev->ms12, MS12_MESG_TYPE_RESET_MS12_ENCODER);
             set_ms12_alsa_limit_frame(&adev->ms12, MS12_ALSA_DEFAULT_LIMIT_FRAME);  // use default limit value
         }
+#endif
     }
 
     if (out->hal_format == AUDIO_FORMAT_AC4) {

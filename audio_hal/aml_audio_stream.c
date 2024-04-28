@@ -448,10 +448,12 @@ void get_sink_format(struct audio_stream_out *stream)
         adev->sink_capability = AUDIO_FORMAT_PCM_16_BIT;
         adev->optical_format = AUDIO_FORMAT_PCM_16_BIT;
 
+#ifndef AUDIO_HAL_DISABLE_MS12
         if (eDolbyMS12Lib == adev->dolby_lib_type) {
             audiohal_send_msg_2_ms12(&adev->ms12, MS12_MESG_TYPE_RESET_MS12_ENCODER);
             set_ms12_alsa_limit_frame(&adev->ms12, MS12_ALSA_LOW_LIMIT_FRAME);
         }
+#endif
 
         // For multi aaudio stream : always output mc pcm if sink device support.
         adev->sink_max_channels = max_channels;
