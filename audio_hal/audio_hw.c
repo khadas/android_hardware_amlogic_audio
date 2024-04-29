@@ -5861,6 +5861,18 @@ ssize_t mixer_main_buffer_write(struct audio_stream_out *stream, const void *buf
             set_output_device_mute(adev, AUDIO_DEVICE_OUT_SPEAKER, false, true);
         }
     }
+
+#ifdef ENABLE_DVB_PATCH
+    bool dtv_stream_flag = patch && is_same_patch_src(adev, SRC_DTV) && aml_out->is_tv_src_stream;
+    //AM_LOGI("lxs dtv format patch audio format:%#x, cur format:%#x dtv_stream_flag %d", patch->aformat, aml_out->hal_internal_format, dtv_stream_flag);
+    if (dtv_stream_flag && is_aac_format(patch->aformat) && is_aac_format(aml_out->hal_internal_format) && (patch->aformat != aml_out->hal_internal_format)) {
+        AM_LOGI("dtv format changed, need reconfig output, patch audio format:%#x, cur format:%#x",
+            patch->aformat, aml_out->hal_internal_format);
+        patch->aformat = aml_out->hal_internal_format;
+        aml_out->is_heaac_changed = true;
+    }
+
+#endif
     /* here to check if the audio output routing changed. */
     if (adev->cur_out_devices != aml_out->out_device) {
         AM_LOGI("output routing changed, need reconfig output, adev_dev:%#x, out_dev:%#x",
@@ -7185,6 +7197,13 @@ ssize_t out_write_new(struct audio_stream_out *stream,
             ALOGI("MAT1.0(truehd) is different with MAT2.0(pcm)&MAT2.1(atmos), MAT format is changed. Need to reset MS12 pipeline.");
             dolby_ms12_main_close(stream);
             aml_out->is_mat_changed = false;
+        }
+    }
+    if (adev->ms12.dolby_ms12_enable) {
+        if (aml_out->is_heaac_changed) {
+            ALOGI("HEAAC LOAS is different with HEAAC ADTS, HEAAC format is changed. Need to reset MS12 pipeline.");
+            dolby_ms12_main_close(stream);
+            aml_out->is_heaac_changed = false;
         }
     }
 

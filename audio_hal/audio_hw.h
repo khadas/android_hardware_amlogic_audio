@@ -793,6 +793,7 @@ struct aml_stream_out {
     int current_digital_audio_format;
     uint64_t submix_sleep_start_us;
     uint64_t submix_sleep_time_us;
+    bool is_heaac_changed;
 
 };
 
