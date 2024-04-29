@@ -350,6 +350,9 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                 int pcm_len = dec_pcm_data->data_len;
 
                 if (patch) {
+                    if (patch->sample_rate != dec_pcm_data->data_sr) {
+                        adev->sink_format_changed = true;
+                    }
                     patch->sample_rate = dec_pcm_data->data_sr;
                 }
 
