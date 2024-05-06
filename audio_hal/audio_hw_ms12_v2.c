@@ -3074,7 +3074,8 @@ int spdif_bitstream_output(void *buffer, void *priv_data, size_t size)
 
     /*if it is in bypass mode, spdif output info need update after dolby_ms12_main_open*/
     if (adev->digital_audio_mode == AML_DIGITAL_AUDIO_MODE_BYPASS &&
-        ms12->main_input_fmt == AUDIO_FORMAT_INVALID) {
+        (ms12->main_input_fmt == AUDIO_FORMAT_INVALID ||
+         ms12->main_input_fmt == AUDIO_FORMAT_AC3)) {
         return 0;
     }
     /*
