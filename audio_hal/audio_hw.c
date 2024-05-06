@@ -2252,6 +2252,13 @@ int start_input_stream(struct aml_stream_in *in)
     return 0;
 }
 
+static void lock_input_stream(struct aml_stream_in *in)
+{
+    pthread_mutex_lock(&in->pre_lock);
+    pthread_mutex_lock(&in->lock);
+    pthread_mutex_unlock(&in->pre_lock);
+}
+
 static uint32_t in_get_sample_rate(const struct audio_stream *stream)
 {
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
@@ -2682,6 +2689,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
 
     ALOGV("%s(): stream: %p, source: %d, bytes %zu in->devices %0x", __func__, in, in->source, bytes, in->device);
 
+    lock_input_stream(in);
 #ifdef ENABLE_AEC_APP
     /* Special handling for Echo Reference: simply get the reference from FIFO.
      * The format and sample rate should be specified by arguments to adev_open_input_stream. */
@@ -2691,29 +2699,20 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
             ret = start_input_stream(in);
             if (ret < 0) {
                 ALOGE("aec: fail to open stream\n");
-                return 0;
+                goto exit;
             }
             in->standby = 0;
         }
         ret = aml_alsa_input_read(stream, buffer, bytes);
         if (ret != 0) {
             ALOGE("aec: fail to read bytes=%zu ret=%d\n", bytes, ret);
-            return 0;
+            goto exit;
         }
         in->frames_read += in_frames;
-        struct aec_info info;
-        get_pcm_timestamp(in->pcm, in_get_sample_rate(&stream->common),
-                                &info, false /*input */);
-        in->timestamp_nsec = audio_utils_ns_from_timespec(&info.timestamp);
-        return bytes;
+        goto exit;
     }
 #endif
 
-    /* acquiring hw device mutex systematically is useful if a low priority thread is waiting
-     * on the input stream mutex - e.g. executing select_mode() while holding the hw device
-     * mutex
-     */
-    pthread_mutex_lock(&in->lock);
     if (adev->dev2mix_patch) {
         ALOGV("dev2mix patch case ");
     } else {
@@ -2774,7 +2773,6 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
 
     if (ret >= 0) {
         in->frames_read += in_frames;
-        in->timestamp_nsec = pcm_get_timestamp(in->pcm, in->config.rate, 0 /*isOutput*/);
     }
     bool mic_muted = false;
     adev_get_mic_mute((struct audio_hw_device*)adev, &mic_muted);
@@ -2809,24 +2807,31 @@ exit:
     return bytes;
 }
 
-
 static int in_get_capture_position (const struct audio_stream_in* stream, int64_t* frames,
                                    int64_t* time) {
     if (stream == NULL || frames == NULL || time == NULL) {
         return -EINVAL;
     }
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
-    struct aml_audio_device *adev = in->dev;
+    int ret = -ENOSYS;
 
-    *frames = in->frames_read;
-    *time = in->timestamp_nsec;
-    if (adev->debug_flag) {
-        AM_LOGD("io %d: in:%p, frames:%"PRIu64" time:%" PRIu64 " ms", in->io_handle, in,
-            *frames, in->timestamp_nsec / NSEC_PER_MSEC);
+    lock_input_stream(in);
+    if (in->standby) {
+        goto exit;
     }
-    return 0;
+    if (in->pcm) {
+        struct timespec timestamp;
+        unsigned int avail;
+        if (pcm_get_htimestamp(in->pcm, &avail, &timestamp) == 0) {
+            *frames = in->frames_read + avail;
+            *time = timestamp.tv_sec * 1000000000LL + timestamp.tv_nsec;
+            ret = 0;
+        }
+    }
+exit:
+    pthread_mutex_unlock(&in->lock);
+    return ret;
 }
-
 
 static uint32_t in_get_input_frames_lost (struct audio_stream_in *stream __unused)
 {
@@ -4951,6 +4956,9 @@ int adev_open_input_stream(struct audio_hw_device *dev,
         //check successfully, continue execute.
     }
 
+    pthread_mutex_init(&in->lock, (const pthread_mutexattr_t *)NULL);
+    pthread_mutex_init(&in->pre_lock, (const pthread_mutexattr_t *)NULL);
+
     devices &= ~AUDIO_DEVICE_BIT_IN;
     if (devices & AUDIO_DEVICE_IN_ALL_USB) {
         usb_adev->adev_primary = (void*)adev;
@@ -5156,6 +5164,8 @@ void adev_close_input_stream(struct audio_hw_device *dev,
         destroy_aec_mic_config(adev->aec);
     }
 #endif
+    pthread_mutex_destroy(&in->pre_lock);
+    pthread_mutex_destroy(&in->lock);
     AM_LOGI("io %d: in:%p exit ------", in->io_handle, in);
     aml_audio_free(stream);
     stream = NULL;

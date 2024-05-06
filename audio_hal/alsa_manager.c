@@ -878,12 +878,11 @@ size_t aml_alsa_input_read(struct audio_stream_in *stream,
             return ret;
         } else {
             if (hdmi_raw_in_flag) {
-                usleep((bytes - read_bytes) * 1000000 / audio_stream_in_frame_size(stream) /
-                    in->config.rate);
+                usleep((bytes - read_bytes) * 1000 / audio_stream_in_frame_size(stream) /
+                    (in->config.rate / 1000));
             } else {
-                usleep((bytes - read_bytes) * 1000000 / audio_stream_in_frame_size(stream) /
-                    in->config.rate / 2);
-
+                usleep((bytes - read_bytes) * 1000 / audio_stream_in_frame_size(stream) /
+                    (in->config.rate / 1000) / 2);
             }
 
 #if 0
