@@ -487,7 +487,7 @@ int aml_audio_nonms12_render(struct audio_stream_out *stream, const void *buffer
                     }
                 }
 
-                if (adev->effect_ctrl.effect_mode == EFFECT_MODE_DAP) {
+                if (adev->effect_ctrl.effect_mode == EFFECT_MODE_DAP && eDolbyMS12Lib == adev->dolby_lib_type_last) {
                     if (dec_pcm_data->data_ch == 2) {
                         /* amlogic simple dap(stereo pcm input) init and process */
                         int pp_ret = 0;
