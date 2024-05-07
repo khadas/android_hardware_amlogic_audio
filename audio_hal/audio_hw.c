@@ -6555,8 +6555,8 @@ ssize_t mixer_aux_buffer_write(struct audio_stream_out *stream, const void *buff
 
 #ifndef AUDIO_HAL_DISABLE_MS12
         // NTS PCM mode: volume-tunel-nontunel/audio-lat-heaac testcase.
-        if (adev->is_netflix && (eDolbyMS12Lib == adev->dolby_lib_type) && !dolby_stream_active(adev)) {
-            ALOGI("%s : without dolby_stream, netflix pcm drc use line mode", __func__);
+        if ((eDolbyMS12Lib == adev->dolby_lib_type) && !dolby_stream_active(adev)) {
+            ALOGI("%s : without dolby_stream, pcm drc use line mode", __func__);
             set_ms12_drc_params_for_stereo_and_dap_multi_pcm_output(
                 adev
                 , ms12
