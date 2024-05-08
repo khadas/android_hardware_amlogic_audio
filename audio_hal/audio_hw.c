@@ -4802,6 +4802,13 @@ static char * adev_get_parameters (const struct audio_hw_device *dev,
 #endif
         ALOGV("temp_buf %s", temp_buf);
         return strdup(temp_buf);
+    } else if (strstr (keys, "hal_param_dtv_cmd_close")) {
+#ifdef ENABLE_DVB_PATCH
+        int cmd_close_status = dtv_patch_get_cmd_close_status(adev);
+        sprintf(temp_buf, "hal_param_dtv_cmd_close=%d", cmd_close_status);
+#endif
+        ALOGV("temp_buf %s", temp_buf);
+        return strdup(temp_buf);
     }
 
     return strdup("");

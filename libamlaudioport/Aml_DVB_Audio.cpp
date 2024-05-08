@@ -82,7 +82,7 @@ int dvb_audio_get_latencyms(int demux_id) {
     int latencyms = 0;
     int ret = 0;
     char temp_buf[64] = {0};
-    sprintf (temp_buf, "hal_param_dtv_latencyms_id=%d", demux_id);
+    sprintf (temp_buf, "hal_param_dtv_demux_id=%d", demux_id);
     aml_audioport->setParameters(String8(temp_buf));
     String8 mString = aml_audioport->getParameters(String8("hal_param_dtv_latencyms"));
     if (mString.size() != 0) {
@@ -172,6 +172,32 @@ int dvb_audio_get_es_pts_dts_flag(int demux_id) {
 
 }
 
+int dvb_audio_get_cmd_close_status(int demux_id) {
+    ALOGV("demux_id %d",demux_id);
+    struct str_parms *parms;
+    int hal_param_dtv_cmd_close = 0;
+    int ret = 0;
+    char temp_buf[64] = {0};
+    sprintf (temp_buf, "hal_param_dtv_demux_id=%d", demux_id);
+    aml_audioport->setParameters(String8(temp_buf));
+
+    String8 mString = aml_audioport->getParameters(String8("hal_param_dtv_cmd_close"));
+    if (!mString.isEmpty()) {
+       parms = str_parms_create_str(mString.c_str());
+       ret = str_parms_get_int(parms, "hal_param_dtv_cmd_close", &hal_param_dtv_cmd_close);
+       if (ret < 0)
+           ALOGE("str_parms_get_int is error ");
+       str_parms_destroy (parms);
+       mString.clear();
+       ALOGI("hal_param_dtv_cmd_close:%d ", hal_param_dtv_cmd_close);
+       return hal_param_dtv_cmd_close;
+    } else {
+        mString.clear();
+        return hal_param_dtv_cmd_close;
+    }
+
+}
+
 int dvb_audio_set_param(AUDIO_DTV_PATCH_CMD_TYPE para_type, int demux_id, int val)
 {
   switch (para_type) {
@@ -186,6 +212,7 @@ int dvb_audio_set_param(AUDIO_DTV_PATCH_CMD_TYPE para_type, int demux_id, int va
 }
 int dvb_audio_get_param(AUDIO_DTV_PATCH_CMD_TYPE para_type, int demux_id, int *val)
 {
+    int ret = 0;
     switch (para_type) {
       case AUDIO_DTV_PATCH_CMD_OUTPUT_MODE:
          *val = dvb_audio_get_sound_mode(demux_id);
@@ -193,10 +220,14 @@ int dvb_audio_get_param(AUDIO_DTV_PATCH_CMD_TYPE para_type, int demux_id, int *v
      case AUDIO_DTV_PATCH_CMD_ES_PTS_DTS_FLAG:
          *val = dvb_audio_get_es_pts_dts_flag(demux_id);
         break;
+     case AUDIO_DTV_PATCH_CMD_CLOSE:
+         *val = dvb_audio_get_cmd_close_status(demux_id);
+         break;
       default:
+          ret = -1;
           ALOGI("unsupport para_type %d", para_type);
     }
-    return 0;
+    return ret;
 }
 
 int dvb_audio_get_status(void *status) {

@@ -339,9 +339,9 @@ static int dtv_patch_handle_event(struct audio_hw_device *dev, int cmd, int val)
     aml_dtvsync_t *dtvsync =  &dtv_audio_instances->dtvsync[path_id];
     val = val & ((1 << DVB_DEMUX_ID_BASE) - 1);
     switch (cmd) {
-        case AUDIO_DTV_PATCH_CMD_SET_DTV_LATENCYMS_ID:
-            dtv_audio_instances->dtv_latencyms_id = val;
-            ALOGI("dtv_audio_instances->dtv_latencyms_id %d", dtv_audio_instances->dtv_latencyms_id);
+        case AUDIO_DTV_PATCH_CMD_SET_DTV_DEMUX_ID:
+            dtv_audio_instances->dtv_demux_id = val;
+            ALOGI("dtv_audio_instances->dtv_demux_id %d", dtv_audio_instances->dtv_demux_id);
             break;
         case AUDIO_DTV_PATCH_CMD_SET_MEDIA_SYNC_ID:
             demux_info->media_sync_id = val;
@@ -729,7 +729,7 @@ int dtv_patch_get_latency(struct aml_audio_device *aml_dev)
         return -1;
     } else {
          if ((patch->output_thread_exit || (patch->output_thread_created == 0)) ||
-            (dtv_audio_instances->dtv_latencyms_id != dtv_audio_instances->demux_index_working)) {
+            (dtv_audio_instances->dtv_demux_id != dtv_audio_instances->demux_index_working)) {
              return -1;
          }
     }
@@ -802,6 +802,20 @@ int dtv_patch_get_es_pts_dts_flag(struct aml_audio_device *aml_dev)
     return pts_dts_flag;
 }
 
+int dtv_patch_get_cmd_close_status(struct aml_audio_device *aml_dev)
+{
+    aml_dtv_audio_instances_t *dtv_audio_instances = get_dtv_audio_instance(aml_dev);
+    aml_dtvsync_t *dtvsync = &dtv_audio_instances->dtvsync[dtv_audio_instances->dtv_demux_id];
+    int cmd_close_status = 0;
+    if (dtvsync == NULL ||
+        dtvsync->mediasync_new == NULL) {
+        cmd_close_status = 1;
+    } else {
+        cmd_close_status =  0;
+    }
+    ALOGI("%s cmd_close_status %d", __FUNCTION__, cmd_close_status);
+    return cmd_close_status;
+}
 
 static int dtv_patch_audio_info(void *args,unsigned char ori_channum,unsigned char lfepresent)
 {
@@ -5833,9 +5847,9 @@ int set_dtv_parameters(struct audio_hw_device *dev, struct str_parms *parms)
         goto exit;
     }
 
-    ret = str_parms_get_int(parms, "hal_param_dtv_latencyms_id", &val);
+    ret = str_parms_get_int(parms, "hal_param_dtv_demux_id", &val);
     if (ret >= 0) {
-        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_DTV_LATENCYMS_ID, val);
+        dtv_patch_handle_event(dev, AUDIO_DTV_PATCH_CMD_SET_DTV_DEMUX_ID, val);
         goto exit;
     }
 

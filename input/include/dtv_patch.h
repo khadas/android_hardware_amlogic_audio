@@ -56,7 +56,7 @@ typedef enum {
     AUDIO_DTV_PATCH_CMD_SET_AD_VOL_LEVEL   = 24,
     AUDIO_DTV_PATCH_CMD_SET_MEDIA_SYNC_ID   = 25,
     AUDIO_DTV_PATCH_CMD_SET_MEDIA_PRESENTATION_ID   = 26,
-    AUDIO_DTV_PATCH_CMD_SET_DTV_LATENCYMS_ID = 27,
+    AUDIO_DTV_PATCH_CMD_SET_DTV_DEMUX_ID = 27,
     AUDIO_DTV_PATCH_CMD_SET_MEDIA_FIRST_LANG  = 29,
     AUDIO_DTV_PATCH_CMD_SET_MEDIA_SECOND_LANG = 30,
     AUDIO_DTV_PATCH_CMD_SET_SPDIF_PROTECTION_MODE  = 31,
@@ -142,6 +142,6 @@ int dtv_patch_get_latency(struct aml_audio_device *aml_dev);
 int dtv_patch_get_es_pts_dts_flag(struct aml_audio_device *aml_dev);
 int audio_get_sample_rate_channels(int *sample_rate, int *channels, int *lfepresent);
 void get_dtv_amadec_audio_info (struct aml_audio_device *dev );
-
+int dtv_patch_get_cmd_close_status(struct aml_audio_device *aml_dev);
 
 #endif /* _DTV_PATCH_H_ */
