@@ -2515,7 +2515,7 @@ int aml_set_submix_scheduler_state(struct amlAudioMixer *audio_mixer, int sch_st
         }
 
         if (sch_state == SUBMIX_SCHEDULER_STANDBY) {
-            audio_one_shot_timer_start(audio_mixer->submix_timer_id, AML_SUBMIX_TIMER_DELAY);
+            audio_one_shot_timer_start(audio_mixer->submix_timer_id, AML_TIMER_DELAY);
         } else {
             set_submix_continuous_state(audio_mixer, sch_state);
         }
