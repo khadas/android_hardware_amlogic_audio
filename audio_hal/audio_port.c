@@ -41,6 +41,8 @@
 #include "aml_mmap_audio.h"
 #include "amlAudioMixer.h"
 #include "dolby_lib_api.h"
+#include "tv_private_object.h"
+
 
 #ifdef ENABLE_AEC_APP
 #include "audio_aec.h"
@@ -63,6 +65,34 @@ static int get_port_dump_enable(int dump_type) {
     int value = 0;
     value = get_debug_value(AML_DUMP_AUDIOHAL_SUBMIXING);
     return (value & dump_type);
+}
+
+input_port *aml_get_inport(struct aml_audio_device *adev)
+{
+    input_port *port = NULL;
+    if (adev->sm && adev->sm->mixerData) {
+        struct subMixing *sm = adev->sm;
+        struct amlAudioMixer *audio_mixer = sm->mixerData;
+        if (audio_mixer->in_ports[adev->port_index]) {
+            port = audio_mixer->in_ports[adev->port_index];
+        }
+    }
+    return port;
+}
+
+output_port *aml_get_outport(struct aml_audio_device *adev)
+{
+    output_port *port = NULL;
+    if (adev->sm && adev->sm->mixerData) {
+        struct subMixing *sm = adev->sm;
+        struct amlAudioMixer *audio_mixer = sm->mixerData;
+        if (audio_mixer->out_ports[audio_mixer->cur_output_port_type]) {
+            port = audio_mixer->out_ports[audio_mixer->cur_output_port_type];
+        } else {
+            AM_LOGE("%s() Error, Failed to get output port, return!", __func__);
+        }
+    }
+    return port;
 }
 
 static ssize_t input_port_write(input_port *port, const void *buffer, int bytes)
@@ -709,6 +739,7 @@ static int output_port_start(output_port *port)
     int device = port->cfg.device;
     struct pcm *pcm = NULL;
     struct aml_audio_device *adev = (struct aml_audio_device *)adev_get_handle();
+    struct tv_private_object *tv_obj = get_tv_object(adev);
 
     memset(&pcm_cfg, 0, sizeof(struct pcm_config));
     if (cfg.is_tv) {
@@ -724,6 +755,12 @@ static int output_port_start(output_port *port)
         pcm_cfg.period_size = LOW_LATENCY_PLAYBACK_NETFLIX_PERIOD_SIZE;
         pcm_cfg.period_count = LOW_LATENCY_PLAYBACK_NETFLIX_PERIOD_COUNT;
         pcm_cfg.start_threshold = pcm_cfg.period_size * pcm_cfg.period_count / 2;
+    }
+
+    if (tv_obj->is_gamemode) {
+        pcm_cfg.period_size = LOW_LATENCY_PLAYBACK_PERIOD_SIZE;
+        pcm_cfg.period_count = GAME_MODE_PLAYBACK_PERIOD_COUNT;
+        pcm_cfg.start_threshold = pcm_cfg.period_size * 2;
     }
 
     port->alsa_buffer_frames = pcm_cfg.period_size * pcm_cfg.period_count;
@@ -794,6 +831,20 @@ int outport_stop_pcm(output_port *port)
 
     if (port->port_status == ACTIVE && port->pcm_handle) {
         pcm_stop(port->pcm_handle);
+    }
+    return 0;
+}
+
+static int output_port_close_alsa(output_port *port)
+{
+    AM_LOGI("pcm_handle:%p",  port->pcm_handle);
+    struct pcm *pcm = port->pcm_handle;
+    if (pcm) {
+        pthread_mutex_lock(&port->lock);
+        pcm_close(pcm);
+        port->pcm_handle = NULL;
+        port->port_status = STOPPED;
+        pthread_mutex_unlock(&port->lock);
     }
     return 0;
 }
@@ -953,6 +1004,8 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
     int bytes_to_write = bytes;
     int ret = 0;
     uint32_t timeout_cnt = 0;
+    struct amlAudioMixer *audio_mixer = port->audio_mixer;
+    struct tv_private_object *tv_obj = get_tv_object(audio_mixer->adev);
 
     // dummy means we abandon the data.
     if (port->dummy) {
@@ -968,6 +1021,16 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
         }
         usleep(bytes * 1000000 / 32 / 48000);
         return bytes;
+    }
+
+    if (tv_obj->gamemode_reconfig_alsa) {
+        output_port_close_alsa(port);
+        output_port_start(port);
+        tv_obj->gamemode_reconfig_alsa = false;
+        input_port *in_port = aml_get_inport(audio_mixer->adev);
+        if (in_port) {
+            ring_buffer_reset(in_port->r_buf);
+        }
     }
 
     if (port->pcm_handle == NULL)

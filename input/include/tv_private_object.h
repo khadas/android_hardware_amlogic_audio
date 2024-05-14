@@ -26,6 +26,9 @@ struct aml_audio_device;
 
 struct tv_private_object {
     bool mute_flag;
+    /*  Reconfigure the ALSA device in game mode */
+    bool gamemode_reconfig_alsa;
+    bool is_gamemode;
 };
 
 

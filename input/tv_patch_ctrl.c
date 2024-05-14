@@ -51,6 +51,7 @@
 #include "tv_patch_ctrl.h"
 #include "audio_hw_resource_mgr.h"
 #include "device_patch_mgr.h"
+#include "dolby_lib_api.h"
 #include "component_picture_mode.h"
 #include "audio_data_process.h"
 #include "tv_private_object.h"
@@ -185,6 +186,7 @@ void aml_check_pic_mode(struct aml_audio_patch *patch)
         return;
     }
     aml_dev = (struct aml_audio_device *)patch->dev;
+    struct tv_private_object *tv_obj = get_tv_object(aml_dev);
 
     if (get_dev_pic_mode(aml_dev) == PQ_GAME && patch->mode_reconfig_flag == true) {
         ALOGD("%s(), IEC61937 data, reconfig audio path", __func__);
@@ -200,11 +202,13 @@ void aml_check_pic_mode(struct aml_audio_patch *patch)
         reconfig_dev_pic_mode_in(aml_dev, true);
         reconfig_dev_pic_mode_out(aml_dev, true);
         patch->pic_mode = get_dev_pic_mode(aml_dev);
-        if (is_game_mode(aml_dev)) {
+        if (get_dev_pic_mode(aml_dev) == PQ_GAME) {
+            tv_obj->is_gamemode = true;
             /* The ringbuffer is cleared when the standard mode is switched to */
             /* game mode,ensuring that there is a minimum latency in game mode */
             enable_tv_mute(aml_dev, true);
         } else {
+            tv_obj->is_gamemode = false;
             /* do avsync when the game mode is switched to the standard mode */
             patch->need_do_avsync = true;
         }
@@ -693,6 +697,7 @@ int stream_check_reconfig_param(struct audio_stream_out *stream)
 {
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = out->dev;
+    struct tv_private_object *tv_obj = get_tv_object(adev);
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     struct audio_board_config *bd_config = &adev->board_config;
     int period_size = 0;
@@ -711,7 +716,10 @@ int stream_check_reconfig_param(struct audio_stream_out *stream)
 
             reconfig_dev_pic_mode_ms12(adev, true);
         }
-        alsa_out_reconfig_params(stream);
+        if (adev->dolby_lib_type == eDolbyDcvLib && adev->useSubMix)
+            tv_obj->gamemode_reconfig_alsa = true;
+        else
+            alsa_out_reconfig_params(stream);
         reconfig_dev_pic_mode_out(adev, false);
     }
     return 0;

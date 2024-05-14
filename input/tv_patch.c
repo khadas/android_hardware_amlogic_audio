@@ -357,25 +357,7 @@ void *audio_patch_input_threadloop(void *data)
                     adjust_channels(in->input_tmp_buffer, in_channel_cnt, patch->in_buf, 2, 2, read_bytes * 4);
            } else {
                 if (is_tv_mute(aml_dev)) {
-                    if (aml_dev->dolby_lib_type == eDolbyDcvLib && aml_dev->useSubMix) {
-                        if (aml_dev->sm && aml_dev->sm->mixerData) {
-                            struct subMixing *sm = aml_dev->sm;
-                            struct amlAudioMixer *audio_mixer = sm->mixerData;
-                            if (audio_mixer->in_ports[aml_dev->port_index]) {
-                                input_port *port = audio_mixer->in_ports[aml_dev->port_index];
-                                ring_buffer_reset(port->r_buf);
-                            }
-                        }
-                    }
-                    if ((audio_is_linear_pcm(patch->aformat)) && is_game_mode(aml_dev)) {
-                        ring_buffer_reset(ringbuffer);
-                        if (aml_dev->pcm_handle[I2S_DEVICE]) {
-                            ret = pcm_ioctl(aml_dev->pcm_handle[I2S_DEVICE], SNDRV_PCM_IOCTL_RESET, 0);
-                            if (ret < 0) {
-                                ALOGE("cannot reset pcm!");
-                            }
-                        }
-                    }
+                    clear_buffer_for_avsync(patch);
                     enable_tv_mute(aml_dev, false);
                 }
 
@@ -762,6 +744,7 @@ int create_tv_patch(struct aml_audio_device *aml_dev,
     struct sched_param param;
     int ret = 0;
     audio_format_t primaryOutFormat = get_primary_out_format(aml_dev);
+    struct tv_private_object *tv_obj = get_tv_object(aml_dev);
 
     ALOGD("%s: enter primaryOutFormat:0x%x", __func__, primaryOutFormat);
 
@@ -772,6 +755,8 @@ int create_tv_patch(struct aml_audio_device *aml_dev,
 
     //using audio policy config to judge PCM16 or PCM32
 
+    tv_obj->is_gamemode = false;
+    tv_obj->gamemode_reconfig_alsa = false;
     patch->dev = (struct audio_hw_device *)aml_dev;
     patch->input_src = input;
     patch->is_dtv_src = false;

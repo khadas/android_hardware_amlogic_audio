@@ -33,6 +33,7 @@
 #include "audio_hw_resource_mgr.h"
 #include "audio_port.h"
 #include "amlAudioMixer.h"
+#include "tv_patch_ctrl.h"
 
 #define  ONE_DD_FRAME_TIME     32
 #define  ONE_MAT_FRAME_TIME    20
@@ -166,6 +167,31 @@ static int calc_latency_to_frame(int latency, audio_format_t format)
     return frames;
 }
 
+int clear_buffer_for_avsync(struct aml_audio_patch *patch)
+{
+    struct aml_audio_device *aml_dev = (struct aml_audio_device *)adev_get_handle();
+    int ret = 0;
+
+    if (aml_dev->dolby_lib_type == eDolbyDcvLib && aml_dev->useSubMix) {
+        input_port *in_port = aml_get_inport(aml_dev);
+        if (!in_port) {
+            AM_LOGE("%s() Error, Failed to get input port, return!", __func__);
+            return 0;
+        }
+        ring_buffer_reset(in_port->r_buf);
+    }
+    if ((audio_is_linear_pcm(patch->aformat)) && is_game_mode(aml_dev)) {
+        ring_buffer_reset(&patch->aml_ringbuffer);
+        if (aml_dev->pcm_handle[I2S_DEVICE]) {
+            ret = pcm_ioctl(aml_dev->pcm_handle[I2S_DEVICE], SNDRV_PCM_IOCTL_RESET, 0);
+            if (ret < 0) {
+                AM_LOGE("cannot reset pcm!");
+            }
+        }
+    }
+    return 0;
+}
+
 static int ringbuffer_seek(struct aml_audio_patch *patch, int tune_val)
 {
     int space = 0, seek_space = 0, frame_size = 0;
@@ -189,15 +215,17 @@ static int smringbuffer_seek(struct aml_audio_patch *patch, int tune_val)
 {
     struct aml_audio_device *aml_dev;
     aml_dev = (struct aml_audio_device *)patch->dev;
-    struct subMixing *sm = aml_dev->sm;
-    struct amlAudioMixer *audio_mixer = sm->mixerData;
-    input_port *port = audio_mixer->in_ports[aml_dev->port_index];
+    input_port *in_port = aml_get_inport(aml_dev);
     int space = 0, seek_space = 0, frame_size = 0;
 
+    if (!in_port) {
+        AM_LOGE("%s() Error, Failed to get input port, return!", __func__);
+        return 0;
+    }
     frame_size = CHANNEL_CNT * audio_bytes_per_sample(AUDIO_FORMAT_PCM_16_BIT);
     space = calc_latency_to_frame(tune_val, patch->aformat) * frame_size;
 
-    seek_space = ring_buffer_seek(port->r_buf, space);
+    seek_space = ring_buffer_seek(in_port->r_buf, space);
 
     if (seek_space == space) {
         ALOGV("  --tuning audio smringbuffer %dms successfully!\n", tune_val);
@@ -427,6 +455,7 @@ int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *la
     int frame_size = 0;
     int ret = 0;
     size_t rbuf_avail = 0;
+    struct pcm *pcm = NULL;
 
     if (!patch) {
         return 0;
@@ -439,20 +468,21 @@ int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *la
     patch->audio_latency.ringbuffer_latency = rbuf_ltcy;
 
     if (aml_dev->dolby_lib_type == eDolbyDcvLib && aml_dev->useSubMix) {
-        if (aml_dev->sm && aml_dev->sm->mixerData) {
-            struct subMixing *sm = aml_dev->sm;
-            struct amlAudioMixer *audio_mixer = sm->mixerData;
-            if (audio_mixer->in_ports[aml_dev->port_index]) {
-                input_port *port = audio_mixer->in_ports[aml_dev->port_index];
-
-                rbuf_avail = get_buffer_read_space(port->r_buf);
-                frames = rbuf_avail / frame_size;
-                smrbuf_ltcy = calc_frame_to_latency(frames, patch->aformat);
-                patch->audio_latency.smringbuffer_latency = smrbuf_ltcy;
-            }
+        input_port *in_port = aml_get_inport(aml_dev);
+        if (in_port) {
+            rbuf_avail = get_buffer_read_space(in_port->r_buf);
+            frames = rbuf_avail / frame_size;
+            smrbuf_ltcy = calc_frame_to_latency(frames, patch->aformat);
+            patch->audio_latency.smringbuffer_latency = smrbuf_ltcy;
         }
+        output_port *out_port = aml_get_outport(aml_dev);
+        if (out_port) {
+            pcm = out_port->pcm_handle;
+        }
+    } else {
+        pcm = aml_dev->pcm_handle[I2S_DEVICE];
     }
-    ALOGV(" audio ringbuf latency = %d, audio mixer ringbuf latency = %d",
+    ALOGV(" audio ringbuf latency = %d, audio submixer ringbuf latency = %d",
         rbuf_ltcy, smrbuf_ltcy);
 
     if (aml_dev->spk_tuning_lvl) {
@@ -501,8 +531,8 @@ int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *la
         patch->audio_latency.ms12_latency = 0;
     }
 
-    if (aml_dev->pcm_handle[I2S_DEVICE]) {
-        ret = pcm_ioctl(aml_dev->pcm_handle[I2S_DEVICE], SNDRV_PCM_IOCTL_DELAY, &frames);
+    if (pcm) {
+        ret = pcm_ioctl(pcm, SNDRV_PCM_IOCTL_DELAY, &frames);
         if (ret >= 0) {
             alsa_out_i2s_ltcy = frames / SAMPLE_RATE_MS;
         }
@@ -784,24 +814,17 @@ int aml_dev_try_avsync(struct aml_audio_patch *patch)
 
         /* for submix ringbuffer tuning */
         if (aml_dev->dolby_lib_type == eDolbyDcvLib && aml_dev->useSubMix) {
-            if (aml_dev->sm && aml_dev->sm->mixerData) {
-                struct subMixing *sm = aml_dev->sm;
-                struct amlAudioMixer *audio_mixer = sm->mixerData;
-                if (audio_mixer->in_ports[aml_dev->port_index]) {
-
-                    sm_tune_val = avDiff - seek_duration_ret;
-                    if (sm_tune_val < 0) {
-                        seek_duration_ret = smringbuffer_seek(patch, sm_tune_val);
-                    } else if (patch->audio_latency.smringbuffer_latency > AVSYNC_RINGBUFFER_MIN_LATENCY) {
-                        /* if it need reduce audio latency, first do submix ringbuffer seek*/
-                        int valid_tune_space = patch->audio_latency.smringbuffer_latency - AVSYNC_RINGBUFFER_MIN_LATENCY;
-                        seek_duration = (sm_tune_val < valid_tune_space) ? sm_tune_val : valid_tune_space;
-                        seek_duration_ret = smringbuffer_seek(patch, seek_duration);
-                        ALOGD("%s(), seek_duration_ret:%d, tune_val:%d", __func__, seek_duration_ret, tune_val);
-                        tune_val -= seek_duration_ret;
-                    }
+                sm_tune_val = avDiff - seek_duration_ret;
+                if (sm_tune_val < 0) {
+                    seek_duration_ret = smringbuffer_seek(patch, sm_tune_val);
+                } else if (patch->audio_latency.smringbuffer_latency > AVSYNC_RINGBUFFER_MIN_LATENCY) {
+                    /* if it need reduce audio latency, first do submix ringbuffer seek*/
+                    int valid_tune_space = patch->audio_latency.smringbuffer_latency - AVSYNC_RINGBUFFER_MIN_LATENCY;
+                    seek_duration = (sm_tune_val < valid_tune_space) ? sm_tune_val : valid_tune_space;
+                    seek_duration_ret = smringbuffer_seek(patch, seek_duration);
+                    ALOGD("%s(), seek_duration_ret:%d, tune_val:%d", __func__, seek_duration_ret, tune_val);
+                    tune_val -= seek_duration_ret;
                 }
-            }
         }
 
         vltcy = aml_dev_sample_video_path_latency(patch);

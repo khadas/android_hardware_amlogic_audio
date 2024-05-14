@@ -757,19 +757,24 @@ int aml_dev_dump_latency(struct aml_audio_device *aml_dev, int fd)
         aml_dev_sample_audio_path_latency(aml_dev, NULL);
         dprintf(fd, "[AML_HAL]      audio patch latency         : %6d ms\n", patch->audio_latency.ringbuffer_latency);
         dprintf(fd, "[AML_HAL]      audio spk tuning latency    : %6d ms\n", patch->audio_latency.user_tune_latency);
-        dprintf(fd, "[AML_HAL]      audio mixer buffer latency  : %6d ms\n", patch->audio_latency.smringbuffer_latency);
+        dprintf(fd, "[AML_HAL]      audio submixer buffer latency  : %6d ms\n", patch->audio_latency.smringbuffer_latency);
         dprintf(fd, "[AML_HAL]      MS12 buffer latency         : %6d ms\n", patch->audio_latency.ms12_latency);
         dprintf(fd, "[AML_HAL]      alsa out hw i2s latency     : %6d ms\n", patch->audio_latency.alsa_i2s_out_latency);
         dprintf(fd, "[AML_HAL]      alsa out hw spdif latency   : %6d ms\n", patch->audio_latency.alsa_spdif_out_latency);
         dprintf(fd, "[AML_HAL]      alsa in hw latency          : %6d ms\n\n", patch->audio_latency.alsa_in_latency);
-        dprintf(fd, "[AML_HAL]      audio total latency         :%6d ms\n", patch->audio_latency.total_latency);
+        dprintf(fd, "[AML_HAL]      audio total latency         : %6d ms\n", patch->audio_latency.total_latency);
 
         int v_ltcy = aml_dev_sample_video_path_latency(patch);
-        if (v_ltcy > 0) {
-            dprintf(fd, "[AML_HAL]      video path total latency    : %6d ms\n", v_ltcy);
-        } else {
-            dprintf(fd, "[AML_HAL]      video path total latency    : N/A\n");
-        }
+        int max_v_ltcy = aml_mixer_ctrl_get_int(&aml_dev->alsa_mixer, AML_MIXER_ID_TVIN_VIDEO_MAX_DELAY);
+        int min_v_ltcy = aml_mixer_ctrl_get_int(&aml_dev->alsa_mixer, AML_MIXER_ID_TVIN_VIDEO_MIN_DELAY);
+        int av_diff =patch->audio_latency.total_latency - v_ltcy;
+        dprintf(fd, "[AML_HAL]      video path total latency    : %6d ms\n", v_ltcy);
+        dprintf(fd, "[AML_HAL]      Audio - Video               : %6d ms\n", av_diff);
+        dprintf(fd, "[AML_HAL]      video path min latency      : %6d ms\n", min_v_ltcy);
+        dprintf(fd, "[AML_HAL]      video path max latency      : %6d ms\n", max_v_ltcy);
+
+        picture_mode_t mode = get_dev_pic_mode(aml_dev);
+        dprintf(fd, "[AML_HAL]      Device picture mode         :  %s \n", mode == PQ_GAME ? "Game Mode":"Standard Mode");
     }
     return 0;
 }

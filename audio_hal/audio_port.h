@@ -249,6 +249,9 @@ output_port *new_output_port(
         struct audioCfg *config,
         size_t buf_frames);
 
+input_port *aml_get_inport(struct aml_audio_device *adev);
+output_port  *aml_get_outport(struct aml_audio_device *adev);
+
 int free_output_port(output_port *port);
 int resize_output_port_buffer(output_port *port, size_t buf_frames);
 int outport_get_latency_frames(output_port *port);

@@ -50,4 +50,6 @@ int aml_dev_sample_audio_path_latency(struct aml_audio_device *aml_dev, char *la
 int aml_dev_sample_video_path_latency(struct aml_audio_patch *patch);
 int aml_dev_avsync_diff_in_path(struct aml_audio_patch *patch, int *av_diff,
         int *Altcy, char *latency_details);
+/* The DMA output buffer and submix ringbuffer are cleared under submix */
+int clear_buffer_for_avsync(struct aml_audio_patch *patch);
 #endif /* _TV_PATCH_AVSYNC_H_ */
