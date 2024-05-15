@@ -7065,7 +7065,7 @@ ssize_t out_write_new(struct audio_stream_out *stream,
     struct aml_audio_device *adev = aml_out->dev;
     struct dolby_ms12_desc *ms12 = &(adev->ms12);
     bool is_dolby_truehd = (aml_out->hal_internal_format == AUDIO_FORMAT_DOLBY_TRUEHD);
-
+    struct aml_stream_out *previous_stream = NULL;
     R_CHECK_POINTER_LEGAL(-1, aml_out,);
     R_CHECK_POINTER_LEGAL(-1, adev,);
     if (adev->debug_flag > 1) {
@@ -7128,6 +7128,16 @@ ssize_t out_write_new(struct audio_stream_out *stream,
         if raw direct output, apk use render position for  apts calc, that maybe effect the avsync*/
         ALOGW("tv path exsits, need drop the stream data !!!");
         return bytes;
+    }
+
+    /*for issue SWPL-169618, we need to determine whether local playback has exited*/
+    previous_stream = direct_active(adev);
+    if (aml_out->is_tv_src_stream && (aml_out->flags & AUDIO_OUTPUT_FLAG_DIRECT)) {
+        if (previous_stream && previous_stream != aml_out) {
+            /*if local playback has not exited, drop the stream data*/
+            ALOGW("The previous stream has not been closed yet, need drop the stream data.");
+            return bytes;
+        }
     }
 
     /*when there is data writing in this stream, we can add it to active stream*/
