@@ -3603,6 +3603,9 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
                 aml_dap_close(&adev->ms12);
             }
         }
+        if (adev->dolby_lib_type_last == eDolbyMS12Lib) {
+            adev->continuous_audio_mode = true;
+        }
         ALOGI("%s restore dolby lib =%d", __func__, adev->dolby_lib_type);
     }
     pthread_mutex_unlock(&out->lock);
