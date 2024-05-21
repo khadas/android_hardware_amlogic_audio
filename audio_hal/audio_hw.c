@@ -2817,6 +2817,10 @@ static int in_get_capture_position (const struct audio_stream_in* stream, int64_
 
     lock_input_stream(in);
     if (in->standby) {
+        *frames = in->frames_read;
+        in->timestamp_nsec = aml_audio_get_systime_ns();
+        *time = in->timestamp_nsec;
+        ret = 0;
         goto exit;
     }
     if (in->pcm) {
