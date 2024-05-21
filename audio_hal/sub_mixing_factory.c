@@ -333,13 +333,22 @@ static int consume_output_data(void *cookie, const void* buffer, size_t bytes)
     apply_volume_fade(last_volume, volume, in_buf_16, sizeof(uint16_t), channels, bytes);
     out->last_volume_l = out->volume_l;
     out->last_volume_r = out->volume_r;
-    if (out->hw_sync_mode && out->resample_outbuf != NULL) {
-        int out_frame = bytes >> 2;
-        out_frame = resample_process (&out->aml_resample, out_frame,
-                (int16_t *) buffer, (int16_t *) out->resample_outbuf);
-        out_size = out_frame << 2;
-        out_buf = out->resample_outbuf;
+    if (out->hw_sync_mode && out->hal_rate != 48000) {
+        int ret = 0;
         bResample = 1;
+        audio_resample_config_t cfg = {
+            .aformat = out->hal_internal_format,
+            .channels = out->hal_ch,
+            .input_sr = out->hal_rate,
+            .output_sr = 48000,
+        };
+        ret = aml_audio_resample_process_ex(&out->resample_handle, &cfg, (void *)buffer, bytes);
+        if (ret != 0) {
+            AM_LOGE("aml_audio_resample_process_ex fail ret=%d", ret);
+        } else {
+            out_buf = out->resample_handle->resample_buffer;
+            out_size = out->resample_handle->resample_size;
+        }
     }
     written = aml_out_write_to_mixer(stream, out_buf, out_size);
 

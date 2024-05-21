@@ -707,8 +707,6 @@ struct aml_stream_out {
     void    *pstMmapAudioParam;    // aml_mmap_audio_param_st (aml_mmap_audio.h)
     bool ac3_parser_init;
     void * ac3_parser_handle;
-    struct resample_para aml_resample;
-    unsigned char *resample_outbuf;
     bool restore_hdmitx_selection;
     bool restore_continuous;
     bool restore_dolby_lib_type;

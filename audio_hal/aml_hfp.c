@@ -434,9 +434,13 @@ static void* aml_hfp_dl_thread(void* data) {
 
         if (dl_task->data_len > 0) {
             if (pcm_config_hfp.rate != OUTPUT_DL_SRC_SAMPLERATE) {
-                //3 resample
-                ret = aml_audio_resample_process_wrapper(&dl_task->resample_handle, dec_data,
-                      dl_task->data_len, pcm_config_hfp.rate, 2);//fix 2 ch,for the API not support 1 ch
+                audio_resample_config_t cfg = {
+                            .aformat = AUDIO_FORMAT_PCM_16_BIT,
+                            .channels = 2,
+                            .input_sr = pcm_config_hfp.rate,
+                            .output_sr = OUTPUT_DL_SRC_SAMPLERATE,
+                };
+                ret = aml_audio_resample_process_ex(&dl_task->resample_handle, &cfg, dec_data, dl_task->data_len);
                 if (ret != 0) {
                     ALOGW("[%s:%d] resample fail, size:%d, data_sr:%d", __func__, __LINE__, dl_task->data_len, pcm_config_hfp.rate);
                 } else {

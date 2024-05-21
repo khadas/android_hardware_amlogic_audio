@@ -3357,31 +3357,6 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         aml_audio_hwsync_init(out->hwsync, out);
     }
 
-    /*if tunnel mode pcm is not 48Khz, resample to 48K*/
-    if (flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC) {
-        AM_LOGD("format=%s rate=%d", audioFormat2Str(out->hal_internal_format), out->config.rate);
-        if (audio_is_linear_pcm(out->hal_internal_format) && out->config.rate != 48000) {
-            ALOGI("init resampler from %d to 48000!\n", out->config.rate);
-            out->aml_resample.input_sr = out->config.rate;
-            out->aml_resample.output_sr = 48000;
-            out->aml_resample.channels = 2;
-            resampler_init (&out->aml_resample);
-            /*max buffer from 32K to 48K*/
-            if (!out->resample_outbuf) {
-                out->resample_outbuf = (unsigned char*) aml_audio_malloc (8192 * 10);
-                if (!out->resample_outbuf) {
-                    ALOGE ("malloc buffer failed\n");
-                    ret = -1;
-                    goto err;
-                }
-            }
-        } else {
-            if (out->resample_outbuf)
-                aml_audio_free(out->resample_outbuf);
-            out->resample_outbuf = NULL;
-        }
-    }
-
     if (out->hal_format == AUDIO_FORMAT_AC4) {
         aml_ac4_parser_open(&out->ac4_parser_handle);
     }
@@ -3586,11 +3561,6 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         out->speed_handle = NULL;
     }
 
-
-    if (out->resample_outbuf) {
-        aml_audio_free(out->resample_outbuf);
-        out->resample_outbuf = NULL;
-    }
 
     /*the dolby lib is changed, so we need restore it*/
     if (out->restore_dolby_lib_type) {

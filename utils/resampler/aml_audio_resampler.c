@@ -52,6 +52,12 @@ int resampler_init(struct resample_para *resample) {
         return -1;
     }
 
+    if (resample->aformat != AUDIO_FORMAT_PCM_16_BIT &&
+        resample->aformat != AUDIO_FORMAT_PCM_32_BIT) {
+        ALOGE("%s not support audio foramt =0x%x", __func__, resample->aformat);
+        return -1;
+    }
+
     resample->FractionStep = (unsigned int) (resample->input_sr * kPhaseMultiplier
                             / resample->output_sr);
     resample->SampleFraction = 0;

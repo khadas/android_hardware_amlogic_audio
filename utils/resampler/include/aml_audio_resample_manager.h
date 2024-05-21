@@ -64,7 +64,6 @@ int aml_audio_resample_close(aml_audio_resample_t * resample_handle);
 int aml_audio_resample_process(aml_audio_resample_t * resample_handle, void * in_data, size_t size);
 
 int aml_audio_resample_reset(aml_audio_resample_t * aml_audio_resample);
-int aml_audio_resample_process_wrapper(aml_audio_resample_t **resample_handle, void *buffer, size_t len, int sr, int ch_num);
 
 /**
  * @brief extension function from aml_audio_resample_process_wrapper

@@ -1479,7 +1479,7 @@ int dtsx_decoder_process_patch(aml_dec_t *aml_dec, unsigned char *buffer, int by
                     };
             ret = aml_audio_resample_process_ex(&dtsx_dec->resample_handle, &cfg, dec_pcm_data->buf, dtsx_dec->outlen_pcm);
             if (ret != 0) {
-                ALOGE("aml_audio_resample_process_wrapper failed");
+                ALOGE("aml_audio_resample_process_ex failed");
             } else {
                 dec_data = dtsx_dec->resample_handle->resample_buffer;
                 core1_pcm_len = dtsx_dec->resample_handle->resample_size;

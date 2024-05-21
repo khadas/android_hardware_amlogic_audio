@@ -265,52 +265,6 @@ int aml_audio_resample_reset(aml_audio_resample_t * aml_audio_resample)
     return 0;
 }
 
-int aml_audio_resample_process_wrapper(aml_audio_resample_t **resample_handle, void *buffer, size_t len, int sr, int ch_num)
-{
-    int ret = 0;
-
-    do {
-        if (*resample_handle) {
-            if (sr != (int)(*resample_handle)->resample_config.input_sr) {
-                audio_resample_config_t resample_config;
-                ALOGD("Sample rate is changed from %d to %d, reset the resample\n",(*resample_handle)->resample_config.input_sr, sr);
-                aml_audio_resample_close(*resample_handle);
-                *resample_handle = NULL;
-                break;
-            }
-            if (ch_num != (int)(*resample_handle)->resample_config.channels) {
-                audio_resample_config_t resample_config;
-                ALOGD("input channel is changed from %d to %d, reset the resample\n",(*resample_handle)->resample_config.channels, ch_num);
-                aml_audio_resample_close(*resample_handle);
-                *resample_handle = NULL;
-                break;
-            }
-        }
-    } while (0);
-
-    if (*resample_handle == NULL) {
-        audio_resample_config_t resample_config;
-        ALOGI("init resampler from %d to 48000!, channel num = %d\n",
-            sr, ch_num);
-        resample_config.aformat   = AUDIO_FORMAT_PCM_16_BIT;
-        resample_config.channels  = ch_num;
-        resample_config.input_sr  = sr;
-        resample_config.output_sr = OUTPUT_ALSA_SAMPLERATE;
-        ret = aml_audio_resample_init((aml_audio_resample_t **)resample_handle, AML_AUDIO_ANDROID_RESAMPLE, &resample_config);
-        if (ret < 0) {
-            ALOGE("resample init error\n");
-            return -1;
-        }
-    }
-
-    ret = aml_audio_resample_process(*resample_handle, buffer, len);
-    if (ret < 0) {
-        ALOGE("resample process error\n");
-        return -1;
-    }
-    return ret;
-}
-
 int aml_audio_resample_process_ex(aml_audio_resample_t **ph, const audio_resample_config_t *pcfg,
                                   void *input, size_t len)
 {

@@ -168,8 +168,13 @@ size_t aml_dev2mix_parser_process(struct aml_stream_in *in, unsigned char *buffe
             void  *dec_data = (void *)dec_pcm_data->buf;
             if (dec_pcm_data->data_len > 0) {
                 if (dec_pcm_data->data_sr != OUTPUT_ALSA_SAMPLERATE) {
-                    ret = aml_audio_resample_process_wrapper(&parser->resample_handle, dec_pcm_data->buf,
-                          dec_pcm_data->data_len, dec_pcm_data->data_sr, dec_pcm_data->data_ch);
+                    audio_resample_config_t cfg = {
+                            .aformat = get_primary_out_format(adev),
+                            .channels = dec_pcm_data->data_ch,
+                            .input_sr = dec_pcm_data->data_sr,
+                            .output_sr = OUTPUT_ALSA_SAMPLERATE,
+                    };
+                    ret = aml_audio_resample_process_ex(&parser->resample_handle, &cfg, dec_data, dec_pcm_data->data_len);
                     if (ret != 0) {
                         ALOGW("[%s:%d] resample fail, size:%d, data_sr:%d", __func__, __LINE__, dec_pcm_data->data_len, dec_pcm_data->data_sr);
                     } else {
