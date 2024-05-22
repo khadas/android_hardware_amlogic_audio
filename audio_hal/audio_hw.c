@@ -1209,6 +1209,34 @@ exit:
     return ret;
 }
 
+static char *usb_hal_out_get_parameters(const struct audio_stream *stream, const char *keys)
+{
+    struct aml_stream_out *out = (struct aml_stream_out *) stream;
+    struct aml_audio_device *adev = out->dev;
+    if (is_include_usb_out_port(adev->out_device)) {
+        pthread_mutex_lock(&adev->usb_lock);
+        if (adev->usb == NULL) {
+            audio_config_base_t data_config = {48000, AUDIO_CHANNEL_OUT_STEREO, AUDIO_FORMAT_PCM_16_BIT};
+            struct pcm_config pcm_config = {
+                .rate = data_config.sample_rate,
+                .channels = audio_channel_count_from_out_mask(data_config.channel_mask),
+                .format = pcm_format_from_audio_format(data_config.format),
+                .period_count = 4,
+                .period_size = 1536,
+            };
+            AM_LOGI("open usb with config.rate:%d channels:%d format:0x%x; stream config.rate:%d channels:%d format:0x%x",
+                pcm_config.rate, pcm_config.channels, pcm_config.format, out->config.rate, out->config.channels, out->config.format);
+            adev->usb = usb_out_open(&pcm_config, adev->address);
+        }
+        pthread_mutex_unlock(&adev->usb_lock);
+
+        return usb_out_get_parameters(adev->usb, keys);
+    } else {
+        ALOGE("%s() keys %s is not supported! TODO!\n", __func__, keys);
+        return strdup ("");
+    }
+}
+
 static char *out_get_parameters(const struct audio_stream *stream, const char *keys)
 {
     if (strstr(keys, AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES) || \
@@ -3251,7 +3279,11 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->stream.common.set_format = out_set_format;
     out->stream.common.dump = out_dump;
     out->stream.common.set_parameters = out_set_parameters;
-    out->stream.common.get_parameters = out_get_parameters;
+    if (is_include_usb_out_port(devices)) {
+        out->stream.common.get_parameters = usb_hal_out_get_parameters;
+    } else {
+        out->stream.common.get_parameters = out_get_parameters;
+    }
     out->stream.common.add_audio_effect = out_add_audio_effect;
     out->stream.common.remove_audio_effect = out_remove_audio_effect;
     out->stream.get_latency = audiohal_get_latency; // out_get_latency;

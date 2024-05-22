@@ -892,3 +892,28 @@ ssize_t usb_out_write(struct usb_out *out, const void *buffer, size_t bytes)
     }
     return bytes;
 }
+
+char *usb_out_get_parameters(struct usb_out *out, const char *keys)
+{
+    ALOGV("++usb_out_get_parameters() keys:%s", keys);
+    char *params_str = NULL;
+    if (out) {
+        params_str =  device_get_parameters(&out->profile, keys);
+    } else {
+        params_str = strdup("");
+        AM_LOGW("out:%p", out);
+    }
+    ALOGV("--usb_out_get_parameters() params_str:%s", params_str);
+    return params_str;
+}
+
+int usb_out_set_parameters(struct audio_stream *stream __unused, const char *kvpairs)
+{
+    ALOGV("usb_out_set_parameters() keys:%s", kvpairs);
+
+    // The set parameters here only matters when the routing devices are changed.
+    // When the device version is not less than 3.0, the framework will use create
+    // audio patch API instead of set parameters to change audio routing.
+    return 0;
+}
+
