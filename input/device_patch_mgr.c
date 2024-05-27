@@ -75,6 +75,10 @@ typedef struct patch_manager
     struct component_picture_mode pic_mode;
     bool tv_have_exit;
     bool atv_dtv_switch;
+    //patch source of audio patch
+    enum patch_src_assortion active_patch_source;
+    //patch source status of audio patch
+    bool patch_is_active_status;
 } patch_manager;
 
 
@@ -200,7 +204,15 @@ static int create_patch_internal(struct patch_manager *patch_mgr,
     int inport;
     ALOGI("%s() type:%s patch_src:%s in_device:0x%x out_device:0x%x",__func__,
         patch_type_to_str(type), patchSrc2Str(patch_src), src_device, sink_device);
-
+    //FIXME:SWPL-169454, before creating audio patch, TIF will send the active patch source and status to audiohal.
+    //1.active_patch_source will judge whether patch source is equal to audio port config or not.
+    //2.patch_is_active_status will judge whether audio patch is active or not.
+    //If the patch source is equal to the source of audio_port_config and status is active, create audio patch.
+    //if not, skip creating the audio patch.
+    if (patch_src == patch_mgr->active_patch_source && patch_mgr->patch_is_active_status == false) {
+        ALOGI("[%s]patch_src:%s patch_source %s  patch_source_working_status %d",__FUNCTION__, patchSrc2Str(patch_src), patchSrc2Str(patch_mgr->active_patch_source), patch_mgr->patch_is_active_status);
+        return 0;
+    }
     acquire_patch_mgr_lock(patch_mgr);
     patch_mgr->tv_have_exit = false;
     patch_mgr->atv_dtv_switch = false;
@@ -567,6 +579,8 @@ int init_patch_manager(struct aml_audio_device *adev)
     patch_mgr->audio_patching = false;
     patch_mgr->patch_start = false;
     patch_mgr->patch_src = SRC_INVAL;
+    patch_mgr->active_patch_source = SRC_INVAL;
+    patch_mgr->patch_is_active_status = false;
     patch_mgr->valid = false;
     patch_mgr->create_patch = create_patch_internal;
     patch_mgr->release_patch = release_patch_internal;
@@ -626,13 +640,11 @@ int patch_mgr_release_patch(struct aml_audio_device *adev, int type)
     ret = patch_mgr->release_patch(patch_mgr, type);
     return ret;
 }
-
 int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parms *parms)
 {
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
     int ret = -1;
     char value[64] = {'\0'};
-
     /*----ATV <-> DTV switch----*/
     ret = str_parms_get_str(parms, "hal_param_tuner_in", value, sizeof(value));
     // tuner_in=atv: tuner_in=dtv
@@ -770,6 +782,45 @@ int set_tv_source_switch_parameters(struct audio_hw_device *dev, struct str_parm
             set_dev_patch_src(adev, SRC_HDMIIN);
             set_audio_source_routing(adev, HDMIIN);
         }
+        goto exit;
+    }
+
+    /*
+     * ex: adev_set_parameters with (const char *kvpairs = "hal_param_audio_patch=LINEIN,ON")
+     * after the progress: str_parms_get_str with (const char *key = "Audio_Patch")
+     * get the (char *value = ON)
+     * it means that the  patch source is LINEIN and patch source status of audio patch is active.
+     * so, here to analysis patch source and active status from TIF in the PIP case.
+     * If the patch source is equal to the source of audio_port_config and status is active, create audio patch.
+     * If not, skip creating audio patch.
+     */
+    ret = str_parms_get_str(parms, "hal_param_audio_patch", value, sizeof(value));
+    if (ret >= 0) {
+        char patch_source[50] = {'\0'};
+        char working_status[50] = {'\0'};
+        sscanf(value,"%s %s ", patch_source, working_status);
+        //parser the patch source
+        if (strncmp(patch_source, "LINEIN", 6) == 0) {
+            adev->patch_manager->active_patch_source = SRC_LINEIN;
+        } else if (strncmp(patch_source, "HDMI", 4) == 0) {
+            adev->patch_manager->active_patch_source = SRC_HDMIIN;
+        } else if (strncmp(patch_source, "DTV", 3) == 0) {
+            adev->patch_manager->active_patch_source = SRC_DTV;
+        } else if (strncmp(patch_source, "ATV", 3) == 0) {
+            adev->patch_manager->active_patch_source = SRC_ATV;
+        } else {
+            ALOGE("can not find the correct patch source.");
+            adev->patch_manager->patch_is_active_status = false;
+            goto exit;
+        }
+        //parser the work status
+        if (strncmp(working_status, "ON", 2) == 0) {
+            adev->patch_manager->patch_is_active_status = true;
+        } else if (strncmp(working_status, "OFF", 3) == 0){
+            adev->patch_manager->patch_is_active_status = false;
+        }
+        ALOGD("work_status %d",adev->patch_manager->patch_is_active_status);
+
         goto exit;
     }
 
