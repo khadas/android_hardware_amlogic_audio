@@ -2155,6 +2155,12 @@ int get_dolby_ms12_cleanup(struct dolby_ms12_desc *ms12, bool set_non_continuous
         adev->continuous_audio_mode = 0;
         ALOGI("%s set ms12 to non continuous mode", __func__);
     }
+#ifdef USB_KARAOKE
+    karaoke_close(&adev->usb_audio.karaoke);
+#endif
+#ifdef LINEIN_KARAOKE
+    karaoke_close(&adev->linein_karaoke);
+#endif
     adev->ms12_out = NULL;
     adev->doing_cleanup_ms12 = false;
 exit:
@@ -2908,8 +2914,27 @@ int dap_pcm_output(void *buffer, void *priv_data, size_t size,aml_ms12_dec_info_
         dump_ms12_output_data(buffer, size, MS12_OUTPUT_SPEAKER_PCM_FILE);
     }
 
-
     if (is_dolbyms12_dap_enable(aml_out) || ms12->dap_only_enable) {
+#ifdef USB_KARAOKE
+        /*mix usb karaoke mic data*/
+        struct kara_manager *kara = &adev->usb_audio.karaoke;
+        if (kara) {
+            if (!kara->karaoke_start) {
+                output_get_default_config(&kara->mixout_config, is_TV(adev));
+            }
+            check_kara_mix_output(kara, buffer, size);
+        }
+#endif
+#ifdef LINEIN_KARAOKE
+        /*mix linein karaoke mic data*/
+        struct kara_manager *linein_kara = &adev->linein_karaoke;
+        if (linein_kara) {
+            if (!linein_kara->karaoke_start) {
+                output_get_default_config(&linein_kara->mixout_config, is_TV(adev));
+            }
+            check_kara_mix_output(linein_kara, buffer, size);
+        }
+#endif
         aml_audio_trace_int("aml_dap_output", size);
         ms12_output_master(buffer, priv_data, size, output_format,ms12_info);
         aml_audio_trace_int("aml_dap_output", 0);
@@ -2949,6 +2974,26 @@ int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_i
             ring_buffer_write(&ms12->spdif_ring_buffer, buffer, size, UNCOVER_WRITE);
         }
     } else {
+#ifdef USB_KARAOKE
+        /*mix usb karaoke mic data*/
+        struct kara_manager *kara = &adev->usb_audio.karaoke;
+        if (kara) {
+            if (kara->karaoke_on && !kara->karaoke_start) {
+                output_get_default_config(&kara->mixout_config, is_TV(adev));
+            }
+            check_kara_mix_output(kara, buffer, size);
+        }
+#endif
+#ifdef LINEIN_KARAOKE
+        /*mix linein karaoke mic data*/
+        struct kara_manager *linein_kara = &adev->linein_karaoke;
+        if (linein_kara) {
+            if (linein_kara->karaoke_on && !linein_kara->karaoke_start) {
+                output_get_default_config(&linein_kara->mixout_config, is_TV(adev));
+            }
+            check_kara_mix_output(linein_kara, buffer, size);
+        }
+#endif
         //when Dolby MS12 use not 1.0 volume "-sys_prim_mixgain <3 int>
         //the PCM Render can not output at a same volume for both DDP and AC4.
         //AC4 should use the 1.0 volume and control the volume through the PCM output.

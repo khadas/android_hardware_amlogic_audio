@@ -141,7 +141,7 @@ static unsigned int DEFAULT_OUT_SAMPLING_RATE = 48000;
 
 #define TIME_DIFF_THRESHOLD  (10)
 
-#ifdef USB_KARAOKE
+#if defined (USB_KARAOKE) || defined (LINEIN_KARAOKE)
 #ifndef AUDIO_SOURCE_KARAOKE_SPEAKER
 #define AUDIO_SOURCE_KARAOKE_SPEAKER 1001
 #endif
@@ -482,6 +482,8 @@ struct aml_audio_device {
     struct volume_ease volume_ease;
     float last_sink_gain;
     struct usb_audio_device usb_audio;
+    /* for linein karaoke mixer*/
+    struct kara_manager linein_karaoke;
     //change variable name from hw_mediasync_id to hw_sync_id for more easy to extension.
     int32_t hw_sync_id;
 

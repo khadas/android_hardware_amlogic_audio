@@ -2151,6 +2151,7 @@ int android_dev_convert_to_hal_dev(audio_devices_t android_dev, int *hal_dev_por
         *hal_dev_port = INPORT_BT_SCO_HEADSET_MIC;
         break;
     case AUDIO_DEVICE_IN_USB_DEVICE:
+    case AUDIO_DEVICE_IN_USB_HEADSET:
         *hal_dev_port = INPORT_USB;
         break;
     default:
@@ -2276,6 +2277,7 @@ enum patch_src_assortion android_input_dev_convert_to_hal_patch_src(audio_device
         patch_src = SRC_BT_SCO_HEADSET_MIC;
         break;
     case AUDIO_DEVICE_IN_USB_DEVICE:
+    case AUDIO_DEVICE_IN_USB_HEADSET:
         patch_src = SRC_USB;
         break;
     case AUDIO_DEVICE_IN_BUS:

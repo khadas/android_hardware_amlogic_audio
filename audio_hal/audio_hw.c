@@ -452,6 +452,10 @@ static int check_input_parameters(uint32_t sample_rate, audio_format_t format, i
        return -ENOSYS; /*Currently System Not Supported.*/
     }
 
+    devices &= ~AUDIO_DEVICE_BIT_IN;
+    if (devices & AUDIO_DEVICE_IN_ALL_USB)
+        return 0;
+
     if (format != AUDIO_FORMAT_PCM_16_BIT && format != AUDIO_FORMAT_PCM_32_BIT) {
         ALOGE("%s: unsupported AUDIO FORMAT (%d)", __func__, format);
         return -EINVAL;
@@ -2154,7 +2158,7 @@ static unsigned int select_port_by_device(struct aml_stream_in *in)
             inport = PORT_I2S;
     }
 
-#ifdef USB_KARAOKE
+#if defined (USB_KARAOKE) || defined (LINEIN_KARAOKE)
     if (in->source == AUDIO_SOURCE_KARAOKE_SPEAKER)
         inport = PORT_LOOPBACK;
 #endif
@@ -2206,7 +2210,8 @@ int start_input_stream(struct aml_stream_in *in)
     port = select_port_by_device(in);
     /* check to update alsa device by port */
     alsa_device = alsa_device_update_pcm_index(port, CAPTURE);
-#ifdef USB_KARAOKE
+
+#if defined (USB_KARAOKE) || defined (LINEIN_KARAOKE)
     if (in->source == AUDIO_SOURCE_KARAOKE_SPEAKER) {
         card = alsa_device_get_card_index_by_name("Loopback");
         if (card < 0)
@@ -2710,6 +2715,22 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer, size_t byte
         }
         in->frames_read += in_frames;
         goto exit;
+    }
+#endif
+
+#ifdef LINEIN_KARAOKE
+    //AUDIO_SOURCE_MIC and Param "linein_kara_record=1" to record karaoke linein
+    if (in->source == AUDIO_SOURCE_MIC) {
+        struct kara_manager *karaoke = &adev->linein_karaoke;
+        if (karaoke && karaoke->kara_mic_record) {
+            if (karaoke->karaoke_on || karaoke->karaoke_start) {
+                ret = karaoke->read(karaoke, buffer, bytes);
+                if (ret == bytes) {
+                    in->frames_read += in_frames;
+                }
+                goto exit;
+            }
+        }
     }
 #endif
 
@@ -3589,6 +3610,10 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
         out->kara = NULL;
     }
 
+#ifdef LINEIN_KARAOKE
+        karaoke_close(&adev->linein_karaoke);
+#endif
+
     if (out->aml_dec) {
         aml_decoder_release(out->aml_dec);
         out->aml_dec = NULL;
@@ -4375,6 +4400,15 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     if (ret >= 0) {
         bool karaoke_on = !!val;
         adev->usb_audio.karaoke.karaoke_on = karaoke_on;
+        if (karaoke_on) {
+            /*karaoke depends on continues output*/
+            if (adev->useSubMix) {
+                aml_audiohal_sch_state_2_submix(audio_mixer, SUBMIX_SCHEDULER_RUNNING);
+            }
+            if (ms12->ms12_scheduler_state != MS12_SCHEDULER_RUNNING) {
+                aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
+            }
+        }
         ALOGI("[%s]Set usb karaoke: %d", __FUNCTION__, karaoke_on);
         goto exit;
     }
@@ -4408,6 +4442,51 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         goto exit;
     }
 #endif
+
+#ifdef LINEIN_KARAOKE
+    ret = str_parms_get_int(parms, "linein_kara_switch", &val);
+    if (ret >= 0) {
+        bool linein_kara_on = !!val;
+        adev->linein_karaoke.karaoke_on = linein_kara_on;
+        if (linein_kara_on) {
+            adev->linein_karaoke.karaoke_enable = true;
+            /*karaoke depends on continues output*/
+            if (adev->useSubMix) {
+                aml_audiohal_sch_state_2_submix(audio_mixer, SUBMIX_SCHEDULER_RUNNING);
+            }
+            if (ms12->ms12_scheduler_state != MS12_SCHEDULER_RUNNING) {
+                aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
+            }
+        } else {
+            adev->linein_karaoke.karaoke_enable = false;
+        }
+        AM_LOGI("Set linein_kara_switch = %d", linein_kara_on);
+        goto exit;
+    }
+    ret = str_parms_get_int(parms, "linein_kara_record", &val);
+    if (ret >= 0) {
+        bool linein_record_on = !!val;
+        adev->linein_karaoke.kara_mic_record = linein_record_on;
+        AM_LOGI("Set linein_kara_record = %d", linein_record_on);
+        goto exit;
+    }
+    ret = str_parms_get_int(parms, "linein_kara_mic_mute", &val);
+    if (ret >= 0) {
+        bool linein_mic_mute = !!val;
+        adev->linein_karaoke.kara_mic_mute = linein_mic_mute;
+        AM_LOGI("Set linein_kara_mic_mute: %d", linein_mic_mute);
+        goto exit;
+    }
+    ret = str_parms_get_str(parms, "linein_kara_mic_volume", value, sizeof(value));
+    if (ret >= 0) {
+        float linein_mic_volume = 0;
+        sscanf(value,"%f", &linein_mic_volume);
+        adev->usb_audio.karaoke.kara_mic_gain = DbToAmpl(linein_mic_volume);
+        AM_LOGI("linein_kara_mic_volume: %f dB", linein_mic_volume);
+        goto exit;
+    }
+#endif
+
     ret = str_parms_get_str(parms, "hal_param_vad_wakeup", value, sizeof(value));
     if (ret >= 0) {
         if (strncmp(value, "suspend", 7) == 0) {
@@ -4743,11 +4822,27 @@ static int adev_config_process_bitwidth(struct aml_audio_device *adev)
         initHalSubMixing(&adev->sm, MIXER_LPCM, adev, is_TV(adev));
         subMixingSetSrcGain(adev, aml_audio_get_s_gain_by_src(adev, SRC_OTHER));
 #ifdef USB_KARAOKE
+        adev->usb_audio.karaoke.kara_type = KARA_TYPE_USB;
         subMixingSetKaraoke(adev, &adev->usb_audio.karaoke);
-        pthread_mutex_init(&adev->usb_audio.karaoke.lock, NULL);
-        adev->usb_audio.karaoke.kara_mic_gain = 1.0;
+#endif
+#ifdef LINEIN_KARAOKE
+        adev->linein_karaoke.kara_type = KARA_TYPE_LINEIN;
+        subMixingSetKaraoke(adev, &adev->linein_karaoke);
 #endif
     }
+/* Both submix and ms12 support usb and linein karaoke*/
+#ifdef USB_KARAOKE
+    profile_init(&adev->usb_audio.in_profile, PCM_IN);
+    adev->usb_audio.karaoke.kara_type = KARA_TYPE_USB;
+    pthread_mutex_init(&adev->usb_audio.karaoke.lock, NULL);
+    adev->usb_audio.karaoke.kara_mic_gain = 1.0;
+#endif
+#ifdef LINEIN_KARAOKE
+    adev->linein_karaoke.kara_type = KARA_TYPE_LINEIN;
+    pthread_mutex_init(&adev->linein_karaoke.lock, NULL);
+    adev->linein_karaoke.kara_mic_gain = 1.0;
+    linein_karaoke_init(&adev->linein_karaoke);
+#endif
 
     init_vendor_post_process(&adev->native_postprocess, primaryOutFormat);
     if (is_vendor_support_libvx(&adev->native_postprocess)) {

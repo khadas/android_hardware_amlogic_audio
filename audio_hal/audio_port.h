@@ -184,7 +184,8 @@ typedef struct OUTPUT_PORT {
 #ifdef ENABLE_AEC_APP
     struct aec_t *aec;
 #endif
-    struct kara_manager *kara;
+    struct kara_manager *kara; //usb kara
+    struct kara_manager *linein_kara; //linein kara
     uint32_t alsa_buffer_frames;
     void *spdifout_handle;
     void *audio_mixer;

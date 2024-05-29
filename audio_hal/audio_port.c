@@ -786,9 +786,14 @@ static int output_port_start(output_port *port)
     }
     port->pcm_handle = pcm;
     port->port_status = ACTIVE;
-#ifdef USB_KARAOKE
-    struct kara_manager *karaoke = port->kara;
 
+    struct kara_manager *karaoke = NULL;
+#if defined (USB_KARAOKE) || defined (LINEIN_KARAOKE)
+#if defined (USB_KARAOKE)
+    karaoke = port->kara;
+#elif defined (LINEIN_KARAOKE)
+    karaoke = port->linein_kara;
+#endif
     if (karaoke && karaoke->karaoke_on && karaoke->karaoke_enable) {
         card = alsa_device_get_card_index_by_name("Loopback");
         port->loopback_handle = pcm_open(card, 0, PCM_OUT, &pcm_cfg);
@@ -815,7 +820,7 @@ static int output_port_standby(output_port *port)
         port->port_status = STOPPED;
         pthread_mutex_unlock(&port->lock);
     }
-#ifdef USB_KARAOKE
+#if defined (USB_KARAOKE) || defined (LINEIN_KARAOKE)
     if (port->loopback_handle) {
         pcm_close(port->loopback_handle);
         port->loopback_handle = NULL;
@@ -1049,25 +1054,6 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
     }
 
     //aml_audio_switch_output_mode((int16_t *)buffer, bytes, port->sound_track_mode);
-#ifdef USB_KARAOKE
-    struct kara_manager *karaoke = port->kara;
-    if (karaoke) {
-        if (karaoke->karaoke_on && karaoke->karaoke_enable &&
-            karaoke->in.in_profile && profile_is_valid(karaoke->in.in_profile)) {
-            if (!karaoke->karaoke_start && karaoke->open) {
-                struct audioCfg audio_cfg = port->cfg;
-
-                ret = karaoke->open(karaoke, &audio_cfg);
-                if (ret < 0)
-                    ALOGD("%s(), open micphone failed: %d", __func__, ret);
-            } else if (!ret && karaoke->mix) {
-                karaoke->mix(karaoke, buffer, bytes);
-            }
-        } else if (karaoke->karaoke_start && karaoke->close) {
-                karaoke->close(karaoke);
-        }
-    }
-#endif
 
     if (port->pcm_restart) {
         pcm_stop(port->pcm_handle);
@@ -1094,9 +1080,13 @@ static ssize_t output_port_write_alsa(output_port *port, void *buffer, int bytes
         if (ret == 0) {
             written += bytes;
             timeout_cnt = 0;
-#ifdef USB_KARAOKE
-            if (port->loopback_handle)
+#if defined (USB_KARAOKE) || defined (LINEIN_KARAOKE)
+            if (port->loopback_handle) {
+                if (get_port_dump_enable(DUMP_OUTPUT_PORT_WRITE)) {
+                    aml_dump_audio_bitstreams("/data/audio/write_to_loopback.pcm", buffer, bytes);
+                }
                 pcm_write(port->loopback_handle, (void *)buffer, bytes);
+            }
 #endif
         } else {
             const char *err_str = pcm_get_error(port->pcm_handle);
@@ -1135,6 +1125,26 @@ static ssize_t output_port_write(output_port *port, void *buffer, int bytes)
     }
     void *sink_buffer = buffer;
     int sink_bytes = bytes;
+
+#ifdef USB_KARAOKE
+    struct kara_manager *kara = port->kara;
+    if (kara) {
+        if (kara->karaoke_on && !kara->karaoke_start) {
+            memcpy(&kara->mixout_config, &port->cfg, sizeof(struct audioCfg));
+        }
+        check_kara_mix_output(kara, buffer, bytes);
+    }
+#endif
+
+#ifdef LINEIN_KARAOKE
+    struct kara_manager *linein_kara = port->linein_kara;
+    if (linein_kara) {
+        if (linein_kara->karaoke_on && !linein_kara->karaoke_start) {
+            memcpy(&linein_kara->mixout_config, &port->cfg, sizeof(struct audioCfg));
+        }
+        check_kara_mix_output(linein_kara, buffer, bytes);
+    }
+#endif
 
     process_outport_msg(port);
 
@@ -1539,7 +1549,20 @@ void outport_pcm_restart(output_port *port)
 
 int outport_set_karaoke(output_port *port, struct kara_manager *kara)
 {
-    port->kara = kara;
+    if (!port || !kara) {
+        AM_LOGE("port/kara is null pointer");
+        return -EINVAL;
+    }
+
+    AM_LOGI("kara type = %d", kara->kara_type);
+    if (KARA_TYPE_USB == kara->kara_type) {
+        port->kara = kara;
+    } else if (KARA_TYPE_LINEIN == kara->kara_type) {
+        port->linein_kara = kara;
+    } else {
+        AM_LOGE("kara type invalid");
+    }
+
     return 0;
 }
 

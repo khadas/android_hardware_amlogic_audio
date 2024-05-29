@@ -465,6 +465,26 @@ int aml_send_ms12_scheduler_state_2_ms12(void)
            pthread_mutex_unlock(&ms12->lock);
            return -1;
     } else {
+#ifdef USB_KARAOKE
+        /*Do not standby when usb karaoke working*/
+        if (MS12_SCHEDULER_STANDBY == sch_state) {
+            struct kara_manager *karaoke = &adev->usb_audio.karaoke;
+            if (karaoke && karaoke->karaoke_on) {
+                pthread_mutex_unlock(&ms12->lock);
+                return 0;
+            }
+        }
+#endif
+#ifdef LINEIN_KARAOKE
+        /*Do not standby when linein karaoke working*/
+        if (MS12_SCHEDULER_STANDBY == sch_state) {
+            struct kara_manager *linein_kara = &adev->linein_karaoke;
+            if (linein_kara && linein_kara->karaoke_on) {
+                pthread_mutex_unlock(&ms12->lock);
+                return 0;
+            }
+        }
+#endif
         set_dolby_ms12_continuous_state(ms12, ms12->ms12_scheduler_state);
         ALOGD("%s adev:%p, sch_state:%d(%s) ", __func__, adev, sch_state, scheduler_state_2_string[sch_state]);
     }

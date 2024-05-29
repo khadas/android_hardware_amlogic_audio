@@ -32,23 +32,34 @@ struct audioCfg;
 struct voice_in {
     struct audioCfg cfg;
     bool debug;
+    struct pcm *pcm_handle;
+    struct pcm_config pcm_in_config;
     alsa_device_profile *in_profile;
     alsa_device_proxy proxy;
     void *conversion_buffer;
     size_t conversion_buffer_size;
 };
 
+typedef enum AUDIO_KARA_TYPE {
+    KARA_TYPE_USB     = 1,
+    KARA_TYPE_LINEIN  = 2,
+    KARA_TYPE_MAX
+} kara_type_t;
+
 struct kara_manager {
     pthread_mutex_t lock;
+    kara_type_t kara_type;
     bool karaoke_on;
     bool karaoke_enable;
     bool karaoke_start;
     bool kara_mic_mute;
+    bool kara_mic_record;
     float kara_mic_gain;
     struct voice_in in;
     void *buf;
     size_t buf_len;
     ring_buffer_t mic_buffer;
+    struct audioCfg mixout_config;
     struct echo_reference_itfe *echo_reference;
     int (*open)(struct kara_manager *in, struct audioCfg *cfg);
     int (*close)(struct kara_manager *in);
@@ -63,6 +74,8 @@ struct kara_manager {
 };
 
 int karaoke_init(struct kara_manager *karaoke, alsa_device_profile *profile);
+int linein_karaoke_init(struct kara_manager *karaoke);
+
 void put_echo_reference(struct kara_manager *kara,
                           struct echo_reference_itfe *reference);
 
@@ -70,5 +83,9 @@ struct echo_reference_itfe *get_echo_reference(struct kara_manager *kara,
         audio_format_t format,
         uint32_t channel_count,
         uint32_t sampling_rate);
+
+int check_kara_mix_output(struct kara_manager *karaoke, void *buffer, size_t bytes);
+
+int karaoke_close(struct kara_manager *kara);
 
 #endif
