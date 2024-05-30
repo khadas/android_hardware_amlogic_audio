@@ -776,7 +776,7 @@ static void ddp_decoder_config_prepare(struct audio_stream_out *stream, aml_dcv_
         ddp_config->is_iec61937 = false;
     }
 
-    ddp_config->is_pcmout_32bits = (get_primary_out_format(adev) == AUDIO_FORMAT_PCM_32_BIT);
+    ddp_config->is_pcmout_32bits = ((get_primary_out_format(adev) == AUDIO_FORMAT_PCM_32_BIT) && adev->dolby_decode_enable);
 
     ALOGI("%s digital_raw:%d, dual_output_flag:%d, is_61937:%d, IsEc3:%d decoding_mode %d is_pcmout_32bits %d"
         , __func__, ddp_config->digital_raw, aml_out->dual_output_flag, ddp_config->is_iec61937
@@ -808,7 +808,7 @@ static void dts_decoder_config_prepare(struct audio_stream_out *stream, aml_dec_
         }
     }
 
-    if (get_primary_out_format(adev) == AUDIO_FORMAT_PCM_32_BIT) {
+    if (get_primary_out_format(adev) == AUDIO_FORMAT_PCM_32_BIT && adev->dts_decode_enable) {
         output_bitwidth = 24;   // DTS-HD M6 and DTS:X just support 16/24 bit pcm output.
     } else {
         output_bitwidth = 16;
