@@ -2817,9 +2817,6 @@ static int in_get_capture_position (const struct audio_stream_in* stream, int64_
 
     lock_input_stream(in);
     if (in->standby) {
-        *frames = in->frames_read;
-        in->timestamp_nsec = aml_audio_get_systime_ns();
-        *time = in->timestamp_nsec;
         ret = 0;
         goto exit;
     }
@@ -2829,10 +2826,14 @@ static int in_get_capture_position (const struct audio_stream_in* stream, int64_
         if (pcm_get_htimestamp(in->pcm, &avail, &timestamp) == 0) {
             *frames = in->frames_read + avail;
             *time = timestamp.tv_sec * 1000000000LL + timestamp.tv_nsec;
-            ret = 0;
+            pthread_mutex_unlock(&in->lock);
+            return 0;
         }
     }
 exit:
+    *frames = in->frames_read;
+    in->timestamp_nsec = aml_audio_get_systime_ns();
+    *time = in->timestamp_nsec;
     pthread_mutex_unlock(&in->lock);
     return ret;
 }
