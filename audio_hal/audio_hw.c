@@ -3117,6 +3117,9 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     struct aml_stream_out *out;
     int digital_codec;
     int ret;
+    struct subMixing *sm = adev->sm;
+    struct amlAudioMixer *audio_mixer = sm ? sm->mixerData : NULL;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
     out = (struct aml_stream_out *)aml_audio_calloc(1, sizeof(struct aml_stream_out));
     AM_LOGI("io %d: out:%p dev:%s(%#x) addr:%s", handle, out, audioDevType2Str(devices), devices, address);
@@ -3382,7 +3385,9 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     if (flags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) {
         const char *llp_prop = "vendor.media.llp";
         bool request_llp_mode = false;
-
+        ALOGI("when open aaudio stream, send RUNNING msg to submix & ms12");
+        aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_RUNNING);
+        aml_audiohal_sch_state_2_submix(audio_mixer, SUBMIX_SCHEDULER_RUNNING);
         if (outMmapInit(out) != 0) {
             AM_LOGE("outMmapInit out %p fail !", out);
             ret = -1;
@@ -3511,6 +3516,9 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 {
     struct aml_stream_out *out = (struct aml_stream_out *)stream;
     struct aml_audio_device *adev = (struct aml_audio_device *)dev;
+    struct subMixing *sm = adev->sm;
+    struct amlAudioMixer *audio_mixer = sm ? sm->mixerData : NULL;
+    struct dolby_ms12_desc *ms12 = &(adev->ms12);
 
     int ret = 0;
     AM_LOGI("io %d: out:%p dev:%s(%#x) flags:%#x, usecase:%s", out->io_handle, out,
@@ -3575,6 +3583,9 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             set_ms12_alsa_limit_frame(&adev->ms12, MS12_ALSA_DEFAULT_LIMIT_FRAME);  // use default limit value
         }
 #endif
+        ALOGI("when close aaudio stream, send STANDBY msg to submix & ms12");
+        aml_audiohal_sch_state_2_submix(audio_mixer, SUBMIX_SCHEDULER_STANDBY);
+        aml_audiohal_sch_state_2_ms12(ms12, MS12_SCHEDULER_STANDBY);
     }
 
     if (out->hal_format == AUDIO_FORMAT_AC4) {

@@ -51,6 +51,7 @@
 #include "audio_hwsync_wrap.h"
 #include "dtv_private_object.h"
 #include "audio_hw_resource_mgr.h"
+#include "aml_mmap_audio.h"
 
 /*
  *@brief
@@ -514,6 +515,12 @@ int aml_set_ms12_scheduler_state(struct dolby_ms12_desc *ms12)
     bool is_netflix = adev->is_netflix;
     unsigned int remaining_time = 0;
 
+    if (sch_state == MS12_SCHEDULER_STANDBY) {
+        /*If there are other streams present, the ms12 status to running*/
+        if (adev->usecase_masks != 0 || !is_TV(adev) || mmap_audio_has_active_client(adev->mmap_audio_manager)) {
+            sch_state = MS12_SCHEDULER_RUNNING;
+        }
+    }
     if (sch_state <= MS12_SCHEDULER_NONE ||  sch_state >= MS12_SCHEDULER_MAX) {
           ALOGE("%s  sch_state:%d is an invalid scheduler state.", __func__, sch_state);
           return -1;
