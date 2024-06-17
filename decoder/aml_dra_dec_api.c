@@ -305,6 +305,7 @@ static int dra_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
     struct dra_dec_t *dra_dec = NULL;
     aml_dra_config_t *dra_config = NULL;
     AudioInfo pAudioInfo, pADAudioInfo;
+    audio_format_t output_format, input_format;
     if (aml_dec == NULL) {
         ALOGE("%s aml_dec is NULL", __func__);
         return -1;
@@ -316,6 +317,14 @@ static int dra_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
     dra_decoder_operations_t *ad_dra_op = &dra_dec->ad_dra_op;
     dec_data_info_t * dec_pcm_data = &aml_dec->dec_pcm_data;
     dec_data_info_t * ad_dec_pcm_data = &aml_dec->ad_dec_pcm_data;
+
+    if (aml_dec->output_format == FMT_16BIT) {
+        output_format = AUDIO_FORMAT_PCM_16_BIT;
+        input_format = AUDIO_FORMAT_PCM_16_BIT;
+    } else if (aml_dec->output_format == FMT_32BIT) {
+        output_format = AUDIO_FORMAT_PCM_32_BIT;
+        input_format = AUDIO_FORMAT_PCM_32_BIT;
+    }
 
     int used_size = 0;
     int used_size_return = 0;
@@ -388,6 +397,8 @@ static int dra_decoder_process(aml_dec_t * aml_dec, unsigned char*buffer, int by
         }
     }
     dra_op->getinfo(dra_op, &pAudioInfo);
+    dec_pcm_data->data_format  = output_format;
+    aml_decoder_16bit_to_32bit(output_format, aml_dec, dec_pcm_data);
     if (pAudioInfo.channels == 1 && dec_pcm_data->data_len) {
         int16_t *samples_data = (int16_t *)dec_pcm_data->buf;
         int i = 0, samples_num, samples;
