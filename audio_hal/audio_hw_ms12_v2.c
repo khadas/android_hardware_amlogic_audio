@@ -2920,7 +2920,7 @@ int dap_pcm_output(void *buffer, void *priv_data, size_t size,aml_ms12_dec_info_
         struct kara_manager *kara = &adev->usb_audio.karaoke;
         if (kara) {
             if (!kara->karaoke_start) {
-                output_get_default_config(&kara->mixout_config, is_TV(adev));
+                get_audioCfg_from_ms12_info(&kara->mixout_config, ms12_info);
             }
             check_kara_mix_output(kara, buffer, size);
         }
@@ -2930,7 +2930,7 @@ int dap_pcm_output(void *buffer, void *priv_data, size_t size,aml_ms12_dec_info_
         struct kara_manager *linein_kara = &adev->linein_karaoke;
         if (linein_kara) {
             if (!linein_kara->karaoke_start) {
-                output_get_default_config(&linein_kara->mixout_config, is_TV(adev));
+                get_audioCfg_from_ms12_info(&linein_kara->mixout_config, ms12_info);
             }
             check_kara_mix_output(linein_kara, buffer, size);
         }
@@ -2979,7 +2979,7 @@ int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_i
         struct kara_manager *kara = &adev->usb_audio.karaoke;
         if (kara) {
             if (kara->karaoke_on && !kara->karaoke_start) {
-                output_get_default_config(&kara->mixout_config, is_TV(adev));
+                get_audioCfg_from_ms12_info(&kara->mixout_config, ms12_info);
             }
             check_kara_mix_output(kara, buffer, size);
         }
@@ -2989,7 +2989,7 @@ int stereo_pcm_output(void *buffer, void *priv_data, size_t size, aml_ms12_dec_i
         struct kara_manager *linein_kara = &adev->linein_karaoke;
         if (linein_kara) {
             if (linein_kara->karaoke_on && !linein_kara->karaoke_start) {
-                output_get_default_config(&linein_kara->mixout_config, is_TV(adev));
+                get_audioCfg_from_ms12_info(&linein_kara->mixout_config, ms12_info);
             }
             check_kara_mix_output(linein_kara, buffer, size);
         }

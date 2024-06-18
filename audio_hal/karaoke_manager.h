@@ -28,6 +28,7 @@
 #include "sub_mixing_factory.h"
 
 struct audioCfg;
+struct aml_ms12_dec_info;
 
 struct voice_in {
     struct audioCfg cfg;
@@ -85,7 +86,7 @@ struct echo_reference_itfe *get_echo_reference(struct kara_manager *kara,
         uint32_t sampling_rate);
 
 int check_kara_mix_output(struct kara_manager *karaoke, void *buffer, size_t bytes);
-
+int get_audioCfg_from_ms12_info(struct audioCfg *cfg, struct aml_ms12_dec_info *ms12_info);
 int karaoke_close(struct kara_manager *kara);
 
 #endif

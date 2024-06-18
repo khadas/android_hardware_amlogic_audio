@@ -1130,7 +1130,7 @@ static ssize_t output_port_write(output_port *port, void *buffer, int bytes)
     struct kara_manager *kara = port->kara;
     if (kara) {
         if (kara->karaoke_on && !kara->karaoke_start) {
-            memcpy(&kara->mixout_config, &port->cfg, sizeof(struct audioCfg));
+            memcpy(&kara->mixout_config, &port->src_cfg, sizeof(struct audioCfg));
         }
         check_kara_mix_output(kara, buffer, bytes);
     }
@@ -1140,7 +1140,7 @@ static ssize_t output_port_write(output_port *port, void *buffer, int bytes)
     struct kara_manager *linein_kara = port->linein_kara;
     if (linein_kara) {
         if (linein_kara->karaoke_on && !linein_kara->karaoke_start) {
-            memcpy(&linein_kara->mixout_config, &port->cfg, sizeof(struct audioCfg));
+            memcpy(&linein_kara->mixout_config, &port->src_cfg, sizeof(struct audioCfg));
         }
         check_kara_mix_output(linein_kara, buffer, bytes);
     }

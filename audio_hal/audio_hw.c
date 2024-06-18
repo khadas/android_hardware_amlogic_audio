@@ -4481,7 +4481,7 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     if (ret >= 0) {
         float linein_mic_volume = 0;
         sscanf(value,"%f", &linein_mic_volume);
-        adev->usb_audio.karaoke.kara_mic_gain = DbToAmpl(linein_mic_volume);
+        adev->linein_karaoke.kara_mic_gain = DbToAmpl(linein_mic_volume);
         AM_LOGI("linein_kara_mic_volume: %f dB", linein_mic_volume);
         goto exit;
     }

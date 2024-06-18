@@ -26,58 +26,92 @@
 #include "aml_volume_utils.h"
 //#include "EffectReverb.h"
 #include "aml_malloc_debug.h"
+#include "audio_hw_ms12.h"
 
-#define USB_DEFAULT_PERIOD_SIZE 512
-#define USB_DEFAULT_PERIOD_COUNT 2
-#define LINEIN_DEFAULT_PERIOD_SIZE  1024
-#define LINEIN_DEFAULT_PERIOD_COUNT 4
+#define USB_DEFAULT_PERIOD_SIZE      512
+#define USB_DEFAULT_PERIOD_COUNT     2
 
-static ssize_t voice_in_read(struct kara_manager *kara, size_t bytes)
+#define LINEIN_DEFAULT_SAMPLE_RATE   48000
+#define LINEIN_DEFAULT_CHANNEL       2
+#define LINEIN_DEFAULT_FORMAT        PCM_FORMAT_S16_LE
+#define LINEIN_DEFAULT_PERIOD_SIZE   1024
+#define LINEIN_DEFAULT_PERIOD_COUNT  4
+
+static audio_format_t convert_alsa_format_2_audio_format(enum pcm_format format)
 {
-    if (!kara || 0 == bytes) {
+    switch (format) {
+        case PCM_FORMAT_S16_LE:
+            return AUDIO_FORMAT_PCM_16_BIT;
+        case PCM_FORMAT_S32_LE:
+            return AUDIO_FORMAT_PCM_32_BIT;
+        case PCM_FORMAT_S8:
+            return AUDIO_FORMAT_PCM_8_BIT;
+        case  PCM_FORMAT_S24_LE:
+            return AUDIO_FORMAT_PCM_8_24_BIT;
+        case PCM_FORMAT_S24_3LE:
+            return AUDIO_FORMAT_PCM_24_BIT_PACKED;
+        default:
+            AM_LOGE("invalid format:%#x, return 16bit format.", format);
+            return AUDIO_FORMAT_PCM_16_BIT;
+    }
+}
+
+static ssize_t voice_in_read(struct kara_manager *kara, size_t frames)
+{
+    if (!kara || 0 == frames) {
         return -EINVAL;
     }
     struct voice_in *in = &kara->in;
-    size_t num_read_buff_bytes = bytes;
+    size_t num_read_buff_bytes = 0; // real read size from alsa
+    size_t after_conversion_size = 0; // max size of kara->buf
     void *read_buff = kara->buf;
     void *out_buff = kara->buf;
-    unsigned int num_in_channels = 0;
+    unsigned int num_in_channels = in->cfg.channelCnt;
     unsigned int num_mixout_channels = kara->mixout_config.channelCnt;
-    if (KARA_TYPE_USB == kara->kara_type) {
-        num_in_channels = proxy_get_channel_count(&in->proxy);
-    } else if (KARA_TYPE_LINEIN == kara->kara_type) {
-        num_in_channels = in->cfg.channelCnt;
+    uint32_t in_framesize = in->cfg.frame_size;
+    uint32_t out_framesize = kara->mixout_config.frame_size;
+    if (!in || 0 == num_in_channels || 0 == num_mixout_channels
+        || 0 == in_framesize || 0 == out_framesize) {
+        return -EINVAL;
     }
     int ret = -1;
-    if (num_mixout_channels != num_in_channels && 0 != num_mixout_channels) {
-        AM_LOGV(" in channels: %d, mixout channels: %d", num_in_channels, num_mixout_channels);
-        num_read_buff_bytes = (num_in_channels * num_read_buff_bytes) / num_mixout_channels;
-    }
+    num_read_buff_bytes = frames * in_framesize;
+    after_conversion_size = num_read_buff_bytes; // initial with no conversion
 
-    if (num_read_buff_bytes != bytes) {
+    /* 1.use conversion buffer for saving initial mic data
+       2.do channel adjust and save to kara->buf */
+    if (num_in_channels != num_mixout_channels) {
         if (num_read_buff_bytes > in->conversion_buffer_size) {
             ALOGV("num_read_buff_bytes:%zu conversion_buffer_size:%zu",
-                num_read_buff_bytes, in->conversion_buffer_size);
+                   num_read_buff_bytes, in->conversion_buffer_size);
             in->conversion_buffer_size = num_read_buff_bytes;
             in->conversion_buffer = aml_audio_realloc(in->conversion_buffer, in->conversion_buffer_size);
             if (!in->conversion_buffer) {
-                ALOGE("aml_audio_realloc is fail");
+                AM_LOGE("conversion_buffer malloc is fail");
                 return -1;
             }
         }
         read_buff = in->conversion_buffer;
+        /* calculate the size of kara->buf if need conversion */
+        after_conversion_size = (num_read_buff_bytes * num_mixout_channels) / num_in_channels;
+    }
+
+    /* kara->buf is for saving the mic data whether need convert or not */
+    if (after_conversion_size > kara->buf_len) {
+        kara->buf = aml_audio_realloc(kara->buf, after_conversion_size);
+        if (!kara->buf) {
+            AM_LOGE("kara->buf malloc is fail");
+            return -1;
+        }
+        kara->buf_len = after_conversion_size;
     }
 
     if (KARA_TYPE_USB == kara->kara_type) {
         ret = proxy_read(&in->proxy, read_buff, num_read_buff_bytes);
     } else if (KARA_TYPE_LINEIN == kara->kara_type) {
         ret = pcm_read(in->pcm_handle, read_buff, num_read_buff_bytes);
-    } else {
-        AM_LOGE("Unsupported kara type=%d", kara->kara_type);
-        ret = -1;
     }
 //    AM_LOGD("ret = %d, num_read_buff_bytes = %zu", ret, num_read_buff_bytes);
-
     if (0 == ret) {
         if (get_debug_value(AML_DUMP_AUDIOHAL_OUT) || in->debug) {
             aml_dump_audio_bitstreams("/data/audio/karaoke_in.raw", read_buff, num_read_buff_bytes);
@@ -85,20 +119,20 @@ static ssize_t voice_in_read(struct kara_manager *kara, size_t bytes)
         if (kara->kara_mic_record) {
             ring_buffer_write(&kara->mic_buffer, (unsigned char *)read_buff, num_read_buff_bytes, UNCOVER_WRITE);
         }
-        /* Num Channels conversion */
+        /* Channels conversion */
         if (num_in_channels != num_mixout_channels) {
             out_buff = kara->buf;
             enum pcm_format format = in->pcm_in_config.format;
             unsigned sample_size_in_bytes = pcm_format_to_bits(format) / 8;
-            num_read_buff_bytes = adjust_channels(read_buff, num_in_channels,
+            after_conversion_size = adjust_channels(read_buff, num_in_channels,
                                                   out_buff, num_mixout_channels,
                                                   sample_size_in_bytes, num_read_buff_bytes);
         }
     } else {
-        num_read_buff_bytes = 0;
+        after_conversion_size = 0;
     }
 
-    return num_read_buff_bytes;
+    return after_conversion_size;
 }
 
 static ssize_t mic_buffer_read(struct kara_manager *kara, void *buffer, size_t bytes)
@@ -152,7 +186,6 @@ static int kara_open_micphone(struct kara_manager *kara, struct audioCfg *cfg)
 
     in = &kara->in;
     profile = in->in_profile;
-
     memset(&proxy_config, 0, sizeof(proxy_config));
     proxy_config.channels = profile_get_closest_channel_count(profile, cfg->channelCnt);
 
@@ -162,11 +195,18 @@ static int kara_open_micphone(struct kara_manager *kara, struct audioCfg *cfg)
         ALOGE("USB profile can't support rate: %d", cfg->sampleRate);
         proxy_config.rate = profile_get_default_sample_rate(profile);
     }
-
-    proxy_config.format = PCM_FORMAT_S16_LE;
+    proxy_config.format = convert_audio_format_2_alsa_format(cfg->format);
+    if (!profile_is_format_valid(profile, proxy_config.format)) {
+        proxy_config.format = profile_get_default_format(profile);
+    }
     proxy_config.period_size = USB_DEFAULT_PERIOD_SIZE;
     proxy_config.period_count = USB_DEFAULT_PERIOD_COUNT;
-    in->cfg = *cfg; //port config for comparison
+
+    /* in config for channel adjust and mix */
+    in->cfg.channelCnt = proxy_config.channels;
+    in->cfg.sampleRate = proxy_config.rate;
+    in->cfg.format = convert_alsa_format_2_audio_format(proxy_config.format);
+    in->cfg.frame_size = in->cfg.channelCnt * pcm_format_to_bits(proxy_config.format) / 8;
     in->debug = 0;
     in->pcm_in_config = proxy_config;
     kara->mixout_config = *cfg;
@@ -182,10 +222,11 @@ static int kara_open_micphone(struct kara_manager *kara, struct audioCfg *cfg)
         goto err;
     }
 
-    AM_LOGV(" proxy_prepare configs: channels %d format %d rate %d",
+    AM_LOGI(" proxy_prepare configs: channels %d format %d rate %d",
             proxy_config.channels, proxy_config.format, proxy_config.rate);
-
-    AM_LOGV(" mixout_configs: channels %d, format %d, rate %d, frame_size %d",
+    AM_LOGI("in_configs: channels = %d, format = %d, rate = %d, frame_size = %d",
+            in->cfg.channelCnt, in->cfg.format, in->cfg.sampleRate, in->cfg.frame_size);
+    AM_LOGI(" mixout_configs: channels %d, format %d, rate %d, frame_size %d",
             cfg->channelCnt, cfg->format, cfg->sampleRate, cfg->frame_size);
 
     ret = proxy_open(&in->proxy);
@@ -260,26 +301,15 @@ static int kara_mix_micphone(struct kara_manager *kara, void *buf, size_t bytes)
         return -EINVAL;
     }
     struct voice_in *in = &kara->in;
-    int frames = bytes / kara->mixout_config.frame_size; // depend on main config
+    size_t frames = bytes / kara->mixout_config.frame_size; // depend on main config
     ssize_t size_ret = 0;
 
     pthread_mutex_lock(&kara->lock);
-    if (bytes > kara->buf_len) {
-        kara->buf = aml_audio_realloc(kara->buf, bytes);
-        if (!kara->buf) {
-            ALOGE("%s() kara->buf malloc is fail", __func__);
-            pthread_mutex_unlock(&kara->lock);
-            return -1;
-        }
-        kara->buf_len = bytes;
-    }
-
-    /* Setup/Realloc the conversion buffer (if necessary). */
-    size_ret = voice_in_read(kara, bytes);
+    size_ret = voice_in_read(kara, frames);
     if (size_ret > 0) {
         //AM_LOGD("size_ret=%zu mute=%d", size_ret, kara->kara_mic_mute);
         if (kara->kara_mic_mute) {
-            memset(kara->buf, 0, bytes);
+            memset(kara->buf, 0, size_ret);
         } else {
 #if 0
             if (kara->reverb_enable) {
@@ -294,7 +324,7 @@ static int kara_mix_micphone(struct kara_manager *kara, void *buf, size_t bytes)
         do_mixing_2ch(buf, kara->buf, frames, in->cfg.format, kara->mixout_config.format);
 
         if (KARA_TYPE_USB == kara->kara_type) {
-            /* Save mixed data to echo reference*/
+            /* Save mic data to echo reference*/
             if (kara->echo_reference != NULL) {
                 struct echo_reference_buffer b;
                 b.raw = (void *)kara->buf;
@@ -333,20 +363,21 @@ static int linein_kara_open_micphone(struct kara_manager *kara, struct audioCfg 
     struct pcm_config pcm_linein_config;
     struct pcm *pcmIn = NULL;
     memset(&pcm_linein_config, 0, sizeof(pcm_linein_config));
-    pcm_linein_config.channels = 2;
-    pcm_linein_config.rate = 48000;
-    pcm_linein_config.format = PCM_FORMAT_S16_LE;
+    /*the record parameter depends on pcm in config */
+    pcm_linein_config.channels = LINEIN_DEFAULT_CHANNEL;
+    pcm_linein_config.rate = LINEIN_DEFAULT_SAMPLE_RATE;
+    pcm_linein_config.format = LINEIN_DEFAULT_FORMAT;
     pcm_linein_config.period_size = LINEIN_DEFAULT_PERIOD_SIZE;
     pcm_linein_config.period_count = LINEIN_DEFAULT_PERIOD_COUNT;
     AM_LOGD("pcm_linein_config: channels %d, format %d, rate %d",
             pcm_linein_config.channels, pcm_linein_config.format, pcm_linein_config.rate);
 
     in = &kara->in;
-//    in->cfg.channelCnt = pcm_linein_config.channels;
-//    in->cfg.format = AUDIO_FORMAT_PCM_16_BIT; // todo: auto convert
-//    in->cfg.sampleRate = pcm_linein_config.rate;
-//    in->cfg.frame_size = in->cfg.channelCnt * pcm_format_to_bits(pcm_linein_config.format) / 8;
-    in->cfg = *cfg;
+    /* in config for channel adjust and mix */
+    in->cfg.channelCnt = pcm_linein_config.channels;
+    in->cfg.sampleRate = pcm_linein_config.rate;
+    in->cfg.format = convert_alsa_format_2_audio_format(pcm_linein_config.format);
+    in->cfg.frame_size = in->cfg.channelCnt * pcm_format_to_bits(pcm_linein_config.format) / 8;
     in->debug = 0;
     in->pcm_in_config = pcm_linein_config;
     kara->mixout_config = *cfg;
@@ -364,6 +395,8 @@ static int linein_kara_open_micphone(struct kara_manager *kara, struct audioCfg 
         goto err;
     }
     in->pcm_handle = pcmIn;
+    in->conversion_buffer = NULL;
+    in->conversion_buffer_size = 0;
     kara->buf = NULL;
     kara->buf_len = 0;
 
@@ -497,6 +530,7 @@ struct echo_reference_itfe *get_echo_reference(struct kara_manager *kara,
 int check_kara_mix_output(struct kara_manager *karaoke, void *buffer, size_t bytes)
 {
     if (!karaoke || !buffer || 0 == bytes) {
+        AM_LOGE("parameter invalid");
         return -EINVAL;
     }
     if (KARA_TYPE_USB != karaoke->kara_type && KARA_TYPE_LINEIN != karaoke->kara_type) {
@@ -540,6 +574,24 @@ int check_kara_mix_output(struct kara_manager *karaoke, void *buffer, size_t byt
     }
 
     return 0;
+}
+
+int get_audioCfg_from_ms12_info(struct audioCfg *cfg, struct aml_ms12_dec_info *ms12_info)
+{
+    int ret = 0;
+    if (!cfg || !ms12_info) {
+        AM_LOGE("parameter invalid");
+        ret = -EINVAL;
+        return ret;
+    }
+    cfg->format = ms12_info->data_type;
+    cfg->channelCnt = ms12_info->output_ch;
+    cfg->sampleRate = ms12_info->output_sr;
+    cfg->frame_size = cfg->channelCnt *
+                      pcm_format_to_bits(convert_audio_format_2_alsa_format(cfg->format)) / 8;
+
+    AM_LOGI("format=%d, channel=%d, sampleRate=%d", cfg->format, cfg->channelCnt, cfg->sampleRate);
+    return ret;
 }
 
 int karaoke_close(struct kara_manager *kara)
