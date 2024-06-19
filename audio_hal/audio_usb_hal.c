@@ -819,6 +819,16 @@ void usb_out_close(struct usb_out *out)
     free(out);
 }
 
+bool usb_profile_changed(struct usb_out *out, audio_config_base_t*cfg)
+{
+    if (out == NULL) {
+        return false;
+    }
+    return (out->hal_config.channels != audio_channel_count_from_out_mask(cfg->channel_mask) ||
+            out->hal_config.format != pcm_format_from_audio_format(cfg->format) ||
+            out->hal_config.rate != cfg->sample_rate);
+}
+
 ssize_t usb_out_write(struct usb_out *out, const void *buffer, size_t bytes)
 {
     int ret;

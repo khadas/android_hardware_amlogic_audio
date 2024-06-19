@@ -591,7 +591,7 @@ ssize_t usb_check_write(struct aml_audio_device *adev, const void *buffer, size_
             adev, cfg->sample_rate, cfg->channel_mask, cfg->format,
             adev->address, adev->address);
     pthread_mutex_lock(&adev->usb_lock);
-    if (adev->usb == NULL) {
+    if (adev->usb == NULL || usb_profile_changed(adev->usb, cfg)) {
         struct pcm_config pcm_config = {
             .rate = cfg->sample_rate,
             .channels = audio_channel_count_from_out_mask(cfg->channel_mask),
@@ -599,6 +599,11 @@ ssize_t usb_check_write(struct aml_audio_device *adev, const void *buffer, size_
             .period_count = 4,
             .period_size = 1536,
         };
+        if (adev->usb) {
+            AM_LOGI("usb output profile changed, reopen card.");
+            usb_out_close(adev->usb);
+            adev->usb = NULL;
+        }
         adev->usb = usb_out_open(&pcm_config, adev->address);
     }
     ssize_t ret = 0;

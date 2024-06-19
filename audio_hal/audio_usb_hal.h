@@ -99,6 +99,9 @@ struct usb_out *usb_out_open(struct pcm_config *config, // rate, format, channel
 void usb_out_close(struct usb_out *out);
 
 char *usb_out_get_parameters(struct usb_out *out, const char *keys);
+
+bool usb_profile_changed(struct usb_out *out, audio_config_base_t*cfg);
+
 ssize_t usb_out_write(struct usb_out *out, const void *buffer, size_t bytes);
 
 ssize_t usb_check_write(struct aml_audio_device *adev, const void *buffer, size_t bytes, audio_config_base_t*cfg);
