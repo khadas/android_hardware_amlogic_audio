@@ -8576,7 +8576,13 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev, const struct 
         }
     } else if (outport == OUTPORT_HEADPHONE && aml_dev->last_sink_gain != aml_dev->sink_gain[OUTPORT_HEADPHONE]) {
         ALOGD("hp start easing: vol last %f, vol new %f", aml_dev->last_sink_gain, aml_dev->sink_gain[OUTPORT_HEADPHONE]);
-        aml_dev->volume_ease.config_easing = true;
+        /*Do ease until cur_out_devices has changed to headphone/headset after device plug in*/
+        if (AUDIO_DEVICE_OUT_WIRED_HEADPHONE == aml_dev->cur_out_devices ||
+            AUDIO_DEVICE_OUT_WIRED_HEADSET == aml_dev->cur_out_devices) {
+            aml_dev->volume_ease.config_easing = true;
+        } else {
+            aml_dev->volume_ease.config_easing = false;
+        }
         aml_dev->last_sink_gain = aml_dev->sink_gain[OUTPORT_HEADPHONE];
 
         if ((eDolbyMS12Lib == aml_dev->dolby_lib_type)) {
