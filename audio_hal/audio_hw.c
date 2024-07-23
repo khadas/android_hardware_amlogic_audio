@@ -2834,11 +2834,9 @@ static int in_get_capture_position (const struct audio_stream_in* stream, int64_
         return -EINVAL;
     }
     struct aml_stream_in *in = (struct aml_stream_in *)stream;
-    int ret = -ENOSYS;
 
     lock_input_stream(in);
     if (in->standby) {
-        ret = 0;
         goto exit;
     }
     if (in->pcm) {
@@ -2856,7 +2854,7 @@ exit:
     in->timestamp_nsec = aml_audio_get_systime_ns();
     *time = in->timestamp_nsec;
     pthread_mutex_unlock(&in->lock);
-    return ret;
+    return 0;
 }
 
 static uint32_t in_get_input_frames_lost (struct audio_stream_in *stream __unused)
