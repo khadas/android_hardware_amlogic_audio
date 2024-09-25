@@ -793,7 +793,8 @@ static size_t out_get_buffer_size (const struct audio_stream *stream)
         if (out->config.rate == 96000)
             size = DEFAULT_PLAYBACK_PERIOD_SIZE * 2;
         else
-            size = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
+//            size = DEFAULT_PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT;
+            size = DEFAULT_PLAYBACK_PERIOD_SIZE * 2;
     }
 
     if (out->flags & AUDIO_OUTPUT_FLAG_HW_AV_SYNC && audio_is_linear_pcm(out->hal_internal_format)) {
