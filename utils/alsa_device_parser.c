@@ -226,6 +226,26 @@ int alsa_device_get_card_index()
 	return mCardIndex;
 }
 
+inline bool hasExt_hp_inserted()
+{
+    char line[80];
+    bool ret = false;
+    FILE *fd = fopen("/sys/class/es8316/hp_inserted","r");
+    if(NULL != fd){
+      memset(line, 0, 80);
+      while((fgets(line,80,fd))!= NULL){
+          line[80-1]='\0';
+          if(strstr(line,"1")){
+              ret = true;
+              break;
+          }
+      }
+      fclose(fd);
+    }
+	ALOGD("%s: =%d",__FUNCTION__,ret);
+    return ret;
+}
+
 void alsa_device_parser_pcm_string(struct alsa_info *p_info, char *InputBuffer)
 {
 	char *Rch;
@@ -452,7 +472,17 @@ int alsa_device_update_pcm_index(int alsaPORT, int stream)
 
 	ALOGD("auge sound card, pAdd=%p fix alsaPORT:%d to :%d\n",pADD, alsaPORT, new_port);
 	/* dump_alsa_device_desc(p_info); */
-
+	//Set MIC to PDM
+	if(hasExt_hp_inserted()){
+		//system("tinymix \"TDMIN_B source select\" tdmin_b");
+		new_port = 1;
+		ALOGD("auge sound card, pAdd=%p fix alsaPORT:%d to :%d\n",pADD, alsaPORT, new_port);
+	}else if(alsaPORT == PORT_BUILTINMIC){
+		//system("tinymix \"TDMIN_B source select\" pdmin");
+		new_port = 3;
+		ALOGD("auge sound card, pAdd=%p fix alsaPORT:%d to :%d\n",pADD, alsaPORT, new_port);
+	}
+	//add end
 	return new_port;
 }
 
