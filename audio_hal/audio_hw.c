@@ -3141,7 +3141,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         adev->foreground_stream_type = FG_STREAM_TYPE_AUDIOFLINGER;
     }
 
-    if (flags == AUDIO_OUTPUT_FLAG_NONE)
+    if (flags == AUDIO_OUTPUT_FLAG_NONE || flags == AUDIO_OUTPUT_FLAG_DEEP_BUFFER)
         flags = AUDIO_OUTPUT_FLAG_PRIMARY;
     if (config->channel_mask == AUDIO_CHANNEL_NONE)
         config->channel_mask = AUDIO_CHANNEL_OUT_STEREO;
